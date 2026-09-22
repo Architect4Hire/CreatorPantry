@@ -1,5 +1,3 @@
-# 
-
 <div>
 <img src="docs/images/logo.png"/>
 </div>
