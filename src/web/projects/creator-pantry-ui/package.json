@@ -1,0 +1,15 @@
+{
+  "name": "@creator-pantry/ui",
+  "version": "1.0.0",
+  "description": "Angular 22 design system for CreatorPantry creator productivity products.",
+  "peerDependencies": {
+    "@angular/common": "^22.0.0",
+    "@angular/core": "^22.0.0"
+  },
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    "./styles/tokens.css": "./styles/tokens.css",
+    "./styles/themes.css": "./styles/themes.css",
+    "./styles/global.css": "./styles/global.css"
+  }
+}
