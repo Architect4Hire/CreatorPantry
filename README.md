@@ -6,8 +6,6 @@ CreatorPantry is an AI-assisted productivity platform for food bloggers and cont
 
 It is intentionally **not another recipe index**. The product is a private creator workspace: a place to develop, organize, refine, reuse, and publish food content without losing ownership of the canonical recipe or brand voice.
 
-This starter contains the project constitution and Claude Code toolkit adapted from the architectural discipline of AegisScribe while removing its game-specific domain, providers, endpoints, mobile assumptions, and compliance rules.
-
 ## Product pillars
 
 - **Recipe workspace:** structured recipes, creator-entered language, ordered steps, equipment, notes, yields, versions, and deterministic scaling.
