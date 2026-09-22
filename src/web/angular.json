@@ -26,7 +26,7 @@
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
-      "prefix": "app",
+      "prefix": "cp",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
@@ -42,7 +42,11 @@
             ]
           },
           "configurations": {
-            "production": { "outputHashing": "all", "budgets": [{ "type": "initial", "maximumWarning": "700kB", "maximumError": "1MB" }] },
+            "production": {
+              "outputHashing": "all",
+              "optimization": { "scripts": true, "styles": { "minify": true, "inlineCritical": false }, "fonts": true },
+              "budgets": [{ "type": "initial", "maximumWarning": "700kB", "maximumError": "1MB" }]
+            },
             "development": { "optimization": false, "sourceMap": true }
           },
           "defaultConfiguration": "production"
@@ -54,6 +58,13 @@
             "development": { "buildTarget": "showcase:build:development" }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "polyfills": ["zone.js", "zone.js/testing"]
+          }
         }
       }
     }

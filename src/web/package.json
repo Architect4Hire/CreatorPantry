@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "ng serve",
+    "start": "node scripts/serve.mjs",
     "build": "ng build creator-pantry-ui && ng build showcase",
     "build:lib": "ng build creator-pantry-ui",
-    "test": "ng test creator-pantry-ui --watch=false"
+    "test": "ng test creator-pantry-ui --watch=false && ng test showcase --watch=false"
   },
   "dependencies": {
     "@angular/animations": "^22.0.0",

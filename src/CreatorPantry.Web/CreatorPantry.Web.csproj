@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreatorPantry.ServiceDefaults\CreatorPantry.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SpaRoot>..\web\</SpaRoot>
+    <SpaBundle>$(SpaRoot)dist\showcase\browser\</SpaBundle>
+  </PropertyGroup>
+
+  <!-- On publish, build the Angular workspace and ship the SPA bundle as wwwroot. -->
+  <Target Name="PublishSpaBundle" AfterTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm ci" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+
+    <ItemGroup>
+      <SpaBundleFiles Include="$(SpaBundle)**" />
+      <ResolvedFileToPublish Include="@(SpaBundleFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+
+    <Error Condition="!Exists('$(SpaBundle)index.html')" Text="The Angular bundle was not produced at $(SpaBundle)." />
+  </Target>
+
+</Project>

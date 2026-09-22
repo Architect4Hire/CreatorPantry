@@ -4,7 +4,7 @@ import { CpBadgeComponent, CpButtonComponent, CpCardComponent, CpDialogComponent
 
 interface Project { title:string; type:string; status:string; date:string; tone:'success'|'orange'|'purple'|'blue'; }
 @Component({
- selector:'app-root', standalone:true,
+ selector:'cp-root', standalone:true,
  imports:[FormsModule,CpBadgeComponent,CpButtonComponent,CpCardComponent,CpDialogComponent,CpFieldComponent,CpProgressComponent,CpQuickActionComponent],
  templateUrl:'./app.component.html', styleUrl:'./app.component.css', changeDetection:ChangeDetectionStrategy.OnPush
 })

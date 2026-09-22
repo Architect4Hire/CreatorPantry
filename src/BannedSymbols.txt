@@ -1,0 +1,11 @@
+P:System.DateTime.Now;Use IClock.UtcNow; server-local time is prohibited
+P:System.DateTime.UtcNow;Use IClock.UtcNow
+P:System.DateTime.Today;Use ITimeZoneConverter.LocalDate with an explicit zone
+P:System.DateTimeOffset.Now;Use IClock.UtcNow; server-local time is prohibited
+P:System.DateTimeOffset.UtcNow;Use IClock.UtcNow
+M:System.DateTime.ToLocalTime;Use ITimeZoneConverter.ToZoned with an explicit zone
+M:System.DateTimeOffset.ToLocalTime;Use ITimeZoneConverter.ToZoned with an explicit zone
+P:System.TimeZoneInfo.Local;Server-local time is prohibited; use ITimeZoneConverter
+M:System.TimeZoneInfo.FindSystemTimeZoneById(System.String);Use ITimeZoneConverter
+M:System.TimeProvider.GetLocalNow;Use IClock.UtcNow
+P:System.TimeProvider.LocalTimeZone;Server-local time is prohibited; use ITimeZoneConverter

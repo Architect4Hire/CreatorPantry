@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CreatorPantry.ApiService/CreatorPantry.ApiService.csproj" />
+    <Project Path="src/CreatorPantry.AppHost/CreatorPantry.AppHost.csproj" />
+    <Project Path="src/CreatorPantry.Domain/CreatorPantry.Domain.csproj" />
+    <Project Path="src/CreatorPantry.Gateway/CreatorPantry.Gateway.csproj" />
+    <Project Path="src/CreatorPantry.MigrationService/CreatorPantry.MigrationService.csproj" />
+    <Project Path="src/CreatorPantry.ServiceDefaults/CreatorPantry.ServiceDefaults.csproj" />
+    <Project Path="src/CreatorPantry.Tests/CreatorPantry.Tests.csproj" />
+    <Project Path="src/CreatorPantry.Web/CreatorPantry.Web.csproj" />
+    <Project Path="src/CreatorPantry.Worker/CreatorPantry.Worker.csproj" />
+  </Folder>
+</Solution>

@@ -131,7 +131,7 @@ Everything through Phase 7 must run against seeded local data with no paid AI or
 
 ## Phase 0 — Repository and runtime foundation
 
-### 0.1 Baseline decisions and architecture record
+### 0.1 Baseline decisions and architecture record - done
 
 ```text
 SCOPE: Create docs/architecture-decisions/baseline.md recording the decisions still expressed as
@@ -145,7 +145,7 @@ BEHAVIOR: Inspect existing docs, show the proposed decision table, wait for appr
 the architecture record and link it from docs/architecture.md.
 ```
 
-### 0.2 Solution skeleton
+### 0.2 Solution skeleton - done
 
 ```text
 SCOPE: Create the .NET 10 solution and empty projects under src/: CreatorPantry.AppHost,
@@ -159,7 +159,7 @@ BEHAVIOR: Show the exact commands and project-reference graph, wait for approval
 `dotnet build` succeeds.
 ```
 
-### 0.3 SQL Server, Redis, and blob resources
+### 0.3 SQL Server, Redis, and blob resources - done
 
 ```text
 SCOPE: Declare SQL Server 2025 with database `creatorpantrydb`, Redis, and the selected Aspire-compatible
@@ -172,7 +172,7 @@ BEHAVIOR: Plan resource names and persistence, wait for approval, implement, and
 healthy in the Aspire dashboard.
 ```
 
-### 0.4 ServiceDefaults and health endpoints
+### 0.4 ServiceDefaults and health endpoints - done
 
 ```text
 SCOPE: Wire ServiceDefaults into every executable project and add separate /health and /alive routes to
@@ -183,7 +183,7 @@ Redis, blob, AI, or external providers.
 BEHAVIOR: Implement, run focused tests, and report the liveness/readiness behavior per process.
 ```
 
-### 0.4a Application clock and time-zone seam
+### 0.4a Application clock and time-zone seam - done
 
 ```text
 SCOPE: Add one injectable application clock and one time-zone conversion service used by domain code,
@@ -193,7 +193,7 @@ RESTRICTION: No scattered DateTime.UtcNow in feature code, no server-local time,
 BEHAVIOR: Show API/DST policy, wait for approval, implement with fixed-clock and DST boundary tests.
 ```
 
-### 0.5 Migration service host
+### 0.5 Migration service host - done
 
 ```text
 SCOPE: Implement MigrationService as a one-shot worker that resolves the future DbContext, runs EF
@@ -205,7 +205,7 @@ BEHAVIOR: Show the loop and failure behavior, wait for approval, implement, and 
 run exits cleanly.
 ```
 
-### 0.6 Angular 22 workspace and production web host
+### 0.6 Angular 22 workspace and production web host - done
 
 ```text
 SCOPE: Scaffold strict Angular 22 in src/web with standalone components and cp- selector prefix. Wire
@@ -219,7 +219,7 @@ BEHAVIOR: Plan development and production paths, wait for approval, implement, t
 show the starter SPA served by Aspire.
 ```
 
-### 0.7 First complete local run
+### 0.7 First complete local run - done
 
 ```text
 SCOPE: Run the complete empty system and repair only wiring that prevents startup: SQL, Redis, blob,
@@ -235,7 +235,7 @@ building cleanly.
 
 > Build the browser security boundary before workspace tenancy. Later authorization tests must exercise the same edge the real SPA uses.
 
-### 1.1 ApplicationUser and DbContext
+### 1.1 ApplicationUser and DbContext - done
 
 ```text
 SCOPE: Add ApplicationUser : IdentityUser with DisplayName, CreatedAt, and LastWorkspaceId, plus
@@ -248,7 +248,7 @@ BEHAVIOR: Show entity/context shape and registrations, wait for approval, implem
 resolution in a focused test.
 ```
 
-### 1.2 Identity user store and registration seam
+### 1.2 Identity user store and registration seam - done
 
 ```text
 SCOPE: Implement user registration through AuthController → IAuthFacade → IAuthBusiness →
@@ -261,7 +261,7 @@ UTILIZATION: add-endpoint.
 BEHAVIOR: Plan every layer and tests, wait for approval, implement, and run focused per-layer tests.
 ```
 
-### 1.3 Password management seam
+### 1.3 Password management seam - done
 
 ```text
 SCOPE: Add password-change and password-reset initiation/completion operations through the existing
@@ -274,7 +274,7 @@ BEHAVIOR: Plan the response and token-handling rules, wait for approval, impleme
 unknown addresses returning indistinguishable public responses.
 ```
 
-### 1.4 PlatformAdmin role and policy
+### 1.4 PlatformAdmin role and policy - done
 
 ```text
 SCOPE: Add role support, seed exactly one platform-wide role named PlatformAdmin idempotently, and add
@@ -285,7 +285,7 @@ Do NOT seed them into ASP.NET Core Identity.
 BEHAVIOR: Implement and add a test that repeated startup does not duplicate the role.
 ```
 
-### 1.5 Initial identity migration
+### 1.5 Initial identity migration - done
 
 ```text
 SCOPE: Generate the initial Identity/OpenIddict-ready EF migration without applying it.
@@ -295,7 +295,7 @@ BEHAVIOR: Show the model diff, indexes, and rollback shape; wait for approval; t
 migration service and confirm `dotnet ef migrations has-pending-model-changes` is clean.
 ```
 
-### 1.6 Gateway and API routes
+### 1.6 Gateway and API routes - done
 
 ```text
 SCOPE: Configure CreatorPantry.Gateway with YARP routes for /api/{**catch-all} to ApiService through
@@ -307,7 +307,7 @@ BEHAVIOR: Show route/cluster configuration, wait for approval, implement, and pr
 health request traverses the gateway.
 ```
 
-### 1.6a API versioning convention
+### 1.6a API versioning convention - done
 
 ```text
 SCOPE: Add the approved URL-based API versioning convention under /api/v1, default/unsupported-version
@@ -317,7 +317,7 @@ RESTRICTION: No feature endpoint or duplicate unversioned route. Gateway preserv
 BEHAVIOR: Verify current first-party package/API, show convention, wait for approval, implement/tests.
 ```
 
-### 1.6b OpenAPI and Scalar
+### 1.6b OpenAPI and Scalar - done
 
 ```text
 SCOPE: Configure versioned OpenAPI and Scalar in approved development environments with auth, ProblemDetails,
@@ -327,7 +327,7 @@ RESTRICTION: No production exposure unless approved; no secret/example token or 
 BEHAVIOR: Show document/security plan, wait for approval, implement and snapshot-test the generated contract.
 ```
 
-### 1.7 Authorization server clients
+### 1.7 Authorization server clients - done
 
 ```text
 SCOPE: Configure the approved OAuth/OIDC server arrangement and seed the confidential CreatorPantry
@@ -340,7 +340,7 @@ BEHAVIOR: Plan clients, grants, redirects, and secret storage; wait for approval
 configuration tests.
 ```
 
-### 1.8 Gateway BFF session
+### 1.8 Gateway BFF session - done
 
 ```text
 SCOPE: Make the gateway the confidential browser client: initiate sign-in, handle callback, keep tokens
@@ -352,7 +352,7 @@ BEHAVIOR: Plan the complete handshake, wait for approval, implement, and show th
 boundary under test.
 ```
 
-### 1.9 Header sanitization, CORS, and antiforgery
+### 1.9 Header sanitization, CORS, and antiforgery - done
 
 ```text
 SCOPE: Strip caller-supplied identity and forwarding headers, add only trusted downstream headers,
@@ -363,7 +363,7 @@ health behavior must remain usable.
 BEHAVIOR: Implement with forged-header, disallowed-origin, missing-antiforgery, and valid-request tests.
 ```
 
-### 1.9a Idempotency foundation
+### 1.9a Idempotency foundation - done
 
 ```text
 SCOPE: Add a reusable workspace/user-scoped idempotency store and facade helper for declared mutating
@@ -374,7 +374,24 @@ and no automatic use on every endpoint.
 BEHAVIOR: Show key/state/concurrency design, wait for approval, implement first/replay/conflict/expiry tests.
 ```
 
-### 1.10 Edge verification
+### 1.9b Edge hardening: response headers, body limits, trusted proxies - done
+
+*Added during delivery: a review of the sequence found no prompt covering these gateway.md requirements.*
+
+```text
+SCOPE: Add browser security response headers (CSP, nosniff, frame/referrer/opener/permissions policy, HSTS
+outside Development, no Server header) to the gateway and the SPA host; a configurable default request-body
+limit (4 MB) with per-endpoint overrides on the gateway and API; and forwarded-header handling that trusts
+only configured proxies/networks, one hop, so rate limits and Secure cookies see the real client and scheme.
+CONSTRAINT: .claude/rules/gateway.md and auth.md.
+RESTRICTION: No wildcard or unsafe-eval CSP; scripts stay 'self'. No forwarded header is trusted when no
+proxy is configured. Oversized bodies are rejected before they are proxied. Upload routes raise limits
+explicitly rather than lifting the default.
+BEHAVIOR: Implement with header-presence, HSTS, oversized-body, endpoint-override, trusted/untrusted-proxy,
+one-hop, and per-client rate-limit tests; render the production SPA under its CSP.
+```
+
+### 1.10 Edge verification - done
 
 ```text
 SCOPE: Add end-to-end edge tests for registration, sign-in, authenticated API proxying, refresh,

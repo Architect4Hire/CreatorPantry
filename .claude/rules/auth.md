@@ -17,6 +17,15 @@ CreatorPantry is web-first. The Angular browser client uses the YARP BFF and rec
 - Logout invalidates the server session and clears the cookie.
 - No tokens in localStorage, sessionStorage, IndexedDB, URLs, or frontend logs.
 
+## Gateway-to-API trust (baseline B-13)
+
+- There is no OAuth/OIDC authorization server. Do not add OpenIddict, refresh tokens, or OAuth clients without a new decision.
+- The gateway owns the session and attaches a gateway-signed internal token (ES256, issuer `creatorpantry-gateway`, audience `creatorpantry-api`, lifetime ≤ 2 minutes) after stripping client-supplied credentials.
+- The API validates only that token, with the gateway's public key. The private key never leaves the gateway.
+- Product routes accept only `token_use=user` tokens. Internal session routes (`/api/v1/internal/**`) accept only the gateway's `token_use=service` token and are never proxied from browsers.
+- Every API controller action requires an authenticated user (`MapAuthenticatedControllers`); anonymous actions opt out explicitly with `[AllowAnonymous]`.
+- Machine operations use hashed, rotatable API keys on explicit `ops` routes only (B-14); they never act as a creator.
+
 ## Authorization
 
 - Policies verify active workspace membership and the minimum membership role.

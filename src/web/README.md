@@ -4,12 +4,13 @@ A production-minded Angular 22 design-system starter based on the supplied creat
 
 ## Run it
 
-```bash
-npm install
-npm start
-```
+Run the whole system from the repository root with `aspire run`. Aspire installs packages, starts the
+Angular development server (`web-dev`) on an assigned port, and proxies `/runtime-config.json` to
+`CreatorPantry.Web`. `npm start` refuses to run without the port and web-host address Aspire provides.
 
-Build both the library and showcase with `npm run build`. The publishable library is emitted to `dist/creator-pantry-ui`.
+Build both the library and showcase with `npm run build`; run their tests with `npm test`. The
+publishable library is emitted to `dist/creator-pantry-ui`, and the showcase bundle to
+`dist/showcase/browser`, which `dotnet publish` copies into `CreatorPantry.Web`.
 
 ## Use the library
 
