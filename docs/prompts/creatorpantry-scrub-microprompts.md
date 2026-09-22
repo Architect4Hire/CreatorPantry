@@ -407,7 +407,7 @@ security property.
 
 > Workspace isolation is the invariant beneath every creator-owned recipe, prompt, asset, proposal, card, and publication. A missing filter fails silently, so this phase is intentionally repetitive.
 
-### 2.1 Workspace and membership entities
+### 2.1 Workspace and membership entities - done
 
 ```text
 SCOPE: Add Workspace and WorkspaceMembership with WorkspaceRole { Viewer = 0, Contributor = 10,
@@ -421,7 +421,7 @@ BEHAVIOR: Show entity/index shapes and role implications, wait for approval, cre
 review it, apply through MigrationService, and test constraints.
 ```
 
-### 2.2 Workspace-owned contract and request context
+### 2.2 Workspace-owned contract and request context - done
 
 ```text
 SCOPE: Add the common workspace-owned entity contract with required WorkspaceId and a scoped immutable
@@ -432,7 +432,7 @@ caller-supplied WorkspaceId.
 BEHAVIOR: Show fail-closed behavior, wait for approval, implement, and test resolved/unresolved paths.
 ```
 
-### 2.3 Workspace resolution layer stack
+### 2.3 Workspace resolution layer stack - done
 
 ```text
 SCOPE: Implement workspace lookup and membership verification through IWorkspaceResolutionFacade →
@@ -445,7 +445,7 @@ BEHAVIOR: Plan signatures and result types, wait for approval, implement, and te
 inactive, and unknown cases.
 ```
 
-### 2.4 Workspace resolution middleware
+### 2.4 Workspace resolution middleware - done
 
 ```text
 SCOPE: Add middleware resolving `{workspaceSlug}` from `/api/v1/workspaces/{workspaceSlug}/...`, calling
@@ -457,7 +457,7 @@ BEHAVIOR: Show pipeline position, wait for approval, implement, and test valid, 
 unknown, and workspace-less routes.
 ```
 
-### 2.5 Global workspace query filter
+### 2.5 Global workspace query filter - done
 
 ```text
 SCOPE: Apply a global EF query filter by convention to every workspace-owned entity using the current
@@ -469,7 +469,7 @@ BEHAVIOR: Show the convention and membership exception design, wait for approval
 test that a newly discovered workspace-owned entity would be covered automatically.
 ```
 
-### 2.6 WorkspaceId SaveChanges interceptor
+### 2.6 WorkspaceId SaveChanges interceptor - done
 
 ```text
 SCOPE: Add a SaveChanges interceptor that stamps WorkspaceId on added workspace-owned entities and
@@ -480,7 +480,7 @@ BEHAVIOR: Implement and test automatic stamp, cross-workspace insert rejection, 
 rejection.
 ```
 
-### 2.7 Workspace membership policies
+### 2.7 Workspace membership policies - done
 
 ```text
 SCOPE: Implement WorkspaceViewer, WorkspaceContributor, WorkspaceEditor, and WorkspaceOwner policies
@@ -491,7 +491,7 @@ list role names repeatedly on endpoints.
 BEHAVIOR: Plan policy mapping, wait for approval, implement, and test every role against every policy.
 ```
 
-### 2.8 Workspace management endpoints
+### 2.8 Workspace management endpoints - done
 
 ```text
 SCOPE: Add GET /api/v1/me with memberships, POST /api/v1/workspaces, and GET/PATCH
@@ -503,7 +503,7 @@ BEHAVIOR: Plan the operations and transaction, wait for approval, implement with
 tests.
 ```
 
-### 2.9 Workspace cache-key helper
+### 2.9 Workspace cache-key helper - done
 
 ```text
 SCOPE: Add a cache-key builder that requires WorkspaceId for private values and provides a distinct
@@ -515,7 +515,7 @@ BEHAVIOR: Show the API before writing it, wait for approval, implement, and test
 misuse prevention.
 ```
 
-### 2.9a Workspace audit log
+### 2.9a Workspace audit log - done
 
 ```text
 SCOPE: Add immutable workspace-owned AuditLog with actor, action, resource type/id, timestamp, correlation,
@@ -526,7 +526,7 @@ Feature code cannot update/delete ordinary audit rows.
 BEHAVIOR: Show schema/redaction policy, wait for approval, implement migration and immutability/isolation tests.
 ```
 
-### 2.9b Transactional outbox foundation
+### 2.9b Transactional outbox foundation - done
 
 ```text
 SCOPE: Add OutboxMessage plus DataLayer transaction helper and Worker dispatcher for internal durable events,
@@ -537,7 +537,7 @@ No external provider call inside the source transaction.
 BEHAVIOR: Show state/transaction design, wait for approval, implement commit/replay/restart/poison tests.
 ```
 
-### 2.10 Two-workspace test harness and audit
+### 2.10 Two-workspace test harness and audit - done
 
 ```text
 SCOPE: Build a reusable integration fixture with Workspace A and Workspace B, similar record names,

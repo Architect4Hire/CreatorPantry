@@ -15,7 +15,11 @@ internal sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Ap
         builder.Property(user => user.CreatedAt)
             .IsRequired();
 
-        // No foreign key until the Workspace entity exists (Phase 2).
-        builder.Property(user => user.LastWorkspaceId);
+        // A navigation hint only; it never authorizes access, so a deleted workspace clears it rather
+        // than blocking the delete or cascading to the user.
+        builder.HasOne<Workspace>()
+            .WithMany()
+            .HasForeignKey(user => user.LastWorkspaceId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

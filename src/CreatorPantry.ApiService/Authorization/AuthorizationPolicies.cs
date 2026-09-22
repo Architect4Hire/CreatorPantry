@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Auth;
+using CreatorPantry.Domain.Tenancy;
 using CreatorPantry.ServiceDefaults;
 using Microsoft.AspNetCore.Authorization;
 
@@ -16,6 +17,18 @@ public static class AuthorizationPolicies
     /// <summary>The gateway's own service identity; used only by the internal session routes.</summary>
     public const string GatewayService = "GatewayService";
 
+    /// <summary>The caller's role in the resolved workspace is at least <see cref="WorkspaceRole.Viewer"/>.</summary>
+    public const string WorkspaceViewer = "WorkspaceViewer";
+
+    /// <summary>The caller's role in the resolved workspace is at least <see cref="WorkspaceRole.Contributor"/>.</summary>
+    public const string WorkspaceContributor = "WorkspaceContributor";
+
+    /// <summary>The caller's role in the resolved workspace is at least <see cref="WorkspaceRole.Editor"/>.</summary>
+    public const string WorkspaceEditor = "WorkspaceEditor";
+
+    /// <summary>The caller's role in the resolved workspace is at least <see cref="WorkspaceRole.Owner"/>.</summary>
+    public const string WorkspaceOwner = "WorkspaceOwner";
+
     public static IServiceCollection AddCreatorPantryAuthorization(this IServiceCollection services) =>
         services.AddAuthorizationBuilder()
             // [Authorize] and MapAuthenticatedControllers mean "a signed-in user": gateway service tokens
@@ -26,7 +39,13 @@ public static class AuthorizationPolicies
                 .RequireAuthenticatedUser()
                 .RequireClaim(InternalTokenDefaults.TokenUseClaim, InternalTokenDefaults.ServiceTokenUse)
                 .RequireClaim("sub", InternalTokenDefaults.GatewayServiceSubject))
-            .Services;
+            .AddPolicy(WorkspaceViewer, WorkspaceRolePolicy(WorkspaceRole.Viewer))
+            .AddPolicy(WorkspaceContributor, WorkspaceRolePolicy(WorkspaceRole.Contributor))
+            .AddPolicy(WorkspaceEditor, WorkspaceRolePolicy(WorkspaceRole.Editor))
+            .AddPolicy(WorkspaceOwner, WorkspaceRolePolicy(WorkspaceRole.Owner))
+            .Services
+            // Scoped, not Singleton: reads the request-scoped IWorkspaceContext.
+            .AddScoped<IAuthorizationHandler, WorkspaceRoleAuthorizationHandler>();
 
     /// <summary>
     /// Maps controllers so every action without its own authorization metadata requires a signed-in user;
@@ -52,4 +71,12 @@ public static class AuthorizationPolicies
     private static AuthorizationPolicyBuilder UserPolicy() => new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .RequireClaim(InternalTokenDefaults.TokenUseClaim, InternalTokenDefaults.UserTokenUse);
+
+    /// <summary>
+    /// A signed-in product user whose role in the resolved workspace is at least <paramref name="minimumRole"/>,
+    /// via the single shared <see cref="WorkspaceRoleRequirement"/>/<see cref="WorkspaceRoleAuthorizationHandler"/>
+    /// pair. The four <c>Workspace*</c> policies differ only in this argument.
+    /// </summary>
+    private static AuthorizationPolicy WorkspaceRolePolicy(WorkspaceRole minimumRole) =>
+        UserPolicy().AddRequirements(new WorkspaceRoleRequirement(minimumRole)).Build();
 }

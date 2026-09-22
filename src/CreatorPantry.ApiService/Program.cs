@@ -1,19 +1,35 @@
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Development;
 using CreatorPantry.ApiService.Http;
+using CreatorPantry.ApiService.Tenancy;
+using CreatorPantry.Domain.Audit;
 using CreatorPantry.Domain.Auth;
 using CreatorPantry.Domain.Data;
 using CreatorPantry.Domain.Gateways.AccountMessages;
 using CreatorPantry.Domain.Idempotency;
+using CreatorPantry.Domain.Outbox;
+using CreatorPantry.Domain.Tenancy;
 using CreatorPantry.Domain.Time;
 using CreatorPantry.ServiceDefaults;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddSqlServerDbContext<CreatorPantryDbContext>(CreatorPantryDbContext.ConnectionName);
+
+// Registered directly (not via AddSqlServerDbContext) because that helper pools contexts, and a pooled
+// context cannot take a scoped constructor dependency (IWorkspaceContext, for the per-request query filter):
+// the pool's activator resolves against the root container, so a scoped service fails to resolve there.
+// EnrichSqlServerDbContext still layers on Aspire's health check, retry, and tracing integration.
+builder.Services.AddDbContext<CreatorPantryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString(CreatorPantryDbContext.ConnectionName)));
+builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
+
 builder.Services.AddApplicationTime();
 builder.Services.AddAuthDomain();
+builder.Services.AddTenancy();
+builder.Services.AddAudit();
+builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);
 builder.Services.AddInternalTokenAuthentication(builder.Configuration);
 builder.Services.AddCreatorPantryAuthorization();
@@ -62,6 +78,7 @@ app.UseStatusCodePages();
 app.UseRequestBodyLimit();
 
 app.UseAuthentication();
+app.UseWorkspaceResolution();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();
