@@ -1,9 +1,8 @@
-using CreatorPantry.Domain.Auth;
-using CreatorPantry.Domain.Facade.Auth;
-using CreatorPantry.Domain.Gateways.AccountMessages;
-using CreatorPantry.Domain.Models.Results;
-using CreatorPantry.Domain.Models.ServiceModels.Auth;
-using CreatorPantry.Domain.Models.ViewModels.Auth;
+using CreatorPantry.Domain.Modules.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Modules.Auth.Facade;
+using CreatorPantry.Domain.Modules.Auth.Gateways;
+using CreatorPantry.Domain.Managers.Results;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -196,7 +195,7 @@ public sealed class PasswordFlowTests : IDisposable
     private async Task<OperationResult<PasswordServiceModel>> ChangeAsync(string current, string next)
     {
         await using var scope = _services.CreateScope();
-        var account = await scope.ServiceProvider.GetRequiredService<UserManager<Domain.Data.ApplicationUser>>()
+        var account = await scope.ServiceProvider.GetRequiredService<UserManager<Domain.Modules.Auth.Data.Entities.ApplicationUser>>()
             .FindByEmailAsync(Email);
         return await scope.ServiceProvider.GetRequiredService<IAuthFacade>().ChangePasswordAsync(
             account!.Id, new ChangePasswordViewModel { CurrentPassword = current, NewPassword = next }, TestContext.Current.CancellationToken);

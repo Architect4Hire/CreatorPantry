@@ -1,10 +1,9 @@
-using CreatorPantry.Domain.Business.Tenancy;
-using CreatorPantry.Domain.Facade.Tenancy;
-using CreatorPantry.Domain.Models.Results;
-using CreatorPantry.Domain.Models.ServiceModels.Tenancy;
-using CreatorPantry.Domain.Models.ViewModels.Tenancy;
-using CreatorPantry.Domain.Tenancy;
-using CreatorPantry.Domain.Validation.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Business;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Managers.Persistence;
 
 namespace CreatorPantry.Tests.Tenancy;
 

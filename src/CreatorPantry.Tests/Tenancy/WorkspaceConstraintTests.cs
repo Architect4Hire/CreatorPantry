@@ -1,6 +1,15 @@
 using System.Reflection;
-using CreatorPantry.Domain.Data;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Tests.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

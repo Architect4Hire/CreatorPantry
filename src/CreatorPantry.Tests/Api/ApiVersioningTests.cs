@@ -5,8 +5,8 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
 using ApiService::CreatorPantry.ApiService.Http;
-using CreatorPantry.Domain.Models.Results;
-using CreatorPantry.Domain.Models.ServiceModels.Auth;
+using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Auth.Managers;
 using CreatorPantry.Tests.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -22,7 +22,7 @@ public sealed class ApiVersioningTests : IDisposable
         new WebApplicationFactory<ApiService::Program>().WithWebHostBuilder(web =>
         {
             TestDatabase.ConfigureWithoutHealthCheck(web);
-            web.ConfigureTestServices(services => services.AddScoped<Domain.Facade.Auth.IAuthFacade>(_ =>
+            web.ConfigureTestServices(services => services.AddScoped<Domain.Modules.Auth.Facade.IAuthFacade>(_ =>
                 new FakeAuthFacade(OperationResult<PasswordServiceModel>.Success(PasswordServiceModel.ResetRequested))));
         });
 

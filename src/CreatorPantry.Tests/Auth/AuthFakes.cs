@@ -1,12 +1,13 @@
-using CreatorPantry.Domain.Business.Auth;
-using CreatorPantry.Domain.Data.Auth;
-using CreatorPantry.Domain.Data.Repositories;
-using CreatorPantry.Domain.Facade.Auth;
-using CreatorPantry.Domain.Models.DomainModels.Auth;
-using CreatorPantry.Domain.Models.Results;
-using CreatorPantry.Domain.Models.ServiceModels.Auth;
-using CreatorPantry.Domain.Models.ViewModels.Auth;
-using CreatorPantry.Domain.Time;
+using CreatorPantry.Domain.Modules.Auth.Business;
+using CreatorPantry.Domain.Modules.Auth.Data;
+using CreatorPantry.Domain.Modules.Tenancy.Data;
+using CreatorPantry.Domain.Modules.Measurement.Data;
+using CreatorPantry.Domain.Modules.Vocabulary.Data;
+using CreatorPantry.Domain.Modules.Ingredients.Data;
+using CreatorPantry.Domain.Modules.Auth.Facade;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Managers.Time;
 
 namespace CreatorPantry.Tests.Auth;
 

@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using CreatorPantry.Domain.Time;
+using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.ServiceDefaults;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;

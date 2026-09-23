@@ -1,9 +1,8 @@
 using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
-using CreatorPantry.Domain.Facade.Auth;
-using CreatorPantry.Domain.Models.ServiceModels.Auth;
-using CreatorPantry.Domain.Models.ViewModels.Auth;
+using CreatorPantry.Domain.Modules.Auth.Facade;
+using CreatorPantry.Domain.Modules.Auth.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

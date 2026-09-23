@@ -1,15 +1,28 @@
+using System.Text.Json.Serialization;
 using CreatorPantry.ApiService.Authorization;
+using CreatorPantry.ApiService.Caching;
 using CreatorPantry.ApiService.Development;
 using CreatorPantry.ApiService.Http;
 using CreatorPantry.ApiService.Tenancy;
-using CreatorPantry.Domain.Audit;
-using CreatorPantry.Domain.Auth;
-using CreatorPantry.Domain.Data;
-using CreatorPantry.Domain.Gateways.AccountMessages;
-using CreatorPantry.Domain.Idempotency;
-using CreatorPantry.Domain.Outbox;
-using CreatorPantry.Domain.Tenancy;
-using CreatorPantry.Domain.Time;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Modules.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Gateways;
+using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Vocabulary;
+using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Managers.Paging;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.ServiceDefaults;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,9 +38,15 @@ builder.Services.AddDbContext<CreatorPantryDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString(CreatorPantryDbContext.ConnectionName)));
 builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
 
+// Redis where the AppHost supplies it, in-process otherwise. Reference reads are the only consumer today.
+builder.AddCreatorPantryCache();
+
 builder.Services.AddApplicationTime();
 builder.Services.AddAuthDomain();
 builder.Services.AddTenancy();
+builder.Services.AddMeasurementModule();
+builder.Services.AddVocabularyModule();
+builder.Services.AddIngredientModule();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);
@@ -64,7 +83,19 @@ builder.Services.AddControllers(options =>
         options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
     .ConfigureApiBehaviorOptions(options =>
         // With implicit [Required] suppressed, model state only fails for unreadable bodies.
-        options.InvalidModelStateResponseFactory = ProblemResults.MalformedRequest);
+        options.InvalidModelStateResponseFactory = ProblemResults.MalformedRequest)
+    .AddJsonOptions(options =>
+        // Enums as their declared names, not their numbers. Numbers make the contract asymmetric — the
+        // dimension filter already accepts "Temperature" while the response would answer 3 — and they publish
+        // as a bare "integer" with no names, so a client has to keep a private mapping the document never
+        // gave it. Names also make inserting an enum member a visible change rather than a silent renumbering.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// The same converter again, for the minimal-API endpoints (health, development tooling), which serialize
+// through this options instance rather than MVC's. The OpenAPI document reads neither — a schema transformer
+// in OpenApiDocumentation states the enum shape explicitly so it cannot contradict what is written here.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 

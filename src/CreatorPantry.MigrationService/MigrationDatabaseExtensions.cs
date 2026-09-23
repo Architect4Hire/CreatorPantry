@@ -1,5 +1,18 @@
-using CreatorPantry.Domain.Auth;
-using CreatorPantry.Domain.Data;
+using CreatorPantry.Domain.Modules.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Modules.Measurement.Seeding;
+using CreatorPantry.Domain.Modules.Vocabulary.Seeding;
+using CreatorPantry.Domain.Modules.Ingredients.Seeding;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.MigrationService;
@@ -19,16 +32,29 @@ public static class MigrationDatabaseExtensions
             options.UseSqlServer(builder.Configuration.GetConnectionString(CreatorPantryDbContext.ConnectionName)));
         builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
 
-        builder.Services.AddCreatorPantrySchema();
+        // The sample ingredient set cites a development seed source and is not reference material, so it stops
+        // at the Production boundary. The unit and vocabulary catalogue crosses it: those are definitional
+        // rather than licensed, and a database without measurement units cannot resolve a recipe line at all.
+        builder.Services.AddCreatorPantrySchema(includeDevelopmentSampleData: !builder.Environment.IsProduction());
 
         return builder;
     }
 
-    /// <summary>Applies CreatorPantry migrations, then idempotent seed data such as the PlatformAdmin role.</summary>
-    public static IServiceCollection AddCreatorPantrySchema(this IServiceCollection services)
+    /// <summary>
+    /// Applies CreatorPantry migrations, then idempotent seed data: the PlatformAdmin role and the global
+    /// reference catalogue.
+    /// </summary>
+    /// <param name="includeDevelopmentSampleData">
+    /// Whether the reference seeder also writes the sample ingredient set. Defaults to <c>false</c> so a caller
+    /// that has not thought about it gets the production-safe tier.
+    /// </param>
+    public static IServiceCollection AddCreatorPantrySchema(
+        this IServiceCollection services,
+        bool includeDevelopmentSampleData = false)
     {
         services.AddDbContextMigration<CreatorPantryDbContext>();
         services.AddPlatformRoleSeeding();
+        services.AddReferenceSeeding(includeDevelopmentSampleData);
 
         return services;
     }

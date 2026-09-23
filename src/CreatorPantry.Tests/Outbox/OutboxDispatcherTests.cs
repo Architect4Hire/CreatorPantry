@@ -1,7 +1,13 @@
-using CreatorPantry.Domain.Data;
-using CreatorPantry.Domain.Data.Outbox;
-using CreatorPantry.Domain.Outbox;
-using CreatorPantry.Domain.Time;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Managers.Time;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,6 +1,14 @@
-using CreatorPantry.Domain.Auth;
-using CreatorPantry.Domain.Data;
-using CreatorPantry.Domain.Data.Seeding;
+using CreatorPantry.Domain.Modules.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.MigrationService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
@@ -75,12 +83,15 @@ public sealed class PlatformRoleSeedingTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Schema_registration_adds_one_migration_target_and_the_role_seeder()
+    public void Schema_registration_adds_one_migration_target_and_both_seeders()
     {
         var services = new ServiceCollection().AddCreatorPantrySchema();
 
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IMigrationTarget));
-        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IDataSeeder));
+
+        // The role seeder and the reference-catalogue seeder. MigrationWorker resolves every IDataSeeder, so a
+        // seeder that is registered but never run would show up here as a count mismatch.
+        Assert.Equal(2, services.Count(descriptor => descriptor.ServiceType == typeof(IDataSeeder)));
     }
 
     private async Task<MigrationOutcome> RunMigrationHostAsync()

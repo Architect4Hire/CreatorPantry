@@ -1,9 +1,8 @@
 using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
-using CreatorPantry.Domain.Facade.Tenancy;
-using CreatorPantry.Domain.Models.ServiceModels.Tenancy;
-using CreatorPantry.Domain.Models.ViewModels.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;

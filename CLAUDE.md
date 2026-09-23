@@ -70,7 +70,7 @@ src/
 ├── CreatorPantry.Gateway/             # YARP BFF and browser session boundary
 ├── CreatorPantry.Web/                 # production host for Angular bundle
 ├── CreatorPantry.ApiService/          # controllers, identity endpoints, policies, middleware
-├── CreatorPantry.Domain/              # facade, business, data, models, AI, integrations
+├── CreatorPantry.Domain/              # module-first: Modules/<Context>/ and the Managers/ shared kernel
 ├── CreatorPantry.Worker/              # generation, media, embedding, publishing jobs
 ├── CreatorPantry.MigrationService/    # applies migrations once before dependents start
 ├── CreatorPantry.Tests/
@@ -83,6 +83,30 @@ docs/
 ├── architecture.md
 └── scrub-prompts.md
 ```
+
+### Domain module layout
+
+`CreatorPantry.Domain` is organized by bounded context, not by layer. One assembly, one `DbContext`, one
+migration history.
+
+```text
+Modules/<Context>/
+├── Facade/ Business/ Data/{Entities,Configurations}/
+├── Managers/                      # this module's ViewModels, ServiceModels, domain models, validators, policies
+└── <Context>ServiceCollectionExtensions.cs
+
+Managers/                          # shared kernel: Persistence, Caching, Time, Results, Paging,
+                                   # Reference vocabulary, Idempotency, Outbox, Audit
+```
+
+A module's ViewModels, ServiceModels, domain models and validators live in its own `Managers/` area. There is
+no `Models/` or `Validation/` tree at the domain root and none may be reintroduced.
+
+**Cross-module traffic is facade to facade.** The only types that cross a module boundary are the facade
+interface, the ServiceModels a facade returns, and entity types — the last only because a foreign key does and
+EF must name the principal. Repositories, data layers, business types, view models and validators never cross.
+The shared kernel may not depend on a module; `CreatorPantryDbContext` is the single documented exception,
+because one DbContext must name every module's entities. `ModuleBoundaryTests` enforces all of this.
 
 ### Mandatory request seam
 

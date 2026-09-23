@@ -1,4 +1,4 @@
-using CreatorPantry.Domain.Data.Seeding;
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.MigrationService;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

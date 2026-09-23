@@ -1,4 +1,4 @@
-using CreatorPantry.Domain.Gateways.AccountMessages;
+using CreatorPantry.Domain.Modules.Auth.Gateways;
 
 namespace CreatorPantry.ApiService.Development;
 

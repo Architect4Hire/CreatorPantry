@@ -2,8 +2,11 @@ extern alias ApiService;
 
 using System.Security.Claims;
 using ApiService::CreatorPantry.ApiService.Authorization;
-using CreatorPantry.Domain.Auth;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Modules.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.ServiceDefaults;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Testing;

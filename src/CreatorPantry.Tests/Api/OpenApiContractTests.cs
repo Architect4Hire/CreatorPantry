@@ -25,6 +25,28 @@ public sealed class OpenApiContractTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
+    /// <summary>
+    /// Enum schemas name their members. A bare <c>"type": "integer"</c> publishes no names at all, so a
+    /// generated client gets an <c>int</c> and has to carry a private mapping — and inserting a member
+    /// becomes a silent renumbering rather than a visible change.
+    /// </summary>
+    [Theory]
+    [InlineData("MeasurementDimension", "Temperature")]
+    [InlineData("MeasurementSystem", "UsCustomary")]
+    [InlineData("WorkspaceRole", "Owner")]
+    [InlineData("WorkspaceMembershipStatus", "Active")]
+    public async Task Enum_schemas_publish_their_member_names(string schema, string member)
+    {
+        var document = JsonNode.Parse(await GetDocumentTextAsync())!;
+        var definition = document["components"]!["schemas"]![schema]
+            ?? throw new InvalidOperationException($"No {schema} schema in the document.");
+
+        Assert.Equal("string", definition["type"]!.GetValue<string>());
+        Assert.Contains(
+            member,
+            definition["enum"]!.AsArray().Select(value => value!.GetValue<string>()));
+    }
+
     [Fact]
     public async Task V1_document_matches_the_reviewed_snapshot()
     {

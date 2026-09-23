@@ -1,5 +1,5 @@
-using CreatorPantry.Domain.Idempotency;
-using CreatorPantry.Domain.Models.Results;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Results;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 

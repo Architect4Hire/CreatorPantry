@@ -1,6 +1,6 @@
-using CreatorPantry.Domain.Models.ViewModels.Tenancy;
-using CreatorPantry.Domain.Tenancy;
-using CreatorPantry.Domain.Validation.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Managers.Persistence;
 
 namespace CreatorPantry.Tests.Tenancy;
 

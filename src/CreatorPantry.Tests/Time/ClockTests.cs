@@ -1,4 +1,4 @@
-using CreatorPantry.Domain.Time;
+using CreatorPantry.Domain.Managers.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 

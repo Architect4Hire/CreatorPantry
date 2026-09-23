@@ -1,5 +1,4 @@
-using CreatorPantry.Domain.Models.ViewModels.Auth;
-using CreatorPantry.Domain.Validation.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
 
 namespace CreatorPantry.Tests.Auth;
 

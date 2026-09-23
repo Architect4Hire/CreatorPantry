@@ -1,8 +1,22 @@
 extern alias ApiService;
 
-using CreatorPantry.Domain.Auth;
-using CreatorPantry.Domain.Data;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Modules.Auth;
+using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Modules.Measurement.Seeding;
+using CreatorPantry.Domain.Modules.Vocabulary.Seeding;
+using CreatorPantry.Domain.Modules.Ingredients.Seeding;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.MigrationService;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +40,7 @@ public class DbContextRegistrationTests
     }
 
     [Fact]
-    public void MigrationService_resolves_the_dbcontext_with_one_migration_target_and_the_role_seeder()
+    public void MigrationService_resolves_the_dbcontext_with_one_migration_target_and_both_seeders()
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration[$"ConnectionStrings:{CreatorPantryDbContext.ConnectionName}"] = TestDatabase.ConnectionString;
@@ -37,7 +51,60 @@ public class DbContextRegistrationTests
 
         Assert.True(scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().Database.IsSqlServer());
         Assert.Equal(nameof(CreatorPantryDbContext), Assert.Single(scope.ServiceProvider.GetServices<IMigrationTarget>()).Name);
-        Assert.Single(scope.ServiceProvider.GetServices<Domain.Data.Seeding.IDataSeeder>());
+
+        // The PlatformAdmin role seeder and the reference-catalogue seeder, in that registration order.
+        Assert.Equal(
+            ["Platform roles", "Reference catalogue"],
+            scope.ServiceProvider.GetServices<Domain.Managers.Persistence.IDataSeeder>().Select(seeder => seeder.Name));
+
+        // Host.CreateApplicationBuilder defaults to Production, so this host is the production tier.
+        Assert.True(host.Services.GetRequiredService<IHostEnvironment>().IsProduction());
+    }
+
+    /// <summary>
+    /// The tier gate, asserted on the option the seeder actually reads rather than on the ambient environment.
+    /// </summary>
+    /// <remarks>
+    /// This replaces an assertion that checked only <c>IsProduction()</c> and would still have passed if the
+    /// gate in <c>AddMigrationDatabase</c> were changed to pass <c>true</c> unconditionally — which would seed
+    /// ingredients, densities, and allergen traits citing a source whose citation reads "not suitable for
+    /// production use" into a live catalogue.
+    /// </remarks>
+    [Theory]
+    [InlineData("Production", false)]
+    [InlineData("Development", true)]
+    [InlineData("Staging", true)]
+    public void Development_sample_data_is_seeded_outside_production_only(string environment, bool expected)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { EnvironmentName = environment });
+        builder.Configuration[$"ConnectionStrings:{CreatorPantryDbContext.ConnectionName}"] = TestDatabase.ConnectionString;
+        builder.AddMigrationDatabase();
+
+        using var host = builder.Build();
+
+        Assert.Equal(
+            expected,
+            host.Services.GetRequiredService<ReferenceSeedOptions>().IncludeDevelopmentSampleData);
+    }
+
+    /// <summary>
+    /// Every test in this suite builds its schema with <c>EnsureCreated</c>, which reads the model and never
+    /// touches a migration file. This is the one assertion that notices when the two diverge — a model change
+    /// committed without a migration, or a hand-edited migration body, would otherwise ship green and fail at
+    /// deployment rather than in CI.
+    /// </summary>
+    [Fact]
+    public void The_model_has_no_changes_that_no_migration_captures()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration[$"ConnectionStrings:{CreatorPantryDbContext.ConnectionName}"] = TestDatabase.ConnectionString;
+        builder.AddMigrationDatabase();
+
+        using var host = builder.Build();
+        using var scope = host.Services.CreateScope();
+
+        // Compares the model against the migrations' own snapshot; it opens no connection.
+        Assert.False(scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().Database.HasPendingModelChanges());
     }
 
     [Fact]

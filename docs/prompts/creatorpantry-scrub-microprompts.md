@@ -110,6 +110,7 @@ Everything through Phase 7 must run against seeded local data with no paid AI or
 | **1.10** | A user can register, sign in through the BFF, refresh, sign out, and never expose a browser token |
 | **2.10** | Two workspaces with similar data cannot read, mutate, cache, or enumerate one another |
 | **3.8** | The CreatorPantry design-system showcase renders in light/dark themes and passes the accessibility smoke test |
+| **4A.9** | The domain is organized by bounded context, the request seam and workspace isolation are unchanged, and the move produces no migration |
 | **5.12** | A creator can create, retrieve, edit, and list a structured recipe through the complete request seam |
 | **6.10** | Versions, comparison, restore, duplicate, archive, and search work without mutating history |
 | **7.12** | Parsing, scaling, conversion, normalization, and yield previews are deterministic and never overwrite a recipe silently |
@@ -784,7 +785,7 @@ BEHAVIOR: Show the uncertainty model, wait for approval, implement, migrate, and
 positive/negative evidence explicitly.
 ```
 
-### 4.5 Cuisine, course, technique, equipment, and food category
+### 4.5 Cuisine, course, technique, equipment, and food category - done
 
 ```text
 SCOPE: Add the remaining global controlled vocabularies required by recipe metadata and filtering,
@@ -796,7 +797,7 @@ BEHAVIOR: Present the smallest schema that covers current requirements, wait for
 migrate, and test stable keys.
 ```
 
-### 4.6 Reference seed set
+### 4.6 Reference seed set - done - done
 
 ```text
 SCOPE: Add deterministic development/test seed data for units, aliases, a compact ingredient set,
@@ -809,7 +810,7 @@ BEHAVIOR: Show seed inventory and provenance, wait for approval, implement, and 
 the same records.
 ```
 
-### 4.7 Reference repository and read seam
+### 4.7 Reference repository and read seam - done - done
 
 ```text
 SCOPE: Implement paged/searchable reads for ingredients, units, cuisines, techniques, equipment, and
@@ -823,7 +824,7 @@ BEHAVIOR: Plan one consistent contract, wait for approval, implement, and test c
 pagination clamp, filtering, and cancellation.
 ```
 
-### 4.8 Reference-domain audit
+### 4.8 Reference-domain audit - done - done
 
 ```text
 SCOPE: Review all Phase 4 tables, migrations, APIs, and cache keys against the global/private data-zone
@@ -833,6 +834,157 @@ RESTRICTION: Report first. Do not turn global data into workspace copies to simp
 UTILIZATION: architecture-reviewer, workspace-isolation-auditor, and test-gap-analyzer.
 BEHAVIOR: Produce a finding list with file/line evidence, wait for approval, fix blockers, rerun tests,
 and confirm pending model changes are clean.
+```
+
+## Phase 4A — Module-first domain restructure
+
+> Structural only. This phase moves files and namespaces. It changes no behavior, no schema, no HTTP contract, and no layer seam. Run it before Phase 5 so the reference vertical every later feature copies is built in its final layout.
+
+### 4A.1 Module boundary decision record - see docs/architecture-decisions
+
+```text
+SCOPE: Record the bounded contexts that become top-level modules inside CreatorPantry.Domain, the
+internal shape every module repeats, and the shared kernel that stays at the project root, as an ADR in
+docs/architecture-decisions.
+CONSTRAINT: CLAUDE.md "Initial solution layout" and mandatory request seam; .claude/rules/backend.md; the
+add-endpoint skill, which already places response models under Domain managers/models.
+RESTRICTION: One assembly, one DbContext, one migration history. No new projects, no separate services,
+no second DbContext, and no change to Controller → Facade → Business → DataLayer → Repository | Gateway.
+Do not rename or re-shape any type in this prompt.
+UTILIZATION: architecture-reviewer.
+BEHAVIOR: Propose the module list with the entities, facades, and EF configurations each one owns. Fix the
+repeated internal shape explicitly: Facade, Business, Data (repositories and configurations), Managers —
+the module's ViewModels, ServiceModels, domain models, validators, and mapping — and the module's own
+ServiceCollectionExtensions composition root. State the rule for cross-module calls and what a module may
+consume from another module's Managers. Wait for approval, then write the ADR only. No file moves and no
+code changes in this prompt.
+```
+
+### 4A.2 Shared kernel consolidation
+
+```text
+SCOPE: Gather genuinely cross-cutting code — caching, clock/time zone, validation primitives, result
+types, idempotency, outbox, and audit — under an explicit shared location, and confirm nothing
+context-specific is hiding there.
+CONSTRAINT: the approved ADR from 4A.1; .claude/rules/backend.md.
+RESTRICTION: Shared code may not reference any module. Shared managers hold only primitives every module
+depends on, such as result and error types; a model, validator, or mapper used by exactly one context is
+not shared and moves with that context. Do not create a "Common" bucket for things nobody classified.
+UTILIZATION: architecture-reviewer.
+BEHAVIOR: Classify every type currently under Models and Validation as shared primitive or module-owned
+manager, with its actual referencing contexts as evidence. Wait for approval, move only the approved
+shared set, update namespaces, and prove `dotnet build` and `dotnet test` are unchanged.
+```
+
+### 4A.3 Pilot module move — Tenancy
+
+```text
+SCOPE: Move the Tenancy context into a single module folder as the pattern every later move copies:
+facade, business, data layer, repositories, EF configurations, its Managers area, and its
+ServiceCollectionExtensions.
+CONSTRAINT: the approved ADR from 4A.1; .claude/rules/tenancy.md and backend.md.
+RESTRICTION: Moves and namespace updates only. Dissolve Models/ViewModels, Models/ServiceModels,
+Models/DomainModels, and Validation for this context into the module's Managers area — do not leave a
+second home for the same kind of type. No renamed types, no changed signatures, no altered query filters,
+no touched workspace resolution behavior, and no edits to the two-workspace harness assertions.
+UTILIZATION: architecture-reviewer and workspace-isolation-auditor.
+BEHAVIOR: Show the file-by-file move map with each type's old path and its Managers destination, wait for
+approval, execute it, then prove `dotnet build` and the full `dotnet test` run are green and
+`dotnet ef migrations has-pending-model-changes` reports none.
+```
+
+### 4A.4 Auth and identity module move
+
+```text
+SCOPE: Apply the 4A.3 pattern to the authentication and identity context, including its Managers area,
+the account-message gateway, and its ServiceCollectionExtensions.
+CONSTRAINT: the approved ADR from 4A.1; .claude/rules/auth.md and backend.md.
+RESTRICTION: Do not move ASP.NET Core Identity store registration out of its current composition root and
+do not change the gateway-signed internal token, its key handling, or any policy name. Identity's own
+UserManager and RoleManager are framework types and are unrelated to the module Managers area; do not
+conflate them. Moves only.
+UTILIZATION: architecture-reviewer.
+BEHAVIOR: Show the move map, wait for approval, execute it, and prove build, tests, and a working sign-in
+path through the BFF are unchanged.
+```
+
+### 4A.5 Reference module move
+
+```text
+SCOPE: Apply the 4A.3 pattern to the Phase 4 platform reference context — units, ingredients, aliases,
+densities, dietary and allergen vocabularies, categories, sources, their EF configurations, their
+Managers area, and their seed data.
+CONSTRAINT: the approved ADR from 4A.1; .claude/rules/tenancy.md data zones.
+RESTRICTION: Reference data stays global and tenant-less. Moving it must not introduce WorkspaceId, a
+query filter, or a workspace-scoped cache key. Global cache keys keep their exact current strings.
+UTILIZATION: architecture-reviewer and workspace-isolation-auditor.
+BEHAVIOR: Show the move map, wait for approval, execute it, and prove build, tests, idempotent seed
+execution, and `has-pending-model-changes` are all clean.
+```
+
+### 4A.6 Configuration, validator, and migration safety
+
+```text
+SCOPE: Confirm that after the moves the DbContext still discovers every IEntityTypeConfiguration, every
+validator and manager type still resolves from DI through its module's ServiceCollectionExtensions, the
+migrations output path is unchanged, and the model snapshot is byte-identical to before Phase 4A.
+CONSTRAINT: CLAUDE.md migration command; .claude/rules/backend.md.
+RESTRICTION: Do not add a migration to "fix" the move. A restructure that changes the model snapshot is a
+defect in the restructure, not a schema change to accept. Do not paper over a dropped registration with a
+new assembly-wide scan unless the ADR chose one.
+UTILIZATION: architecture-reviewer.
+BEHAVIOR: Report the discovery and registration mechanism for configurations, validators, and managers;
+configuration and validator counts before and after; the snapshot diff; and `has-pending-model-changes`
+output. Fix any drift by correcting the move, then confirm clean.
+```
+
+### 4A.7 Module boundary enforcement
+
+```text
+SCOPE: Add tests that fail when a module reaches past another module's facade — a business class touching
+another module's repositories or data layer, a repository referenced across modules, a module's Managers
+types consumed directly by another module, or a module referenced from the shared kernel.
+CONSTRAINT: .claude/rules/backend.md layer ownership; src/BannedSymbols.txt for symbol-level bans.
+RESTRICTION: Enforce structure, not naming fashion. Cross-module traffic goes facade to facade, and the
+only manager type that crosses a module boundary is the ServiceModel a facade returns — never another
+module's ViewModels, validators, or domain models. Do not grant exemptions to make an existing violation
+pass; report it instead.
+UTILIZATION: architecture-reviewer and test-gap-analyzer.
+BEHAVIOR: Propose the rule set and how each is detected, wait for approval, implement the tests, prove
+each rule fails on a deliberate violation, and list any existing violation as a finding.
+```
+
+### 4A.8 Toolkit realignment
+
+```text
+SCOPE: Make the module and Managers conventions explicit everywhere the toolkit describes the
+architecture so generated code lands in the right place: the CLAUDE.md solution layout and request seam,
+.claude/rules/backend.md, the architecture-reviewer report list, and every add-* skill.
+CONSTRAINT: the approved ADR from 4A.1; existing rule and skill structure and tone.
+RESTRICTION: Additive clarification only. Do not weaken, reword, or remove an architectural rule while
+editing around it. The seam, the data zones, and the isolation requirements are unchanged.
+UTILIZATION: skills-evals.
+BEHAVIOR: Inventory with line evidence every place that describes domain structure, including the ones
+that currently omit it — CLAUDE.md and backend.md never name the Managers area that add-endpoint already
+assumes, and architecture-reviewer reports only vertical layer violations and so cannot see a
+cross-module one. Wait for approval, update them, add the module-ownership and Managers rules, and re-run
+the skills audit to confirm nothing still points at a structure that no longer exists.
+```
+
+### 4A.9 Restructure audit
+
+```text
+SCOPE: Review the complete Phase 4A diff and confirm it is a pure restructure: no behavior change, no
+schema change, no contract change, and no weakened isolation.
+CONSTRAINT: .claude/rules/backend.md, tenancy.md, and auth.md.
+RESTRICTION: Report first. Do not bundle a behavior fix, a rename, or a "while we're here" improvement
+into the restructure commit. Anything found becomes its own prompt.
+UTILIZATION: architecture-reviewer, workspace-isolation-auditor, api-contract-checker, and
+test-gap-analyzer.
+BEHAVIOR: Produce a finding list with file/line evidence; confirm the diff is moves and namespaces only,
+that every module repeats the same internal shape, and that no Models or Validation tree survives outside
+the shared kernel; wait for approval, fix blockers, rerun the full test suite, and confirm the model
+snapshot is clean.
 ```
 
 ## Phase 5 — Canonical recipe: the reference vertical

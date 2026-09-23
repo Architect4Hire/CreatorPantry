@@ -1,6 +1,7 @@
-using CreatorPantry.Domain.Data.Tenancy;
-using CreatorPantry.Domain.Models.DomainModels.Tenancy;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Data;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Managers.Persistence;
 
 namespace CreatorPantry.Tests.Tenancy;
 

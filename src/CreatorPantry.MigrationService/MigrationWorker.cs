@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using CreatorPantry.Domain.Data.Seeding;
+using CreatorPantry.Domain.Managers.Persistence;
 
 namespace CreatorPantry.MigrationService;
 

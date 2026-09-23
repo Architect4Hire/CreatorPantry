@@ -1,8 +1,9 @@
 using System.Text.RegularExpressions;
 using CreatorPantry.ApiService.Http;
-using CreatorPantry.Domain.Facade.Tenancy;
-using CreatorPantry.Domain.Models.ViewModels.Tenancy;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.ServiceDefaults;
 using Microsoft.IdentityModel.JsonWebTokens;
 

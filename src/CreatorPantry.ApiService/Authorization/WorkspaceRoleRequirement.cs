@@ -1,4 +1,6 @@
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
 using Microsoft.AspNetCore.Authorization;
 
 namespace CreatorPantry.ApiService.Authorization;

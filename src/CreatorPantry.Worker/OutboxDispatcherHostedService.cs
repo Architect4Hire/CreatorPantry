@@ -1,5 +1,4 @@
-using CreatorPantry.Domain.Data.Outbox;
-using CreatorPantry.Domain.Outbox;
+using CreatorPantry.Domain.Managers.Outbox;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

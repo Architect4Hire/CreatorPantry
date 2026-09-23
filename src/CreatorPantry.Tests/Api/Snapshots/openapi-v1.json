@@ -21,17 +21,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChangePasswordViewModel"
+                "$ref": "#/components/schemas/ChangePassword"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChangePasswordViewModel"
+                "$ref": "#/components/schemas/ChangePassword"
               }
             },
             "application/*\u002Bjson": {
               "schema": {
-                "$ref": "#/components/schemas/ChangePasswordViewModel"
+                "$ref": "#/components/schemas/ChangePassword"
               }
             }
           },
@@ -43,17 +43,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               }
             }
@@ -101,17 +101,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterUserViewModel"
+                "$ref": "#/components/schemas/RegisterUser"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterUserViewModel"
+                "$ref": "#/components/schemas/RegisterUser"
               }
             },
             "application/*\u002Bjson": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterUserViewModel"
+                "$ref": "#/components/schemas/RegisterUser"
               }
             }
           },
@@ -123,17 +123,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegistrationServiceModel"
+                  "$ref": "#/components/schemas/Registration"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegistrationServiceModel"
+                  "$ref": "#/components/schemas/Registration"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegistrationServiceModel"
+                  "$ref": "#/components/schemas/Registration"
                 }
               }
             }
@@ -176,17 +176,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RequestPasswordResetViewModel"
+                "$ref": "#/components/schemas/RequestPasswordReset"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RequestPasswordResetViewModel"
+                "$ref": "#/components/schemas/RequestPasswordReset"
               }
             },
             "application/*\u002Bjson": {
               "schema": {
-                "$ref": "#/components/schemas/RequestPasswordResetViewModel"
+                "$ref": "#/components/schemas/RequestPasswordReset"
               }
             }
           },
@@ -198,17 +198,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               }
             }
@@ -251,17 +251,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CompletePasswordResetViewModel"
+                "$ref": "#/components/schemas/CompletePasswordReset"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CompletePasswordResetViewModel"
+                "$ref": "#/components/schemas/CompletePasswordReset"
               }
             },
             "application/*\u002Bjson": {
               "schema": {
-                "$ref": "#/components/schemas/CompletePasswordResetViewModel"
+                "$ref": "#/components/schemas/CompletePasswordReset"
               }
             }
           },
@@ -273,17 +273,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PasswordServiceModel"
+                  "$ref": "#/components/schemas/Password"
                 }
               }
             }
@@ -325,7 +325,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MyWorkspaceMembershipServiceModel"
+                    "$ref": "#/components/schemas/MyWorkspaceMembership"
                   }
                 }
               },
@@ -333,7 +333,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MyWorkspaceMembershipServiceModel"
+                    "$ref": "#/components/schemas/MyWorkspaceMembership"
                   }
                 }
               },
@@ -341,8 +341,663 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MyWorkspaceMembershipServiceModel"
+                    "$ref": "#/components/schemas/MyWorkspaceMembership"
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/ingredients": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active ingredients in the shared catalogue, with the aliases that resolve to each one. Retired entries are not listed.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against canonical names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Restrict results to one food category, by its code, such as \u0060dairy-and-eggs\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/units": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active units of measure, with the factor each one converts by where it has one. Retired entries are not listed.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against unit names, codes, and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dimension",
+            "in": "query",
+            "description": "Restrict results to one dimension, by name: Mass, Volume, Count, Temperature, or Qualitative.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementUnitPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementUnitPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementUnitPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/food-categories": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active coarse groupings an ingredient belongs to. Retired entries are not listed.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/cuisines": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active regional and cultural cooking traditions a recipe can be described against. Retired entries are not listed.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/courses": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "The active roles a recipe can play in a meal. Retired entries are not listed.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/techniques": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active cooking methods; retired entries are not listed. A \u0060requiresSafetyCaution\u0060 of \u0060false\u0060\nmeans no caution has been attached to that technique \u2014 it is not a statement that the technique is safe.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CookingTechniquePage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CookingTechniquePage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CookingTechniquePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/equipment-types": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active kinds of equipment a recipe can call for. Kinds only, never a specific creator\u2019s item. Retired entries are not listed.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/dietary-profiles": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "Active dietary patterns a recipe can be described against; retired entries are not listed. Each entry\u0027s\ndescription states what it covers; none of them is a certification or a suitability ruling.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescribedReferenceEntryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescribedReferenceEntryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescribedReferenceEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/allergens": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "The active allergen vocabulary; retired entries are not listed. Naming an allergen only; what any\ningredient contains is recorded separately, with evidence and a cited source.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched against names and aliases. Terms shorter than two characters are ignored.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescribedReferenceEntryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescribedReferenceEntryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescribedReferenceEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -380,17 +1035,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateWorkspaceViewModel"
+                "$ref": "#/components/schemas/CreateWorkspace"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateWorkspaceViewModel"
+                "$ref": "#/components/schemas/CreateWorkspace"
               }
             },
             "application/*\u002Bjson": {
               "schema": {
-                "$ref": "#/components/schemas/CreateWorkspaceViewModel"
+                "$ref": "#/components/schemas/CreateWorkspace"
               }
             }
           },
@@ -402,17 +1057,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               }
             }
@@ -478,17 +1133,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               }
             }
@@ -533,17 +1188,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceViewModel"
+                "$ref": "#/components/schemas/UpdateWorkspace"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceViewModel"
+                "$ref": "#/components/schemas/UpdateWorkspace"
               }
             },
             "application/*\u002Bjson": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateWorkspaceViewModel"
+                "$ref": "#/components/schemas/UpdateWorkspace"
               }
             }
           },
@@ -555,17 +1210,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkspaceServiceModel"
+                  "$ref": "#/components/schemas/Workspace"
                 }
               }
             }
@@ -601,7 +1256,7 @@
   },
   "components": {
     "schemas": {
-      "ChangePasswordViewModel": {
+      "ChangePassword": {
         "type": "object",
         "properties": {
           "currentPassword": {
@@ -612,7 +1267,7 @@
           }
         }
       },
-      "CompletePasswordResetViewModel": {
+      "CompletePasswordReset": {
         "type": "object",
         "properties": {
           "email": {
@@ -626,7 +1281,52 @@
           }
         }
       },
-      "CreateWorkspaceViewModel": {
+      "CookingTechnique": {
+        "required": [
+          "id",
+          "code",
+          "displayName",
+          "requiresSafetyCaution"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "requiresSafetyCaution": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CookingTechniquePage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CookingTechnique"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CreateWorkspace": {
         "required": [
           "name"
         ],
@@ -655,9 +1355,207 @@
             ]
           }
         },
-        "description": "Cursor-paginated collection envelope. Pass \u0060nextCursor\u0060 back as \u0060cursor\u0060; null means no more items."
+        "description": "Cursor-paginated collection envelope, and the shape every \u0060*Page\u0060 schema in this document follows. Pass \u0060nextCursor\u0060 back as \u0060cursor\u0060; null means no more items."
       },
-      "MyWorkspaceMembershipServiceModel": {
+      "DescribedReferenceEntry": {
+        "required": [
+          "id",
+          "code",
+          "displayName",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "DescribedReferenceEntryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DescribedReferenceEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "Ingredient": {
+        "required": [
+          "id",
+          "canonicalName",
+          "foodCategoryCode",
+          "defaultCountUnitCode",
+          "aliases"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonicalName": {
+            "type": "string"
+          },
+          "foodCategoryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaultCountUnitCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "IngredientPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Ingredient"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MeasurementDimension": {
+        "enum": [
+          "Mass",
+          "Volume",
+          "Count",
+          "Temperature",
+          "Qualitative"
+        ],
+        "type": "string"
+      },
+      "MeasurementSystem": {
+        "enum": [
+          "Neutral",
+          "Metric",
+          "UsCustomary",
+          "Imperial"
+        ],
+        "type": "string"
+      },
+      "MeasurementUnit": {
+        "required": [
+          "id",
+          "code",
+          "displayName",
+          "pluralName",
+          "abbreviation",
+          "dimension",
+          "system",
+          "baseUnitFactor",
+          "displayPrecision"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "pluralName": {
+            "type": "string"
+          },
+          "abbreviation": {
+            "type": "string"
+          },
+          "dimension": {
+            "$ref": "#/components/schemas/MeasurementDimension"
+          },
+          "system": {
+            "$ref": "#/components/schemas/MeasurementSystem"
+          },
+          "baseUnitFactor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "displayPrecision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "MeasurementUnitPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeasurementUnit"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MyWorkspaceMembership": {
         "required": [
           "workspaceId",
           "workspaceSlug",
@@ -690,7 +1588,7 @@
           }
         }
       },
-      "PasswordServiceModel": {
+      "Password": {
         "required": [
           "status"
         ],
@@ -749,7 +1647,48 @@
           }
         }
       },
-      "RegisterUserViewModel": {
+      "ReferenceEntry": {
+        "required": [
+          "id",
+          "code",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        }
+      },
+      "ReferenceEntryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceEntry"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RegisterUser": {
         "type": "object",
         "properties": {
           "email": {
@@ -763,7 +1702,7 @@
           }
         }
       },
-      "RegistrationServiceModel": {
+      "Registration": {
         "required": [
           "status"
         ],
@@ -774,7 +1713,7 @@
           }
         }
       },
-      "RequestPasswordResetViewModel": {
+      "RequestPasswordReset": {
         "type": "object",
         "properties": {
           "email": {
@@ -782,7 +1721,7 @@
           }
         }
       },
-      "UpdateWorkspaceViewModel": {
+      "UpdateWorkspace": {
         "required": [
           "name"
         ],
@@ -851,13 +1790,7 @@
           }
         }
       },
-      "WorkspaceMembershipStatus": {
-        "type": "integer"
-      },
-      "WorkspaceRole": {
-        "type": "integer"
-      },
-      "WorkspaceServiceModel": {
+      "Workspace": {
         "required": [
           "workspaceId",
           "name",
@@ -890,6 +1823,23 @@
             "$ref": "#/components/schemas/WorkspaceRole"
           }
         }
+      },
+      "WorkspaceMembershipStatus": {
+        "enum": [
+          "Invited",
+          "Active",
+          "Removed"
+        ],
+        "type": "string"
+      },
+      "WorkspaceRole": {
+        "enum": [
+          "Viewer",
+          "Contributor",
+          "Editor",
+          "Owner"
+        ],
+        "type": "string"
       }
     },
     "parameters": {
@@ -916,7 +1866,7 @@
       "Cursor": {
         "name": "cursor",
         "in": "query",
-        "description": "Opaque cursor from a previous page\u0027s \u0060nextCursor\u0060. Omit for the first page.",
+        "description": "Opaque cursor from a previous page\u0027s \u0060nextCursor\u0060. Omit for the first page. Valid only for the same resource and the same filters that produced it; changing a filter mid-page means starting again without a cursor.",
         "schema": {
           "type": "string"
         }
@@ -924,7 +1874,7 @@
       "Limit": {
         "name": "limit",
         "in": "query",
-        "description": "Maximum items per page.",
+        "description": "Maximum items per page. Values outside 1-100 are clamped to the nearest bound, not rejected.",
         "schema": {
           "maximum": 100,
           "minimum": 1,
@@ -974,6 +1924,9 @@
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "Reference"
     },
     {
       "name": "Workspaces"

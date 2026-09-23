@@ -1,5 +1,5 @@
 using System.Reflection;
-using CreatorPantry.Domain.Caching;
+using CreatorPantry.Domain.Managers.Caching;
 
 namespace CreatorPantry.Tests.Caching;
 

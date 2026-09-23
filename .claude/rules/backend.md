@@ -6,6 +6,21 @@ Every HTTP feature follows:
 Controller → Facade → Business → DataLayer → Repository | Gateway
 ```
 
+## Module ownership
+
+That seam lives inside a module. `CreatorPantry.Domain` is organized by bounded context —
+`Modules/<Context>/{Facade,Business,Data,Managers}` plus the module's own `ServiceCollectionExtensions` —
+over a shared kernel at `Managers/`. One assembly, one `DbContext`, one migration history.
+
+A module's **Managers** area holds its ViewModels, ServiceModels, domain models, validators and policies.
+That is the only home for those types; a `Models/` or `Validation/` tree at the domain root is a defect.
+
+Cross-module traffic is **facade to facade**. Only three things cross a boundary: the facade interface, the
+ServiceModels it returns, and entity types where a foreign key already crosses. A business class touching
+another module's repositories or data layer, a repository referenced across modules, or another module's
+ViewModels, validators or domain models consumed directly are all defects. The shared kernel may not depend
+on a module, with `CreatorPantryDbContext` the single documented exception.
+
 ## Layer ownership
 
 ### Controller

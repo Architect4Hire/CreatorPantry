@@ -1,6 +1,6 @@
 using Asp.Versioning;
-using CreatorPantry.Domain.Facade.Tenancy;
-using CreatorPantry.Domain.Models.ServiceModels.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 

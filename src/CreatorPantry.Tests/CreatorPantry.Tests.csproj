@@ -6,6 +6,15 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
+    <!--
+      Builds the test executable on Microsoft.Testing.Platform rather than xUnit v3's own in-process
+      console runner, which is what `global.json`'s "test": { "runner": "Microsoft.Testing.Platform" }
+      requires of every test project — the .NET 10 SDK no longer supports the VSTest target at all.
+      Without it the executable does not speak MTP, so test listing, the filter options, TRX
+      output and coverage are all unavailable. The VSTest packages below stay only for IDE test
+      explorers that have not moved to MTP.
+    -->
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>
 
   <ItemGroup>

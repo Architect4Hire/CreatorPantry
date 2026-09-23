@@ -1,5 +1,4 @@
-using CreatorPantry.Domain.Idempotency;
-using CreatorPantry.Domain.Models.Idempotency;
+using CreatorPantry.Domain.Managers.Idempotency;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CreatorPantry.ApiService.Http;

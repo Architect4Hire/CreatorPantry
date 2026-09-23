@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Managers.Persistence;
 
 namespace CreatorPantry.Tests.Tenancy;
 
@@ -129,6 +131,6 @@ public sealed class WorkspaceEndpointIsolationTests : IAsyncLifetime
         var only = Assert.Single(memberships.EnumerateArray());
         Assert.Equal(expectedWorkspaceId, only.GetProperty("workspaceId").GetGuid());
         // Role is currently serialized as its numeric value.
-        Assert.Equal((int)expectedRole, only.GetProperty("role").GetInt32());
+        Assert.Equal(expectedRole.ToString(), only.GetProperty("role").GetString());
     }
 }

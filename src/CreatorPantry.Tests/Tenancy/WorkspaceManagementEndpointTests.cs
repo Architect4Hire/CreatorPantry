@@ -5,8 +5,17 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
-using CreatorPantry.Domain.Data;
-using CreatorPantry.Domain.Tenancy;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.ServiceDefaults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,7 +47,7 @@ public sealed class WorkspaceManagementEndpointTests : IAsyncLifetime
         Assert.Equal("/api/v1/workspaces/sams-kitchen", response.Headers.Location?.ToString());
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("sams-kitchen", body.GetProperty("slug").GetString());
-        Assert.Equal((int)WorkspaceRole.Owner, body.GetProperty("role").GetInt32());
+        Assert.Equal(nameof(WorkspaceRole.Owner), body.GetProperty("role").GetString());
 
         await using var scope = _host.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
@@ -86,7 +95,7 @@ public sealed class WorkspaceManagementEndpointTests : IAsyncLifetime
         var memberships = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var only = Assert.Single(memberships.EnumerateArray());
         Assert.Equal("mine", only.GetProperty("workspaceSlug").GetString());
-        Assert.Equal((int)WorkspaceRole.Owner, only.GetProperty("role").GetInt32());
+        Assert.Equal(nameof(WorkspaceRole.Owner), only.GetProperty("role").GetString());
     }
 
     [Fact]
