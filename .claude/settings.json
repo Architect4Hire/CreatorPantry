@@ -44,7 +44,8 @@
       "Bash(grep -v \"///\")",
       "Bash(grep -vi \"^\\\\S*:.*///\")",
       "Bash(grep -n \"const\\\\|///\")",
-      "Bash(grep -n \"IsNullOrEmpty\\(command.Key\\)\\\\|KeyRequired$\\\\|new IdempotentOutcome<T>\\(await operation\\\\|RollbackAsync\\\\|ChangeTracker.Clear\" IdempotencyBusiness.cs IdempotencyDataLayer.cs)"
+      "Bash(grep -n \"IsNullOrEmpty\\(command.Key\\)\\\\|KeyRequired$\\\\|new IdempotentOutcome<T>\\(await operation\\\\|RollbackAsync\\\\|ChangeTracker.Clear\" IdempotencyBusiness.cs IdempotencyDataLayer.cs)",
+      "Bash(./bin/Debug/net10.0/CreatorPantry.Tests.exe --filter-class \"CreatorPantry.Tests.Gateway.EdgeReviewFixTests\")"
     ],
     "deny": [
       "Bash(git push --force:*)",

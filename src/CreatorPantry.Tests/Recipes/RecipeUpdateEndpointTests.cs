@@ -519,10 +519,12 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         // The same person, the same key, the same operation, two workspaces. If the scope dropped its
         // workspace component this would collide with A's record and be refused as key reuse — or worse,
         // replay A's recipe into B's response.
+        var body = await BodyOf(second);
+
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
         Assert.False(second.Headers.Contains(IdempotencyPolicy.ReplayedHeader));
-        Assert.Equal("B's edit", (await BodyOf(second)).GetProperty("title").GetString());
-        Assert.Equal(inB.RecipeId, (await BodyOf(second)).GetProperty("id").GetGuid());
+        Assert.Equal("B's edit", body.GetProperty("title").GetString());
+        Assert.Equal(inB.RecipeId, body.GetProperty("id").GetGuid());
     }
 
     // ---- Attribution ----
