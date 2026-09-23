@@ -21,15 +21,6 @@ const SECTION_ROUTES: Routes = [
 
 export const routes: Routes = [
   {
-    path: '',
-    canActivate: [authGuard],
-    loadComponent: () => import('./shell/app-shell.component').then((m) => m.AppShellComponent),
-    children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./shell/workspace-gate.component').then((m) => m.WorkspaceGateComponent), data: { title: 'Workspaces' } },
-      { path: ':workspaceSlug', children: SECTION_ROUTES },
-    ],
-  },
-  {
     path: 'sign-in',
     loadComponent: () => import('./features/sign-in/sign-in.component').then((m) => m.SignInComponent),
   },
@@ -44,4 +35,17 @@ export const routes: Routes = [
         },
       ]
     : []),
+  // Must come after every literal top-level path (sign-in, design-system, ...): ':workspaceSlug' below
+  // matches any single segment, so if this route were tried first it would swallow those literal paths
+  // as a workspace slug, send them through authGuard, and redirect back into the same trap — an infinite
+  // navigation loop with no console error, since nothing ever actually throws.
+  {
+    path: '',
+    canActivate: [authGuard],
+    loadComponent: () => import('./shell/app-shell.component').then((m) => m.AppShellComponent),
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./shell/workspace-gate.component').then((m) => m.WorkspaceGateComponent), data: { title: 'Workspaces' } },
+      { path: ':workspaceSlug', children: SECTION_ROUTES },
+    ],
+  },
 ];

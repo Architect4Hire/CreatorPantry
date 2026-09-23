@@ -9,8 +9,12 @@ if (!port) {
   process.exit(1);
 }
 
+// --host '::': ng serve's default host, "localhost", resolves the server to a single address family
+// (observed as IPv6-only on macOS), so a browser whose "localhost" resolves to the other family first
+// can never connect — the page hangs with no error. '::' binds dual-stack (both IPv4 and IPv6) so the
+// server is reachable regardless of which family the browser tries.
 const ng = fileURLToPath(new URL('../node_modules/@angular/cli/bin/ng.js', import.meta.url));
-const child = spawn(process.execPath, [ng, 'serve', '--port', port, '--proxy-config', 'proxy.conf.mjs'], {
+const child = spawn(process.execPath, [ng, 'serve', '--port', port, '--host', '::', '--proxy-config', 'proxy.conf.mjs'], {
   stdio: 'inherit',
 });
 

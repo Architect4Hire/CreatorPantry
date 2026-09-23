@@ -67,9 +67,15 @@ web.WithEnvironment("Client__GatewayUrl", gateway.GetEndpoint("https"));
 // Development only: the Angular dev server, which proxies /runtime-config.json to the web host.
 if (builder.ExecutionContext.IsRunMode)
 {
+    // isProxied: false — the browser talks to vite directly instead of through the DCP proxy.
+    // Vite's dev server needs a WebSocket for HMR/live-reload, and the proxy does not forward
+    // that upgrade correctly, which otherwise stalls the whole page (blank tab, no console error)
+    // since main.js never gets a turn to execute. Going direct also keeps this endpoint's URL —
+    // and therefore the CORS origin below, which is derived from it — pointed at whatever the
+    // browser is actually using.
     var webDev = builder.AddJavaScriptApp("web-dev", "../web", "start")
         .WithNpm()
-        .WithHttpEndpoint(env: "PORT")
+        .WithHttpEndpoint(env: "PORT", isProxied: false)
         .WithReference(web)
         .WaitFor(web);
 
