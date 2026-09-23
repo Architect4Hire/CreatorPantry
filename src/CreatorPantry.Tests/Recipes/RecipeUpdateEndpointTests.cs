@@ -33,17 +33,31 @@ namespace CreatorPantry.Tests.Recipes;
 public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
 {
     private const string ContributorEmail = "contributor-a@example.com";
+
+    /// <summary>
+    /// One person who contributes to both workspaces — the only way to exercise the workspace component of
+    /// the idempotency scope, which is keyed on user, workspace, operation and key together.
+    /// </summary>
+    private const string BothWorkspacesEmail = "contributor-ab@example.com";
+
     private const string Password = "correct horse battery";
 
     private TwoWorkspaceGatewayFixture _fixture = null!;
+
+    private Guid _contributorMembershipId;
 
     public async ValueTask InitializeAsync()
     {
         _fixture = await TwoWorkspaceGatewayFixture.CreateAsync();
 
         // Contributor is the boundary this route turns on, and the shared fixture seeds only Owner plus
-        // Editor in A and Viewer in B.
-        await AddMemberAsync(_fixture.WorkspaceA.Id, ContributorEmail, WorkspaceRole.Contributor);
+        // Editor in A and Viewer in B. Its own documentation says a feature needing another role
+        // combination should add it rather than stretch the fixture every other feature depends on.
+        _contributorMembershipId =
+            (await AddMemberAsync(ContributorEmail, WorkspaceRole.Contributor, _fixture.WorkspaceA.Id))[_fixture.WorkspaceA.Id];
+
+        await AddMemberAsync(
+            BothWorkspacesEmail, WorkspaceRole.Contributor, _fixture.WorkspaceA.Id, _fixture.WorkspaceB.Id);
     }
 
     public ValueTask DisposeAsync() => _fixture.DisposeAsync();
@@ -394,6 +408,39 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         Assert.Equal(0, await CountTagsAsync(_fixture.WorkspaceB.Id, "sourdough"));
     }
 
+    [Fact]
+    public async Task A_tag_the_other_workspace_already_has_is_created_here_rather_than_borrowed()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+
+        // B gets "weeknight" first; A's recipe is seeded with no tags at all, so the lookup A is about to do
+        // can only match B's row — which is precisely the leak worth catching. The sibling test above uses a
+        // name neither workspace has, so it cannot see this.
+        using var ownerB = await _fixture.SignInAsync(_fixture.WorkspaceB.OwnerEmail, cancellationToken: cancellation);
+        await SeedAsync(ownerB, _fixture.WorkspaceB);
+
+        using var ownerA = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: cancellation);
+        var (recipeId, token, _) = await SeedAsync(
+            ownerA, _fixture.WorkspaceA, new { title = "Untagged cake", tags = Array.Empty<string>() });
+
+        Assert.Equal(0, await CountTagsAsync(_fixture.WorkspaceA.Id, "weeknight"));
+        Assert.Equal(1, await CountTagsAsync(_fixture.WorkspaceB.Id, "weeknight"));
+
+        var body = await BodyOf(await ownerA.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceA, recipeId),
+            new { expectedConcurrencyToken = token, tags = new[] { "weeknight" } },
+            cancellation));
+
+        // A row of A's own, and B's vocabulary untouched. Two workspaces holding a "weeknight" each is a
+        // supported state — the unique key is (WorkspaceId, NormalizedName) — and borrowing would link one
+        // creator's recipe to another creator's vocabulary row.
+        Assert.Equal(1, await CountTagsAsync(_fixture.WorkspaceA.Id, "weeknight"));
+        Assert.Equal(1, await CountTagsAsync(_fixture.WorkspaceB.Id, "weeknight"));
+
+        var linkedId = Assert.Single(body.GetProperty("tags").EnumerateArray()).GetProperty("workspaceTagId").GetGuid();
+        Assert.Equal(await TagIdAsync(_fixture.WorkspaceA.Id, "weeknight"), linkedId);
+    }
+
     // ---- Idempotency ----
 
     [Fact]
@@ -448,6 +495,92 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         Assert.Equal(IdempotencyPolicy.KeyReusedCode, (await BodyOf(second)).GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task An_idempotency_key_reaches_only_the_workspace_it_was_used_in()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        using var client = await _fixture.SignInAsync(BothWorkspacesEmail, cancellationToken: cancellation);
+
+        var inA = await SeedAsync(client, _fixture.WorkspaceA);
+        var inB = await SeedAsync(client, _fixture.WorkspaceB);
+
+        await client.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceA, inA.RecipeId),
+            new { expectedConcurrencyToken = inA.Token, title = "A's edit" },
+            "shared-key",
+            cancellation);
+
+        var second = await client.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceB, inB.RecipeId),
+            new { expectedConcurrencyToken = inB.Token, title = "B's edit" },
+            "shared-key",
+            cancellation);
+
+        // The same person, the same key, the same operation, two workspaces. If the scope dropped its
+        // workspace component this would collide with A's record and be refused as key reuse — or worse,
+        // replay A's recipe into B's response.
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.False(second.Headers.Contains(IdempotencyPolicy.ReplayedHeader));
+        Assert.Equal("B's edit", (await BodyOf(second)).GetProperty("title").GetString());
+        Assert.Equal(inB.RecipeId, (await BodyOf(second)).GetProperty("id").GetGuid());
+    }
+
+    // ---- Attribution ----
+
+    [Fact]
+    public async Task The_version_records_who_made_the_edit_not_who_made_the_recipe()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+
+        using var owner = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: cancellation);
+        var (recipeId, token, _) = await SeedAsync(owner, _fixture.WorkspaceA);
+
+        using var contributor = await _fixture.SignInAsync(ContributorEmail, cancellationToken: cancellation);
+        await contributor.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceA, recipeId),
+            new { expectedConcurrencyToken = token, title = "Someone else's edit" },
+            cancellation);
+
+        // Read from the database, because the wire deliberately withholds authorship — and attribution that
+        // is wrong in an immutable archive cannot be corrected later.
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var versions = await db.RecipeVersions
+            .IgnoreQueryFilters()
+            .Where(version => version.RecipeId == recipeId)
+            .OrderBy(version => version.VersionNumber)
+            .Select(version => new { version.VersionNumber, version.CreatedByMembershipId })
+            .ToListAsync(cancellation);
+
+        var recipe = await db.Recipes
+            .IgnoreQueryFilters()
+            .Where(candidate => candidate.Id == recipeId)
+            .Select(candidate => new { candidate.CreatedByMembershipId, candidate.UpdatedByMembershipId })
+            .SingleAsync(cancellation);
+
+        Assert.Equal(2, versions.Count);
+        Assert.Equal(_contributorMembershipId, versions[1].CreatedByMembershipId);
+        Assert.Equal(_contributorMembershipId, recipe.UpdatedByMembershipId);
+
+        // Authorship of the recipe itself is not rewritten by someone else's edit, and version 1 still names
+        // the creator who wrote it.
+        Assert.Equal(versions[0].CreatedByMembershipId, recipe.CreatedByMembershipId);
+        Assert.NotEqual(_contributorMembershipId, recipe.CreatedByMembershipId);
+    }
+
+    private async Task<Guid> TagIdAsync(Guid workspaceId, string normalizedName)
+    {
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        return await db.WorkspaceTags
+            .IgnoreQueryFilters()
+            .Where(tag => tag.WorkspaceId == workspaceId && tag.NormalizedName == normalizedName)
+            .Select(tag => tag.Id)
+            .SingleAsync(TestContext.Current.CancellationToken);
+    }
+
     private async Task<int> CountTagsAsync(Guid workspaceId, string normalizedName)
     {
         await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
@@ -462,23 +595,32 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
                 TestContext.Current.CancellationToken);
     }
 
-    private async Task AddMemberAsync(Guid workspaceId, string email, WorkspaceRole role)
+    /// <summary>Creates one user and gives them the same role in each named workspace.</summary>
+    /// <returns>The membership id per workspace — which is the identity a version records, not the user id.</returns>
+    private async Task<IReadOnlyDictionary<Guid, Guid>> AddMemberAsync(
+        string email, WorkspaceRole role, params Guid[] workspaceIds)
     {
         var userId = await _fixture.Api.CreateUserAsync(email, Password);
+        var memberships = workspaceIds.ToDictionary(workspaceId => workspaceId, _ => Guid.NewGuid());
 
         await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
 
-        db.WorkspaceMemberships.Add(new WorkspaceMembership
+        foreach (var (workspaceId, membershipId) in memberships)
         {
-            Id = Guid.NewGuid(),
-            WorkspaceId = workspaceId,
-            UserId = userId,
-            Role = role,
-            Status = WorkspaceMembershipStatus.Active,
-            JoinedAt = DateTimeOffset.UtcNow,
-        });
+            db.WorkspaceMemberships.Add(new WorkspaceMembership
+            {
+                Id = membershipId,
+                WorkspaceId = workspaceId,
+                UserId = userId,
+                Role = role,
+                Status = WorkspaceMembershipStatus.Active,
+                JoinedAt = DateTimeOffset.UtcNow,
+            });
+        }
 
         await db.SaveChangesAsync();
+
+        return memberships;
     }
 }

@@ -49,6 +49,58 @@ public sealed class OpenApiContractTests : IDisposable
             definition["enum"]!.AsArray().Select(value => value!.GetValue<string>()));
     }
 
+    /// <summary>
+    /// A patch field is published as the plain field it is on the wire, never as the C# struct that carries
+    /// its three states.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The snapshot would catch a regression too, but only as an unexplained diff — and an unexplained diff
+    /// is exactly the kind that gets re-baselined with <c>UPDATE_OPENAPI_SNAPSHOT=1</c> without anyone
+    /// reading it. This says what must not appear and why.
+    /// </para>
+    /// <para>
+    /// If <c>PatchField&lt;T&gt;</c> ever leaked, every editable field would be documented as an object with
+    /// <c>isSubmitted</c> and <c>value</c> members that no request has ever contained, and a generated
+    /// client would faithfully send them.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task No_schema_publishes_the_patch_field_wrapper()
+    {
+        var document = await GetDocumentAsync();
+
+        var leaked = document["components"]!["schemas"]!.AsObject()
+            .Where(schema => schema.Value?["properties"]?["isSubmitted"] is not null)
+            .Select(schema => schema.Key)
+            .ToList();
+
+        Assert.Empty(leaked);
+    }
+
+    /// <summary>
+    /// The patch route says on the document what its semantics are, because the document is what a consumer
+    /// reads.
+    /// </summary>
+    /// <remarks>
+    /// Without it, a body whose every property is optional and nullable reads like a replacement — where
+    /// omitting a field blanks it. That is the most damaging misreading available and it is the document's
+    /// default one, so the three states have to be stated where a client will see them rather than only in
+    /// the C# that produced them.
+    /// </remarks>
+    [Fact]
+    public async Task The_recipe_patch_operation_documents_its_merge_semantics()
+    {
+        var document = await GetDocumentAsync();
+        var operation = document["paths"]!["/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}"]!["patch"]!;
+        var description = operation["description"]!.GetValue<string>();
+
+        // Substrings chosen not to span the XML doc's own line wrapping, which survives into the document.
+        Assert.Contains("JSON Merge Patch, not a replacement", description, StringComparison.Ordinal);
+        Assert.Contains("a field sent as `null` is cleared", description, StringComparison.Ordinal);
+        Assert.Contains("expectedConcurrencyToken", description, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task V1_document_matches_the_reviewed_snapshot()
     {

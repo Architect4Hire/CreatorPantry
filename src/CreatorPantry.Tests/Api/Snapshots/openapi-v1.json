@@ -562,7 +562,7 @@
           "Recipes"
         ],
         "summary": "Changes part of one recipe and returns it as it now stands.",
-        "description": "Returns the whole recipe rather than only what changed, so an editor can rebind from the response: it\ncarries the refreshed concurrency token the next edit must quote, and the version this one wrote.",
+        "description": "This is a JSON Merge Patch, not a replacement. A field the body does not mention is left exactly as\nit is; a field sent with a value is set to it; a field sent as \u0060null\u0060 is cleared. Omitting a field\nnever blanks it. \u0060tags\u0060 is the one field that replaces rather than merges \u2014 a submitted list becomes\nthe recipe\u0027s complete set, and \u0060[]\u0060 or \u0060null\u0060 removes them all. \u0060title\u0060 and \u0060status\u0060 may be changed\nbut not cleared. \u0060expectedConcurrencyToken\u0060 is required and is not a field of the recipe: it is the\n\u0060concurrencyToken\u0060 from the read this edit was composed against, and an edit quoting a token the\nrecipe has moved past is refused with \u0060409 recipes.recipe.conflict\u0060 rather than overwriting whoever\nsaved first. \u0060reason\u0060 is likewise not a recipe field; it is recorded on the version this edit writes.\nAn edit that would change nothing writes no version and leaves the token valid. The response is the\nwhole recipe, in the same shape a read returns, so an editor can rebind from it: it carries the\nrefreshed token the next edit must quote, and the version this one wrote.",
         "parameters": [
           {
             "name": "workspaceSlug",

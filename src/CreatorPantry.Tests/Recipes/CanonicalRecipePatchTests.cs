@@ -155,6 +155,18 @@ public sealed class CanonicalRecipePatchTests
     }
 
     [Fact]
+    public void A_status_submitted_as_null_stays_null()
+    {
+        var patch = CanonicalRecipePatch.From(Empty() with { Status = Set<SettableRecipeStatusViewModel?>(null) });
+
+        // Not folded into Draft, unlike a create's omitted status. A submitted null is a request to clear,
+        // which Business refuses — and resolving it here would turn that refusal into a silent
+        // un-archiving for any caller that reached Business without the validator.
+        Assert.True(patch.Status.IsSubmitted);
+        Assert.Null(patch.Status.Value);
+    }
+
+    [Fact]
     public void An_unsubmitted_status_stays_unsubmitted()
     {
         // Unlike a create, where an omitted status resolves to Draft. Here an omission means "leave it", and

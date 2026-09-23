@@ -211,6 +211,119 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
     }
 
     [Fact]
+    public async Task The_edited_aggregate_carries_the_token_the_save_generated()
+    {
+        var created = await CreateAsync("Olive oil cake");
+
+        await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
+        var readWith = loaded.Recipe.Recipe.RowVersion;
+
+        loaded.Recipe.Recipe.Title = "Lemon olive oil cake";
+        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken);
+
+        await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var stored = await Repository(readScope).GetCompleteAsync(created.RecipeId, TestContext.Current.CancellationToken);
+
+        // The instance the response is mapped from, not a re-read. Business answers an edit from this very
+        // aggregate, so if EF ever stopped writing the generated token back onto it, every client following
+        // the documented rebind flow would be refused on its next save — and nothing else in the suite would
+        // notice, because SQLite never moves the token at all.
+        Assert.NotEqual(readWith, loaded.Recipe.Recipe.RowVersion);
+        Assert.Equal(stored!.Recipe.RowVersion, loaded.Recipe.Recipe.RowVersion);
+    }
+
+    [Fact]
+    public async Task A_second_edit_chains_onto_the_first()
+    {
+        var created = await CreateAsync("First");
+
+        await using var firstScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var first = await LoadForUpdateAsync(firstScope, created.RecipeId);
+        var firstToken = first.Recipe.Recipe.RowVersion;
+        first.Recipe.Recipe.Title = "Second";
+        var second = await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, TestContext.Current.CancellationToken);
+
+        await using var secondScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var reloaded = await LoadForUpdateAsync(secondScope, created.RecipeId);
+        var secondToken = reloaded.Recipe.Recipe.RowVersion;
+        reloaded.Recipe.Recipe.Title = "Third";
+        var third = await DataLayer(secondScope).UpdateAsync(reloaded, NextVersion, null, TestContext.Current.CancellationToken);
+
+        // Numbering and lineage were only ever proven for the 1 → 2 step, which is the step where the parent
+        // happens to be version 1 and "one past what we read" happens to be 2.
+        Assert.Equal(3, third.Version!.VersionNumber);
+        Assert.Equal(second.Version!.Id, third.Version.ParentVersionId);
+        Assert.Equal(secondToken, third.Version.BasedOnRecipeRowVersion);
+        Assert.NotEqual(firstToken, secondToken);
+    }
+
+    [Fact]
+    public async Task A_failure_that_is_not_a_conflict_is_not_reported_as_one()
+    {
+        var created = await CreateAsync("Olive oil cake");
+
+        await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
+        loaded.Recipe.Recipe.Title = "Never landed";
+
+        // AiProposalAccepted with no proposal id violates CK_RecipeVersions_Proposal_Source — a genuine
+        // integrity failure, raised by the engine as an ordinary DbUpdateException, with the recipe row
+        // untouched. It must not be swallowed: a creator told "this recipe has changed since you opened it"
+        // about a recipe nobody else is touching has no way out and nothing anyone can act on.
+        var doomed = new RecipeVersionFacts(RecipeVersionSource.AiProposalAccepted, RecipeVersionReadiness.Draft, null);
+
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => DataLayer(scope).UpdateAsync(loaded, doomed, null, TestContext.Current.CancellationToken));
+
+        await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var reread = await Repository(readScope).GetCompleteAsync(created.RecipeId, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Olive oil cake", reread!.Recipe.Title);
+        Assert.Equal(1, reread.CurrentVersion!.VersionNumber);
+    }
+
+    [Fact]
+    public async Task A_conflicted_edit_leaves_nothing_staged_on_the_context()
+    {
+        var created = await CreateAsync("Contested cake");
+
+        await using var firstScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        await using var secondScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+
+        var first = await LoadForUpdateAsync(firstScope, created.RecipeId);
+        var second = await LoadForUpdateAsync(secondScope, created.RecipeId);
+
+        first.Recipe.Recipe.Title = "First writer wins";
+        await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, TestContext.Current.CancellationToken);
+
+        second.Recipe.Recipe.Title = "Second writer loses";
+        second.Recipe.Recipe.Headnote = "And this must not survive either.";
+        var loser = await DataLayer(secondScope).UpdateAsync(
+            second, NextVersion, [new RecipeTagName("Citrus", "citrus")], TestContext.Current.CancellationToken);
+
+        Assert.True(loser.Conflicted);
+
+        // "Nothing was written" has to be true of the context too, not only of the database. A refused edit
+        // left staged would be committed by the next SaveChanges on this scope — an audit row, an outbox
+        // message, anything — and the recipe would change with no version recording it.
+        var db = SqlServerRecipeFixture.Db(secondScope);
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), entry => entry.State != EntityState.Detached);
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var reread = await DataLayer(readScope).GetDetailAsync(created.RecipeId, TestContext.Current.CancellationToken);
+
+        Assert.Equal("First writer wins", reread!.Recipe.Recipe.Title);
+        Assert.Equal("Weeknight", Assert.Single(reread.Tags).Name);
+        Assert.Equal(
+            0,
+            await SqlServerRecipeFixture.Db(readScope).WorkspaceTags
+                .CountAsync(tag => tag.NormalizedName == "citrus", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task The_new_version_records_the_content_the_edit_produced()
     {
         var created = await CreateAsync("Before");

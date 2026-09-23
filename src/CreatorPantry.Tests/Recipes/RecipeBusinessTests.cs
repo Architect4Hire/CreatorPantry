@@ -590,6 +590,23 @@ public sealed class RecipeBusinessTests
     }
 
     [Fact]
+    public async Task A_status_submitted_as_null_is_refused_rather_than_read_as_draft()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await UpdateAsync(recipe, Edit() with { Status = Set<SettableRecipeStatusViewModel?>(null) });
+
+        // The validator refuses this too, so nothing reaches here over HTTP. The guard is for the callers no
+        // MVC pipeline protects — a worker, an AI plugin, a future facade overload — where the alternative is
+        // an archived recipe quietly reappearing in the working set as an ordinary-looking creator edit.
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeInvalidRequest, result.Error!.Code);
+        Assert.Contains("status", result.Error.FieldErrors.Keys);
+        Assert.Equal(RecipeStatus.Archived, recipe.Status);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    [Fact]
     public async Task An_unsubmitted_status_leaves_an_archived_recipe_archived()
     {
         var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
