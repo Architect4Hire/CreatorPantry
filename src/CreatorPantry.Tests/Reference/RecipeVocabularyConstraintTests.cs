@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using System.Text.RegularExpressions;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
@@ -137,7 +138,7 @@ public sealed class RecipeVocabularyConstraintTests : IDisposable
     /// <remarks>
     /// Exact duplicates only. Whether <c>Italian</c> collides with <c>italian</c> depends on collation —
     /// SQL Server's default is case-insensitive, SQLite's index is not — so codes are held lowercase by
-    /// <see cref="VocabularyPolicy.CodePattern"/> rather than by asserting provider-specific behavior here.
+    /// <see cref="CodeFormat.CodePattern"/> rather than by asserting provider-specific behavior here.
     /// </remarks>
     [Fact]
     public Task Two_cuisines_cannot_share_a_code() => AssertCodeIsUniqueAsync<Cuisine>("italian", "Cuisines.Code");
@@ -170,7 +171,7 @@ public sealed class RecipeVocabularyConstraintTests : IDisposable
     [InlineData("café", false)]
     [InlineData("", false)]
     public void Code_pattern_admits_only_stable_keys(string code, bool expected) =>
-        Assert.Equal(expected, Regex.IsMatch(code, VocabularyPolicy.CodePattern));
+        Assert.Equal(expected, Regex.IsMatch(code, CodeFormat.CodePattern));
 
     /// <summary>
     /// A retired entry keeps its key and stays readable. Recipes that already reference it must keep

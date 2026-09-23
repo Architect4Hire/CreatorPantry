@@ -16,7 +16,7 @@ namespace CreatorPantry.Domain.Managers.Persistence;
 /// <summary>The single DbContext for the modular monolith.</summary>
 /// <param name="workspaceContext">
 /// Optional: unavailable outside a request/operation scope (migrations, unrelated hosts). Every
-/// <see cref="Tenancy.IWorkspaceOwned"/> entity is filtered by it via <see cref="WorkspaceOwnershipConvention"/>.
+/// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/> entity is filtered by it via <see cref="WorkspaceOwnershipConvention"/>.
 /// </param>
 public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> options, IWorkspaceContext? workspaceContext = null)
     : IdentityDbContext<ApplicationUser, IdentityRole, string>(options), IWorkspaceIdSource
@@ -31,7 +31,7 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <remarks>
     /// Unfiltered before a workspace is resolved (see <see cref="WorkspaceMembership"/>'s remarks) — a
     /// query here before resolution must supply its own explicit <c>WorkspaceId</c>/<c>UserId</c>
-    /// predicate, the way <see cref="Repositories.WorkspaceRepository"/> does, or it reads every workspace.
+    /// predicate, the way <see cref="CreatorPantry.Domain.Modules.Tenancy.Data.WorkspaceRepository"/> does, or it reads every workspace.
     /// </remarks>
     public DbSet<WorkspaceMembership> WorkspaceMemberships => Set<WorkspaceMembership>();
 
@@ -41,7 +41,7 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
 
     /// <remarks>
     /// Platform reference data (tenancy.md): shared across every workspace, so it is deliberately not
-    /// <see cref="Tenancy.IWorkspaceOwned"/> and carries no query filter. Unlike a workspace-owned set, this
+    /// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/> and carries no query filter. Unlike a workspace-owned set, this
     /// one is readable before a workspace is resolved.
     /// </remarks>
     public DbSet<MeasurementUnit> MeasurementUnits => Set<MeasurementUnit>();

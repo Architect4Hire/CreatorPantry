@@ -1,9 +1,10 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
 /// <summary>
 /// The shape every controlled vocabulary in the platform catalogue shares: a permanent machine key, a name
 /// to show, and whether it is still offered. Global reference data: no <c>WorkspaceId</c>, not
-/// <see cref="Tenancy.IWorkspaceOwned"/>, readable before a workspace is resolved (tenancy.md).
+/// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, readable before a workspace is resolved (tenancy.md).
 /// </summary>
 /// <remarks>
 /// <para>

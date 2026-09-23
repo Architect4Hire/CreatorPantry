@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace CreatorPantry.Domain.Managers.Persistence;
 
 /// <summary>
-/// Stamps <see cref="IWorkspaceOwned.WorkspaceId"/> on added workspace-owned entities from the resolved
-/// <see cref="IWorkspaceContext"/> and rejects writes that would let ownership be set or moved from
+/// Stamps <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned.WorkspaceId"/> on added workspace-owned entities from the resolved
+/// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceContext"/> and rejects writes that would let ownership be set or moved from
 /// feature code: an insert that already carries a different workspace's id, or an update that changes
 /// WorkspaceId at all. Feature Business code must never assign WorkspaceId itself (tenancy.md); this is
 /// the one place it is set or protected, mirroring how <see cref="WorkspaceOwnershipConvention"/> is the

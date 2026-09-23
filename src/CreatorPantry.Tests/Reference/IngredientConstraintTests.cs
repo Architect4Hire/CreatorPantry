@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -358,7 +359,7 @@ public sealed class IngredientConstraintTests : IDisposable
     [InlineData("2% Milk", "2 milk")]
     [InlineData("---", "")]
     public void Normalizing_a_name_folds_case_diacritics_and_punctuation(string name, string expected) =>
-        Assert.Equal(expected, IngredientPolicy.NormalizeName(name));
+        Assert.Equal(expected, NameNormalization.NormalizeName(name));
 
     /// <summary>
     /// Plurals are alias rows, not a stemming rule. Normalization must leave them distinct so the alias table
@@ -366,23 +367,23 @@ public sealed class IngredientConstraintTests : IDisposable
     /// </summary>
     [Fact]
     public void Normalizing_a_name_does_not_singularize() =>
-        Assert.NotEqual(IngredientPolicy.NormalizeName("egg"), IngredientPolicy.NormalizeName("eggs"));
+        Assert.NotEqual(NameNormalization.NormalizeName("egg"), NameNormalization.NormalizeName("eggs"));
 
     /// <summary>Phrases, not a bag of words: reordering would stop "cream cheese" matching.</summary>
     [Fact]
     public void Search_text_preserves_whole_phrases()
     {
-        var searchText = IngredientPolicy.BuildSearchText("cream cheese", ["soft cheese"]);
+        var searchText = NameNormalization.BuildSearchText("cream cheese", ["soft cheese"]);
 
-        Assert.Equal($"cream cheese{IngredientPolicy.SearchTextSeparator}soft cheese", searchText);
+        Assert.Equal($"cream cheese{NameNormalization.SearchTextSeparator}soft cheese", searchText);
     }
 
     [Fact]
     public void Search_text_drops_duplicate_and_empty_phrases()
     {
-        var searchText = IngredientPolicy.BuildSearchText("cornstarch", ["cornstarch", "", "  ", "corn flour"]);
+        var searchText = NameNormalization.BuildSearchText("cornstarch", ["cornstarch", "", "  ", "corn flour"]);
 
-        Assert.Equal($"cornstarch{IngredientPolicy.SearchTextSeparator}corn flour", searchText);
+        Assert.Equal($"cornstarch{NameNormalization.SearchTextSeparator}corn flour", searchText);
     }
 
     /// <summary>
@@ -392,8 +393,8 @@ public sealed class IngredientConstraintTests : IDisposable
     [Fact]
     public void Search_text_does_not_depend_on_alias_order() =>
         Assert.Equal(
-            IngredientPolicy.BuildSearchText("cornstarch", ["corn starch", "corn flour", "cornflour"]),
-            IngredientPolicy.BuildSearchText("cornstarch", ["cornflour", "corn starch", "corn flour"]));
+            NameNormalization.BuildSearchText("cornstarch", ["corn starch", "corn flour", "cornflour"]),
+            NameNormalization.BuildSearchText("cornstarch", ["cornflour", "corn starch", "corn flour"]));
 
     /// <summary>Truncating mid-phrase could match something the ingredient is not, so it stops at a boundary.</summary>
     [Fact]
@@ -401,11 +402,11 @@ public sealed class IngredientConstraintTests : IDisposable
     {
         var aliases = Enumerable.Range(0, 200).Select(index => $"alias number {index}").ToArray();
 
-        var searchText = IngredientPolicy.BuildSearchText("cornstarch", aliases);
+        var searchText = NameNormalization.BuildSearchText("cornstarch", aliases);
 
-        Assert.True(searchText.Length <= IngredientPolicy.SearchTextMaxLength);
-        Assert.DoesNotContain($"{IngredientPolicy.SearchTextSeparator}alias number", searchText.Split(IngredientPolicy.SearchTextSeparator)[^1]);
-        Assert.All(searchText.Split(IngredientPolicy.SearchTextSeparator), phrase => Assert.Contains(phrase, aliases.Append("cornstarch")));
+        Assert.True(searchText.Length <= NameNormalization.SearchTextMaxLength);
+        Assert.DoesNotContain($"{NameNormalization.SearchTextSeparator}alias number", searchText.Split(NameNormalization.SearchTextSeparator)[^1]);
+        Assert.All(searchText.Split(NameNormalization.SearchTextSeparator), phrase => Assert.Contains(phrase, aliases.Append("cornstarch")));
     }
 
     /// <summary>
@@ -429,21 +430,21 @@ public sealed class IngredientConstraintTests : IDisposable
             .Select(alias => alias.NormalizedAlias)
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(IngredientPolicy.BuildSearchText(saved.NormalizedName, aliases), saved.SearchText);
+        Assert.Equal(NameNormalization.BuildSearchText(saved.NormalizedName, aliases), saved.SearchText);
     }
 
     // --- Helpers ----------------------------------------------------------------------------------------
 
     private static Ingredient NewIngredient(string canonicalName, params string[] aliases)
     {
-        var normalizedName = IngredientPolicy.NormalizeName(canonicalName);
+        var normalizedName = NameNormalization.NormalizeName(canonicalName);
 
         return new Ingredient
         {
             Id = Guid.NewGuid(),
             CanonicalName = canonicalName,
             NormalizedName = normalizedName,
-            SearchText = IngredientPolicy.BuildSearchText(normalizedName, aliases.Select(IngredientPolicy.NormalizeName)),
+            SearchText = NameNormalization.BuildSearchText(normalizedName, aliases.Select(NameNormalization.NormalizeName)),
             IsActive = true,
         };
     }
@@ -453,7 +454,7 @@ public sealed class IngredientConstraintTests : IDisposable
         Id = Guid.NewGuid(),
         IngredientId = ingredientId,
         Alias = alias,
-        NormalizedAlias = IngredientPolicy.NormalizeName(alias),
+        NormalizedAlias = NameNormalization.NormalizeName(alias),
     };
 
     private static FoodCategory NewCategory(string code) => new()

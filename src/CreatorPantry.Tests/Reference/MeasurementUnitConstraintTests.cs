@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -67,7 +68,7 @@ public sealed class MeasurementUnitConstraintTests : IDisposable
     /// <remarks>
     /// Exact duplicates only. Whether <c>G</c> collides with <c>g</c> depends on collation — SQL Server's
     /// default is case-insensitive, SQLite's index is not — so codes are held lowercase by
-    /// <see cref="MeasurementPolicy.CodePattern"/> rather than by asserting provider-specific behavior here.
+    /// <see cref="CodeFormat.CodePattern"/> rather than by asserting provider-specific behavior here.
     /// </remarks>
     [Fact]
     public async Task Two_units_cannot_share_a_code()
@@ -216,8 +217,8 @@ public sealed class MeasurementUnitConstraintTests : IDisposable
     }
 
     [Theory]
-    [InlineData(MeasurementPolicy.MinDisplayPrecision - 1)]
-    [InlineData(MeasurementPolicy.MaxDisplayPrecision + 1)]
+    [InlineData(QuantityFormat.MinDisplayPrecision - 1)]
+    [InlineData(QuantityFormat.MaxDisplayPrecision + 1)]
     public async Task Display_precision_outside_the_allowed_range_is_rejected(int displayPrecision)
     {
         await using var scope = _services.CreateScope();

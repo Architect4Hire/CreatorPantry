@@ -1,7 +1,8 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
-/// What kind of authority a <see cref="Data.ReferenceSource"/> is. This is the difference between a vetted
+/// What kind of authority a <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource"/> is. This is the difference between a vetted
 /// measurement and a guess, so it is recorded rather than inferred: reference facts must surface their
 /// provenance and uncertainty instead of presenting every value as equally settled (recipes.md, ai.md).
 /// </summary>

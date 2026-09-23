@@ -1,4 +1,5 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Measurement.Managers;
 
 /// <summary>
 /// Limits and invariants for the global measurement vocabulary, shared by EF configuration, seed data, and
@@ -8,31 +9,25 @@ namespace CreatorPantry.Domain.Managers.Reference;
 public static class MeasurementPolicy
 {
     /// <summary>Stable machine key, e.g. <c>g</c>, <c>ml</c>, <c>tsp</c>, <c>floz-us</c>, <c>each</c>.</summary>
-    public const int CodeMaxLength = 32;
 
     /// <summary>Lowercase alphanumeric segments joined by single hyphens; no leading, trailing, or doubled hyphen.</summary>
-    public const string CodePattern = "^[a-z0-9]+(-[a-z0-9]+)*$";
 
-    public const int DisplayNameMaxLength = 64;
 
     public const int AbbreviationMaxLength = 16;
 
     public const int AliasMaxLength = 64;
 
-    /// <summary>Decimal places allowed for <see cref="Data.MeasurementUnit.DisplayPrecision"/>.</summary>
-    public const int MinDisplayPrecision = 0;
+    /// <summary>Decimal places allowed for <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit.DisplayPrecision"/>.</summary>
 
-    /// <inheritdoc cref="MinDisplayPrecision"/>
-    public const int MaxDisplayPrecision = 6;
+    /// <inheritdoc cref="QuantityFormat.MinDisplayPrecision"/>
 
     /// <summary>
-    /// SQL precision and scale for <see cref="Data.MeasurementUnit.BaseUnitFactor"/>. Twelve decimal places
+    /// SQL precision and scale for <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit.BaseUnitFactor"/>. Twelve decimal places
     /// hold the smallest factors in use exactly enough for recipe arithmetic, and the integral range covers
     /// the largest (a US gallon is 3785.411784 ml).
     /// </summary>
-    public const string BaseUnitFactorColumnType = "decimal(28, 12)";
 
-    /// <summary>The <see cref="Data.MeasurementUnit.Code"/> every factor in a dimension is expressed against.</summary>
+    /// <summary>The <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit.Code"/> every factor in a dimension is expressed against.</summary>
     /// <returns>The base unit's code, or <c>null</c> for dimensions that have no multiplicative base.</returns>
     public static string? BaseUnitCode(MeasurementDimension dimension) => dimension switch
     {
@@ -43,7 +38,7 @@ public static class MeasurementPolicy
     };
 
     /// <summary>
-    /// Whether a dimension's units carry a <see cref="Data.MeasurementUnit.BaseUnitFactor"/>. False for
+    /// Whether a dimension's units carry a <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit.BaseUnitFactor"/>. False for
     /// <see cref="MeasurementDimension.Temperature"/> (affine, not multiplicative) and
     /// <see cref="MeasurementDimension.Qualitative"/> (no numeric relationship at all).
     /// </summary>
@@ -95,7 +90,7 @@ public static class MeasurementPolicy
     /// <para>
     /// <strong>Across dimensions</strong>, always false. Mass and volume are bridged only by an ingredient's
     /// own cited density, which is a different operation with a different input and lives in
-    /// <see cref="Data.IngredientDensityReference"/>. Temperature is affine and has no factor at all.
+    /// <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDensityReference"/>. Temperature is affine and has no factor at all.
     /// </para>
     /// <para>
     /// <strong>Between two different count nouns</strong>, also false, and this is the one the type system

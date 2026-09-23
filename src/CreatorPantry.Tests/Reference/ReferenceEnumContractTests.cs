@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using System.Reflection;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;

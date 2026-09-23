@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Measurement.Seeding;
 using CreatorPantry.Domain.Modules.Vocabulary.Seeding;
 using CreatorPantry.Domain.Managers.Reference;
@@ -53,7 +54,7 @@ internal static class SampleIngredientSeedData
     private static Guid SourceId => SeedId.For(SourceTable, SourceCode);
 
     private static Guid IngredientId(string canonicalName) =>
-        SeedId.For(IngredientTable, IngredientPolicy.NormalizeName(canonicalName));
+        SeedId.For(IngredientTable, NameNormalization.NormalizeName(canonicalName));
 
     public static IReadOnlyList<ReferenceSource> Sources() =>
     [
@@ -75,16 +76,16 @@ internal static class SampleIngredientSeedData
     [
         .. IngredientDefinitions.Select(definition =>
         {
-            var normalizedName = IngredientPolicy.NormalizeName(definition.CanonicalName);
+            var normalizedName = NameNormalization.NormalizeName(definition.CanonicalName);
 
             return new Ingredient
             {
                 Id = IngredientId(definition.CanonicalName),
                 CanonicalName = definition.CanonicalName,
                 NormalizedName = normalizedName,
-                SearchText = IngredientPolicy.BuildSearchText(
+                SearchText = NameNormalization.BuildSearchText(
                     normalizedName,
-                    definition.Aliases.Select(IngredientPolicy.NormalizeName)),
+                    definition.Aliases.Select(NameNormalization.NormalizeName)),
                 FoodCategoryId = CatalogueSeedData.FoodCategoryId(definition.CategoryCode),
                 DefaultCountUnitId = definition.CountUnitCode is null
                     ? null
@@ -101,10 +102,10 @@ internal static class SampleIngredientSeedData
     [
         .. IngredientDefinitions.SelectMany(definition => definition.Aliases.Select(alias => new IngredientAlias
         {
-            Id = SeedId.For(IngredientAliasTable, IngredientPolicy.NormalizeName(alias)),
+            Id = SeedId.For(IngredientAliasTable, NameNormalization.NormalizeName(alias)),
             IngredientId = IngredientId(definition.CanonicalName),
             Alias = alias,
-            NormalizedAlias = IngredientPolicy.NormalizeName(alias),
+            NormalizedAlias = NameNormalization.NormalizeName(alias),
         })),
     ];
 
@@ -114,7 +115,7 @@ internal static class SampleIngredientSeedData
         {
             Id = SeedId.For(
                 DensityTable,
-                IngredientPolicy.NormalizeName(definition.Ingredient),
+                NameNormalization.NormalizeName(definition.Ingredient),
                 DensityPolicy.NormalizeCondition(definition.Condition),
                 SourceCode,
                 EffectiveFrom.ToString("O")),
@@ -141,7 +142,7 @@ internal static class SampleIngredientSeedData
         {
             Id = SeedId.For(
                 DietaryTraitTable,
-                IngredientPolicy.NormalizeName(definition.Ingredient),
+                NameNormalization.NormalizeName(definition.Ingredient),
                 definition.Profile,
                 SourceCode,
                 EffectiveFrom.ToString("O")),
@@ -162,7 +163,7 @@ internal static class SampleIngredientSeedData
         {
             Id = SeedId.For(
                 AllergenTraitTable,
-                IngredientPolicy.NormalizeName(definition.Ingredient),
+                NameNormalization.NormalizeName(definition.Ingredient),
                 definition.Allergen,
                 SourceCode,
                 EffectiveFrom.ToString("O")),
@@ -259,7 +260,7 @@ internal static class SampleIngredientSeedData
     /// <remarks>
     /// <para>
     /// No row here claims an ingredient is <em>compatible</em> with <c>gluten-free</c>, <c>dairy-free</c>, or
-    /// <c>egg-free</c>, and none may be added. <see cref="IngredientDietaryTrait"/> has no counterpart to
+    /// <c>egg-free</c>, and none may be added. <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDietaryTrait"/> has no counterpart to
     /// <c>CK_IngredientAllergenTraits_Absence_RequiresVettedSource</c>, on the stated ground that a community
     /// claim about an ingredient being vegan is an ordinary unvetted fact. That holds for vegan. It does not
     /// hold for the three allergen-adjacent profiles: "gluten-free" from an unvetted source is an

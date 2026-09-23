@@ -1,4 +1,5 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
 /// What a cited source says about one allergen in one ingredient. There is no member meaning safe, free from,

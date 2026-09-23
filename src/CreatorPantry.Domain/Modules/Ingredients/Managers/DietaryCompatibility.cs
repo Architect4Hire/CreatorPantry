@@ -1,7 +1,8 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
-/// What a cited source says about one ingredient's compatibility with one <see cref="Data.DietaryProfile"/>.
+/// What a cited source says about one ingredient's compatibility with one <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.DietaryProfile"/>.
 /// Descriptive metadata about composition — never a statement of medical suitability (recipes.md).
 /// </summary>
 /// <remarks>

@@ -8,7 +8,7 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Data;
 
 /// <summary>
 /// Reads the three reference tables that predate — or deliberately sit outside —
-/// <see cref="ControlledVocabulary"/>: food categories, dietary profiles, and allergens. Global reference
+/// <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.ControlledVocabulary"/>: food categories, dietary profiles, and allergens. Global reference
 /// data; no workspace filter applies.
 /// </summary>
 /// <remarks>

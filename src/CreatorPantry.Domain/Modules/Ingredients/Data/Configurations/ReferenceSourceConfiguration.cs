@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using Microsoft.EntityFrameworkCore;

@@ -1,14 +1,15 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
 /// <summary>
 /// One allergen in the shared vocabulary — milk, egg, peanut, sesame. Global reference data: no
-/// <c>WorkspaceId</c>, not <see cref="Tenancy.IWorkspaceOwned"/>, readable before a workspace is resolved
+/// <c>WorkspaceId</c>, not <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, readable before a workspace is resolved
 /// (tenancy.md).
 /// </summary>
 /// <remarks>
 /// <para>
 /// Names an allergen and nothing more. What any ingredient contains is recorded separately, with evidence and
-/// a cited source, as an <see cref="IngredientAllergenTrait"/>.
+/// a cited source, as an <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAllergenTrait"/>.
 /// </para>
 /// <para>
 /// Deliberately carries no regulatory classification — no <c>IsMajorAllergen</c>, no declaration-list

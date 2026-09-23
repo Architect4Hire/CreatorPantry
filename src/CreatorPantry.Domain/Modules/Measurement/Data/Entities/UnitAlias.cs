@@ -1,9 +1,10 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 
 /// <summary>
-/// A surface form that resolves to one <see cref="MeasurementUnit"/> — "tsp.", "teaspoons", "gramme". Global
+/// A surface form that resolves to one <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit"/> — "tsp.", "teaspoons", "gramme". Global
 /// reference data with no <c>WorkspaceId</c>, like the unit it points at.
 /// </summary>
 /// <remarks>

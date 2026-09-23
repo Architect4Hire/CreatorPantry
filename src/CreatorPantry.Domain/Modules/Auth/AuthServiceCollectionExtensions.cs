@@ -15,7 +15,7 @@ public static class AuthServiceCollectionExtensions
     /// <summary>
     /// Registers Identity user management (no sign-in, cookies, or bearer tokens) and the auth seam.
     /// Requires <see cref="CreatorPantryDbContext"/>, <c>AddApplicationTime</c>, and an
-    /// <see cref="Gateways.AccountMessages.IAccountMessageSender"/> to be registered.
+    /// <see cref="CreatorPantry.Domain.Modules.Auth.Gateways.IAccountMessageSender"/> to be registered.
     /// </summary>
     public static IServiceCollection AddAuthDomain(this IServiceCollection services)
     {

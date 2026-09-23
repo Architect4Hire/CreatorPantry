@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,17 +15,17 @@ internal sealed class DietaryProfileConfiguration : IEntityTypeConfiguration<Die
 
         builder.Property(profile => profile.Code)
             .IsRequired()
-            .HasMaxLength(TraitPolicy.CodeMaxLength);
+            .HasMaxLength(CodeFormat.CodeMaxLength);
 
         builder.Property(profile => profile.DisplayName)
             .IsRequired()
-            .HasMaxLength(TraitPolicy.DisplayNameMaxLength);
+            .HasMaxLength(CodeFormat.DisplayNameMaxLength);
 
         // Required, unlike the display name on any other vocabulary: traits recorded against an undefined
         // profile are answering a question nobody has written down.
         builder.Property(profile => profile.Description)
             .IsRequired()
-            .HasMaxLength(TraitPolicy.DescriptionMaxLength);
+            .HasMaxLength(CodeFormat.DescriptionMaxLength);
 
         builder.Property(profile => profile.IsActive)
             .IsRequired();

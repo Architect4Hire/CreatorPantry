@@ -1,10 +1,11 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 
 /// <summary>
 /// Where a shared reference fact came from. Global reference data: no <c>WorkspaceId</c>, not
-/// <see cref="Tenancy.IWorkspaceOwned"/>, readable before a workspace is resolved (tenancy.md).
+/// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, readable before a workspace is resolved (tenancy.md).
 /// </summary>
 /// <remarks>
 /// Introduced for density references, but deliberately general: dietary and allergen evidence, and later

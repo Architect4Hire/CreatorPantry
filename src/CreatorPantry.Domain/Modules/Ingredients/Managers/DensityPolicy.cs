@@ -1,4 +1,5 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
 /// Limits and rules for ingredient density references and the sources that back them. Global reference data:
@@ -16,20 +17,17 @@ public static class DensityPolicy
 
     public const int SourceCitationMaxLength = 512;
 
-    /// <inheritdoc cref="MeasurementPolicy.MinDisplayPrecision"/>
-    public const int MinDisplayPrecision = MeasurementPolicy.MinDisplayPrecision;
+    /// <inheritdoc cref="QuantityFormat.MinDisplayPrecision"/>
 
-    /// <inheritdoc cref="MeasurementPolicy.MaxDisplayPrecision"/>
-    public const int MaxDisplayPrecision = MeasurementPolicy.MaxDisplayPrecision;
+    /// <inheritdoc cref="QuantityFormat.MaxDisplayPrecision"/>
 
     /// <summary>
     /// SQL precision and scale for the recorded mass and volume. Wide enough to store a source's figures at
     /// their own scale, because the ratio is divided at the point of use rather than stored pre-rounded.
     /// </summary>
-    public const string QuantityColumnType = "decimal(28, 12)";
 
     /// <summary>
-    /// The <see cref="Data.IngredientDensityReference.NormalizedCondition"/> for a density that names no
+    /// The <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDensityReference.NormalizedCondition"/> for a density that names no
     /// condition.
     /// </summary>
     /// <remarks>
@@ -45,10 +43,10 @@ public static class DensityPolicy
     /// condition rather than two competing densities.
     /// </summary>
     /// <remarks>
-    /// Uses <see cref="IngredientPolicy.NormalizeName"/>: condition notes are open-ended multi-word phrases
+    /// Uses <see cref="NameNormalization.NormalizeName"/>: condition notes are open-ended multi-word phrases
     /// with the same needs as ingredient names — fold case, diacritics, and punctuation, keep word boundaries.
-    /// Not <see cref="MeasurementPolicy.NormalizeAlias"/>, which removes separators outright and is only safe
+    /// Not <see cref="CreatorPantry.Domain.Modules.Measurement.Managers.MeasurementPolicy.NormalizeAlias"/>, which removes separators outright and is only safe
     /// for short closed-set unit codes.
     /// </remarks>
-    public static string NormalizeCondition(string conditionNote) => IngredientPolicy.NormalizeName(conditionNote);
+    public static string NormalizeCondition(string conditionNote) => NameNormalization.NormalizeName(conditionNote);
 }

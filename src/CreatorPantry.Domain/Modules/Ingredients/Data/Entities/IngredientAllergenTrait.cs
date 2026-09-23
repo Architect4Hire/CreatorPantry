@@ -1,10 +1,11 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 
 /// <summary>
 /// What one cited source says about one allergen in one ingredient, as of one date. Global reference data: no
-/// <c>WorkspaceId</c>, not <see cref="Tenancy.IWorkspaceOwned"/>.
+/// <c>WorkspaceId</c>, not <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -35,7 +36,7 @@ public class IngredientAllergenTrait
     public Guid ReferenceSourceId { get; set; }
 
     /// <summary>
-    /// Always equal to the referenced source's <see cref="ReferenceSource.Kind"/>.
+    /// Always equal to the referenced source's <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource.Kind"/>.
     /// </summary>
     /// <remarks>
     /// Redundant by design, exactly as on <see cref="IngredientDensityReference.ReferenceSourceKind"/>. The

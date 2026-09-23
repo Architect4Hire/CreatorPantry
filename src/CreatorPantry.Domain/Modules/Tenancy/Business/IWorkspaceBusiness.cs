@@ -16,7 +16,7 @@ public interface IWorkspaceBusiness
     Task<OperationResult<WorkspaceServiceModel>> CreateAsync(
         string userId, CreateWorkspaceViewModel model, CancellationToken cancellationToken);
 
-    /// <summary>Reads the workspace already resolved for this scope (<see cref="Tenancy.IWorkspaceContext"/>).</summary>
+    /// <summary>Reads the workspace already resolved for this scope (<see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceContext"/>).</summary>
     Task<WorkspaceServiceModel> GetCurrentAsync(CancellationToken cancellationToken);
 
     /// <summary>Renames the workspace already resolved for this scope.</summary>

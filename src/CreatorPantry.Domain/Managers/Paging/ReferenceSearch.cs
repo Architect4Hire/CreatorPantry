@@ -18,7 +18,7 @@ namespace CreatorPantry.Domain.Managers.Paging;
 /// </remarks>
 /// <param name="Raw">Trimmed and lowercased, for matching display names, plural forms, and codes.</param>
 /// <param name="Normalized">
-/// From <see cref="IngredientPolicy.NormalizeName"/>, for matching the stored alias keys and
-/// <see cref="Data.Ingredient.SearchText"/>.
+/// From <see cref="CreatorPantry.Domain.Managers.Reference.NameNormalization.NormalizeName"/>, for matching the stored alias keys and
+/// <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient.SearchText"/>.
 /// </param>
 public sealed record ReferenceSearch(string Raw, string Normalized);

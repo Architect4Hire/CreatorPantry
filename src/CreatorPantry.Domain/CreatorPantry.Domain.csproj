@@ -4,6 +4,17 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!--
+      This project carries its architectural reasoning in XML doc, so a cref that points at a moved type is
+      real damage. Phase 4A's namespace move broke 98 of them and nothing reported it, because doc generation
+      was off. Generating the file turns CS1574 (unresolved cref) back into a build warning.
+
+      CS1591 and CS1573 are suppressed deliberately: not every public member needs a comment, and partially
+      documented positional records are a house style rather than a defect.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1574</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,11 +1,11 @@
 using Asp.Versioning;
 using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Managers.Paging;
-using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Measurement.Facade;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
-using CreatorPantry.Domain.Modules.Vocabulary;
+using CreatorPantry.Domain.Modules.Vocabulary.Facade;
 using CreatorPantry.Domain.Modules.Vocabulary.Managers;
-using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Ingredients.Facade;
 using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using Microsoft.AspNetCore.Mvc;
 

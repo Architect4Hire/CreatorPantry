@@ -836,11 +836,11 @@ BEHAVIOR: Produce a finding list with file/line evidence, wait for approval, fix
 and confirm pending model changes are clean.
 ```
 
-## Phase 4A — Module-first domain restructure
+## Phase 4A — Module-first domain restructure - Done
 
 > Structural only. This phase moves files and namespaces. It changes no behavior, no schema, no HTTP contract, and no layer seam. Run it before Phase 5 so the reference vertical every later feature copies is built in its final layout.
 
-### 4A.1 Module boundary decision record - see docs/architecture-decisions
+### 4A.1 Module boundary decision record
 
 ```text
 SCOPE: Record the bounded contexts that become top-level modules inside CreatorPantry.Domain, the

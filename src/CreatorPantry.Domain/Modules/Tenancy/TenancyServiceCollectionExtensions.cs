@@ -13,7 +13,7 @@ public static class TenancyServiceCollectionExtensions
     /// <summary>
     /// Registers the request-scoped workspace context and the workspace resolution seam (facade through
     /// repository). No route or middleware calls the resolution facade yet. Requires
-    /// <see cref="Data.CreatorPantryDbContext"/> to be registered.
+    /// <see cref="CreatorPantry.Domain.Managers.Persistence.CreatorPantryDbContext"/> to be registered.
     /// </summary>
     public static IServiceCollection AddTenancy(this IServiceCollection services)
     {

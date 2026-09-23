@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Configurations;
 
 /// <summary>
-/// The mapping every <see cref="ControlledVocabulary"/> shares: its own table, a permanent unique code, a
+/// The mapping every <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.ControlledVocabulary"/> shares: its own table, a permanent unique code, a
 /// required display name, and an active flag.
 /// </summary>
 /// <remarks>
@@ -26,17 +27,17 @@ internal abstract class ControlledVocabularyConfiguration<TVocabulary>(string ta
 
         builder.Property(entry => entry.Code)
             .IsRequired()
-            .HasMaxLength(VocabularyPolicy.CodeMaxLength);
+            .HasMaxLength(CodeFormat.CodeMaxLength);
 
         builder.Property(entry => entry.DisplayName)
             .IsRequired()
-            .HasMaxLength(VocabularyPolicy.DisplayNameMaxLength);
+            .HasMaxLength(CodeFormat.DisplayNameMaxLength);
 
         builder.Property(entry => entry.IsActive)
             .IsRequired();
 
         // The permanent key seed data and later recipe references resolve an entry by. Lowercase form is
-        // held by VocabularyPolicy.CodePattern rather than by collation, which differs between SQL Server
+        // held by CodeFormat.CodePattern rather than by collation, which differs between SQL Server
         // (case-insensitive by default) and the SQLite database the constraint tests run against.
         builder.HasIndex(entry => entry.Code)
             .IsUnique()

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
@@ -11,7 +12,7 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Seeding;
 /// <para>
 /// Names and definitions only. Nothing here asserts a fact about an ingredient, a nutrition figure, or a
 /// safety outcome — those live in the trait and density tables, each carrying its own cited source. This file
-/// therefore needs no <see cref="ReferenceSource"/> and is licensing-clean for production.
+/// therefore needs no <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource"/> and is licensing-clean for production.
 /// </para>
 /// <para>
 /// Aliases are thin on purpose. <see cref="VocabularyPolicy.NormalizeAlias"/> already folds case and

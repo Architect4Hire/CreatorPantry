@@ -10,14 +10,14 @@ internal interface IWorkspaceIdSource
 {
     /// <summary>
     /// The resolved workspace id for the current scope, or null when none is available — either no
-    /// <see cref="IWorkspaceContext"/> is registered (migrations, unrelated hosts) or one is but has not
+    /// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceContext"/> is registered (migrations, unrelated hosts) or one is but has not
     /// resolved a workspace for this request yet.
     /// </summary>
     Guid? CurrentWorkspaceIdOrNull { get; }
 }
 
 /// <summary>
-/// Applies a global EF Core query filter to every entity implementing <see cref="IWorkspaceOwned"/>,
+/// Applies a global EF Core query filter to every entity implementing <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>,
 /// discovered from the model by convention rather than configured entity by entity. A new workspace-owned
 /// entity is covered automatically the moment it implements the interface; nothing here names it.
 /// </summary>

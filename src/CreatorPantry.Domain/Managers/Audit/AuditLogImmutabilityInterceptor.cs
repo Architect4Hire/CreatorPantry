@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace CreatorPantry.Domain.Managers.Audit;
 
 /// <summary>
-/// Blocks any ordinary attempt to update or delete an <see cref="AuditLog"/> row. There is no documented
+/// Blocks any ordinary attempt to update or delete an <see cref="CreatorPantry.Domain.Managers.Audit.AuditLog"/> row. There is no documented
 /// erasure/retention path for audit rows yet (tenancy.md's <c>IgnoreQueryFilters</c> carve-out is the model
 /// such a path would eventually follow); until one exists, every write path goes through this.
 /// </summary>

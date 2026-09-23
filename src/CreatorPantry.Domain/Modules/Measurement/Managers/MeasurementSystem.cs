@@ -1,4 +1,5 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Measurement.Managers;
 
 /// <summary>
 /// The measurement tradition a unit belongs to. A workspace sets a default display system and a viewer may

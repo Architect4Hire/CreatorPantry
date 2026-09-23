@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,16 +15,16 @@ internal sealed class AllergenConfiguration : IEntityTypeConfiguration<Allergen>
 
         builder.Property(allergen => allergen.Code)
             .IsRequired()
-            .HasMaxLength(TraitPolicy.CodeMaxLength);
+            .HasMaxLength(CodeFormat.CodeMaxLength);
 
         builder.Property(allergen => allergen.DisplayName)
             .IsRequired()
-            .HasMaxLength(TraitPolicy.DisplayNameMaxLength);
+            .HasMaxLength(CodeFormat.DisplayNameMaxLength);
 
         // Required: whether "tree-nuts" includes coconut decides what every trait recorded against it means.
         builder.Property(allergen => allergen.Description)
             .IsRequired()
-            .HasMaxLength(TraitPolicy.DescriptionMaxLength);
+            .HasMaxLength(CodeFormat.DescriptionMaxLength);
 
         builder.Property(allergen => allergen.IsActive)
             .IsRequired();

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
-/// <inheritdoc cref="Vocabulary.Managers.ReferenceQueryViewModel"/>
+/// <summary>The ingredient list query, bound from the query string. Global and tenant-less, like every reference query.</summary>
 public sealed record IngredientQueryViewModel(
     [property: FromQuery(Name = "search")]
     [property: Description("Free text matched against canonical names and aliases. Terms shorter than two characters are ignored.")]
@@ -67,7 +67,7 @@ public sealed record IngredientServiceModel(
     string? DefaultCountUnitCode,
     IReadOnlyList<string> Aliases);
 
-/// <inheritdoc cref="Measurement.Managers.MeasurementUnitQueryViewModelValidator"/>
+/// <summary>Shape rules for this module's list query. See the validator remarks in Measurement for the shared reasoning.</summary>
 public sealed class IngredientQueryViewModelValidator : AbstractValidator<IngredientQueryViewModel>
 {
     public IngredientQueryViewModelValidator()
@@ -85,8 +85,8 @@ public sealed class IngredientQueryViewModelValidator : AbstractValidator<Ingred
 
         RuleFor(model => model.Category)
             .Cascade(CascadeMode.Stop)
-            .MaximumLength(FoodCategoryPolicy.CodeMaxLength)
-            .Matches(FoodCategoryPolicy.CodePattern)
+            .MaximumLength(CodeFormat.CodeMaxLength)
+            .Matches(CodeFormat.CodePattern)
             .WithMessage("Enter a food category code, such as 'dairy-and-eggs'.")
             .When(model => !string.IsNullOrWhiteSpace(model.Category))
             .OverridePropertyName(nameof(IngredientQueryViewModel.Category));

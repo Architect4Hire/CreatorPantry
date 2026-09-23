@@ -1,7 +1,8 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
-/// How much trust a <see cref="Data.IngredientDensityReference"/> has earned. Only
+/// How much trust a <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDensityReference"/> has earned. Only
 /// <see cref="Approved"/> rows may drive a mass-volume conversion; everything else is on record without
 /// being actionable.
 /// </summary>

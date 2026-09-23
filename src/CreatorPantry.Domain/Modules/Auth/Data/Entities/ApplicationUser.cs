@@ -7,7 +7,7 @@ namespace CreatorPantry.Domain.Modules.Auth.Data.Entities;
 /// </summary>
 public class ApplicationUser : IdentityUser
 {
-    /// <summary>At most <see cref="Auth.AccountPolicy.DisplayNameMaxLength"/> characters.</summary>
+    /// <summary>At most <see cref="CreatorPantry.Domain.Modules.Auth.Managers.AccountPolicy.DisplayNameMaxLength"/> characters.</summary>
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>UTC creation instant, set server-side from <c>IClock</c>.</summary>

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Managers.Reference;
@@ -26,15 +27,15 @@ internal sealed class IngredientConfiguration : IEntityTypeConfiguration<Ingredi
 
         builder.Property(ingredient => ingredient.CanonicalName)
             .IsRequired()
-            .HasMaxLength(IngredientPolicy.NameMaxLength);
+            .HasMaxLength(NameNormalization.NameMaxLength);
 
         builder.Property(ingredient => ingredient.NormalizedName)
             .IsRequired()
-            .HasMaxLength(IngredientPolicy.NameMaxLength);
+            .HasMaxLength(NameNormalization.NameMaxLength);
 
         builder.Property(ingredient => ingredient.SearchText)
             .IsRequired()
-            .HasMaxLength(IngredientPolicy.SearchTextMaxLength);
+            .HasMaxLength(NameNormalization.SearchTextMaxLength);
 
         builder.Property(ingredient => ingredient.IsActive)
             .IsRequired();

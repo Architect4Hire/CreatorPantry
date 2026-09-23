@@ -40,14 +40,31 @@ public sealed class ModuleBoundaryTests
         "Managers/Reference/ReferenceDataSeeder.cs",
     ];
 
-    /// <summary>Namespaces of another module that a module may legitimately name.</summary>
+    /// <summary>
+    /// The only namespaces of another module a module may name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This list was wrong when first written, in a way worth recording. It permitted
+    /// <c>{Root}.Modules.{module}</c> — the module root — on the stated grounds that it was "the facade
+    /// interface itself". At the time, each reference module declared its facade, business <em>and</em> data
+    /// layer interfaces in that one namespace, so the rule permitted a business class to inject another
+    /// module's <c>IDataLayer</c> and the whole suite stayed green. The fix was structural: the interfaces now
+    /// live in <c>.Facade</c>, <c>.Business</c> and <c>.Data</c>, and only <c>.Facade</c> is permitted.
+    /// </para>
+    /// <para>
+    /// <c>.Managers</c> is deliberately absent. 4A.7 allows exactly one manager type to cross — the
+    /// ServiceModel a facade returns — and a namespace cannot express "only the ServiceModels", because a
+    /// module's Managers area also holds its ViewModels, validators, query types and repository records.
+    /// Nothing crosses that way today, so the rule is stated at its narrowest; the day a module really does
+    /// call another's facade, add <c>.Managers</c> here <em>and</em> extend
+    /// <see cref="No_module_names_another_modules_internal_manager_types"/> to keep the rest out.
+    /// </para>
+    /// </remarks>
     private static readonly Func<string, string, bool>[] PermittedCrossModule =
     [
-        // The facade interface itself: Modules.Vocabulary, not a sub-namespace.
-        (used, module) => used == $"{Root}.Modules.{module}",
-
-        // The ServiceModels a facade returns, and the shared vocabulary its entities are described with.
-        (used, module) => used == $"{Root}.Modules.{module}.Managers",
+        // The facade interface, and nothing else in the module's own namespace tree.
+        (used, module) => used == $"{Root}.Modules.{module}.Facade",
 
         // Entities, and only because a foreign key crosses: EF must name the principal entity type to
         // configure the relationship. No behaviour crosses with it.
@@ -55,6 +72,14 @@ public sealed class ModuleBoundaryTests
 
         // Seed data composes across the reference modules by design; the seeder is one deployment-time unit.
         (used, module) => used == $"{Root}.Modules.{module}.Seeding",
+    ];
+
+    /// <summary>
+    /// Type-name suffixes that identify a module's internal manager types — the ones 4A.7 says never cross.
+    /// </summary>
+    private static readonly string[] InternalManagerSuffixes =
+    [
+        "ViewModel", "Validator", "QueryFactory", "Record", "Query",
     ];
 
     [Fact]
@@ -105,6 +130,100 @@ public sealed class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// The scan found the files it claims to be checking.
+    /// </summary>
+    /// <remarks>
+    /// Without this, every rule in this file passes vacuously. All of them assert "no offenders", so a scan
+    /// that returns nothing — wrong root, a path map under CI, a changed <c>using</c> format — reports success
+    /// while checking nothing at all. These numbers are deliberately exact so the guard fails when the shape of
+    /// the domain changes, rather than drifting quietly toward zero.
+    /// </remarks>
+    [Fact]
+    public void The_scan_actually_sees_the_domain()
+    {
+        var files = DomainFiles();
+
+        Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
+        Assert.InRange(files.Count, 150, 400);
+        Assert.Equal(5, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+
+        // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
+        // using-extraction has stopped working and the kernel rule below is no longer checking anything.
+        Assert.Equal(
+            SharedKernelExemptions.Length,
+            files.Count(file => file.RelativePath.StartsWith("Managers/", StringComparison.Ordinal)
+                && file.DomainUsings.Any(used => used.StartsWith($"{Root}.Modules.", StringComparison.Ordinal))));
+
+        // And modules genuinely import each other, through the permitted namespaces.
+        Assert.NotEmpty(files.Where(file => file.Module is not null)
+            .SelectMany(file => file.DomainUsings.Where(used =>
+                used.StartsWith($"{Root}.Modules.", StringComparison.Ordinal)
+                && !used.StartsWith($"{Root}.Modules.{file.Module}", StringComparison.Ordinal))));
+    }
+
+    /// <summary>
+    /// Every exemption still earns its place.
+    /// </summary>
+    /// <remarks>
+    /// An exemption whose file no longer imports a module is a permanently widened hole that nothing else
+    /// would report.
+    /// </remarks>
+    [Fact]
+    public void No_shared_kernel_exemption_is_stale()
+    {
+        var files = DomainFiles();
+
+        Assert.All(SharedKernelExemptions, path =>
+        {
+            var file = files.SingleOrDefault(candidate => candidate.RelativePath == path);
+
+            Assert.True(file is not null, $"exempted file no longer exists: {path}");
+            Assert.Contains(file!.DomainUsings, used => used.StartsWith($"{Root}.Modules.", StringComparison.Ordinal));
+        });
+    }
+
+    /// <summary>
+    /// A module never names another module's internal manager types, however the reference is written.
+    /// </summary>
+    /// <remarks>
+    /// The <c>using</c>-based rules above cannot see a fully-qualified reference, an alias, a
+    /// <c>global using</c>, or a <c>using static</c>. This scans the file text instead, so the escape hatches
+    /// close. It is the check that makes 4A.7's "never another module's ViewModels, validators, or domain
+    /// models" enforceable rather than merely written down.
+    /// </remarks>
+    [Fact]
+    public void No_module_names_another_modules_internal_manager_types()
+    {
+        var files = DomainFiles().Where(file => file.Module is not null).ToList();
+
+        var internalTypes = files
+            .Where(file => file.RelativePath.Contains("/Managers/", StringComparison.Ordinal))
+            .SelectMany(file => TypeNames(file.Text).Select(name => (file.Module, Name: name)))
+            .Where(entry => InternalManagerSuffixes.Any(suffix => entry.Name.EndsWith(suffix, StringComparison.Ordinal)))
+            .ToList();
+
+        var offenders = new List<string>();
+
+        foreach (var file in files)
+        {
+            var body = CodeOnly(file.Text);
+
+            foreach (var (owner, name) in internalTypes.Where(entry => entry.Module != file.Module))
+            {
+                // Word-boundary match, so "IngredientQuery" does not fire on "IngredientQueryViewModel".
+                if (System.Text.RegularExpressions.Regex.IsMatch(body, $@"\b{System.Text.RegularExpressions.Regex.Escape(name)}\b"))
+                {
+                    offenders.Add($"{file.RelativePath} names {owner}'s {name}");
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "a module named another module's internal manager type:\n" + string.Join("\n", offenders.Distinct()));
+    }
+
+    /// <summary>
     /// The layer-first trees Phase 4A dissolved must not grow back. A second home for the same kind of type is
     /// how the structure erodes: one <c>Models/</c> folder beside the modules and the next feature has a
     /// choice about where its view model goes.
@@ -125,22 +244,45 @@ public sealed class ModuleBoundaryTests
         Assert.False(Directory.Exists(path), $"{folder}/ still exists at the domain root");
     }
 
-    /// <summary>Every module repeats the same internal shape, so one vertical teaches all of them.</summary>
+    /// <summary>
+    /// Every module repeats the same internal shape, so one vertical teaches all of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 4A.1 fixed that shape as four areas — Facade, Business, Data, Managers — plus the module's own
+    /// composition root. An earlier version of this test asserted only two of them, and omitted precisely the
+    /// two that three modules were missing: it passed 5 of 5 while 3 of 5 diverged. Asserting the shape you
+    /// intend rather than the shape you happen to have is the whole point of a test like this.
+    /// </para>
+    /// <para>
+    /// The module list is discovered, not listed, so a sixth module cannot arrive unverified.
+    /// </para>
+    /// </remarks>
     [Theory]
-    [InlineData("Tenancy")]
-    [InlineData("Auth")]
-    [InlineData("Measurement")]
-    [InlineData("Vocabulary")]
-    [InlineData("Ingredients")]
-    public void Every_module_has_a_managers_area_a_data_area_and_a_composition_root(string module)
+    [MemberData(nameof(Modules))]
+    public void Every_module_repeats_the_same_internal_shape(string module)
     {
         var moduleRoot = Path.Combine(DomainRoot(), "Modules", module);
 
-        Assert.True(Directory.Exists(Path.Combine(moduleRoot, "Managers")), $"{module} has no Managers area");
-        Assert.True(Directory.Exists(Path.Combine(moduleRoot, "Data")), $"{module} has no Data area");
+        Assert.All(
+            (string[])["Facade", "Business", "Data", "Managers"],
+            area => Assert.True(Directory.Exists(Path.Combine(moduleRoot, area)), $"{module} has no {area} area"));
+
         Assert.True(
             Directory.EnumerateFiles(moduleRoot, "*ServiceCollectionExtensions.cs").Any(),
             $"{module} has no composition root");
+    }
+
+    public static TheoryData<string> Modules()
+    {
+        var discovered = Directory.EnumerateDirectories(Path.Combine(DomainRoot(), "Modules"))
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .ToList();
+
+        Assert.NotEmpty(discovered);
+
+        return [.. discovered];
     }
 
     /// <summary>
@@ -168,7 +310,7 @@ public sealed class ModuleBoundaryTests
             "EF configurations outside a Data/Configurations folder:\n" + string.Join("\n", misplaced));
     }
 
-    private static IEnumerable<DomainFile> DomainFiles()
+    private static IReadOnlyList<DomainFile> DomainFiles()
     {
         var root = DomainRoot();
 
@@ -191,6 +333,31 @@ public sealed class ModuleBoundaryTests
             })
             .ToList();
     }
+
+    /// <summary>Public type names declared in a file, for the text-based boundary rule.</summary>
+    private static IEnumerable<string> TypeNames(string text) =>
+        System.Text.RegularExpressions.Regex
+            .Matches(text, @"^\s*public (?:sealed |abstract |static |partial )*(?:record|class|interface|enum)\s+(\w+)",
+                System.Text.RegularExpressions.RegexOptions.Multiline)
+            .Select(match => match.Groups[1].Value);
+
+    /// <summary>
+    /// The file's executable text: no using block, no comments.
+    /// </summary>
+    /// <remarks>
+    /// Comments are stripped because this rule is about <em>code</em> coupling. An <c>&lt;inheritdoc&gt;</c>
+    /// pointing at a sibling module's validator is a documentation smell worth fixing on its own terms — it
+    /// rots the moment either type moves — but it creates no dependency, and counting it here would train
+    /// people to read a boundary failure as noise.
+    /// </remarks>
+    private static string CodeOnly(string text) =>
+        string.Join(
+            '\n',
+            text.Split('\n')
+                .Select(line => line.TrimStart())
+                .Where(line => !line.StartsWith("using ", StringComparison.Ordinal))
+                .Where(line => !line.StartsWith("//", StringComparison.Ordinal))
+                .Where(line => !line.StartsWith("*", StringComparison.Ordinal)));
 
     private static string DomainRoot([CallerFilePath] string sourceFile = "") =>
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", "..", "CreatorPantry.Domain"));

@@ -1,10 +1,11 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 
 /// <summary>
 /// One unit of measure in the shared platform vocabulary. Global reference data: it has no
-/// <c>WorkspaceId</c>, is not <see cref="Tenancy.IWorkspaceOwned"/>, and is therefore readable before a
+/// <c>WorkspaceId</c>, is not <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, and is therefore readable before a
 /// workspace is resolved (tenancy.md). Creators never own or edit these rows.
 /// </summary>
 /// <remarks>

@@ -11,13 +11,13 @@ namespace CreatorPantry.Domain.Managers.Reference;
 /// This vocabulary <em>enriches</em> what a creator typed and never replaces it (recipes.md). Matching an
 /// ingredient records a reference beside the creator's own wording; the entered text stays canonical.
 /// </remarks>
-public static class IngredientPolicy
+public static class NameNormalization
 {
     public const int NameMaxLength = 128;
 
     public const int SearchTextMaxLength = 512;
 
-    /// <summary>Separates whole phrases inside <see cref="Data.Ingredient.SearchText"/>.</summary>
+    /// <summary>Separates whole phrases inside <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient.SearchText"/>.</summary>
     public const string SearchTextSeparator = " | ";
 
     /// <summary>
@@ -29,10 +29,10 @@ public static class IngredientPolicy
     /// <para>
     /// Deliberately does <em>not</em> singularize, stem, or drop stopwords. Stemming is lossy and
     /// English-specific; plural and colloquial forms are recorded explicitly as
-    /// <see cref="Data.IngredientAlias"/> rows instead, where they stay inspectable and correctable.
+    /// <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAlias"/> rows instead, where they stay inspectable and correctable.
     /// </para>
     /// <para>
-    /// This differs from <see cref="MeasurementPolicy.NormalizeAlias"/>, which removes separators outright so
+    /// This differs from <see cref="CreatorPantry.Domain.Modules.Measurement.Managers.MeasurementPolicy.NormalizeAlias"/>, which removes separators outright so
     /// that <c>fl. oz.</c> collapses to <c>floz</c>. Unit codes are short and drawn from a closed set, so
     /// collapsing them is safe. Ingredient names are multi-word and open-ended, where <c>cream cheese</c>
     /// collapsing to <c>creamcheese</c> would destroy the word boundaries search depends on. The two rules are
@@ -70,7 +70,7 @@ public static class IngredientPolicy
     }
 
     /// <summary>
-    /// Builds the denormalized <see cref="Data.Ingredient.SearchText"/>: the distinct normalized phrases for
+    /// Builds the denormalized <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient.SearchText"/>: the distinct normalized phrases for
     /// one ingredient — canonical name first, then aliases sorted — joined by
     /// <see cref="SearchTextSeparator"/>.
     /// </summary>

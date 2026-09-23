@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using Microsoft.EntityFrameworkCore;

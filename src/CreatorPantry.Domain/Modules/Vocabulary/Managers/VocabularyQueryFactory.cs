@@ -1,9 +1,10 @@
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Paging;
 using FluentValidation;
 
 namespace CreatorPantry.Domain.Modules.Vocabulary.Managers;
 
-/// <inheritdoc cref="Measurement.Managers.MeasurementUnitQueryViewModelValidator"/>
+/// <summary>Shape rules for this module's list query. See the validator remarks in Measurement for the shared reasoning.</summary>
 public sealed class ReferenceQueryViewModelValidator : AbstractValidator<ReferenceQueryViewModel>
 {
     public ReferenceQueryViewModelValidator()

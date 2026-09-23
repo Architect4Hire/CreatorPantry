@@ -3,7 +3,7 @@ namespace CreatorPantry.Domain.Managers.Outbox;
 
 /// <summary>
 /// A durable internal event awaiting delivery to exactly one <see cref="IOutboxMessageHandler"/>. Not
-/// workspace-owned: it is generic transport infrastructure, like <see cref="IdempotencyRecord"/> — a
+/// workspace-owned: it is generic transport infrastructure, like <see cref="CreatorPantry.Domain.Managers.Idempotency.IdempotencyRecord"/> — a
 /// workspace-scoped event carries its workspace id inside <see cref="PayloadJson"/>, validated by the
 /// handler, not by this row.
 /// </summary>

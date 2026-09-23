@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
@@ -5,7 +6,7 @@ namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 /// <summary>
 /// One cited mass-for-volume measurement of one ingredient under one stated condition — the only thing that
 /// permits a mass-volume conversion. Global reference data: no <c>WorkspaceId</c>, not
-/// <see cref="Tenancy.IWorkspaceOwned"/>.
+/// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -35,7 +36,7 @@ public class IngredientDensityReference
     public Guid ReferenceSourceId { get; set; }
 
     /// <summary>
-    /// Always equal to the referenced source's <see cref="ReferenceSource.Kind"/>.
+    /// Always equal to the referenced source's <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource.Kind"/>.
     /// </summary>
     /// <remarks>
     /// Redundant by design. Carrying the kind here lets the composite foreign key

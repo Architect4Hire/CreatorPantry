@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -358,8 +360,8 @@ public sealed class IngredientDensityConstraintTests : IDisposable
     }
 
     [Theory]
-    [InlineData(DensityPolicy.MinDisplayPrecision - 1)]
-    [InlineData(DensityPolicy.MaxDisplayPrecision + 1)]
+    [InlineData(QuantityFormat.MinDisplayPrecision - 1)]
+    [InlineData(QuantityFormat.MaxDisplayPrecision + 1)]
     public async Task Display_precision_outside_the_allowed_range_is_rejected(int displayPrecision)
     {
         await using var scope = _services.CreateScope();
@@ -526,8 +528,8 @@ public sealed class IngredientDensityConstraintTests : IDisposable
         {
             Id = Guid.NewGuid(),
             CanonicalName = "All-Purpose Flour",
-            NormalizedName = IngredientPolicy.NormalizeName("All-Purpose Flour"),
-            SearchText = IngredientPolicy.BuildSearchText("all purpose flour", []),
+            NormalizedName = NameNormalization.NormalizeName("All-Purpose Flour"),
+            SearchText = NameNormalization.BuildSearchText("all purpose flour", []),
             IsActive = true,
         };
         var source = NewSource("usda-fdc", kind);

@@ -1,6 +1,6 @@
 namespace CreatorPantry.Domain.Managers.Audit;
 
-/// <summary>Field limits for <see cref="Data.AuditLog"/>, shared by EF configuration and callers.</summary>
+/// <summary>Field limits for <see cref="CreatorPantry.Domain.Managers.Audit.AuditLog"/>, shared by EF configuration and callers.</summary>
 public static class AuditPolicy
 {
     public const int ActionMaxLength = 200;

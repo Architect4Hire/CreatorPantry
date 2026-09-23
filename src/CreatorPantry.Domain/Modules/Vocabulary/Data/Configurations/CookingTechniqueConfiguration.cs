@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

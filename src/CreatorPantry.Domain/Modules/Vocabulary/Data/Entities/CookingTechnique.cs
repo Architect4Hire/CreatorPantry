@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
 /// <summary>
@@ -30,7 +31,7 @@ public class CookingTechnique : ControlledVocabulary
     /// What it is not: a severity, a score, or a certification. Nothing here records that a technique is
     /// approved, tested, or safe when performed correctly. If a technique ever needs vetted procedural
     /// references, those belong in their own cited, dated table beside
-    /// <see cref="IngredientDensityReference"/> and the trait model, not in a column here.
+    /// <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDensityReference"/> and the trait model, not in a column here.
     /// </para>
     /// </remarks>
     public bool RequiresSafetyCaution { get; set; }

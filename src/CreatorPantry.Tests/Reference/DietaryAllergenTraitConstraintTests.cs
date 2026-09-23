@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using System.Reflection;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
@@ -697,8 +698,8 @@ public sealed class DietaryAllergenTraitConstraintTests : IDisposable
         {
             Id = Guid.NewGuid(),
             CanonicalName = "All-Purpose Flour",
-            NormalizedName = IngredientPolicy.NormalizeName("All-Purpose Flour"),
-            SearchText = IngredientPolicy.BuildSearchText("all purpose flour", []),
+            NormalizedName = NameNormalization.NormalizeName("All-Purpose Flour"),
+            SearchText = NameNormalization.BuildSearchText("all purpose flour", []),
             IsActive = true,
         };
         var milk = NewAllergen("milk");

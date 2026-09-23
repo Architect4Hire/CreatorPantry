@@ -1,10 +1,11 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 
 namespace CreatorPantry.Domain.Modules.Measurement.Seeding;
 
 /// <summary>
-/// The platform unit catalogue: every <see cref="MeasurementUnit"/> the product offers, and the surface forms
+/// The platform unit catalogue: every <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit"/> the product offers, and the surface forms
 /// that resolve to one. Tier A — seeded in every environment.
 /// </summary>
 /// <remarks>
@@ -13,7 +14,7 @@ namespace CreatorPantry.Domain.Modules.Measurement.Seeding;
 /// of 1959 fixes the avoirdupois pound at exactly 453.59237 g and the US gallon at exactly 3785.411784 mL;
 /// every other US customary figure below follows from those two by division, which is why they are written out
 /// to their full exact length instead of rounded. Nothing in this file is a third-party dataset, so no
-/// <see cref="ReferenceSource"/> is cited and none is needed — <see cref="MeasurementUnit"/> deliberately has
+/// <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource"/> is cited and none is needed — <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit"/> deliberately has
 /// no provenance column.
 /// </para>
 /// <para>

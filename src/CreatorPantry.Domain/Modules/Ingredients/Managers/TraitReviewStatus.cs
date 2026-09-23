@@ -1,4 +1,5 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
 /// How far a recorded dietary or allergen trait has got through review. Only <see cref="Approved"/> rows may

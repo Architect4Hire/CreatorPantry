@@ -1,10 +1,13 @@
+using CreatorPantry.Domain.Modules.Measurement.Business;
+using CreatorPantry.Domain.Modules.Vocabulary.Business;
+using CreatorPantry.Domain.Modules.Ingredients.Business;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Reference;
-using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Measurement.Facade;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
-using CreatorPantry.Domain.Modules.Vocabulary;
+using CreatorPantry.Domain.Modules.Vocabulary.Facade;
 using CreatorPantry.Domain.Modules.Vocabulary.Managers;
-using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Ingredients.Facade;
 using CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 namespace CreatorPantry.Tests.Reference;

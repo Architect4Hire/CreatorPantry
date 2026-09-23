@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
@@ -35,7 +36,7 @@ internal sealed class IngredientDensityReferenceConfiguration : IEntityTypeConfi
 
             table.HasCheckConstraint(
                 "CK_IngredientDensityReferences_DisplayPrecision",
-                $"DisplayPrecision BETWEEN {DensityPolicy.MinDisplayPrecision} AND {DensityPolicy.MaxDisplayPrecision}");
+                $"DisplayPrecision BETWEEN {QuantityFormat.MinDisplayPrecision} AND {QuantityFormat.MaxDisplayPrecision}");
 
             // The food-safety-adjacent one: a model-estimated figure can be recorded, but it can never reach
             // Approved, which is the only status a conversion will act on. Without this, one careless import or
@@ -50,11 +51,11 @@ internal sealed class IngredientDensityReferenceConfiguration : IEntityTypeConfi
 
         builder.Property(density => density.MassQuantity)
             .IsRequired()
-            .HasColumnType(DensityPolicy.QuantityColumnType);
+            .HasColumnType(QuantityFormat.DecimalColumnType);
 
         builder.Property(density => density.VolumeQuantity)
             .IsRequired()
-            .HasColumnType(DensityPolicy.QuantityColumnType);
+            .HasColumnType(QuantityFormat.DecimalColumnType);
 
         builder.Property(density => density.ConditionNote)
             .IsRequired()

@@ -4,8 +4,8 @@ namespace CreatorPantry.Domain.Modules.Tenancy;
 
 /// <summary>
 /// One scope's workspace context: unresolved until <see cref="Resolve"/> runs, then immutable. Register
-/// as Scoped and expose the same instance as both <see cref="IWorkspaceContext"/> (read, to nearly
-/// everything) and <see cref="IWorkspaceContextResolver"/> (write, to resolution code only).
+/// as Scoped and expose the same instance as both <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceContext"/> (read, to nearly
+/// everything) and <see cref="CreatorPantry.Domain.Modules.Tenancy.IWorkspaceContextResolver"/> (write, to resolution code only).
 /// </summary>
 internal sealed class WorkspaceContext : IWorkspaceContext, IWorkspaceContextResolver
 {

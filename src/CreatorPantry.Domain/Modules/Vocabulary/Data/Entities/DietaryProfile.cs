@@ -1,15 +1,16 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
 /// <summary>
 /// A named dietary pattern a creator can describe a recipe against — vegan, vegetarian, dairy-free. Global
-/// reference data: no <c>WorkspaceId</c>, not <see cref="Tenancy.IWorkspaceOwned"/>, readable before a
+/// reference data: no <c>WorkspaceId</c>, not <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, readable before a
 /// workspace is resolved (tenancy.md).
 /// </summary>
 /// <remarks>
 /// <para>
 /// A profile is a vocabulary entry, not a rule engine and not a promise. It names a pattern and says in
 /// <see cref="Description"/> what that pattern covers; whether a given ingredient fits is recorded separately,
-/// with evidence, as an <see cref="IngredientDietaryTrait"/>.
+/// with evidence, as an <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDietaryTrait"/>.
 /// </para>
 /// <para>
 /// There is no flag marking a profile medical, certified, or verified, and none may be added. A profile whose

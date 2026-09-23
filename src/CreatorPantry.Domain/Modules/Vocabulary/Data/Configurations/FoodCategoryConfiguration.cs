@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,11 @@ internal sealed class FoodCategoryConfiguration : IEntityTypeConfiguration<FoodC
 
         builder.Property(category => category.Code)
             .IsRequired()
-            .HasMaxLength(FoodCategoryPolicy.CodeMaxLength);
+            .HasMaxLength(CodeFormat.CodeMaxLength);
 
         builder.Property(category => category.DisplayName)
             .IsRequired()
-            .HasMaxLength(FoodCategoryPolicy.DisplayNameMaxLength);
+            .HasMaxLength(CodeFormat.DisplayNameMaxLength);
 
         builder.Property(category => category.IsActive)
             .IsRequired();

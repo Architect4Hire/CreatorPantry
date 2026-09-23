@@ -1,9 +1,10 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
 /// <summary>
-/// A surface form that resolves to one <see cref="ControlledVocabulary"/> entry — "entrée" for the main
+/// A surface form that resolves to one <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.ControlledVocabulary"/> entry — "entrée" for the main
 /// course, "aubergine" for eggplant's cuisine-side equivalents, "crock pot" for a slow cooker. Global
 /// reference data with no <c>WorkspaceId</c>, like the entry it points at.
 /// </summary>
@@ -14,7 +15,7 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 /// records a reference; it never rewrites what the creator wrote (recipes.md).
 /// </para>
 /// <para>
-/// A base class for the shared rules, not a mapped entity — see <see cref="ControlledVocabulary"/> for why
+/// A base class for the shared rules, not a mapped entity — see <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.ControlledVocabulary"/> for why
 /// each vocabulary keeps its own table.
 /// </para>
 /// </remarks>
@@ -39,7 +40,7 @@ public abstract class VocabularyAlias
     /// to store the ambiguity.
     /// </summary>
     /// <remarks>
-    /// One collision this cannot catch, exactly as on <see cref="IngredientAlias.NormalizedAlias"/>: an
+    /// One collision this cannot catch, exactly as on <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAlias.NormalizedAlias"/>: an
     /// alias here equal to the normalized <em>display name</em> of another entry in the same vocabulary. No
     /// unique index spans a column that is not stored. Resolution precedence is therefore a documented rule
     /// — see <see cref="VocabularyPolicy"/> — verified by tests rather than by the schema.

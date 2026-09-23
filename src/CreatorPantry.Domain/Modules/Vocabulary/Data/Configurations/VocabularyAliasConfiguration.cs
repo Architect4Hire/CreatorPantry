@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Configurations;
 
 /// <summary>
-/// The mapping every <see cref="VocabularyAlias"/> shares: its own table, a cascading foreign key to the
+/// The mapping every <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.VocabularyAlias"/> shares: its own table, a cascading foreign key to the
 /// entry it resolves to, and a lookup key unique across the whole vocabulary.
 /// </summary>
 /// <param name="tableName">The table and the prefix its index names are built from.</param>

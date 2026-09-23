@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
@@ -28,7 +29,7 @@ public class IngredientAlias
     public string Alias { get; set; } = string.Empty;
 
     /// <summary>
-    /// The lookup key from <see cref="IngredientPolicy.NormalizeName"/>. Unique across every ingredient, not
+    /// The lookup key from <see cref="NameNormalization.NormalizeName"/>. Unique across every ingredient, not
     /// merely within one: an alias matching two ingredients would make a recipe line ambiguous, and there is
     /// no context at this layer to break the tie, so the database refuses to store the ambiguity.
     /// </summary>

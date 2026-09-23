@@ -72,7 +72,7 @@ public static class ReferencePolicy
             return null;
         }
 
-        var normalized = IngredientPolicy.NormalizeName(raw);
+        var normalized = NameNormalization.NormalizeName(raw);
 
         // A term of pure punctuation ("!!!") normalizes to nothing, and an empty key is a substring of every
         // row — so an unguarded empty form would turn a search that should match nothing into one that matches

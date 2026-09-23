@@ -1,7 +1,7 @@
 namespace CreatorPantry.Domain.Managers.Reference;
 
 /// <summary>
-/// The kind of quantity a <see cref="Data.MeasurementUnit"/> measures. A unit only ever converts within its
+/// The kind of quantity a <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit"/> measures. A unit only ever converts within its
 /// own dimension: crossing from <see cref="Volume"/> to <see cref="Mass"/> requires ingredient-specific
 /// density data that this reference model deliberately does not contain (recipes.md, B-08).
 /// </summary>

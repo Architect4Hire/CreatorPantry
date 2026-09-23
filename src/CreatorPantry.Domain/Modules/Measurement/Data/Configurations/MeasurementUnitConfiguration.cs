@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -29,22 +30,22 @@ internal sealed class MeasurementUnitConfiguration : IEntityTypeConfiguration<Me
 
             table.HasCheckConstraint(
                 "CK_MeasurementUnits_DisplayPrecision",
-                $"DisplayPrecision BETWEEN {MeasurementPolicy.MinDisplayPrecision} AND {MeasurementPolicy.MaxDisplayPrecision}");
+                $"DisplayPrecision BETWEEN {QuantityFormat.MinDisplayPrecision} AND {QuantityFormat.MaxDisplayPrecision}");
         });
 
         builder.HasKey(unit => unit.Id);
 
         builder.Property(unit => unit.Code)
             .IsRequired()
-            .HasMaxLength(MeasurementPolicy.CodeMaxLength);
+            .HasMaxLength(CodeFormat.CodeMaxLength);
 
         builder.Property(unit => unit.DisplayName)
             .IsRequired()
-            .HasMaxLength(MeasurementPolicy.DisplayNameMaxLength);
+            .HasMaxLength(CodeFormat.DisplayNameMaxLength);
 
         builder.Property(unit => unit.PluralName)
             .IsRequired()
-            .HasMaxLength(MeasurementPolicy.DisplayNameMaxLength);
+            .HasMaxLength(CodeFormat.DisplayNameMaxLength);
 
         builder.Property(unit => unit.Abbreviation)
             .IsRequired()
@@ -59,7 +60,7 @@ internal sealed class MeasurementUnitConfiguration : IEntityTypeConfiguration<Me
         // Explicit precision and scale: the provider default (decimal(18, 2)) would round 4.92892159375 ml
         // per US teaspoon down to 4.93 and lose accuracy on every scaled recipe.
         builder.Property(unit => unit.BaseUnitFactor)
-            .HasColumnType(MeasurementPolicy.BaseUnitFactorColumnType);
+            .HasColumnType(QuantityFormat.DecimalColumnType);
 
         builder.Property(unit => unit.DisplayPrecision)
             .IsRequired();

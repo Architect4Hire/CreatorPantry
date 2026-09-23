@@ -1,11 +1,12 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Managers.Reference;
 
 namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 
 /// <summary>
-/// What one cited source says about one ingredient's compatibility with one <see cref="DietaryProfile"/>, as
-/// of one date. Global reference data: no <c>WorkspaceId</c>, not <see cref="Tenancy.IWorkspaceOwned"/>.
+/// What one cited source says about one ingredient's compatibility with one <see cref="CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.DietaryProfile"/>, as
+/// of one date. Global reference data: no <c>WorkspaceId</c>, not <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -13,7 +14,7 @@ namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 /// row means unknown and never means compatible.
 /// </para>
 /// <para>
-/// Shaped like <see cref="IngredientAllergenTrait"/> and deliberately kept separate from it rather than folded
+/// Shaped like <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAllergenTrait"/> and deliberately kept separate from it rather than folded
 /// into one polymorphic trait table. The two answer different questions with different stakes, and their state
 /// vocabularies are asymmetric for that reason — a shared table would need a shared enum, and a shared enum
 /// would have to contain a member meaning "compatible" that an allergen row could then select.

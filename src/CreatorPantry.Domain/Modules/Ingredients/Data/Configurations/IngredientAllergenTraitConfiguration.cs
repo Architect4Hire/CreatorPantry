@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;

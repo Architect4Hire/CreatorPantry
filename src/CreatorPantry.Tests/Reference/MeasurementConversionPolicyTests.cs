@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement.Seeding;
 using CreatorPantry.Domain.Modules.Vocabulary.Seeding;

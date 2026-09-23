@@ -1,12 +1,13 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 namespace CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 
 /// <summary>
 /// A coarse shared grouping for ingredients — "dairy", "baking", "produce". Global reference data: no
-/// <c>WorkspaceId</c>, not <see cref="Tenancy.IWorkspaceOwned"/>, readable before a workspace is resolved
+/// <c>WorkspaceId</c>, not <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, readable before a workspace is resolved
 /// (tenancy.md).
 /// </summary>
 /// <remarks>
-/// Created here as the minimum <see cref="Ingredient"/> needs. The remaining controlled vocabularies
+/// Created here as the minimum <see cref="CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient"/> needs. The remaining controlled vocabularies
 /// (cuisine, course, technique, equipment type) are a separate piece of work and are not modelled yet.
 /// </remarks>
 public class FoodCategory

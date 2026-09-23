@@ -1,4 +1,5 @@
-namespace CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Reference;
+namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>
 /// Limits and rules for the shared dietary and allergen vocabularies and the ingredient traits that cite
@@ -22,19 +23,15 @@ namespace CreatorPantry.Domain.Managers.Reference;
 public static class TraitPolicy
 {
     /// <summary>Stable lowercase machine key, e.g. <c>vegan</c>, <c>gluten-free</c>, <c>tree-nuts</c>.</summary>
-    public const int CodeMaxLength = 32;
 
-    /// <inheritdoc cref="MeasurementPolicy.CodePattern"/>
-    public const string CodePattern = MeasurementPolicy.CodePattern;
+    /// <inheritdoc cref="CodeFormat.CodePattern"/>
 
-    public const int DisplayNameMaxLength = 64;
 
     /// <summary>
     /// Room for a plain-language statement of what a profile or allergen actually covers. Required on both
     /// vocabularies: a profile named only <c>paleo</c> leaves every reader to supply their own definition, and
     /// they will not all supply the same one.
     /// </summary>
-    public const int DescriptionMaxLength = 512;
 
     /// <summary>What the cited source said, in its own terms. See <see cref="NoEvidenceNote"/>.</summary>
     public const int EvidenceNoteMaxLength = 512;

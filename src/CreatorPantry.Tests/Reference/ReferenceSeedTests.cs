@@ -1,3 +1,6 @@
+using CreatorPantry.Domain.Modules.Vocabulary.Managers;
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -332,19 +335,19 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
         var codes = new List<(string Table, string Code, string Pattern)>();
 
         codes.AddRange(MeasurementSeedData.Units().Select(unit =>
-            ("MeasurementUnits", unit.Code, MeasurementPolicy.CodePattern)));
+            ("MeasurementUnits", unit.Code, CodeFormat.CodePattern)));
         codes.AddRange(CatalogueSeedData.FoodCategories().Select(category =>
-            ("FoodCategories", category.Code, FoodCategoryPolicy.CodePattern)));
+            ("FoodCategories", category.Code, CodeFormat.CodePattern)));
         codes.AddRange(CatalogueSeedData.DietaryProfiles().Select(profile =>
-            ("DietaryProfiles", profile.Code, TraitPolicy.CodePattern)));
+            ("DietaryProfiles", profile.Code, CodeFormat.CodePattern)));
         codes.AddRange(CatalogueSeedData.Allergens().Select(allergen =>
-            ("Allergens", allergen.Code, TraitPolicy.CodePattern)));
-        codes.AddRange(CatalogueSeedData.Cuisines().Select(entry => ("Cuisines", entry.Code, VocabularyPolicy.CodePattern)));
-        codes.AddRange(CatalogueSeedData.Courses().Select(entry => ("Courses", entry.Code, VocabularyPolicy.CodePattern)));
-        codes.AddRange(CatalogueSeedData.CookingTechniques().Select(entry => ("CookingTechniques", entry.Code, VocabularyPolicy.CodePattern)));
-        codes.AddRange(CatalogueSeedData.EquipmentTypes().Select(entry => ("EquipmentTypes", entry.Code, VocabularyPolicy.CodePattern)));
+            ("Allergens", allergen.Code, CodeFormat.CodePattern)));
+        codes.AddRange(CatalogueSeedData.Cuisines().Select(entry => ("Cuisines", entry.Code, CodeFormat.CodePattern)));
+        codes.AddRange(CatalogueSeedData.Courses().Select(entry => ("Courses", entry.Code, CodeFormat.CodePattern)));
+        codes.AddRange(CatalogueSeedData.CookingTechniques().Select(entry => ("CookingTechniques", entry.Code, CodeFormat.CodePattern)));
+        codes.AddRange(CatalogueSeedData.EquipmentTypes().Select(entry => ("EquipmentTypes", entry.Code, CodeFormat.CodePattern)));
         codes.AddRange(SampleIngredientSeedData.Sources().Select(source =>
-            ("ReferenceSources", source.Code, MeasurementPolicy.CodePattern)));
+            ("ReferenceSources", source.Code, CodeFormat.CodePattern)));
 
         var offending = codes
             .Where(entry => !Regex.IsMatch(entry.Code, entry.Pattern))

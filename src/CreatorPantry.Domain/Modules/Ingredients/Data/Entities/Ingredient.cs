@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Managers.Reference;
 
@@ -5,7 +6,7 @@ namespace CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 
 /// <summary>
 /// One ingredient in the shared platform vocabulary. Global reference data: no <c>WorkspaceId</c>, not
-/// <see cref="Tenancy.IWorkspaceOwned"/>, readable before a workspace is resolved (tenancy.md). Creators
+/// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/>, readable before a workspace is resolved (tenancy.md). Creators
 /// neither own nor edit these rows.
 /// </summary>
 /// <remarks>
@@ -22,13 +23,13 @@ public class Ingredient
     public string CanonicalName { get; set; } = string.Empty;
 
     /// <summary>
-    /// The natural key, from <see cref="IngredientPolicy.NormalizeName"/>. Unique platform-wide, which is what
+    /// The natural key, from <see cref="NameNormalization.NormalizeName"/>. Unique platform-wide, which is what
     /// makes "Flour", "flour", and "FLOUR" one ingredient rather than three.
     /// </summary>
     public string NormalizedName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Denormalized match text built by <see cref="IngredientPolicy.BuildSearchText"/> from this name and every
+    /// Denormalized match text built by <see cref="NameNormalization.BuildSearchText"/> from this name and every
     /// alias, so a lookup can filter one column instead of joining. Derived data: the alias rows remain the
     /// source of truth, and this must be rebuilt whenever the name or the aliases change.
     /// </summary>
@@ -39,7 +40,7 @@ public class Ingredient
 
     /// <summary>
     /// The unit to suggest when a creator names this ingredient with a bare number and no unit — "2 garlic"
-    /// proposing "2 cloves garlic". A reference to the real <see cref="MeasurementUnit"/> rather than free
+    /// proposing "2 cloves garlic". A reference to the real <see cref="CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit"/> rather than free
     /// text, so the suggested quantity scales and converts deterministically like any other count.
     /// </summary>
     /// <remarks>

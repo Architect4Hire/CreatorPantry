@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,11 @@ internal sealed class IngredientAliasConfiguration : IEntityTypeConfiguration<In
 
         builder.Property(alias => alias.Alias)
             .IsRequired()
-            .HasMaxLength(IngredientPolicy.NameMaxLength);
+            .HasMaxLength(NameNormalization.NameMaxLength);
 
         builder.Property(alias => alias.NormalizedAlias)
             .IsRequired()
-            .HasMaxLength(IngredientPolicy.NameMaxLength);
+            .HasMaxLength(NameNormalization.NameMaxLength);
 
         // An alias has no meaning without its ingredient, so it goes when the ingredient goes.
         builder.HasOne<Ingredient>()
