@@ -27,6 +27,10 @@
   --cp-duration-fast: 150ms;
   --cp-duration-normal: 250ms;
   --cp-ease: cubic-bezier(.2,.8,.2,1);
+  --cp-z-topbar: 15;
+  --cp-z-sidebar: 20;
+  --cp-z-overlay: 90;
+  --cp-z-modal: 100;
   --cp-sidebar-width: 15rem;
   --cp-topbar-height: 4.25rem;
 }

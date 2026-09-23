@@ -12,6 +12,10 @@ Build both the library and showcase with `npm run build`; run their tests with `
 publishable library is emitted to `dist/creator-pantry-ui`, and the showcase bundle to
 `dist/showcase/browser`, which `dotnet publish` copies into `CreatorPantry.Web`.
 
+In a development build, `/design-system` renders every state of every primitive (variants, sizes,
+disabled, error, empty, overflow) for visual review. The route only exists when `isDevMode()` is
+true, so it is absent from production builds.
+
 ## Use the library
 
 Import the three CSS foundations once in the consuming application's global styles, in this order:
@@ -45,6 +49,14 @@ import { CpButtonComponent, CpCardComponent } from '@creator-pantry/ui';
 - `CpProgressComponent`: bounded accessible progress indicator
 - `CpDialogComponent`: modal shell with backdrop dismissal and focus target
 - `CpQuickActionComponent`: branded creator-tool action card
+- `CpStatusPillComponent`: semantic status pill (`neutral | progress | success | warning | error | stale`) with a distinct glyph per tone plus required text — meaning never relies on color alone
+- `CpListShellComponent`: domain-neutral table/list frame with heading association, actions/pagination slots, and loading, error, empty, and ready states
+- `CpTabsComponent` / `CpTabPanelComponent`: keyboard-accessible tabs (ARIA tabs pattern, roving tabindex, disabled tabs) with lazy-mounted panels
+- `CpToolbarComponent`: responsive toolbar with search/filters/actions/overflow slots, loading and disabled states, and roving-tabindex keyboard navigation
+- `CpEmptyStateComponent`: title/description/icon empty state with a projected actions slot and `first-use`/`no-results` variants
+- `CpUploaderComponent`: uploader shell (browse + drag/drop) with per-item queued/uploading/success/error rendering, progress, retry, cancel, and remove — no upload transport of its own
+- `CpDiffLegendComponent`: accessible legend for diff/proposal states (`added | removed | changed | moved | unchanged | warning | selected`)
+- `CpToastRegionComponent`: polite/assertive toast region with severity-based auto-dismiss timing, hover/focus pause, deduplication, and persistent warning/error toasts
 - Semantic CSS tokens for color, typography, spacing, radii, elevation, and motion
 
 ## Guardrails

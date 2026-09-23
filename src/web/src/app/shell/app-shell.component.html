@@ -1,0 +1,37 @@
+<div class="shell">
+  <aside class="sidebar" id="cp-shell-sidebar" [class.open]="menuOpen()">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">CP</span><span><strong>CreatorPantry</strong></span></div>
+
+    <cp-workspace-switcher [currentSlug]="currentWorkspaceSlug()" [currentSection]="currentSection()" />
+
+    <nav aria-label="Primary navigation">
+      @for (item of navItems; track item.path) {
+        @if (currentWorkspaceSlug(); as slug) {
+          <a [routerLink]="['/', slug, item.path]" routerLinkActive="active" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
+            <span aria-hidden="true">{{ item.icon }}</span> <span>{{ item.label }}</span>
+          </a>
+        }
+      }
+    </nav>
+
+    @if (isDevMode) {
+      <a class="dev-link" routerLink="/design-system">Design system (dev only)</a>
+    }
+  </aside>
+
+  <header class="topbar">
+    <button class="icon-btn mobile" aria-label="Toggle menu" aria-controls="cp-shell-sidebar" [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">☰</button>
+    <span class="spacer"></span>
+    @if (session(); as currentSession) {
+      @if (currentSession.status === 'authenticated') {
+        <span class="display-name">{{ currentSession.displayName }}</span>
+        <button cpButton variant="ghost" size="sm" (click)="signOut()">Sign out</button>
+      }
+    }
+  </header>
+
+  <main>
+    <h1 class="page-title">{{ currentPageTitle() }}</h1>
+    <router-outlet />
+  </main>
+</div>

@@ -41,19 +41,35 @@ describe('RuntimeConfigService', () => {
     expect(service.state()).toEqual({ status: 'ready', config: { gatewayUrl: 'https://gateway.example' } });
   });
 
-  it('degrades to the error state when the response is invalid', async () => {
+  it('degrades to a malformed-config error when the response body is invalid', async () => {
     const loading = service.load();
     http.expectOne('/runtime-config.json').flush({ gatewayUrl: '' });
     await loading;
 
-    expect(service.state()).toEqual({ status: 'error' });
+    expect(service.state()).toEqual({ status: 'error', reason: 'malformed' });
   });
 
-  it('degrades to the error state when the request fails', async () => {
+  it('degrades to a missing-config error when the request fails (config unreachable)', async () => {
     const loading = service.load();
     http.expectOne('/runtime-config.json').flush('unavailable', { status: 503, statusText: 'Service Unavailable' });
     await loading;
 
-    expect(service.state()).toEqual({ status: 'error' });
+    expect(service.state()).toEqual({ status: 'error', reason: 'missing' });
+  });
+
+  it('degrades to a missing-config error when the config file is not found (404)', async () => {
+    const loading = service.load();
+    http.expectOne('/runtime-config.json').flush('not found', { status: 404, statusText: 'Not Found' });
+    await loading;
+
+    expect(service.state()).toEqual({ status: 'error', reason: 'missing' });
+  });
+
+  it('never rejects on failure, so app bootstrap can proceed in a degraded state', async () => {
+    const loading = service.load();
+    http.expectOne('/runtime-config.json').error(new ProgressEvent('error'));
+
+    await expectAsync(loading).toBeResolved();
+    expect(service.state().status).toBe('error');
   });
 });

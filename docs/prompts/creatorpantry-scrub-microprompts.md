@@ -553,7 +553,7 @@ the fixture reusable by every later workspace feature.
 
 ## Phase 3 — CreatorPantry design system and frontend foundation
 
-### 3.1 Install the approved design-system package
+### 3.1 Install the approved design-system package - done
 
 ```text
 SCOPE: Copy the approved CreatorPantry Angular 22 design-system library into src/web without changing
@@ -567,7 +567,7 @@ BEHAVIOR: Inventory incoming files and destination paths, wait for approval, cop
 run `ng build` and library tests.
 ```
 
-### 3.2 Token and theme verification
+### 3.2 Token and theme verification - done
 
 ```text
 SCOPE: Verify semantic color, typography, spacing, radius, shadow, motion, and z-index tokens plus
@@ -579,7 +579,7 @@ BEHAVIOR: Report token gaps, wait for approval before any value change, then ver
 prefers-reduced-motion behavior.
 ```
 
-### 3.3 Primitive showcase
+### 3.3 Primitive showcase - done
 
 ```text
 SCOPE: Add a development-only design-system showcase route rendering button, field, badge, card,
@@ -589,7 +589,7 @@ RESTRICTION: Use public library exports only. Do not build feature screens or pa
 BEHAVIOR: Plan the state matrix, wait for approval, implement, and add component/a11y tests.
 ```
 
-### 3.4 Workflow-recipe gap inventory
+### 3.4 Workflow-recipe gap inventory - done
 
 ```text
 SCOPE: Compare the approved design-system package with the requirements and write a gap inventory for
@@ -601,7 +601,7 @@ first. No CSS or TypeScript edits.
 BEHAVIOR: Inspect public exports and states, report each gap with consumers and priority, and wait.
 ```
 
-### 3.4a Table/list shell recipe
+### 3.4a Table/list shell recipe - done
 
 ```text
 SCOPE: Add only the reusable table/list shell approved in 3.4, including responsive presentation,
@@ -611,7 +611,7 @@ RESTRICTION: No recipe-specific columns, data fetching, arbitrary style input, o
 BEHAVIOR: Show public API/state matrix, wait for approval, implement with component/a11y tests, report.
 ```
 
-### 3.4b Tabs recipe
+### 3.4b Tabs recipe - done
 
 ```text
 SCOPE: Add only the reusable tabs recipe approved in 3.4 with keyboard navigation, selected/disabled
@@ -621,7 +621,7 @@ RESTRICTION: No toolbar, page routing, or feature-specific labels. Follow the AR
 BEHAVIOR: Show API/keyboard model, wait for approval, implement with component/a11y tests, report.
 ```
 
-### 3.4c Toolbar recipe
+### 3.4c Toolbar recipe - done
 
 ```text
 SCOPE: Add only the reusable responsive toolbar recipe approved in 3.4 with labelled action, filter,
@@ -631,7 +631,7 @@ RESTRICTION: No data service, recipe-specific action, or arbitrary CSS escape ha
 BEHAVIOR: Show composition API, wait for approval, implement with responsive/keyboard tests, report.
 ```
 
-### 3.4d Empty-state recipe
+### 3.4d Empty-state recipe - done
 
 ```text
 SCOPE: Add only the reusable empty-state recipe approved in 3.4 with title, description, optional
@@ -641,7 +641,7 @@ RESTRICTION: No hardcoded feature copy or food imagery requirement. Action order
 BEHAVIOR: Show variants, wait for approval, implement with component/a11y tests, report.
 ```
 
-### 3.4e Uploader-shell recipe
+### 3.4e Uploader-shell recipe - done
 
 ```text
 SCOPE: Add only the reusable uploader shell approved in 3.4 with browse/drop affordances, progress,
@@ -652,7 +652,7 @@ keyboard-equivalent browse action.
 BEHAVIOR: Show state machine, wait for approval, implement with component/a11y tests, report.
 ```
 
-### 3.4f Status-pill recipe
+### 3.4f Status-pill recipe - done
 
 ```text
 SCOPE: Add only the semantic status-pill recipe approved in 3.4 with neutral, progress, success, warning,
@@ -662,7 +662,7 @@ RESTRICTION: Meaning cannot rely on color. Do not encode recipe, AI, or publishi
 BEHAVIOR: Show semantic mapping, wait for approval, implement with contrast/a11y tests, report.
 ```
 
-### 3.4g Diff-legend recipe
+### 3.4g Diff-legend recipe - done
 
 ```text
 SCOPE: Add only the accessible diff legend/presentation recipe approved in 3.4 for added, removed,
@@ -672,7 +672,7 @@ RESTRICTION: Presentation only; it does not calculate diffs or accept proposals.
 BEHAVIOR: Show visual/text semantics, wait for approval, implement with component/a11y tests, report.
 ```
 
-### 3.4h Live status/toast recipe
+### 3.4h Live status/toast recipe - done
 
 ```text
 SCOPE: Add only the status/toast region approved in 3.4 with polite/assertive announcement policy,
@@ -683,7 +683,7 @@ before they are perceivable.
 BEHAVIOR: Show announcement/timing policy, wait for approval, implement with timer/a11y tests, report.
 ```
 
-### 3.5 Runtime configuration and typed API base
+### 3.5 Runtime configuration and typed API base - done
 
 ```text
 SCOPE: Add an Angular runtime-configuration service that loads the Web host's gateway URL before app
@@ -694,7 +694,7 @@ configuration directly.
 BEHAVIOR: Implement with success, missing-config, malformed-config, and degraded-start tests.
 ```
 
-### 3.6 BFF authentication client and guards
+### 3.6 BFF authentication client and guards - done
 
 ```text
 SCOPE: Add typed auth/me services, credentials-aware BFF requests, route guards, sign-in/sign-out
@@ -706,7 +706,7 @@ BEHAVIOR: Plan the session state machine, wait for approval, implement, and test
 anonymous, expired, refresh-failed, and logout states.
 ```
 
-### 3.7 Application shell and workspace switcher
+### 3.7 Application shell and workspace switcher - done
 
 ```text
 SCOPE: Build the responsive application shell with navigation to Dashboard, Workflows, My Day, My Week,
@@ -719,7 +719,7 @@ BEHAVIOR: Plan responsive and keyboard behavior, wait for approval, implement wi
 states and component tests.
 ```
 
-### 3.8 Frontend foundation verification
+### 3.8 Frontend foundation verification - done
 
 ```text
 SCOPE: Audit the shell, showcase, theme, auth states, and workspace switcher for Angular conventions,

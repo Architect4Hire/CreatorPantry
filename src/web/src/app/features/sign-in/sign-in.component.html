@@ -1,0 +1,41 @@
+<div class="sign-in-shell">
+  <form class="sign-in-card" (submit)="$event.preventDefault(); submit()">
+    <h1>Sign in to CreatorPantry</h1>
+
+    @if (degraded) {
+      <p class="banner" role="status">We couldn't confirm your session just now. You can still try signing in.</p>
+    }
+
+    @if (errorMessage()) {
+      <p class="banner banner--error" role="alert">{{ errorMessage() }}</p>
+    }
+
+    <cp-field label="Email" forId="sign-in-email" [required]="true">
+      <input
+        id="sign-in-email"
+        type="email"
+        autocomplete="username"
+        required
+        [ngModel]="email()"
+        (ngModelChange)="email.set($event)"
+        name="email"
+      />
+    </cp-field>
+
+    <cp-field label="Password" forId="sign-in-password" [required]="true">
+      <input
+        id="sign-in-password"
+        type="password"
+        autocomplete="current-password"
+        required
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        name="password"
+      />
+    </cp-field>
+
+    <button cpButton type="submit" [fullWidth]="true" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+      {{ submitting() ? 'Signing in…' : 'Sign in' }}
+    </button>
+  </form>
+</div>

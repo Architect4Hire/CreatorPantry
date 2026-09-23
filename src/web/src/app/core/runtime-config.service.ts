@@ -10,7 +10,7 @@ export interface RuntimeConfig {
 export type RuntimeConfigState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly config: RuntimeConfig }
-  | { readonly status: 'error' };
+  | { readonly status: 'error'; readonly reason: 'missing' | 'malformed' };
 
 /** Decodes an untrusted response; returns null unless gatewayUrl is an absolute http(s) URL. */
 export function decodeRuntimeConfig(value: unknown): RuntimeConfig | null {
@@ -34,13 +34,21 @@ export class RuntimeConfigService {
 
   readonly state = this.stateSignal.asReadonly();
 
-  /** Loads the runtime configuration. Failure leaves the app running in a degraded state. */
+  /**
+   * Loads the runtime configuration. This promise always resolves, never rejects — a failure here
+   * must never block app bootstrap (`provideAppInitializer` awaits it), it only leaves the app
+   * running in a degraded state that `ApiBaseService` consumers can detect and handle.
+   */
   async load(): Promise<void> {
+    let raw: unknown;
     try {
-      const config = decodeRuntimeConfig(await firstValueFrom(this.http.get<unknown>('/runtime-config.json')));
-      this.stateSignal.set(config ? { status: 'ready', config } : { status: 'error' });
+      raw = await firstValueFrom(this.http.get<unknown>('/runtime-config.json'));
     } catch {
-      this.stateSignal.set({ status: 'error' });
+      this.stateSignal.set({ status: 'error', reason: 'missing' });
+      return;
     }
+
+    const config = decodeRuntimeConfig(raw);
+    this.stateSignal.set(config ? { status: 'ready', config } : { status: 'error', reason: 'malformed' });
   }
 }

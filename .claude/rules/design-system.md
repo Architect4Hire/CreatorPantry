@@ -37,6 +37,14 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpProgressComponent`: labeled bounded progress
 - `CpDialogComponent`: modal shell, title/description, action projection, close event
 - `CpQuickActionComponent`: creator-tool action card with tone and activation event
+- `CpStatusPillComponent`: `neutral | progress | success | warning | error | stale`, distinct glyph per tone plus required text
+- `CpListShellComponent`: domain-neutral list/table frame — heading, actions/pagination slots, loading/error/empty/ready states; no columns or data
+- `CpTabsComponent` / `CpTabPanelComponent`: ARIA tabs pattern, roving tabindex, disabled tabs, lazy-mounted panels
+- `CpToolbarComponent`: search/filters/actions/overflow slots, loading/disabled states, roving-tabindex keyboard nav
+- `CpEmptyStateComponent`: title/description/icon, projected actions slot, `first-use | no-results` variants
+- `CpUploaderComponent`: browse/drag-drop shell, per-item queued/uploading/success/error rendering, retry/cancel/remove — no transport of its own
+- `CpDiffLegendComponent`: legend for `added | removed | changed | moved | unchanged | warning | selected`; presentation only, no diff computation
+- `CpToastRegionComponent`: polite/assertive toast region, auto-dismiss with hover/focus pause, dedup, persistent warning/error
 
 Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are defects.
 

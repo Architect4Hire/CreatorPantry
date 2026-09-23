@@ -1,0 +1,285 @@
+<main class="showcase">
+  <header class="showcase-header">
+    <h1>CreatorPantry design system</h1>
+    <p>Every supported state of each <code>@creator-pantry/ui</code> primitive, for visual review and regression testing. Development-only — this route does not exist in a production build.</p>
+  </header>
+
+  <section aria-labelledby="buttons-heading">
+    <h2 id="buttons-heading">Button</h2>
+    <p class="section-note">5 variants × 3 sizes, plus disabled, full-width, and anchor-rendered forms.</p>
+    <div class="button-grid">
+      @for (variant of buttonVariants; track variant) {
+        <div class="button-grid-row">
+          <span class="button-grid-label">{{ variant }}</span>
+          @for (size of buttonSizes; track size) {
+            <button cpButton [variant]="variant" [size]="size">{{ variant }} {{ size }}</button>
+          }
+        </div>
+      }
+    </div>
+    <div class="button-extras">
+      <button cpButton disabled>Disabled (native)</button>
+      <a cpButton variant="secondary" aria-disabled="true" tabindex="-1">Disabled anchor (aria-disabled, since anchors have no native disabled state)</a>
+      <button cpButton [fullWidth]="true">Full width</button>
+      <a cpButton href="#buttons-heading">Anchor rendered as button</a>
+    </div>
+  </section>
+
+  <section aria-labelledby="field-heading">
+    <h2 id="field-heading">Field</h2>
+    <p class="section-note">Label, hint, required, error, disabled, and every projected control type.</p>
+    <div class="field-grid">
+      <cp-field label="Recipe title" forId="showcase-default">
+        <input id="showcase-default" placeholder="Creamy roasted tomato soup" />
+      </cp-field>
+      <cp-field label="Recipe title" forId="showcase-required" [required]="true">
+        <input id="showcase-required" required placeholder="Required field" />
+      </cp-field>
+      <cp-field label="Serving notes" forId="showcase-hint" hint="Shown to the creator, not published.">
+        <textarea id="showcase-hint" placeholder="Optional preparation notes"></textarea>
+      </cp-field>
+      <cp-field label="Publish date" forId="showcase-error" error="Choose a date at least one hour from now.">
+        <input id="showcase-error" type="datetime-local" aria-invalid="true" />
+      </cp-field>
+      <cp-field label="Workspace slug" forId="showcase-disabled" hint="Set automatically, cannot be edited.">
+        <input id="showcase-disabled" value="cozy-fall-soups" disabled />
+      </cp-field>
+      <cp-field label="Content type" forId="showcase-select">
+        <select id="showcase-select">
+          <option>Blog post</option>
+          <option>Recipe card</option>
+          <option>Social copy</option>
+        </select>
+      </cp-field>
+    </div>
+  </section>
+
+  <section aria-labelledby="badge-heading">
+    <h2 id="badge-heading">Badge</h2>
+    <p class="section-note">All 6 tones, plus long content wrapping.</p>
+    <div class="badge-row">
+      @for (tone of badgeTones; track tone) {
+        <cp-badge [tone]="tone">{{ tone }}</cp-badge>
+      }
+    </div>
+    <cp-badge tone="orange">Needs review before the next scheduled publish window</cp-badge>
+  </section>
+
+  <section aria-labelledby="card-heading">
+    <h2 id="card-heading">Card</h2>
+    <p class="section-note">Standard, interactive, and flush surfaces.</p>
+    <div class="card-row">
+      <cp-card>
+        <h3>Standard</h3>
+        <p>Default padding and elevation.</p>
+      </cp-card>
+      <cp-card [interactive]="true">
+        <h3>Interactive</h3>
+        <p>Hover to see the lift and border-color change. Wrap real interactive content (a link or button) inside — the card itself adds no keyboard behavior.</p>
+      </cp-card>
+      <cp-card [flush]="true">
+        <div class="flush-demo">Flush — no internal padding, content controls its own edges.</div>
+      </cp-card>
+    </div>
+  </section>
+
+  <section aria-labelledby="dialog-heading">
+    <h2 id="dialog-heading">Dialog</h2>
+    <p class="section-note">With and without a description, and long scrolling content.</p>
+    <div class="button-extras">
+      <button cpButton (click)="dialogOpen.set('short')">Open short dialog</button>
+      <button cpButton variant="secondary" (click)="dialogOpen.set('long')">Open long, scrolling dialog</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="progress-heading">
+    <h2 id="progress-heading">Progress</h2>
+    <p class="section-note">Zero, mid-range, complete, and an over-100 input clamped to 100.</p>
+    <div class="progress-grid">
+      <cp-progress label="Not started" [value]="0" />
+      <cp-progress label="In progress" [value]="42" />
+      <cp-progress label="Complete" [value]="100" />
+      <cp-progress label="Overloaded input (140)" [value]="140" />
+    </div>
+  </section>
+
+  <section aria-labelledby="quick-action-heading">
+    <h2 id="quick-action-heading">Quick action</h2>
+    <p class="section-note">All 5 tones, long title/description wrapping, and the activated output.</p>
+    <div class="quick-action-grid">
+      @for (tone of quickActionTones; track tone) {
+        <cp-quick-action
+          [tone]="tone"
+          [title]="tone + ' action'"
+          [description]="'Demonstrates the ' + tone + ' tone.'"
+          icon="✦"
+          (activated)="onQuickActionActivated(tone)"
+        />
+      }
+      <cp-quick-action
+        tone="blue"
+        title="Long title that wraps across more than one line to check spacing"
+        description="A longer description to confirm the card grows gracefully instead of clipping or overlapping neighboring text."
+        icon="✦"
+        (activated)="onQuickActionActivated('blue')"
+      />
+    </div>
+    <div class="activation-log" aria-live="polite">
+      @if (activationLog().length === 0) {
+        <p class="section-note">Activate a quick action to see events logged here.</p>
+      } @else {
+        <ul>
+          @for (entry of activationLog(); track entry) {
+            <li>{{ entry }}</li>
+          }
+        </ul>
+      }
+    </div>
+  </section>
+
+  <section aria-labelledby="status-pill-heading">
+    <h2 id="status-pill-heading">Status pill</h2>
+    <p class="section-note">All 6 tones — each has a distinct glyph, never color alone.</p>
+    <div class="badge-row">
+      @for (tone of statusPillTones; track tone) {
+        <cp-status-pill [tone]="tone">{{ tone }}</cp-status-pill>
+      }
+    </div>
+    <cp-status-pill tone="error" [iconHidden]="true">Icon hidden — text alone still conveys meaning</cp-status-pill>
+  </section>
+
+  <section aria-labelledby="list-shell-heading">
+    <h2 id="list-shell-heading">List shell</h2>
+    <p class="section-note">Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.</p>
+    <div class="button-extras">
+      @for (state of listShellStates; track state) {
+        <button cpButton [variant]="listShellState() === state ? 'primary' : 'secondary'" size="sm" (click)="listShellState.set(state)">{{ state }}</button>
+      }
+    </div>
+    <cp-list-shell heading="Recent recipes" [state]="listShellState()" errorMessage="Couldn't load recipes. Check your connection and try again.">
+      <div cpListShellActions>
+        <button cpButton variant="text" size="sm">View all →</button>
+      </div>
+      <table class="demo-table">
+        <thead><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead>
+        <tbody>
+          <tr><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td><td>Sep 16</td></tr>
+          <tr><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td><td>Sep 14</td></tr>
+        </tbody>
+      </table>
+      <div cpListShellPagination>
+        <button cpButton variant="ghost" size="sm">Previous</button>
+        <button cpButton variant="ghost" size="sm">Next</button>
+      </div>
+    </cp-list-shell>
+  </section>
+
+  <section aria-labelledby="tabs-heading">
+    <h2 id="tabs-heading">Tabs</h2>
+    <p class="section-note">ARIA tabs pattern with roving tabindex, a disabled tab, and lazy-mounted panels.</p>
+    <cp-tabs ariaLabel="Recipe editor sections" [tabs]="tabs" [selectedId]="selectedTabId()" (selectedIdChange)="selectedTabId.set($event ?? 'ingredients')">
+      <cp-tab-panel id="ingredients">
+        <p class="section-note">Ingredient list content — mounted the first time this tab is selected.</p>
+      </cp-tab-panel>
+      <cp-tab-panel id="steps">
+        <p class="section-note">Ordered step content.</p>
+      </cp-tab-panel>
+      <cp-tab-panel id="notes">
+        <p class="section-note">Disabled — never reachable via click or arrow keys.</p>
+      </cp-tab-panel>
+    </cp-tabs>
+  </section>
+
+  <section aria-labelledby="toolbar-heading">
+    <h2 id="toolbar-heading">Toolbar</h2>
+    <p class="section-note">Search, filters, actions, and an overflow disclosure, with roving-tabindex keyboard navigation.</p>
+    <cp-toolbar ariaLabel="Recipe list toolbar">
+      <input cpToolbarSearch type="search" placeholder="Search recipes…" aria-label="Search recipes" />
+      <button cpToolbarFilters cpButton variant="secondary" size="sm">Status ▾</button>
+      <button cpToolbarActions cpButton size="sm">＋ New recipe</button>
+      <button cpToolbarOverflow cpButton variant="ghost" size="sm">Export CSV</button>
+      <button cpToolbarOverflow cpButton variant="ghost" size="sm">Archive selected</button>
+    </cp-toolbar>
+  </section>
+
+  <section aria-labelledby="empty-state-heading">
+    <h2 id="empty-state-heading">Empty state</h2>
+    <p class="section-note">First-use and no-results variants — action order is DOM order.</p>
+    <div class="card-row">
+      <cp-card [flush]="true">
+        <cp-empty-state title="No recipes yet" description="Start your first recipe and it will show up here." variant="first-use">
+          <div cpEmptyStateActions>
+            <button cpButton>＋ Create recipe</button>
+          </div>
+        </cp-empty-state>
+      </cp-card>
+      <cp-card [flush]="true">
+        <cp-empty-state title="No matches" description="Try a different search term or clear your filters." variant="no-results" icon="⌕">
+          <div cpEmptyStateActions>
+            <button cpButton variant="secondary">Clear filters</button>
+          </div>
+        </cp-empty-state>
+      </cp-card>
+    </div>
+  </section>
+
+  <section aria-labelledby="uploader-heading">
+    <h2 id="uploader-heading">Uploader shell</h2>
+    <p class="section-note">Browse or drop files; queued, uploading, success, and error item states.</p>
+    <cp-uploader
+      label="Recipe photos"
+      hint="JPG or PNG, up to 10MB each"
+      accept="image/*"
+      [multiple]="true"
+      [items]="uploadItems()"
+      (filesSelected)="onUploaderFilesSelected($event)"
+      (retry)="onUploaderRetry($event)"
+      (cancel)="onUploaderCancel($event)"
+      (remove)="onUploaderRemove($event)"
+    />
+  </section>
+
+  <section aria-labelledby="diff-legend-heading">
+    <h2 id="diff-legend-heading">Diff legend</h2>
+    <p class="section-note">All 7 kinds by default; presentation only, no diff computation.</p>
+    <cp-diff-legend />
+  </section>
+
+  <section aria-labelledby="toast-heading">
+    <h2 id="toast-heading">Live status / toast</h2>
+    <p class="section-note">Info/success auto-dismiss after 5s and pause on hover; warning/error are persistent until dismissed.</p>
+    <div class="button-extras">
+      <button cpButton size="sm" (click)="pushToast('info')">Push info</button>
+      <button cpButton variant="secondary" size="sm" (click)="pushToast('success')">Push success</button>
+      <button cpButton variant="secondary" size="sm" (click)="pushToast('warning')">Push warning</button>
+      <button cpButton variant="danger" size="sm" (click)="pushToast('error')">Push error</button>
+    </div>
+  </section>
+</main>
+
+<cp-toast-region [toasts]="toasts()" (dismissed)="onToastDismissed($event)" />
+
+<cp-dialog
+  [open]="dialogOpen() === 'short'"
+  title="Short dialog"
+  description="A dialog with a description and minimal body content."
+  (closed)="closeDialog()"
+>
+  <p>This is the entire body of the dialog.</p>
+  <div cpDialogActions>
+    <button cpButton variant="ghost" type="button" (click)="closeDialog()">Cancel</button>
+    <button cpButton type="button" (click)="closeDialog()">Confirm</button>
+  </div>
+</cp-dialog>
+
+<cp-dialog [open]="dialogOpen() === 'long'" title="Long dialog, no description" (closed)="closeDialog()">
+  @for (paragraph of [1, 2, 3, 4, 5, 6, 7, 8]; track paragraph) {
+    <p>
+      Paragraph {{ paragraph }} of long dialog content, long enough across all eight paragraphs that the dialog body
+      has to scroll internally while the header and footer stay fixed in place.
+    </p>
+  }
+  <div cpDialogActions>
+    <button cpButton variant="ghost" type="button" (click)="closeDialog()">Close</button>
+  </div>
+</cp-dialog>

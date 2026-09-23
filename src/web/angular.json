@@ -17,7 +17,11 @@
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "projects/creator-pantry-ui/tsconfig.spec.json",
-            "polyfills": ["zone.js", "zone.js/testing"]
+            "polyfills": ["zone.js", "zone.js/testing"],
+            "styles": [
+              "projects/creator-pantry-ui/src/lib/styles/tokens.css",
+              "projects/creator-pantry-ui/src/lib/styles/themes.css"
+            ]
           }
         }
       }
