@@ -1,0 +1,35 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--cp-bg);
+}
+
+.confirm-email-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--cp-space-5);
+}
+
+.confirm-email-card {
+  width: min(24rem, 100%);
+  display: grid;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-8);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+  box-shadow: var(--cp-shadow-sm);
+  text-align: center;
+}
+
+.confirm-email-card h1 {
+  margin: 0;
+  font: 400 var(--cp-font-size-xl) / 1.2 var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.confirm-email-card p {
+  margin: 0;
+  color: var(--cp-text-muted);
+}

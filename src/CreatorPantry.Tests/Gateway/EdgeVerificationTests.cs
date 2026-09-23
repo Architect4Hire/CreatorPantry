@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using CreatorPantry.Domain.Modules.Auth;
 using CreatorPantry.Domain.Modules.Auth.Managers;
+using CreatorPantry.Domain.Modules.Auth.Gateways;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -64,6 +65,23 @@ public sealed partial class EdgeVerificationTests : IAsyncLifetime
         Assert.Equal("pending_confirmation", (await Json(registered)).GetProperty("status").GetString());
         Assert.Equal(await registered.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), await again.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Equal(AuthErrorCodes.SignInEmailUnconfirmed, (await Json(signIn)).GetProperty("code").GetString());
+        browser.AssertNoTokensReachedTheBrowser(SecretsToWatch());
+    }
+
+    [Fact]
+    public async Task Confirming_the_email_from_the_registration_message_allows_sign_in()
+    {
+        using var gateway = CreateGateway();
+        var browser = Browser(gateway);
+        await browser.PostAsync("/api/v1/auth/register", new { email = "new@example.com", password = Password, displayName = "New" });
+        var message = _api.Messages.Messages.Single(m => m.Kind == AccountMessageKind.EmailConfirmation);
+
+        var confirmed = await browser.PostAsync("/api/v1/auth/confirm-email", new { email = "new@example.com", token = message.Token });
+        var signIn = await browser.PostAsync("/bff/login", new { email = "new@example.com", password = Password });
+
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+        Assert.Equal("email_confirmed", (await Json(confirmed)).GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.OK, signIn.StatusCode);
         browser.AssertNoTokensReachedTheBrowser(SecretsToWatch());
     }
 

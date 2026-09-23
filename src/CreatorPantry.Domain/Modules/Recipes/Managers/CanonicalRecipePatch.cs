@@ -92,6 +92,13 @@ public sealed record CanonicalRecipePatch
     /// </remarks>
     public PatchField<IReadOnlyList<RecipeTagName>> Tags { get; init; }
 
+    /// <summary>
+    /// The recipe's complete method, or absent to leave it alone. Order is creator-defined and preserved
+    /// exactly as submitted — see <see cref="CanonicalInstructionGroup"/> for why this does not sort the way
+    /// <see cref="Tags"/> does.
+    /// </summary>
+    public PatchField<IReadOnlyList<CanonicalInstructionGroup>> Instructions { get; init; }
+
     /// <summary>Reduces a validated request to its meaning.</summary>
     /// <remarks>
     /// Pure and total. It assumes shape validation has already run: it does not reject anything, it only
@@ -136,6 +143,10 @@ public sealed record CanonicalRecipePatch
         Tags = model.Tags.IsSubmitted
             ? PatchField<IReadOnlyList<RecipeTagName>>.Submitted(TagNames(model.Tags.Value))
             : PatchField<IReadOnlyList<RecipeTagName>>.Absent,
+
+        Instructions = model.Instructions.IsSubmitted
+            ? PatchField<IReadOnlyList<CanonicalInstructionGroup>>.Submitted(CanonicalInstructions.From(model.Instructions.Value))
+            : PatchField<IReadOnlyList<CanonicalInstructionGroup>>.Absent,
     };
 
     /// <summary>
@@ -187,6 +198,8 @@ public sealed record CanonicalRecipePatch
         {
             fields["tags"] = Tags.Value.Select(tag => tag.NormalizedName).ToArray();
         }
+
+        Add("instructions", Instructions);
 
         return new
         {

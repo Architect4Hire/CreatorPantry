@@ -97,7 +97,55 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
             .Must(HaveNoRepeatedTags).WithMessage("The same tag is listed more than once.")
             .When(model => model.Tags is not null)
             .OverridePropertyName(nameof(CreateRecipeViewModel.Tags));
+
+        RuleFor(model => model.Instructions)
+            .Cascade(CascadeMode.Stop)
+            .Must(instructions => !Groups(instructions).Any(group => group is null))
+                .WithMessage("An instruction group cannot be blank.")
+            .Must(instructions => Groups(instructions).Count <= RecipePolicy.MaxInstructionGroupsPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionGroupsPerRecipe} instruction groups.")
+            .Must(instructions => Groups(instructions).Sum(group => Steps(group).Count) <= RecipePolicy.MaxInstructionStepsPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionStepsPerRecipe} instruction steps.")
+            // Nothing exists yet for an id to name: a create that sends one is a client bug, not a request
+            // this could honour by ignoring it silently.
+            .Must(instructions => Groups(instructions).All(group => group!.Id is null))
+                .WithMessage("A new recipe's instructions cannot name an existing group.")
+            .Must(instructions => Groups(instructions).All(group => Trimmed(group!.Title).Length <= RecipePolicy.GroupTitleMaxLength))
+                .WithMessage($"An instruction group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
+            .Must(instructions => !AllSteps(instructions).Any(step => step is null))
+                .WithMessage("An instruction step cannot be blank.")
+            .Must(instructions => AllSteps(instructions).All(step => step!.Id is null))
+                .WithMessage("A new recipe's instructions cannot name an existing step.")
+            .Must(instructions => AllSteps(instructions).All(step => !string.IsNullOrWhiteSpace(step!.Text)))
+                .WithMessage("An instruction step cannot be blank.")
+            .Must(instructions => AllSteps(instructions).All(step => Trimmed(step!.Text).Length <= RecipePolicy.StepTextMaxLength))
+                .WithMessage($"An instruction step can be at most {RecipePolicy.StepTextMaxLength} characters.")
+            .Must(instructions => AllSteps(instructions).All(step => Trimmed(step!.Note).Length <= RecipePolicy.NoteMaxLength))
+                .WithMessage($"A step note can be at most {RecipePolicy.NoteMaxLength} characters.")
+            .Must(instructions => AllSteps(instructions).All(step => step!.DurationMinutes is null or (>= 0 and <= RecipePolicy.MaxTimeMinutes)))
+                .WithMessage("A step's duration must be a time in minutes between 0 and one year.")
+            .Must(instructions => AllSteps(instructions).All(step => step!.TechniqueId != Guid.Empty))
+                .WithMessage("That is not a valid technique reference.")
+            .Must(instructions => AllSteps(instructions).All(step => step!.TemperatureUnitId != Guid.Empty))
+                .WithMessage("That is not a valid unit reference.")
+            // Mirrors CK_RecipeInstructionSteps_Temperature_Dimension: present in both or neither. Whether the
+            // unit itself measures temperature needs a lookup, so that half stays in Business.
+            .Must(instructions => AllSteps(instructions).All(
+                step => (step!.TemperatureValue is null) == (step.TemperatureUnitId is null)))
+                .WithMessage("A step's temperature needs both a value and a unit, or neither.")
+            .OverridePropertyName(nameof(CreateRecipeViewModel.Instructions));
     }
+
+    private static IReadOnlyList<RecipeInstructionGroupInputViewModel> Groups(IReadOnlyList<RecipeInstructionGroupInputViewModel?>? instructions) =>
+        instructions?.OfType<RecipeInstructionGroupInputViewModel>().ToList() ?? [];
+
+    private static IReadOnlyList<RecipeInstructionStepInputViewModel> Steps(RecipeInstructionGroupInputViewModel group) =>
+        group.Steps?.OfType<RecipeInstructionStepInputViewModel>().ToList() ?? [];
+
+    private static IEnumerable<RecipeInstructionStepInputViewModel> AllSteps(IReadOnlyList<RecipeInstructionGroupInputViewModel?>? instructions) =>
+        Groups(instructions).SelectMany(Steps);
+
+    private static string Trimmed(string? value) => (value ?? string.Empty).Trim();
 
     private void Optional(
         System.Linq.Expressions.Expression<Func<CreateRecipeViewModel, string?>> property,

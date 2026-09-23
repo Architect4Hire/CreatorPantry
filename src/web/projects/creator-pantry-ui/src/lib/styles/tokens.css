@@ -1,12 +1,12 @@
 /*
- * DM Sans / DM Serif Display are loaded by the consuming app's index.html via a non-blocking
+ * DM Sans / Fredoka are loaded by the consuming app's index.html via a non-blocking
  * <link> (preconnect + media="print" swap), not a CSS @import here: @import is render-blocking,
  * so if the font host is slow or unreachable the entire app would hang on a blank page waiting
  * for it. The fallback stacks below mean the app renders correctly with system fonts regardless.
  */
 :root {
   --cp-font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --cp-font-display: 'DM Serif Display', Georgia, serif;
+  --cp-font-display: 'Fredoka', 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cp-font-size-xs: .6875rem;
   --cp-font-size-sm: .8125rem;
   --cp-font-size-md: .9375rem;

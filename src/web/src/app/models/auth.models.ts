@@ -10,23 +10,24 @@ export interface MyWorkspaceMembership {
   readonly status: WorkspaceMembershipStatus;
 }
 
-const ROLE_BY_NUMBER: Record<number, WorkspaceRole> = { 0: 'Viewer', 10: 'Contributor', 20: 'Editor', 30: 'Owner' };
-const STATUS_BY_NUMBER: Record<number, WorkspaceMembershipStatus> = { 0: 'Invited', 10: 'Active', 20: 'Removed' };
+const ROLES: readonly WorkspaceRole[] = ['Viewer', 'Contributor', 'Editor', 'Owner'];
+const STATUSES: readonly WorkspaceMembershipStatus[] = ['Invited', 'Active', 'Removed'];
 
 function decodeRole(value: unknown): WorkspaceRole | null {
-  return typeof value === 'number' ? (ROLE_BY_NUMBER[value] ?? null) : null;
+  return typeof value === 'string' && (ROLES as readonly string[]).includes(value) ? (value as WorkspaceRole) : null;
 }
 
 function decodeStatus(value: unknown): WorkspaceMembershipStatus | null {
-  return typeof value === 'number' ? (STATUS_BY_NUMBER[value] ?? null) : null;
+  return typeof value === 'string' && (STATUSES as readonly string[]).includes(value) ? (value as WorkspaceMembershipStatus) : null;
 }
 
 /**
- * Decodes one entry of the GET /api/v1/me response. `role`/`status` are always raw integers on the
- * wire — confirmed against the API's committed OpenAPI snapshot, which documents both as
- * `"type": "integer"` (no JsonStringEnumConverter is configured anywhere in the solution). If that
- * ever changes, this should fail loudly (an entry silently dropped) rather than quietly widen to
- * tolerate a format the backend was never proven to send.
+ * Decodes one entry of the GET /api/v1/me response. `role`/`status` are named string enum members on
+ * the wire — confirmed against the API's committed OpenAPI snapshot (`WorkspaceRole`/
+ * `WorkspaceMembershipStatus` are both `"type": "string"` with an `enum` of member names, via the
+ * global `JsonStringEnumConverter` registered in ApiService/Program.cs) and against a live response.
+ * If that ever changes, this should fail loudly (an entry silently dropped) rather than quietly widen
+ * to tolerate a format the backend was never proven to send.
  */
 export function decodeMyWorkspaceMembership(value: unknown): MyWorkspaceMembership | null {
   if (typeof value !== 'object' || value === null) return null;

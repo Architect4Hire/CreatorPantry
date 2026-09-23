@@ -41,3 +41,9 @@
   background: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
   color: var(--cp-danger);
 }
+
+.footer-link {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  text-align: center;
+}

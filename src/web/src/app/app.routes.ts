@@ -2,13 +2,21 @@ import { isDevMode } from '@angular/core';
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth.guard';
+import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
 const SECTION_ROUTES: Routes = [
   { path: 'dashboard', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Dashboard' } },
   { path: 'workflows', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Workflows' } },
   { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },
   { path: 'my-week', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Week' } },
-  { path: 'recipes', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Recipes' } },
+  {
+    path: 'recipes',
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/recipes/recipe-library.component').then((m) => m.RecipeLibraryComponent), data: { title: 'Recipes' } },
+      { path: 'new', loadComponent: () => import('./features/recipes/recipe-editor.component').then((m) => m.RecipeEditorComponent), canDeactivate: [recipeEditorCanDeactivateGuard], data: { title: 'New recipe' } },
+      { path: ':recipeId', loadComponent: () => import('./features/recipes/recipe-editor.component').then((m) => m.RecipeEditorComponent), canDeactivate: [recipeEditorCanDeactivateGuard], data: { title: 'Edit recipe' } },
+    ],
+  },
   { path: 'brand', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Brand' } },
   { path: 'ai-recipe-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'AI Recipe Studio' } },
   { path: 'image-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Image Studio' } },
@@ -23,6 +31,14 @@ export const routes: Routes = [
   {
     path: 'sign-in',
     loadComponent: () => import('./features/sign-in/sign-in.component').then((m) => m.SignInComponent),
+  },
+  {
+    path: 'sign-up',
+    loadComponent: () => import('./features/sign-up/sign-up.component').then((m) => m.SignUpComponent),
+  },
+  {
+    path: 'confirm-email',
+    loadComponent: () => import('./features/confirm-email/confirm-email.component').then((m) => m.ConfirmEmailComponent),
   },
   ...(isDevMode()
     ? [

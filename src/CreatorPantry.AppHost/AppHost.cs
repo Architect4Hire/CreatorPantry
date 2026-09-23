@@ -73,13 +73,19 @@ if (builder.ExecutionContext.IsRunMode)
     // since main.js never gets a turn to execute. Going direct also keeps this endpoint's URL —
     // and therefore the CORS origin below, which is derived from it — pointed at whatever the
     // browser is actually using.
+    //
+    // HTTPS, matching the gateway's scheme: the gateway's antiforgery and session cookies are
+    // SameSite=Strict, and browsers apply schemeful same-site — an http dev server talking to the
+    // https gateway counts as cross-site, so those cookies would be set but never sent back, and
+    // every unsafe request would fail CSRF validation. scripts/serve.mjs exports the trusted
+    // ASP.NET Core dev cert for `ng serve` to use so the two origins agree on scheme.
     var webDev = builder.AddJavaScriptApp("web-dev", "../web", "start")
         .WithNpm()
-        .WithHttpEndpoint(env: "PORT", isProxied: false)
+        .WithHttpsEndpoint(env: "PORT", isProxied: false)
         .WithReference(web)
         .WaitFor(web);
 
-    gateway.WithEnvironment("Cors__AllowedOrigins__1", webDev.GetEndpoint("http"));
+    gateway.WithEnvironment("Cors__AllowedOrigins__1", webDev.GetEndpoint("https"));
 }
 
 builder.Build().Run();

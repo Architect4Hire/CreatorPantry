@@ -1,17 +1,22 @@
 import { decodeMyWorkspaceMembership, decodeMyWorkspaceMemberships } from './auth.models';
 
-const VALID = { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 30, status: 10 };
+const VALID = { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' };
 
 describe('decodeMyWorkspaceMembership', () => {
-  it('decodes a valid entry with numeric role/status (the actual API wire format)', () => {
+  it('decodes a valid entry with named string role/status (the actual API wire format)', () => {
     expect(decodeMyWorkspaceMembership(VALID)).toEqual({
       workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active',
     });
   });
 
-  it('rejects an unknown numeric role or status', () => {
-    expect(decodeMyWorkspaceMembership({ ...VALID, role: 99 })).toBeNull();
-    expect(decodeMyWorkspaceMembership({ ...VALID, status: 99 })).toBeNull();
+  it('rejects an unrecognized role or status name', () => {
+    expect(decodeMyWorkspaceMembership({ ...VALID, role: 'SuperOwner' })).toBeNull();
+    expect(decodeMyWorkspaceMembership({ ...VALID, status: 'Archived' })).toBeNull();
+  });
+
+  it('rejects a numeric role or status (not the wire format)', () => {
+    expect(decodeMyWorkspaceMembership({ ...VALID, role: 30 })).toBeNull();
+    expect(decodeMyWorkspaceMembership({ ...VALID, status: 10 })).toBeNull();
   });
 
   it('rejects a missing required string field', () => {
@@ -34,7 +39,7 @@ describe('decodeMyWorkspaceMemberships', () => {
   });
 
   it('drops only the malformed entries, keeping the valid ones', () => {
-    const result = decodeMyWorkspaceMemberships([VALID, { ...VALID, role: 99 }, null, 'not an object']);
+    const result = decodeMyWorkspaceMemberships([VALID, { ...VALID, role: 'SuperOwner' }, null, 'not an object']);
     expect(result.length).toBe(1);
     expect(result[0].workspaceId).toBe('w1');
   });

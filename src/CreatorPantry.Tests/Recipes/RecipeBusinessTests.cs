@@ -202,6 +202,76 @@ public sealed class RecipeBusinessTests
         Assert.Equal(CanonicalCreateRecipe.From(input).Tags, _dataLayer.Tags);
     }
 
+    // ---- Instructions (create) ----
+
+    [Fact]
+    public async Task Instruction_groups_and_steps_are_built_fresh_with_new_ids_and_position_order()
+    {
+        var input = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            Instructions =
+            [
+                new RecipeInstructionGroupInputViewModel
+                {
+                    Title = "Batter",
+                    Steps =
+                    [
+                        new RecipeInstructionStepInputViewModel { Text = "Cream the butter and sugar." },
+                        new RecipeInstructionStepInputViewModel { Text = "Beat in the eggs." },
+                    ],
+                },
+            ],
+        };
+
+        await CreateAsync(input);
+
+        var group = Assert.Single(_dataLayer.Recipe!.InstructionGroups);
+        Assert.NotEqual(Guid.Empty, group.Id);
+        Assert.Equal("Batter", group.Title);
+        Assert.Equal(0, group.SortOrder);
+
+        var steps = group.Steps.OrderBy(step => step.SortOrder).ToList();
+        Assert.Equal(2, steps.Count);
+        Assert.Equal("Cream the butter and sugar.", steps[0].Text);
+        Assert.Equal(0, steps[0].SortOrder);
+        Assert.Equal("Beat in the eggs.", steps[1].Text);
+        Assert.Equal(1, steps[1].SortOrder);
+        Assert.NotEqual(steps[0].Id, steps[1].Id);
+    }
+
+    [Fact]
+    public async Task A_steps_temperature_dimension_is_derived_as_temperature_never_trusted_from_the_request()
+    {
+        var unitId = Guid.NewGuid();
+        var input = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            Instructions =
+            [
+                new RecipeInstructionGroupInputViewModel
+                {
+                    Steps = [new RecipeInstructionStepInputViewModel { Text = "Bake.", TemperatureValue = 180m, TemperatureUnitId = unitId }],
+                },
+            ],
+        };
+
+        await CreateAsync(input);
+
+        var step = _dataLayer.Recipe!.InstructionGroups.Single().Steps.Single();
+        Assert.Equal(180m, step.TemperatureValue);
+        Assert.Equal(unitId, step.TemperatureUnitId);
+        Assert.Equal(MeasurementDimension.Temperature, step.TemperatureUnitDimension);
+    }
+
+    [Fact]
+    public async Task No_instructions_is_a_recipe_with_no_method_yet()
+    {
+        await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
+
+        Assert.Empty(_dataLayer.Recipe!.InstructionGroups);
+    }
+
     // ---- Nothing reaches the DataLayer when an invariant fails ----
 
     [Fact]
@@ -756,6 +826,199 @@ public sealed class RecipeBusinessTests
 
         Assert.Null(_dataLayer.Tags);
     }
+
+    // ---- Instructions (update) ----
+
+    [Fact]
+    public async Task A_new_group_with_no_id_is_added()
+    {
+        var recipe = Stored();
+
+        await UpdateAsync(
+            recipe,
+            Edit() with { Instructions = Instructions(Group(id: null, title: "Batter", Step(id: null, "Cream butter and sugar."))) });
+
+        var group = Assert.Single(recipe.InstructionGroups);
+        Assert.NotEqual(Guid.Empty, group.Id);
+        Assert.Equal("Batter", group.Title);
+        Assert.Equal("Cream butter and sugar.", group.Steps.Single().Text);
+    }
+
+    [Fact]
+    public async Task An_existing_group_and_step_are_updated_in_place_by_id()
+    {
+        var groupId = Guid.NewGuid();
+        var stepId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(
+            ExistingGroup(groupId, "Batter", ExistingStep(stepId, "Cream butter."))));
+
+        await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                Instructions = Instructions(Group(groupId, "Cake batter", Step(stepId, "Cream the butter well."))),
+            });
+
+        var group = Assert.Single(recipe.InstructionGroups);
+        Assert.Equal(groupId, group.Id); // same row, not replaced
+        Assert.Equal("Cake batter", group.Title);
+        var step = Assert.Single(group.Steps);
+        Assert.Equal(stepId, step.Id);
+        Assert.Equal("Cream the butter well.", step.Text);
+    }
+
+    [Fact]
+    public async Task A_group_not_named_by_the_submission_is_removed()
+    {
+        var keepId = Guid.NewGuid();
+        var removeId = Guid.NewGuid();
+        var recipe = Stored(stored =>
+        {
+            stored.InstructionGroups.Add(ExistingGroup(keepId, "Batter", ExistingStep(Guid.NewGuid(), "Mix.")));
+            stored.InstructionGroups.Add(ExistingGroup(removeId, "Frosting", ExistingStep(Guid.NewGuid(), "Whip.")));
+        });
+
+        await UpdateAsync(recipe, Edit() with { Instructions = Instructions(Group(keepId, "Batter", Step(null, "Mix."))) });
+
+        var group = Assert.Single(recipe.InstructionGroups);
+        Assert.Equal(keepId, group.Id);
+    }
+
+    [Fact]
+    public async Task A_step_not_named_by_the_submission_is_removed_from_its_group()
+    {
+        var groupId = Guid.NewGuid();
+        var keepStepId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(ExistingGroup(
+            groupId, "Batter", ExistingStep(keepStepId, "Mix."), ExistingStep(Guid.NewGuid(), "Pour."))));
+
+        await UpdateAsync(recipe, Edit() with { Instructions = Instructions(Group(groupId, "Batter", Step(keepStepId, "Mix."))) });
+
+        var step = Assert.Single(recipe.InstructionGroups.Single().Steps);
+        Assert.Equal(keepStepId, step.Id);
+    }
+
+    [Fact]
+    public async Task Reordering_steps_updates_their_sort_order()
+    {
+        var groupId = Guid.NewGuid();
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(
+            ExistingGroup(groupId, null, ExistingStep(firstId, "Mix.", sortOrder: 0), ExistingStep(secondId, "Pour.", sortOrder: 1))));
+
+        // The same two steps, listed in the opposite order.
+        await UpdateAsync(
+            recipe,
+            Edit() with { Instructions = Instructions(Group(groupId, null, Step(secondId, "Pour."), Step(firstId, "Mix."))) });
+
+        var group = recipe.InstructionGroups.Single();
+        Assert.Equal(0, group.Steps.Single(step => step.Id == secondId).SortOrder);
+        Assert.Equal(1, group.Steps.Single(step => step.Id == firstId).SortOrder);
+    }
+
+    [Fact]
+    public async Task Resubmitting_the_exact_same_instructions_writes_nothing()
+    {
+        var groupId = Guid.NewGuid();
+        var stepId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(
+            ExistingGroup(groupId, "Batter", ExistingStep(stepId, "Mix."))));
+
+        var result = await UpdateAsync(
+            recipe,
+            Edit() with { Instructions = Instructions(Group(groupId, "Batter", Step(stepId, "Mix."))) });
+
+        Assert.True(result.Succeeded);
+
+        // Not an optimisation, for the same reason a no-op scalar edit writes nothing: a version recording
+        // no change is noise in a history a creator reads, and would invalidate collaborators' tokens for
+        // nothing.
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    [Fact]
+    public async Task An_id_naming_no_step_of_this_recipe_is_treated_as_a_new_step_not_an_error()
+    {
+        var groupId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(ExistingGroup(groupId, "Batter")));
+
+        // A foreign or bogus id, indistinguishable to this recipe. Refusing it would first have to decide
+        // which of those it is, and answering that at all is the disclosure tenancy.md forbids.
+        var result = await UpdateAsync(
+            recipe,
+            Edit() with { Instructions = Instructions(Group(groupId, "Batter", Step(Guid.NewGuid(), "Mix."))) });
+
+        Assert.True(result.Succeeded);
+        var step = Assert.Single(recipe.InstructionGroups.Single().Steps);
+        Assert.Equal("Mix.", step.Text);
+    }
+
+    [Fact]
+    public async Task Instructions_left_unsubmitted_are_left_exactly_as_they_are()
+    {
+        var groupId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(ExistingGroup(groupId, "Batter", ExistingStep(Guid.NewGuid(), "Mix."))));
+
+        await UpdateAsync(recipe, Edit() with { Title = Set<string?>("Lemon cake") });
+
+        Assert.Single(recipe.InstructionGroups);
+    }
+
+    [Fact]
+    public async Task Submitting_an_empty_list_clears_every_group()
+    {
+        var recipe = Stored(stored => stored.InstructionGroups.Add(ExistingGroup(Guid.NewGuid(), "Batter", ExistingStep(Guid.NewGuid(), "Mix."))));
+
+        await UpdateAsync(recipe, Edit() with { Instructions = Instructions() });
+
+        Assert.Empty(recipe.InstructionGroups);
+    }
+
+    [Fact]
+    public async Task A_steps_temperature_dimension_is_derived_on_update_too()
+    {
+        var groupId = Guid.NewGuid();
+        var stepId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.InstructionGroups.Add(ExistingGroup(groupId, "Bake", ExistingStep(stepId, "Bake."))));
+
+        await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                Instructions = Instructions(Group(
+                    groupId, "Bake", Step(stepId, "Bake.", temperatureValue: 180m, temperatureUnitId: unitId))),
+            });
+
+        var step = recipe.InstructionGroups.Single().Steps.Single();
+        Assert.Equal(MeasurementDimension.Temperature, step.TemperatureUnitDimension);
+    }
+
+    private static RecipeInstructionGroup ExistingGroup(Guid id, string? title, params RecipeInstructionStep[] steps)
+    {
+        var group = new RecipeInstructionGroup { Id = id, Title = title, SortOrder = 0 };
+        foreach (var step in steps)
+        {
+            group.Steps.Add(step);
+        }
+
+        return group;
+    }
+
+    private static RecipeInstructionStep ExistingStep(Guid id, string text, int sortOrder = 0) =>
+        new() { Id = id, Text = text, SortOrder = sortOrder };
+
+    private static PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> Instructions(
+        params RecipeInstructionGroupInputViewModel[] groups) =>
+        PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?>.Submitted(groups);
+
+    private static RecipeInstructionGroupInputViewModel Group(Guid? id, string? title, params RecipeInstructionStepInputViewModel[] steps) =>
+        new() { Id = id, Title = title, Steps = steps };
+
+    private static RecipeInstructionStepInputViewModel Step(
+        Guid? id, string text, decimal? temperatureValue = null, Guid? temperatureUnitId = null) =>
+        new() { Id = id, Text = text, TemperatureValue = temperatureValue, TemperatureUnitId = temperatureUnitId };
 
     private static readonly Guid TagId = Guid.NewGuid();
 

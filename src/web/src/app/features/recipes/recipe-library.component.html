@@ -1,0 +1,42 @@
+<cp-list-shell
+  heading="Recipes"
+  [state]="listShellState()"
+  errorMessage="Couldn't load your recipes. Check your connection and try again."
+  emptyMessage="No recipes yet."
+>
+  <div cpListShellActions>
+    @if (state().status === 'error') {
+      <button cpButton variant="secondary" (click)="retry()">Try again</button>
+    } @else {
+      <a cpButton routerLink="new">New recipe</a>
+    }
+  </div>
+
+  <div cpListShellEmpty>
+    <cp-empty-state
+      title="No recipes yet"
+      description="Create your first recipe to start building your library."
+      variant="first-use"
+      icon="⌘"
+    >
+      <div cpEmptyStateActions>
+        <a cpButton routerLink="new">New recipe</a>
+      </div>
+    </cp-empty-state>
+  </div>
+
+  @for (recipe of readyRecipes(); track recipe.id) {
+    <cp-card [interactive]="true" class="recipe-row">
+      <a class="recipe-link" [routerLink]="[recipe.id]">
+        <span class="recipe-main">
+          <span class="title">{{ recipe.title }}</span>
+          <span class="meta">
+            <cp-status-pill [tone]="statusTone(recipe.status)">{{ recipe.status }}</cp-status-pill>
+            <span class="updated">Updated {{ recipe.updatedAt | date: 'mediumDate' }}</span>
+          </span>
+        </span>
+        <span class="chevron" aria-hidden="true">→</span>
+      </a>
+    </cp-card>
+  }
+</cp-list-shell>

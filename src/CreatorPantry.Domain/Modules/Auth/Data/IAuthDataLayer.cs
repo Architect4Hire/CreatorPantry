@@ -16,6 +16,11 @@ public interface IAuthDataLayer
 
     Task<PasswordUpdateResult> ResetPasswordAsync(UserAccount account, string encodedToken, string newPassword, CancellationToken cancellationToken);
 
+    /// <summary>Generates a confirmation token and hands it to the account message sender.</summary>
+    Task IssueEmailConfirmationAsync(UserAccount account, DateTimeOffset issuedAt, DateTimeOffset expiresAt, CancellationToken cancellationToken);
+
+    Task<EmailConfirmationResult> ConfirmEmailAsync(UserAccount account, string encodedToken, CancellationToken cancellationToken);
+
     Task<PasswordUpdateResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken);
 
     Task SendPasswordChangedNoticeAsync(UserAccount account, DateTimeOffset sentAt, CancellationToken cancellationToken);

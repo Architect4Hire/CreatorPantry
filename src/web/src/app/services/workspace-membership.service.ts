@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -9,6 +9,16 @@ export type MyMembershipsState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready'; readonly memberships: readonly MyWorkspaceMembership[] }
   | { readonly status: 'error' };
+
+export type CreateWorkspaceOutcome =
+  | { readonly status: 'success'; readonly workspaceSlug: string }
+  | { readonly status: 'invalid'; readonly message: string }
+  | { readonly status: 'unavailable' };
+
+function decodeCreatedWorkspaceSlug(value: unknown): string | null {
+  const slug = (value as Record<string, unknown> | null)?.['slug'];
+  return typeof slug === 'string' && slug.length > 0 ? slug : null;
+}
 
 /** The typed client for GET /api/v1/me — the signed-in user's own workspace memberships, for the workspace switcher. */
 @Injectable({ providedIn: 'root' })
@@ -65,6 +75,36 @@ export class WorkspaceMembershipService {
       await request;
     } finally {
       if (this.inFlight === request) this.inFlight = null;
+    }
+  }
+
+  /**
+   * Creates a workspace with the caller as Owner (POST /api/v1/workspaces) and refreshes `state()` from
+   * the server before resolving, so a caller that then reads `state()` sees the new membership without
+   * a separate reload.
+   */
+  async create(name: string): Promise<CreateWorkspaceOutcome> {
+    const url = this.apiBase.url('/api/v1/workspaces');
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const raw = await firstValueFrom(this.http.post<unknown>(url, { name }, { withCredentials: true }));
+      const workspaceSlug = decodeCreatedWorkspaceSlug(raw);
+      if (!workspaceSlug) return { status: 'unavailable' };
+
+      await this.load();
+      return { status: 'success', workspaceSlug };
+    } catch (error) {
+      if (error instanceof HttpErrorResponse) {
+        if (error.status === 400) {
+          const errors = (error.error as Record<string, unknown> | null)?.['errors'] as Record<string, string[]> | undefined;
+          return { status: 'invalid', message: errors?.['name']?.[0] ?? 'Enter a valid workspace name.' };
+        }
+        if (error.status === 409) {
+          return { status: 'invalid', message: 'That name is already taken. Try a different one.' };
+        }
+      }
+      return { status: 'unavailable' };
     }
   }
 }

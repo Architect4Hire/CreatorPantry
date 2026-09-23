@@ -47,6 +47,22 @@ internal sealed class FakeUserRepository : IUserRepository
     public Task<PasswordUpdateResult> ResetPasswordAsync(string userId, string encodedToken, string newPassword, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
+    public Task<string> GenerateEmailConfirmationTokenAsync(string userId, CancellationToken cancellationToken)
+    {
+        Calls.Add($"confirmation-token:{userId}");
+        return Task.FromResult(ResetToken);
+    }
+
+    public EmailConfirmationResult ConfirmResult { get; set; } = EmailConfirmationResult.Of(EmailConfirmationStatus.Succeeded);
+
+    public List<(string UserId, string EncodedToken)> ConfirmCalls { get; } = [];
+
+    public Task<EmailConfirmationResult> ConfirmEmailAsync(string userId, string encodedToken, CancellationToken cancellationToken)
+    {
+        ConfirmCalls.Add((userId, encodedToken));
+        return Task.FromResult(ConfirmResult);
+    }
+
     public Task<PasswordUpdateResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
@@ -69,9 +85,15 @@ internal sealed class FakeAuthDataLayer : IAuthDataLayer
 
     public List<(UserAccount Account, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt)> IssuedResets { get; } = [];
 
+    public List<(UserAccount Account, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt)> IssuedConfirmations { get; } = [];
+
     public List<UserAccount> ChangedNotices { get; } = [];
 
     public int ResetCalls { get; private set; }
+
+    public EmailConfirmationResult ConfirmationResult { get; set; } = EmailConfirmationResult.Of(EmailConfirmationStatus.Succeeded);
+
+    public int ConfirmEmailCalls { get; private set; }
 
     public Task<UserCreationResult> RegisterUserAsync(NewUser user, string password, CancellationToken cancellationToken)
     {
@@ -95,6 +117,18 @@ internal sealed class FakeAuthDataLayer : IAuthDataLayer
     {
         ResetCalls++;
         return Task.FromResult(UpdateResult);
+    }
+
+    public Task IssueEmailConfirmationAsync(UserAccount account, DateTimeOffset issuedAt, DateTimeOffset expiresAt, CancellationToken cancellationToken)
+    {
+        IssuedConfirmations.Add((account, issuedAt, expiresAt));
+        return Task.CompletedTask;
+    }
+
+    public Task<EmailConfirmationResult> ConfirmEmailAsync(UserAccount account, string encodedToken, CancellationToken cancellationToken)
+    {
+        ConfirmEmailCalls++;
+        return Task.FromResult(ConfirmationResult);
     }
 
     public Task<PasswordUpdateResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken) =>
@@ -130,6 +164,9 @@ internal sealed class FakeAuthBusiness : IAuthBusiness
     public Task<OperationResult<PasswordServiceModel>> CompletePasswordResetAsync(CompletePasswordResetViewModel model, CancellationToken cancellationToken) =>
         Count(PasswordServiceModel.ResetCompleted);
 
+    public Task<OperationResult<EmailConfirmationServiceModel>> ConfirmEmailAsync(ConfirmEmailViewModel model, CancellationToken cancellationToken) =>
+        Count(EmailConfirmationServiceModel.Confirmed);
+
     public Task<OperationResult<PasswordServiceModel>> ChangePasswordAsync(string userId, ChangePasswordViewModel model, CancellationToken cancellationToken) =>
         Count(PasswordServiceModel.Changed);
 
@@ -159,6 +196,9 @@ internal sealed class FakeAuthFacade(object? result = null, Exception? error = n
 
     public Task<OperationResult<PasswordServiceModel>> CompletePasswordResetAsync(CompletePasswordResetViewModel model, CancellationToken cancellationToken) =>
         Respond<PasswordServiceModel>();
+
+    public Task<OperationResult<EmailConfirmationServiceModel>> ConfirmEmailAsync(ConfirmEmailViewModel model, CancellationToken cancellationToken) =>
+        Respond<EmailConfirmationServiceModel>();
 
     public Task<OperationResult<PasswordServiceModel>> ChangePasswordAsync(string userId, ChangePasswordViewModel model, CancellationToken cancellationToken) =>
         Respond<PasswordServiceModel>();

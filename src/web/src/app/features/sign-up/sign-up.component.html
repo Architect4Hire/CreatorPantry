@@ -1,0 +1,64 @@
+<div class="sign-up-shell">
+  @if (submitted()) {
+    <div class="sign-up-card" role="status">
+      <h1>Check your email</h1>
+      <p>
+        If that address isn't already in use, we've sent a confirmation link to it. Follow the link to
+        activate your account, then <a routerLink="/sign-in">sign in</a>.
+      </p>
+    </div>
+  } @else {
+    <form class="sign-up-card" (submit)="$event.preventDefault(); submit()">
+      <h1>Create your CreatorPantry account</h1>
+
+      @if (errorMessage()) {
+        <p class="banner banner--error" role="alert">{{ errorMessage() }}</p>
+      }
+
+      <cp-field label="Display name" forId="sign-up-display-name" [required]="true" [error]="fieldError('displayName')">
+        <input
+          id="sign-up-display-name"
+          type="text"
+          autocomplete="name"
+          required
+          [attr.aria-invalid]="fieldError('displayName') ? 'true' : null"
+          [ngModel]="displayName()"
+          (ngModelChange)="displayName.set($event)"
+          name="displayName"
+        />
+      </cp-field>
+
+      <cp-field label="Email" forId="sign-up-email" [required]="true" [error]="fieldError('email')">
+        <input
+          id="sign-up-email"
+          type="email"
+          autocomplete="username"
+          required
+          [attr.aria-invalid]="fieldError('email') ? 'true' : null"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+          name="email"
+        />
+      </cp-field>
+
+      <cp-field label="Password" forId="sign-up-password" [required]="true" [error]="fieldError('password')" hint="At least 12 characters.">
+        <input
+          id="sign-up-password"
+          type="password"
+          autocomplete="new-password"
+          required
+          [attr.aria-invalid]="fieldError('password') ? 'true' : null"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          name="password"
+        />
+      </cp-field>
+
+      <button cpButton type="submit" [fullWidth]="true" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+        {{ submitting() ? 'Creating account…' : 'Create account' }}
+      </button>
+
+      <p class="footer-link">Already have an account? <a routerLink="/sign-in">Sign in</a></p>
+    </form>
+  }
+</div>

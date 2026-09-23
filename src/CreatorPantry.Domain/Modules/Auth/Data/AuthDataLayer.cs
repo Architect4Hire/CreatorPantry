@@ -27,6 +27,18 @@ internal sealed class AuthDataLayer(IUserRepository users, IAccountMessageSender
         UserAccount account, string encodedToken, string newPassword, CancellationToken cancellationToken) =>
         users.ResetPasswordAsync(account.UserId, encodedToken, newPassword, cancellationToken);
 
+    public async Task IssueEmailConfirmationAsync(
+        UserAccount account, DateTimeOffset issuedAt, DateTimeOffset expiresAt, CancellationToken cancellationToken)
+    {
+        var token = await users.GenerateEmailConfirmationTokenAsync(account.UserId, cancellationToken);
+
+        await messages.SendAsync(
+            AccountMessage.EmailConfirmation(account.UserId, account.Email, token, issuedAt, expiresAt), cancellationToken);
+    }
+
+    public Task<EmailConfirmationResult> ConfirmEmailAsync(UserAccount account, string encodedToken, CancellationToken cancellationToken) =>
+        users.ConfirmEmailAsync(account.UserId, encodedToken, cancellationToken);
+
     public Task<PasswordUpdateResult> ChangePasswordAsync(
         string userId, string currentPassword, string newPassword, CancellationToken cancellationToken) =>
         users.ChangePasswordAsync(userId, currentPassword, newPassword, cancellationToken);

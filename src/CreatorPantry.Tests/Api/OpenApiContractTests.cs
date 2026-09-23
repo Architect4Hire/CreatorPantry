@@ -149,7 +149,7 @@ public sealed class OpenApiContractTests : IDisposable
     {
         var document = await GetDocumentAsync();
 
-        foreach (var path in new[] { "/api/v1/auth/register", "/api/v1/auth/password-reset", "/api/v1/auth/password-reset/complete" })
+        foreach (var path in new[] { "/api/v1/auth/register", "/api/v1/auth/confirm-email", "/api/v1/auth/password-reset", "/api/v1/auth/password-reset/complete" })
         {
             Assert.Null(document["paths"]![path]!["post"]!["security"]);
         }

@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Gateways;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
@@ -34,6 +35,9 @@ internal sealed class SqliteApiHost : IAsyncDisposable
     public WebApplicationFactory<ApiService::Program> Factory { get; private set; } = null!;
 
     public CapturingLoggerProvider Logs { get; } = new();
+
+    /// <summary>The development sink account/registration messages land in; never reachable through the gateway.</summary>
+    public InMemoryAccountMessageSink Messages => Factory.Services.GetRequiredService<InMemoryAccountMessageSink>();
 
     /// <param name="time">Optional clock shared with a gateway under test, so token lifetimes agree.</param>
     public static async Task<SqliteApiHost> StartAsync(TimeProvider? time = null)

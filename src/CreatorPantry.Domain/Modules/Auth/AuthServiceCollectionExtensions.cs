@@ -25,6 +25,7 @@ public static class AuthServiceCollectionExtensions
         services.AddScoped<IValidator<RequestPasswordResetViewModel>, RequestPasswordResetViewModelValidator>();
         services.AddScoped<IValidator<CompletePasswordResetViewModel>, CompletePasswordResetViewModelValidator>();
         services.AddScoped<IValidator<ChangePasswordViewModel>, ChangePasswordViewModelValidator>();
+        services.AddScoped<IValidator<ConfirmEmailViewModel>, ConfirmEmailViewModelValidator>();
         services.AddScoped<IValidator<VerifyCredentialsViewModel>, VerifyCredentialsViewModelValidator>();
         services.AddScoped<IValidator<ValidateSessionViewModel>, ValidateSessionViewModelValidator>();
         services.AddScoped<IAuthFacade, AuthFacade>();

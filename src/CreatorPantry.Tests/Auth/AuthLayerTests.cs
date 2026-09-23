@@ -53,6 +53,31 @@ public class AuthDataLayerTests
         Assert.Null(message.Token);
     }
 
+    [Fact]
+    public async Task Issuing_a_confirmation_sends_the_repository_token_with_its_expiry()
+    {
+        var expiresAt = SqliteAuthServices.Now.AddHours(1);
+
+        await CreateDataLayer().IssueEmailConfirmationAsync(Account, SqliteAuthServices.Now, expiresAt, TestContext.Current.CancellationToken);
+
+        var message = Assert.Single(_sink.Messages);
+        Assert.Equal(AccountMessageKind.EmailConfirmation, message.Kind);
+        Assert.Equal(("u1", "cook@example.com"), (message.RecipientUserId, message.RecipientEmail));
+        Assert.Equal(_repository.ResetToken, message.Token);
+        Assert.Equal(expiresAt, message.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Confirm_email_delegates_to_the_repository_by_user_id()
+    {
+        _repository.ConfirmResult = EmailConfirmationResult.Of(EmailConfirmationStatus.Succeeded);
+
+        var result = await CreateDataLayer().ConfirmEmailAsync(Account, "encoded-token", TestContext.Current.CancellationToken);
+
+        Assert.Equal(EmailConfirmationStatus.Succeeded, result.Status);
+        Assert.Equal(("u1", "encoded-token"), _repository.ConfirmCalls.Single());
+    }
+
     private AuthDataLayer CreateDataLayer() => new(_repository, _sink);
 }
 
@@ -85,6 +110,28 @@ public class AuthBusinessTests
         Assert.True(created.Succeeded);
         Assert.Equal(created.Value, duplicate.Value);
         Assert.Equal(RegistrationServiceModel.PendingConfirmation, created.Value);
+    }
+
+    [Fact]
+    public async Task Registration_of_a_new_account_issues_a_one_hour_confirmation_token()
+    {
+        _dataLayer.CreateResult = UserCreationResult.Created("u1");
+
+        await CreateBusiness().RegisterAsync(RegisterUserViewModelValidatorTests.Valid(), TestContext.Current.CancellationToken);
+
+        var issued = Assert.Single(_dataLayer.IssuedConfirmations);
+        Assert.Equal(new UserAccount("u1", "cook@example.com", EmailConfirmed: false), issued.Account);
+        Assert.Equal(SqliteAuthServices.Now.AddHours(1), issued.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Registration_of_a_duplicate_account_issues_no_confirmation()
+    {
+        _dataLayer.CreateResult = UserCreationResult.Duplicate;
+
+        await CreateBusiness().RegisterAsync(RegisterUserViewModelValidatorTests.Valid(), TestContext.Current.CancellationToken);
+
+        Assert.Empty(_dataLayer.IssuedConfirmations);
     }
 
     [Theory]
@@ -168,6 +215,42 @@ public class AuthBusinessTests
     }
 
     [Fact]
+    public async Task Confirm_email_for_an_unknown_email_is_an_invalid_token_without_touching_identity()
+    {
+        _dataLayer.Account = null;
+
+        var result = await CreateBusiness().ConfirmEmailAsync(ConfirmRequest(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(AuthErrorCodes.EmailConfirmationInvalidToken, result.Error!.Code);
+        Assert.Equal(0, _dataLayer.ConfirmEmailCalls);
+    }
+
+    [Theory]
+    [InlineData(EmailConfirmationStatus.InvalidToken)]
+    [InlineData(EmailConfirmationStatus.NotFound)]
+    public async Task Confirm_email_token_failures_share_one_error(EmailConfirmationStatus status)
+    {
+        _dataLayer.Account = Confirmed;
+        _dataLayer.ConfirmationResult = EmailConfirmationResult.Of(status);
+
+        var result = await CreateBusiness().ConfirmEmailAsync(ConfirmRequest(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(AuthErrorCodes.EmailConfirmationInvalidToken, result.Error!.Code);
+        Assert.Empty(result.Error.FieldErrors);
+    }
+
+    [Fact]
+    public async Task Confirm_email_success()
+    {
+        _dataLayer.Account = Confirmed;
+        _dataLayer.ConfirmationResult = EmailConfirmationResult.Of(EmailConfirmationStatus.Succeeded);
+
+        var result = await CreateBusiness().ConfirmEmailAsync(ConfirmRequest(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(EmailConfirmationServiceModel.Confirmed, result.Value);
+    }
+
+    [Fact]
     public async Task Change_with_the_wrong_current_password_is_a_current_password_field_error()
     {
         _dataLayer.UpdateResult = PasswordUpdateResult.Of(PasswordUpdateStatus.IncorrectCurrentPassword);
@@ -207,6 +290,9 @@ public class AuthBusinessTests
 
     internal static ChangePasswordViewModel ChangeRequest() =>
         new() { CurrentPassword = "correct horse battery", NewPassword = "a brand new passphrase" };
+
+    internal static ConfirmEmailViewModel ConfirmRequest() =>
+        new() { Email = "cook@example.com", Token = "encoded-token" };
 
     private AuthBusiness CreateBusiness() => new(_dataLayer, new FixedClock(), NullLogger<AuthBusiness>.Instance);
 }
@@ -249,6 +335,17 @@ public class AuthFacadeTests
     }
 
     [Fact]
+    public async Task Invalid_confirm_email_is_rejected_before_any_account_lookup()
+    {
+        var result = await CreateFacade().ConfirmEmailAsync(
+            new ConfirmEmailViewModel { Email = "bad", Token = "" }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(AuthErrorCodes.EmailConfirmationInvalid, result.Error!.Code);
+        Assert.Equal(["email", "token"], result.Error.FieldErrors.Keys.Order());
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
     public async Task Invalid_change_is_rejected_without_calling_business()
     {
         var result = await CreateFacade().ChangePasswordAsync("u1",
@@ -277,11 +374,12 @@ public class AuthFacadeTests
         await facade.RegisterAsync(RegisterUserViewModelValidatorTests.Valid(), ct);
         await facade.RequestPasswordResetAsync(AuthBusinessTests.ResetRequest(), ct);
         await facade.CompletePasswordResetAsync(AuthBusinessTests.CompleteRequest(), ct);
+        await facade.ConfirmEmailAsync(AuthBusinessTests.ConfirmRequest(), ct);
         await facade.ChangePasswordAsync("u1", AuthBusinessTests.ChangeRequest(), ct);
         await facade.VerifyCredentialsAsync(new VerifyCredentialsViewModel { Email = "cook@example.com", Password = "pw" }, ct);
         await facade.ValidateSessionAsync(new ValidateSessionViewModel { UserId = "u1", SecurityStamp = "stamp" }, ct);
 
-        Assert.Equal(6, _business.Calls);
+        Assert.Equal(7, _business.Calls);
     }
 
     [Fact]
@@ -302,6 +400,7 @@ public class AuthFacadeTests
         new RequestPasswordResetViewModelValidator(),
         new CompletePasswordResetViewModelValidator(),
         new ChangePasswordViewModelValidator(),
+        new ConfirmEmailViewModelValidator(),
         new VerifyCredentialsViewModelValidator(),
         new ValidateSessionViewModelValidator(),
         _business);

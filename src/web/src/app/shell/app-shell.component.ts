@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, isDevMode, signal } from '@
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import { CpButtonComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpThemeService } from '@creator-pantry/ui';
 
 import { AuthService } from '../services/auth.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
@@ -42,6 +42,7 @@ export class AppShellComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   private readonly membershipService = inject(WorkspaceMembershipService);
+  readonly theme = inject(CpThemeService);
 
   readonly navItems = NAV_ITEMS;
   readonly isDevMode = isDevMode();
@@ -75,7 +76,12 @@ export class AppShellComponent {
     let slug: string | null = null;
     let section = 'dashboard';
     let title = 'CreatorPantry';
-    while (node) {
+    // A node can exist in the tree with its `snapshot` not yet assigned: this runs once synchronously
+    // during construction (this component and its own '' child both activate in the same navigation),
+    // before the router has finished wiring up that child's snapshot. Stop at that point rather than
+    // reading through it — the subsequent NavigationEnd-driven recomputation fills in the real values
+    // once activation completes.
+    while (node?.snapshot) {
       const paramSlug = node.snapshot.paramMap.get('workspaceSlug');
       if (paramSlug) slug = paramSlug;
       const segment = node.snapshot.url[0]?.path;

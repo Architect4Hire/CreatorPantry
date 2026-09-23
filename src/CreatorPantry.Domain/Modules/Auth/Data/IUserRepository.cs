@@ -16,6 +16,11 @@ public interface IUserRepository
 
     Task<PasswordUpdateResult> ResetPasswordAsync(string userId, string encodedToken, string newPassword, CancellationToken cancellationToken);
 
+    /// <summary>Returns a URL-safe email confirmation token for an existing user.</summary>
+    Task<string> GenerateEmailConfirmationTokenAsync(string userId, CancellationToken cancellationToken);
+
+    Task<EmailConfirmationResult> ConfirmEmailAsync(string userId, string encodedToken, CancellationToken cancellationToken);
+
     Task<PasswordUpdateResult> ChangePasswordAsync(string userId, string currentPassword, string newPassword, CancellationToken cancellationToken);
 
     /// <summary>

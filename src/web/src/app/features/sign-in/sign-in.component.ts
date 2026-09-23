@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CpButtonComponent, CpFieldComponent } from '@creator-pantry/ui';
 
 import { AuthService, LoginOutcome } from '../../services/auth.service';
@@ -15,7 +15,7 @@ const OUTCOME_MESSAGES: Record<Exclude<LoginOutcome['status'], 'success'>, strin
 @Component({
   selector: 'cp-sign-in',
   standalone: true,
-  imports: [FormsModule, CpButtonComponent, CpFieldComponent],
+  imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent],
   templateUrl: './sign-in.component.html',
   styleUrl: './sign-in.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

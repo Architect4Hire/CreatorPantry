@@ -9,9 +9,8 @@
   background: var(--cp-surface); border-right: 1px solid var(--cp-border); overflow-y: auto;
 }
 
-.brand { display: flex; align-items: center; gap: var(--cp-space-2); color: var(--cp-text); }
-.brand-mark { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: var(--cp-radius-md); background: var(--cp-primary); color: var(--cp-primary-ink); font-weight: 800; }
-.brand strong { font: 400 1.1rem/1 var(--cp-font-display); }
+.brand { display: flex; align-items: center; justify-content: center; color: var(--cp-text); }
+.brand-mark { display: block; width: 100%; max-width: 9.5rem; height: auto; }
 
 nav { display: grid; gap: var(--cp-space-1); }
 nav a { display: flex; align-items: center; gap: var(--cp-space-3); padding: var(--cp-space-2) var(--cp-space-3); border-radius: var(--cp-radius-md); color: var(--cp-text-muted); text-decoration: none; font-size: var(--cp-font-size-sm); font-weight: 600; min-height: 2.5rem; }

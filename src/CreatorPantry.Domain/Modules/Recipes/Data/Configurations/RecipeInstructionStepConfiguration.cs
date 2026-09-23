@@ -35,6 +35,11 @@ internal sealed class RecipeInstructionStepConfiguration : IEntityTypeConfigurat
 
         builder.HasKey(step => step.Id);
 
+        // See RecipeInstructionGroupConfiguration's Id configuration for why this matters: without it, a new
+        // step attached to an existing group during an edit is misread as an update to a row that does not
+        // exist.
+        builder.Property(step => step.Id).ValueGeneratedNever();
+
         builder.Property(step => step.Text)
             .IsRequired()
             .HasMaxLength(RecipePolicy.StepTextMaxLength);

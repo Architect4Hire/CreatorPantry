@@ -1,0 +1,446 @@
+@switch (loadState().status) {
+  @case ('loading') {
+    <p class="status" role="status">Loading recipe…</p>
+  }
+  @case ('not_found') {
+    <cp-empty-state title="Recipe not found" description="It may have been removed, or the link is incorrect." icon="⚠">
+      <div cpEmptyStateActions>
+        <a cpButton [routerLink]="['/', workspaceSlug, 'recipes']">Back to recipes</a>
+      </div>
+    </cp-empty-state>
+  }
+  @case ('unavailable') {
+    <cp-empty-state title="Couldn't load this recipe" description="Check your connection and try again." icon="⚠">
+      <div cpEmptyStateActions>
+        <button cpButton (click)="retryLoad()">Try again</button>
+      </div>
+    </cp-empty-state>
+  }
+  @case ('ready') {
+    <header class="editor-header">
+      <h1>{{ isCreateMode ? 'New recipe' : title() || 'Edit recipe' }}</h1>
+      <div class="editor-header-actions">
+        @if (isDirty() && saveState().status !== 'saving') {
+          <cp-status-pill tone="warning" role="status" class="dirty-indicator">Unsaved changes</cp-status-pill>
+        }
+        <button
+          cpButton
+          size="lg"
+          type="button"
+          [disabled]="!canSave()"
+          [attr.aria-busy]="saveState().status === 'saving'"
+          (click)="save()"
+        >
+          {{ saveState().status === 'saving' ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </header>
+
+    <cp-dialog
+      [open]="leaveConfirmOpen()"
+      title="Discard unsaved changes?"
+      description="Your edits to this recipe haven't been saved yet. If you leave now, they'll be lost."
+      (closed)="resolveLeaveConfirm(false)"
+    >
+      <div cpDialogActions>
+        <button cpButton variant="ghost" type="button" (click)="resolveLeaveConfirm(false)">Keep editing</button>
+        <button cpButton variant="danger" type="button" (click)="resolveLeaveConfirm(true)">Discard changes</button>
+      </div>
+    </cp-dialog>
+
+    @switch (saveState().status) {
+      @case ('success') {
+        <p class="banner" role="status">Saved.</p>
+      }
+      @case ('validation_failed') {
+        <p class="banner banner--error" role="alert">Some fields need attention. Check your recipe details and try again.</p>
+      }
+      @case ('forbidden') {
+        <p class="banner banner--error" role="alert">You don't have permission to save this recipe.</p>
+      }
+      @case ('conflict') {
+        <p class="banner banner--error" role="alert">
+          This recipe changed elsewhere since you loaded it.
+          <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
+        </p>
+      }
+      @case ('unavailable') {
+        <p class="banner banner--error" role="alert">Couldn't save. Check your connection and try again.</p>
+      }
+      @case ('idempotency_key_conflict') {
+        <p class="banner banner--error" role="alert">Couldn't save. Please try again.</p>
+      }
+    }
+
+    <cp-card class="editor-card">
+    <cp-tabs [tabs]="tabs" ariaLabel="Recipe sections" [(selectedId)]="selectedTabId">
+      <cp-tab-panel id="metadata">
+        <h2 class="section-heading">Metadata</h2>
+        <p class="section-intro">The essentials creators see first.</p>
+
+        <cp-field label="Title" forId="recipe-title" [required]="true" [error]="fieldError('title')">
+          <input
+            id="recipe-title"
+            type="text"
+            required
+            [attr.aria-invalid]="fieldError('title') ? 'true' : null"
+            [ngModel]="title()"
+            (ngModelChange)="title.set($event)"
+            name="title"
+          />
+        </cp-field>
+
+        <cp-field label="Description" forId="recipe-description" [error]="fieldError('description')">
+          <textarea
+            id="recipe-description"
+            [attr.aria-invalid]="fieldError('description') ? 'true' : null"
+            [ngModel]="description()"
+            (ngModelChange)="description.set($event)"
+            name="description"
+          ></textarea>
+        </cp-field>
+
+        <cp-field label="Headnote" forId="recipe-headnote" [error]="fieldError('headnote')">
+          <textarea
+            id="recipe-headnote"
+            [attr.aria-invalid]="fieldError('headnote') ? 'true' : null"
+            [ngModel]="headnote()"
+            (ngModelChange)="headnote.set($event)"
+            name="headnote"
+          ></textarea>
+        </cp-field>
+
+        <cp-field label="Attribution" forId="recipe-attribution" [error]="fieldError('attributionText')">
+          <input
+            id="recipe-attribution"
+            type="text"
+            [attr.aria-invalid]="fieldError('attributionText') ? 'true' : null"
+            [ngModel]="attributionText()"
+            (ngModelChange)="attributionText.set($event)"
+            name="attributionText"
+          />
+        </cp-field>
+
+        <cp-field label="Source URL" forId="recipe-source-url" [error]="fieldError('sourceUrl')">
+          <input
+            id="recipe-source-url"
+            type="url"
+            [attr.aria-invalid]="fieldError('sourceUrl') ? 'true' : null"
+            [ngModel]="sourceUrl()"
+            (ngModelChange)="sourceUrl.set($event)"
+            name="sourceUrl"
+          />
+        </cp-field>
+
+        <cp-field label="Status" forId="recipe-status" [error]="fieldError('status')">
+          <select
+            id="recipe-status"
+            [attr.aria-invalid]="fieldError('status') ? 'true' : null"
+            [ngModel]="status()"
+            (ngModelChange)="status.set($event)"
+            name="status"
+          >
+            @for (option of statusOptions(); track option) {
+              <option [value]="option">{{ option }}</option>
+            }
+          </select>
+        </cp-field>
+
+        <cp-field label="Tags" forId="recipe-new-tag" [error]="fieldError('tags')">
+          <div class="tags">
+            @for (tag of tags(); track tag) {
+              <span class="tag-chip">
+                {{ tag }}
+                <button type="button" [attr.aria-label]="'Remove tag ' + tag" (click)="removeTag(tag)">×</button>
+              </span>
+            }
+          </div>
+          <div class="tag-input-row">
+            <input
+              id="recipe-new-tag"
+              type="text"
+              placeholder="Add a tag"
+              [ngModel]="newTagText()"
+              (ngModelChange)="newTagText.set($event)"
+              (keydown.enter)="$event.preventDefault(); addTag()"
+              name="newTag"
+            />
+            <button cpButton variant="secondary" type="button" (click)="addTag()">Add tag</button>
+          </div>
+        </cp-field>
+      </cp-tab-panel>
+
+      <cp-tab-panel id="ingredients">
+        <h2 class="section-heading">Ingredients</h2>
+        <p class="section-intro">Structured editing arrives in a later phase — this reflects what the recipe currently has.</p>
+        @if (ingredientGroups().length === 0) {
+          <p class="muted">No ingredients yet.</p>
+        } @else {
+          @for (group of ingredientGroups(); track group.id) {
+            <section class="group">
+              @if (group.title) {
+                <h3>{{ group.title }}</h3>
+              }
+              <ul>
+                @for (ingredient of group.ingredients; track ingredient.id) {
+                  <li>
+                    {{ ingredient.displayText }}
+                    @if (ingredient.isOptional) {
+                      <cp-badge>Optional</cp-badge>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        }
+      </cp-tab-panel>
+
+      <cp-tab-panel id="instructions">
+        <h2 class="section-heading">Instructions</h2>
+        <p class="section-intro">The method, step by step.</p>
+
+        @if (instructionGroups().length === 0) {
+          <p class="muted">No instructions yet.</p>
+        }
+
+        @for (group of instructionGroups(); track group.key; let groupIndex = $index, groupCount = $count) {
+          <section class="group instruction-group">
+            <div class="group-header">
+              <cp-field [label]="'Group ' + (groupIndex + 1) + ' heading'" [forId]="'group-title-' + group.key">
+                <input
+                  [id]="'group-title-' + group.key"
+                  type="text"
+                  placeholder="e.g. For the streusel"
+                  [ngModel]="group.title"
+                  (ngModelChange)="updateInstructionGroupTitle(group.key, $event)"
+                  [name]="'groupTitle' + group.key"
+                />
+              </cp-field>
+              <div class="group-actions">
+                <button
+                  cpButton
+                  variant="secondary"
+                  type="button"
+                  [disabled]="groupIndex === 0"
+                  [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' up'"
+                  (click)="moveInstructionGroup(group.key, -1)"
+                >
+                  ↑
+                </button>
+                <button
+                  cpButton
+                  variant="secondary"
+                  type="button"
+                  [disabled]="groupIndex === groupCount - 1"
+                  [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' down'"
+                  (click)="moveInstructionGroup(group.key, 1)"
+                >
+                  ↓
+                </button>
+                <button
+                  cpButton
+                  variant="danger"
+                  type="button"
+                  [attr.aria-label]="'Remove group ' + (groupIndex + 1)"
+                  (click)="removeInstructionGroup(group.key)"
+                >
+                  Remove group
+                </button>
+              </div>
+            </div>
+
+            <ol class="steps">
+              @for (step of group.steps; track step.key; let stepIndex = $index, stepCount = $count) {
+                <li class="step">
+                  <cp-field [label]="'Step ' + (stepIndex + 1)" [forId]="'step-text-' + step.key" [required]="true">
+                    <textarea
+                      [id]="'step-text-' + step.key"
+                      [ngModel]="step.text"
+                      (ngModelChange)="updateInstructionStep(group.key, step.key, { text: $event })"
+                      [name]="'stepText' + step.key"
+                    ></textarea>
+                  </cp-field>
+
+                  <cp-field label="Duration (minutes)" [forId]="'step-duration-' + step.key">
+                    <input
+                      [id]="'step-duration-' + step.key"
+                      type="number"
+                      min="0"
+                      [ngModel]="step.durationMinutes"
+                      (ngModelChange)="updateInstructionStep(group.key, step.key, { durationMinutes: $event })"
+                      [name]="'stepDuration' + step.key"
+                    />
+                  </cp-field>
+
+                  <cp-field label="Note" [forId]="'step-note-' + step.key">
+                    <input
+                      [id]="'step-note-' + step.key"
+                      type="text"
+                      placeholder="A tip, a warning, a doneness cue"
+                      [ngModel]="step.note"
+                      (ngModelChange)="updateInstructionStep(group.key, step.key, { note: $event })"
+                      [name]="'stepNote' + step.key"
+                    />
+                  </cp-field>
+
+                  <div class="step-actions">
+                    <button
+                      cpButton
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      [disabled]="stepIndex === 0"
+                      [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' up'"
+                      (click)="moveInstructionStep(group.key, step.key, -1)"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      cpButton
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      [disabled]="stepIndex === stepCount - 1"
+                      [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' down'"
+                      (click)="moveInstructionStep(group.key, step.key, 1)"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      cpButton
+                      variant="danger"
+                      size="sm"
+                      type="button"
+                      [attr.aria-label]="'Remove step ' + (stepIndex + 1)"
+                      (click)="removeInstructionStep(group.key, step.key)"
+                    >
+                      Remove step
+                    </button>
+                  </div>
+                </li>
+              }
+            </ol>
+
+            <button cpButton variant="secondary" type="button" (click)="addInstructionStep(group.key)">Add step</button>
+          </section>
+        }
+
+        <button cpButton type="button" (click)="addInstructionGroup()">Add instruction group</button>
+      </cp-tab-panel>
+
+      <cp-tab-panel id="notes">
+        <h2 class="section-heading">Notes</h2>
+        <p class="section-intro">Extra context for future you, and for other creators in this workspace.</p>
+
+        <cp-field label="Notes" forId="recipe-notes" [error]="fieldError('notes')">
+          <textarea
+            id="recipe-notes"
+            [attr.aria-invalid]="fieldError('notes') ? 'true' : null"
+            [ngModel]="notes()"
+            (ngModelChange)="notes.set($event)"
+            name="notes"
+          ></textarea>
+        </cp-field>
+
+        <cp-field label="Storage notes" forId="recipe-storage-notes" [error]="fieldError('storageNotes')">
+          <textarea
+            id="recipe-storage-notes"
+            [attr.aria-invalid]="fieldError('storageNotes') ? 'true' : null"
+            [ngModel]="storageNotes()"
+            (ngModelChange)="storageNotes.set($event)"
+            name="storageNotes"
+          ></textarea>
+        </cp-field>
+      </cp-tab-panel>
+
+      <cp-tab-panel id="timing">
+        <h2 class="section-heading">Timing &amp; yield</h2>
+        <p class="section-intro">How long it takes, and how much it makes.</p>
+
+        <cp-field label="Prep time (minutes)" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
+          <input
+            id="recipe-prep-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('prepTimeMinutes') ? 'true' : null"
+            [ngModel]="prepTimeMinutes()"
+            (ngModelChange)="prepTimeMinutes.set($event)"
+            name="prepTimeMinutes"
+          />
+        </cp-field>
+
+        <cp-field label="Cook time (minutes)" forId="recipe-cook-time" [error]="fieldError('cookTimeMinutes')">
+          <input
+            id="recipe-cook-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('cookTimeMinutes') ? 'true' : null"
+            [ngModel]="cookTimeMinutes()"
+            (ngModelChange)="cookTimeMinutes.set($event)"
+            name="cookTimeMinutes"
+          />
+        </cp-field>
+
+        <cp-field label="Rest time (minutes)" forId="recipe-rest-time" [error]="fieldError('restTimeMinutes')">
+          <input
+            id="recipe-rest-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('restTimeMinutes') ? 'true' : null"
+            [ngModel]="restTimeMinutes()"
+            (ngModelChange)="restTimeMinutes.set($event)"
+            name="restTimeMinutes"
+          />
+        </cp-field>
+
+        <cp-field label="Total time (minutes)" forId="recipe-total-time" [error]="fieldError('totalTimeMinutes')">
+          <input
+            id="recipe-total-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('totalTimeMinutes') ? 'true' : null"
+            [ngModel]="totalTimeMinutes()"
+            (ngModelChange)="totalTimeMinutes.set($event)"
+            name="totalTimeMinutes"
+          />
+        </cp-field>
+
+        <cp-field label="Yield" forId="recipe-yield-text" [error]="fieldError('yieldText')">
+          <input
+            id="recipe-yield-text"
+            type="text"
+            placeholder="e.g. 4 servings"
+            [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
+            [ngModel]="yieldText()"
+            (ngModelChange)="yieldText.set($event)"
+            name="yieldText"
+          />
+        </cp-field>
+
+        <cp-field label="Yield quantity" forId="recipe-yield-quantity" [error]="fieldError('yieldQuantity')">
+          <input
+            id="recipe-yield-quantity"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
+            [ngModel]="yieldQuantity()"
+            (ngModelChange)="yieldQuantity.set($event)"
+            name="yieldQuantity"
+          />
+        </cp-field>
+      </cp-tab-panel>
+
+      @if (!isCreateMode) {
+        <cp-tab-panel id="media">
+          <cp-empty-state title="Media" description="Media management arrives in a later phase." icon="▧" />
+        </cp-tab-panel>
+
+        <cp-tab-panel id="history">
+          <cp-empty-state title="History" description="Version history arrives in a later phase." icon="↻" />
+        </cp-tab-panel>
+      }
+    </cp-tabs>
+    </cp-card>
+  }
+}

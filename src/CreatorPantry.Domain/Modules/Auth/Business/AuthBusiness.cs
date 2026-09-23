@@ -10,27 +10,38 @@ internal sealed class AuthBusiness(IAuthDataLayer dataLayer, IClock clock, ILogg
 {
     private const string InvalidRequestMessage = "The request is invalid.";
     private const string InvalidTokenMessage = "This reset link is invalid or has expired.";
+    private const string InvalidConfirmationTokenMessage = "This confirmation link is invalid or has expired.";
 
     public async Task<OperationResult<RegistrationServiceModel>> RegisterAsync(
         RegisterUserViewModel model, CancellationToken cancellationToken)
     {
-        var user = new NewUser(model.Email.Trim(), model.DisplayName.Trim(), clock.UtcNow);
+        var email = model.Email.Trim();
+        var user = new NewUser(email, model.DisplayName.Trim(), clock.UtcNow);
 
         var result = await dataLayer.RegisterUserAsync(user, model.Password, cancellationToken);
 
-        return result.Status switch
+        switch (result.Status)
         {
+            case UserCreationStatus.Created:
+                // Only the new account receives a confirmation link; a duplicate would send a token for
+                // someone else's account. The public response is identical either way.
+                var issuedAt = clock.UtcNow;
+                await dataLayer.IssueEmailConfirmationAsync(new UserAccount(result.UserId!, email, EmailConfirmed: false),
+                    issuedAt, issuedAt + AccountPolicy.PasswordResetTokenLifetime, cancellationToken);
+                goto case UserCreationStatus.Duplicate;
+
             // Identical responses: registration never reveals whether an email already has an account.
-            UserCreationStatus.Created or UserCreationStatus.Duplicate =>
-                OperationResult<RegistrationServiceModel>.Success(RegistrationServiceModel.PendingConfirmation),
+            case UserCreationStatus.Duplicate:
+                return OperationResult<RegistrationServiceModel>.Success(RegistrationServiceModel.PendingConfirmation);
 
-            UserCreationStatus.InvalidPassword =>
-                Invalid<RegistrationServiceModel>(AuthErrorCodes.RegistrationInvalid, nameof(RegisterUserViewModel.Password), result.Errors),
-            UserCreationStatus.InvalidEmail =>
-                Invalid<RegistrationServiceModel>(AuthErrorCodes.RegistrationInvalid, nameof(RegisterUserViewModel.Email), result.Errors),
+            case UserCreationStatus.InvalidPassword:
+                return Invalid<RegistrationServiceModel>(AuthErrorCodes.RegistrationInvalid, nameof(RegisterUserViewModel.Password), result.Errors);
+            case UserCreationStatus.InvalidEmail:
+                return Invalid<RegistrationServiceModel>(AuthErrorCodes.RegistrationInvalid, nameof(RegisterUserViewModel.Email), result.Errors);
 
-            _ => throw new InvalidOperationException($"Unhandled user creation status {result.Status}."),
-        };
+            default:
+                throw new InvalidOperationException($"Unhandled user creation status {result.Status}.");
+        }
     }
 
     public async Task<OperationResult<PasswordServiceModel>> RequestPasswordResetAsync(
@@ -117,6 +128,28 @@ internal sealed class AuthBusiness(IAuthDataLayer dataLayer, IClock clock, ILogg
         }
     }
 
+    public async Task<OperationResult<EmailConfirmationServiceModel>> ConfirmEmailAsync(
+        ConfirmEmailViewModel model, CancellationToken cancellationToken)
+    {
+        var account = await dataLayer.FindAccountByEmailAsync(model.Email.Trim(), cancellationToken);
+        if (account is null)
+        {
+            return InvalidConfirmationToken();
+        }
+
+        var result = await dataLayer.ConfirmEmailAsync(account, model.Token, cancellationToken);
+
+        return result.Status switch
+        {
+            EmailConfirmationStatus.Succeeded =>
+                OperationResult<EmailConfirmationServiceModel>.Success(EmailConfirmationServiceModel.Confirmed),
+
+            EmailConfirmationStatus.InvalidToken or EmailConfirmationStatus.NotFound => InvalidConfirmationToken(),
+
+            _ => throw new InvalidOperationException($"Unhandled email confirmation status {result.Status}."),
+        };
+    }
+
     public async Task<OperationResult<SessionUserServiceModel>> VerifyCredentialsAsync(
         VerifyCredentialsViewModel model, CancellationToken cancellationToken)
     {
@@ -163,6 +196,10 @@ internal sealed class AuthBusiness(IAuthDataLayer dataLayer, IClock clock, ILogg
     private static OperationResult<PasswordServiceModel> InvalidToken() =>
         OperationResult<PasswordServiceModel>.Failure(new OperationError(
             AuthErrorCodes.PasswordResetInvalidToken, InvalidTokenMessage, new Dictionary<string, string[]>()));
+
+    private static OperationResult<EmailConfirmationServiceModel> InvalidConfirmationToken() =>
+        OperationResult<EmailConfirmationServiceModel>.Failure(new OperationError(
+            AuthErrorCodes.EmailConfirmationInvalidToken, InvalidConfirmationTokenMessage, new Dictionary<string, string[]>()));
 
     private static OperationResult<T> Invalid<T>(string code, string field, IEnumerable<string> errors) =>
         OperationResult<T>.Failure(OperationError.Validation(

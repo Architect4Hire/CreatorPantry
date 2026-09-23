@@ -3,3 +3,7 @@
 /.angular
 /coverage
 *.log
+
+# Per-machine HTTPS dev certificate for `ng serve`, exported from the trusted ASP.NET Core dev cert by
+# scripts/serve.mjs. Regenerated automatically; never shared or committed.
+/.dev-certs

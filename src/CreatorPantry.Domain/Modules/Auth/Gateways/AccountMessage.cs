@@ -4,6 +4,7 @@ public enum AccountMessageKind
 {
     PasswordReset,
     PasswordChanged,
+    EmailConfirmation,
 }
 
 /// <summary>
@@ -44,6 +45,9 @@ public sealed class AccountMessage
 
     public static AccountMessage PasswordChanged(string userId, string email, DateTimeOffset createdAt) =>
         new(AccountMessageKind.PasswordChanged, userId, email, createdAt, null, null);
+
+    public static AccountMessage EmailConfirmation(string userId, string email, string token, DateTimeOffset createdAt, DateTimeOffset expiresAt) =>
+        new(AccountMessageKind.EmailConfirmation, userId, email, createdAt, token, expiresAt);
 
     public override string ToString() => $"AccountMessage {{ Kind = {Kind}, RecipientUserId = {RecipientUserId} }}";
 }

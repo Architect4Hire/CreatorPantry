@@ -37,5 +37,7 @@
     <button cpButton type="submit" [fullWidth]="true" [disabled]="submitting()" [attr.aria-busy]="submitting()">
       {{ submitting() ? 'Signing in…' : 'Sign in' }}
     </button>
+
+    <p class="footer-link">New to CreatorPantry? <a routerLink="/sign-up">Create an account</a></p>
   </form>
 </div>

@@ -78,4 +78,17 @@ public static class RecipePolicy
     /// Bounded by the vocabulary's own name length because that is the longest thing it can ever hold.
     /// </summary>
     public const int IngredientNameTextMaxLength = 128;
+
+    /// <summary>
+    /// How many instruction groups one recipe may carry. A cap rather than a judgement about method length:
+    /// without one, a single request can stage unbounded rows, and an import can turn one recipe into
+    /// thousands of them. Generous — a multi-day recipe with many phases is a real recipe.
+    /// </summary>
+    public const int MaxInstructionGroupsPerRecipe = 50;
+
+    /// <summary>
+    /// How many instruction steps one recipe may carry in total, across every group. Bounds the same risk as
+    /// <see cref="MaxInstructionGroupsPerRecipe"/>, at the level that actually determines payload size.
+    /// </summary>
+    public const int MaxInstructionStepsPerRecipe = 200;
 }

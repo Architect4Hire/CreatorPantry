@@ -85,3 +85,18 @@ public sealed class ChangePasswordViewModelValidator : AbstractValidator<ChangeP
         RuleFor(model => model.NewPassword).NewPassword();
     }
 }
+
+public sealed class ConfirmEmailViewModelValidator : AbstractValidator<ConfirmEmailViewModel>
+{
+    public ConfirmEmailViewModelValidator()
+    {
+        RuleFor(model => (model.Email ?? string.Empty).Trim())
+            .AccountEmail()
+            .OverridePropertyName(nameof(ConfirmEmailViewModel.Email));
+
+        RuleFor(model => model.Token)
+            .Cascade(CascadeMode.Stop)
+            .NotEmpty().WithMessage("The confirmation link is incomplete.")
+            .MaximumLength(CompletePasswordResetViewModelValidator.TokenMaxLength).WithMessage("The confirmation link is incomplete.");
+    }
+}

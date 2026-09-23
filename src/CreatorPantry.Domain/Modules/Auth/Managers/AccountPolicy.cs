@@ -19,6 +19,10 @@ public static class AccountPolicy
 
     public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(5);
 
-    /// <summary>How long a password-reset token remains valid. Tokens are also single-use.</summary>
+    /// <summary>
+    /// How long a password-reset or email-confirmation token remains valid. Both use Identity's default
+    /// data-protection token provider, so they share this one configured lifespan. Password reset tokens
+    /// are also single-use; a confirmation token may be redeemed again with no effect once confirmed.
+    /// </summary>
     public static readonly TimeSpan PasswordResetTokenLifetime = TimeSpan.FromHours(1);
 }

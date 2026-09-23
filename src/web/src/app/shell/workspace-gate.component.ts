@@ -2,19 +2,22 @@ import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '
 import { Router } from '@angular/router';
 import { CpButtonComponent, CpEmptyStateComponent } from '@creator-pantry/ui';
 
+import { CreateWorkspaceFormComponent } from './create-workspace-form.component';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 
 /**
  * The '' index route inside the shell. Resolves the signed-in user's workspace memberships and either
  * redirects into the first one, or — for a brand-new account with no active membership yet, or a failed
- * fetch — renders the appropriate empty/error state right here instead of redirecting nowhere.
+ * fetch — renders the appropriate state right here instead of redirecting nowhere. A brand-new account
+ * gets a form to create its first workspace, becoming its Owner atomically (POST /api/v1/workspaces).
  */
 @Component({
   selector: 'cp-workspace-gate',
   standalone: true,
-  imports: [CpEmptyStateComponent, CpButtonComponent],
+  imports: [CpEmptyStateComponent, CpButtonComponent, CreateWorkspaceFormComponent],
   template: `
-    @switch (memberships.state().status) {
+    @let state = memberships.state();
+    @switch (state.status) {
       @case ('loading') {
         <p class="status" role="status">Loading your workspaces…</p>
       }
@@ -26,11 +29,23 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
         </cp-empty-state>
       }
       @case ('ready') {
-        <cp-empty-state title="No workspace yet" description="You don't belong to a workspace yet. Ask a workspace owner to invite you." variant="first-use" icon="✦" />
+        @if (state.memberships.length === 0) {
+          <cp-empty-state
+            title="Create your first workspace"
+            description="You don't belong to a workspace yet. Create one to get started, or ask a workspace owner to invite you."
+            variant="first-use"
+            icon="✦"
+          >
+            <cp-create-workspace-form cpEmptyStateActions (created)="onCreated($event)" />
+          </cp-empty-state>
+        }
       }
     }
   `,
-  styles: [`:host{display:block;padding:var(--cp-space-10)}.status{margin:0;color:var(--cp-text-muted);font-size:var(--cp-font-size-sm)}`],
+  styles: [`
+    :host { display: block; padding: var(--cp-space-10); }
+    .status { margin: 0; color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); }
+  `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceGateComponent {
@@ -49,6 +64,10 @@ export class WorkspaceGateComponent {
     // An explicit user-initiated retry always forces a fresh load(), rather than relying on
     // ensureLoaded()'s "only reload from loading/error" semantics.
     void this.loadAndRedirect(() => this.memberships.load());
+  }
+
+  async onCreated(workspaceSlug: string): Promise<void> {
+    await this.router.navigate(['/', workspaceSlug, 'dashboard']);
   }
 
   private async loadAndRedirect(load: () => Promise<void>): Promise<void> {

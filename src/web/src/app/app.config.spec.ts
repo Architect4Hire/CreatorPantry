@@ -38,4 +38,15 @@ describe('appConfig wiring', () => {
 
     expect(resolved).toBeTrue();
   });
+
+  it('applies the theme (data-cp-theme on <html>) as part of app initialization, before any route renders', async () => {
+    // CpThemeService's app initializer runs synchronously as soon as the environment injector is
+    // created (during the outer beforeEach's TestBed.inject(HttpTestingController) above), so the
+    // attribute is already set by the time this test body runs; awaiting donePromise below just
+    // confirms initialization as a whole still completes with the pending runtime-config request.
+    http.expectOne('/runtime-config.json').flush({ gatewayUrl: 'https://gateway.example' });
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(['light', 'dark']).toContain(document.documentElement.dataset['cpTheme'] ?? '');
+  });
 });

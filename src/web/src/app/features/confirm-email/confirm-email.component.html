@@ -1,0 +1,28 @@
+<div class="confirm-email-shell">
+  <div class="confirm-email-card">
+    @switch (state()) {
+      @case ('confirming') {
+        <p role="status">Confirming your email…</p>
+      }
+      @case ('success') {
+        <h1>Email confirmed</h1>
+        <p role="status">Your account is ready. <a routerLink="/sign-in">Sign in</a> to continue.</p>
+      }
+      @case ('invalid_link') {
+        <h1>This link isn't valid</h1>
+        <p role="alert">
+          It may have expired or already been used. <a routerLink="/sign-up">Create an account</a> again to get a
+          fresh confirmation link.
+        </p>
+      }
+      @case ('missing_link') {
+        <h1>This link isn't valid</h1>
+        <p role="alert">The confirmation link is incomplete. Copy it directly from the confirmation message.</p>
+      }
+      @case ('unavailable') {
+        <h1>We couldn't confirm your email</h1>
+        <p role="alert">Check your connection and try opening the link again.</p>
+      }
+    }
+  </div>
+</div>

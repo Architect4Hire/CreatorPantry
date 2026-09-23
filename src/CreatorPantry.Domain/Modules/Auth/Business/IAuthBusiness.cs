@@ -12,6 +12,8 @@ public interface IAuthBusiness
 
     Task<OperationResult<PasswordServiceModel>> CompletePasswordResetAsync(CompletePasswordResetViewModel model, CancellationToken cancellationToken);
 
+    Task<OperationResult<EmailConfirmationServiceModel>> ConfirmEmailAsync(ConfirmEmailViewModel model, CancellationToken cancellationToken);
+
     Task<OperationResult<PasswordServiceModel>> ChangePasswordAsync(string userId, ChangePasswordViewModel model, CancellationToken cancellationToken);
 
     Task<OperationResult<SessionUserServiceModel>> VerifyCredentialsAsync(VerifyCredentialsViewModel model, CancellationToken cancellationToken);

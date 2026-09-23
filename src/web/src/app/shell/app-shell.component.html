@@ -1,8 +1,8 @@
 <div class="shell">
   <aside class="sidebar" id="cp-shell-sidebar" [class.open]="menuOpen()">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">CP</span><span><strong>CreatorPantry</strong></span></div>
+    <div class="brand"><img class="brand-mark" src="/images/logo.png" alt="CreatorPantry" /></div>
 
-    <cp-workspace-switcher [currentSlug]="currentWorkspaceSlug()" [currentSection]="currentSection()" />
+    <cp-workspace-switcher [currentSlug]="currentWorkspaceSlug()" />
 
     <nav aria-label="Primary navigation">
       @for (item of navItems; track item.path) {
@@ -22,6 +22,13 @@
   <header class="topbar">
     <button class="icon-btn mobile" aria-label="Toggle menu" aria-controls="cp-shell-sidebar" [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">☰</button>
     <span class="spacer"></span>
+    <button
+      class="icon-btn"
+      type="button"
+      [attr.aria-label]="theme.resolved() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+      [attr.aria-pressed]="theme.resolved() === 'dark'"
+      (click)="theme.toggle()"
+    ><span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☀' : '☾' }}</span></button>
     @if (session(); as currentSession) {
       @if (currentSession.status === 'authenticated') {
         <span class="display-name">{{ currentSession.displayName }}</span>

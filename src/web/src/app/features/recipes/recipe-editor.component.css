@@ -1,0 +1,219 @@
+:host {
+  display: block;
+  padding: var(--cp-space-8);
+  max-width: 48rem;
+}
+
+.status {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+  margin-bottom: var(--cp-space-5);
+  padding-bottom: var(--cp-space-5);
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.editor-header h1 {
+  margin: 0;
+  font: 400 var(--cp-font-size-2xl) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.editor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.banner {
+  margin: 0 0 var(--cp-space-4);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.banner--error {
+  background: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
+  color: var(--cp-danger);
+}
+
+.editor-card {
+  padding: var(--cp-space-6);
+}
+
+/* :not([hidden]) — CpTabPanelComponent hides inactive panels via the native `hidden` attribute
+   (relying on the UA default `[hidden]{display:none}`); an unconditional `display` here would
+   override that and show every panel's content stacked at once regardless of the selected tab. */
+cp-tab-panel:not([hidden]) {
+  display: grid;
+  gap: var(--cp-space-4);
+  padding-top: var(--cp-space-6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  cp-tab-panel:not([hidden]) {
+    animation: cp-panel-in var(--cp-duration-normal) var(--cp-ease);
+  }
+}
+
+@keyframes cp-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-heading {
+  margin: 0;
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.section-intro {
+  margin: calc(var(--cp-space-1) * -1) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.muted {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.group {
+  padding: var(--cp-space-4);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.group h3 {
+  margin: 0 0 var(--cp-space-2);
+  font: 600 var(--cp-font-size-md) / var(--cp-leading-tight) var(--cp-font-sans);
+  color: var(--cp-text);
+}
+
+.group ul,
+.group ol {
+  margin: 0;
+  padding-left: var(--cp-space-5);
+  display: grid;
+  gap: var(--cp-space-1);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin-bottom: var(--cp-space-2);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  padding: 0 var(--cp-space-2);
+  min-height: 1.75rem;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-xs);
+  transition: background var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tag-chip:hover {
+  background: var(--cp-surface-raised);
+}
+
+.tag-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+  font-size: var(--cp-font-size-sm);
+  line-height: 1;
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tag-chip button:hover {
+  color: var(--cp-danger);
+}
+
+.tag-input-row {
+  display: flex;
+  gap: var(--cp-space-2);
+}
+
+.tag-input-row input {
+  flex: 1 1 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-chip,
+  .tag-chip button {
+    transition: none;
+  }
+}
+
+.instruction-group {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.group-header {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+.group-header cp-field {
+  flex: 1 1 auto;
+}
+
+.group-actions,
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  flex-shrink: 0;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.step {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+}

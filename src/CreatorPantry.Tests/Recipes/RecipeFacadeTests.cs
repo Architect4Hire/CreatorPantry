@@ -160,6 +160,72 @@ public sealed class RecipeFacadeTests
         Assert.Equal(0, _references.UnitLookups);
     }
 
+    // ---- Instruction reference checks ----
+
+    [Fact]
+    public async Task An_unknown_technique_in_a_step_is_refused()
+    {
+        _references.UsableVocabulary = false;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            Instructions = [new RecipeInstructionGroupInputViewModel
+            {
+                Steps = [new RecipeInstructionStepInputViewModel { Text = "Sear.", TechniqueId = Guid.NewGuid() }],
+            }],
+        });
+
+        Assert.False(result.Result.Succeeded);
+        Assert.Contains("techniqueId", result.Result.Error!.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_temperature_unit_that_does_not_measure_temperature_is_refused()
+    {
+        _references.UnitDimension = MeasurementDimension.Count;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            Instructions = [new RecipeInstructionGroupInputViewModel
+            {
+                Steps = [new RecipeInstructionStepInputViewModel { Text = "Bake.", TemperatureValue = 180m, TemperatureUnitId = Guid.NewGuid() }],
+            }],
+        });
+
+        Assert.False(result.Result.Succeeded);
+        Assert.Contains("temperatureUnitId", result.Result.Error!.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_real_temperature_unit_passes()
+    {
+        _references.UnitDimension = MeasurementDimension.Temperature;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            Instructions = [new RecipeInstructionGroupInputViewModel
+            {
+                Steps = [new RecipeInstructionStepInputViewModel { Text = "Bake.", TemperatureValue = 180m, TemperatureUnitId = Guid.NewGuid() }],
+            }],
+        });
+
+        Assert.True(result.Result.Succeeded);
+    }
+
+    [Fact]
+    public async Task No_instructions_means_no_instruction_reference_lookups()
+    {
+        await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
+
+        Assert.Equal(0, _references.VocabularyLookups);
+        Assert.Equal(0, _references.UnitLookups);
+    }
+
     // ---- Idempotency ----
 
     [Fact]

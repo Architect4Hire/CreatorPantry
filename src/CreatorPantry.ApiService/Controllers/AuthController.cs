@@ -29,6 +29,20 @@ public sealed class AuthController(IAuthFacade authFacade) : ControllerBase
     }
 
     /// <summary>
+    /// Confirms the email address for a registered account, using the token from its confirmation message.
+    /// </summary>
+    [HttpPost("confirm-email")]
+    [AllowAnonymous]
+    [ProducesResponseType<EmailConfirmationServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> ConfirmEmail(ConfirmEmailViewModel model, CancellationToken cancellationToken)
+    {
+        var result = await authFacade.ConfirmEmailAsync(model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>
     /// Starts a password reset. The 202 response is identical whether or not the email belongs to an account.
     /// </summary>
     [HttpPost("password-reset")]

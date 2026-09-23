@@ -126,6 +126,63 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
                 .WithMessage("The same tag is listed more than once.")
             .When(model => model.Tags.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.Tags));
+
+        RuleFor(model => model.Instructions)
+            .Cascade(CascadeMode.Stop)
+            .Must(field => !Groups(field).Any(group => group is null))
+                .WithMessage("An instruction group cannot be blank.")
+            .Must(field => Groups(field).Count <= RecipePolicy.MaxInstructionGroupsPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionGroupsPerRecipe} instruction groups.")
+            .Must(field => Groups(field).Sum(group => Steps(group).Count) <= RecipePolicy.MaxInstructionStepsPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionStepsPerRecipe} instruction steps.")
+            .Must(field => Groups(field).All(group => group.Id != Guid.Empty))
+                .WithMessage("That is not a valid instruction group reference.")
+            .Must(field => HaveNoRepeatedIds(Groups(field).Select(group => group.Id)))
+                .WithMessage("The same instruction group is named more than once.")
+            .Must(field => Groups(field).All(group => Trimmed(group.Title).Length <= RecipePolicy.GroupTitleMaxLength))
+                .WithMessage($"An instruction group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
+            .Must(field => !AllSteps(field).Any(step => step is null))
+                .WithMessage("An instruction step cannot be blank.")
+            .Must(field => AllSteps(field).All(step => step.Id != Guid.Empty))
+                .WithMessage("That is not a valid instruction step reference.")
+            .Must(field => HaveNoRepeatedIds(AllSteps(field).Select(step => step.Id)))
+                .WithMessage("The same instruction step is named more than once.")
+            .Must(field => AllSteps(field).All(step => !string.IsNullOrWhiteSpace(step.Text)))
+                .WithMessage("An instruction step cannot be blank.")
+            .Must(field => AllSteps(field).All(step => Trimmed(step.Text).Length <= RecipePolicy.StepTextMaxLength))
+                .WithMessage($"An instruction step can be at most {RecipePolicy.StepTextMaxLength} characters.")
+            .Must(field => AllSteps(field).All(step => Trimmed(step.Note).Length <= RecipePolicy.NoteMaxLength))
+                .WithMessage($"A step note can be at most {RecipePolicy.NoteMaxLength} characters.")
+            .Must(field => AllSteps(field).All(step => step.DurationMinutes is null or (>= 0 and <= RecipePolicy.MaxTimeMinutes)))
+                .WithMessage("A step's duration must be a time in minutes between 0 and one year.")
+            .Must(field => AllSteps(field).All(step => step.TechniqueId != Guid.Empty))
+                .WithMessage("That is not a valid technique reference.")
+            .Must(field => AllSteps(field).All(step => step.TemperatureUnitId != Guid.Empty))
+                .WithMessage("That is not a valid unit reference.")
+            .Must(field => AllSteps(field).All(step => (step.TemperatureValue is null) == (step.TemperatureUnitId is null)))
+                .WithMessage("A step's temperature needs both a value and a unit, or neither.")
+            .When(model => model.Instructions.IsSubmitted)
+            .OverridePropertyName(nameof(UpdateRecipeViewModel.Instructions));
+    }
+
+    private static IReadOnlyList<RecipeInstructionGroupInputViewModel> Groups(PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> field) =>
+        field.Value?.OfType<RecipeInstructionGroupInputViewModel>().ToList() ?? [];
+
+    private static IReadOnlyList<RecipeInstructionStepInputViewModel> Steps(RecipeInstructionGroupInputViewModel group) =>
+        group.Steps?.OfType<RecipeInstructionStepInputViewModel>().ToList() ?? [];
+
+    private static IEnumerable<RecipeInstructionStepInputViewModel> AllSteps(PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> field) =>
+        Groups(field).SelectMany(Steps);
+
+    /// <summary>
+    /// Ids may repeat only as every group's and step's <c>null</c> — many new children, one recipe — but a
+    /// non-null id named twice would ask this edit to make two different things the same existing row.
+    /// </summary>
+    private static bool HaveNoRepeatedIds(IEnumerable<Guid?> ids)
+    {
+        var named = ids.Where(id => id is not null).ToList();
+
+        return named.Distinct().Count() == named.Count;
     }
 
     /// <summary>
@@ -158,6 +215,8 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
             .OverridePropertyName(name);
 
     private static string Trimmed(PatchField<string?> field) => (field.Value ?? string.Empty).Trim();
+
+    private static string Trimmed(string? value) => (value ?? string.Empty).Trim();
 
     private static IReadOnlyList<string?> Tags(PatchField<IReadOnlyList<string?>?> field) => field.Value ?? [];
 

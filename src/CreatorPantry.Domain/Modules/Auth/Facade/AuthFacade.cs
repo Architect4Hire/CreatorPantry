@@ -10,6 +10,7 @@ internal sealed class AuthFacade(
     IValidator<RequestPasswordResetViewModel> requestResetValidator,
     IValidator<CompletePasswordResetViewModel> completeResetValidator,
     IValidator<ChangePasswordViewModel> changePasswordValidator,
+    IValidator<ConfirmEmailViewModel> confirmEmailValidator,
     IValidator<VerifyCredentialsViewModel> verifyCredentialsValidator,
     IValidator<ValidateSessionViewModel> validateSessionValidator,
     IAuthBusiness business) : IAuthFacade
@@ -43,6 +44,12 @@ internal sealed class AuthFacade(
         await ValidateAsync<CompletePasswordResetViewModel, PasswordServiceModel>(
             completeResetValidator, model, AuthErrorCodes.PasswordResetInvalid, cancellationToken)
         ?? await business.CompletePasswordResetAsync(model, cancellationToken);
+
+    public async Task<OperationResult<EmailConfirmationServiceModel>> ConfirmEmailAsync(
+        ConfirmEmailViewModel model, CancellationToken cancellationToken) =>
+        await ValidateAsync<ConfirmEmailViewModel, EmailConfirmationServiceModel>(
+            confirmEmailValidator, model, AuthErrorCodes.EmailConfirmationInvalid, cancellationToken)
+        ?? await business.ConfirmEmailAsync(model, cancellationToken);
 
     public async Task<OperationResult<PasswordServiceModel>> ChangePasswordAsync(
         string userId, ChangePasswordViewModel model, CancellationToken cancellationToken)

@@ -153,6 +153,42 @@ internal sealed class UserRepository(UserManager<ApplicationUser> userManager, I
             $"Password change failed: {string.Join(",", result.Errors.Select(error => error.Code))}.");
     }
 
+    public async Task<string> GenerateEmailConfirmationTokenAsync(string userId, CancellationToken cancellationToken)
+    {
+        var user = await RequireUserAsync(userId, cancellationToken);
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+
+        // Identity tokens are standard Base64; transport them URL-safe.
+        return Base64Url.EncodeToString(Encoding.UTF8.GetBytes(token));
+    }
+
+    public async Task<EmailConfirmationResult> ConfirmEmailAsync(string userId, string encodedToken, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return EmailConfirmationResult.Of(EmailConfirmationStatus.NotFound);
+        }
+
+        if (!TryDecodeToken(encodedToken, out var token))
+        {
+            return EmailConfirmationResult.Of(EmailConfirmationStatus.InvalidToken);
+        }
+
+        var result = await userManager.ConfirmEmailAsync(user, token);
+        if (result.Succeeded)
+        {
+            logger.LogInformation("Email confirmed for user {UserId}.", user.Id);
+            return EmailConfirmationResult.Of(EmailConfirmationStatus.Succeeded);
+        }
+
+        logger.LogInformation("Email confirmation rejected for user {UserId}: {ErrorCodes}.",
+            user.Id, string.Join(",", result.Errors.Select(error => error.Code)));
+        return EmailConfirmationResult.Of(EmailConfirmationStatus.InvalidToken);
+    }
+
     public async Task<CredentialCheckResult> CheckCredentialsAsync(string email, string password, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

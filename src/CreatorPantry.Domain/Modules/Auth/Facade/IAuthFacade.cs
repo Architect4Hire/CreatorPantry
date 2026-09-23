@@ -13,6 +13,8 @@ public interface IAuthFacade
 
     Task<OperationResult<PasswordServiceModel>> CompletePasswordResetAsync(CompletePasswordResetViewModel model, CancellationToken cancellationToken);
 
+    Task<OperationResult<EmailConfirmationServiceModel>> ConfirmEmailAsync(ConfirmEmailViewModel model, CancellationToken cancellationToken);
+
     /// <param name="userId">The authenticated caller's id. Never taken from request input.</param>
     Task<OperationResult<PasswordServiceModel>> ChangePasswordAsync(string userId, ChangePasswordViewModel model, CancellationToken cancellationToken);
 

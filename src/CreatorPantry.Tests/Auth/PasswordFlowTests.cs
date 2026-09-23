@@ -117,8 +117,9 @@ public sealed class PasswordFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task Unconfirmed_and_unknown_addresses_receive_no_message()
+    public async Task Unconfirmed_and_unknown_addresses_receive_no_reset_message()
     {
+        // Registration itself sends a confirmation message; only the two reset requests below matter here.
         await RegisterUnconfirmedAsync(Email);
 
         var unconfirmed = await RequestAsync(Email);
@@ -126,7 +127,7 @@ public sealed class PasswordFlowTests : IDisposable
 
         Assert.Equal(PasswordServiceModel.ResetRequested, unconfirmed.Value);
         Assert.Equal(PasswordServiceModel.ResetRequested, unknown.Value);
-        Assert.Empty(_services.Messages.Messages);
+        Assert.DoesNotContain(_services.Messages.Messages, message => message.Kind == AccountMessageKind.PasswordReset);
     }
 
     [Fact]

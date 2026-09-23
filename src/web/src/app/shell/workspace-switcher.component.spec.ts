@@ -2,28 +2,29 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
-import { MyMembershipsState, WorkspaceMembershipService } from '../services/workspace-membership.service';
+import { CreateWorkspaceOutcome, MyMembershipsState, WorkspaceMembershipService } from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 
 describe('WorkspaceSwitcherComponent', () => {
   let navigateSpy: jasmine.Spy;
+  let createSpy: jasmine.Spy<(name: string) => Promise<CreateWorkspaceOutcome>>;
   let stateSignal: ReturnType<typeof signal<MyMembershipsState>>;
 
   async function createFixture(initialState: MyMembershipsState, currentSlug = 'cozy-fall') {
     stateSignal = signal(initialState);
     navigateSpy = jasmine.createSpy('navigate').and.resolveTo(true);
+    createSpy = jasmine.createSpy('create').and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceSwitcherComponent],
       providers: [
-        { provide: WorkspaceMembershipService, useValue: { state: stateSignal } },
+        { provide: WorkspaceMembershipService, useValue: { state: stateSignal, create: createSpy } },
         { provide: Router, useValue: { navigate: navigateSpy } },
       ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(WorkspaceSwitcherComponent);
     fixture.componentRef.setInput('currentSlug', currentSlug);
-    fixture.componentRef.setInput('currentSection', 'recipes');
     fixture.detectChanges();
     return fixture;
   }
@@ -48,11 +49,11 @@ describe('WorkspaceSwitcherComponent', () => {
     });
 
     const options = fixture.nativeElement.querySelectorAll('option');
-    expect(options.length).toBe(2);
+    expect(options.length).toBe(3); // 2 memberships + "Create workspace…"
     expect(fixture.nativeElement.querySelector('select').value).toBe('cozy-fall');
   });
 
-  it('navigates to the new slug + current section on selection, never sending WorkspaceId anywhere', async () => {
+  it('navigates to the new slug + dashboard on selection, never sending WorkspaceId anywhere', async () => {
     const fixture = await createFixture({
       status: 'ready',
       memberships: [
@@ -65,7 +66,7 @@ describe('WorkspaceSwitcherComponent', () => {
     select.value = 'weeknight';
     select.dispatchEvent(new Event('change'));
 
-    expect(navigateSpy).toHaveBeenCalledWith(['/', 'weeknight', 'recipes']);
+    expect(navigateSpy).toHaveBeenCalledWith(['/', 'weeknight', 'dashboard']);
   });
 
   it('shows a fallback message instead of rendering nothing when ready with zero memberships', async () => {
@@ -85,5 +86,61 @@ describe('WorkspaceSwitcherComponent', () => {
     select.dispatchEvent(new Event('change'));
 
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  describe('create workspace', () => {
+    const oneMembership: MyMembershipsState = {
+      status: 'ready',
+      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+    };
+
+    it('does not navigate when the create option is selected, and resets the select back to the current workspace', async () => {
+      const fixture = await createFixture(oneMembership);
+
+      const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+      select.value = '__create__';
+      select.dispatchEvent(new Event('change'));
+
+      expect(navigateSpy).not.toHaveBeenCalled();
+      expect(select.value).toBe('cozy-fall');
+    });
+
+    it('opens the create-workspace dialog when the create option is selected', async () => {
+      const fixture = await createFixture(oneMembership);
+
+      const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+      select.value = '__create__';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('input[name="workspaceName"]')).toBeTruthy();
+    });
+
+    it('navigates into the new workspace and closes the dialog when the form reports success', async () => {
+      const fixture = await createFixture(oneMembership);
+      fixture.componentInstance.creatingWorkspace.set(true);
+      fixture.detectChanges();
+
+      await fixture.componentInstance.onWorkspaceCreated('new-workspace');
+      fixture.detectChanges();
+
+      expect(navigateSpy).toHaveBeenCalledWith(['/', 'new-workspace', 'dashboard']);
+      expect(fixture.componentInstance.creatingWorkspace()).toBeFalse();
+      expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeFalsy();
+    });
+
+    it('closes the dialog without navigating when dismissed', async () => {
+      const fixture = await createFixture(oneMembership);
+      fixture.componentInstance.creatingWorkspace.set(true);
+      fixture.detectChanges();
+
+      const closeButton = fixture.nativeElement.querySelector('[aria-label="Close dialog"]') as HTMLButtonElement;
+      closeButton.click();
+      fixture.detectChanges();
+
+      expect(navigateSpy).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeFalsy();
+    });
   });
 });

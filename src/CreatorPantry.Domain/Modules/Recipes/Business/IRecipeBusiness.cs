@@ -161,6 +161,11 @@ internal sealed class RecipeBusiness(
             UpdatedAt = now,
         };
 
+        for (var index = 0; index < input.Instructions.Count; index++)
+        {
+            recipe.InstructionGroups.Add(BuildInstructionGroup(recipe, input.Instructions[index], index));
+        }
+
         var version = new RecipeVersionFacts(
             RecipeVersionSource.CreatorEdit,
 
@@ -273,7 +278,14 @@ internal sealed class RecipeBusiness(
         var tags = patch.Tags.IsSubmitted ? patch.Tags.Value : null;
         var tagsChanged = tags is not null && !SameTags(loaded.Tags, tags);
 
-        if (changes.Count == 0 && !tagsChanged)
+        // Reconciled eagerly rather than collected into `changes` like the scalar fields: there is no single
+        // "current value" to compare a submission against, only a graph to reconcile against, and the
+        // reconciliation already returns whether it touched anything. A true no-op resubmission mutates
+        // nothing here, so running it before the no-op check below is safe.
+        var instructionsChanged = patch.Instructions.TryGetSubmitted(out var submittedInstructions)
+            && ReconcileInstructions(recipe, submittedInstructions);
+
+        if (changes.Count == 0 && !tagsChanged && !instructionsChanged)
         {
             // Nothing to record. Answering with the recipe as it stands is the honest reply — the creator
             // asked for a state it is already in — and writing a version for it would put a change with no
@@ -331,6 +343,193 @@ internal sealed class RecipeBusiness(
 
         return held.Count == submitted.Count
             && submitted.All(tag => held.Contains(tag.NormalizedName));
+    }
+
+    /// <remarks>
+    /// <see cref="RecipeInstructionGroup.WorkspaceId"/> is set here explicitly, from <paramref name="recipe"/>
+    /// — not left for <c>WorkspaceOwnershipInterceptor</c> to stamp the way a scalar field would be. That
+    /// interceptor runs at <c>SavingChanges</c>, after EF's own relationship fixup has already tried to
+    /// propagate a value onto this new entity for adding it under an already-loaded parent (the update path,
+    /// where <paramref name="recipe"/> is a real tracked row with a real <c>WorkspaceId</c>) — and
+    /// <c>WorkspaceId</c> is part of this entity's own alternate key (<c>(WorkspaceId, RecipeId, Id)</c>, the
+    /// principal key its steps' foreign key points at), which EF refuses to set via fixup on a still-forming
+    /// entity. Setting it up front avoids the conflict; on a create, where <paramref name="recipe"/> has not
+    /// been stamped yet either, this simply carries the same not-yet-set value the interceptor would apply
+    /// moments later.
+    /// </remarks>
+    private static RecipeInstructionGroup BuildInstructionGroup(Recipe recipe, CanonicalInstructionGroup source, int sortOrder)
+    {
+        var group = new RecipeInstructionGroup
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = recipe.WorkspaceId,
+            RecipeId = recipe.Id,
+            Title = source.Title,
+            SortOrder = sortOrder,
+        };
+
+        for (var index = 0; index < source.Steps.Count; index++)
+        {
+            group.Steps.Add(BuildInstructionStep(recipe, group.Id, source.Steps[index], index));
+        }
+
+        return group;
+    }
+
+    /// <inheritdoc cref="BuildInstructionGroup" path="//remarks"/>
+    private static RecipeInstructionStep BuildInstructionStep(Recipe recipe, Guid groupId, CanonicalInstructionStep source, int sortOrder)
+    {
+        var step = new RecipeInstructionStep
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = recipe.WorkspaceId,
+            RecipeId = recipe.Id,
+            RecipeInstructionGroupId = groupId,
+        };
+        ApplyStep(step, source, sortOrder);
+
+        return step;
+    }
+
+    /// <summary>
+    /// Makes <paramref name="recipe"/>'s method match <paramref name="submitted"/> exactly: a group named by
+    /// id is updated and reordered in place, one submitted without an id is staged as new, and one the
+    /// recipe currently has but the submission does not name is removed.
+    /// </summary>
+    /// <returns>Whether anything about the method actually changed.</returns>
+    /// <remarks>
+    /// An id the submission names that does not belong to this recipe is not distinguished from no id at
+    /// all: it is silently treated as a new group. Refusing it would first have to decide whether the id is
+    /// simply unknown or names a row in a different workspace, and answering that at all is the disclosure
+    /// tenancy.md forbids. Treating both alike costs nothing — the result is identical either way.
+    /// </remarks>
+    private static bool ReconcileInstructions(Recipe recipe, IReadOnlyList<CanonicalInstructionGroup> submitted)
+    {
+        var changed = false;
+        var existing = recipe.InstructionGroups.ToDictionary(group => group.Id);
+        var kept = new HashSet<Guid>();
+
+        for (var index = 0; index < submitted.Count; index++)
+        {
+            var source = submitted[index];
+            RecipeInstructionGroup group;
+
+            if (source.Id is { } groupId && existing.TryGetValue(groupId, out var found))
+            {
+                group = found;
+                kept.Add(groupId);
+
+                if (group.Title != source.Title)
+                {
+                    group.Title = source.Title;
+                    changed = true;
+                }
+
+                if (group.SortOrder != index)
+                {
+                    group.SortOrder = index;
+                    changed = true;
+                }
+            }
+            else
+            {
+                group = new RecipeInstructionGroup
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = recipe.WorkspaceId, // see BuildInstructionGroup's remarks
+                    RecipeId = recipe.Id,
+                    Title = source.Title,
+                    SortOrder = index,
+                };
+                recipe.InstructionGroups.Add(group);
+                changed = true;
+            }
+
+            if (ReconcileSteps(recipe, group, source.Steps))
+            {
+                changed = true;
+            }
+        }
+
+        foreach (var orphan in existing.Values.Where(group => !kept.Contains(group.Id)).ToList())
+        {
+            recipe.InstructionGroups.Remove(orphan);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <inheritdoc cref="ReconcileInstructions"/>
+    private static bool ReconcileSteps(Recipe recipe, RecipeInstructionGroup group, IReadOnlyList<CanonicalInstructionStep> submitted)
+    {
+        var changed = false;
+        var existing = group.Steps.ToDictionary(step => step.Id);
+        var kept = new HashSet<Guid>();
+
+        for (var index = 0; index < submitted.Count; index++)
+        {
+            var source = submitted[index];
+
+            if (source.Id is { } stepId && existing.TryGetValue(stepId, out var found))
+            {
+                kept.Add(stepId);
+                changed |= ApplyStep(found, source, index);
+            }
+            else
+            {
+                group.Steps.Add(BuildInstructionStep(recipe, group.Id, source, index));
+                changed = true;
+            }
+        }
+
+        foreach (var orphan in existing.Values.Where(step => !kept.Contains(step.Id)).ToList())
+        {
+            group.Steps.Remove(orphan);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Applies <paramref name="source"/> and <paramref name="sortOrder"/> onto <paramref name="step"/> in
+    /// place, deriving <see cref="RecipeInstructionStep.TemperatureUnitDimension"/> rather than trusting it
+    /// from the request — exactly as <see cref="Recipe.YieldUnitDimension"/> is derived on the recipe
+    /// itself, and safe to hardcode here: the facade's reference check already refused any submitted
+    /// <see cref="CanonicalInstructionStep.TemperatureUnitId"/> whose unit is not
+    /// <see cref="MeasurementDimension.Temperature"/>, unlike a yield unit, where more than one dimension is
+    /// acceptable and Business genuinely needs the resolved value.
+    /// </summary>
+    /// <returns>Whether anything about the step actually changed.</returns>
+    private static bool ApplyStep(RecipeInstructionStep step, CanonicalInstructionStep source, int sortOrder)
+    {
+        var dimension = source.TemperatureUnitId is null ? (MeasurementDimension?)null : MeasurementDimension.Temperature;
+
+        var changed = step.SortOrder != sortOrder
+            || step.Text != source.Text
+            || step.TechniqueId != source.TechniqueId
+            || step.DurationMinutes != source.DurationMinutes
+            || step.TemperatureValue != source.TemperatureValue
+            || step.TemperatureUnitId != source.TemperatureUnitId
+            || step.TemperatureUnitDimension != dimension
+            || step.Note != source.Note;
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        step.SortOrder = sortOrder;
+        step.Text = source.Text;
+        step.TechniqueId = source.TechniqueId;
+        step.DurationMinutes = source.DurationMinutes;
+        step.TemperatureValue = source.TemperatureValue;
+        step.TemperatureUnitId = source.TemperatureUnitId;
+        step.TemperatureUnitDimension = dimension;
+        step.Note = source.Note;
+
+        return true;
     }
 
     private static OperationResult<RecipeDetailServiceModel> NotFound() =>

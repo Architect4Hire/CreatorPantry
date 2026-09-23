@@ -10,6 +10,11 @@ public static class AuthErrorCodes
     /// <summary>Unknown email, wrong, expired, or used token: deliberately indistinguishable.</summary>
     public const string PasswordResetInvalidToken = "auth.password_reset.invalid_token";
 
+    public const string EmailConfirmationInvalid = "auth.email_confirmation.invalid";
+
+    /// <summary>Unknown email, wrong, expired, or used token: deliberately indistinguishable.</summary>
+    public const string EmailConfirmationInvalidToken = "auth.email_confirmation.invalid_token";
+
     public const string PasswordChangeInvalid = "auth.password_change.invalid";
 
     /// <summary>The authenticated caller's account no longer exists.</summary>

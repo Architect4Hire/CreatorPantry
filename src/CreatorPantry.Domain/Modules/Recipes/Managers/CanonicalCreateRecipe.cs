@@ -78,6 +78,9 @@ public sealed record CanonicalCreateRecipe
     /// </remarks>
     public required IReadOnlyList<RecipeTagName> Tags { get; init; }
 
+    /// <summary>The recipe's method, in creator-defined order. Every group's and step's <c>Id</c> is null.</summary>
+    public required IReadOnlyList<CanonicalInstructionGroup> Instructions { get; init; }
+
     /// <summary>Reduces a validated request to its meaning.</summary>
     /// <remarks>
     /// Pure and total. It assumes shape validation has already run — it does not reject anything, it only
@@ -111,6 +114,7 @@ public sealed record CanonicalCreateRecipe
         // fingerprint, the aggregate, the version's readiness — speaks only RecipeStatus.
         Status = SettableRecipeStatus.ToDomain(model.Status),
         Tags = TagNames(model.Tags),
+        Instructions = CanonicalInstructions.From(model.Instructions),
     };
 
     /// <summary>

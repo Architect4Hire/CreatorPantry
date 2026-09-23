@@ -137,6 +137,11 @@ internal sealed class RecipeFacade(
         // fingerprint" and "same recipe" are then the same statement, instead of two that can drift.
         var canonical = CanonicalCreateRecipe.From(model);
 
+        if (await VerifyInstructionReferencesAsync(canonical.Instructions, CannotCreate, cancellationToken) is { } instructionError)
+        {
+            return Refused<CreatedRecipeServiceModel>(instructionError);
+        }
+
         return await idempotency.ExecuteAsync(
             new IdempotentCommand(
                 userId,
@@ -200,6 +205,12 @@ internal sealed class RecipeFacade(
         }
 
         var canonical = CanonicalRecipePatch.From(model);
+
+        if (canonical.Instructions.TryGetSubmitted(out var instructions)
+            && await VerifyInstructionReferencesAsync(instructions, CannotChange, cancellationToken) is { } instructionError)
+        {
+            return Refused<RecipeDetailServiceModel>(instructionError);
+        }
 
         return await idempotency.ExecuteAsync(
             new IdempotentCommand(
@@ -279,6 +290,48 @@ internal sealed class RecipeFacade(
                 errors.Add((field, $"That {noun} is not available."));
             }
         }
+    }
+
+    /// <summary>
+    /// Confirms every technique and temperature unit named by a submitted method is real, still offered, and
+    /// — for the unit — actually measures temperature.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately separate from <see cref="VerifyReferencesAsync"/> rather than folded into it: this reads
+    /// the canonical, already-shape-validated instructions rather than the raw view model, because canonical
+    /// form is what the caller already has in hand at the point instructions need checking, and step
+    /// references are per-step rather than one-per-request.
+    /// </remarks>
+    private async Task<OperationError?> VerifyInstructionReferencesAsync(
+        IReadOnlyList<CanonicalInstructionGroup> groups, string message, CancellationToken cancellationToken)
+    {
+        var errors = new List<(string Field, string Error)>();
+        var stepNumber = 0;
+
+        foreach (var step in groups.SelectMany(group => group.Steps))
+        {
+            stepNumber++;
+
+            if (step.TechniqueId is { } techniqueId
+                && !await vocabulary.IsUsableAsync(VocabularyCatalog.CookingTechnique, techniqueId, cancellationToken))
+            {
+                errors.Add((nameof(RecipeInstructionStepInputViewModel.TechniqueId), $"Step {stepNumber}'s technique is not available."));
+            }
+
+            if (step.TemperatureUnitId is { } unitId)
+            {
+                var dimension = await measurement.FindUsableUnitDimensionAsync(unitId, cancellationToken);
+
+                if (dimension != MeasurementDimension.Temperature)
+                {
+                    errors.Add((nameof(RecipeInstructionStepInputViewModel.TemperatureUnitId), $"Step {stepNumber}'s temperature unit is not available."));
+                }
+            }
+        }
+
+        return errors.Count == 0
+            ? null
+            : OperationError.Validation(RecipeErrorCodes.RecipeInvalidRequest, message, errors);
     }
 
     /// <summary>
