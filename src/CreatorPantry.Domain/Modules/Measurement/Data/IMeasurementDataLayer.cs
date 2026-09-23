@@ -12,6 +12,9 @@ namespace CreatorPantry.Domain.Modules.Measurement.Data;
 /// </remarks>
 public interface IMeasurementDataLayer
 {
+    Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
 }

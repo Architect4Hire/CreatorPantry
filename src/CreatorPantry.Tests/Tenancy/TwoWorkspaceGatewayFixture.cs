@@ -150,17 +150,34 @@ internal sealed class GatewayClient(HttpClient http, string antiforgeryToken) : 
         http.GetAsync(path, cancellationToken);
 
     public Task<HttpResponseMessage> PostAsJsonAsync(string path, object body, CancellationToken cancellationToken = default) =>
-        SendAsync(HttpMethod.Post, path, body, cancellationToken);
+        SendAsync(HttpMethod.Post, path, body, idempotencyKey: null, cancellationToken);
+
+    /// <summary>Posts with an <c>Idempotency-Key</c>, for commands that declare themselves idempotent.</summary>
+    public Task<HttpResponseMessage> PostAsJsonAsync(
+        string path, object body, string idempotencyKey, CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Post, path, body, idempotencyKey, cancellationToken);
 
     public Task<HttpResponseMessage> PatchAsJsonAsync(string path, object body, CancellationToken cancellationToken = default) =>
-        SendAsync(HttpMethod.Patch, path, body, cancellationToken);
+        SendAsync(HttpMethod.Patch, path, body, idempotencyKey: null, cancellationToken);
+
+    /// <summary>Patches with an <c>Idempotency-Key</c>, for edits a client may safely retry.</summary>
+    public Task<HttpResponseMessage> PatchAsJsonAsync(
+        string path, object body, string idempotencyKey, CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Patch, path, body, idempotencyKey, cancellationToken);
 
     public void Dispose() => http.Dispose();
 
-    private Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object body, CancellationToken cancellationToken)
+    private Task<HttpResponseMessage> SendAsync(
+        HttpMethod method, string path, object body, string? idempotencyKey, CancellationToken cancellationToken)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
         request.Headers.Add("X-XSRF-TOKEN", antiforgeryToken);
+
+        if (idempotencyKey is not null)
+        {
+            request.Headers.Add(IdempotencyPolicy.KeyHeader, idempotencyKey);
+        }
+
         return http.SendAsync(request, cancellationToken);
     }
 }

@@ -7,6 +7,10 @@ namespace CreatorPantry.Domain.Modules.Measurement.Data;
 
 internal sealed class MeasurementDataLayer(IMeasurementUnitRepository units) : IMeasurementDataLayer
 {
+    public Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken) =>
+        units.FindUsableUnitDimensionAsync(unitId, cancellationToken);
+
     public Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken) =>
         units.ListAsync(query, cancellationToken);

@@ -1,0 +1,29 @@
+using CreatorPantry.Domain.Modules.Recipes.Business;
+using CreatorPantry.Domain.Modules.Recipes.Data;
+using CreatorPantry.Domain.Modules.Recipes.Facade;
+using CreatorPantry.Domain.Modules.Recipes.Managers;
+using FluentValidation;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CreatorPantry.Domain.Modules.Recipes;
+
+public static class RecipesServiceCollectionExtensions
+{
+    /// <summary>
+    /// The recipe module's composition root. Repositories, the data layer and business are registered here;
+    /// the facade joins them when its seam is built.
+    /// </summary>
+    public static IServiceCollection AddRecipesModule(this IServiceCollection services)
+    {
+        services.AddScoped<IRecipeRepository, RecipeRepository>();
+        services.AddScoped<IRecipeVersionRepository, RecipeVersionRepository>();
+        services.AddScoped<IWorkspaceTagRepository, WorkspaceTagRepository>();
+        services.AddScoped<IRecipeDataLayer, RecipeDataLayer>();
+        services.AddScoped<IRecipeBusiness, RecipeBusiness>();
+        services.AddScoped<IRecipeFacade, RecipeFacade>();
+        services.AddScoped<IValidator<CreateRecipeViewModel>, CreateRecipeViewModelValidator>();
+        services.AddScoped<IValidator<UpdateRecipeViewModel>, UpdateRecipeViewModelValidator>();
+
+        return services;
+    }
+}

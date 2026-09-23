@@ -77,9 +77,15 @@ public sealed class ModuleBoundaryTests
     /// <summary>
     /// Type-name suffixes that identify a module's internal manager types — the ones 4A.7 says never cross.
     /// </summary>
+    /// <remarks>
+    /// <c>Policy</c> was added when the sixth module arrived. Every module now ships one — <c>AccountPolicy</c>,
+    /// <c>DensityPolicy</c>, <c>MeasurementPolicy</c>, <c>VocabularyPolicy</c>, <c>WorkspacePolicy</c>,
+    /// <c>RecipePolicy</c> — and they are exactly the "domain models and policies" 4A.7 says never cross.
+    /// They are public static classes, so nothing but this list stops another module naming one.
+    /// </remarks>
     private static readonly string[] InternalManagerSuffixes =
     [
-        "ViewModel", "Validator", "QueryFactory", "Record", "Query",
+        "ViewModel", "Validator", "QueryFactory", "Record", "Query", "Policy",
     ];
 
     [Fact]
@@ -145,7 +151,7 @@ public sealed class ModuleBoundaryTests
 
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
         Assert.InRange(files.Count, 150, 400);
-        Assert.Equal(5, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        Assert.Equal(6, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.

@@ -16,13 +16,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CreatorPantry.Tests.Tenancy;
 
 /// <summary>
-/// <see cref="WorkspaceMembership"/> is the only <see cref="IWorkspaceOwned"/> entity in the production model
-/// today, and it is the documented exception to the convention (it must be readable before a workspace is
-/// resolved, since resolving one means querying it). Exercised directly against the <c>DbSet</c> — no
-/// repository, no explicit <c>Where</c> — so the filter itself is what is under test. Strict (non-exception)
-/// behavior for a typical workspace-owned entity is covered separately in
-/// <see cref="WorkspaceOwnershipConventionAppliesToNewEntitiesTests"/>, since no second production entity
-/// exists yet to exercise it against.
+/// <see cref="WorkspaceMembership"/> is the documented <em>exception</em> to the convention: it must be
+/// readable before a workspace is resolved, since resolving one means querying it. This file covers that one
+/// relaxation. Exercised directly against the <c>DbSet</c> — no repository, no explicit <c>Where</c> — so the
+/// filter itself is what is under test.
+/// </summary>
+/// <remarks>
+/// It was once the only <see cref="IWorkspaceOwned"/> entity in the production model, and this summary used
+/// to say so. The recipe aggregate added seven more, so the strict fail-closed behaviour every other
+/// workspace-owned entity gets is now exercised against real entities in
+/// <c>CreatorPantry.Tests.Recipes.RecipeIsolationTests</c>, alongside the invented-entity coverage in
+/// <see cref="WorkspaceOwnershipConventionAppliesToNewEntitiesTests"/> that proves discovery happens by
+/// convention rather than by a list.
 /// </summary>
 public sealed class WorkspaceOwnershipConventionTests : IDisposable
 {

@@ -8,6 +8,17 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Facade;
 
 public interface IVocabularyFacade
 {
+    /// <summary>
+    /// Whether an id names an entry in one of this module.s catalogues that is still offered for new input.
+    /// </summary>
+    /// <remarks>
+    /// Exists so another module can validate a reference it is about to store without reading these tables
+    /// itself. A retired entry answers false: existing recipes keep resolving it, but nothing new may point
+    /// at it. An unknown id also answers false, and the two are not distinguished — a caller only needs to
+    /// know whether it may use the id.
+    /// </remarks>
+    Task<bool> IsUsableAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
+
     Task<OperationResult<CursorPageServiceModel<ReferenceEntryServiceModel>>> ListFoodCategoriesAsync(
         ReferenceQueryViewModel model, CancellationToken cancellationToken);
 

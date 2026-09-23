@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -57,7 +58,12 @@ internal sealed class SqliteApiHost : IAsyncDisposable
                         || descriptor.ServiceType.GenericTypeArguments.Contains(typeof(CreatorPantryDbContext)))
                     .ToList();
                 contextRegistrations.ForEach(descriptor => services.Remove(descriptor));
-                services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(host._connection));
+                services.AddDbContext<CreatorPantryDbContext>(options => options
+                    .UseSqlite(host._connection)
+                    // Recipe.RowVersion is a SQL Server rowversion the server generates; SQLite has no
+                    // equivalent, so without this every recipe insert fails on a NOT NULL column EF never
+                    // sends. See SqliteRowVersionModelCustomizer for why the production mapping stays native.
+                    .ReplaceService<IModelCustomizer, SqliteRowVersionModelCustomizer>());
             });
         });
 

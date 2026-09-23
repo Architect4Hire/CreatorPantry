@@ -8,6 +8,10 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Business;
 
 internal sealed class VocabularyBusiness(IVocabularyDataLayer dataLayer) : IVocabularyBusiness
 {
+    public Task<bool> IsUsableAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        dataLayer.IsUsableAsync(catalog, id, cancellationToken);
+
     public async Task<CursorPageServiceModel<ReferenceEntryServiceModel>> ListFoodCategoriesAsync(
         ReferenceQuery query, CancellationToken cancellationToken) =>
         Entries(await dataLayer.ListFoodCategoriesAsync(query, cancellationToken), query.Scope);

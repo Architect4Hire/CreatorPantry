@@ -13,6 +13,9 @@ namespace CreatorPantry.Domain.Modules.Measurement.Business;
 /// </remarks>
 public interface IMeasurementBusiness
 {
+    Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken);
+
     Task<CursorPageServiceModel<MeasurementUnitServiceModel>> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
 }

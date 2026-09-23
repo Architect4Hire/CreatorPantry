@@ -9,6 +9,10 @@ internal sealed class VocabularyDataLayer(
     IControlledVocabularyRepository vocabularies,
     IReferenceCatalogRepository catalog) : IVocabularyDataLayer
 {
+    public Task<bool> IsUsableAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog vocabulary, Guid id, CancellationToken cancellationToken) =>
+        vocabularies.IsUsableAsync(vocabulary, id, cancellationToken);
+
     public Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListFoodCategoriesAsync(
         ReferenceQuery query, CancellationToken cancellationToken) =>
         catalog.ListFoodCategoriesAsync(query, cancellationToken);

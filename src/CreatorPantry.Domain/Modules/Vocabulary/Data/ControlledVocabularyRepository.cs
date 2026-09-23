@@ -17,6 +17,9 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Data;
 /// </remarks>
 public interface IControlledVocabularyRepository
 {
+    /// <summary>Whether the id names an active row in the given catalogue.</summary>
+    Task<bool> IsUsableAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListCuisinesAsync(
         ReferenceQuery query, CancellationToken cancellationToken);
 
@@ -33,6 +36,21 @@ public interface IControlledVocabularyRepository
 
 internal sealed class ControlledVocabularyRepository(CreatorPantryDbContext context) : IControlledVocabularyRepository
 {
+    public Task<bool> IsUsableAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        catalog switch
+        {
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Cuisine =>
+                context.Cuisines.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Course =>
+                context.Courses.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.CookingTechnique =>
+                context.CookingTechniques.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
+            // Exhaustive on purpose: a new catalogue must be answered here rather than silently reported
+            // unusable, which would reject every id in it with no clue why.
+            _ => throw new ArgumentOutOfRangeException(nameof(catalog), catalog, "Unknown vocabulary catalogue."),
+        };
+
     public async Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListCuisinesAsync(
         ReferenceQuery query, CancellationToken cancellationToken)
     {

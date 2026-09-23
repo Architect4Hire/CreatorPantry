@@ -8,6 +8,8 @@ namespace CreatorPantry.Domain.Modules.Vocabulary.Data;
 /// <inheritdoc cref="CreatorPantry.Domain.Modules.Measurement.Data.IMeasurementDataLayer"/>
 public interface IVocabularyDataLayer
 {
+    Task<bool> IsUsableAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListFoodCategoriesAsync(ReferenceQuery query, CancellationToken cancellationToken);
 
     Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListCuisinesAsync(ReferenceQuery query, CancellationToken cancellationToken);

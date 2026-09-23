@@ -15,6 +15,10 @@ internal sealed class MeasurementFacade(
     /// <summary>The cache-key resource literal. Unchanged by the module split, so cached keys stay identical.</summary>
     private const string Resource = "units";
 
+    public Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken) =>
+        business.FindUsableUnitDimensionAsync(unitId, cancellationToken);
+
     public Task<OperationResult<CursorPageServiceModel<MeasurementUnitServiceModel>>> ListUnitsAsync(
         MeasurementUnitQueryViewModel model, CancellationToken cancellationToken) =>
         reader.ReadAsync<MeasurementUnitQueryViewModel, MeasurementUnitQuery, MeasurementUnitServiceModel>(

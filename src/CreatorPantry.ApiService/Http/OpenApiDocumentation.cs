@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
 using Asp.Versioning;
 using CreatorPantry.Domain.Managers.Paging;
+using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Reference;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
@@ -41,15 +42,33 @@ public static class OpenApiDocumentation
         });
 
     /// <summary>
-    /// Describes enums as the strings the API actually writes.
+    /// Describes enums as the strings the API actually writes, and patch fields as the plain fields they
+    /// are on the wire.
     /// </summary>
     /// <remarks>
-    /// The serializer is configured to write enum names, but the schema generator does not read that
-    /// configuration and describes every enum as a bare <c>integer</c> — a document that contradicts its own
-    /// responses. Stating it here keeps the two together, and publishes the member names, which the integer
-    /// form never did: a generated client got an <c>int</c> and a private mapping to maintain.
+    /// <para>
+    /// <strong>Enums.</strong> The serializer is configured to write enum names, but the schema generator
+    /// does not read that configuration and describes every enum as a bare <c>integer</c> — a document that
+    /// contradicts its own responses. Stating it here keeps the two together, and publishes the member
+    /// names, which the integer form never did: a generated client got an <c>int</c> and a private mapping
+    /// to maintain.
+    /// </para>
+    /// <para>
+    /// <strong>Patch fields.</strong> <c>PatchField&lt;T&gt;</c> is a C# device for telling an absent field
+    /// from a cleared one; on the wire it is simply a <c>T</c> that may be present, absent or <c>null</c>.
+    /// Published as the struct it is, it would describe every editable field as an object with
+    /// <c>isSubmitted</c> and <c>value</c> members that no request ever contains, and a generated client
+    /// would faithfully send them.
+    /// </para>
+    /// <para>
+    /// A patch field is inlined rather than referenced, which means an enum inside one is published as an
+    /// inline enum where the same enum elsewhere is a <c>$ref</c>. That is deliberate: constructing the
+    /// reference by hand would mean guessing a component id and risking a dangling pointer if the only user
+    /// of an enum were ever a patch, and the inline form says exactly the same thing about what the field
+    /// accepts.
+    /// </para>
     /// </remarks>
-    private static Task TransformSchemaAsync(
+    private static async Task TransformSchemaAsync(
         OpenApiSchema schema, OpenApiSchemaTransformerContext context, CancellationToken cancellationToken)
     {
         var type = Nullable.GetUnderlyingType(context.JsonTypeInfo.Type) ?? context.JsonTypeInfo.Type;
@@ -59,9 +78,34 @@ public static class OpenApiDocumentation
             schema.Type = JsonSchemaType.String;
             schema.Format = null;
             schema.Enum = [.. Enum.GetNames(type).Select(name => (JsonNode)JsonValue.Create(name))];
+
+            return;
         }
 
-        return Task.CompletedTask;
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(PatchField<>))
+        {
+            // Generated rather than hand-written per inner type: the contract already needs strings, uuids,
+            // integers, numbers, enums and arrays, and a table of those would be one more place to forget a
+            // seventh. This also runs the enum rule above on the inner type, so a patched status publishes
+            // its member names exactly as it does everywhere else.
+            var inner = await context.GetOrCreateSchemaAsync(type.GetGenericArguments()[0], null, cancellationToken);
+
+            // Every patch field admits null, whatever its inner type says. That is what a clear is on the
+            // wire, and which fields may actually be cleared is a validation rule rather than a schema one —
+            // sending `"title": null` is accepted by the parser and answered with a field error explaining
+            // that a recipe must keep a title, which is a better answer than an unreadable-body 400.
+            schema.Type = inner.Type is { } innerType ? innerType | JsonSchemaType.Null : inner.Type;
+            schema.Format = inner.Format;
+            schema.Pattern = inner.Pattern;
+            schema.Enum = inner.Enum;
+            schema.Items = inner.Items;
+            schema.AdditionalProperties = inner.AdditionalProperties;
+
+            // The struct's own shape, which must not survive: these are the members that would otherwise be
+            // published as the request's fields.
+            schema.Properties = null;
+            schema.Required = null;
+        }
     }
 
     /// <summary>
@@ -85,6 +129,14 @@ public static class OpenApiDocumentation
     private static string? PublicSchemaId(JsonTypeInfo typeInfo)
     {
         var type = typeInfo.Type;
+
+        // Patch fields are inlined rather than referenced. Naming a component after the wrapper would
+        // publish the very abstraction TransformSchemaAsync exists to hide, and a generated client would
+        // carry a `PatchFieldOfString` type that is really just a string.
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(PatchField<>))
+        {
+            return null;
+        }
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(CursorPageServiceModel<>))
         {

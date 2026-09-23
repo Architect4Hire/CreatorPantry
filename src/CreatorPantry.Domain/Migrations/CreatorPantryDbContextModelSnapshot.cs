@@ -22,40 +22,171 @@ namespace CreatorPantry.Domain.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.Allergen", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Managers.Audit.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Code")
+                    b.Property<string>("Action")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("Description")
+                    b.Property<string>("ActorUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AfterReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("BeforeReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ResourceId")
                         .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("DisplayName")
+                    b.Property<string>("ResourceType")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Allergens_Code");
+                    b.HasIndex("WorkspaceId", "OccurredAt")
+                        .HasDatabaseName("IX_AuditLogs_Workspace_OccurredAt");
 
-                    b.ToTable("Allergens", (string)null);
+                    b.HasIndex("WorkspaceId", "ResourceType", "ResourceId")
+                        .HasDatabaseName("IX_AuditLogs_Workspace_Resource");
+
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.ApplicationUser", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Managers.Idempotency.IdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("FingerprintHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_IdempotencyRecords_ExpiresAt");
+
+                    b.HasIndex("UserId", "WorkspaceId", "Operation", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("UX_IdempotencyRecords_Scope");
+
+                    b.ToTable("IdempotencyRecords", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Managers.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("LeasedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "AvailableAt")
+                        .HasDatabaseName("IX_OutboxMessages_Status_AvailableAt");
+
+                    b.HasIndex("Status", "LeaseExpiresAt")
+                        .HasDatabaseName("IX_OutboxMessages_Status_LeaseExpiresAt");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
@@ -133,421 +264,7 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.AuditLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ActorUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("AfterReference")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("BeforeReference")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<Guid>("CorrelationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ResourceId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ResourceType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Summary")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkspaceId", "OccurredAt")
-                        .HasDatabaseName("IX_AuditLogs_Workspace_OccurredAt");
-
-                    b.HasIndex("WorkspaceId", "ResourceType", "ResourceId")
-                        .HasDatabaseName("IX_AuditLogs_Workspace_Resource");
-
-                    b.ToTable("AuditLogs", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CookingTechnique", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("RequiresSafetyCaution")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CookingTechniques_Code");
-
-                    b.ToTable("CookingTechniques", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CookingTechniqueAlias", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Alias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("NormalizedAlias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<Guid>("VocabularyId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CookingTechniqueId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedAlias")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CookingTechniqueAliases_NormalizedAlias");
-
-                    b.HasIndex("VocabularyId")
-                        .HasDatabaseName("IX_CookingTechniqueAliases_CookingTechniqueId");
-
-                    b.ToTable("CookingTechniqueAliases", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.Course", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Courses_Code");
-
-                    b.ToTable("Courses", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CourseAlias", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Alias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("NormalizedAlias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<Guid>("VocabularyId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CourseId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedAlias")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CourseAliases_NormalizedAlias");
-
-                    b.HasIndex("VocabularyId")
-                        .HasDatabaseName("IX_CourseAliases_CourseId");
-
-                    b.ToTable("CourseAliases", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.Cuisine", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Cuisines_Code");
-
-                    b.ToTable("Cuisines", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CuisineAlias", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Alias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("NormalizedAlias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<Guid>("VocabularyId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CuisineId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedAlias")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CuisineAliases_NormalizedAlias");
-
-                    b.HasIndex("VocabularyId")
-                        .HasDatabaseName("IX_CuisineAliases_CuisineId");
-
-                    b.ToTable("CuisineAliases", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.DietaryProfile", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_DietaryProfiles_Code");
-
-                    b.ToTable("DietaryProfiles", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.EquipmentType", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_EquipmentTypes_Code");
-
-                    b.ToTable("EquipmentTypes", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.EquipmentTypeAlias", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Alias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("NormalizedAlias")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<Guid>("VocabularyId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("EquipmentTypeId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedAlias")
-                        .IsUnique()
-                        .HasDatabaseName("UX_EquipmentTypeAliases_NormalizedAlias");
-
-                    b.HasIndex("VocabularyId")
-                        .HasDatabaseName("IX_EquipmentTypeAliases_EquipmentTypeId");
-
-                    b.ToTable("EquipmentTypeAliases", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.FoodCategory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_FoodCategories_Code");
-
-                    b.ToTable("FoodCategories", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IdempotencyRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<byte[]>("FingerprintHash")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("binary(32)")
-                        .IsFixedLength();
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("Operation")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ResultJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpiresAt")
-                        .HasDatabaseName("IX_IdempotencyRecords_ExpiresAt");
-
-                    b.HasIndex("UserId", "WorkspaceId", "Operation", "Key")
-                        .IsUnique()
-                        .HasDatabaseName("UX_IdempotencyRecords_Scope");
-
-                    b.ToTable("IdempotencyRecords", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.Ingredient", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -597,7 +314,7 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientAlias", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAlias", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -628,7 +345,7 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("IngredientAliases", (string)null);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientAllergenTrait", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAllergenTrait", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -683,7 +400,7 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientDensityReference", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDensityReference", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -766,7 +483,7 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientDietaryTrait", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDietaryTrait", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -819,7 +536,47 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.MeasurementUnit", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Citation")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ReferenceSources_Code");
+
+                    b.ToTable("ReferenceSources", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -879,101 +636,7 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.OutboxMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Attempts")
-                        .HasColumnType("int");
-
-                    b.Property<DateTimeOffset>("AvailableAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("CorrelationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("LastError")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("LeasedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Status", "AvailableAt")
-                        .HasDatabaseName("IX_OutboxMessages_Status_AvailableAt");
-
-                    b.HasIndex("Status", "LeaseExpiresAt")
-                        .HasDatabaseName("IX_OutboxMessages_Status_LeaseExpiresAt");
-
-                    b.ToTable("OutboxMessages", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.ReferenceSource", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Citation")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("Kind")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("Url")
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("UX_ReferenceSources_Code");
-
-                    b.ToTable("ReferenceSources", (string)null);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.UnitAlias", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Measurement.Data.Entities.UnitAlias", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1004,7 +667,591 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("UnitAliases", (string)null);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.Workspace", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AttributionText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("CookTimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CuisineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Headnote")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int?>("PrepTimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("PrimaryTechniqueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RestTimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StorageNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("TotalTimeMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UpdatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("YieldQuantity")
+                        .HasColumnType("decimal(28, 12)");
+
+                    b.Property<string>("YieldText")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("YieldUnitDimension")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("YieldUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_Recipes_Workspace_Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("CuisineId");
+
+                    b.HasIndex("PrimaryTechniqueId");
+
+                    b.HasIndex("WorkspaceId", "Title")
+                        .HasDatabaseName("IX_Recipes_Workspace_Title");
+
+                    b.HasIndex("YieldUnitId", "YieldUnitDimension");
+
+                    b.HasIndex("WorkspaceId", "Status", "UpdatedAt")
+                        .HasDatabaseName("IX_Recipes_Workspace_Status_UpdatedAt");
+
+                    b.ToTable("Recipes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Recipes_Times_NonNegative", "(PrepTimeMinutes IS NULL OR PrepTimeMinutes >= 0) AND (CookTimeMinutes IS NULL OR CookTimeMinutes >= 0) AND (RestTimeMinutes IS NULL OR RestTimeMinutes >= 0) AND (TotalTimeMinutes IS NULL OR TotalTimeMinutes >= 0)");
+
+                            t.HasCheckConstraint("CK_Recipes_YieldUnit_Dimension", "(YieldUnitId IS NULL AND YieldUnitDimension IS NULL) OR (YieldUnitId IS NOT NULL AND YieldUnitDimension IS NOT NULL AND YieldUnitDimension <> 3)");
+
+                            t.HasCheckConstraint("CK_Recipes_YieldUnit_RequiresQuantity", "YieldUnitId IS NULL OR YieldQuantity IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_Recipes_Yield_Positive", "YieldQuantity IS NULL OR YieldQuantity > 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeAssetLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId")
+                        .HasDatabaseName("IX_RecipeAssetLinks_Workspace_MediaAsset");
+
+                    b.HasIndex("WorkspaceId", "RecipeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeAssetLinks_Workspace_Recipe_Hero")
+                        .HasFilter("Role = 1");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeAssetLinks_Workspace_Recipe_Order");
+
+                    b.ToTable("RecipeAssetLinks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeAssetLinks_Role_Specified", "Role <> 0");
+
+                            t.HasCheckConstraint("CK_RecipeAssetLinks_SortOrder_NonNegative", "SortOrder >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeEquipment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DisplayText")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("EquipmentTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsOptional")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipmentTypeId");
+
+                    b.HasIndex("WorkspaceId", "EquipmentTypeId")
+                        .HasDatabaseName("IX_RecipeEquipment_Workspace_EquipmentType");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeEquipment_Workspace_Recipe_Order");
+
+                    b.ToTable("RecipeEquipment", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeEquipment_SortOrder_NonNegative", "SortOrder >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DisplayText")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("IngredientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IngredientNameText")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<bool>("IsOptional")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MatchStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MeasurementUnitDimension")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("MeasurementUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PreparationNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal?>("Quantity")
+                        .HasColumnType("decimal(28, 12)");
+
+                    b.Property<decimal?>("QuantityUpper")
+                        .HasColumnType("decimal(28, 12)");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeIngredientGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ScalingBehavior")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IngredientId");
+
+                    b.HasIndex("MeasurementUnitId", "MeasurementUnitDimension");
+
+                    b.HasIndex("WorkspaceId", "IngredientId")
+                        .HasDatabaseName("IX_RecipeIngredients_Workspace_Ingredient");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeIngredientGroupId");
+
+                    b.HasIndex("WorkspaceId", "RecipeIngredientGroupId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeIngredients_Workspace_Group_Order");
+
+                    b.ToTable("RecipeIngredients", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeIngredients_Match_Status", "(IngredientId IS NOT NULL AND MatchStatus = 1) OR (IngredientId IS NULL AND MatchStatus <> 1)");
+
+                            t.HasCheckConstraint("CK_RecipeIngredients_Quantity_Positive", "(Quantity IS NULL OR Quantity > 0) AND (QuantityUpper IS NULL OR QuantityUpper > 0)");
+
+                            t.HasCheckConstraint("CK_RecipeIngredients_Quantity_Range", "QuantityUpper IS NULL OR (Quantity IS NOT NULL AND QuantityUpper > Quantity)");
+
+                            t.HasCheckConstraint("CK_RecipeIngredients_SortOrder_NonNegative", "SortOrder >= 0");
+
+                            t.HasCheckConstraint("CK_RecipeIngredients_Unit_Dimension", "(MeasurementUnitId IS NULL AND MeasurementUnitDimension IS NULL) OR (MeasurementUnitId IS NOT NULL AND MeasurementUnitDimension IS NOT NULL AND MeasurementUnitDimension <> 3)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredientGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "RecipeId", "Id")
+                        .HasName("AK_RecipeIngredientGroups_Workspace_Recipe_Id");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeIngredientGroups_Workspace_Recipe_Order");
+
+                    b.ToTable("RecipeIngredientGroups", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeIngredientGroups_SortOrder_NonNegative", "SortOrder >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "RecipeId", "Id")
+                        .HasName("AK_RecipeInstructionGroups_Workspace_Recipe_Id");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeInstructionGroups_Workspace_Recipe_Order");
+
+                    b.ToTable("RecipeInstructionGroups", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeInstructionGroups_SortOrder_NonNegative", "SortOrder >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeInstructionGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TechniqueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("TemperatureUnitDimension")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TemperatureUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("TemperatureValue")
+                        .HasColumnType("decimal(28, 12)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TechniqueId");
+
+                    b.HasIndex("TemperatureUnitId", "TemperatureUnitDimension");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeInstructionGroupId");
+
+                    b.HasIndex("WorkspaceId", "RecipeInstructionGroupId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeInstructionSteps_Workspace_Group_Order");
+
+                    b.ToTable("RecipeInstructionSteps", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeInstructionSteps_Duration_NonNegative", "DurationMinutes IS NULL OR DurationMinutes >= 0");
+
+                            t.HasCheckConstraint("CK_RecipeInstructionSteps_SortOrder_NonNegative", "SortOrder >= 0");
+
+                            t.HasCheckConstraint("CK_RecipeInstructionSteps_Temperature_Dimension", "(TemperatureValue IS NULL AND TemperatureUnitId IS NULL AND TemperatureUnitDimension IS NULL) OR (TemperatureValue IS NOT NULL AND TemperatureUnitId IS NOT NULL AND TemperatureUnitDimension = 3)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeTag", b =>
+                {
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceTagId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WorkspaceId", "RecipeId", "WorkspaceTagId");
+
+                    b.HasIndex("WorkspaceId", "WorkspaceTagId")
+                        .HasDatabaseName("IX_RecipeTags_Workspace_Tag");
+
+                    b.ToTable("RecipeTags", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("BasedOnRecipeRowVersion")
+                        .HasMaxLength(8)
+                        .HasColumnType("varbinary(8)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Readiness")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SnapshotSchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_RecipeVersions_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "ParentVersionId");
+
+                    b.HasIndex("WorkspaceId", "SnapshotSchemaVersion")
+                        .HasDatabaseName("IX_RecipeVersions_Workspace_SnapshotSchemaVersion");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "CreatedAt")
+                        .HasDatabaseName("IX_RecipeVersions_Workspace_Recipe_CreatedAt");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_RecipeVersions_Workspace_Recipe_VersionNumber");
+
+                    b.ToTable("RecipeVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeVersions_Parent_NotSelf", "ParentVersionId IS NULL OR ParentVersionId <> Id");
+
+                            t.HasCheckConstraint("CK_RecipeVersions_Proposal_Source", "(AiProposalId IS NULL AND Source <> 1) OR (AiProposalId IS NOT NULL AND Source = 1)");
+
+                            t.HasCheckConstraint("CK_RecipeVersions_VersionNumber_Positive", "VersionNumber >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersionSnapshot", b =>
+                {
+                    b.Property<Guid>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RecipeVersionId");
+
+                    b.HasIndex("WorkspaceId", "RecipeVersionId")
+                        .IsUnique();
+
+                    b.ToTable("RecipeVersionSnapshots", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.WorkspaceTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_WorkspaceTags_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkspaceTags_Workspace_NormalizedName");
+
+                    b.HasIndex("WorkspaceId", "IsActive", "Name")
+                        .HasDatabaseName("IX_WorkspaceTags_Workspace_IsActive_Name");
+
+                    b.ToTable("WorkspaceTags", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1032,7 +1279,7 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("Workspaces", (string)null);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.WorkspaceMembership", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.WorkspaceMembership", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1065,6 +1312,343 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("UX_WorkspaceMemberships_Workspace_User");
 
                     b.ToTable("WorkspaceMemberships", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Allergen", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Allergens_Code");
+
+                    b.ToTable("Allergens", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CookingTechnique", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequiresSafetyCaution")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CookingTechniques_Code");
+
+                    b.ToTable("CookingTechniques", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CookingTechniqueAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NormalizedAlias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("VocabularyId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("CookingTechniqueId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedAlias")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CookingTechniqueAliases_NormalizedAlias");
+
+                    b.HasIndex("VocabularyId")
+                        .HasDatabaseName("IX_CookingTechniqueAliases_CookingTechniqueId");
+
+                    b.ToTable("CookingTechniqueAliases", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Course", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Courses_Code");
+
+                    b.ToTable("Courses", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CourseAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NormalizedAlias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("VocabularyId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("CourseId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedAlias")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CourseAliases_NormalizedAlias");
+
+                    b.HasIndex("VocabularyId")
+                        .HasDatabaseName("IX_CourseAliases_CourseId");
+
+                    b.ToTable("CourseAliases", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Cuisine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Cuisines_Code");
+
+                    b.ToTable("Cuisines", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CuisineAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NormalizedAlias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("VocabularyId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("CuisineId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedAlias")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CuisineAliases_NormalizedAlias");
+
+                    b.HasIndex("VocabularyId")
+                        .HasDatabaseName("IX_CuisineAliases_CuisineId");
+
+                    b.ToTable("CuisineAliases", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.DietaryProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_DietaryProfiles_Code");
+
+                    b.ToTable("DietaryProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.EquipmentType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EquipmentTypes_Code");
+
+                    b.ToTable("EquipmentTypes", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.EquipmentTypeAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NormalizedAlias")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("VocabularyId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EquipmentTypeId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedAlias")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EquipmentTypeAliases_NormalizedAlias");
+
+                    b.HasIndex("VocabularyId")
+                        .HasDatabaseName("IX_EquipmentTypeAliases_EquipmentTypeId");
+
+                    b.ToTable("EquipmentTypeAliases", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.FoodCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_FoodCategories_Code");
+
+                    b.ToTable("FoodCategories", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -1200,97 +1784,61 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.ApplicationUser", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Managers.Audit.AuditLog", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.Workspace", null)
-                        .WithMany()
-                        .HasForeignKey("LastWorkspaceId")
-                        .OnDelete(DeleteBehavior.SetNull);
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.AuditLog", b =>
-                {
-                    b.HasOne("CreatorPantry.Domain.Data.Workspace", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CookingTechniqueAlias", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.CookingTechnique", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
                         .WithMany()
-                        .HasForeignKey("VocabularyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("LastWorkspaceId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CourseAlias", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.Course", null)
-                        .WithMany()
-                        .HasForeignKey("VocabularyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.CuisineAlias", b =>
-                {
-                    b.HasOne("CreatorPantry.Domain.Data.Cuisine", null)
-                        .WithMany()
-                        .HasForeignKey("VocabularyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.EquipmentTypeAlias", b =>
-                {
-                    b.HasOne("CreatorPantry.Domain.Data.EquipmentType", null)
-                        .WithMany()
-                        .HasForeignKey("VocabularyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Data.Ingredient", b =>
-                {
-                    b.HasOne("CreatorPantry.Domain.Data.FoodCategory", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.FoodCategory", null)
                         .WithMany()
                         .HasForeignKey("FoodCategoryId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("CreatorPantry.Domain.Data.MeasurementUnit", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
                         .WithMany()
                         .HasForeignKey("DefaultCountUnitId", "DefaultCountUnitDimension")
                         .HasPrincipalKey("Id", "Dimension")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientAlias", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAlias", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.Ingredient", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientAllergenTrait", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientAllergenTrait", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.Allergen", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Allergen", null)
                         .WithMany()
                         .HasForeignKey("AllergenId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.Ingredient", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.ReferenceSource", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource", null)
                         .WithMany()
                         .HasForeignKey("ReferenceSourceId", "ReferenceSourceKind")
                         .HasPrincipalKey("Id", "Kind")
@@ -1298,29 +1846,29 @@ namespace CreatorPantry.Domain.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientDensityReference", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDensityReference", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.Ingredient", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.MeasurementUnit", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
                         .WithMany()
                         .HasForeignKey("MassUnitId", "MassUnitDimension")
                         .HasPrincipalKey("Id", "Dimension")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.ReferenceSource", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource", null)
                         .WithMany()
                         .HasForeignKey("ReferenceSourceId", "ReferenceSourceKind")
                         .HasPrincipalKey("Id", "Kind")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.MeasurementUnit", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
                         .WithMany()
                         .HasForeignKey("VolumeUnitId", "VolumeUnitDimension")
                         .HasPrincipalKey("Id", "Dimension")
@@ -1328,21 +1876,21 @@ namespace CreatorPantry.Domain.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.IngredientDietaryTrait", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.IngredientDietaryTrait", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.DietaryProfile", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.DietaryProfile", null)
                         .WithMany()
                         .HasForeignKey("DietaryProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.Ingredient", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", null)
                         .WithMany()
                         .HasForeignKey("IngredientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.ReferenceSource", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource", null)
                         .WithMany()
                         .HasForeignKey("ReferenceSourceId", "ReferenceSourceKind")
                         .HasPrincipalKey("Id", "Kind")
@@ -1350,26 +1898,237 @@ namespace CreatorPantry.Domain.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.UnitAlias", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Measurement.Data.Entities.UnitAlias", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.MeasurementUnit", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
                         .WithMany()
                         .HasForeignKey("MeasurementUnitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("CreatorPantry.Domain.Data.WorkspaceMembership", b =>
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.ApplicationUser", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Cuisine", null)
+                        .WithMany()
+                        .HasForeignKey("CuisineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CookingTechnique", null)
+                        .WithMany()
+                        .HasForeignKey("PrimaryTechniqueId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
+                        .WithMany()
+                        .HasForeignKey("YieldUnitId", "YieldUnitDimension")
+                        .HasPrincipalKey("Id", "Dimension")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeAssetLink", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany("AssetLinks")
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeEquipment", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.EquipmentType", null)
+                        .WithMany()
+                        .HasForeignKey("EquipmentTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany("Equipment")
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredient", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", null)
+                        .WithMany()
+                        .HasForeignKey("IngredientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
+                        .WithMany()
+                        .HasForeignKey("MeasurementUnitId", "MeasurementUnitDimension")
+                        .HasPrincipalKey("Id", "Dimension")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredientGroup", null)
+                        .WithMany("Ingredients")
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeIngredientGroupId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredientGroup", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany("IngredientGroups")
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionGroup", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany("InstructionGroups")
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionStep", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CookingTechnique", null)
+                        .WithMany()
+                        .HasForeignKey("TechniqueId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
+                        .WithMany()
+                        .HasForeignKey("TemperatureUnitId", "TemperatureUnitDimension")
+                        .HasPrincipalKey("Id", "Dimension")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionGroup", null)
+                        .WithMany("Steps")
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeInstructionGroupId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeTag", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.WorkspaceTag", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "WorkspaceTagId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "ParentVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersionSnapshot", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithOne("Snapshot")
+                        .HasForeignKey("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersionSnapshot", "WorkspaceId", "RecipeVersionId")
+                        .HasPrincipalKey("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", "WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.WorkspaceTag", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.WorkspaceMembership", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.Workspace", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CookingTechniqueAlias", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CookingTechnique", null)
+                        .WithMany()
+                        .HasForeignKey("VocabularyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CourseAlias", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("VocabularyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.CuisineAlias", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Cuisine", null)
+                        .WithMany()
+                        .HasForeignKey("VocabularyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.EquipmentTypeAlias", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.EquipmentType", null)
+                        .WithMany()
+                        .HasForeignKey("VocabularyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -1385,7 +2144,7 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.ApplicationUser", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1394,7 +2153,7 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.ApplicationUser", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1409,7 +2168,7 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CreatorPantry.Domain.Data.ApplicationUser", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1418,11 +2177,39 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("CreatorPantry.Domain.Data.ApplicationUser", null)
+                    b.HasOne("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>
+                {
+                    b.Navigation("AssetLinks");
+
+                    b.Navigation("Equipment");
+
+                    b.Navigation("IngredientGroups");
+
+                    b.Navigation("InstructionGroups");
+
+                    b.Navigation("Tags");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredientGroup", b =>
+                {
+                    b.Navigation("Ingredients");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionGroup", b =>
+                {
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", b =>
+                {
+                    b.Navigation("Snapshot");
                 });
 #pragma warning restore 612, 618
         }

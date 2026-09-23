@@ -67,6 +67,18 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
 {
     public int Calls { get; private set; }
 
+    // Reference verification, used by the recipe facade rather than by the cached list endpoints these fakes
+    // were written for. Deliberately not counted: Calls exists to prove the page cache stops repeat reads,
+    // and a lookup that never goes through that cache would make the count mean two different things.
+    public Task<bool> IsUsableAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
+
+    public Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken) =>
+        Task.FromResult<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?>(
+            CreatorPantry.Domain.Managers.Reference.MeasurementDimension.Count);
+
     public Task<CursorPageServiceModel<IngredientServiceModel>> ListIngredientsAsync(
         IngredientQuery query, CancellationToken cancellationToken) =>
         Count(new CursorPageServiceModel<IngredientServiceModel>(

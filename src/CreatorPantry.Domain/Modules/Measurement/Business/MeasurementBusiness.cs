@@ -8,6 +8,10 @@ namespace CreatorPantry.Domain.Modules.Measurement.Business;
 
 internal sealed class MeasurementBusiness(IMeasurementDataLayer dataLayer) : IMeasurementBusiness
 {
+    public Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken) =>
+        dataLayer.FindUsableUnitDimensionAsync(unitId, cancellationToken);
+
     public async Task<CursorPageServiceModel<MeasurementUnitServiceModel>> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken)
     {

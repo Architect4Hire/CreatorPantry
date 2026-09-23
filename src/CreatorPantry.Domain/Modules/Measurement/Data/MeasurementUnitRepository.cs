@@ -9,6 +9,10 @@ namespace CreatorPantry.Domain.Modules.Measurement.Data;
 /// <summary>Reads the shared unit catalogue. Global reference data: no workspace filter applies.</summary>
 public interface IMeasurementUnitRepository
 {
+    /// <summary>The dimension of an active unit, or null when the id names none.</summary>
+    Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken);
+
     /// <summary>One page of active units, ordered by display name.</summary>
     Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
@@ -16,6 +20,19 @@ public interface IMeasurementUnitRepository
 
 internal sealed class MeasurementUnitRepository(CreatorPantryDbContext context) : IMeasurementUnitRepository
 {
+    public async Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
+        Guid unitId, CancellationToken cancellationToken)
+    {
+        // Projected to the one column the caller needs rather than materialising the unit: nothing else about
+        // it is any of the calling module.s business.
+        var dimensions = await context.MeasurementUnits.AsNoTracking()
+            .Where(unit => unit.Id == unitId && unit.IsActive)
+            .Select(unit => unit.Dimension)
+            .ToListAsync(cancellationToken);
+
+        return dimensions.Count == 0 ? null : dimensions[0];
+    }
+
     public async Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken)
     {

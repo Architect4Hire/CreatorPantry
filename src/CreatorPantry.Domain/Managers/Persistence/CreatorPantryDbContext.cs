@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
@@ -112,6 +113,60 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// </remarks>
     public DbSet<IngredientAllergenTrait> IngredientAllergenTraits => Set<IngredientAllergenTrait>();
 
+    /// <remarks>
+    /// Workspace-owned creator intellectual property (tenancy.md), and the root of the recipe aggregate.
+    /// Filtered by <see cref="WorkspaceOwnershipConvention"/> like every other
+    /// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/> entity, which means querying it
+    /// before a workspace is resolved throws rather than quietly returning nothing.
+    /// </remarks>
+    public DbSet<Recipe> Recipes => Set<Recipe>();
+
+    /// <remarks>
+    /// Interior to the <see cref="Recipe"/> aggregate. Exposed as a set because EF needs the entity type in
+    /// the model, not because anything may write one on its own: the aggregate is loaded and saved through
+    /// its root, and these rows reach the database only by way of a recipe.
+    /// </remarks>
+    public DbSet<RecipeIngredientGroup> RecipeIngredientGroups => Set<RecipeIngredientGroup>();
+
+    /// <inheritdoc cref="RecipeIngredientGroups"/>
+    public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
+
+    /// <inheritdoc cref="RecipeIngredientGroups"/>
+    public DbSet<RecipeInstructionGroup> RecipeInstructionGroups => Set<RecipeInstructionGroup>();
+
+    /// <inheritdoc cref="RecipeIngredientGroups"/>
+    public DbSet<RecipeInstructionStep> RecipeInstructionSteps => Set<RecipeInstructionStep>();
+
+    /// <inheritdoc cref="RecipeIngredientGroups"/>
+    public DbSet<RecipeEquipment> RecipeEquipment => Set<RecipeEquipment>();
+
+    /// <inheritdoc cref="RecipeIngredientGroups"/>
+    public DbSet<RecipeAssetLink> RecipeAssetLinks => Set<RecipeAssetLink>();
+
+    /// <remarks>
+    /// A second aggregate root, not part of <see cref="Recipe"/>: versions outlive the edits that supersede
+    /// them, so this set is queried in its own right. Write-once — <see cref="ImmutableRecordInterceptor"/>
+    /// refuses every update and delete of a row here.
+    /// </remarks>
+    public DbSet<RecipeVersion> RecipeVersions => Set<RecipeVersion>();
+
+    /// <inheritdoc cref="RecipeVersions"/>
+    /// <remarks>
+    /// Separated from <see cref="RecipeVersions"/> so that listing a recipe's history does not read its
+    /// archive. Query this only when a snapshot is actually needed.
+    /// </remarks>
+    public DbSet<RecipeVersionSnapshot> RecipeVersionSnapshots => Set<RecipeVersionSnapshot>();
+
+    /// <remarks>
+    /// The creator's own tag vocabulary — workspace-owned and defined entirely by them, unlike the shared
+    /// <see cref="Cuisines"/> and <see cref="Courses"/> catalogues. A third aggregate root in the recipes
+    /// module: tags are listed, renamed and retired on their own.
+    /// </remarks>
+    public DbSet<WorkspaceTag> WorkspaceTags => Set<WorkspaceTag>();
+
+    /// <inheritdoc cref="RecipeIngredientGroups"/>
+    public DbSet<RecipeTag> RecipeTags => Set<RecipeTag>();
+
     Guid? IWorkspaceIdSource.CurrentWorkspaceIdOrNull => workspaceContext is { IsResolved: true } context ? context.WorkspaceId : null;
 
     /// <remarks>
@@ -124,7 +179,10 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     {
         base.OnConfiguring(optionsBuilder);
 
-        optionsBuilder.AddInterceptors(new WorkspaceOwnershipInterceptor(), new AuditLogImmutabilityInterceptor());
+        optionsBuilder.AddInterceptors(
+            new WorkspaceOwnershipInterceptor(),
+            new AuditLogImmutabilityInterceptor(),
+            new ImmutableRecordInterceptor());
     }
 
     protected override void OnModelCreating(ModelBuilder builder)
