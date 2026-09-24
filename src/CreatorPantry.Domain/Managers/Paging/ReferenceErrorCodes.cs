@@ -18,4 +18,7 @@ public static class ReferenceErrorCodes
     /// passed back exactly as it was received.
     /// </summary>
     public const string CursorInvalid = "reference.cursor.invalid_request";
+
+    /// <summary>A batch-resolve request submitted too many candidates, or one candidate too long.</summary>
+    public const string CandidatesInvalid = "reference.candidates.invalid_request";
 }

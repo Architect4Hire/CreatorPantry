@@ -9,5 +9,7 @@ public interface IIngredientDataLayer
 {
     Task<(IReadOnlyList<IngredientRecord> Rows, bool HasMore)> ListIngredientsAsync(
         IngredientQuery query, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
 }
 

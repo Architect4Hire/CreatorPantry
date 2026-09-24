@@ -88,6 +88,20 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         MeasurementUnitQuery query, CancellationToken cancellationToken) =>
         Count(new CursorPageServiceModel<MeasurementUnitServiceModel>([], null));
 
+    public Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
+        Count<IReadOnlyList<IngredientMatchIndexEntry>>([]);
+
+    public IReadOnlyList<IngredientMatchResult> ResolveCandidates(
+        IReadOnlyList<string> candidateTexts, IReadOnlyList<IngredientMatchIndexEntry> index) =>
+        candidateTexts.Select(text => new IngredientMatchResult { InputText = text }).ToList();
+
+    Task<IReadOnlyList<UnitMatchIndexEntry>> IMeasurementBusiness.LoadMatchIndexAsync(CancellationToken cancellationToken) =>
+        Count<IReadOnlyList<UnitMatchIndexEntry>>([]);
+
+    IReadOnlyList<UnitMatchResult> IMeasurementBusiness.ResolveCandidates(
+        IReadOnlyList<string> candidateTexts, IReadOnlyList<UnitMatchIndexEntry> index) =>
+        candidateTexts.Select(text => new UnitMatchResult { InputText = text }).ToList();
+
     public Task<CursorPageServiceModel<ReferenceEntryServiceModel>> ListFoodCategoriesAsync(
         ReferenceQuery query, CancellationToken cancellationToken) => Entries();
 

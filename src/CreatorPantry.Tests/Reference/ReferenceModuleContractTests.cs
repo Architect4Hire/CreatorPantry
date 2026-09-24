@@ -227,8 +227,8 @@ public sealed class ReferenceModuleContractTests
         new VocabularyFacade(new ReferenceQueryViewModelValidator(), _business, new CachedPageReader(_cache));
 
     private IMeasurementFacade Measurement() =>
-        new MeasurementFacade(new MeasurementUnitQueryViewModelValidator(), _business, new CachedPageReader(_cache));
+        new MeasurementFacade(new MeasurementUnitQueryViewModelValidator(), _business, _cache, new CachedPageReader(_cache));
 
     private IIngredientFacade Ingredients() =>
-        new IngredientFacade(new IngredientQueryViewModelValidator(), _business, new CachedPageReader(_cache));
+        new IngredientFacade(new IngredientQueryViewModelValidator(), _business, _cache, new CachedPageReader(_cache));
 }

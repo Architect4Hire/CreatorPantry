@@ -1,0 +1,57 @@
+:host {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+textarea {
+  width: 100%;
+  min-height: 8rem;
+  font-family: var(--cp-font-mono, monospace);
+}
+
+.error {
+  margin: 0;
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+}
+
+.review-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.review-line {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+}
+
+.original-text {
+  margin: 0;
+  font-weight: 600;
+  color: var(--cp-text);
+}
+
+.ambiguities {
+  margin: 0;
+  padding-left: var(--cp-space-5);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.match-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.match-row cp-field {
+  flex: 1 1 12rem;
+}

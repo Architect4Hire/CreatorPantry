@@ -21,5 +21,16 @@ internal sealed class MeasurementBusiness(IMeasurementDataLayer dataLayer) : IMe
             row.Id, row.Code, row.DisplayName, row.PluralName, row.Abbreviation,
             row.Dimension, row.System, row.BaseUnitFactor, row.DisplayPrecision));
     }
+
+    public Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
+        dataLayer.LoadMatchIndexAsync(cancellationToken);
+
+    public IReadOnlyList<UnitMatchResult> ResolveCandidates(
+        IReadOnlyList<string> candidateTexts, IReadOnlyList<UnitMatchIndexEntry> index)
+    {
+        var lookup = index.ToLookup(entry => entry.NormalizedText, StringComparer.Ordinal);
+
+        return candidateTexts.Select(text => UnitMatcher.Resolve(text, lookup)).ToList();
+    }
 }
 

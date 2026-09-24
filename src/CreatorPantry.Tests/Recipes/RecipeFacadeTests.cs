@@ -1477,9 +1477,13 @@ public sealed class RecipeFacadeTests
             return Task.FromResult(UnitDimension);
         }
 
-        // The list endpoints are not exercised here; the facade under test never calls them.
+        // The list and resolve endpoints are not exercised here; the facade under test never calls them.
         public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Measurement.Managers.MeasurementUnitServiceModel>>> ListUnitsAsync(
             Domain.Modules.Measurement.Managers.MeasurementUnitQueryViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult>>> ResolveCandidatesAsync(
+            IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Vocabulary.Managers.ReferenceEntryServiceModel>>> ListFoodCategoriesAsync(

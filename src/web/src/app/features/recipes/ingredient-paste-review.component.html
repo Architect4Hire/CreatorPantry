@@ -1,0 +1,107 @@
+<cp-field label="Paste ingredient lines" forId="paste-ingredients-text" hint="One ingredient per line, exactly as you'd type it into a recipe.">
+  <textarea
+    id="paste-ingredients-text"
+    rows="6"
+    placeholder="2 cups all-purpose flour&#10;1/2 tsp kosher salt&#10;1 (14.5 oz) can diced tomatoes"
+    [ngModel]="pastedText()"
+    (ngModelChange)="pastedText.set($event)"
+    name="pastedIngredientText"
+  ></textarea>
+</cp-field>
+
+<button cpButton type="button" [disabled]="state().status === 'parsing' || pastedText().trim().length === 0" (click)="parse()">
+  @if (state().status === 'parsing') {
+    Parsing…
+  } @else {
+    Parse lines
+  }
+</button>
+
+@if (state().status === 'error') {
+  <p class="error" role="alert">{{ $any(state()).message }}</p>
+}
+
+@if (state().status === 'parsed') {
+  <ul class="review-list">
+    @for (line of lines(); track $index; let index = $index) {
+      <li class="review-line">
+        @if (line.tokens.isGroupMarker) {
+          <p class="original-text">{{ line.tokens.originalText }}</p>
+          <cp-status-pill tone="neutral">Section heading — not an ingredient</cp-status-pill>
+        } @else {
+          <p class="original-text">{{ line.tokens.originalText }}</p>
+
+          @if (line.tokens.ambiguities.length > 0) {
+            <ul class="ambiguities">
+              @for (ambiguity of line.tokens.ambiguities; track ambiguity.kind) {
+                <li>{{ ambiguity.message }}</li>
+              }
+            </ul>
+          }
+
+          <div class="match-row">
+            <cp-status-pill [tone]="toneFor(ingredientChoiceFor(index, line) !== null && ingredientChoiceFor(index, line) !== undefined, !!line.ingredientMatch?.isAmbiguous)">
+              @if (ingredientChoiceFor(index, line)) {
+                Ingredient: {{ ingredientChoiceFor(index, line)?.canonicalName }}
+              } @else if (line.ingredientMatch) {
+                Ingredient: no match
+              } @else {
+                No ingredient text detected
+              }
+            </cp-status-pill>
+
+            @if (line.ingredientMatch && !line.ingredientMatch.resolved) {
+              <cp-field [label]="'Ingredient for “' + line.ingredientMatch.inputText + '”'" [forId]="'ingredient-choice-' + index">
+                <select
+                  [id]="'ingredient-choice-' + index"
+                  [name]="'ingredientChoice' + index"
+                  (change)="onIngredientChoiceChange(index, line, $any($event.target).value)"
+                >
+                  <option value="">{{ unresolvedIngredientLabel }}</option>
+                  @for (candidate of line.ingredientMatch.alternates; track candidate.ingredientId) {
+                    <option [value]="candidate.ingredientId">{{ candidate.canonicalName }}</option>
+                  }
+                </select>
+              </cp-field>
+            }
+          </div>
+
+          <div class="match-row">
+            <cp-status-pill [tone]="toneFor(unitChoiceFor(index, line) !== null && unitChoiceFor(index, line) !== undefined, !!line.unitMatch?.isAmbiguous)">
+              @if (unitChoiceFor(index, line)) {
+                Unit: {{ unitChoiceFor(index, line)?.displayName }}
+              } @else if (line.unitMatch) {
+                Unit: no match
+              } @else {
+                No unit candidate detected
+              }
+            </cp-status-pill>
+
+            @if (line.unitMatch && !line.unitMatch.resolved) {
+              <cp-field [label]="'Unit for “' + line.unitMatch.inputText + '”'" [forId]="'unit-choice-' + index">
+                <select
+                  [id]="'unit-choice-' + index"
+                  [name]="'unitChoice' + index"
+                  (change)="onUnitChoiceChange(index, line, $any($event.target).value)"
+                >
+                  <option value="">{{ unresolvedUnitLabel }}</option>
+                  @for (candidate of line.unitMatch.alternates; track candidate.measurementUnitId) {
+                    <option [value]="candidate.measurementUnitId">{{ candidate.displayName }}</option>
+                  }
+                </select>
+              </cp-field>
+            }
+          </div>
+
+          <button cpButton variant="secondary" type="button" [disabled]="isAccepted(index)" (click)="accept(index, line)">
+            @if (isAccepted(index)) {
+              Added
+            } @else {
+              Add to recipe
+            }
+          </button>
+        }
+      </li>
+    }
+  </ul>
+}

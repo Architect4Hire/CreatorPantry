@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signa
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  CpBadgeComponent,
   CpButtonComponent,
   CpCardComponent,
   CpEmptyStateComponent,
@@ -32,6 +31,7 @@ import {
 } from '../../models/recipe.models';
 import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
+import { EditableIngredientGroup, RecipeIngredientEditorComponent } from './recipe-ingredient-editor.component';
 import { RecipeVersionRestored } from './recipe-restore.component';
 
 /**
@@ -146,9 +146,10 @@ type RecipeEditorSaveState =
  * The recipe-editor route shell: create at `:workspaceSlug/recipes/new`, edit at
  * `:workspaceSlug/recipes/:recipeId`. Instructions are fully editable (add/edit/reorder/remove
  * groups and steps), submitted through the same PATCH/POST the rest of the form uses — one Save
- * saves everything together. Ingredients render read-only from RecipeDetailServiceModel —
- * CreateRecipeViewModel/UpdateRecipeViewModel have no fields for them yet, so structured editing has
- * nowhere to submit to until Phase 7 (ING-*) adds that seam. Media and history are inert
+ * saves everything together. Ingredients are structurally editable too (`RecipeIngredientEditorComponent`:
+ * paste-and-parse review, groups, add/edit/remove/reorder), but stay local-only — see
+ * {@link editedIngredientGroups} — because `CreateRecipeViewModel`/`UpdateRecipeViewModel` still have no
+ * ingredient fields to submit them to; that seam is a later prompt. Media and history are inert
  * placeholders, disabled entirely until the recipe exists.
  */
 @Component({
@@ -157,7 +158,6 @@ type RecipeEditorSaveState =
   imports: [
     FormsModule,
     RouterLink,
-    CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
     CpEmptyStateComponent,
@@ -166,6 +166,7 @@ type RecipeEditorSaveState =
     CpTabPanelComponent,
     CpTabsComponent,
     RecipeHistoryComponent,
+    RecipeIngredientEditorComponent,
   ],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
@@ -285,6 +286,17 @@ export class RecipeEditorComponent {
   readonly newTagText = signal('');
 
   readonly ingredientGroups = signal<readonly RecipeIngredientGroup[]>([]);
+
+  /**
+   * The structured ingredient editor's own working copy — held here only so a later save-wiring prompt has
+   * somewhere to read from. It stays out of {@link RecipeFormSnapshot}/`isDirty` and out of every
+   * create/update request on purpose: `CreateRecipeViewModel`/`UpdateRecipeViewModel` still have no
+   * ingredient fields, so there is nowhere for this to be submitted to yet (ING-002, 7.5). Editing here
+   * cannot be lost silently either — `RecipeIngredientEditorComponent` keeps its own local state and this
+   * signal is a read-only mirror of it, not the other way around.
+   */
+  readonly editedIngredientGroups = signal<readonly EditableIngredientGroup[]>([]);
+
   readonly instructionGroups = signal<EditableInstructionGroup[]>([]);
 
   /**
@@ -394,6 +406,10 @@ export class RecipeEditorComponent {
 
   removeTag(tag: string): void {
     this.tags.update((tags) => tags.filter((existing) => existing !== tag));
+  }
+
+  onIngredientGroupsChanged(groups: readonly EditableIngredientGroup[]): void {
+    this.editedIngredientGroups.set(groups);
   }
 
   updateInstructionGroupTitle(groupKey: string, title: string): void {

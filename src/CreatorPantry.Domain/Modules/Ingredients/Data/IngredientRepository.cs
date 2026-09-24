@@ -14,6 +14,12 @@ public interface IIngredientRepository
     /// <returns>The page, and whether another follows it.</returns>
     Task<(IReadOnlyList<IngredientRecord> Rows, bool HasMore)> ListAsync(
         IngredientQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every active ingredient's canonical name, and every alias of an active ingredient, flattened into one
+    /// list for <see cref="IngredientMatcher"/> to resolve candidates against in memory.
+    /// </summary>
+    Task<IReadOnlyList<IngredientMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIngredientRepository
@@ -73,5 +79,30 @@ internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIn
             .ToListAsync(cancellationToken);
 
         return fetched.ToPage(query.Limit);
+    }
+
+    public async Task<IReadOnlyList<IngredientMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken)
+    {
+        var canonical = await context.Ingredients.AsNoTracking()
+            .Where(ingredient => ingredient.IsActive)
+            .Select(ingredient => new IngredientMatchIndexEntry(
+                ingredient.Id, ingredient.CanonicalName, ingredient.NormalizedName, IngredientMatchKind.CanonicalName))
+            .ToListAsync(cancellationToken);
+
+        // A retired ingredient's alias is excluded the same way ListAsync excludes the ingredient itself: it
+        // stays readable for what already resolved to it, but it does not newly match.
+        var activeIds = canonical.Select(entry => entry.IngredientId).ToHashSet();
+
+        var aliases = await context.IngredientAliases.AsNoTracking()
+            .Where(alias => activeIds.Contains(alias.IngredientId))
+            .Select(alias => new { alias.IngredientId, alias.NormalizedAlias })
+            .ToListAsync(cancellationToken);
+
+        var namesById = canonical.ToDictionary(entry => entry.IngredientId, entry => entry.CanonicalName);
+
+        var aliasEntries = aliases.Select(alias => new IngredientMatchIndexEntry(
+            alias.IngredientId, namesById[alias.IngredientId], alias.NormalizedAlias, IngredientMatchKind.Alias));
+
+        return [.. canonical, .. aliasEntries];
     }
 }

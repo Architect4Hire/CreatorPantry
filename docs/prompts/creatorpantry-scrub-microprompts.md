@@ -1412,8 +1412,7 @@ BEHAVIOR: Plan interaction/state model, wait for approval, implement with compon
 contract test against the parse response.
 ```
 
-### 7.6 Scaling domain service
-
+### 7.6 Scaling domain service 
 ```text
 SCOPE: Implement deterministic recipe scaling by multiplier or target servings from canonical
 quantities, producing a preview with rounded display, warnings, and unscalable lines.
@@ -1424,7 +1423,7 @@ BEHAVIOR: Show rules and warning taxonomy, wait for approval, implement with pro
 for qualitative, discrete, range, package, and extreme factors.
 ```
 
-### 7.7 Unit conversion domain service
+### 7.7 Unit conversion domain service **pick up here**
 
 ```text
 SCOPE: Implement compatible same-dimension unit conversion plus ingredient-specific mass-volume

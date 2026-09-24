@@ -14,4 +14,7 @@ internal sealed class MeasurementDataLayer(IMeasurementUnitRepository units) : I
     public Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken) =>
         units.ListAsync(query, cancellationToken);
+
+    public Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
+        units.ListMatchIndexAsync(cancellationToken);
 }

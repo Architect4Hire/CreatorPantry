@@ -10,5 +10,12 @@ public interface IIngredientBusiness
 {
     Task<CursorPageServiceModel<IngredientServiceModel>> ListIngredientsAsync(
         IngredientQuery query, CancellationToken cancellationToken);
+
+    /// <summary>Loads the flattened match index the facade caches and passes back into <see cref="ResolveCandidates"/>.</summary>
+    Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
+
+    /// <summary>Resolves each candidate against an already-loaded index. Pure: no I/O, no caching decision.</summary>
+    IReadOnlyList<IngredientMatchResult> ResolveCandidates(
+        IReadOnlyList<string> candidateTexts, IReadOnlyList<IngredientMatchIndexEntry> index);
 }
 

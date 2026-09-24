@@ -22,6 +22,8 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeDataLayer, RecipeDataLayer>();
         services.AddScoped<IRecipeBusiness, RecipeBusiness>();
         services.AddScoped<IRecipeFacade, RecipeFacade>();
+        services.AddScoped<IIngredientParsingFacade, IngredientParsingFacade>();
+        services.AddScoped<IValidator<ParseIngredientLinesViewModel>, ParseIngredientLinesViewModelValidator>();
         services.AddScoped<IValidator<CreateRecipeViewModel>, CreateRecipeViewModelValidator>();
         services.AddScoped<IValidator<UpdateRecipeViewModel>, UpdateRecipeViewModelValidator>();
         services.AddScoped<IValidator<RecipeSearchViewModel>, RecipeSearchViewModelValidator>();

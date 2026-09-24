@@ -18,4 +18,11 @@ public interface IMeasurementBusiness
 
     Task<CursorPageServiceModel<MeasurementUnitServiceModel>> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
+
+    /// <summary>Loads the flattened match index the facade caches and passes back into <see cref="ResolveCandidates"/>.</summary>
+    Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
+
+    /// <summary>Resolves each candidate against an already-loaded index. Pure: no I/O, no caching decision.</summary>
+    IReadOnlyList<UnitMatchResult> ResolveCandidates(
+        IReadOnlyList<string> candidateTexts, IReadOnlyList<UnitMatchIndexEntry> index);
 }

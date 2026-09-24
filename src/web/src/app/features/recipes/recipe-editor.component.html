@@ -253,28 +253,15 @@
 
       <cp-tab-panel id="ingredients">
         <h2 class="section-heading">Ingredients</h2>
-        <p class="section-intro">Structured editing arrives in a later phase — this reflects what the recipe currently has.</p>
-        @if (ingredientGroups().length === 0) {
-          <p class="muted">No ingredients yet.</p>
-        } @else {
-          @for (group of ingredientGroups(); track group.id) {
-            <section class="group">
-              @if (group.title) {
-                <h3>{{ group.title }}</h3>
-              }
-              <ul>
-                @for (ingredient of group.ingredients; track ingredient.id) {
-                  <li>
-                    {{ ingredient.displayText }}
-                    @if (ingredient.isOptional) {
-                      <cp-badge>Optional</cp-badge>
-                    }
-                  </li>
-                }
-              </ul>
-            </section>
-          }
-        }
+        <p class="section-intro">
+          Paste ingredient lines to get a parsed proposal, or add and edit them directly. Nothing here is saved yet —
+          ingredient editing isn't wired into Save until a later phase adds that seam.
+        </p>
+        <cp-recipe-ingredient-editor
+          [workspaceSlug]="workspaceSlug"
+          [initialGroups]="ingredientGroups()"
+          (groupsChanged)="onIngredientGroupsChanged($event)"
+        />
       </cp-tab-panel>
 
       <cp-tab-panel id="instructions">

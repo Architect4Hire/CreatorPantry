@@ -17,5 +17,7 @@ public interface IMeasurementDataLayer
 
     Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
 }
 

@@ -21,4 +21,15 @@ public interface IMeasurementFacade
 
     Task<OperationResult<CursorPageServiceModel<MeasurementUnitServiceModel>>> ListUnitsAsync(
         MeasurementUnitQueryViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Matches each candidate string against the unit catalogue by exact/alias normalization, ranked by
+    /// precedence with unresolved ambiguity called out rather than guessed (ING-001, AIREC-GR-003).
+    /// </summary>
+    /// <remarks>
+    /// Read-only and global: no workspace context is required or accepted, matching every other read in this
+    /// module. Results preserve the order of <paramref name="candidateTexts"/>.
+    /// </remarks>
+    Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(
+        IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken);
 }

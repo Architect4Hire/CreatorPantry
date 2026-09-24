@@ -1,0 +1,210 @@
+<div class="toolbar">
+  <button cpButton type="button" (click)="openPasteDialog()">Paste ingredients to parse</button>
+  <button cpButton variant="secondary" type="button" (click)="addGroup()">Add ingredient group</button>
+</div>
+
+<!-- Silent to sighted users; announces a reorder to screen-reader users, since the up/down buttons alone are silent. -->
+<div class="cp-sr-only" role="status" aria-live="polite">{{ moveAnnouncement() }}</div>
+
+@if (groups().length === 0) {
+  <cp-empty-state title="No ingredients yet" description="Paste a list of ingredient lines, or add a group to start typing them in." variant="first-use" />
+} @else {
+  @for (group of groups(); track group.key; let groupIndex = $index, groupCount = $count) {
+    <section class="group">
+      <div class="group-header">
+        <cp-field [label]="'Group ' + (groupIndex + 1) + ' heading'" [forId]="'ingredient-group-title-' + group.key">
+          <input
+            [id]="'ingredient-group-title-' + group.key"
+            type="text"
+            placeholder="e.g. For the crust"
+            [ngModel]="group.title"
+            (ngModelChange)="updateGroupTitle(group.key, $event)"
+            [name]="'ingredientGroupTitle' + group.key"
+          />
+        </cp-field>
+        <div class="group-actions">
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [disabled]="groupIndex === 0"
+            [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' up'"
+            (click)="moveGroup(group.key, -1)"
+          >
+            ↑
+          </button>
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [disabled]="groupIndex === groupCount - 1"
+            [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' down'"
+            (click)="moveGroup(group.key, 1)"
+          >
+            ↓
+          </button>
+          <button cpButton variant="danger" type="button" [attr.aria-label]="'Remove group ' + (groupIndex + 1)" (click)="removeGroup(group.key)">
+            Remove group
+          </button>
+        </div>
+      </div>
+
+      <ol class="rows">
+        @for (row of group.ingredients; track row.key; let rowIndex = $index, rowCount = $count) {
+          <li class="row">
+            @if (row.displayText) {
+              <p class="original-text">{{ row.displayText }}</p>
+            }
+
+            <div class="row-status">
+              <cp-status-pill [tone]="toneFor(row.matchState)">{{ labelFor(row.matchState) }}</cp-status-pill>
+              @if (row.detectedQuantityText) {
+                <span class="detected">Detected quantity: {{ row.detectedQuantityText }}</span>
+              }
+            </div>
+
+            @if (row.ingredientCandidates.length > 0) {
+              <cp-field [label]="'Which ingredient?'" [forId]="'ingredient-pick-' + row.key">
+                <select
+                  [id]="'ingredient-pick-' + row.key"
+                  [name]="'ingredientPick' + row.key"
+                  (change)="onIngredientChoiceSelected(group.key, row.key, $any($event.target).value)"
+                >
+                  <option value="">— choose or leave unmatched —</option>
+                  @for (candidate of row.ingredientCandidates; track candidate.ingredientId) {
+                    <option [value]="candidate.ingredientId">{{ candidate.canonicalName }}</option>
+                  }
+                </select>
+              </cp-field>
+            }
+
+            @if (row.unitCandidates.length > 0) {
+              <cp-field [label]="'Which unit?'" [forId]="'unit-pick-' + row.key">
+                <select
+                  [id]="'unit-pick-' + row.key"
+                  [name]="'unitPick' + row.key"
+                  (change)="onUnitChoiceSelected(group.key, row.key, $any($event.target).value)"
+                >
+                  <option value="">— choose or leave unmatched —</option>
+                  @for (candidate of row.unitCandidates; track candidate.measurementUnitId) {
+                    <option [value]="candidate.measurementUnitId">{{ candidate.displayName }}</option>
+                  }
+                </select>
+              </cp-field>
+            }
+
+            <div class="row-fields">
+              <cp-field label="Quantity" [forId]="'row-quantity-' + row.key">
+                <input
+                  [id]="'row-quantity-' + row.key"
+                  type="text"
+                  placeholder="e.g. 1 1/2"
+                  [ngModel]="row.quantityText"
+                  (ngModelChange)="updateRow(group.key, row.key, { quantityText: $event })"
+                  [name]="'rowQuantity' + row.key"
+                />
+              </cp-field>
+
+              <cp-field label="Unit" [forId]="'row-unit-' + row.key">
+                <input
+                  [id]="'row-unit-' + row.key"
+                  type="text"
+                  placeholder="e.g. cups"
+                  [ngModel]="row.unitLabel"
+                  (ngModelChange)="updateRow(group.key, row.key, { unitLabel: $event })"
+                  [name]="'rowUnit' + row.key"
+                />
+              </cp-field>
+
+              <cp-field label="Ingredient" [forId]="'row-ingredient-' + row.key" [required]="true">
+                <input
+                  [id]="'row-ingredient-' + row.key"
+                  type="text"
+                  placeholder="e.g. all-purpose flour"
+                  [ngModel]="row.ingredientNameText"
+                  (ngModelChange)="updateRow(group.key, row.key, { ingredientNameText: $event })"
+                  [name]="'rowIngredient' + row.key"
+                />
+              </cp-field>
+
+              <cp-field label="Preparation note" [forId]="'row-prep-' + row.key">
+                <input
+                  [id]="'row-prep-' + row.key"
+                  type="text"
+                  placeholder="e.g. sifted"
+                  [ngModel]="row.preparationNote"
+                  (ngModelChange)="updateRow(group.key, row.key, { preparationNote: $event })"
+                  [name]="'rowPrep' + row.key"
+                />
+              </cp-field>
+            </div>
+
+            <div class="row-toggles">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  [ngModel]="row.isOptional"
+                  (ngModelChange)="updateRow(group.key, row.key, { isOptional: $event })"
+                  [name]="'rowOptional' + row.key"
+                />
+                Optional
+              </label>
+
+              <cp-field label="Scaling" [forId]="'row-scaling-' + row.key">
+                <select
+                  [id]="'row-scaling-' + row.key"
+                  [name]="'rowScaling' + row.key"
+                  [ngModel]="row.scalingBehavior"
+                  (ngModelChange)="updateRow(group.key, row.key, { scalingBehavior: $event })"
+                >
+                  @for (option of scalingOptions; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              </cp-field>
+            </div>
+
+            <div class="row-actions">
+              <button
+                cpButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                [disabled]="rowIndex === 0"
+                [attr.aria-label]="'Move ingredient ' + (rowIndex + 1) + ' up'"
+                (click)="moveRow(group.key, row.key, -1)"
+              >
+                ↑
+              </button>
+              <button
+                cpButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                [disabled]="rowIndex === rowCount - 1"
+                [attr.aria-label]="'Move ingredient ' + (rowIndex + 1) + ' down'"
+                (click)="moveRow(group.key, row.key, 1)"
+              >
+                ↓
+              </button>
+              <button cpButton variant="danger" size="sm" type="button" [attr.aria-label]="'Remove ingredient ' + (rowIndex + 1)" (click)="removeRow(group.key, row.key)">
+                Remove
+              </button>
+            </div>
+          </li>
+        }
+      </ol>
+
+      <button cpButton variant="secondary" type="button" (click)="addRow(group.key)">Add ingredient</button>
+    </section>
+  }
+}
+
+<cp-dialog [open]="pasteDialogOpen()" title="Paste and parse ingredients" description="Review what was detected before adding it to the recipe." (closed)="closePasteDialog()">
+  @if (pasteDialogOpen()) {
+    <cp-ingredient-paste-review [workspaceSlug]="workspaceSlug()" (linesAccepted)="onLinesAccepted($event)" />
+  }
+  <div cpDialogActions>
+    <button cpButton type="button" (click)="closePasteDialog()">Done</button>
+  </div>
+</cp-dialog>

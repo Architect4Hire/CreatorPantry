@@ -16,6 +16,12 @@ public interface IMeasurementUnitRepository
     /// <summary>One page of active units, ordered by display name.</summary>
     Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every active unit's code, display name, plural name, and abbreviation, plus every alias of an active
+    /// unit, flattened into one list for <see cref="UnitMatcher"/> to resolve candidates against in memory.
+    /// </summary>
+    Task<IReadOnlyList<UnitMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class MeasurementUnitRepository(CreatorPantryDbContext context) : IMeasurementUnitRepository
@@ -87,5 +93,45 @@ internal sealed class MeasurementUnitRepository(CreatorPantryDbContext context) 
             .ToListAsync(cancellationToken);
 
         return fetched.ToPage(query.Limit);
+    }
+
+    public async Task<IReadOnlyList<UnitMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken)
+    {
+        var active = await context.MeasurementUnits.AsNoTracking()
+            .Where(unit => unit.IsActive)
+            .Select(unit => new
+            {
+                unit.Id,
+                unit.Code,
+                unit.DisplayName,
+                unit.PluralName,
+                unit.Abbreviation,
+            })
+            .ToListAsync(cancellationToken);
+
+        // Code/DisplayName/PluralName/Abbreviation are stored as written, not normalized — MeasurementPolicy
+        // has no SQL translation, so normalizing happens here, in memory, over the small active set.
+        var alternateForms = active.SelectMany(unit => new[]
+        {
+            new UnitMatchIndexEntry(unit.Id, unit.DisplayName, MeasurementPolicy.NormalizeAlias(unit.Code), UnitMatchKind.Code),
+            new UnitMatchIndexEntry(unit.Id, unit.DisplayName, MeasurementPolicy.NormalizeAlias(unit.DisplayName), UnitMatchKind.DisplayName),
+            new UnitMatchIndexEntry(unit.Id, unit.DisplayName, MeasurementPolicy.NormalizeAlias(unit.PluralName), UnitMatchKind.PluralName),
+            new UnitMatchIndexEntry(unit.Id, unit.DisplayName, MeasurementPolicy.NormalizeAlias(unit.Abbreviation), UnitMatchKind.Abbreviation),
+        }).Where(entry => entry.NormalizedText.Length > 0); // an unset alternate form must never become a wildcard match
+
+        var activeIds = active.Select(unit => unit.Id).ToHashSet();
+        var namesById = active.ToDictionary(unit => unit.Id, unit => unit.DisplayName);
+
+        // A retired unit's alias is excluded the same way ListAsync excludes the unit itself: it stays
+        // readable for what already resolved to it, but it does not newly match.
+        var aliases = await context.UnitAliases.AsNoTracking()
+            .Where(alias => activeIds.Contains(alias.MeasurementUnitId))
+            .Select(alias => new { alias.MeasurementUnitId, alias.NormalizedAlias })
+            .ToListAsync(cancellationToken);
+
+        var aliasEntries = aliases.Select(alias => new UnitMatchIndexEntry(
+            alias.MeasurementUnitId, namesById[alias.MeasurementUnitId], alias.NormalizedAlias, UnitMatchKind.Alias));
+
+        return [.. alternateForms, .. aliasEntries];
     }
 }

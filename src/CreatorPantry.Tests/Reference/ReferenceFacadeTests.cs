@@ -414,6 +414,77 @@ public sealed class ReferenceFacadeTests
         Assert.True(result.Succeeded);
     }
 
+    // --- Candidate resolution (7.3) -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Resolving_candidates_loads_the_index_once_and_caches_it_as_one_entry()
+    {
+        var ingredients = Ingredients();
+
+        await ingredients.ResolveCandidatesAsync(["flour", "sugar"], TestContext.Current.CancellationToken);
+        await ingredients.ResolveCandidatesAsync(["butter", "eggs"], TestContext.Current.CancellationToken);
+
+        // One index load regardless of how many candidates, or how many separate calls, asked against it —
+        // never one cache entry per candidate string.
+        Assert.Equal(1, _business.Calls);
+        Assert.Single(_cache.Writes);
+    }
+
+    [Fact]
+    public async Task A_disabled_cache_reloads_the_index_every_call()
+    {
+        var units = Measurement();
+        _cache.Disabled = true;
+
+        await units.ResolveCandidatesAsync(["cups"], TestContext.Current.CancellationToken);
+        await units.ResolveCandidatesAsync(["cups"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, _business.Calls);
+    }
+
+    [Fact]
+    public async Task An_empty_candidate_list_succeeds_without_loading_the_index()
+    {
+        var result = await Ingredients().ResolveCandidatesAsync([], TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Value!);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task Too_many_candidates_are_rejected_without_loading_the_index()
+    {
+        var tooMany = Enumerable.Range(0, ReferencePolicy.MaxMatchCandidates + 1).Select(i => $"item{i}").ToArray();
+
+        var result = await Ingredients().ResolveCandidatesAsync(tooMany, TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ReferenceErrorCodes.CandidatesInvalid, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task An_over_long_candidate_is_rejected_without_loading_the_index()
+    {
+        var result = await Measurement().ResolveCandidatesAsync(
+            [new string('a', ReferencePolicy.MaxMatchCandidateLength + 1)], TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ReferenceErrorCodes.CandidatesInvalid, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task Ingredient_and_unit_candidate_indexes_do_not_share_a_cache_key()
+    {
+        await Ingredients().ResolveCandidatesAsync(["flour"], TestContext.Current.CancellationToken);
+        await Measurement().ResolveCandidatesAsync(["cups"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, _cache.Writes.Count);
+        Assert.Equal(2, _cache.Writes.Distinct().Count());
+    }
+
     /// <remarks>
     /// The three facades share one <see cref="FakeApplicationCache"/> and one
     /// <see cref="CountingReferenceBusiness"/>, so a test can still assert that two requests to
@@ -424,8 +495,8 @@ public sealed class ReferenceFacadeTests
         new VocabularyFacade(new ReferenceQueryViewModelValidator(), _business, new CachedPageReader(_cache));
 
     private IMeasurementFacade Measurement() =>
-        new MeasurementFacade(new MeasurementUnitQueryViewModelValidator(), _business, new CachedPageReader(_cache));
+        new MeasurementFacade(new MeasurementUnitQueryViewModelValidator(), _business, _cache, new CachedPageReader(_cache));
 
     private IIngredientFacade Ingredients() =>
-        new IngredientFacade(new IngredientQueryViewModelValidator(), _business, new CachedPageReader(_cache));
+        new IngredientFacade(new IngredientQueryViewModelValidator(), _business, _cache, new CachedPageReader(_cache));
 }

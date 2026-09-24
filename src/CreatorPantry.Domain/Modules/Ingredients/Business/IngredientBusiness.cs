@@ -15,5 +15,16 @@ internal sealed class IngredientBusiness(IIngredientDataLayer dataLayer) : IIngr
         return PageBuilder.Build(rows, hasMore, query.Scope, row => new IngredientServiceModel(
             row.Id, row.CanonicalName, row.FoodCategoryCode, row.DefaultCountUnitCode, row.Aliases));
     }
+
+    public Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
+        dataLayer.LoadMatchIndexAsync(cancellationToken);
+
+    public IReadOnlyList<IngredientMatchResult> ResolveCandidates(
+        IReadOnlyList<string> candidateTexts, IReadOnlyList<IngredientMatchIndexEntry> index)
+    {
+        var lookup = index.ToLookup(entry => entry.NormalizedText, StringComparer.Ordinal);
+
+        return candidateTexts.Select(text => IngredientMatcher.Resolve(text, lookup)).ToList();
+    }
 }
 

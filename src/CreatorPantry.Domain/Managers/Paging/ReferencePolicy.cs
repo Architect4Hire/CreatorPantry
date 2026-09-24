@@ -29,6 +29,12 @@ public static class ReferencePolicy
     /// <summary>Rejected above this, so a pathological query string cannot become a pathological LIKE pattern.</summary>
     public const int SearchMaxLength = 128;
 
+    /// <summary>Refused above this many candidates in one batch-resolve request (7.3's ingredient/unit matcher).</summary>
+    public const int MaxMatchCandidates = 200;
+
+    /// <summary>Refused above this many characters for a single candidate in a batch-resolve request.</summary>
+    public const int MaxMatchCandidateLength = 128;
+
     /// <summary>The <see cref="Caching.CacheKeys.Global"/> category every reference page is cached under.</summary>
     public const string CacheCategory = "reference";
 

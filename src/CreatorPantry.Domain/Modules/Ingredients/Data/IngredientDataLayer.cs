@@ -9,4 +9,7 @@ internal sealed class IngredientDataLayer(IIngredientRepository ingredients) : I
     public Task<(IReadOnlyList<IngredientRecord> Rows, bool HasMore)> ListIngredientsAsync(
         IngredientQuery query, CancellationToken cancellationToken) =>
         ingredients.ListAsync(query, cancellationToken);
+
+    public Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
+        ingredients.ListMatchIndexAsync(cancellationToken);
 }
