@@ -37,6 +37,9 @@ public sealed class OpenApiContractTests : IDisposable
     [InlineData("MeasurementSystem", "UsCustomary")]
     [InlineData("WorkspaceRole", "Owner")]
     [InlineData("WorkspaceMembershipStatus", "Active")]
+    [InlineData("RecipeComparisonSection", "Ingredients")]
+    [InlineData("RecipeComparisonField", "IngredientPreparationNote")]
+    [InlineData("RecipeItemPresence", "Retained")]
     public async Task Enum_schemas_publish_their_member_names(string schema, string member)
     {
         var document = JsonNode.Parse(await GetDocumentTextAsync())!;
@@ -99,6 +102,52 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Contains("JSON Merge Patch, not a replacement", description, StringComparison.Ordinal);
         Assert.Contains("a field sent as `null` is cleared", description, StringComparison.Ordinal);
         Assert.Contains("expectedConcurrencyToken", description, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The version-comparison query parameters are published as what they are: required int32s of at least 1.
+    /// </summary>
+    /// <remarks>
+    /// The snapshot would catch a change to this, but only against whatever shape was last baselined — and
+    /// the shape the generator infers for a nullable <c>int</c> bound from a query string says "optional",
+    /// permits <c>0</c> and negatives, and types itself <c>["integer", "string"]</c>. Re-baselining is the
+    /// path of least resistance, so the intent is pinned here where it has to be argued with rather than
+    /// regenerated.
+    /// </remarks>
+    [Theory]
+    [InlineData("from")]
+    [InlineData("to")]
+    public async Task The_version_comparison_parameters_are_documented_as_required_version_numbers(string name)
+    {
+        var document = await GetDocumentAsync();
+        var operation = document["paths"]!["/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/compare"]!["get"]!;
+
+        var parameter = operation["parameters"]!.AsArray()
+            .Single(entry => entry!["name"]!.GetValue<string>() == name)!;
+
+        Assert.True(parameter["required"]!.GetValue<bool>());
+        Assert.Equal("integer", parameter["schema"]!["type"]!.GetValue<string>());
+        Assert.Equal("int32", parameter["schema"]!["format"]!.GetValue<string>());
+
+        // The floor the check constraint on RecipeVersions.VersionNumber already enforces, so a number no
+        // version could carry is refused by a generated client rather than sent and looked up.
+        Assert.Equal(1, parameter["schema"]!["minimum"]!.GetValue<int>());
+    }
+
+    /// <summary>
+    /// The comparison's 404 promises the <c>errors</c> object, because naming the parameter at fault is the
+    /// only reason it is worth telling apart from <c>recipes.recipe.not_found</c>.
+    /// </summary>
+    [Fact]
+    public async Task The_version_comparison_not_found_is_documented_as_a_validation_problem()
+    {
+        var document = await GetDocumentAsync();
+        var operation = document["paths"]!["/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/compare"]!["get"]!;
+
+        var reference = operation["responses"]!["404"]!["content"]!["application/problem+json"]!["schema"]!["$ref"]!
+            .GetValue<string>();
+
+        Assert.EndsWith("ValidationProblemDetails", reference, StringComparison.Ordinal);
     }
 
     [Fact]

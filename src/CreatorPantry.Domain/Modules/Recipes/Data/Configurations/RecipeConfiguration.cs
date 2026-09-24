@@ -106,6 +106,23 @@ internal sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
             .HasForeignKey(recipe => recipe.PrimaryTechniqueId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Duplication lineage, within one workspace. Composite for the reason every other reference here is:
+        // an id alone could name a version of another workspace's recipe, and pointing at
+        // AK_RecipeVersions_Workspace_Id makes that unrepresentable rather than merely refused by the write
+        // seam.
+        //
+        // Restrict, and the cost is worth stating plainly: a recipe that has been duplicated cannot be
+        // deleted while the copy still records where it came from. That is already true of any recipe with
+        // history — RecipeVersion's own reference to Recipe is Restrict for the same reason — so this adds no
+        // new class of problem, and whatever operation eventually deletes a recipe has to decide what becomes
+        // of its lineage alongside what becomes of its versions. Deleting the workspace still reaches both
+        // tables by their own cascades.
+        builder.HasOne<RecipeVersion>()
+            .WithMany()
+            .HasForeignKey(recipe => new { recipe.WorkspaceId, recipe.DuplicatedFromVersionId })
+            .HasPrincipalKey(version => new { version.WorkspaceId, version.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
         // The other half of the yield-unit rule: pointing at the alternate key (Id, Dimension) rather than
         // the primary key alone means the database itself rejects a yield expressed in degrees, because the
         // check constraint above has already ruled Temperature out of this column.
@@ -115,12 +132,34 @@ internal sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
             .HasPrincipalKey(unit => new { unit.Id, unit.Dimension })
             .OnDelete(DeleteBehavior.Restrict);
 
-        // The recipe list: one workspace's recipes in a status, most recently touched first.
-        builder.HasIndex(recipe => new { recipe.WorkspaceId, recipe.Status, recipe.UpdatedAt })
+        // The library's default ordering: one workspace's recipes, most recently edited first.
+        //
+        // Descending, and with Id in the key, because both are what RecipeSearchSort.RecentlyUpdated orders by.
+        // An ascending index cannot serve "newest first" without a sort, and leaving the tie-break to the
+        // clustered key's uniquifier would leave ORDER BY Id DESC unserved — so a page would sort the
+        // workspace's whole recipe table to return twenty-five rows.
+        builder.HasIndex(recipe => new { recipe.WorkspaceId, recipe.UpdatedAt, recipe.Id })
+            .IsDescending(false, true, true)
+            .HasDatabaseName("IX_Recipes_Workspace_UpdatedAt");
+
+        // The same ordering with a status filter narrowing it first.
+        builder.HasIndex(recipe => new { recipe.WorkspaceId, recipe.Status, recipe.UpdatedAt, recipe.Id })
+            .IsDescending(false, false, true, true)
             .HasDatabaseName("IX_Recipes_Workspace_Status_UpdatedAt");
 
-        // Alphabetical listing and title lookup within a workspace.
-        builder.HasIndex(recipe => new { recipe.WorkspaceId, recipe.Title })
+        // Alphabetical listing and title lookup within a workspace — RecipeSearchSort.Title, tie-break
+        // included. Titles are deliberately not unique: two of a creator's recipes may share one, which is
+        // exactly why the tie-break has to be part of the key.
+        builder.HasIndex(recipe => new { recipe.WorkspaceId, recipe.Title, recipe.Id })
             .HasDatabaseName("IX_Recipes_Workspace_Title");
+
+        // No index per filter, deliberately. Cuisine, course, author and the date bounds are residual
+        // predicates evaluated after one of the seeks above has already narrowed the read to this workspace.
+        // One creator's library is hundreds of rows, not millions; an index for each filter combination would
+        // be paid for on every recipe edit to save nothing measurable on a read.
+        //
+        // No included columns on these three either. At that row count the lookup into the clustered index is
+        // cheaper than maintaining a wide copy of every summary column on every write. If measurement later
+        // disagrees, adding includes is a change that breaks nothing.
     }
 }

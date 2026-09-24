@@ -23,12 +23,30 @@
         @if (isDirty() && saveState().status !== 'saving') {
           <cp-status-pill tone="warning" role="status" class="dirty-indicator">Unsaved changes</cp-status-pill>
         }
+
+        <!-- Shelving is not deleting, so it sits beside Save as an ordinary secondary action rather than as a
+             danger control. It is offered only to a role that could use it; the server still decides. -->
+        @if (!isCreateMode && !isArchived() && canArchive()) {
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [disabled]="lifecycleWorking()"
+            [attr.aria-busy]="lifecycleWorking()"
+            (click)="setArchived(true)"
+          >
+            {{ lifecycleWorking() ? 'Archiving…' : 'Archive…' }}
+          </button>
+        }
+
         <button
           cpButton
           size="lg"
           type="button"
           [disabled]="!canSave()"
           [attr.aria-busy]="saveState().status === 'saving'"
+          [attr.title]="isArchived() ? 'Archived recipes cannot be saved. Bring this one back first.' : null"
+          [attr.aria-describedby]="isArchived() ? 'recipe-archived-banner' : null"
           (click)="save()"
         >
           {{ saveState().status === 'saving' ? 'Saving…' : 'Save' }}
@@ -36,17 +54,76 @@
       </div>
     </header>
 
-    <cp-dialog
-      [open]="leaveConfirmOpen()"
-      title="Discard unsaved changes?"
-      description="Your edits to this recipe haven't been saved yet. If you leave now, they'll be lost."
-      (closed)="resolveLeaveConfirm(false)"
+    <!-- The discard confirmation is a SweetAlert2 modal raised by ConfirmService, not markup here: it has to
+         outlive this view, because the router asks for it while navigating away from it. -->
+
+    <!-- Announced here rather than in the history panel: a restore switches the creator back to this tab, so
+         the panel that raised it is no longer what they are looking at. Always in the DOM, never created
+         alongside its own text — a live region inserted already populated is not reliably announced, and
+         this banner is the only confirmation a restore gets. -->
+    <p
+      class="banner"
+      role="status"
+      [class.banner--quiet]="notice() === null"
+      [class.banner--error]="notice()?.isProblem ?? false"
     >
-      <div cpDialogActions>
-        <button cpButton variant="ghost" type="button" (click)="resolveLeaveConfirm(false)">Keep editing</button>
-        <button cpButton variant="danger" type="button" (click)="resolveLeaveConfirm(true)">Discard changes</button>
-      </div>
-    </cp-dialog>
+      {{ notice()?.text }}
+
+      <!-- The copy exists whether or not the creator followed it, so the way back to it is a link, never a
+           button that would make a second one. -->
+      @if (notice()?.recipeLink; as copy) {
+        <a cpButton variant="secondary" size="sm" [routerLink]="['/', workspaceSlug, 'recipes', copy.recipeId]">
+          Open {{ copy.title }}
+        </a>
+      }
+    </p>
+
+    <!-- Shelved, not deleted — and the banner says what is still true rather than only what is off. It is the
+         one place the way back lives, so it is never conditional on a role: a Contributor who opens an
+         archived recipe still learns why editing is off. -->
+    @if (isArchived()) {
+      <p id="recipe-archived-banner" class="banner banner--archived" role="status">
+        <span class="banner-icon" aria-hidden="true">⚑</span>
+        <span>
+          <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here, and
+          the history and comparisons still work. Editing is off until you bring it back, and it stays out of
+          your library unless you filter for Archived.
+        </span>
+
+        @if (canArchive()) {
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [disabled]="lifecycleWorking()"
+            [attr.aria-busy]="lifecycleWorking()"
+            (click)="setArchived(false)"
+          >
+            {{ lifecycleWorking() ? 'Bringing it back…' : 'Bring it back' }}
+          </button>
+        }
+      </p>
+    }
+
+    @switch (lifecycleState().status) {
+      @case ('conflict') {
+        <p class="banner banner--error" role="alert">
+          This recipe changed elsewhere since you loaded it, so nothing was moved.
+          <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
+        </p>
+      }
+      @case ('forbidden') {
+        <p class="banner banner--error" role="alert">Archiving a recipe needs the Editor role in this workspace.</p>
+      }
+      @case ('not_found') {
+        <p class="banner banner--error" role="alert">This recipe could not be found.</p>
+      }
+      @case ('unavailable') {
+        <p class="banner banner--error" role="alert">
+          Couldn't move this recipe. Check your connection and try again.
+        </p>
+      }
+    }
 
     @switch (saveState().status) {
       @case ('success') {
@@ -133,9 +210,13 @@
         </cp-field>
 
         <cp-field label="Status" forId="recipe-status" [error]="fieldError('status')">
+          <!-- Disabled while archived: the options are Draft and Ready, and an archived recipe is neither.
+               Archiving and bringing back are commands beside the recipe, never a value in this field. -->
           <select
             id="recipe-status"
             [attr.aria-invalid]="fieldError('status') ? 'true' : null"
+            [disabled]="isArchived()"
+            [attr.aria-describedby]="isArchived() ? 'recipe-archived-banner' : null"
             [ngModel]="status()"
             (ngModelChange)="status.set($event)"
             name="status"
@@ -437,7 +518,20 @@
         </cp-tab-panel>
 
         <cp-tab-panel id="history">
-          <cp-empty-state title="History" description="Version history arrives in a later phase." icon="↻" />
+          <!-- Mounted lazily by the tab: the history and any comparison are fetched when the tab is first
+               opened rather than on every recipe load. recipeId is non-null here — the tab is disabled
+               entirely in create mode. Reading is all the panel does on its own; restoring is a command it
+               raises and this component applies, because the recipe and its token belong here. -->
+          <cp-recipe-history
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [concurrencyToken]="concurrencyToken()"
+            [editorIsDirty]="isDirty()"
+            [recipeTitle]="title()"
+            (restored)="onVersionRestored($event)"
+            (duplicated)="onRecipeDuplicated($event)"
+            (reloadRequested)="onHistoryReloadRequested()"
+          />
         </cp-tab-panel>
       }
     </cp-tabs>

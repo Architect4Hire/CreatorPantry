@@ -66,8 +66,9 @@ internal sealed class SqliteApiHost : IAsyncDisposable
                     .UseSqlite(host._connection)
                     // Recipe.RowVersion is a SQL Server rowversion the server generates; SQLite has no
                     // equivalent, so without this every recipe insert fails on a NOT NULL column EF never
-                    // sends. See SqliteRowVersionModelCustomizer for why the production mapping stays native.
-                    .ReplaceService<IModelCustomizer, SqliteRowVersionModelCustomizer>());
+                    // sends — and DateTimeOffset, which SQLite cannot order by at all. See
+                    // SqliteModelCustomizer for both, and for why the production mappings stay native.
+                    .ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
             });
         });
 

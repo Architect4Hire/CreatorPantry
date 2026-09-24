@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
@@ -662,17 +663,21 @@ public sealed class RecipeBusinessTests
     [Fact]
     public async Task A_status_submitted_as_null_is_refused_rather_than_read_as_draft()
     {
-        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+        // Ready rather than Archived, which this test used to seed: an archived recipe now refuses every
+        // edit before the body is examined, which would mask the thing under test. Ready shows it just as
+        // well — SettableRecipeStatus.ToDomain(null) is Draft, so a submitted null read as a value rather
+        // than as a mistake would quietly un-ready the recipe.
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Ready);
 
         var result = await UpdateAsync(recipe, Edit() with { Status = Set<SettableRecipeStatusViewModel?>(null) });
 
         // The validator refuses this too, so nothing reaches here over HTTP. The guard is for the callers no
         // MVC pipeline protects — a worker, an AI plugin, a future facade overload — where the alternative is
-        // an archived recipe quietly reappearing in the working set as an ordinary-looking creator edit.
+        // a recipe quietly losing its editorial state to an ordinary-looking creator edit.
         Assert.False(result.Succeeded);
         Assert.Equal(RecipeErrorCodes.RecipeInvalidRequest, result.Error!.Code);
         Assert.Contains("status", result.Error.FieldErrors.Keys);
-        Assert.Equal(RecipeStatus.Archived, recipe.Status);
+        Assert.Equal(RecipeStatus.Ready, recipe.Status);
         Assert.Equal(0, _dataLayer.Calls);
     }
 
@@ -1025,8 +1030,1217 @@ public sealed class RecipeBusinessTests
     private static TaggedRecipe Tagged(Recipe recipe, RecipeVersion? version = null, params WorkspaceTag[] tags) =>
         new(new CompleteRecipe(recipe, version), tags);
 
+    // ---- The restore seam ----
+
+    private static readonly Guid RestoredVersionId = Guid.NewGuid();
+
+    /// <summary>
+    /// Loads <paramref name="recipe"/> as the recipe under restore, with <paramref name="archived"/> as the
+    /// version being restored, and performs the restore.
+    /// </summary>
+    /// <param name="archived">
+    /// The content of the version named, or <c>null</c> to make this recipe have no such version.
+    /// </param>
+    private Task<OperationResult<RecipeDetailServiceModel>> RestoreAsync(
+        Recipe recipe,
+        Recipe? archived,
+        string? token = Token,
+        string? reason = null,
+        int versionNumber = 2,
+        params WorkspaceTag[] tags)
+    {
+        _dataLayer.Detail = Tagged(recipe, CurrentVersion(recipe), tags);
+        _dataLayer.RestoreSource = archived is null
+            ? null
+            : new RecipeVersionSnapshotRecord(
+                RestoredVersionId,
+                versionNumber,
+                RecipeVersionSource.CreatorEdit,
+                RecipeVersionReadiness.Ready,
+                Now.AddDays(-2),
+                RecipeSnapshotSerializer.Serialize(
+                    RecipeSnapshotMapper.Capture(new CompleteRecipe(archived, null))));
+
+        return _business.RestoreVersionAsync(
+            recipe.Id,
+            versionNumber,
+            CanonicalRestoreRecipeVersion.From(new RestoreRecipeVersionViewModel
+            {
+                ExpectedConcurrencyToken = token,
+                Reason = reason,
+            }),
+            TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>The archived state: the stored recipe as it was, under a different title.</summary>
+    private static Recipe Archived(Recipe stored, Action<Recipe>? adjust = null)
+    {
+        var archived = Stored();
+        archived.Id = stored.Id;
+        archived.Title = "Olive oil and rosemary cake";
+        adjust?.Invoke(archived);
+
+        return archived;
+    }
+
+    [Fact]
+    public async Task A_restore_puts_the_archived_content_back()
+    {
+        var recipe = Stored();
+
+        var result = await RestoreAsync(recipe, Archived(recipe));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Olive oil and rosemary cake", recipe.Title);
+        Assert.Equal("Olive oil and rosemary cake", result.Value!.Title);
+    }
+
+    /// <summary>
+    /// Where the content came from is Business's decision and travels in the facts it hands down; what the
+    /// restore <em>replaced</em> is mechanical and stays the DataLayer's, derived from the aggregate it
+    /// already holds — so the parent edge is asserted in <c>RecipeDataLayerTests</c>, against a real save.
+    /// </summary>
+    [Fact]
+    public async Task A_restored_version_records_the_version_its_content_came_from()
+    {
+        var recipe = Stored();
+
+        var result = await RestoreAsync(recipe, Archived(recipe));
+
+        Assert.Equal(RecipeVersionSource.Restore, _dataLayer.Version!.Source);
+        Assert.Equal(RestoredVersionId, _dataLayer.Version.RestoredFromVersionId);
+
+        // One past the version that was current, and published as the recipe's new current version.
+        Assert.Equal(4, result.Value!.CurrentVersion!.VersionNumber);
+    }
+
+    /// <summary>The actor is whoever restored, never the author of the version whose content came back.</summary>
+    [Fact]
+    public async Task A_restore_is_attributed_to_whoever_performed_it()
+    {
+        var recipe = Stored();
+
+        await RestoreAsync(recipe, Archived(recipe));
+
+        Assert.Equal(ActorMembershipId, recipe.UpdatedByMembershipId);
+        Assert.Equal(Now, recipe.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task A_reason_is_recorded_on_the_version_the_restore_writes()
+    {
+        var recipe = Stored();
+
+        await RestoreAsync(recipe, Archived(recipe), reason: "  Tuesday's edit broke the bake time.  ");
+
+        Assert.Equal("Tuesday's edit broke the bake time.", _dataLayer.Version!.Reason);
+    }
+
+    /// <summary>
+    /// Readiness follows the status the restore just put back, by the same rule an edit follows. Restoring a
+    /// version that was Ready produces a ready version, because the recipe now says what that version said.
+    /// </summary>
+    [Theory]
+    [InlineData(RecipeStatus.Ready, RecipeVersionReadiness.Ready)]
+    [InlineData(RecipeStatus.Draft, RecipeVersionReadiness.Draft)]
+    public async Task Readiness_follows_the_restored_status(RecipeStatus status, RecipeVersionReadiness readiness)
+    {
+        var recipe = Stored();
+
+        await RestoreAsync(recipe, Archived(recipe, archived => archived.Status = status));
+
+        Assert.Equal(status, recipe.Status);
+        Assert.Equal(readiness, _dataLayer.Version!.Readiness);
+    }
+
+    /// <summary>
+    /// A restore is a content write, so an archived recipe refuses it — REC-006's freeze covers every write,
+    /// not only the obvious one. This is also what keeps the lifecycle honest: a version restore cannot be
+    /// used to un-archive a recipe behind the audited command's back.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_recipe_refuses_a_version_restore()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await RestoreAsync(recipe, Archived(recipe, archived => archived.Status = RecipeStatus.Draft));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeArchivedConflict, result.Error!.Code);
+        Assert.Equal(RecipeStatus.Archived, recipe.Status);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    /// <summary>
+    /// The second defence against "replays cannot create extra versions", and the one that works without an
+    /// idempotency key: a restore onto content the recipe already has writes nothing at all.
+    /// </summary>
+    [Fact]
+    public async Task A_restore_that_changes_nothing_writes_nothing()
+    {
+        var recipe = Stored();
+
+        var result = await RestoreAsync(recipe, Archived(recipe, archived => archived.Title = recipe.Title));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(0, _dataLayer.Calls);
+        Assert.Equal(Now.AddDays(-1), recipe.UpdatedAt);
+        Assert.Equal(3, result.Value!.CurrentVersion!.VersionNumber);
+    }
+
+    [Fact]
+    public async Task A_recipe_that_is_not_visible_is_not_found()
+    {
+        var result = await _business.RestoreVersionAsync(
+            Guid.NewGuid(),
+            2,
+            CanonicalRestoreRecipeVersion.From(new RestoreRecipeVersionViewModel { ExpectedConcurrencyToken = Token }),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+        Assert.Empty(result.Error.FieldErrors);
+    }
+
+    /// <summary>
+    /// Its own code, and it names the route segment at fault. Distinct from the recipe's not-found and safe to
+    /// be: by the time this can be returned the caller has already been shown that the recipe exists.
+    /// </summary>
+    [Fact]
+    public async Task A_version_the_recipe_does_not_have_is_refused_naming_the_route_segment()
+    {
+        var recipe = Stored();
+
+        var result = await RestoreAsync(recipe, archived: null, versionNumber: 9);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Equal(["This recipe has no version 9."], result.Error.FieldErrors["versionNumber"]);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    /// <summary>
+    /// Answered before the token is checked, deliberately: version 9 will not appear on a second look, so
+    /// telling this caller to reload would send them round a loop that cannot end.
+    /// </summary>
+    [Fact]
+    public async Task An_unknown_version_is_reported_even_when_the_token_is_also_stale()
+    {
+        var recipe = Stored();
+
+        var result = await RestoreAsync(recipe, archived: null, token: "CAcGBQQDAgE=", versionNumber: 9);
+
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+    }
+
+    /// <summary>
+    /// A stale token is a recoverable conflict, and nothing is reconciled before it is checked — so a refused
+    /// restore is answered from the state it was composed against rather than from a half-applied one.
+    /// </summary>
+    [Fact]
+    public async Task A_stale_token_is_a_conflict_and_changes_nothing()
+    {
+        var recipe = Stored();
+
+        var result = await RestoreAsync(recipe, Archived(recipe), token: "CAcGBQQDAgE=");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeConflict, result.Error!.Code);
+        Assert.Equal(0, _dataLayer.Calls);
+        Assert.Equal("Olive oil cake", recipe.Title);
+    }
+
+    /// <summary>The race the token check above cannot see: the row moved between the read and the save.</summary>
+    [Fact]
+    public async Task A_recipe_that_moves_on_during_the_save_is_a_conflict()
+    {
+        var recipe = Stored();
+        _dataLayer.Conflict = true;
+
+        var result = await RestoreAsync(recipe, Archived(recipe));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeConflict, result.Error!.Code);
+    }
+
+    /// <summary>
+    /// The tag ids come from the archive, and the vocabulary is read for exactly those — which is what lets a
+    /// tag whose row is gone be dropped instead of sent to a <c>Restrict</c> foreign key to fail.
+    /// </summary>
+    [Fact]
+    public async Task The_archived_tag_ids_drive_the_vocabulary_read()
+    {
+        var recipe = Stored();
+        var archived = Archived(recipe);
+        archived.Tags.Add(new RecipeTag { RecipeId = archived.Id, WorkspaceTagId = TagId });
+        _dataLayer.Vocabulary = [Tag(TagId, "Weeknight")];
+
+        var result = await RestoreAsync(recipe, archived);
+
+        Assert.Equal([TagId], _dataLayer.RequestedTagIds);
+        Assert.Equal([TagId], recipe.Tags.Select(link => link.WorkspaceTagId));
+        Assert.Equal(["Weeknight"], result.Value!.Tags.Select(tag => tag.Name));
+    }
+
+    /// <summary>A document naming no tags asks the vocabulary nothing.</summary>
+    [Fact]
+    public async Task A_document_with_no_tags_reads_no_vocabulary()
+    {
+        var recipe = Stored();
+
+        await RestoreAsync(recipe, Archived(recipe));
+
+        Assert.Null(_dataLayer.RequestedTagIds);
+    }
+
+    /// <summary>
+    /// A document written by a newer build than the one serving the request is a server fault, and a 500 is
+    /// the truthful status — giving it an error code would invite a client to handle something it cannot.
+    /// </summary>
+    [Fact]
+    public async Task A_document_this_build_cannot_read_raises()
+    {
+        var recipe = Stored();
+        _dataLayer.Detail = Tagged(recipe, CurrentVersion(recipe));
+        _dataLayer.RestoreSource = new RecipeVersionSnapshotRecord(
+            RestoredVersionId,
+            2,
+            RecipeVersionSource.CreatorEdit,
+            RecipeVersionReadiness.Draft,
+            Now.AddDays(-2),
+            RecipeSnapshotSerializer.Serialize(
+                RecipeSnapshotMapper.Capture(new CompleteRecipe(Archived(recipe), null))
+                    with { SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion + 1 }));
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => _business.RestoreVersionAsync(
+            recipe.Id,
+            2,
+            CanonicalRestoreRecipeVersion.From(new RestoreRecipeVersionViewModel { ExpectedConcurrencyToken = Token }),
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    // ---- The archive seam ----
+
+    private const string ActorUserId = "user-1";
+
+    private Task<OperationResult<RecipeDetailServiceModel>> ArchiveAsync(Recipe recipe, string? token = Token)
+    {
+        _dataLayer.Detail = Tagged(recipe, CurrentVersion(recipe));
+
+        return _business.ArchiveAsync(recipe.Id, ActorUserId, token, TestContext.Current.CancellationToken);
+    }
+
+    private Task<OperationResult<RecipeDetailServiceModel>> UnarchiveAsync(Recipe recipe, string? token = Token)
+    {
+        _dataLayer.Detail = Tagged(recipe, CurrentVersion(recipe));
+
+        return _business.UnarchiveAsync(recipe.Id, ActorUserId, token, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Archiving_moves_the_recipe_and_records_the_move()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Ready);
+
+        var result = await ArchiveAsync(recipe);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(RecipeStatus.Archived, recipe.Status);
+        Assert.Equal(RecipeStatus.Archived, result.Value!.Status);
+
+        var audit = _dataLayer.Audit!;
+        Assert.Equal(RecipeAuditActions.Archived, audit.Action);
+        Assert.Equal(RecipeAuditActions.ResourceType, audit.ResourceType);
+        Assert.Equal(recipe.Id.ToString("D"), audit.ResourceId);
+        Assert.Equal(ActorUserId, audit.ActorUserId);
+
+        // State names, not content: the audit log requires its references to stay safe to display.
+        Assert.Equal("Ready", audit.BeforeReference);
+        Assert.Equal("Archived", audit.AfterReference);
+        Assert.NotEqual(Guid.Empty, audit.CorrelationId);
+    }
+
+    /// <summary>The audit row's actor is the authenticated caller, and the recipe's is their membership.</summary>
+    [Fact]
+    public async Task Archiving_is_attributed_to_whoever_did_it()
+    {
+        var recipe = Stored();
+
+        await ArchiveAsync(recipe);
+
+        Assert.Equal(ActorMembershipId, recipe.UpdatedByMembershipId);
+        Assert.Equal(Now, recipe.UpdatedAt);
+        Assert.Equal(ActorUserId, _dataLayer.Audit!.ActorUserId);
+    }
+
+    [Fact]
+    public async Task Unarchiving_brings_the_recipe_back_as_a_draft()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await UnarchiveAsync(recipe);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(RecipePolicy.UnarchivedStatus, recipe.Status);
+        Assert.Equal(RecipeStatus.Draft, recipe.Status);
+        Assert.Equal(RecipeAuditActions.Unarchived, _dataLayer.Audit!.Action);
+        Assert.Equal("Archived", _dataLayer.Audit.BeforeReference);
+        Assert.Equal("Draft", _dataLayer.Audit.AfterReference);
+    }
+
+    /// <summary>
+    /// Not the state it held before, because nothing records what that was. A recipe coming off the shelf is
+    /// being picked back up, and calling it Ready again is the creator's to do.
+    /// </summary>
+    [Fact]
+    public async Task Unarchiving_does_not_restore_a_previous_ready_state()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        await UnarchiveAsync(recipe);
+
+        Assert.NotEqual(RecipeStatus.Ready, recipe.Status);
+    }
+
+    /// <summary>
+    /// A repeated command is a success that does nothing: no write, no audit entry claiming a transition
+    /// that did not happen, and no stamped timestamp invalidating collaborators' tokens.
+    /// </summary>
+    [Fact]
+    public async Task Archiving_an_archived_recipe_changes_nothing()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await ArchiveAsync(recipe);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(RecipeStatus.Archived, result.Value!.Status);
+        Assert.Equal(0, _dataLayer.Calls);
+        Assert.Null(_dataLayer.Audit);
+        Assert.Equal(Now.AddDays(-1), recipe.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task Unarchiving_a_recipe_that_is_not_archived_changes_nothing()
+    {
+        var recipe = Stored();
+
+        var result = await UnarchiveAsync(recipe);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(RecipeStatus.Draft, result.Value!.Status);
+        Assert.Equal(0, _dataLayer.Calls);
+        Assert.Null(_dataLayer.Audit);
+    }
+
+    /// <summary>
+    /// Checked before the already-in-that-state shortcut, deliberately: a creator quoting a stale token has
+    /// not seen the recipe as it now stands, and answering "already archived" would hide a collaborator's
+    /// edit from them.
+    /// </summary>
+    [Fact]
+    public async Task A_stale_token_is_a_conflict_even_when_the_state_already_matches()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await ArchiveAsync(recipe, token: "CAcGBQQDAgE=");
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeConflict, result.Error!.Code);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    [Fact]
+    public async Task A_recipe_that_moves_on_during_an_archive_is_a_conflict()
+    {
+        var recipe = Stored();
+        _dataLayer.StatusConflict = true;
+
+        var result = await ArchiveAsync(recipe);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeConflict, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Archiving_a_recipe_that_is_not_visible_is_not_found()
+    {
+        var result = await _business.ArchiveAsync(
+            Guid.NewGuid(), ActorUserId, Token, TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    /// <summary>
+    /// The freeze is not applied to the lifecycle commands themselves, or an archived recipe could never come
+    /// back — stated because gating every write on the state is the obvious mistake to make here.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_recipe_still_accepts_the_command_that_brings_it_back()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        Assert.True((await UnarchiveAsync(recipe)).Succeeded);
+    }
+
+    [Fact]
+    public async Task An_archived_recipe_refuses_an_ordinary_edit()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await UpdateAsync(recipe, Edit() with { Title = Set<string?>("Lemon cake") });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeArchivedConflict, result.Error!.Code);
+        Assert.Equal("Olive oil cake", recipe.Title);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    /// <summary>
+    /// Ahead of the body's own invariants, because no edit can succeed while the recipe is archived —
+    /// reporting field errors first would have a client fix four of them and then discover the real problem.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_recipe_reports_being_archived_before_it_reports_a_bad_body()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Archived);
+
+        var result = await UpdateAsync(recipe, Edit() with { TotalTimeMinutes = Set<int?>(-5) });
+
+        Assert.Equal(RecipeErrorCodes.RecipeArchivedConflict, result.Error!.Code);
+    }
+
+    // ---- The duplicate seam ----
+
+    /// <summary>
+    /// Loads <paramref name="archived"/> as the version a duplicate will copy, and performs the duplicate.
+    /// </summary>
+    /// <param name="archived">The source content, or <c>null</c> to make the version unavailable.</param>
+    private Task<OperationResult<CreatedRecipeServiceModel>> DuplicateAsync(
+        Recipe? archived,
+        string title = "Olive oil and rosemary cake",
+        int? sourceVersionNumber = null,
+        bool sourceVisible = true)
+    {
+        _dataLayer.DuplicateSourceVisible = sourceVisible;
+        _dataLayer.RestoreSource = archived is null
+            ? null
+            : new RecipeVersionSnapshotRecord(
+                RestoredVersionId,
+                sourceVersionNumber ?? 3,
+                RecipeVersionSource.CreatorEdit,
+                RecipeVersionReadiness.Ready,
+                Now.AddDays(-2),
+                RecipeSnapshotSerializer.Serialize(
+                    RecipeSnapshotMapper.Capture(new CompleteRecipe(archived, null))));
+
+        return _business.DuplicateAsync(
+            Guid.NewGuid(),
+            CanonicalDuplicateRecipe.From(new DuplicateRecipeViewModel
+            {
+                Title = title,
+                SourceVersionNumber = sourceVersionNumber,
+            }),
+            TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>A populated recipe to copy, with children whose ids the copy must not reuse.</summary>
+    private static Recipe Source()
+    {
+        var recipe = RecipeAggregateFixture.FullyPopulatedRecipe();
+        recipe.Status = RecipeStatus.Ready;
+
+        return recipe;
+    }
+
+    [Fact]
+    public async Task A_duplicate_copies_the_archived_content_under_the_requested_title()
+    {
+        var source = Source();
+
+        var result = await DuplicateAsync(source, title: "  Olive oil and rosemary cake  ");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Olive oil and rosemary cake", _dataLayer.Recipe!.Title);
+        Assert.Equal("Olive oil and rosemary cake", result.Value!.Title);
+
+        // Everything the creator wrote comes across.
+        Assert.Equal(source.Headnote, _dataLayer.Recipe.Headnote);
+        Assert.Equal(source.AttributionText, _dataLayer.Recipe.AttributionText);
+        Assert.Equal(source.SourceUrl, _dataLayer.Recipe.SourceUrl);
+        Assert.Equal(source.YieldText, _dataLayer.Recipe.YieldText);
+        Assert.Single(_dataLayer.Recipe.IngredientGroups);
+        Assert.Single(_dataLayer.Recipe.InstructionGroups);
+        Assert.Single(_dataLayer.Recipe.Equipment);
+        Assert.Single(_dataLayer.Recipe.AssetLinks);
+    }
+
+    /// <summary>
+    /// Whatever the source said. A copy of a finished recipe is not itself finished, and duplicating an
+    /// archived recipe must not produce an archived copy the creator then has to go and find.
+    /// </summary>
+    [Theory]
+    [InlineData(RecipeStatus.Ready)]
+    [InlineData(RecipeStatus.Archived)]
+    [InlineData(RecipeStatus.Draft)]
+    public async Task A_copy_is_always_a_draft(RecipeStatus sourceStatus)
+    {
+        var source = Source();
+        source.Status = sourceStatus;
+
+        var result = await DuplicateAsync(source);
+
+        Assert.Equal(RecipeStatus.Draft, _dataLayer.Recipe!.Status);
+        Assert.Equal(RecipeStatus.Draft, result.Value!.Status);
+        Assert.Equal(RecipeVersionReadiness.Draft, _dataLayer.Version!.Readiness);
+    }
+
+    [Fact]
+    public async Task A_copys_first_version_says_it_was_duplicated()
+    {
+        await DuplicateAsync(Source());
+
+        Assert.Equal(RecipeVersionSource.Duplicate, _dataLayer.Version!.Source);
+        Assert.Null(_dataLayer.Version.Reason);
+
+        // Restore lineage belongs to a restore. A duplicate's provenance is on the recipe.
+        Assert.Null(_dataLayer.Version.RestoredFromVersionId);
+        Assert.Equal(RestoredVersionId, _dataLayer.Recipe!.DuplicatedFromVersionId);
+    }
+
+    /// <summary>
+    /// The lineage names the version that was copied, not the version the source recipe was itself copied
+    /// from. A copy of a copy records its own parentage.
+    /// </summary>
+    [Fact]
+    public async Task A_copy_of_a_copy_records_what_it_copied()
+    {
+        var source = Source();
+        source.DuplicatedFromVersionId = Guid.NewGuid();
+
+        await DuplicateAsync(source);
+
+        Assert.Equal(RestoredVersionId, _dataLayer.Recipe!.DuplicatedFromVersionId);
+    }
+
+    [Fact]
+    public async Task A_copy_is_attributed_to_whoever_made_it()
+    {
+        var source = Source();
+
+        await DuplicateAsync(source);
+
+        // Never the author of the recipe it came from.
+        Assert.NotEqual(source.CreatedByMembershipId, _dataLayer.Recipe!.CreatedByMembershipId);
+        Assert.Equal(ActorMembershipId, _dataLayer.Recipe.CreatedByMembershipId);
+        Assert.Equal(ActorMembershipId, _dataLayer.Recipe.UpdatedByMembershipId);
+        Assert.Equal(Now, _dataLayer.Recipe.CreatedAt);
+        Assert.Equal(Now, _dataLayer.Recipe.UpdatedAt);
+    }
+
+    /// <summary>
+    /// The concurrency token, the source's history and its own identity are all left behind. The copy is a
+    /// new row, and the interceptor is what gives it a workspace.
+    /// </summary>
+    [Fact]
+    public async Task A_copy_inherits_no_identity_ownership_or_audit_from_its_source()
+    {
+        var source = Source();
+
+        await DuplicateAsync(source);
+
+        var copy = _dataLayer.Recipe!;
+
+        Assert.NotEqual(source.Id, copy.Id);
+        Assert.Equal(Guid.Empty, copy.WorkspaceId);
+        Assert.Empty(copy.RowVersion);
+        Assert.NotEqual(
+            source.IngredientGroups.Single().Id,
+            copy.IngredientGroups.Single().Id);
+        Assert.NotEqual(
+            source.InstructionGroups.Single().Steps.Single().Id,
+            copy.InstructionGroups.Single().Steps.Single().Id);
+    }
+
+    /// <summary>
+    /// Omitting the version is not a different operation — it asks the layer below for the current one, and
+    /// that is the only difference.
+    /// </summary>
+    [Fact]
+    public async Task Omitting_the_version_asks_for_the_current_one()
+    {
+        await DuplicateAsync(Source());
+
+        Assert.Null(_dataLayer.DuplicateRequest!.Value.VersionNumber);
+    }
+
+    [Fact]
+    public async Task A_named_version_is_passed_down_as_asked()
+    {
+        await DuplicateAsync(Source(), sourceVersionNumber: 2);
+
+        Assert.Equal(2, _dataLayer.DuplicateRequest!.Value.VersionNumber);
+    }
+
+    [Fact]
+    public async Task A_source_recipe_that_is_not_visible_is_not_found()
+    {
+        var result = await DuplicateAsync(Source(), sourceVisible: false);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+        Assert.Empty(result.Error.FieldErrors);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    [Fact]
+    public async Task A_version_the_source_does_not_have_is_refused_naming_the_field()
+    {
+        var result = await DuplicateAsync(archived: null, sourceVersionNumber: 9);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Equal(["This recipe has no version 9."], result.Error.FieldErrors["sourceVersionNumber"]);
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    /// <summary>
+    /// A visible recipe with no archived version at all is not the caller's mistake — they named no version —
+    /// so the refusal names no field. Unreachable through this API, where every recipe has version 1.
+    /// </summary>
+    [Fact]
+    public async Task A_source_with_no_archived_version_is_refused_without_naming_a_field()
+    {
+        var result = await DuplicateAsync(archived: null);
+
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Empty(result.Error.FieldErrors);
+    }
+
+    /// <summary>
+    /// The archive's tag ids drive a vocabulary read, and the rows come back as names so the create's own
+    /// tag path can reuse them rather than this seam growing a second one.
+    /// </summary>
+    [Fact]
+    public async Task The_archived_tags_are_resolved_and_handed_to_the_create_by_name()
+    {
+        var source = Source();
+        _dataLayer.Vocabulary = [Tag(RecipeAggregateFixture.TagIdA, "Weeknight")];
+
+        await DuplicateAsync(source);
+
+        Assert.Equal([RecipeAggregateFixture.TagIdA], _dataLayer.RequestedTagIds);
+        Assert.Equal(["weeknight"], _dataLayer.Tags!.Select(tag => tag.NormalizedName));
+        Assert.Equal(["Weeknight"], _dataLayer.Tags!.Select(tag => tag.Name));
+    }
+
+    /// <summary>
+    /// A tag whose vocabulary row is gone resolves to nothing and is simply not applied — the copy loses a
+    /// tag rather than the request losing a 500 to a foreign key.
+    /// </summary>
+    [Fact]
+    public async Task A_tag_no_longer_in_the_vocabulary_is_not_applied()
+    {
+        _dataLayer.Vocabulary = [];
+
+        await DuplicateAsync(Source());
+
+        Assert.Empty(_dataLayer.Tags!);
+    }
+
+    [Fact]
+    public async Task A_source_document_this_build_cannot_read_raises()
+    {
+        _dataLayer.DuplicateSourceVisible = true;
+        _dataLayer.RestoreSource = new RecipeVersionSnapshotRecord(
+            RestoredVersionId,
+            3,
+            RecipeVersionSource.CreatorEdit,
+            RecipeVersionReadiness.Draft,
+            Now.AddDays(-2),
+            RecipeSnapshotSerializer.Serialize(
+                RecipeSnapshotMapper.Capture(new CompleteRecipe(Source(), null))
+                    with { SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion + 1 }));
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => _business.DuplicateAsync(
+            Guid.NewGuid(),
+            CanonicalDuplicateRecipe.From(new DuplicateRecipeViewModel { Title = "Copy" }),
+            TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    /// <summary>
+    /// The workspace reaches the write from the resolved context, never from the archive — a document carries
+    /// no workspace, and a restore that could set one would be a restore that could move a recipe.
+    /// </summary>
+    [Fact]
+    public async Task A_restore_never_changes_a_recipes_workspace()
+    {
+        var recipe = Stored();
+        var workspaceId = recipe.WorkspaceId;
+
+        await RestoreAsync(recipe, Archived(recipe));
+
+        Assert.Equal(workspaceId, recipe.WorkspaceId);
+    }
+
     private static WorkspaceTag Tag(Guid id, string name) =>
         new() { Id = id, Name = name, NormalizedName = name.ToLowerInvariant(), CreatedAt = Now };
+
+    // ---- Search ----
+
+    /// <summary>
+    /// The cursor is minted here, not in the repository, and it is minted from the criteria's scope — which is
+    /// what binds it to the workspace, ordering and filters it was issued for.
+    /// </summary>
+    [Fact]
+    public async Task A_page_with_more_to_come_carries_a_cursor_built_from_its_last_row()
+    {
+        var last = SummaryRow(Now.AddMinutes(-1));
+        _dataLayer.Page = ([SummaryRow(Now), last], true, 7);
+
+        var page = await SearchAsync(scope: "a-scope");
+
+        Assert.Equal(7, page.TotalCount);
+        Assert.Equal(2, page.Items.Count);
+
+        // The exact cursor the shared PageBuilder would mint for that row under that scope — so a change to how
+        // a page ends shows up here rather than as a client that cannot turn a page.
+        Assert.Equal(
+            Domain.Managers.Paging.ReferenceCursor.Encode(last.SortValue, last.TieBreaker, "a-scope"),
+            page.NextCursor);
+    }
+
+    /// <summary>
+    /// The last page carries no cursor, which is how a client knows to stop — rather than by comparing the row
+    /// count against a page size the server may have clamped.
+    /// </summary>
+    [Fact]
+    public async Task The_last_page_carries_no_cursor()
+    {
+        _dataLayer.Page = ([SummaryRow(Now)], false, 1);
+
+        Assert.Null((await SearchAsync()).NextCursor);
+    }
+
+    [Fact]
+    public async Task An_empty_library_is_an_empty_page_rather_than_a_failure()
+    {
+        _dataLayer.Page = ([], false, 0);
+
+        var page = await SearchAsync();
+
+        Assert.Empty(page.Items);
+        Assert.Null(page.NextCursor);
+
+        // Zero is a count. Null would mean nobody asked, and the two must not be confused.
+        Assert.Equal(0, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task A_total_nobody_asked_for_is_absent_rather_than_zero()
+    {
+        _dataLayer.Page = ([SummaryRow(Now)], false, null);
+
+        Assert.Null((await SearchAsync()).TotalCount);
+    }
+
+    /// <summary>
+    /// The membership ids the repository row carries do not reach the wire — the same rule the detail read
+    /// follows. Asserted over the published property set, so a field added later has to be considered rather
+    /// than slipping through.
+    /// </summary>
+    [Fact]
+    public async Task A_summary_publishes_no_membership_or_ownership_column()
+    {
+        _dataLayer.Page = ([SummaryRow(Now)], false, null);
+
+        var summary = Assert.Single((await SearchAsync()).Items);
+        var published = summary.GetType().GetProperties().Select(property => property.Name);
+
+        Assert.Equal(
+            (string[])
+            [
+                "Id", "Title", "Description", "Status", "CuisineId", "CourseId", "CreatedAt", "UpdatedAt",
+                "LatestVersionNumber", "LatestVersionReadiness", "HasUnmatchedIngredients",
+            ],
+            published);
+    }
+
+    [Fact]
+    public async Task A_summary_carries_the_rows_own_values()
+    {
+        var row = SummaryRow(Now);
+        _dataLayer.Page = ([row], false, null);
+
+        var summary = Assert.Single((await SearchAsync()).Items);
+
+        Assert.Equal(row.Id, summary.Id);
+        Assert.Equal(row.Title, summary.Title);
+        Assert.Equal(row.Status, summary.Status);
+        Assert.Equal(row.CuisineId, summary.CuisineId);
+        Assert.Equal(row.UpdatedAt, summary.UpdatedAt);
+        Assert.Equal(row.LatestVersionNumber, summary.LatestVersionNumber);
+        Assert.Equal(row.LatestVersionReadiness, summary.LatestVersionReadiness);
+        Assert.Equal(row.HasUnmatchedIngredients, summary.HasUnmatchedIngredients);
+    }
+
+    private Task<RecipeSearchPageServiceModel> SearchAsync(string scope = "scope") =>
+        _business.SearchAsync(
+            new RecipeSearchCriteria(new RecipeSearchFilters(), scope),
+            TestContext.Current.CancellationToken);
+
+    // ---- Version history ----
+
+    /// <summary>
+    /// The one refusal this read has, and it is the same one an unknown recipe gets — because the layer
+    /// beneath cannot tell an absent recipe from another workspace's, and this one must not be able to either.
+    /// </summary>
+    [Fact]
+    public async Task A_recipe_that_is_not_visible_is_not_found_rather_than_an_empty_history()
+    {
+        _dataLayer.History = null;
+
+        var result = await HistoryAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    /// <summary>
+    /// A recipe with no visible versions is not reachable today — creation writes version 1 in the same
+    /// transaction — but if it ever were, it is an empty history and not a missing recipe. The distinction is
+    /// carried by the layer below returning a page rather than null, and this is what pins it.
+    /// </summary>
+    [Fact]
+    public async Task A_visible_recipe_with_no_versions_is_an_empty_page_rather_than_a_failure()
+    {
+        _dataLayer.History = ([], false);
+
+        var result = await HistoryAsync();
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Value!.Items);
+        Assert.Null(result.Value.NextCursor);
+    }
+
+    /// <summary>
+    /// The cursor is minted here, not in the repository, and from the criteria's scope — which is what binds it
+    /// to the workspace and recipe it was issued for.
+    /// </summary>
+    [Fact]
+    public async Task A_history_page_with_more_to_come_carries_a_cursor_built_from_its_last_row()
+    {
+        var last = HistoryRow(versionNumber: 2);
+        _dataLayer.History = ([HistoryRow(versionNumber: 3), last], true);
+
+        var page = (await HistoryAsync(scope: "a-scope")).Value!;
+
+        Assert.Equal(2, page.Items.Count);
+        Assert.Equal(
+            Domain.Managers.Paging.ReferenceCursor.Encode(last.SortValue, last.TieBreaker, "a-scope"),
+            page.NextCursor);
+    }
+
+    [Fact]
+    public async Task The_last_history_page_carries_no_cursor()
+    {
+        _dataLayer.History = ([HistoryRow(versionNumber: 1)], false);
+
+        Assert.Null((await HistoryAsync()).Value!.NextCursor);
+    }
+
+    /// <summary>
+    /// What a history entry publishes, pinned as the exact property set — so the snapshot, the membership id
+    /// and the lineage token stay out by decision rather than by nobody having added them yet.
+    /// </summary>
+    [Fact]
+    public async Task A_history_entry_publishes_no_membership_column_and_no_snapshot()
+    {
+        _dataLayer.History = ([HistoryRow(versionNumber: 1)], false);
+
+        var entry = Assert.Single((await HistoryAsync()).Value!.Items);
+        var published = entry.GetType().GetProperties().Select(property => property.Name);
+
+        Assert.Equal(
+            (string[])
+            [
+                "Id", "VersionNumber", "Source", "Readiness", "Reason", "CreatedAt", "CreatedByName",
+                "ParentVersionId", "RestoredFromVersionId", "AiProposalId",
+            ],
+            published);
+    }
+
+    /// <summary>
+    /// Business leaves the author unnamed and hands the membership up instead: naming it means reading two
+    /// other modules, which this layer may not do. The Facade spends the ids — see
+    /// <c>RecipeFacadeTests</c> — and this pins that the division holds rather than that someone remembered
+    /// to leave the field null.
+    /// </summary>
+    [Fact]
+    public async Task A_history_entry_leaves_the_author_for_the_facade_to_name()
+    {
+        var row = HistoryRow(versionNumber: 4);
+        _dataLayer.History = ([row], false);
+
+        var result = (await HistoryResultAsync()).Value!;
+
+        Assert.Null(Assert.Single(result.Page.Items).CreatedByName);
+        Assert.Equal(AuthorMembershipId, result.AuthorMembershipByVersionId[row.Id]);
+    }
+
+    [Fact]
+    public async Task A_history_entry_carries_the_rows_own_values()
+    {
+        var row = HistoryRow(versionNumber: 4);
+        _dataLayer.History = ([row], false);
+
+        var entry = Assert.Single((await HistoryAsync()).Value!.Items);
+
+        Assert.Equal(row.Id, entry.Id);
+        Assert.Equal(row.VersionNumber, entry.VersionNumber);
+        Assert.Equal(row.Source, entry.Source);
+        Assert.Equal(row.Readiness, entry.Readiness);
+        Assert.Equal(row.Reason, entry.Reason);
+        Assert.Equal(row.CreatedAt, entry.CreatedAt);
+        Assert.Equal(row.ParentVersionId, entry.ParentVersionId);
+        Assert.Equal(row.AiProposalId, entry.AiProposalId);
+    }
+
+    // ---- Version comparison ----
+
+    /// <summary>
+    /// A recipe the caller may not see and a version number it does not have are different facts. Collapsing
+    /// them would tell a creator who mistyped a number that their recipe does not exist.
+    /// </summary>
+    [Fact]
+    public async Task An_invisible_recipe_is_reported_as_a_missing_recipe()
+    {
+        _dataLayer.Snapshots = null;
+
+        var result = await CompareAsync(1, 2);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_missing_version_names_the_parameter_at_fault()
+    {
+        _dataLayer.Snapshots = [SnapshotRow(1, "Olive oil cake")];
+
+        var result = await CompareAsync(1, 9);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("to", result.Error.FieldErrors.Keys);
+        Assert.DoesNotContain("from", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Both_missing_versions_are_reported_together()
+    {
+        _dataLayer.Snapshots = [];
+
+        var result = await CompareAsync(8, 9);
+
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Equal(["from", "to"], result.Error.FieldErrors.Keys.Order());
+    }
+
+    /// <summary>
+    /// The repository returns one row when both numbers are the same. Read as both sides rather than as a
+    /// missing version: comparing a version with itself is a legitimate question whose answer is "nothing".
+    /// </summary>
+    [Fact]
+    public async Task One_row_answers_a_comparison_of_a_version_with_itself()
+    {
+        var row = SnapshotRow(2, "Olive oil cake");
+        _dataLayer.Snapshots = [row];
+
+        var result = await CompareAsync(2, 2);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(row.Id, result.Value!.From.VersionId);
+        Assert.Equal(row.Id, result.Value.To.VersionId);
+        Assert.False(result.Value.Comparison.HasChanges);
+    }
+
+    [Fact]
+    public async Task A_comparison_reads_the_stored_documents_and_publishes_the_difference()
+    {
+        _dataLayer.Snapshots =
+        [
+            SnapshotRow(1, "Olive oil cake"),
+            SnapshotRow(2, "Olive oil and rosemary cake"),
+        ];
+
+        var result = await CompareAsync(1, 2);
+
+        Assert.True(result.Succeeded);
+
+        var change = Assert.Single(result.Value!.Comparison[RecipeComparisonSection.Metadata].FieldChanges);
+        Assert.Equal(RecipeComparisonField.Title, change.Field);
+        Assert.Equal("Olive oil cake", change.From);
+        Assert.Equal("Olive oil and rosemary cake", change.To);
+    }
+
+    /// <summary>
+    /// The caller chooses the direction, and a creator weighing a revert reads the newer version as the
+    /// left-hand side. The rows come back unordered, so Business must match them by number rather than by
+    /// position.
+    /// </summary>
+    [Fact]
+    public async Task The_sides_follow_the_requested_direction_rather_than_the_row_order()
+    {
+        _dataLayer.Snapshots =
+        [
+            SnapshotRow(1, "Olive oil cake"),
+            SnapshotRow(2, "Olive oil and rosemary cake"),
+        ];
+
+        var result = await CompareAsync(2, 1);
+
+        Assert.Equal(2, result.Value!.From.VersionNumber);
+
+        var change = Assert.Single(result.Value.Comparison[RecipeComparisonSection.Metadata].FieldChanges);
+        Assert.Equal("Olive oil and rosemary cake", change.From);
+        Assert.Equal("Olive oil cake", change.To);
+    }
+
+    [Fact]
+    public async Task The_recipe_and_both_numbers_reach_the_data_layer()
+    {
+        var recipeId = Guid.NewGuid();
+        _dataLayer.Snapshots = [SnapshotRow(3, "Olive oil cake"), SnapshotRow(7, "Olive oil cake")];
+
+        await _business.CompareVersionsAsync(recipeId, 3, 7, TestContext.Current.CancellationToken);
+
+        Assert.Equal((recipeId, 3, 7), _dataLayer.SnapshotRequest);
+    }
+
+    /// <summary>
+    /// An archive this build cannot read raises rather than answering, and it raises the exception that says
+    /// which kind of unreadable it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberate, and pinned here so it stays deliberate. <c>MinimumReadableSchemaVersion</c> guarantees
+    /// documents written by older builds stay readable, so the only way to a refused schema version is a
+    /// document written by a <em>newer</em> build than the one serving the request — an older instance
+    /// reading forward during a rolling deploy. That is a server fault; a 500 is the truthful status, and an
+    /// error code would invite a client to handle a condition it can do nothing about.
+    /// </para>
+    /// <para>
+    /// The cost is real and worth knowing: the first request after <c>CurrentSchemaVersion</c> is bumped
+    /// will 500 on every instance still running the previous build. If that becomes unacceptable, the change
+    /// is a caught translation here, not a silent one lower down.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task An_archive_this_build_cannot_read_raises_rather_than_answering()
+    {
+        var future = SnapshotRow(1, "Olive oil cake") with
+        {
+            Document = RecipeSnapshotSerializer.Serialize(new RecipeSnapshotDocument
+            {
+                SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion + 1,
+                Recipe = new RecipeSnapshotHeader { Title = "Written by a later build" },
+            }),
+        };
+
+        _dataLayer.Snapshots = [future, SnapshotRow(2, "Olive oil cake")];
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => CompareAsync(1, 2));
+    }
+
+    [Fact]
+    public async Task A_stored_document_that_is_not_a_snapshot_raises_rather_than_answering()
+    {
+        _dataLayer.Snapshots =
+        [
+            SnapshotRow(1, "Olive oil cake") with { Document = "{ not a snapshot" },
+            SnapshotRow(2, "Olive oil cake"),
+        ];
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CompareAsync(1, 2));
+    }
+
+    private Task<OperationResult<RecipeVersionComparisonServiceModel>> CompareAsync(int from, int to) =>
+        _business.CompareVersionsAsync(Guid.NewGuid(), from, to, TestContext.Current.CancellationToken);
+
+    /// <summary>One archived version, whose document differs from the others only in the recipe's title.</summary>
+    private static RecipeVersionSnapshotRecord SnapshotRow(int versionNumber, string title) =>
+        new(Guid.NewGuid(),
+            versionNumber,
+            RecipeVersionSource.CreatorEdit,
+            RecipeVersionReadiness.Draft,
+            CreatedAt: Now.AddMinutes(versionNumber),
+            Document: RecipeSnapshotSerializer.Serialize(new RecipeSnapshotDocument
+            {
+                SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
+                Recipe = new RecipeSnapshotHeader { Title = title },
+            }));
+
+    private Task<OperationResult<RecipeVersionHistoryPageResult>>
+        HistoryResultAsync(string scope = "scope") =>
+        _business.GetVersionHistoryAsync(
+            new RecipeVersionHistoryCriteria(Guid.NewGuid(), scope),
+            TestContext.Current.CancellationToken);
+
+    /// <summary>
+    /// The page alone, for the assertions that are about paging rather than about authorship. The authorship
+    /// map travels beside the page because Business cannot resolve it — see
+    /// <see cref="RecipeVersionHistoryPageResult"/> — and unwrapping here keeps that from being restated at
+    /// every call site that does not care.
+    /// </summary>
+    private async Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<RecipeVersionHistoryServiceModel>>>
+        HistoryAsync(string scope = "scope")
+    {
+        var result = await HistoryResultAsync(scope);
+
+        return result.Succeeded
+            ? OperationResult<Domain.Managers.Paging.CursorPageServiceModel<RecipeVersionHistoryServiceModel>>
+                .Success(result.Value!.Page)
+            : OperationResult<Domain.Managers.Paging.CursorPageServiceModel<RecipeVersionHistoryServiceModel>>
+                .Failure(result.Error!);
+    }
+
+    /// <summary>The membership every seeded history row is attributed to.</summary>
+    private static readonly Guid AuthorMembershipId = Guid.NewGuid();
+
+    private static RecipeVersionHistoryRecord HistoryRow(int versionNumber) =>
+        new(Guid.NewGuid(),
+            versionNumber,
+            AuthorMembershipId,
+            RecipeVersionSource.CreatorEdit,
+            RecipeVersionReadiness.Draft,
+            Reason: versionNumber == 1 ? null : $"Edit {versionNumber}",
+            CreatedAt: Now.AddMinutes(versionNumber),
+            ParentVersionId: versionNumber == 1 ? null : Guid.NewGuid(),
+            RestoredFromVersionId: null,
+            AiProposalId: null);
+
+    private static RecipeSummaryRecord SummaryRow(DateTimeOffset updatedAt) =>
+        new(Guid.NewGuid(),
+            "Olive oil cake",
+            "A cake.",
+            RecipeStatus.Ready,
+            CuisineId: Guid.NewGuid(),
+            CourseId: null,
+            CreatedByMembershipId: ActorMembershipId,
+            UpdatedByMembershipId: ActorMembershipId,
+            CreatedAt: Now,
+            UpdatedAt: updatedAt,
+            LatestVersionNumber: 3,
+            LatestVersionReadiness: RecipeVersionReadiness.Ready,
+            HasUnmatchedIngredients: true,
+            Sort: RecipeSearchSort.RecentlyUpdated);
 
     private sealed class RecordingRecipeDataLayer : IRecipeDataLayer
     {
@@ -1061,6 +2275,62 @@ public sealed class RecipeBusinessTests
             RequestedRecipeId = recipeId;
 
             return Task.FromResult(Detail);
+        }
+
+        /// <summary>What <see cref="SearchAsync"/> answers with.</summary>
+        public (IReadOnlyList<RecipeSummaryRecord> Rows, bool HasMore, int? Total) Page { get; set; } = ([], false, null);
+
+        /// <summary>The criteria the last search was asked for, so a test can assert what was passed down.</summary>
+        public RecipeSearchCriteria? SearchCriteria { get; private set; }
+
+        public Task<(IReadOnlyList<RecipeSummaryRecord> Rows, bool HasMore, int? Total)> SearchAsync(
+            RecipeSearchCriteria criteria,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            SearchCriteria = criteria;
+
+            return Task.FromResult(Page);
+        }
+
+        /// <summary>
+        /// What <see cref="ListVersionsAsync"/> answers with. <c>null</c> stands for "no such recipe", which is
+        /// a different fact from an empty page and must stay one.
+        /// </summary>
+        public (IReadOnlyList<RecipeVersionHistoryRecord> Rows, bool HasMore)? History { get; set; } = ([], false);
+
+        /// <summary>The criteria the last history read was asked for, so a test can assert what was passed down.</summary>
+        public RecipeVersionHistoryCriteria? HistoryCriteria { get; private set; }
+
+        public Task<(IReadOnlyList<RecipeVersionHistoryRecord> Rows, bool HasMore)?> ListVersionsAsync(
+            RecipeVersionHistoryCriteria criteria,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            HistoryCriteria = criteria;
+
+            return Task.FromResult(History);
+        }
+
+        /// <summary>
+        /// What <see cref="FindVersionSnapshotsAsync"/> answers with. <c>null</c> stands for "no such recipe",
+        /// which is a different fact from finding no matching versions and must stay one.
+        /// </summary>
+        public IReadOnlyList<RecipeVersionSnapshotRecord>? Snapshots { get; set; } = [];
+
+        /// <summary>The version numbers the last comparison asked for, so a test can assert what was passed down.</summary>
+        public (Guid RecipeId, int First, int Second)? SnapshotRequest { get; private set; }
+
+        public Task<IReadOnlyList<RecipeVersionSnapshotRecord>?> FindVersionSnapshotsAsync(
+            Guid recipeId,
+            int firstVersionNumber,
+            int secondVersionNumber,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            SnapshotRequest = (recipeId, firstVersionNumber, secondVersionNumber);
+
+            return Task.FromResult(Snapshots);
         }
 
         /// <summary>Answers with <see cref="Detail"/>, like the read does: these tests hold one recipe.</summary>
@@ -1106,6 +2376,127 @@ public sealed class RecipeBusinessTests
 
         /// <summary>The unit the last write was handed, so a test can inspect what Business changed.</summary>
         public TaggedRecipe? Updated { get; private set; }
+
+        /// <summary>
+        /// What <see cref="GetForRestoreAsync"/> answers with for the snapshot half of the unit. <c>null</c>
+        /// stands for "this recipe has no such version", which <see cref="Detail"/> being null does not: that
+        /// one means the recipe itself is invisible, and the two are different answers.
+        /// </summary>
+        public RecipeVersionSnapshotRecord? RestoreSource { get; set; }
+
+        /// <summary>What the last restore asked for, so a test can assert what was passed down.</summary>
+        public (Guid RecipeId, int VersionNumber)? RestoreRequest { get; private set; }
+
+        public Task<RecipeRestoreUnit?> GetForRestoreAsync(
+            Guid recipeId,
+            int versionNumber,
+            CancellationToken cancellationToken)
+        {
+            RequestedRecipeId = recipeId;
+            RestoreRequest = (recipeId, versionNumber);
+
+            // Uncounted, for the reason GetForUpdateAsync gives: every restore reads, and counting the read
+            // would drown the assertion that a restore changing nothing never reaches the write.
+            return Task.FromResult(Detail is null ? null : new RecipeRestoreUnit(Detail, RestoreSource));
+        }
+
+        /// <summary>The workspace's tag vocabulary, as far as these tests are concerned.</summary>
+        public IReadOnlyList<WorkspaceTag> Vocabulary { get; set; } = [];
+
+        /// <summary>The ids the last vocabulary read asked for, so a test can assert the archive drove it.</summary>
+        public IReadOnlyCollection<Guid>? RequestedTagIds { get; private set; }
+
+        public Task<IReadOnlyList<WorkspaceTag>> FindWorkspaceTagsAsync(
+            IReadOnlyCollection<Guid> tagIds,
+            CancellationToken cancellationToken)
+        {
+            RequestedTagIds = tagIds;
+
+            // Uncounted, as above, and filtered rather than returned whole: the point of this read is that an
+            // id with no vocabulary row comes back missing.
+            return Task.FromResult<IReadOnlyList<WorkspaceTag>>(
+                [.. Vocabulary.Where(tag => tagIds.Contains(tag.Id))]);
+        }
+
+        /// <summary>The vocabulary rows the last restore was handed, so a test can assert what it resolved.</summary>
+        public IReadOnlyList<WorkspaceTag>? RestoredTags { get; private set; }
+
+        /// <summary>Set to make the next lifecycle command answer as though someone else had saved first.</summary>
+        public bool StatusConflict { get; set; }
+
+        /// <summary>The audit entry the last lifecycle command staged, so a test can assert what it recorded.</summary>
+        public AuditEntry? Audit { get; private set; }
+
+        /// <summary>The status the recipe carried when the last lifecycle command reached the write.</summary>
+        public RecipeStatus? WrittenStatus { get; private set; }
+
+        public Task<bool> TrySetStatusAsync(
+            TaggedRecipe loaded,
+            AuditEntry audit,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            Recipe = loaded.Recipe.Recipe;
+            Updated = loaded;
+            Audit = audit;
+            WrittenStatus = loaded.Recipe.Recipe.Status;
+
+            return Task.FromResult(!StatusConflict);
+        }
+
+        /// <summary>
+        /// Whether the source recipe of a duplicate is visible. Separate from <see cref="RestoreSource"/>
+        /// being null, which means the recipe is readable and has no such version.
+        /// </summary>
+        public bool DuplicateSourceVisible { get; set; } = true;
+
+        /// <summary>What the last duplicate asked for, so a test can assert what was passed down.</summary>
+        public (Guid RecipeId, int? VersionNumber)? DuplicateRequest { get; private set; }
+
+        public Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindDuplicateSourceAsync(
+            Guid recipeId,
+            int? versionNumber,
+            CancellationToken cancellationToken)
+        {
+            RequestedRecipeId = recipeId;
+            DuplicateRequest = (recipeId, versionNumber);
+
+            // Uncounted, as the other reads are: Calls counts writes, so a test can prove a refused request
+            // never reached one.
+            return Task.FromResult(DuplicateSourceVisible
+                ? (true, RestoreSource)
+                : (false, (RecipeVersionSnapshotRecord?)null));
+        }
+
+        public Task<RecipeUpdateOutcome> RestoreAsync(
+            TaggedRecipe loaded,
+            RecipeVersionFacts version,
+            IReadOnlyList<WorkspaceTag> tags,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            (Recipe, Version) = (loaded.Recipe.Recipe, version);
+            Updated = loaded;
+            RestoredTags = tags;
+
+            return Task.FromResult(Conflict
+                ? RecipeUpdateOutcome.Conflict()
+                : RecipeUpdateOutcome.Applied(
+                    new RecipeVersion
+                    {
+                        Id = Guid.NewGuid(),
+                        RecipeId = loaded.Recipe.Recipe.Id,
+                        VersionNumber = (loaded.Recipe.CurrentVersion?.VersionNumber ?? 0) + 1,
+                        ParentVersionId = loaded.Recipe.CurrentVersion?.Id,
+                        RestoredFromVersionId = version.RestoredFromVersionId,
+                        Source = version.Source,
+                        Readiness = version.Readiness,
+                        Reason = version.Reason,
+                        CreatedAt = loaded.Recipe.Recipe.UpdatedAt,
+                        CreatedByMembershipId = loaded.Recipe.Recipe.UpdatedByMembershipId,
+                    },
+                    tags));
+        }
     }
 
     private sealed class StubWorkspaceContext(Guid membershipId) : IWorkspaceContext

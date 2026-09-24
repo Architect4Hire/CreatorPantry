@@ -32,6 +32,11 @@ internal sealed class RecipeTagConfiguration : IEntityTypeConfiguration<RecipeTa
             .OnDelete(DeleteBehavior.Restrict);
 
         // "Which recipes carry this tag" — the reverse of the primary key's leading columns.
+        //
+        // This also serves a recipe search's tag filter without needing RecipeId in its key. The primary key
+        // above is clustered, so every leaf row of this index already carries RecipeId, and the semi-join that
+        // filter issues is answered without leaving the index. Adding RecipeId as a third key column would be
+        // write cost for a seek one column narrower on a table holding one creator's tag links.
         builder.HasIndex(tag => new { tag.WorkspaceId, tag.WorkspaceTagId })
             .HasDatabaseName("IX_RecipeTags_Workspace_Tag");
     }

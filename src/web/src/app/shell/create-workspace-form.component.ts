@@ -40,7 +40,7 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
   styles: [`
     .create-workspace-form { display: grid; gap: var(--cp-space-3); width: min(22rem, 100%); text-align: left; }
     .banner { margin: 0; padding: var(--cp-space-2) var(--cp-space-3); border-radius: var(--cp-radius-md); font-size: var(--cp-font-size-sm); }
-    .banner--error { background: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface)); color: var(--cp-danger); }
+    .banner--error { background: var(--cp-danger-soft); color: var(--cp-danger); }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

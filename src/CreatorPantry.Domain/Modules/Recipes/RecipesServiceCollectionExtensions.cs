@@ -16,6 +16,7 @@ public static class RecipesServiceCollectionExtensions
     public static IServiceCollection AddRecipesModule(this IServiceCollection services)
     {
         services.AddScoped<IRecipeRepository, RecipeRepository>();
+        services.AddScoped<IRecipeSearchRepository, RecipeSearchRepository>();
         services.AddScoped<IRecipeVersionRepository, RecipeVersionRepository>();
         services.AddScoped<IWorkspaceTagRepository, WorkspaceTagRepository>();
         services.AddScoped<IRecipeDataLayer, RecipeDataLayer>();
@@ -23,6 +24,12 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeFacade, RecipeFacade>();
         services.AddScoped<IValidator<CreateRecipeViewModel>, CreateRecipeViewModelValidator>();
         services.AddScoped<IValidator<UpdateRecipeViewModel>, UpdateRecipeViewModelValidator>();
+        services.AddScoped<IValidator<RecipeSearchViewModel>, RecipeSearchViewModelValidator>();
+        services.AddScoped<IValidator<RecipeVersionHistoryViewModel>, RecipeVersionHistoryViewModelValidator>();
+        services.AddScoped<IValidator<RecipeVersionComparisonViewModel>, RecipeVersionComparisonViewModelValidator>();
+        services.AddScoped<IValidator<RestoreRecipeVersionViewModel>, RestoreRecipeVersionViewModelValidator>();
+        services.AddScoped<IValidator<DuplicateRecipeViewModel>, DuplicateRecipeViewModelValidator>();
+        services.AddScoped<IValidator<RecipeLifecycleViewModel>, RecipeLifecycleViewModelValidator>();
 
         return services;
     }

@@ -83,6 +83,26 @@ public sealed record RecipeDetailServiceModel
     /// <summary>The creator's editorial state. It implies nothing about external publication.</summary>
     public required RecipeStatus Status { get; init; }
 
+    /// <summary>
+    /// Where this recipe was copied from, when it was created by duplicating another; <c>null</c> for a
+    /// recipe someone wrote.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the attribution REC-005 asks for, and it is an object rather than a bare version id because a
+    /// bare id is not attribution: nothing else on this API resolves a version id to the recipe that owns it,
+    /// so a client holding only the id could say "copied from something" and no more. One nullable object
+    /// whose presence means "this is a copy" also beats four parallel nullable fields that can only ever be
+    /// null together.
+    /// </para>
+    /// <para>
+    /// The server resolves it from the one column it stores, so nothing here can disagree with anything —
+    /// see <see cref="RecipeDuplicateSourceRecord"/> for why the source recipe is not stored beside it, and
+    /// why the title is the source's current one.
+    /// </para>
+    /// </remarks>
+    public required RecipeDuplicateSourceServiceModel? DuplicatedFrom { get; init; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -125,6 +145,37 @@ public sealed record RecipeDetailServiceModel
     /// the read's own, so that two reads of one recipe do not reshuffle them.
     /// </summary>
     public required IReadOnlyList<RecipeTagServiceModel> Tags { get; init; }
+}
+
+/// <summary>
+/// The recipe and version a copy was duplicated from — enough to name it and navigate to it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Nothing about what the source <em>said</em> is here. A copy holds its own content, archived at the moment
+/// it was made; the source has moved on since, and publishing any of its content beside this would invite a
+/// client to render the two as one thing.
+/// </para>
+/// <para>
+/// <see cref="RecipeId"/> is the point of the whole object: it is what lets an interface link to the source
+/// rather than merely mention it. It is safe to publish because lineage cannot cross a workspace — the
+/// composite foreign key makes that unrepresentable — so a recipe named here is always one the caller may
+/// already read.
+/// </para>
+/// </remarks>
+public sealed record RecipeDuplicateSourceServiceModel
+{
+    /// <summary>The source recipe. Readable by anyone who can read the copy: lineage never leaves a workspace.</summary>
+    public required Guid RecipeId { get; init; }
+
+    /// <summary>The source recipe's title as it stands now, not as it was when the copy was made.</summary>
+    public required string RecipeTitle { get; init; }
+
+    /// <summary>The exact version whose content was copied.</summary>
+    public required Guid VersionId { get; init; }
+
+    /// <summary>That version's number, as the source recipe's history lists it.</summary>
+    public required int VersionNumber { get; init; }
 }
 
 /// <summary>

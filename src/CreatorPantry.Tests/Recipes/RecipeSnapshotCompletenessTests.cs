@@ -44,6 +44,9 @@ public sealed class RecipeSnapshotCompletenessTests : IDisposable
         ["CreatedAt"] = "audit time of the live row, not of the content",
         ["UpdatedAt"] = "audit time, as above",
         ["RowVersion"] = "concurrency token of the live row; the version records its own copy",
+        ["DuplicatedFromVersionId"] =
+            "lineage of the live row rather than content, and it must not be restorable: a copy of a copy "
+                + "records the version it was copied from, never the one its source was copied from",
     };
 
     /// <summary>The live entities whose content a snapshot must reproduce, and the record that holds each.</summary>

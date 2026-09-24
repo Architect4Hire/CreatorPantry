@@ -192,7 +192,11 @@
 
   <section aria-labelledby="toolbar-heading">
     <h2 id="toolbar-heading">Toolbar</h2>
-    <p class="section-note">Search, filters, actions, and an overflow disclosure, with roving-tabindex keyboard navigation.</p>
+    <p class="section-note">
+      Search, filters, actions, and an overflow disclosure, with roving-tabindex keyboard navigation. The
+      &ldquo;More actions&rdquo; disclosure appears only because this toolbar projects into
+      <code>[cpToolbarOverflow]</code>; drop those two buttons and it disappears rather than opening onto nothing.
+    </p>
     <cp-toolbar ariaLabel="Recipe list toolbar">
       <input cpToolbarSearch type="search" placeholder="Search recipes…" aria-label="Search recipes" />
       <button cpToolbarFilters cpButton variant="secondary" size="sm">Status ▾</button>
@@ -241,8 +245,15 @@
 
   <section aria-labelledby="diff-legend-heading">
     <h2 id="diff-legend-heading">Diff legend</h2>
-    <p class="section-note">All 7 kinds by default; presentation only, no diff computation.</p>
+    <p class="section-note">
+      All 7 kinds by default; presentation only, no diff computation. A surface that marks up individual
+      changes takes its glyph and wording from <code>cpDiffGlyph()</code> and <code>cpDiffLabel()</code>, so a
+      row and the legend entry explaining it cannot drift apart.
+    </p>
     <cp-diff-legend />
+
+    <p class="section-note">Narrowed to the kinds one surface actually renders, so it explains nothing a reader will not meet.</p>
+    <cp-diff-legend [show]="['added', 'removed', 'changed', 'moved']" />
   </section>
 
   <section aria-labelledby="toast-heading">

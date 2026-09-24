@@ -109,6 +109,22 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
             .When(model => model.Status.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.Status));
 
+        // Archiving is its own audited command at its own role bar (REC-006), so an ordinary edit may no
+        // longer reach that state — two ways to archive would mean one of them skips the audit entry and the
+        // Editor check, and the one that skips them is the one a client would find first.
+        //
+        // Refused here rather than removed from SettableRecipeStatusViewModel, for the reason that type
+        // records: leaving it out of the enum would turn this clear field error into a generic
+        // unreadable-body 400, and narrowing a published enum is the breaking change api-contract.md names.
+        // CreateRecipeViewModelValidator refuses the same value for the neighbouring reason.
+        RuleFor(model => model.Status)
+            .Must(field => field.Value != SettableRecipeStatusViewModel.Archived)
+                .WithMessage("Archive a recipe with the archive command, not by editing its status.")
+            .When(model => model.Status.IsSubmitted
+                && model.Status.Value is { } status
+                && Enum.IsDefined(status))
+            .OverridePropertyName(nameof(UpdateRecipeViewModel.Status));
+
         // A submitted list replaces the whole set; null and [] both clear it. The same rules as a create,
         // because the resulting set has to satisfy the same things however it got there.
         RuleFor(model => model.Tags)

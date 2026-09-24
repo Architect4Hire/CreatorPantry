@@ -1,0 +1,104 @@
+<!-- Mounted only while a copy is being composed, so it is open for as long as it exists. CpDialog owns
+     role="dialog", aria-modal, the focus move on open and the backdrop; Escape is handled by this
+     component's own host listener, because the library dialog has none. -->
+<cp-dialog
+  [open]="true"
+  [title]="'Duplicate version ' + version().versionNumber + '?'"
+  [titleId]="titleFieldId + '-title'"
+  (closed)="close()"
+>
+  <p class="explain">
+    Copying <strong>{{ sourceTitle() }}</strong>, version {{ version().versionNumber }}, into a new recipe of
+    its own. The two are independent afterwards — editing either one does nothing to the other.
+  </p>
+
+  <cp-field
+    label="Title for the copy"
+    [forId]="titleFieldId"
+    [required]="true"
+    hint="Required, so the copy is never mistaken for its source."
+    [error]="titleError()"
+  >
+    <!-- CpField renders its hint with this id but wires nothing to it, so the control points at the hint. -->
+    <input
+      [id]="titleFieldId"
+      type="text"
+      required
+      [maxlength]="titleMaxLength"
+      [attr.aria-invalid]="titleError() ? 'true' : null"
+      [attr.aria-describedby]="titleFieldId + '-hint'"
+      [disabled]="submitting()"
+      [ngModel]="title()"
+      (ngModelChange)="title.set($event)"
+      name="title"
+    />
+  </cp-field>
+
+  <!-- Stated as text, never as options: the route accepts a title and a version number and nothing else, so
+       a checkbox here would be a contract this client invented. -->
+  <div class="summary">
+    <section>
+      <h3 class="summary-heading">What comes across</h3>
+      <ul>
+        <li>Ingredients, method, equipment and tags</li>
+        <li>Times, yield, notes and attribution</li>
+        <li>Media links — pointing at the same files, which are not copied or re-owned</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 class="summary-heading">What does not</h3>
+      <ul>
+        <li>The version history: the copy starts its own at version 1</li>
+        <li>The source's status: a copy is always a Draft</li>
+        <li>Authorship and timestamps: the copy is yours, made now</li>
+      </ul>
+    </section>
+  </div>
+
+  @switch (state().status) {
+    @case ('version_gone') {
+      <p class="notice notice--error" role="alert">
+        The history moved on — this recipe no longer has a version {{ version().versionNumber }}. Reload it and
+        choose again.
+      </p>
+    }
+    @case ('forbidden') {
+      <p class="notice notice--error" role="alert">
+        Duplicating a recipe needs the Contributor role in this workspace.
+      </p>
+    }
+    @case ('not_found') {
+      <p class="notice notice--error" role="alert">This recipe could not be found.</p>
+    }
+    @case ('key_conflict') {
+      <p class="notice notice--error" role="alert">
+        That copy was already submitted with different details. Close this and start it again.
+      </p>
+    }
+    @case ('invalid') {
+      <p class="notice notice--error" role="alert">
+        {{ versionError() || 'Check the title and try again.' }}
+      </p>
+    }
+    @case ('unavailable') {
+      <p class="notice notice--error" role="alert">
+        Couldn't duplicate that version. Check your connection and try again.
+      </p>
+    }
+  }
+
+  <div cpDialogActions>
+    <button cpButton variant="ghost" type="button" (click)="close()">Cancel</button>
+
+    @if (canReload()) {
+      <button cpButton variant="secondary" type="button" (click)="reload()">Reload history</button>
+    }
+
+    <!-- Disabled, never removed: taking away the button a creator has just pressed drops their focus to the
+         top of the document at the moment the refusal is announced. -->
+    <button cpButton type="button" [disabled]="!canSubmit()" [attr.aria-busy]="submitting()" (click)="submit()">
+      {{ submitting() ? 'Duplicating…' : 'Duplicate' }}
+    </button>
+  </div>
+</cp-dialog>

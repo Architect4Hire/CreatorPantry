@@ -5,7 +5,6 @@ import {
   CpBadgeComponent,
   CpButtonComponent,
   CpCardComponent,
-  CpDialogComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpStatusPillComponent,
@@ -14,11 +13,13 @@ import {
   CpTabsComponent,
 } from '@creator-pantry/ui';
 
+import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
 import {
   CreateRecipeOutcome,
   RecipeService,
   UpdateRecipeOutcome,
 } from '../../services/recipe.service';
+import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import {
   CreateRecipeRequest,
   InstructionGroupInput,
@@ -29,6 +30,9 @@ import {
   UpdateRecipeRequest,
   submitted,
 } from '../../models/recipe.models';
+import { RecipeDuplicated } from './recipe-duplicate.component';
+import { RecipeHistoryComponent } from './recipe-history.component';
+import { RecipeVersionRestored } from './recipe-restore.component';
 
 /**
  * The editor's own working copy of one instruction step — a `key` stable across reorders for
@@ -90,6 +94,40 @@ interface RecipeFormSnapshot {
   readonly instructionsJson: string;
 }
 
+/**
+ * One line about a command that landed beside the form — a restore, a copy the creator chose not to follow,
+ * or a lifecycle move. `recipeLink` is a recipe the line points at, so a copy stays reachable without
+ * repeating the command that made it.
+ */
+interface EditorNotice {
+  readonly text: string;
+  readonly isProblem: boolean;
+  readonly recipeLink: { readonly recipeId: string; readonly title: string } | null;
+}
+
+/**
+ * Asked before bringing a recipe back, only because of the Draft fact: a recipe that was Ready before it was
+ * shelved does not come back Ready, and finding that out afterwards would be a surprise.
+ */
+const UNARCHIVE_QUESTION: ConfirmRequest = {
+  title: 'Bring this recipe back?',
+  message:
+    'It returns to your library as a Draft, whatever it was before it was shelved — mark it Ready again ' +
+    'once you are happy with it.',
+  confirmLabel: 'Bring it back',
+  cancelLabel: 'Leave it archived',
+  tone: 'neutral',
+};
+
+type LifecycleState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'working' }
+  /** The token quoted is one the recipe has moved past: someone is editing it. Nothing was moved. */
+  | { readonly status: 'conflict' }
+  | { readonly status: 'forbidden' }
+  | { readonly status: 'not_found' }
+  | { readonly status: 'unavailable' };
+
 type RecipeEditorLoadState =
   | { readonly status: 'loading' }
   | { readonly status: 'not_found' }
@@ -122,12 +160,12 @@ type RecipeEditorSaveState =
     CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
-    CpDialogComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
     CpStatusPillComponent,
     CpTabPanelComponent,
     CpTabsComponent,
+    RecipeHistoryComponent,
   ],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
@@ -138,9 +176,17 @@ export class RecipeEditorComponent {
   private readonly router = inject(Router);
   private readonly recipeService = inject(RecipeService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly membershipService = inject(WorkspaceMembershipService);
 
   private readonly recipeId: string | null = this.route.snapshot.paramMap.get('recipeId');
   readonly isCreateMode = this.recipeId === null;
+
+  /**
+   * The recipe id for the child panels that require one. Empty only in create mode, where every tab that
+   * would read it is disabled and so never mounted — the tabs lazy-mount their panels.
+   */
+  readonly recipeIdOrEmpty = this.recipeId ?? '';
   readonly workspaceSlug = this.resolveWorkspaceSlug();
 
   readonly tabs: CpTabDefinition[] = [
@@ -162,7 +208,54 @@ export class RecipeEditorComponent {
 
   private readonly fieldErrorsSignal = signal<Readonly<Record<string, readonly string[]>>>({});
 
-  private concurrencyToken: string | null = null;
+  /**
+   * What to say after a command raised from the history panel, until a save or a reload makes it describe
+   * something that is no longer on screen. Held here rather than in the panel because that is not where the
+   * creator lands.
+   *
+   * `isProblem` separates "here is what happened" from "here is what is still wrong", which are the same
+   * region and not the same message.
+   */
+  private readonly noticeSignal = signal<EditorNotice | null>(null);
+  readonly notice = this.noticeSignal.asReadonly();
+
+  private readonly lifecycleStateSignal = signal<LifecycleState>({ status: 'idle' });
+  readonly lifecycleState = this.lifecycleStateSignal.asReadonly();
+
+  /**
+   * Whether the recipe is shelved.
+   *
+   * Held apart from the form's `status`, which is one of the two values the select offers: an archived recipe
+   * matches neither, and a select bound to a value it has no option for renders blank. This is the persisted
+   * fact; `status` is what a save would send.
+   */
+  private readonly archivedSignal = signal(false);
+  readonly isArchived = this.archivedSignal.asReadonly();
+
+  readonly lifecycleWorking = computed(() => this.lifecycleState().status === 'working');
+
+  /**
+   * Whether this member could archive at all.
+   *
+   * Archiving takes a recipe out of every collaborator's library, so it carries the Editor bar. The server
+   * remains the authority — a 403 is still handled — but offering a control nobody present can use is its own
+   * defect.
+   */
+  readonly canArchive = computed(() => {
+    const state = this.membershipService.state();
+    if (state.status !== 'ready') return false;
+
+    const role = state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug)?.role;
+    return role === 'Editor' || role === 'Owner';
+  });
+
+  /**
+   * The recipe's concurrency token as the last server response gave it, exposed because the history panel's
+   * restore must quote the same one this form would: two reads of one recipe answering with different tokens
+   * is how one of them silently overwrites the other.
+   */
+  private readonly concurrencyTokenSignal = signal<string | null>(null);
+  readonly concurrencyToken = this.concurrencyTokenSignal.asReadonly();
 
   // The idempotency key is stable across a retry of the exact same request body (a transient
   // failure — network drop, unavailable) and only regenerated when the payload actually changes
@@ -194,11 +287,20 @@ export class RecipeEditorComponent {
   readonly ingredientGroups = signal<readonly RecipeIngredientGroup[]>([]);
   readonly instructionGroups = signal<EditableInstructionGroup[]>([]);
 
-  readonly statusOptions = computed<readonly SettableRecipeStatus[]>(() =>
-    this.isCreateMode ? ['Draft', 'Ready'] : ['Draft', 'Ready', 'Archived'],
-  );
+  /**
+   * Draft and Ready, in both modes. Archiving is its own command (`POST .../archive`) at a higher role bar,
+   * and the API refuses `status: "Archived"` on an edit — offering it here would be a control that always
+   * fails. The archive action belongs beside the recipe, not inside its status field.
+   */
+  readonly statusOptions = computed<readonly SettableRecipeStatus[]>(() => ['Draft', 'Ready']);
 
-  readonly canSave = computed(() => this.title().trim().length > 0 && this.saveStateSignal().status !== 'saving');
+  /**
+   * An archived recipe cannot be saved: `PATCH` answers `409 recipes.archived.conflict` until it is brought
+   * back, so the control is disabled with the reason on it rather than left to fail.
+   */
+  readonly canSave = computed(
+    () => this.title().trim().length > 0 && this.saveStateSignal().status !== 'saving' && !this.isArchived(),
+  );
 
   private readonly baselineSignal = signal<RecipeFormSnapshot | null>(null);
   readonly isDirty = computed(() => {
@@ -207,14 +309,21 @@ export class RecipeEditorComponent {
     return baseline !== null && !this.snapshotsEqual(this.captureSnapshot(), baseline);
   });
 
-  private pendingLeaveResolve: ((leave: boolean) => void) | null = null;
-  readonly leaveConfirmOpen = signal(false);
+  /**
+   * The confirmation in flight, if any. A second navigation attempt while one is still open must not open a
+   * second modal or leave the first promise unresolved — both attempts are answered by the one dialog.
+   */
+  private pendingLeaveConfirm: Promise<boolean> | null = null;
 
   constructor() {
     if (this.isCreateMode) {
       this.baselineSignal.set(this.captureSnapshot());
     } else {
       void this.loadDetail();
+
+      // Decides whether the archive action is offered at all. Shared with the workspace switcher and usually
+      // already loaded; a failure leaves it hidden rather than offering a control of unknown permission.
+      void this.membershipService.ensureLoaded();
     }
 
     const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
@@ -226,25 +335,31 @@ export class RecipeEditorComponent {
     this.destroyRef.onDestroy(() => window.removeEventListener('beforeunload', beforeUnloadHandler));
   }
 
-  /** Used by the route's `CanDeactivateFn` and by `reloadAfterConflict` — resolves immediately when
-   *  clean, otherwise opens the confirm dialog and resolves once the user answers it via
-   *  `resolveLeaveConfirm`. */
+  /**
+   * Used by the route's `CanDeactivateFn` and by `reloadAfterConflict`: resolves immediately when there is
+   * nothing to lose, and otherwise asks the creator through {@link ConfirmService}.
+   *
+   * A browser close or refresh is not covered here and cannot be — see the `beforeunload` listener above.
+   */
   confirmDiscardIfDirty(): Promise<boolean> {
     if (!this.isDirty()) return Promise.resolve(true);
-    // A second navigation attempt while one confirm is already pending would otherwise orphan the
-    // first promise — resolve it as "stay" before installing the new one.
-    this.pendingLeaveResolve?.(false);
-    this.leaveConfirmOpen.set(true);
-    return new Promise<boolean>((resolve) => {
-      this.pendingLeaveResolve = resolve;
-    });
-  }
 
-  resolveLeaveConfirm(leave: boolean): void {
-    this.leaveConfirmOpen.set(false);
-    const resolve = this.pendingLeaveResolve;
-    this.pendingLeaveResolve = null;
-    resolve?.(leave);
+    // Concurrent attempts share the open dialog rather than stacking a second one on top of it. The previous
+    // implementation resolved the earlier attempt as "stay" and opened a fresh dialog; one dialog answering
+    // both is the same outcome for the creator and cannot leave an orphaned promise behind.
+    this.pendingLeaveConfirm ??= this.confirmService
+      .confirm({
+        title: 'Discard unsaved changes?',
+        message: "Your edits to this recipe haven't been saved yet. If you leave now, they'll be lost.",
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+        tone: 'danger',
+      })
+      .finally(() => {
+        this.pendingLeaveConfirm = null;
+      });
+
+    return this.pendingLeaveConfirm;
   }
 
   /** `fieldErrors()[field][0] ?? ''` — the first message for one field from the last `validation_failed` outcome, or `''` once cleared. */
@@ -261,10 +376,11 @@ export class RecipeEditorComponent {
    * through the same discard confirmation `confirmDiscardIfDirty()` gives the router's
    * `CanDeactivateFn`, rather than replacing the form the instant the button is clicked.
    */
-  async reloadAfterConflict(): Promise<void> {
-    if (!(await this.confirmDiscardIfDirty())) return;
+  async reloadAfterConflict(): Promise<boolean> {
+    if (!(await this.confirmDiscardIfDirty())) return false;
     this.saveStateSignal.set({ status: 'idle' });
     await this.loadDetail();
+    return true;
   }
 
   addTag(): void {
@@ -331,10 +447,146 @@ export class RecipeEditorComponent {
     );
   }
 
+  /**
+   * A version was restored, and the response carried the whole recipe — so the form is re-seeded from it
+   * rather than re-read, the refreshed token replaces the one the restore consumed, and the creator is put
+   * back on the content they were promised instead of on the history tab they asked from.
+   *
+   * The restore wrote a *new* version; nothing about the version it copied from changed, and the message
+   * says so by naming both numbers.
+   */
+  onVersionRestored(event: RecipeVersionRestored): void {
+    this.applyDetail(event.recipe);
+    this.saveStateSignal.set({ status: 'idle' });
+    this.fieldErrorsSignal.set({});
+
+    // The in-flight save key described a body that no longer exists; replaying it would answer with a
+    // response to an edit the creator has just replaced.
+    this.clearPendingIdempotencyKey();
+
+    this.noticeSignal.set({
+      text:
+        event.newVersionNumber === null
+          ? `Version ${event.fromVersionNumber} matched this recipe exactly, so nothing changed and no new version was written.`
+          : `Version ${event.fromVersionNumber} restored as version ${event.newVersionNumber}. Its content is in the form below.`,
+      isProblem: false,
+      recipeLink: null,
+    });
+
+    this.selectedTabId.set('metadata');
+  }
+
+  /**
+   * Shelves the recipe, or takes it back off the shelf, after asking.
+   *
+   * A confirmation rather than a modal with fields, so it goes through `ConfirmService` — and at the neutral
+   * tone, because archiving destroys nothing: every version, tag and photo stays, and the move is reversible
+   * from the banner it puts on this page. The copy says so, and never says "delete".
+   *
+   * The token is quoted so that archiving a recipe a collaborator is editing is refused rather than shelving
+   * work this creator has not seen.
+   */
+  async setArchived(archived: boolean): Promise<void> {
+    if (this.lifecycleWorking() || !this.recipeId) return;
+
+    const token = this.concurrencyTokenSignal();
+    if (!token) {
+      this.lifecycleStateSignal.set({ status: 'unavailable' });
+      return;
+    }
+
+    if (!(await this.confirmService.confirm(archived ? this.archiveQuestion() : UNARCHIVE_QUESTION))) return;
+
+    this.lifecycleStateSignal.set({ status: 'working' });
+
+    const outcome = await this.recipeService.setArchived(this.workspaceSlug, this.recipeId, archived, {
+      expectedConcurrencyToken: token,
+    });
+
+    if (outcome.status === 'updated') {
+      this.applyDetail(outcome.recipe);
+      this.lifecycleStateSignal.set({ status: 'idle' });
+      this.saveStateSignal.set({ status: 'idle' });
+
+      this.noticeSignal.set({
+        text: archived
+          ? 'Archived. Nothing was deleted — filter for Archived in your library to find it again, or bring it back below.'
+          : 'Back in your library, as a Draft. Mark it Ready again once you are happy with it.',
+        isProblem: false,
+        recipeLink: null,
+      });
+      return;
+    }
+
+    // A malformed token is a client bug rather than anything the creator can act on, so it reads as the
+    // generic failure its remedy matches: try again.
+    this.lifecycleStateSignal.set(
+      outcome.status === 'validation_failed' ? { status: 'unavailable' } : { status: outcome.status },
+    );
+  }
+
+  /** The archive question, which gains a sentence when the form is holding edits the shelf would strand. */
+  private archiveQuestion(): ConfirmRequest {
+    const unsaved = this.isDirty()
+      ? " You have unsaved edits here. You won't be able to save them until you bring it back."
+      : '';
+
+    return {
+      title: 'Archive this recipe?',
+      message:
+        'Archiving shelves it — nothing is deleted. Every version, tag, photo and ingredient line stays ' +
+        'exactly where it is, and you can bring it back at any time. While it is archived it drops out of ' +
+        'your library unless you filter for Archived, and it cannot be edited.' +
+        unsaved,
+      confirmLabel: 'Archive recipe',
+      cancelLabel: 'Keep it active',
+      tone: 'neutral',
+    };
+  }
+
+  /**
+   * A copy was made from one of this recipe's versions, so the creator goes to it.
+   *
+   * A real router navigation, not a location change, so the editor's own `canDeactivate` guard asks about
+   * unsaved edits exactly as it would for any other departure. If the creator decides to stay, the copy still
+   * exists — it was created before this ran — so the notice names it and links to it rather than offering a
+   * button that would create a second one.
+   */
+  async onRecipeDuplicated(event: RecipeDuplicated): Promise<void> {
+    const copy = event.recipe;
+    const followed = await this.router.navigate(['/', this.workspaceSlug, 'recipes', copy.recipeId]);
+    if (followed) return;
+
+    this.noticeSignal.set({
+      text: `Version ${event.fromVersionNumber} was copied into "${copy.title}", a new Draft. Your edits here are untouched.`,
+      isProblem: false,
+      recipeLink: { recipeId: copy.recipeId, title: copy.title },
+    });
+  }
+
+  /**
+   * The history panel asking for a re-read after a restore was refused against state this editor has moved
+   * past.
+   *
+   * A declined reload is reported rather than assumed away: the creator keeps their edits, but the token in
+   * hand stays the one the server already rejected, so every later restore would be refused the same way
+   * with the same remedy offered. Saying so is what stops that loop.
+   */
+  async onHistoryReloadRequested(): Promise<void> {
+    if (await this.reloadAfterConflict()) return;
+
+    this.noticeSignal.set({
+      text: 'This recipe is out of date, so restoring will keep being refused. Save or discard your edits, then reload it.',
+      isProblem: true,
+      recipeLink: null,
+    });
+  }
+
   async save(): Promise<void> {
     if (!this.canSave()) return;
     this.saveStateSignal.set({ status: 'saving' });
     this.fieldErrorsSignal.set({});
+    this.noticeSignal.set(null);
 
     if (this.isCreateMode) {
       const request = this.buildCreateRequest();
@@ -354,11 +606,12 @@ export class RecipeEditorComponent {
       return;
     }
 
-    if (!this.concurrencyToken) {
+    const token = this.concurrencyTokenSignal();
+    if (!token) {
       this.saveStateSignal.set({ status: 'unavailable' });
       return;
     }
-    const request = this.buildUpdateRequest(this.concurrencyToken);
+    const request = this.buildUpdateRequest(token);
     const outcome = await this.recipeService.updateRecipe(this.workspaceSlug, this.recipeId!, request, this.idempotencyKeyFor(request));
     if (outcome.status === 'updated') {
       this.clearPendingIdempotencyKey();
@@ -390,6 +643,7 @@ export class RecipeEditorComponent {
   private async loadDetail(): Promise<void> {
     if (!this.recipeId) return;
     this.loadStateSignal.set({ status: 'loading' });
+    this.noticeSignal.set(null);
     const outcome = await this.recipeService.getRecipeDetail(this.workspaceSlug, this.recipeId);
     if (outcome.status === 'found') {
       this.applyDetail(outcome.recipe);
@@ -415,7 +669,12 @@ export class RecipeEditorComponent {
     this.totalTimeMinutes.set(detail.totalTimeMinutes);
     this.yieldText.set(detail.yieldText ?? '');
     this.yieldQuantity.set(detail.yieldQuantity);
-    this.status.set(detail.status);
+
+    // An archived recipe's status is held beside the form rather than in it: the select offers Draft and
+    // Ready, an archive matches neither, and the API refuses `status: "Archived"` on an edit — so the form
+    // carries the state the recipe will come back as, and never a value a save could not send.
+    this.archivedSignal.set(detail.status === 'Archived');
+    this.status.set(detail.status === 'Archived' ? 'Draft' : detail.status);
     this.tags.set(detail.tags.map((tag) => tag.name));
     this.ingredientGroups.set(detail.ingredientGroups);
     this.instructionGroups.set(
@@ -432,7 +691,7 @@ export class RecipeEditorComponent {
         })),
       })),
     );
-    this.concurrencyToken = detail.concurrencyToken;
+    this.concurrencyTokenSignal.set(detail.concurrencyToken);
     this.baselineSignal.set(this.captureSnapshot());
   }
 

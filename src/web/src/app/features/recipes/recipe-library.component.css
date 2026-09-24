@@ -3,6 +3,80 @@
   padding: var(--cp-space-8);
 }
 
+.search-field input,
+.sort-field select {
+  min-height: 40px;
+  padding: 0 var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  font: inherit;
+}
+
+.search-field input {
+  min-width: 14rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* A toggle, so its state is carried by aria-pressed and by more than colour: a selected chip also changes its
+   border weight and background, which survives both themes and a monochrome display. */
+.chip {
+  min-height: 40px;
+  padding: 0 var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chip--on {
+  border-color: var(--cp-primary);
+  background: var(--cp-primary-soft);
+  color: var(--cp-primary-ink);
+  font-weight: 600;
+}
+
+.chip:focus-visible,
+.search-field input:focus-visible,
+.sort-field select:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.result-summary {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.page-number {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
 .recipe-row {
   margin-bottom: var(--cp-space-3);
 }

@@ -29,6 +29,21 @@ internal sealed class RecipeVersionConfiguration : IEntityTypeConfiguration<Reci
             table.HasCheckConstraint(
                 "CK_RecipeVersions_Parent_NotSelf",
                 "ParentVersionId IS NULL OR ParentVersionId <> Id");
+
+            // The same binding the proposal constraint enforces, for the same reason: a restored-from id
+            // belongs to a version that came from a restore, and nothing else. Without it the two columns can
+            // disagree, and then a history can claim a restore that restored nothing, or an ordinary edit
+            // that came from somewhere.
+            table.HasCheckConstraint(
+                "CK_RecipeVersions_RestoredFrom_Source",
+                $"(RestoredFromVersionId IS NULL AND Source <> {(int)RecipeVersionSource.Restore}) OR "
+                    + $"(RestoredFromVersionId IS NOT NULL AND Source = {(int)RecipeVersionSource.Restore})");
+
+            // A version cannot be restored from itself, exactly as it cannot be its own parent — and here the
+            // row being restored is always older still, because it was read before this one existed.
+            table.HasCheckConstraint(
+                "CK_RecipeVersions_RestoredFrom_NotSelf",
+                "RestoredFromVersionId IS NULL OR RestoredFromVersionId <> Id");
         });
 
         builder.HasKey(version => version.Id);
@@ -73,9 +88,27 @@ internal sealed class RecipeVersionConfiguration : IEntityTypeConfiguration<Reci
             .HasPrincipalKey(version => new { version.WorkspaceId, version.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
+        // The second lineage edge, configured exactly like the first: within one workspace, against the same
+        // alternate key, and Restrict. Two relationships to the same entity type rather than one with two
+        // meanings — see RecipeVersion.RestoredFromVersionId for why they cannot be the same column.
+        //
+        // The workspace component is what makes this safe rather than merely tidy: an id alone could name a
+        // version of another workspace's recipe, and the composite key makes that unreferenceable at the
+        // database rather than only refused by the code above.
+        builder.HasOne<RecipeVersion>()
+            .WithMany()
+            .HasForeignKey(version => new { version.WorkspaceId, version.RestoredFromVersionId })
+            .HasPrincipalKey(version => new { version.WorkspaceId, version.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
         // The version number creators cite. Unique per recipe, and never reused.
+        //
+        // Readiness is included rather than a key column so that a recipe search can read the latest version's
+        // readiness — for its filter and for the row it returns — as a top-one seek of this index with no lookup
+        // into the table. An included column does not participate in the uniqueness this index enforces.
         builder.HasIndex(version => new { version.WorkspaceId, version.RecipeId, version.VersionNumber })
             .IsUnique()
+            .IncludeProperties(version => version.Readiness)
             .HasDatabaseName("UX_RecipeVersions_Workspace_Recipe_VersionNumber");
 
         // A recipe's history, newest first.

@@ -40,6 +40,9 @@ public sealed class RecipeDetailCompletenessTests : IDisposable
         ["CreatedByMembershipId"] = "authorship as an internal membership id; showing an author needs a display name, not this",
         ["UpdatedByMembershipId"] = "authorship, as above",
         ["RowVersion"] = "published only as the opaque ConcurrencyToken, never as raw bytes",
+        ["DuplicatedFromVersionId"] =
+            "published only inside DuplicatedFrom, resolved to the source recipe and version — a bare "
+                + "version id names nothing a client can navigate to",
         ["YieldUnitDimension"] = "denormalized to carry a composite foreign key; a fact about the unit, readable from the unit",
         ["MeasurementUnitDimension"] = "denormalized for the composite foreign key, as above",
         ["TemperatureUnitDimension"] = "denormalized for the composite foreign key, as above",
@@ -59,6 +62,7 @@ public sealed class RecipeDetailCompletenessTests : IDisposable
         ["RecipeId"] = "parentage; the client already knows which recipe it asked for",
         ["CreatedByMembershipId"] = "authorship as an internal membership id",
         ["ParentVersionId"] = "lineage, which belongs to the history and diff seams",
+        ["RestoredFromVersionId"] = "lineage too, and published beside ParentVersionId in the history entry",
         ["BasedOnRecipeRowVersion"] = "lineage, as above, and a concurrency token of a superseded state",
         ["AiProposalId"] = "provenance of a proposal, published by the AI seam that owns proposals",
         ["SnapshotSchemaVersion"] = "how the archive is encoded; an internal detail of the archive",
@@ -179,7 +183,13 @@ public sealed class RecipeDetailCompletenessTests : IDisposable
             CreatedAt = RecipeAggregateFixture.Now,
         };
 
-        var detail = RecipeDetailMapper.ToDetail(new TaggedRecipe(new CompleteRecipe(recipe, version), [tag]));
+        // Resolved by the DataLayer on the real path, so it has to be supplied here — and supplying it is what
+        // proves the mapper publishes every part of it rather than only the id it was resolved from.
+        var duplicatedFrom = new RecipeDuplicateSourceRecord(
+            RecipeAggregateFixture.DuplicatedFromVersionId, 2, Guid.NewGuid(), "The recipe this was copied from");
+
+        var detail = RecipeDetailMapper.ToDetail(
+            new TaggedRecipe(new CompleteRecipe(recipe, version), [tag], duplicatedFrom));
 
         var unwritten = new List<string>();
         AssertNoDefaults(detail, detail.GetType().Name, unwritten);

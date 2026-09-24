@@ -198,13 +198,55 @@ public sealed class RecipeVersionTests : IDisposable
         var second = AddVersion(db, recipe, versionNumber: 2);
         second.ParentVersionId = first.Id;
         second.Source = RecipeVersionSource.Restore;
+
+        // A restore's two ancestors are different facts and, in general, different rows: the parent is what
+        // it replaced and this is where its content came from. They coincide here only because there is
+        // nothing else in this chain yet to restore.
+        second.RestoredFromVersionId = first.Id;
         await db.SaveChangesAsync(token);
 
         var stored = await db.RecipeVersions.SingleAsync(version => version.VersionNumber == 2, token);
 
         // A restore appends; it does not rewrite. Version 1 is still there and still says what it said.
         Assert.Equal(first.Id, stored.ParentVersionId);
+        Assert.Equal(first.Id, stored.RestoredFromVersionId);
         Assert.Equal(2, await db.RecipeVersions.CountAsync(token));
+    }
+
+    /// <summary>
+    /// The pairing the database enforces, mirroring the proposal columns: a restored-from id belongs to a
+    /// version that came from a restore, and to nothing else. Without it a history could claim a restore that
+    /// restored nothing, or an ordinary edit that came from somewhere.
+    /// </summary>
+    [Fact]
+    public async Task A_restored_from_id_and_a_restore_source_cannot_be_separated()
+    {
+        await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
+        var db = RecipeAggregateFixture.Db(scope);
+        var token = TestContext.Current.CancellationToken;
+
+        var recipe = RecipeAggregateFixture.NewRecipe("Olive oil cake");
+        db.Recipes.Add(recipe);
+        await db.SaveChangesAsync(token);
+
+        var first = AddVersion(db, recipe, versionNumber: 1);
+        await db.SaveChangesAsync(token);
+
+        // A restore with no source version.
+        var orphan = AddVersion(db, recipe, versionNumber: 2);
+        orphan.ParentVersionId = first.Id;
+        orphan.Source = RecipeVersionSource.Restore;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(token));
+        db.ChangeTracker.Clear();
+
+        // And an ordinary edit claiming one.
+        var borrowed = AddVersion(db, recipe, versionNumber: 3);
+        borrowed.ParentVersionId = first.Id;
+        borrowed.Source = RecipeVersionSource.CreatorEdit;
+        borrowed.RestoredFromVersionId = first.Id;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(token));
     }
 
     [Fact]

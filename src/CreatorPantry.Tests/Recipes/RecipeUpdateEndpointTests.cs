@@ -18,7 +18,7 @@ namespace CreatorPantry.Tests.Recipes;
 /// </summary>
 /// <remarks>
 /// <para>
-/// These run against SQLite, where <c>SqliteRowVersionModelCustomizer</c> fills <c>Recipe.RowVersion</c> on
+/// These run against SQLite, where <c>SqliteModelCustomizer</c> fills <c>Recipe.RowVersion</c> on
 /// insert and never bumps it on update. So the conflict tested here is the one reached by quoting a token
 /// that was never this recipe's — the explicit comparison in Business. The other conflict, where the token
 /// was right when the creator opened the recipe and wrong by the time they saved, needs a server that moves
@@ -155,19 +155,45 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         Assert.Empty(body.GetProperty("tags").EnumerateArray());
     }
 
+    /// <summary>
+    /// An edit cannot archive a recipe — that is its own audited command at its own role bar (REC-006), and
+    /// a second way in would be the one that skipped both.
+    /// </summary>
     [Fact]
-    public async Task A_recipe_can_be_archived()
+    public async Task An_edit_cannot_archive_a_recipe()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: TestContext.Current.CancellationToken);
+        var (recipeId, token, _) = await SeedAsync(client, _fixture.WorkspaceA);
+
+        var response = await client.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceA, recipeId),
+            new { expectedConcurrencyToken = token, status = "Archived" },
+            TestContext.Current.CancellationToken);
+        var problem = await BodyOf(response);
+
+        // A field error naming `status`, not an unreadable-body 400: Archived is still a value the enum
+        // carries, refused by the validator with a sentence that says where to go instead.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True(problem.GetProperty("errors").TryGetProperty("status", out _));
+
+        // And the recipe is untouched — no version, no new token.
+        var reread = await BodyOf(await client.GetAsync(RecipeIn(_fixture.WorkspaceA, recipeId), TestContext.Current.CancellationToken));
+        Assert.Equal("Draft", reread.GetProperty("status").GetString());
+        Assert.Equal(1, reread.GetProperty("currentVersion").GetProperty("versionNumber").GetInt32());
+    }
+
+    [Fact]
+    public async Task An_edit_can_still_change_the_other_states()
     {
         using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: TestContext.Current.CancellationToken);
         var (recipeId, token, _) = await SeedAsync(client, _fixture.WorkspaceA);
 
         var body = await BodyOf(await client.PatchAsJsonAsync(
             RecipeIn(_fixture.WorkspaceA, recipeId),
-            new { expectedConcurrencyToken = token, status = "Archived" },
+            new { expectedConcurrencyToken = token, status = "Ready" },
             TestContext.Current.CancellationToken));
 
-        // Refused on a create, accepted here: archiving is a state a recipe is moved to.
-        Assert.Equal("Archived", body.GetProperty("status").GetString());
+        Assert.Equal("Ready", body.GetProperty("status").GetString());
     }
 
     [Fact]

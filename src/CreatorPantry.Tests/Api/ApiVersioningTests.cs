@@ -92,7 +92,10 @@ public sealed class ApiVersioningTests : IDisposable
 
         var group = Assert.Single(provider.ApiDescriptionGroups.Items, g => g.GroupName == "v1");
         Assert.Contains(group.Items, description => description.RelativePath == "api/v1/auth/register");
-        Assert.DoesNotContain(group.Items, description => description.RelativePath!.Contains("{version"));
+        // The exact token, closing brace and all. A prefix match would also catch a route parameter merely
+        // named for a version — `{versionNumber}` on the restore route is the first — and report a correctly
+        // substituted route as an unsubstituted one.
+        Assert.DoesNotContain(group.Items, description => description.RelativePath!.Contains("{version}"));
     }
 
     [Fact]

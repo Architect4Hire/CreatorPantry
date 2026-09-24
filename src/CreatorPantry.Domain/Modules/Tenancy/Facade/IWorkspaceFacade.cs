@@ -22,4 +22,21 @@ public interface IWorkspaceFacade
 
     /// <summary>Renames the workspace already resolved for this scope.</summary>
     Task<OperationResult<WorkspaceServiceModel>> RenameCurrentAsync(UpdateWorkspaceViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Names the people behind the given memberships of the resolved workspace.
+    /// </summary>
+    /// <returns>
+    /// A display name per membership that exists in this workspace. One that does not is absent rather than
+    /// an error — a recorded action outlives the membership that performed it, and the caller decides what an
+    /// unnamed actor reads as.
+    /// </returns>
+    /// <remarks>
+    /// The cross-module entry point another module uses to put a human name on something it recorded. Recipes
+    /// stores the membership that wrote each version and cannot resolve it itself: memberships and user
+    /// display names belong to this module and to Auth, and facade to facade is the only way across.
+    /// </remarks>
+    Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken);
 }

@@ -1,5 +1,7 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
@@ -59,9 +61,29 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
 
     public static Guid CuisineId { get; } = Guid.NewGuid();
 
+    /// <summary>A second cuisine, so a cuisine filter can be shown to exclude as well as include.</summary>
+    public static Guid OtherCuisineId { get; } = Guid.NewGuid();
+
+    public static Guid CourseId { get; } = Guid.NewGuid();
+
     public static Guid TagIdA { get; } = Guid.NewGuid();
 
     public static Guid TagIdB { get; } = Guid.NewGuid();
+
+    /// <summary>
+    /// A second tag in workspace A, so a tag filter can be shown to narrow within one workspace rather than
+    /// only to separate the two workspaces from each other.
+    /// </summary>
+    public static Guid SecondTagIdA { get; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Two stable authors. <see cref="NewRecipe"/> assigns random membership ids, which is right for the tests
+    /// that only need them to exist; a filter on the author needs to be able to name one.
+    /// </summary>
+    public static Guid AuthorOne { get; } = Guid.NewGuid();
+
+    /// <inheritdoc cref="AuthorOne"/>
+    public static Guid AuthorTwo { get; } = Guid.NewGuid();
 
     public async ValueTask InitializeAsync()
     {
@@ -109,6 +131,12 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
         new ServiceCollection()
             .AddTenancy()
             .AddRecipesModule()
+
+            // The recipe DataLayer records audit entries for lifecycle commands, and the writer needs a clock.
+            // Both are shared-kernel services the module depends on rather than registers, exactly as it
+            // depends on CreatorPantryDbContext — Program.cs wires them the same way.
+            .AddApplicationTime()
+            .AddAudit()
             .AddDbContext<CreatorPantryDbContext>(options =>
             {
                 options.UseSqlServer(_container.GetConnectionString());
@@ -248,11 +276,17 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
             SearchText = "all purpose flour",
         });
 
-        db.Cuisines.Add(new Cuisine { Id = CuisineId, Code = "italian", DisplayName = "Italian" });
+        db.Cuisines.AddRange(
+            new Cuisine { Id = CuisineId, Code = "italian", DisplayName = "Italian" },
+            new Cuisine { Id = OtherCuisineId, Code = "thai", DisplayName = "Thai" });
+
+        db.Courses.Add(new Course { Id = CourseId, Code = "dessert", DisplayName = "Dessert" });
 
         db.WorkspaceTags.AddRange(
+            // The same tag name in both workspaces, so isolation cannot pass by the two being distinguishable.
             new WorkspaceTag { Id = TagIdA, WorkspaceId = WorkspaceA, Name = "Weeknight", NormalizedName = "weeknight", CreatedAt = Now },
-            new WorkspaceTag { Id = TagIdB, WorkspaceId = WorkspaceB, Name = "Weeknight", NormalizedName = "weeknight", CreatedAt = Now });
+            new WorkspaceTag { Id = TagIdB, WorkspaceId = WorkspaceB, Name = "Weeknight", NormalizedName = "weeknight", CreatedAt = Now },
+            new WorkspaceTag { Id = SecondTagIdA, WorkspaceId = WorkspaceA, Name = "Freezer", NormalizedName = "freezer", CreatedAt = Now });
 
         await db.SaveChangesAsync();
     }

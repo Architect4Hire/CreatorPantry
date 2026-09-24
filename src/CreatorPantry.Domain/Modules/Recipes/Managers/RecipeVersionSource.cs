@@ -28,4 +28,17 @@ public enum RecipeVersionSource
     /// whose content came from an old one, with <c>ParentVersionId</c> naming what it was restored over.
     /// </summary>
     Restore = 3,
+
+    /// <summary>
+    /// This is version 1 of a recipe created by duplicating another. The version it was copied from is named
+    /// by <c>Recipe.DuplicatedFromVersionId</c> on the new recipe, not here: the lineage belongs to the
+    /// recipe, which is the thing that is a copy, rather than to one of its versions.
+    /// </summary>
+    /// <remarks>
+    /// Its own member rather than <see cref="CreatorEdit"/>, for the reason this enum exists at all. A
+    /// duplicate's first version was not typed by anyone, and a history that called it a creator edit would
+    /// be indistinguishable from a hand-written recipe unless a reader also thought to look at the recipe
+    /// row. Provenance that only survives in a second table is not provenance.
+    /// </remarks>
+    Duplicate = 4,
 }

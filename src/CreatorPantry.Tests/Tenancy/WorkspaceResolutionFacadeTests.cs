@@ -71,6 +71,11 @@ public class WorkspaceResolutionFacadeTests
         public Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(string userId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Not exercised by WorkspaceResolutionFacadeTests.");
 
+        public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+            IReadOnlyCollection<Guid> membershipIds,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Not exercised by WorkspaceResolutionFacadeTests.");
+
         public Task<OperationResult<WorkspaceServiceModel>> CreateAsync(
             string userId, CreateWorkspaceViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Not exercised by WorkspaceResolutionFacadeTests.");

@@ -60,6 +60,38 @@ public sealed record RecipeSnapshotDocument
     /// </summary>
     public int SchemaVersion { get; init; }
 
+    /// <summary>
+    /// Throws unless this build can read the shape this document was written in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Older documents must stay readable. Refusing anything but the current version would mean that the
+    /// day <see cref="CurrentSchemaVersion"/> is incremented, every snapshot already written in every
+    /// workspace goes dark — no restore, no diff, no history — which is the exact outcome choosing a
+    /// self-describing document over shadow tables was meant to prevent. Only the unreadable ends are
+    /// refused: a document with no version at all (<c>0</c>, so truncated rows and foreign JSON cannot pass
+    /// as current), and one from a future build whose meaning this code genuinely does not know.
+    /// </para>
+    /// <para>
+    /// It lives on the document rather than in either of its readers so that
+    /// <see cref="RecipeSnapshotMapper"/> and <see cref="RecipeComparer"/> cannot come to disagree about
+    /// what is readable — a drift that would let a document be diffed under a shape it could not be
+    /// restored under.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="NotSupportedException">
+    /// The document carries no schema version, or one this build cannot read.
+    /// </exception>
+    public void EnsureReadable()
+    {
+        if (SchemaVersion < MinimumReadableSchemaVersion || SchemaVersion > CurrentSchemaVersion)
+        {
+            throw new NotSupportedException(
+                $"Recipe snapshot schema version {SchemaVersion} cannot be read by this build, which "
+                    + $"reads versions {MinimumReadableSchemaVersion} through {CurrentSchemaVersion}.");
+        }
+    }
+
     public required RecipeSnapshotHeader Recipe { get; init; }
 
     public IReadOnlyList<RecipeSnapshotIngredientGroup> IngredientGroups { get; init; } = [];

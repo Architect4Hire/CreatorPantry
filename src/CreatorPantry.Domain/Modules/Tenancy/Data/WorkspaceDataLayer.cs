@@ -22,4 +22,9 @@ internal sealed class WorkspaceDataLayer(IWorkspaceRepository repository) : IWor
 
     public Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken) =>
         repository.FindMembershipsForUserAsync(userId, cancellationToken);
+
+    public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        repository.FindMemberDisplayNamesAsync(membershipIds, cancellationToken);
 }

@@ -169,4 +169,16 @@ describe('AppShellComponent', () => {
     expect(toggle.getAttribute('aria-label')).toBe('Switch to light mode');
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('swaps the sidebar brand mark to the dark logo when the resolved theme is dark', async () => {
+    const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
+    const brandMark = fixture.nativeElement.querySelector('.brand-mark') as HTMLImageElement;
+
+    expect(brandMark.getAttribute('src')).toBe('/images/logo.png');
+
+    resolvedTheme.set('dark');
+    fixture.detectChanges();
+
+    expect(brandMark.getAttribute('src')).toBe('/images/logodark.png');
+  });
 });

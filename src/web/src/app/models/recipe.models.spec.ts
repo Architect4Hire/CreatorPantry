@@ -7,6 +7,7 @@ import {
   decodeCreatedRecipe,
   decodeRecipeDetail,
   encodeCreateRecipeRequest,
+  encodeDuplicateRecipeRequest,
   encodeUpdateRecipeRequest,
   submitted,
 } from './recipe.models';
@@ -66,6 +67,7 @@ const VALID_RECIPE_DETAIL: RecipeDetail = {
   yieldQuantity: 4,
   yieldUnitId: null,
   status: 'Draft',
+  duplicatedFrom: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-02T00:00:00Z',
   concurrencyToken: 'AAAAAAAAB9E=',
@@ -110,6 +112,29 @@ describe('decodeRecipeDetail', () => {
   it('decodes a recipe with no current version', () => {
     const result = decodeRecipeDetail({ ...VALID_RECIPE_DETAIL, currentVersion: null });
     expect(result?.currentVersion).toBeNull();
+  });
+
+  it('decodes a recipe that was duplicated, carrying the source recipe it can link to', () => {
+    const duplicatedFrom = {
+      recipeId: '11111111-1111-1111-1111-111111111111',
+      recipeTitle: 'The original',
+      versionId: '22222222-2222-2222-2222-222222222222',
+      versionNumber: 2,
+    };
+
+    const result = decodeRecipeDetail({ ...VALID_RECIPE_DETAIL, duplicatedFrom });
+
+    expect(result?.duplicatedFrom).toEqual(duplicatedFrom);
+  });
+
+  it('rejects a duplicate source missing the recipe it points at', () => {
+    // A bare version id is what the shape exists to rule out: it names nothing a client can navigate to.
+    expect(
+      decodeRecipeDetail({
+        ...VALID_RECIPE_DETAIL,
+        duplicatedFrom: { versionId: '22222222-2222-2222-2222-222222222222', versionNumber: 2 },
+      }),
+    ).toBeNull();
   });
 
   it('rejects a missing required top-level field', () => {
@@ -230,5 +255,28 @@ describe('encodeUpdateRecipeRequest', () => {
   it('submitting an empty instructions list clears every group (distinct from omitting the field)', () => {
     const body = encodeUpdateRecipeRequest({ expectedConcurrencyToken: 'tok1', instructions: submitted([]) });
     expect(body).toEqual({ expectedConcurrencyToken: 'tok1', instructions: [] });
+  });
+});
+
+describe('encodeDuplicateRecipeRequest', () => {
+  it('trims the title and names the version to copy', () => {
+    expect(encodeDuplicateRecipeRequest({ title: '  Cornbread, take two  ', sourceVersionNumber: 3 })).toEqual({
+      title: 'Cornbread, take two',
+      sourceVersionNumber: 3,
+    });
+  });
+
+  /** Omitting it is not a different operation — the server resolves it to the current version. */
+  it('omits the version entirely when none was named', () => {
+    expect(encodeDuplicateRecipeRequest({ title: 'Cornbread, take two', sourceVersionNumber: null })).toEqual({
+      title: 'Cornbread, take two',
+    });
+  });
+
+  /** No token, no content, no copy options: the route accepts these two fields and nothing else. */
+  it('sends nothing beyond the title and the version', () => {
+    const body = encodeDuplicateRecipeRequest({ title: 'Copy', sourceVersionNumber: 1 });
+
+    expect(Object.keys(body).sort()).toEqual(['sourceVersionNumber', 'title']);
   });
 });

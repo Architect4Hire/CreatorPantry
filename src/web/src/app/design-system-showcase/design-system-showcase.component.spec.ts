@@ -165,9 +165,12 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(fixture.componentInstance.uploadItems().some((item) => item.id === '3')).toBeFalse();
   });
 
-  it('renders the diff legend with its default 7 entries', async () => {
+  it('renders the diff legend at its default 7 entries and narrowed to 4', async () => {
     const fixture = await createFixture();
-    expect(fixture.nativeElement.querySelectorAll('cp-diff-legend li').length).toBe(7);
+    const legends = fixture.nativeElement.querySelectorAll('cp-diff-legend');
+
+    expect(legends[0].querySelectorAll('li').length).toBe(7);
+    expect(legends[1].querySelectorAll('li').length).toBe(4);
   });
 
   it('pushes a toast on demand and removes it when dismissed', async () => {

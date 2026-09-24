@@ -79,6 +79,28 @@ internal sealed class WorkspaceRepository(CreatorPantryDbContext context) : IWor
             .ToList();
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken)
+    {
+        if (membershipIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        // No WorkspaceId predicate: WorkspaceMemberships is workspace-owned, so the global query filter
+        // already scopes this — which is also what makes ids that arrived from another module's rows safe to
+        // accept here. The join to ApplicationUser is the one Tenancy's own foreign key already declares.
+        return await context.WorkspaceMemberships.AsNoTracking()
+            .Where(membership => membershipIds.Contains(membership.Id))
+            .Join(
+                context.Users.AsNoTracking(),
+                membership => membership.UserId,
+                user => user.Id,
+                (membership, user) => new { membership.Id, user.DisplayName })
+            .ToDictionaryAsync(row => row.Id, row => row.DisplayName, cancellationToken);
+    }
+
     private static WorkspaceRecord ToRecord(Workspace workspace) => new(workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt);
 
     private static WorkspaceSummary ToSummary(Workspace workspace) => new(workspace.Id, workspace.Slug);

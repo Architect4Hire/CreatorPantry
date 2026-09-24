@@ -92,6 +92,16 @@ internal sealed class RecipeIngredientConfiguration : IEntityTypeConfiguration<R
         // creates for the composite foreign key above, (WorkspaceId, RecipeId, RecipeIngredientGroupId) —
         // (WorkspaceId, RecipeId) is its leading prefix. A second index on those two columns would be paid
         // for on every write and read on none.
+        //
+        // Declared here rather than left to that convention for one reason: MatchStatus is included. A recipe
+        // search asks "does this recipe have an unresolved ingredient line" of every row it returns, and
+        // without the included column that EXISTS leaves the index for a lookup per line — on a recipe whose
+        // lines are all matched, every line, because there is no early exit to take. The key is identical to
+        // the one the convention would have produced, and the name is too, so this replaces it rather than
+        // adding a second copy.
+        builder.HasIndex(ingredient => new { ingredient.WorkspaceId, ingredient.RecipeId, ingredient.RecipeIngredientGroupId })
+            .IncludeProperties(ingredient => ingredient.MatchStatus)
+            .HasDatabaseName("IX_RecipeIngredients_WorkspaceId_RecipeId_RecipeIngredientGroupId");
 
         // "Which of my recipes use buttermilk." Workspace-leading, so the answer is scoped before the
         // ingredient is even considered.

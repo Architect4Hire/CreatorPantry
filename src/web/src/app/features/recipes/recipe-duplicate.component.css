@@ -1,0 +1,61 @@
+/* The dialog's own chrome — surface, backdrop, focus, footer layout — belongs to CpDialogComponent. Only
+   what this dialog puts inside it is styled here, with semantic tokens throughout. */
+
+.explain {
+  margin: 0 0 var(--cp-space-4);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+  color: var(--cp-text);
+}
+
+.explain strong {
+  font-weight: 700;
+}
+
+cp-field {
+  margin-bottom: var(--cp-space-4);
+}
+
+/* Two columns where there is room, stacked where there is not — the second list is the one a creator most
+   often needs, so it must never be pushed out of sight at a narrow width or at 200% zoom. */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--cp-space-4);
+  margin-bottom: var(--cp-space-4);
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.summary-heading {
+  margin: 0 0 var(--cp-space-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cp-text-muted);
+}
+
+.summary ul {
+  margin: 0;
+  padding-left: var(--cp-space-4);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+  color: var(--cp-text);
+}
+
+.notice {
+  display: block;
+  margin: 0 0 var(--cp-space-3);
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.notice--error {
+  background: var(--cp-danger-soft);
+  color: var(--cp-danger);
+}

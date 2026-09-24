@@ -52,10 +52,10 @@ import { CpButtonComponent, CpCardComponent } from '@creator-pantry/ui';
 - `CpStatusPillComponent`: semantic status pill (`neutral | progress | success | warning | error | stale`) with a distinct glyph per tone plus required text — meaning never relies on color alone
 - `CpListShellComponent`: domain-neutral table/list frame with heading association, actions/pagination slots, and loading, error, empty, and ready states
 - `CpTabsComponent` / `CpTabPanelComponent`: keyboard-accessible tabs (ARIA tabs pattern, roving tabindex, disabled tabs) with lazy-mounted panels
-- `CpToolbarComponent`: responsive toolbar with search/filters/actions/overflow slots, loading and disabled states, and roving-tabindex keyboard navigation
+- `CpToolbarComponent`: responsive toolbar with search/filters/actions/overflow slots, loading and disabled states, and roving-tabindex keyboard navigation — which yields the arrow, `Home` and `End` keys to a focused text input, `<select>`, `<textarea>` or contenteditable, so a control in the search slot keeps its own caret and value behaviour. The "More actions" disclosure renders only when `[cpToolbarOverflow]` has content, so a toolbar that uses the first three slots shows no empty overflow button
 - `CpEmptyStateComponent`: title/description/icon empty state with a projected actions slot and `first-use`/`no-results` variants
 - `CpUploaderComponent`: uploader shell (browse + drag/drop) with per-item queued/uploading/success/error rendering, progress, retry, cancel, and remove — no upload transport of its own
-- `CpDiffLegendComponent`: accessible legend for diff/proposal states (`added | removed | changed | moved | unchanged | warning | selected`)
+- `CpDiffLegendComponent`: accessible legend for diff/proposal states (`added | removed | changed | moved | unchanged | warning | selected`), plus `cpDiffGlyph(kind)` and `cpDiffLabel(kind)` so a surface that marks up individual changes prints the same glyph and wording the legend beside it explains
 - `CpToastRegionComponent`: polite/assertive toast region with severity-based auto-dismiss timing, hover/focus pause, deduplication, and persistent warning/error toasts
 - Semantic CSS tokens for color, typography, spacing, radii, elevation, and motion
 

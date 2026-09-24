@@ -1,0 +1,210 @@
+<!-- Always in the DOM, never created alongside its own text: a live region inserted already populated is
+     not reliably announced, so a creator who pressed Compare would hear nothing when the answer landed. -->
+<p class="status" role="status">{{ statusMessage() }}</p>
+
+<cp-list-shell heading="Version history" [state]="listState()" [errorMessage]="errorMessage()">
+  <div cpListShellActions>
+    <!-- The panel is never destroyed once its tab has been opened, and saving an edit happens in another
+         tab, so without this the list would go on describing a history the recipe has moved past. -->
+    <button cpButton variant="secondary" type="button" (click)="load()">Refresh</button>
+  </div>
+
+  <div cpListShellEmpty>
+    <cp-empty-state
+      title="No versions yet"
+      description="A recipe records a version every time it is saved. Refresh once you have saved an edit."
+      variant="first-use"
+      icon="↻"
+    >
+      <div cpEmptyStateActions>
+        <button cpButton type="button" (click)="load()">Refresh</button>
+      </div>
+    </cp-empty-state>
+  </div>
+
+  @if (canChoose()) {
+    <!-- Column headings for the two radio groups. `aria-hidden` because each radio carries its own
+         accessible name saying which side it is — a screen reader reads that, not this. -->
+    <div class="legend" aria-hidden="true">
+      <span class="legend-pick">From</span>
+      <span class="legend-pick">To</span>
+      <span class="legend-rest">Version</span>
+    </div>
+  }
+
+  <ul class="versions">
+    @for (version of versions(); track version.id) {
+      <li class="version" [attr.aria-current]="isCurrent(version) ? 'true' : null">
+        @if (canChoose()) {
+          <!-- Two native radio groups rather than a custom widget: arrow keys walk one group, Space
+               selects, and each group is a single tab stop — behaviour a keyboard user already expects and
+               that no amount of custom handling reproduces faithfully. -->
+          <input
+            class="pick"
+            type="radio"
+            [name]="fromGroup"
+            [attr.aria-label]="radioLabel('from', version)"
+            [checked]="fromVersion() === version.versionNumber"
+            (change)="selectFrom(version.versionNumber)"
+          />
+          <input
+            class="pick"
+            type="radio"
+            [name]="toGroup"
+            [attr.aria-label]="radioLabel('to', version)"
+            [checked]="toVersion() === version.versionNumber"
+            (change)="selectTo(version.versionNumber)"
+          />
+        }
+
+        <div class="version-body">
+          <p class="version-head">
+            <span class="version-number">Version {{ version.versionNumber }}</span>
+
+            @if (isCurrent(version)) {
+              <cp-status-pill tone="success" icon="●">Current</cp-status-pill>
+            }
+
+            <cp-status-pill [tone]="readinessTone(version)" [icon]="version.readiness === 'Ready' ? '✓' : '◐'">
+              {{ version.readiness }}
+            </cp-status-pill>
+
+            <!-- Only provenance worth naming gets a pill; an ordinary creator edit gets none, so the rows
+                 that differ are the ones that stand out. -->
+            @if (provenance(version); as origin) {
+              <cp-status-pill tone="neutral" [icon]="origin.icon">{{ origin.text }}</cp-status-pill>
+            }
+          </p>
+
+          <p class="version-meta">
+            {{ authorOf(version) }} ·
+            <time [attr.datetime]="version.createdAt">{{ version.createdAt | date: 'd MMM y, HH:mm' }}</time>
+          </p>
+
+          @if (version.reason) {
+            <!-- The creator's own words about why the version exists, quoted rather than paraphrased. -->
+            <p class="version-reason">{{ version.reason }}</p>
+          }
+
+          @if ((canRestore() && !isCurrent(version)) || canDuplicate()) {
+            <p class="version-actions">
+              <!-- The current version carries no restore button: restoring what the recipe already says
+                   would write nothing, and an action that does nothing is worse than an action that is
+                   absent. The dialog still handles the case, for a history that moved on after this
+                   rendered. Duplicate is offered on every row, current included — copying what the recipe
+                   says now is the common case. -->
+              @if (canRestore() && !isCurrent(version)) {
+                <button
+                  cpButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [attr.aria-label]="'Restore version ' + version.versionNumber + ' as a new version'"
+                  (click)="openRestore(version, $event.currentTarget)"
+                >
+                  Restore…
+                </button>
+              }
+
+              @if (canDuplicate()) {
+                <button
+                  cpButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [attr.aria-label]="'Duplicate version ' + version.versionNumber + ' into a new recipe'"
+                  (click)="openDuplicate(version, $event.currentTarget)"
+                >
+                  Duplicate…
+                </button>
+              }
+            </p>
+          }
+        </div>
+      </li>
+    }
+  </ul>
+
+  <div cpListShellPagination>
+    @if (hasOlderVersions()) {
+      <!-- Said out loud rather than left implicit: without it the oldest versions would be missing from
+           both the list and the picker with nothing to say they exist. -->
+      <p class="older">Showing the {{ versions().length }} most recent versions.</p>
+      <button cpButton variant="secondary" type="button" [disabled]="loadingOlder()" (click)="loadOlder()">
+        {{ loadingOlder() ? 'Loading…' : 'Load older versions' }}
+      </button>
+    }
+  </div>
+</cp-list-shell>
+
+@if (loadState().status === 'ready' && canChoose()) {
+  <div class="compare">
+    <button cpButton variant="ghost" type="button" aria-label="Swap the two versions" (click)="swap()">⇄</button>
+
+    <button
+      cpButton
+      type="button"
+      [disabled]="!canCompare() || comparing()"
+      [attr.aria-busy]="comparing()"
+      (click)="compare()"
+    >
+      {{ comparing() ? 'Comparing…' : 'Compare' }}
+    </button>
+
+    @if (comparingWithItself()) {
+      <p class="compare-note">Both sides name the same version, so there will be nothing to show.</p>
+    }
+  </div>
+
+  @switch (comparisonState().status) {
+    @case ('stale') {
+      <p class="banner banner--error" role="alert">
+        Those versions are no longer available. Reload the history and choose again.
+        <button cpButton variant="secondary" type="button" (click)="load()">Reload history</button>
+      </p>
+    }
+    @case ('unavailable') {
+      <p class="banner banner--error" role="alert">
+        Couldn't compare those versions. Check your connection and try again.
+        <button cpButton variant="secondary" type="button" (click)="compare()">Try again</button>
+      </p>
+    }
+    @case ('ready') {
+      @if (comparisonState(); as state) {
+        @if (state.status === 'ready') {
+          <cp-recipe-version-comparison [comparison]="state.comparison" />
+        }
+      }
+    }
+  }
+}
+
+<!-- Mounted only while a restore is being composed: the dialog's existence is what makes it open, and
+     unmounting it is what discards a half-written reason rather than leaving it to reappear later. -->
+@if (restoreTarget(); as target) {
+  <cp-recipe-restore
+    [workspaceSlug]="workspaceSlug()"
+    [recipeId]="recipeId()"
+    [version]="target"
+    [newestVersionNumber]="newestVersionNumber()"
+    [concurrencyToken]="concurrencyToken()"
+    [editorIsDirty]="editorIsDirty()"
+    (restored)="onRestored($event)"
+    (reloadRequested)="onRestoreReloadRequested()"
+    (closed)="closeRestore()"
+  />
+}
+
+<!-- Mounted only while a copy is being composed, for the same reason the restore dialog is: unmounting it is
+     what discards a half-written title rather than leaving it to reappear on the next row. -->
+@if (duplicateTarget(); as target) {
+  <cp-recipe-duplicate
+    [workspaceSlug]="workspaceSlug()"
+    [recipeId]="recipeId()"
+    [sourceTitle]="recipeTitle()"
+    [version]="target"
+    (duplicated)="onDuplicated($event)"
+    (reloadRequested)="onDuplicateReloadRequested()"
+    (closed)="closeDuplicate()"
+  />
+}

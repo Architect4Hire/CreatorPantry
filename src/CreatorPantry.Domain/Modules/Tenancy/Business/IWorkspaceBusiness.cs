@@ -21,4 +21,9 @@ public interface IWorkspaceBusiness
 
     /// <summary>Renames the workspace already resolved for this scope.</summary>
     Task<WorkspaceServiceModel> RenameCurrentAsync(UpdateWorkspaceViewModel model, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Tenancy.Data.IWorkspaceRepository.FindMemberDisplayNamesAsync"/>
+    Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken);
 }

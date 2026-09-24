@@ -1,0 +1,47 @@
+/* The dialog's own chrome — surface, backdrop, focus, footer layout — belongs to CpDialogComponent. Only
+   what this dialog puts inside it is styled here, with semantic tokens throughout. */
+
+.explain {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+  color: var(--cp-text);
+}
+
+.explain strong {
+  /* The new version is the fact most easily misread, so it is the one word set apart — by weight, which
+     carries when colour does not. */
+  font-weight: 700;
+}
+
+.notice {
+  display: block;
+  margin: 0 0 var(--cp-space-3);
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* Warnings are about what restoring would cost; errors are about what did not happen. Distinct tones, and
+   never tone alone: each one reads as a complete sentence with no colour needed (WCAG 2.2 AA, 1.4.1). */
+.notice--warning {
+  background: var(--cp-orange-soft);
+  color: var(--cp-orange);
+}
+
+.notice--error {
+  background: var(--cp-danger-soft);
+  color: var(--cp-danger);
+}
+
+cp-field {
+  margin-bottom: var(--cp-space-4);
+}
+
+/* Long content and 200% zoom: the dialog scrolls rather than the reason box growing past the viewport, and
+   the textarea keeps its own resize handle for a creator who wants more room. */
+textarea {
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-sm);
+}

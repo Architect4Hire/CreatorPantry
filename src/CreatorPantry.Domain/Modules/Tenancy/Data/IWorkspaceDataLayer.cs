@@ -16,4 +16,9 @@ public interface IWorkspaceDataLayer
     Task<WorkspaceRecord> RenameAsync(Guid workspaceId, string name, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IWorkspaceRepository.FindMemberDisplayNamesAsync"/>
+    Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken);
 }

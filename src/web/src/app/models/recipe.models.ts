@@ -11,20 +11,21 @@
 
 export type RecipeStatus = 'Draft' | 'Ready' | 'Archived';
 export type SettableRecipeStatus = 'Draft' | 'Ready' | 'Archived';
-export type RecipeVersionSource = 'CreatorEdit' | 'AiProposalAccepted' | 'Import' | 'Restore';
+export type RecipeVersionSource = 'CreatorEdit' | 'AiProposalAccepted' | 'Import' | 'Restore' | 'Duplicate';
 export type RecipeVersionReadiness = 'Draft' | 'Ready';
 export type IngredientMatchStatus = 'NotAttempted' | 'Matched' | 'NoMatch' | 'Ambiguous';
 export type IngredientScaling = 'Proportional' | 'Fixed' | 'ReviewRequired';
 export type RecipeAssetRole = 'Hero' | 'Gallery' | 'Process';
 
 const RECIPE_STATUS_VALUES: ReadonlySet<string> = new Set<RecipeStatus>(['Draft', 'Ready', 'Archived']);
-const RECIPE_VERSION_SOURCE_VALUES: ReadonlySet<string> = new Set<RecipeVersionSource>([
+export const RECIPE_VERSION_SOURCE_VALUES: ReadonlySet<string> = new Set<RecipeVersionSource>([
   'CreatorEdit',
   'AiProposalAccepted',
   'Import',
   'Restore',
+  'Duplicate',
 ]);
-const RECIPE_VERSION_READINESS_VALUES: ReadonlySet<string> = new Set<RecipeVersionReadiness>(['Draft', 'Ready']);
+export const RECIPE_VERSION_READINESS_VALUES: ReadonlySet<string> = new Set<RecipeVersionReadiness>(['Draft', 'Ready']);
 const INGREDIENT_MATCH_STATUS_VALUES: ReadonlySet<string> = new Set<IngredientMatchStatus>([
   'NotAttempted',
   'Matched',
@@ -34,19 +35,19 @@ const INGREDIENT_MATCH_STATUS_VALUES: ReadonlySet<string> = new Set<IngredientMa
 const INGREDIENT_SCALING_VALUES: ReadonlySet<string> = new Set<IngredientScaling>(['Proportional', 'Fixed', 'ReviewRequired']);
 const RECIPE_ASSET_ROLE_VALUES: ReadonlySet<string> = new Set<RecipeAssetRole>(['Hero', 'Gallery', 'Process']);
 
-function decodeEnum<T extends string>(values: ReadonlySet<string>, value: unknown): T | null {
+export function decodeEnum<T extends string>(values: ReadonlySet<string>, value: unknown): T | null {
   return typeof value === 'string' && values.has(value) ? (value as T) : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isStringOrNull(value: unknown): value is string | null {
+export function isStringOrNull(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
-function isNumberOrNull(value: unknown): value is number | null {
+export function isNumberOrNull(value: unknown): value is number | null {
   return value === null || typeof value === 'number';
 }
 
@@ -120,6 +121,41 @@ export interface CreateRecipeRequest {
 /** Builds the JSON body for POST .../recipes. `status`, when present, is already the wire's PascalCase name. */
 export function encodeCreateRecipeRequest(request: CreateRecipeRequest): Record<string, unknown> {
   return { ...request };
+}
+
+/**
+ * Mirrors DuplicateRecipeViewModel — the body of POST .../recipes/{recipeId}/duplicate.
+ *
+ * A title and, optionally, which version to copy. There is deliberately nothing else: no concurrency token,
+ * because nothing is being overwritten, and no content, because everything but the title comes from the
+ * source version. A client cannot smuggle a change into a copy.
+ */
+export interface DuplicateRecipeRequest {
+  /** The copy's title. Required by the server, which will not invent one. */
+  readonly title: string;
+
+  /** A version number as the history lists it, or null to copy the recipe as it currently stands. */
+  readonly sourceVersionNumber: number | null;
+}
+
+/** Builds the JSON body for POST .../recipes/{recipeId}/duplicate, trimming the title and omitting an absent version. */
+export function encodeDuplicateRecipeRequest(request: DuplicateRecipeRequest): Record<string, unknown> {
+  const title = request.title.trim();
+
+  return request.sourceVersionNumber === null ? { title } : { title, sourceVersionNumber: request.sourceVersionNumber };
+}
+
+/**
+ * Mirrors RecipeLifecycleViewModel — the body of both POST .../recipes/{recipeId}/archive and
+ * .../unarchive.
+ *
+ * One type for both, as it is server-side: each carries the same single field, and the route says which way
+ * the recipe is going, so a body that also said it would be a second source of truth. There is no reason
+ * field — these commands write no version, and their trace is an audit entry rather than creator prose.
+ */
+export interface RecipeLifecycleRequest {
+  /** The `concurrencyToken` from the recipe as the creator last saw it. Required. */
+  readonly expectedConcurrencyToken: string;
 }
 
 /** Mirrors UpdateRecipeViewModel. Every content field is a PatchField so "unchanged" and "cleared" stay distinguishable. */
@@ -224,6 +260,35 @@ export function decodeCreatedRecipe(value: unknown): CreatedRecipe | null {
   }
 
   return { recipeId, title, status, versionId, versionNumber, createdAt };
+}
+
+/**
+ * Mirrors RecipeDuplicateSourceServiceModel. Everything a "copied from …" affordance needs in one object:
+ * `recipeId` is navigable — lineage never crosses a workspace, so a recipe named here is always one the
+ * caller may read — and `recipeTitle` is that recipe's current title, not a snapshot of it.
+ */
+export interface RecipeDuplicateSource {
+  readonly recipeId: string;
+  readonly recipeTitle: string;
+  readonly versionId: string;
+  readonly versionNumber: number;
+}
+
+function decodeRecipeDuplicateSource(value: unknown): RecipeDuplicateSource | null {
+  if (!isRecord(value)) return null;
+
+  const { recipeId, recipeTitle, versionId, versionNumber } = value;
+
+  if (
+    typeof recipeId !== 'string' ||
+    typeof recipeTitle !== 'string' ||
+    typeof versionId !== 'string' ||
+    typeof versionNumber !== 'number'
+  ) {
+    return null;
+  }
+
+  return { recipeId, recipeTitle, versionId, versionNumber };
 }
 
 /** Mirrors RecipeVersionSummaryServiceModel. */
@@ -487,6 +552,12 @@ export interface RecipeDetail {
   readonly yieldQuantity: number | null;
   readonly yieldUnitId: string | null;
   readonly status: RecipeStatus;
+  /**
+   * Where this recipe was copied from, when it was created by duplicating another; null for a recipe
+   * someone wrote. Carries the source recipe's id so a "copied from" affordance can link to it, and that
+   * recipe's title as it stands now rather than as it was when the copy was made.
+   */
+  readonly duplicatedFrom: RecipeDuplicateSource | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   /** Opaque row-version token; round-trip verbatim into the next PATCH's `expectedConcurrencyToken`. */
@@ -521,6 +592,7 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
     yieldQuantity,
     yieldUnitId,
     status: rawStatus,
+    duplicatedFrom: rawDuplicatedFrom,
     createdAt,
     updatedAt,
     concurrencyToken,
@@ -569,6 +641,10 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
   const currentVersion = rawCurrentVersion === null ? null : decodeRecipeVersionSummary(rawCurrentVersion);
   if (rawCurrentVersion !== null && currentVersion === null) return null;
 
+  if (rawDuplicatedFrom !== null && !isRecord(rawDuplicatedFrom)) return null;
+  const duplicatedFrom = rawDuplicatedFrom === null ? null : decodeRecipeDuplicateSource(rawDuplicatedFrom);
+  if (rawDuplicatedFrom !== null && duplicatedFrom === null) return null;
+
   const decodedIngredientGroups = ingredientGroups.map(decodeRecipeIngredientGroup);
   const decodedInstructionGroups = instructionGroups.map(decodeRecipeInstructionGroup);
   const decodedEquipment = equipment.map(decodeRecipeEquipmentItem);
@@ -605,6 +681,7 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
     yieldQuantity,
     yieldUnitId,
     status,
+    duplicatedFrom,
     createdAt,
     updatedAt,
     concurrencyToken,
@@ -615,4 +692,149 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
     assetLinks: decodedAssetLinks as RecipeAssetLink[],
     tags: decodedTags as RecipeTag[],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Recipe search — GET /api/v1/workspaces/{workspaceSlug}/recipes. Mirrors
+// RecipeSummaryServiceModel, RecipeSearchPageServiceModel and the query parameters of
+// RecipeSearchViewModel.cs. The page is cursor-paged: follow `nextCursor` until it is null rather
+// than comparing item counts against a limit the server may have clamped.
+// ---------------------------------------------------------------------------
+
+export type RecipeSearchSort = 'RecentlyUpdated' | 'Title';
+
+/** Mirrors RecipeSummaryServiceModel. No author: the API deliberately publishes no membership id. */
+export interface RecipeSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly status: RecipeStatus;
+  readonly cuisineId: string | null;
+  readonly courseId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly latestVersionNumber: number | null;
+  readonly latestVersionReadiness: RecipeVersionReadiness | null;
+  /** Ingredient lines unresolved against the shared vocabulary. Never a dietary or allergen finding. */
+  readonly hasUnmatchedIngredients: boolean;
+}
+
+/** Mirrors RecipeSearchPageServiceModel. `totalCount` is null when the caller declined it. */
+export interface RecipeSearchPage {
+  readonly items: readonly RecipeSummary[];
+  readonly nextCursor: string | null;
+  readonly totalCount: number | null;
+}
+
+function decodeRecipeSummary(value: unknown): RecipeSummary | null {
+  if (!isRecord(value)) return null;
+  const {
+    id,
+    title,
+    description,
+    status: rawStatus,
+    cuisineId,
+    courseId,
+    createdAt,
+    updatedAt,
+    latestVersionNumber,
+    latestVersionReadiness: rawReadiness,
+    hasUnmatchedIngredients,
+  } = value;
+
+  const status = decodeEnum<RecipeStatus>(RECIPE_STATUS_VALUES, rawStatus);
+
+  // Null is a legal readiness — a recipe with no versions — so it is distinguished from a value the
+  // server sent that this client does not understand, which is a decode failure.
+  const readiness =
+    rawReadiness === null ? null : decodeEnum<RecipeVersionReadiness>(RECIPE_VERSION_READINESS_VALUES, rawReadiness);
+
+  if (
+    typeof id !== 'string' ||
+    typeof title !== 'string' ||
+    !isStringOrNull(description) ||
+    status === null ||
+    !isStringOrNull(cuisineId) ||
+    !isStringOrNull(courseId) ||
+    typeof createdAt !== 'string' ||
+    typeof updatedAt !== 'string' ||
+    !isNumberOrNull(latestVersionNumber) ||
+    (rawReadiness !== null && readiness === null) ||
+    typeof hasUnmatchedIngredients !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    description,
+    status,
+    cuisineId,
+    courseId,
+    createdAt,
+    updatedAt,
+    latestVersionNumber,
+    latestVersionReadiness: readiness,
+    hasUnmatchedIngredients,
+  };
+}
+
+export function decodeRecipeSearchPage(value: unknown): RecipeSearchPage | null {
+  if (!isRecord(value)) return null;
+  const { items, nextCursor, totalCount } = value;
+
+  if (!Array.isArray(items) || !isStringOrNull(nextCursor) || !isNumberOrNull(totalCount)) return null;
+
+  const decoded = items.map(decodeRecipeSummary);
+  // One unreadable row fails the page rather than silently shortening it: a library that quietly drops a
+  // recipe is worse than one that reports it could not be read.
+  if (decoded.some((item) => item === null)) return null;
+
+  return { items: decoded as RecipeSummary[], nextCursor, totalCount };
+}
+
+/**
+ * The filter state a library screen holds, and the only shape the typed service accepts. Deliberately a
+ * subset of what the endpoint supports: cuisine and course filters need a reference-vocabulary picker that
+ * does not exist yet, and `readiness`/`ingredientReview` have no control on this screen.
+ */
+export interface RecipeSearchQuery {
+  readonly search: string;
+  readonly statuses: readonly RecipeStatus[];
+  readonly mine: boolean;
+  readonly sort: RecipeSearchSort;
+  /** The previous page's `nextCursor`, or null for the first page. */
+  readonly cursor: string | null;
+}
+
+export const DEFAULT_RECIPE_SEARCH_QUERY: RecipeSearchQuery = {
+  search: '',
+  statuses: [],
+  mine: false,
+  sort: 'RecentlyUpdated',
+  cursor: null,
+};
+
+/**
+ * The query string for one search. Absent filters are omitted rather than sent empty, so the request says
+ * what it means and two spellings of "no filter" cannot produce two different cursor scopes.
+ */
+export function encodeRecipeSearchQuery(query: RecipeSearchQuery): Record<string, string> {
+  const params: Record<string, string> = { sort: query.sort };
+
+  const search = query.search.trim();
+  if (search.length > 0) params['search'] = search;
+  if (query.statuses.length > 0) params['status'] = query.statuses.join(',');
+  if (query.mine) params['mine'] = 'true';
+
+  if (query.cursor !== null) {
+    params['cursor'] = query.cursor;
+
+    // The total spans every page and cannot change as one is turned, so it is asked for once and carried
+    // forward by the caller. Counting again per page is a second query for an answer already held.
+    params['includeTotal'] = 'false';
+  }
+
+  return params;
 }

@@ -54,4 +54,15 @@ internal sealed class FakeWorkspaceDataLayer : IWorkspaceDataLayer
 
     public Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken) =>
         Task.FromResult(Memberships);
+
+    /// <summary>The display name per membership this fake will answer with.</summary>
+    public Dictionary<Guid, string> MemberDisplayNames { get; } = [];
+
+    public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        // Filtered rather than returned whole, because the point of the real read is that an id it does not
+        // know comes back missing.
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(
+            MemberDisplayNames.Where(pair => membershipIds.Contains(pair.Key)).ToDictionary());
 }

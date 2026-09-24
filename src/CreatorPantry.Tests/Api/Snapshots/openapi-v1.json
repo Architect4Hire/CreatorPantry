@@ -555,6 +555,193 @@
             "bffSession": []
           }
         ]
+      },
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Lists the recipes of the workspace named by the route, filtered, ordered and paged.",
+        "description": "Cursor-paged: follow \u0060nextCursor\u0060 until it is null rather than comparing counts against a page size the\nserver may have clamped. A cursor is bound to the workspace, ordering and filters it was issued for, so\nchanging any of them means starting again without one \u2014 \u0060recipes.cursor.invalid_request\u0060 says so\nexplicitly. \u0060limit\u0060 is clamped rather than refused. \u0060totalCount\u0060 counts every match across all pages and\nis present unless \u0060includeTotal=false\u0060; it is a row count, not a page count, because a keyset ordering has\nno page N to jump to. Multi-valued filters are comma-separated. \u0060sort\u0060 accepts only the two named\norderings; there is no arbitrary sort column. An empty library and filters matching nothing are both an\nempty page rather than a 404.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched as a substring of the title or the description. Terms shorter than two characters are ignored. Not matched against ingredient lines or instructions.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Comma-separated editorial states: Draft, Ready, Archived. Omit for every state, archived recipes included.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Comma-separated workspace tag ids. A recipe matches if it carries any one of them.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cuisine",
+            "in": "query",
+            "description": "Comma-separated cuisine ids from the shared reference vocabulary.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "course",
+            "in": "query",
+            "description": "Comma-separated course ids from the shared reference vocabulary.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mine",
+            "in": "query",
+            "description": "True to return only recipes you wrote. Authorship is read from your own membership; there is no way to filter by another member.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "readiness",
+            "in": "query",
+            "description": "Readiness of the recipe\u0027s most recent version: Draft or Ready. Editorial only, never a publication claim.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ingredientReview",
+            "in": "query",
+            "description": "Whether ingredient lines are resolved against the shared vocabulary: HasUnmatched or AllMatched. Not a dietary, allergen or nutrition state.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "updatedFrom",
+            "in": "query",
+            "description": "Inclusive ISO 8601 lower bound on the last edit.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "updatedBefore",
+            "in": "query",
+            "description": "Exclusive ISO 8601 upper bound on the last edit.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "createdFrom",
+            "in": "query",
+            "description": "Inclusive ISO 8601 lower bound on when the recipe was created.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "createdBefore",
+            "in": "query",
+            "description": "Exclusive ISO 8601 upper bound on when the recipe was created.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Ordering: RecentlyUpdated (the default) or Title. Arbitrary column names are not accepted.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeTotal",
+            "in": "query",
+            "description": "Whether to count every match alongside the page. Defaults to true; pass false when following a cursor, since the total will not have changed meaningfully and counting costs a second query.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeSearchPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeSearchPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeSearchPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
       }
     },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}": {
@@ -737,6 +924,766 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Lists one recipe\u0027s versions, newest first.",
+        "description": "Read-only: versions are immutable, and a correction to a recipe\u0027s history is a new version rather than\na change to an old one. Metadata only \u2014 a version\u0027s content is never returned here, however many\nversions a recipe has. Cursor-paged: follow \u0060nextCursor\u0060 until it is null. A cursor is bound to the\nworkspace and recipe it was issued for, so replaying one against another recipe is refused with\n\u0060recipes.cursor.invalid_request\u0060 rather than silently paging the wrong history. \u0060limit\u0060 is clamped\nrather than refused. There is no total; follow the pages to count them. There is no \u0060sort\u0060 \u2014 newest\nfirst is the contract. An unknown recipe and another workspace\u0027s recipe both answer\n\u0060404 recipes.recipe.not_found\u0060. A recipe created through this API has a version 1, so its history is\nnormally non-empty \u2014 but an empty page is a legitimate answer and a client must render it rather than\nread \u0060items[0]\u0060 unguarded.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe whose history to read. Constrained to a Guid, so a malformed id never reaches this action \u2014\nrouting answers 404, the same status as an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeVersionHistoryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeVersionHistoryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeVersionHistoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/compare": {
+      "get": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Compares two of one recipe\u0027s versions and returns what differs between them.",
+        "description": "Read-only, and it writes nothing: comparing two versions leaves no record that it happened. The\ncomparison is calculated on the server from the two archived documents and is the only one \u2014 a client\nrenders it rather than deriving a second diff of its own, which is why the two snapshots are not\nreturned. \u0060from\u0060 and \u0060to\u0060 are version numbers as the history lists them, not version ids: a number is\nunique only within its recipe, so a number naming another recipe\u0027s version matches nothing rather than\nbeing refused by a check. Either order is allowed, and \u0060from\u0060 equal to \u0060to\u0060 answers a comparison with\nno changes in it. An unknown recipe and another workspace\u0027s recipe both answer\n\u0060404 recipes.recipe.not_found\u0060; a version number this recipe does not have answers\n\u0060404 recipes.version.not_found\u0060, naming the parameter at fault. Section order is fixed and every\nsection is present whether or not it changed, so a client renders a stable frame. Positions are ranks\namong siblings, not stored sort orders, and a reorder is reported as a move rather than as a\nreplacement.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe whose versions to compare. Constrained to a Guid, so a malformed id never reaches this\naction \u2014 routing answers 404, the same status as an unknown recipe and as one belonging to another\nworkspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Required. The version number whose values are reported as the \u0027from\u0027 side, as the history lists it.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Required. The version number reported as the \u0027to\u0027 side. It may be lower than \u0027from\u0027, which reverses the reading, and it may equal it.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeVersionComparison"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeVersionComparison"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeVersionComparison"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/archive": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Shelves one recipe: archives it without deleting anything.",
+        "description": "**Archiving is not deleting.** Every version, tag, media link, ingredient line and step stays exactly\nwhere it was, and the recipe is still readable by id \u2014 its history, its version comparisons and\ncopying it all keep working. What changes is that it drops out of the default library listing\n(\u0060GET .../recipes\u0060 returns it only for \u0060?status=Archived\u0060) and stops accepting content changes:\n\u0060PATCH\u0060 and version restore both answer \u0060409 recipes.archived.conflict\u0060 until it is brought back, and\nthe AI proposal, publishing and test-run seams will do the same when they exist. Requires the Editor\nrole, because archiving takes a recipe out of every collaborator\u0027s library rather than contributing to\none. \u0060expectedConcurrencyToken\u0060 is required: archiving a recipe someone else is editing should tell\nthe archiver it moved under them rather than silently shelving work they have not seen. Archiving an\nalready-archived recipe succeeds and changes nothing \u2014 no audit entry, no new token \u2014 so the command\nis safe to retry and takes no idempotency key. No version is written; the move is recorded in the\naudit log instead, because a version records what a recipe *said* and this changes none of that.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to archive. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeLifecycle"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeLifecycle"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeLifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/unarchive": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Brings one recipe back from the archive.",
+        "description": "The mirror of the archive command, at the same Editor bar and with the same shape. **The recipe comes\nback as a \u0060Draft\u0060**, whatever it was before it was shelved \u2014 nothing records the earlier state, and\n\u0060Ready\u0060 is a claim about a finished recipe that a creator picking one back up should make again\nthemselves. Unarchiving a recipe that is not archived succeeds and changes nothing. Named\n\u0060unarchive\u0060 rather than \u0060restore\u0060 deliberately: \u0060.../versions/{n}/restore\u0060 already means putting a\nrecipe\u0027s *content* back, and one word for two operations would be a trap in a client and in this\ncodebase alike.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to bring back. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeLifecycle"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeLifecycle"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeLifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/duplicate": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Copies one recipe into a new, independent recipe of its own.",
+        "description": "The copy is a recipe in its own right, not a derivative: editing either recipe does nothing to the\nother, and the copy has its own history starting at version 1, whose \u0060source\u0060 is \u0060Duplicate\u0060 and whose\nrecipe records \u0060duplicatedFromVersionId\u0060. Requires the Contributor role \u2014 the same bar as creating a\nrecipe, and deliberately not the Editor bar a restore carries, because copying takes nothing away from\nanyone. \u0060sourceVersionNumber\u0060 is optional: omitting it copies the recipe as it currently stands, and a\nnumber is a version number as the history lists it rather than a version id. \u0060title\u0060 is required, so a\ncopy is never momentarily indistinguishable from its source; nothing else may be sent, and editing the\ncopy afterwards is an ordinary \u0060PATCH\u0060. **The copy is always a \u0060Draft\u0060**, whatever the source\u0027s status\n\u2014 including when the source was archived. Everything the archive holds is copied, including\ningredients, method, equipment, tags and media links, with fresh ids throughout; media links point at\nthe same assets, and no asset is copied or re-owned. The source\u0027s version history, its concurrency\ntoken, its authorship and its timestamps are not copied. There is **no \u0060expectedConcurrencyToken\u0060 and\nno \u0060409\u0060** \u2014 nothing is being overwritten, which makes this the one recipe write with no state to quote.\nAn unknown recipe and another workspace\u0027s recipe both answer \u0060404 recipes.recipe.not_found\u0060; a version\nnumber the source does not have answers \u0060404 recipes.version.not_found\u0060, naming \u0060sourceVersionNumber\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to copy from. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, and worth sending: a repeat of the same key, recipe, version and title returns the original\nresponse with \u0060Idempotent-Replayed: true\u0060 rather than leaving the creator with two copies to tell\napart.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateRecipe"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateRecipe"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateRecipe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedRecipe"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedRecipe"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedRecipe"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/restore": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Puts one recipe back to what one of its versions said, as a new current version.",
+        "description": "Restoring never rewrites history. The version named here is read and left exactly where it is \u2014 it does\nnot become current again, is not renumbered and is not deleted \u2014 and the recipe\u0027s content is put back as\na *new* version whose parent is the version it replaced and whose \u0060restoredFromVersionId\u0060 names the one\nit came from. Requires the Editor role, a step above editing, because one request discards every change\nmade since the chosen version without naming them. \u0060expectedConcurrencyToken\u0060 is required and is the\n\u0060concurrencyToken\u0060 from the read this restore was decided against; one the recipe has moved past is\nrefused with \u0060409 recipes.recipe.conflict\u0060 rather than overwriting whoever saved in between, and nothing\nof the creator\u0027s is lost by reloading and asking again. \u0060reason\u0060 is not a recipe field; it is recorded\non the version this writes. The whole recipe is restored \u2014 its own fields including \u0060status\u0060, so\nrestoring a version captured before a recipe was archived un-archives it, along with its ingredients,\nmethod, equipment, media links and tags. A restore that would change nothing writes no version and\nleaves the token valid, so a resubmission is safe. An unknown recipe and another workspace\u0027s recipe both\nanswer \u0060404 recipes.recipe.not_found\u0060; a version number this recipe does not have answers\n\u0060404 recipes.version.not_found\u0060, naming \u0060versionNumber\u0060. The response is the whole recipe, in the same\nshape a read returns, carrying the refreshed token the next write must quote.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to restore. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "Which version\u0027s content to put back, as the history lists it \u2014 a version number, not a version id.\nConstrained to an integer of at least 1, which is both what keeps this segment distinguishable from the\nliteral \u0060compare\u0060 above and what makes a number no version could carry a routing 404 rather than a\nlookup.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key, recipe, version and token returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than writing a second version.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRecipeVersion"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRecipeVersion"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRecipeVersion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -2020,6 +2967,26 @@
           }
         }
       },
+      "DuplicateRecipe": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "EmailConfirmation": {
         "required": [
           "status"
@@ -2338,6 +3305,117 @@
         ],
         "type": "string"
       },
+      "RecipeComparison": {
+        "required": [
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeComparisonSectionResult"
+            }
+          },
+          "hasChanges": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecipeComparisonField": {
+        "enum": [
+          "Title",
+          "Description",
+          "AttributionText",
+          "SourceUrl",
+          "CuisineId",
+          "CourseId",
+          "PrimaryTechniqueId",
+          "TagWorkspaceTagId",
+          "PrepTimeMinutes",
+          "CookTimeMinutes",
+          "RestTimeMinutes",
+          "TotalTimeMinutes",
+          "YieldText",
+          "YieldQuantity",
+          "YieldUnitId",
+          "YieldUnitDimension",
+          "Headnote",
+          "Notes",
+          "StorageNotes",
+          "Status",
+          "IngredientGroupTitle",
+          "IngredientDisplayText",
+          "IngredientNameText",
+          "IngredientQuantity",
+          "IngredientQuantityUpper",
+          "IngredientMeasurementUnitId",
+          "IngredientMeasurementUnitDimension",
+          "IngredientReferenceId",
+          "IngredientMatchStatus",
+          "IngredientPreparationNote",
+          "IngredientIsOptional",
+          "IngredientScalingBehavior",
+          "InstructionGroupTitle",
+          "StepText",
+          "StepTechniqueId",
+          "StepDurationMinutes",
+          "StepTemperatureValue",
+          "StepTemperatureUnitId",
+          "StepTemperatureUnitDimension",
+          "StepNote",
+          "EquipmentDisplayText",
+          "EquipmentTypeId",
+          "EquipmentIsOptional",
+          "EquipmentNote",
+          "AssetMediaAssetId",
+          "AssetRole",
+          "AssetCaption"
+        ],
+        "type": "string"
+      },
+      "RecipeComparisonSection": {
+        "enum": [
+          "Metadata",
+          "Timing",
+          "Yield",
+          "Notes",
+          "Publication",
+          "Ingredients",
+          "Instructions",
+          "Equipment",
+          "Media"
+        ],
+        "type": "string"
+      },
+      "RecipeComparisonSectionResult": {
+        "required": [
+          "section",
+          "fieldChanges",
+          "itemChanges"
+        ],
+        "type": "object",
+        "properties": {
+          "section": {
+            "$ref": "#/components/schemas/RecipeComparisonSection"
+          },
+          "fieldChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeFieldChange"
+            }
+          },
+          "itemChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeItemChange"
+            }
+          },
+          "hasChanges": {
+            "type": "boolean"
+          }
+        }
+      },
       "RecipeDetail": {
         "required": [
           "id",
@@ -2359,6 +3437,7 @@
           "yieldQuantity",
           "yieldUnitId",
           "status",
+          "duplicatedFrom",
           "createdAt",
           "updatedAt",
           "concurrencyToken",
@@ -2496,6 +3575,16 @@
           "status": {
             "$ref": "#/components/schemas/RecipeStatus"
           },
+          "duplicatedFrom": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeDuplicateSource"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -2549,6 +3638,36 @@
           }
         }
       },
+      "RecipeDuplicateSource": {
+        "required": [
+          "recipeId",
+          "recipeTitle",
+          "versionId",
+          "versionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeTitle": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "RecipeEquipment": {
         "required": [
           "id",
@@ -2586,6 +3705,31 @@
             "type": "boolean"
           },
           "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecipeFieldChange": {
+        "required": [
+          "field",
+          "from",
+          "to"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/RecipeComparisonField"
+          },
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "to": {
             "type": [
               "null",
               "string"
@@ -2901,6 +4045,119 @@
           }
         }
       },
+      "RecipeItemChange": {
+        "required": [
+          "id",
+          "presence",
+          "moved",
+          "fromParentId",
+          "toParentId",
+          "fromRank",
+          "toRank",
+          "fieldChanges"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "presence": {
+            "$ref": "#/components/schemas/RecipeItemPresence"
+          },
+          "moved": {
+            "type": "boolean"
+          },
+          "fromParentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "toParentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "fromRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "fieldChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeFieldChange"
+            }
+          }
+        }
+      },
+      "RecipeItemPresence": {
+        "enum": [
+          "Retained",
+          "Added",
+          "Removed"
+        ],
+        "type": "string"
+      },
+      "RecipeLifecycle": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecipeSearchPage": {
+        "required": [
+          "items",
+          "nextCursor",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "RecipeStatus": {
         "enum": [
           "Draft",
@@ -2908,6 +4165,84 @@
           "Archived"
         ],
         "type": "string"
+      },
+      "RecipeSummary": {
+        "required": [
+          "id",
+          "title",
+          "description",
+          "status",
+          "cuisineId",
+          "courseId",
+          "createdAt",
+          "updatedAt",
+          "latestVersionNumber",
+          "latestVersionReadiness",
+          "hasUnmatchedIngredients"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/RecipeStatus"
+          },
+          "cuisineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latestVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "latestVersionReadiness": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeVersionReadiness"
+              }
+            ]
+          },
+          "hasUnmatchedIngredients": {
+            "type": "boolean"
+          }
+        }
       },
       "RecipeTag": {
         "required": [
@@ -2925,6 +4260,152 @@
           }
         }
       },
+      "RecipeVersionComparison": {
+        "required": [
+          "from",
+          "to",
+          "comparison"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/RecipeVersionComparisonSide"
+          },
+          "to": {
+            "$ref": "#/components/schemas/RecipeVersionComparisonSide"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/RecipeComparison"
+          }
+        }
+      },
+      "RecipeVersionComparisonSide": {
+        "required": [
+          "versionId",
+          "versionNumber",
+          "source",
+          "readiness",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecipeVersionSource"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/RecipeVersionReadiness"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RecipeVersionHistory": {
+        "required": [
+          "id",
+          "versionNumber",
+          "source",
+          "readiness",
+          "reason",
+          "createdAt",
+          "createdByName",
+          "parentVersionId",
+          "restoredFromVersionId",
+          "aiProposalId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecipeVersionSource"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/RecipeVersionReadiness"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "restoredFromVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "RecipeVersionHistoryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeVersionHistory"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RecipeVersionReadiness": {
         "enum": [
           "Draft",
@@ -2937,7 +4418,8 @@
           "CreatorEdit",
           "AiProposalAccepted",
           "Import",
-          "Restore"
+          "Restore",
+          "Duplicate"
         ],
         "type": "string"
       },
@@ -3053,6 +4535,23 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "RestoreRecipeVersion": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

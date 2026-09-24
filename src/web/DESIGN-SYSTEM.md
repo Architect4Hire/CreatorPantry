@@ -22,6 +22,18 @@ Set `data-cp-theme="light|dark"` on `<html>`. `CpThemeService` manages this attr
 - Muted sans: metadata and supporting copy.
 - Uppercase micro-label: category or workflow context only.
 
+## Confirmations
+
+A confirmation — a question with two answers, one of which loses work the creator cannot recover — is a SweetAlert2 modal raised by `ConfirmService` (`src/app/core/confirm.service.ts`), never hand-built markup and never `CpDialogComponent`. `CpDialogComponent` stays the right surface for a modal that *hosts* something, such as the workspace-creation form.
+
+The popup is appended to `<body>`, outside Angular's style encapsulation, so it is themed in `src/styles.css` through the `cp-swal*` class names with `buttonsStyling: false`. Every value there is a `--cp-*` token, which is what makes a confirmation follow `data-cp-theme` into dark mode rather than arriving in SweetAlert2's own palette. Confirm wording names the action ("Discard changes"), never "OK"; the cancelling button holds focus; and dismissing by Escape, backdrop or close always means "stay".
+
+A browser close, refresh or full navigation cannot be confirmed this way — the browser shows its own message — so that path remains a `beforeunload` listener.
+
 ## Accessibility baseline
 
 Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color alone. Touch targets should be at least 40px. Dialogs require a title and close action. Form errors remain adjacent to their field and use `role="alert"`. `global.css` honors `prefers-reduced-motion: reduce` for every animation/transition; do not add motion that bypasses it.
+
+Toolbar arrow-key navigation (`CpToolbarComponent`) yields the arrow, `Home` and `End` keys to a focused text input, `<select>`, `<textarea>` or contenteditable, so a control in its search slot keeps its own caret and value behavior.
+
+Its "More actions" disclosure appears only when the consumer projects something into `[cpToolbarOverflow]`. A control that opens onto an empty popover is a dead end for every user and a mislabeled target for a screen reader, so an empty slot hides the disclosure entirely — which also drops it out of the roving-tabindex sweep.

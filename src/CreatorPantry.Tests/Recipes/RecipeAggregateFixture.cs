@@ -43,7 +43,7 @@ internal sealed class RecipeAggregateFixture : IDisposable
             .AddTenancy()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
-                .ReplaceService<IModelCustomizer, SqliteRowVersionModelCustomizer>())
+                .ReplaceService<IModelCustomizer, SqliteModelCustomizer>())
             .BuildServiceProvider(validateScopes: true);
 
         using var scope = _provider.CreateScope();
@@ -141,6 +141,9 @@ internal sealed class RecipeAggregateFixture : IDisposable
     public static Guid EquipmentTypeId { get; } = Guid.NewGuid();
 
     /// <summary>Workspace A's "Weeknight" tag. Workspace B has its own row with the same name.</summary>
+    /// <summary>Stands in for the version a duplicated recipe was copied from.</summary>
+    public static Guid DuplicatedFromVersionId { get; } = Guid.NewGuid();
+
     public static Guid TagIdA { get; } = Guid.NewGuid();
 
     /// <inheritdoc cref="TagIdA"/>
@@ -184,6 +187,10 @@ internal sealed class RecipeAggregateFixture : IDisposable
         recipe.YieldUnitId = EachId;
         recipe.YieldUnitDimension = MeasurementDimension.Count;
         recipe.Status = RecipeStatus.Ready;
+
+        // Set so the detail read is proven to publish it. Not persisted by any test that uses this recipe, so
+        // it needs no real version row behind it; the duplicate seam's own tests exercise the foreign key.
+        recipe.DuplicatedFromVersionId = DuplicatedFromVersionId;
 
         var line = recipe.IngredientGroups.Single().Ingredients.Single();
         line.IngredientNameText = "all-purpose flour";

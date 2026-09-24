@@ -20,4 +20,19 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// read of the creator's content.
 /// </para>
 /// </remarks>
-public sealed record TaggedRecipe(CompleteRecipe Recipe, IReadOnlyList<WorkspaceTag> Tags);
+/// <param name="DuplicatedFrom">
+/// Where this recipe was copied from, when it was created by duplicating another, and <c>null</c> otherwise.
+/// Resolved from <see cref="Recipe.DuplicatedFromVersionId"/> by a third read that runs only for copies.
+/// </param>
+/// <remarks>
+/// <para>
+/// <strong>Defaulted, and that is load-bearing.</strong> Every path that answers with a recipe detail
+/// reconstructs this record after a write, and each one must carry forward what it did not change. Using
+/// <c>with</c> expressions rather than a fresh constructor call is what makes a member added here survive
+/// those paths without each of them being edited — see <c>RecipeBusiness.UpdateAsync</c>.
+/// </para>
+/// </remarks>
+public sealed record TaggedRecipe(
+    CompleteRecipe Recipe,
+    IReadOnlyList<WorkspaceTag> Tags,
+    RecipeDuplicateSourceRecord? DuplicatedFrom = null);

@@ -1,37 +1,105 @@
+<cp-toolbar ariaLabel="Recipe filters" [loading]="state().status === 'loading'">
+  <label class="search-field" cpToolbarSearch>
+    <span class="cp-sr-only">Search recipes</span>
+    <input
+      type="search"
+      name="search"
+      placeholder="Search recipes"
+      autocomplete="off"
+      [value]="searchText()"
+      (input)="onSearchInput($event)"
+    />
+  </label>
+
+  <div class="filter-group" cpToolbarFilters role="group" aria-label="Filter by status">
+    @for (status of statusOptions; track status) {
+      <button
+        type="button"
+        class="chip"
+        [class.chip--on]="isStatusSelected(status)"
+        [attr.aria-pressed]="isStatusSelected(status)"
+        (click)="toggleStatus(status)"
+      >
+        {{ status }}
+      </button>
+    }
+
+    <button type="button" class="chip" [class.chip--on]="mine()" [attr.aria-pressed]="mine()" (click)="toggleMine()">
+      Mine
+    </button>
+  </div>
+
+  <label class="sort-field" cpToolbarActions>
+    <span class="cp-sr-only">Sort recipes</span>
+    <select name="sort" [value]="sort()" (change)="setSort($event)">
+      <option value="RecentlyUpdated">Recently updated</option>
+      <option value="Title">Title</option>
+    </select>
+  </label>
+
+  @if (hasActiveFilters()) {
+    <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
+  }
+</cp-toolbar>
+
 <cp-list-shell
   heading="Recipes"
   [state]="listShellState()"
-  errorMessage="Couldn't load your recipes. Check your connection and try again."
+  [errorMessage]="errorMessage()"
   emptyMessage="No recipes yet."
 >
   <div cpListShellActions>
     @if (state().status === 'error') {
-      <button cpButton variant="secondary" (click)="retry()">Try again</button>
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
     } @else {
       <a cpButton routerLink="new">New recipe</a>
     }
   </div>
 
   <div cpListShellEmpty>
-    <cp-empty-state
-      title="No recipes yet"
-      description="Create your first recipe to start building your library."
-      variant="first-use"
-      icon="⌘"
-    >
-      <div cpEmptyStateActions>
-        <a cpButton routerLink="new">New recipe</a>
-      </div>
-    </cp-empty-state>
+    @if (hasActiveFilters()) {
+      <cp-empty-state
+        title="No recipes match these filters"
+        description="Try a different search, or clear the filters to see your whole library."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="No recipes yet"
+        description="Create your first recipe to start building your library."
+        variant="first-use"
+        icon="⌘"
+      >
+        <div cpEmptyStateActions>
+          <a cpButton routerLink="new">New recipe</a>
+        </div>
+      </cp-empty-state>
+    }
   </div>
 
-  @for (recipe of readyRecipes(); track recipe.id) {
+  @for (recipe of recipes(); track recipe.id) {
     <cp-card [interactive]="true" class="recipe-row">
       <a class="recipe-link" [routerLink]="[recipe.id]">
         <span class="recipe-main">
           <span class="title">{{ recipe.title }}</span>
           <span class="meta">
             <cp-status-pill [tone]="statusTone(recipe.status)">{{ recipe.status }}</cp-status-pill>
+
+            @if (recipe.latestVersionReadiness) {
+              <cp-status-pill [tone]="recipe.latestVersionReadiness === 'Ready' ? 'success' : 'progress'">
+                v{{ recipe.latestVersionNumber }} {{ recipe.latestVersionReadiness }}
+              </cp-status-pill>
+            }
+
+            @if (recipe.hasUnmatchedIngredients) {
+              <cp-status-pill tone="warning">Ingredients need review</cp-status-pill>
+            }
+
             <span class="updated">Updated {{ recipe.updatedAt | date: 'mediumDate' }}</span>
           </span>
         </span>
@@ -39,4 +107,20 @@
       </a>
     </cp-card>
   }
+
+  <div cpListShellPagination class="pager">
+    <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>
+
+    @if (hasPreviousPage() || hasNextPage()) {
+      <nav class="pager-actions" aria-label="Recipe pages">
+        <button cpButton variant="secondary" type="button" [disabled]="!hasPreviousPage()" (click)="previousPage()">
+          Previous
+        </button>
+        <span class="page-number">Page {{ pageNumber() }}</span>
+        <button cpButton variant="secondary" type="button" [disabled]="!hasNextPage()" (click)="nextPage()">
+          Next
+        </button>
+      </nav>
+    }
+  </div>
 </cp-list-shell>

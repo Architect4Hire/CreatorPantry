@@ -1,0 +1,125 @@
+<!-- Mounted only while a restore is being composed, so it is open for as long as it exists. CpDialog owns
+     role="dialog", aria-modal, the focus move on open and the backdrop; Escape is handled by this
+     component's own host listener, because the library dialog has none. -->
+<cp-dialog
+  [open]="true"
+  [title]="'Restore version ' + version().versionNumber + '?'"
+  [titleId]="reasonFieldId + '-title'"
+  (closed)="close()"
+>
+  <!-- The whole point of this paragraph: a restore writes a new version. Nothing here may say the chosen
+       version "becomes current" or is "rolled back to" — a creator who reads it that way would expect
+       everything saved since to disappear, which is the opposite of what the server does. -->
+  <p class="explain">
+    This copies version {{ version().versionNumber }}'s content into a
+    <strong>new version {{ nextVersionNumber() }}</strong> at the top of the history.
+  </p>
+  <p class="explain">
+    Version {{ version().versionNumber }} itself stays exactly where it is. Nothing in the history is removed,
+    renumbered or rewritten.
+  </p>
+
+  @if (isCurrentVersion()) {
+    <p class="notice notice--warning">
+      Version {{ version().versionNumber }} is already what this recipe says, so restoring it would change
+      nothing and no new version would be written.
+    </p>
+  }
+
+  @if (editorIsDirty()) {
+    <p class="notice notice--warning">
+      You have unsaved edits to this recipe. Restoring replaces the form with version
+      {{ version().versionNumber }}'s content, and those edits are lost.
+    </p>
+  }
+
+  <cp-field
+    label="Why are you restoring this?"
+    [forId]="reasonFieldId"
+    hint="Recorded on the new version, in your words. Optional."
+    [error]="reasonError()"
+  >
+    <!-- CpField renders its hint with this id but wires nothing to it, so the control points at the hint
+         itself — otherwise "Recorded on the new version" is invisible to a screen reader. -->
+    <textarea
+      [id]="reasonFieldId"
+      rows="3"
+      [maxlength]="reasonMaxLength"
+      [attr.aria-invalid]="reasonError() ? 'true' : null"
+      [attr.aria-describedby]="reasonFieldId + '-hint'"
+      [disabled]="submitting()"
+      [ngModel]="reason()"
+      (ngModelChange)="reason.set($event)"
+      name="reason"
+    ></textarea>
+  </cp-field>
+
+  <!-- Every failure is reported here rather than by closing: the creator's reason is still in the box, and
+       the remedy differs by failure, which is why these are not one message. -->
+  @switch (state().status) {
+    @case ('conflict') {
+      <p class="notice notice--error" role="alert">
+        This recipe changed while this dialog was open, so nothing was restored. Reload it and choose again.
+      </p>
+    }
+    @case ('version_gone') {
+      <p class="notice notice--error" role="alert">
+        The history moved on — this recipe no longer has a version {{ version().versionNumber }}. Reload it and
+        choose again.
+      </p>
+    }
+    @case ('archived') {
+      <p class="notice notice--error" role="alert">
+        This recipe is archived. Bring it back before restoring one of its versions.
+      </p>
+    }
+    @case ('forbidden') {
+      <p class="notice notice--error" role="alert">
+        Restoring a version needs the Editor role in this workspace.
+      </p>
+    }
+    @case ('not_found') {
+      <p class="notice notice--error" role="alert">This recipe could not be found.</p>
+    }
+    @case ('key_conflict') {
+      <p class="notice notice--error" role="alert">
+        That restore was already submitted with different details. Close this and start it again.
+      </p>
+    }
+    @case ('invalid') {
+      <p class="notice notice--error" role="alert">Check the reason and try again.</p>
+    }
+    @case ('not_loaded') {
+      <p class="notice notice--error" role="alert">
+        This recipe hasn't finished loading, so there is nothing to check the restore against. Reload it and
+        try again.
+      </p>
+    }
+    @case ('unavailable') {
+      <p class="notice notice--error" role="alert">
+        Couldn't restore that version. Check your connection and try again.
+      </p>
+    }
+  }
+
+  <div cpDialogActions>
+    <button cpButton variant="ghost" type="button" (click)="close()">Cancel</button>
+
+    @if (canReload()) {
+      <!-- The only offer worth making after a stale-state refusal: retrying the same token cannot succeed. -->
+      <button cpButton variant="secondary" type="button" (click)="reload()">Reload recipe</button>
+    }
+
+    <!-- Disabled, never removed: taking away the button a creator has just pressed drops their focus to the
+         top of the document at the moment the refusal is announced. -->
+    <button
+      cpButton
+      type="button"
+      [disabled]="submitting() || !canRetry()"
+      [attr.aria-busy]="submitting()"
+      (click)="submit()"
+    >
+      {{ submitting() ? 'Restoring…' : 'Restore as a new version' }}
+    </button>
+  </div>
+</cp-dialog>

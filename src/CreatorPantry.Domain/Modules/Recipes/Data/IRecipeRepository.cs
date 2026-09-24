@@ -72,4 +72,23 @@ public interface IRecipeRepository
     /// of eight queries to compare eight bytes.
     /// </remarks>
     Task<byte[]?> FindRowVersionAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether a recipe with this id is visible in the resolved workspace.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For readers that need the recipe to exist without needing anything it contains — a history list is the
+    /// first of them. Every recipe has at least one version, so an empty history would itself disclose that the
+    /// recipe is not there; asking this first is what lets an unknown recipe and another workspace's recipe
+    /// receive the same 404 (tenancy.md).
+    /// </para>
+    /// <para>
+    /// Separate from <see cref="FindRowVersionAsync"/>, which answers a different question at a different
+    /// moment: whether a recipe is still in the state a failed write was composed against. Borrowing it as an
+    /// existence probe would read as a concurrency check to anyone who found it on a read path, and would tie
+    /// two unrelated callers to one column.
+    /// </para>
+    /// </remarks>
+    Task<bool> ExistsAsync(Guid recipeId, CancellationToken cancellationToken);
 }

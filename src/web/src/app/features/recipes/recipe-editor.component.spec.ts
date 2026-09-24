@@ -1,12 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { RecipeEditorComponent } from './recipe-editor.component';
 import { recipeEditorCanDeactivateGuard } from './recipe-editor.guard';
-import { RecipeDetail } from '../../models/recipe.models';
+import { ConfirmService } from '../../core/confirm.service';
+import { WorkspaceRole } from '../../models/auth.models';
+import { CreatedRecipe, RecipeDetail } from '../../models/recipe.models';
 import { RecipeService } from '../../services/recipe.service';
+import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 
 const RECIPE_DETAIL: RecipeDetail = {
   id: 'r1',
@@ -28,6 +31,7 @@ const RECIPE_DETAIL: RecipeDetail = {
   yieldQuantity: null,
   yieldUnitId: null,
   status: 'Draft',
+  duplicatedFrom: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-02T00:00:00Z',
   concurrencyToken: 'AAAAAAAAB9E=',
@@ -37,6 +41,16 @@ const RECIPE_DETAIL: RecipeDetail = {
   equipment: [],
   assetLinks: [],
   tags: [],
+};
+
+/** The copy a duplicate produces: a recipe of its own, always a Draft, at version 1. */
+const COPY: CreatedRecipe = {
+  recipeId: 'r2',
+  title: 'Skillet Cornbread — sourdough',
+  status: 'Draft',
+  versionId: 'v1',
+  versionNumber: 1,
+  createdAt: '2026-03-12T14:02:00Z',
 };
 
 /** A stub sibling route used to prove a real router-driven navigation away from the editor is (or isn't) blocked. */
@@ -51,13 +65,85 @@ function recipeServiceSpy() {
     getRecipeDetail: jasmine.createSpy('getRecipeDetail').and.resolveTo({ status: 'unavailable' }),
     createRecipe: jasmine.createSpy('createRecipe').and.resolveTo({ status: 'unavailable' }),
     updateRecipe: jasmine.createSpy('updateRecipe').and.resolveTo({ status: 'unavailable' }),
+    // The history panel is mounted by its tab, and a test that opens it must not crash on a spy that has no
+    // method for what the panel reads. The panel's own behaviour is covered by its own spec.
+    getVersionHistory: jasmine.createSpy('getVersionHistory').and.resolveTo({ status: 'unavailable' }),
+    compareVersions: jasmine.createSpy('compareVersions').and.resolveTo({ status: 'unavailable' }),
+    restoreVersion: jasmine.createSpy('restoreVersion').and.resolveTo({ status: 'unavailable' }),
+    duplicateRecipe: jasmine.createSpy('duplicateRecipe').and.resolveTo({ status: 'unavailable' }),
+    setArchived: jasmine.createSpy('setArchived').and.resolveTo({ status: 'unavailable' }),
   };
 }
 
-async function createHarness(path: string, recipeService: ReturnType<typeof recipeServiceSpy>) {
+/**
+ * The role behind the archive action, and behind the history panel's own row commands.
+ *
+ * A test states the role outright; `null` stands for "not loaded yet", where no permission-bearing control
+ * may be offered.
+ */
+function membershipServiceStub(role: WorkspaceRole | null) {
+  const state = signal<MyMembershipsState>(
+    role === null
+      ? { status: 'loading' }
+      : {
+          status: 'ready',
+          memberships: [
+            {
+              workspaceId: 'w1',
+              workspaceSlug: 'cozy-fall',
+              workspaceName: 'Cozy Fall',
+              membershipId: 'm1',
+              role,
+              status: 'Active',
+            },
+          ],
+        },
+  );
+
+  return { state, ensureLoaded: () => Promise.resolve() };
+}
+
+/**
+ * A stand-in for the SweetAlert2-backed {@link ConfirmService}. It stays pending until `answer()` is called,
+ * so a test can observe that a confirmation was asked for before deciding it — the same thing the old
+ * `leaveConfirmOpen()` signal made observable, without rendering a real modal into the document.
+ */
+function confirmServiceStub() {
+  let pending: ((leave: boolean) => void) | null = null;
+
+  const confirm = jasmine
+    .createSpy('confirm')
+    .and.callFake(() => new Promise<boolean>((resolve) => (pending = resolve)));
+
+  return {
+    confirm,
+    /** Whether a confirmation is open and waiting for an answer. */
+    get isOpen(): boolean {
+      return pending !== null;
+    },
+    answer(leave: boolean): void {
+      const resolve = pending;
+      pending = null;
+      resolve?.(leave);
+    },
+  };
+}
+
+/** The stub the current harness provided, so any test can answer a confirmation without threading it through. */
+let confirmService: ReturnType<typeof confirmServiceStub>;
+
+async function createHarness(
+  path: string,
+  recipeService: ReturnType<typeof recipeServiceSpy>,
+  confirm: ReturnType<typeof confirmServiceStub> = confirmServiceStub(),
+  role: WorkspaceRole | null = 'Editor',
+) {
+  confirmService = confirm;
+
   TestBed.resetTestingModule();
   await TestBed.configureTestingModule({
     providers: [
+      { provide: ConfirmService, useValue: confirm },
       provideRouter([
         {
           path: ':workspaceSlug',
@@ -74,6 +160,7 @@ async function createHarness(path: string, recipeService: ReturnType<typeof reci
         },
       ]),
       { provide: RecipeService, useValue: recipeService },
+      { provide: WorkspaceMembershipService, useValue: membershipServiceStub(role) },
     ],
   }).compileComponents();
 
@@ -248,7 +335,12 @@ describe('RecipeEditorComponent', () => {
       expect(request.title).toEqual({ submitted: true, value: 'New Chili' });
       expect(request.status).toEqual({ submitted: true, value: 'Draft' });
 
-      expect(harness.routeNativeElement?.querySelector('[role="status"]')?.textContent).toContain('Saved');
+      // Across every live region on the surface, not the first one: the restore notice keeps an empty
+      // `role="status"` region in the DOM at all times so that its own text can be announced when it lands.
+      const announced = Array.from(harness.routeNativeElement?.querySelectorAll('[role="status"]') ?? [])
+        .map((region) => region.textContent)
+        .join(' ');
+      expect(announced).toContain('Saved');
     });
 
     it('shows a conflict banner with a reload action instead of silently overwriting', async () => {
@@ -272,10 +364,9 @@ describe('RecipeEditorComponent', () => {
       const reloadButton = Array.from(harness.routeNativeElement!.querySelectorAll('button')).find((btn) => btn.textContent?.includes('Reload latest')) as HTMLButtonElement;
       reloadButton.click();
       harness.detectChanges();
-      expect(component.leaveConfirmOpen()).toBeTrue();
+      expect(confirmService.isOpen).toBeTrue();
 
-      const discardButton = Array.from(harness.routeNativeElement!.querySelectorAll('button')).find((btn) => btn.textContent?.trim() === 'Discard changes') as HTMLButtonElement;
-      discardButton.click();
+      confirmService.answer(true);
       await harness.fixture.whenStable();
       harness.detectChanges();
 
@@ -298,7 +389,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: latest });
 
       const reloadPromise = component.reloadAfterConflict();
-      component.resolveLeaveConfirm(true);
+      confirmService.answer(true);
       await reloadPromise;
 
       expect(component.title()).toBe('Server Chili');
@@ -646,8 +737,8 @@ describe('RecipeEditorComponent', () => {
       // reloadAfterConflict() discards the local edit, so — same as any other way of losing unsaved
       // work — it awaits confirmDiscardIfDirty() first rather than reloading synchronously.
       const reloadPromise = component.reloadAfterConflict();
-      expect(component.leaveConfirmOpen()).toBeTrue();
-      component.resolveLeaveConfirm(true);
+      expect(confirmService.isOpen).toBeTrue();
+      confirmService.answer(true);
       await reloadPromise;
 
       expect(component.isDirty()).toBeFalse();
@@ -663,7 +754,7 @@ describe('RecipeEditorComponent', () => {
       await component.save();
 
       const reloadPromise = component.reloadAfterConflict();
-      component.resolveLeaveConfirm(false);
+      confirmService.answer(false);
       await reloadPromise;
 
       expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(1); // only the initial load — no reload fetch
@@ -676,36 +767,53 @@ describe('RecipeEditorComponent', () => {
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
         await expectAsync(component.confirmDiscardIfDirty()).toBeResolvedTo(true);
-        expect(component.leaveConfirmOpen()).toBeFalse();
+
+        // Nothing to lose, so nothing to ask about: a clean form must not raise a modal at all.
+        expect(confirmService.confirm).not.toHaveBeenCalled();
       });
 
-      it('opens the dialog and resolves once answered when dirty', async () => {
+      it('asks for a confirmation and resolves once it is answered when dirty', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
         component.title.set('Weeknight Chili');
 
         const pending = component.confirmDiscardIfDirty();
-        expect(component.leaveConfirmOpen()).toBeTrue();
+        expect(confirmService.isOpen).toBeTrue();
 
-        component.resolveLeaveConfirm(true);
+        confirmService.answer(true);
         await expectAsync(pending).toBeResolvedTo(true);
-        expect(component.leaveConfirmOpen()).toBeFalse();
+        expect(confirmService.isOpen).toBeFalse();
       });
 
-      it('resolving "keep editing" (false) closes the dialog and leaves the form untouched', async () => {
+      it('names the destructive action rather than asking the creator to agree to "OK"', async () => {
+        const recipeService = recipeServiceSpy();
+        const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        component.title.set('Weeknight Chili');
+
+        void component.confirmDiscardIfDirty();
+
+        // The wording is the whole safety mechanism of a discard prompt, so it is pinned rather than left to
+        // whatever a future edit makes it.
+        expect(confirmService.confirm).toHaveBeenCalledWith(
+          jasmine.objectContaining({ confirmLabel: 'Discard changes', cancelLabel: 'Keep editing', tone: 'danger' }),
+        );
+
+        confirmService.answer(false);
+      });
+
+      it('answering "keep editing" leaves the form untouched', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
         component.title.set('Weeknight Chili');
 
         const pending = component.confirmDiscardIfDirty();
-        component.resolveLeaveConfirm(false);
+        confirmService.answer(false);
 
         await expectAsync(pending).toBeResolvedTo(false);
-        expect(component.leaveConfirmOpen()).toBeFalse();
         expect(component.title()).toBe('Weeknight Chili');
       });
 
-      it('resolves a still-pending confirm as "stay" if a second one is requested before it is answered', async () => {
+      it('answers two concurrent attempts with one dialog rather than stacking a second', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
         component.title.set('Weeknight Chili');
@@ -713,9 +821,30 @@ describe('RecipeEditorComponent', () => {
         const first = component.confirmDiscardIfDirty();
         const second = component.confirmDiscardIfDirty();
 
-        await expectAsync(first).toBeResolvedTo(false);
-        component.resolveLeaveConfirm(true);
+        // One modal, one question, one answer for both callers. SweetAlert2 permits only one popup at a time,
+        // and a second `fire()` would silently dismiss the first — so sharing the pending promise is what keeps
+        // the two navigation attempts from disagreeing about what the creator said.
+        expect(confirmService.confirm).toHaveBeenCalledTimes(1);
+
+        confirmService.answer(true);
+        await expectAsync(first).toBeResolvedTo(true);
         await expectAsync(second).toBeResolvedTo(true);
+      });
+
+      it('asks again on the next attempt once a confirmation has been answered', async () => {
+        const recipeService = recipeServiceSpy();
+        const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        component.title.set('Weeknight Chili');
+
+        const first = component.confirmDiscardIfDirty();
+        confirmService.answer(false);
+        await expectAsync(first).toBeResolvedTo(false);
+
+        // The shared promise must be released when it settles, or "keep editing" would answer every later
+        // attempt too and the creator could never leave.
+        void component.confirmDiscardIfDirty();
+        expect(confirmService.confirm).toHaveBeenCalledTimes(2);
+        confirmService.answer(false);
       });
     });
 
@@ -751,16 +880,13 @@ describe('RecipeEditorComponent', () => {
       // The router resolves canDeactivate through several internal async hops (and at least one
       // macrotask, not just microtasks) before our guard's pending promise is reachable from here —
       // poll with real delays rather than guessing a fixed number of Promise.resolve() ticks.
-      await waitUntil(() => component.leaveConfirmOpen());
+      await waitUntil(() => confirmService.isOpen);
       harness.detectChanges();
 
-      expect(component.leaveConfirmOpen()).toBeTrue();
+      expect(confirmService.isOpen).toBeTrue();
       expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/new');
 
-      const discardButton = Array.from(harness.routeNativeElement!.querySelectorAll('button')).find(
-        (btn) => btn.textContent?.trim() === 'Discard changes',
-      ) as HTMLButtonElement;
-      discardButton.click();
+      confirmService.answer(true);
 
       await navPromise;
       expect(TestBed.inject(Router).url).toBe('/cozy-fall/elsewhere');
@@ -787,6 +913,355 @@ describe('RecipeEditorComponent', () => {
       await component.save();
 
       expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/new-id');
+    });
+  });
+
+  describe('archiving and bringing back', () => {
+    const ARCHIVED: RecipeDetail = { ...RECIPE_DETAIL, status: 'Archived', concurrencyToken: 'AAAAAAAAB9Z=' };
+
+    function archiveButton(root: HTMLElement): HTMLButtonElement | undefined {
+      return Array.from(root.querySelectorAll('button')).find((button) => button.textContent?.includes('Archive'));
+    }
+
+    function bringBackButton(root: HTMLElement): HTMLButtonElement | undefined {
+      return Array.from(root.querySelectorAll('button')).find((button) => button.textContent?.includes('Bring it back'));
+    }
+
+    function saveButton(root: HTMLElement): HTMLButtonElement | undefined {
+      return Array.from(root.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Save');
+    }
+
+    /** Loads a recipe, answers the confirmation with `agree`, and returns once the command has settled. */
+    async function loaded(recipe: RecipeDetail, role: WorkspaceRole | null = 'Editor') {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe });
+      const confirm = confirmServiceStub();
+      const harness = await createHarness('/cozy-fall/recipes/r1', recipeService, confirm, role);
+      await waitUntil(() => harness.component.loadState().status === 'ready');
+      harness.harness.detectChanges();
+
+      return { ...harness, recipeService, confirm };
+    }
+
+    it('offers archiving to an Editor, and not to a Contributor', async () => {
+      const editor = await loaded(RECIPE_DETAIL, 'Editor');
+      expect(archiveButton(editor.harness.routeNativeElement!)).toBeTruthy();
+
+      const contributor = await loaded(RECIPE_DETAIL, 'Contributor');
+      expect(archiveButton(contributor.harness.routeNativeElement!)).toBeUndefined();
+
+      const unknownRole = await loaded(RECIPE_DETAIL, null);
+      expect(archiveButton(unknownRole.harness.routeNativeElement!)).toBeUndefined();
+    });
+
+    it('asks first, and the question never says the recipe is deleted', async () => {
+      const { component, confirm } = await loaded(RECIPE_DETAIL);
+
+      const command = component.setArchived(true);
+      await waitUntil(() => confirm.isOpen);
+
+      const question = confirm.confirm.calls.mostRecent().args[0] as {
+        title: string;
+        message: string;
+        confirmLabel: string;
+        cancelLabel: string;
+        tone: string;
+      };
+      expect(question.title).toBe('Archive this recipe?');
+      expect(question.message).toContain('nothing is deleted');
+      expect(question.message).toContain('bring it back');
+      expect(question.message).toContain('filter for Archived');
+      expect(question.confirmLabel).toBe('Archive recipe');
+      expect(question.cancelLabel).toBe('Keep it active');
+
+      // Archiving is reversible and destroys nothing, so it is not dressed as a destructive action. The word
+      // "deleted" appears only in the sentence denying it.
+      expect(question.tone).toBe('neutral');
+      expect(`${question.title} ${question.message}`).not.toMatch(
+        /permanent|for good|cannot be undone|gone forever|delete (this|the) recipe|remove (this|the) recipe/i,
+      );
+
+      confirm.answer(false);
+      await command;
+    });
+
+    it('warns about unsaved edits only when there are some', async () => {
+      const clean = await loaded(RECIPE_DETAIL);
+      const first = clean.component.setArchived(true);
+      await waitUntil(() => clean.confirm.isOpen);
+      expect((clean.confirm.confirm.calls.mostRecent().args[0] as { message: string }).message).not.toContain('unsaved edits');
+      clean.confirm.answer(false);
+      await first;
+
+      const dirty = await loaded(RECIPE_DETAIL);
+      dirty.component.title.set('Half-written edit');
+      const second = dirty.component.setArchived(true);
+      await waitUntil(() => dirty.confirm.isOpen);
+      expect((dirty.confirm.confirm.calls.mostRecent().args[0] as { message: string }).message).toContain(
+        "You won't be able to save them until you bring it back.",
+      );
+      dirty.confirm.answer(false);
+      await second;
+    });
+
+    it('archives nothing when the question is declined', async () => {
+      const { component, confirm, recipeService } = await loaded(RECIPE_DETAIL);
+
+      const command = component.setArchived(true);
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(false);
+      await command;
+
+      expect(recipeService.setArchived).not.toHaveBeenCalled();
+      expect(component.isArchived()).toBeFalse();
+    });
+
+    it('quotes the token, applies the recipe that comes back, and turns editing off', async () => {
+      const { harness, component, confirm, recipeService } = await loaded(RECIPE_DETAIL);
+      recipeService.setArchived.and.resolveTo({ status: 'updated', recipe: ARCHIVED });
+
+      const command = component.setArchived(true);
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(true);
+      await command;
+      harness.detectChanges();
+
+      expect(recipeService.setArchived).toHaveBeenCalledWith('cozy-fall', 'r1', true, {
+        expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      });
+
+      expect(component.isArchived()).toBeTrue();
+      expect(component.canSave()).toBeFalse();
+      expect(saveButton(harness.routeNativeElement!)?.disabled).toBeTrue();
+
+      // NgModel applies a disabled binding on its own microtask, so the select settles a tick after the rest.
+      await waitUntil(() => harness.routeNativeElement?.querySelector<HTMLSelectElement>('#recipe-status')?.disabled === true);
+      expect(harness.routeNativeElement?.querySelector<HTMLSelectElement>('#recipe-status')?.disabled).toBeTrue();
+      expect(component.notice()?.text).toContain('Nothing was deleted');
+    });
+
+    it('says what is still true in the banner, and offers the way back', async () => {
+      const { harness } = await loaded(ARCHIVED);
+
+      const banner = harness.routeNativeElement?.querySelector('#recipe-archived-banner');
+      expect(banner?.textContent).toContain('shelved, not deleted');
+      expect(banner?.textContent).toContain('Every version, tag and photo is still here');
+      expect(banner?.textContent).toContain('filter for Archived');
+      expect(bringBackButton(harness.routeNativeElement!)).toBeTruthy();
+
+      // The archive action is gone while it is archived — there is nothing left to archive.
+      expect(archiveButton(harness.routeNativeElement!)).toBeUndefined();
+    });
+
+    it('shows the banner to a member who cannot bring it back, without offering them the button', async () => {
+      const { harness } = await loaded(ARCHIVED, 'Contributor');
+
+      expect(harness.routeNativeElement?.querySelector('#recipe-archived-banner')).toBeTruthy();
+      expect(bringBackButton(harness.routeNativeElement!)).toBeUndefined();
+    });
+
+    it('never holds Archived in the status a save would send', async () => {
+      const { harness, component } = await loaded(ARCHIVED);
+
+      expect(component.status()).toBe('Draft');
+      expect(harness.routeNativeElement?.querySelector<HTMLSelectElement>('#recipe-status')?.value).toBe('Draft');
+    });
+
+    it('says the recipe comes back as a Draft before bringing it back', async () => {
+      const { component, confirm, recipeService } = await loaded(ARCHIVED);
+      recipeService.setArchived.and.resolveTo({ status: 'updated', recipe: RECIPE_DETAIL });
+
+      const command = component.setArchived(false);
+      await waitUntil(() => confirm.isOpen);
+
+      const question = confirm.confirm.calls.mostRecent().args[0] as { title: string; message: string };
+      expect(question.title).toBe('Bring this recipe back?');
+      expect(question.message).toContain('as a Draft');
+
+      confirm.answer(true);
+      await command;
+
+      expect(recipeService.setArchived).toHaveBeenCalledWith('cozy-fall', 'r1', false, {
+        expectedConcurrencyToken: 'AAAAAAAAB9Z=',
+      });
+      expect(component.isArchived()).toBeFalse();
+      expect(component.canSave()).toBeTrue();
+      expect(component.notice()?.text).toContain('as a Draft');
+    });
+
+    it('reports a stale token as a conflict that moved nothing, and offers a reload', async () => {
+      const { harness, component, confirm, recipeService } = await loaded(RECIPE_DETAIL);
+      recipeService.setArchived.and.resolveTo({ status: 'conflict' });
+
+      const command = component.setArchived(true);
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(true);
+      await command;
+      harness.detectChanges();
+
+      expect(component.isArchived()).toBeFalse();
+      const alert = harness.routeNativeElement?.querySelector('[role="alert"]');
+      expect(alert?.textContent).toContain('nothing was moved');
+      expect(alert?.textContent).toContain('Reload latest');
+    });
+
+    it('names the role on a refusal, because the server has the last word', async () => {
+      const { harness, component, confirm, recipeService } = await loaded(RECIPE_DETAIL);
+      recipeService.setArchived.and.resolveTo({ status: 'forbidden' });
+
+      const command = component.setArchived(true);
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(true);
+      await command;
+      harness.detectChanges();
+
+      expect(harness.routeNativeElement?.querySelector('[role="alert"]')?.textContent).toContain('Editor role');
+    });
+
+    it('offers another attempt after a transient failure', async () => {
+      const { harness, component, confirm, recipeService } = await loaded(RECIPE_DETAIL);
+      recipeService.setArchived.and.resolveTo({ status: 'unavailable' });
+
+      const command = component.setArchived(true);
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(true);
+      await command;
+      harness.detectChanges();
+
+      expect(harness.routeNativeElement?.querySelector('[role="alert"]')?.textContent).toContain('Check your connection');
+      expect(archiveButton(harness.routeNativeElement!)?.disabled).toBeFalse();
+    });
+  });
+
+  describe('a version restored from the history panel', () => {
+    const restoredRecipe: RecipeDetail = { ...RECIPE_DETAIL, title: 'Chilli', concurrencyToken: 'AAAAAAAAB9Z=' };
+
+    it('re-seeds the form from the response and lands the creator on the content, not on the history', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.selectedTabId.set('history');
+      component.title.set('Half-written edit');
+      expect(component.isDirty()).toBeTrue();
+
+      component.onVersionRestored({ recipe: restoredRecipe, fromVersionNumber: 3, newVersionNumber: 9 });
+      harness.detectChanges();
+
+      expect(component.title()).toBe('Chilli');
+      expect(component.selectedTabId()).toBe('metadata');
+      // The restore replaced the form wholesale, so there is nothing unsaved left to warn about.
+      expect(component.isDirty()).toBeFalse();
+      expect(harness.routeNativeElement?.textContent).toContain('Version 3 restored as version 9.');
+
+      // No second read: the restore answered with the whole recipe.
+      expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(1);
+    });
+
+    it('quotes the refreshed token on the next save, not the one the restore consumed', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: restoredRecipe });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.onVersionRestored({ recipe: restoredRecipe, fromVersionNumber: 3, newVersionNumber: 9 });
+      component.title.set('Chilli con carne');
+      await component.save();
+
+      const request = recipeService.updateRecipe.calls.mostRecent().args[2] as { expectedConcurrencyToken: string };
+      expect(request.expectedConcurrencyToken).toBe('AAAAAAAAB9Z=');
+    });
+
+    /** A restore that would change nothing writes no version, and saying otherwise would name one that isn't there. */
+    it('says no new version was written when the restore changed nothing', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.onVersionRestored({ recipe: RECIPE_DETAIL, fromVersionNumber: 8, newVersionNumber: null });
+      harness.detectChanges();
+
+      const banner = harness.routeNativeElement?.textContent ?? '';
+      expect(banner).toContain('no new version was written');
+      expect(banner).not.toContain('restored as version');
+    });
+
+    it('takes the creator to the copy a duplicate created', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      await component.onRecipeDuplicated({ recipe: COPY, fromVersionNumber: 3 });
+
+      expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/r2');
+    });
+
+    /** The copy was created before the navigation was attempted, so staying must not hide it or repeat it. */
+    it('names the copy and links to it when unsaved edits keep the creator here', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const confirm = confirmServiceStub();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, confirm);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.title.set('Half-written edit');
+      const followed = component.onRecipeDuplicated({ recipe: COPY, fromVersionNumber: 3 });
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(false);
+      await followed;
+      harness.detectChanges();
+
+      expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/r1');
+      expect(component.notice()?.recipeLink?.recipeId).toBe('r2');
+      expect(component.isDirty()).toBeTrue();
+
+      const banner = harness.routeNativeElement?.textContent ?? '';
+      expect(banner).toContain('Skillet Cornbread — sourdough');
+      expect(banner).toContain('a new Draft');
+
+      // A link, never a button that would make a second copy.
+      const link = harness.routeNativeElement?.querySelector('a[href="/cozy-fall/recipes/r2"]');
+      expect(link?.textContent).toContain('Open Skillet Cornbread — sourdough');
+    });
+
+    it('says the recipe is still out of date when the creator declines the reload a conflict asked for', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const confirm = confirmServiceStub();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, confirm);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.title.set('Half-written edit');
+      const reload = component.onHistoryReloadRequested();
+      await waitUntil(() => confirm.isOpen);
+      confirm.answer(false);
+      await reload;
+      harness.detectChanges();
+
+      // Keeping the edits means keeping the stale token, so every later restore would be refused the same
+      // way — with the same remedy offered. Saying so is what stops that loop.
+      expect(component.notice()?.isProblem).toBeTrue();
+      expect(harness.routeNativeElement?.textContent).toContain('out of date');
+      expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops the restore notice once the creator saves again', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: restoredRecipe });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.onVersionRestored({ recipe: restoredRecipe, fromVersionNumber: 3, newVersionNumber: 9 });
+      await component.save();
+      harness.detectChanges();
+
+      expect(component.notice()).toBeNull();
+      expect(harness.routeNativeElement?.textContent).not.toContain('restored as version 9');
     });
   });
 });

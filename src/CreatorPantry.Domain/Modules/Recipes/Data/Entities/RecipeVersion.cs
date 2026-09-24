@@ -62,6 +62,26 @@ public class RecipeVersion : IWorkspaceOwned, IImmutableRecord
     public Guid? ParentVersionId { get; set; }
 
     /// <summary>
+    /// The version this one's content was copied from, when <see cref="Source"/> is
+    /// <see cref="RecipeVersionSource.Restore"/>; null otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A second edge, because <see cref="ParentVersionId"/> already means something else and cannot mean both.
+    /// A restore produces a version with two honest ancestors: the one it <em>replaced</em>, which is the
+    /// parent, and the one it <em>came from</em>, which is this. Collapsing them would make a history unable
+    /// to say either thing — pointing the parent at the restored version would lose what was superseded and
+    /// break the ordering the lineage exists to express.
+    /// </para>
+    /// <para>
+    /// Without it, "restored from version 3" survives only in <see cref="Reason"/>, which is the creator's
+    /// free text and may say nothing at all. A history that can report that a restore happened but not what
+    /// it restored is not traceable.
+    /// </para>
+    /// </remarks>
+    public Guid? RestoredFromVersionId { get; set; }
+
+    /// <summary>
     /// The live recipe's concurrency token at the moment this snapshot was taken, tying the version to the
     /// exact row state it came from. Null when the originating state has no token to quote — a version
     /// captured as part of the same transaction that created the recipe.

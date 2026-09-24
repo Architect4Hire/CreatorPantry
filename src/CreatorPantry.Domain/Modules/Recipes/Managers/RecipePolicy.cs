@@ -19,6 +19,62 @@ public static class RecipePolicy
     public const int FirstVersionNumber = 1;
 
     /// <summary>
+    /// The editorial states a library search returns when the caller asked for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every state except <see cref="RecipeStatus.Archived"/>, and <strong>derived rather than listed</strong>:
+    /// a state added to <see cref="RecipeStatus"/> tomorrow appears in the default library automatically,
+    /// which is the safe direction. A hand-written list would quietly hide it, and nobody would notice until
+    /// a creator asked where their recipes had gone.
+    /// </para>
+    /// <para>
+    /// Archiving is how a creator says "not now" about a recipe they are not finished with. A default that
+    /// kept showing it would make the command pointless; excluding it permanently would lose their work. So
+    /// the exclusion lives in the <em>default</em> only — <c>?status=Archived</c> lists them, and REC-006 asks
+    /// for exactly that shape.
+    /// </para>
+    /// <para>
+    /// Applied by <c>RecipeSearchQueryFactory</c>, where a request becomes criteria, and deliberately not by
+    /// the repository: "an empty status list is the absence of a filter" is a persistence contract that other
+    /// callers depend on, and turning absence into a default is a product decision.
+    /// </para>
+    /// </remarks>
+    public static readonly IReadOnlyList<RecipeStatus> DefaultSearchStatuses =
+        [.. Enum.GetValues<RecipeStatus>().Where(status => status != RecipeStatus.Archived)];
+
+    /// <summary>
+    /// Whether a recipe in this state accepts changes to its content.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The single home of REC-006's freeze.</strong> An archived recipe keeps everything — its
+    /// versions, its tags, its media links, its history — and accepts nothing new until it is brought back.
+    /// Every seam that writes recipe content is required to ask this first: the edit seam and the version
+    /// restore do today, and the AI proposal, publishing and test-run seams must when they arrive. Asking
+    /// here rather than each re-deciding is what keeps the answer one answer.
+    /// </para>
+    /// <para>
+    /// <strong>Duplicating is not a change and is not gated by this.</strong> A copy reads the archived
+    /// recipe and writes a different one, which is the ordinary way to take shelved work somewhere new —
+    /// refusing it would make the archive a place content goes to become unreachable.
+    /// </para>
+    /// </remarks>
+    public static bool AcceptsContentChanges(RecipeStatus status) => status != RecipeStatus.Archived;
+
+    /// <summary>
+    /// The state a recipe returns to when it comes back from the archive.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RecipeStatus.Draft"/>, and not the state it held before, because nothing records what that
+    /// was — storing it would be a column whose only reader is this one line. Draft is also the honest
+    /// answer: <see cref="RecipeStatus.Ready"/> is a claim the creator makes about a recipe they consider
+    /// finished, and one coming back off the shelf is being picked up again. Saying it is ready is theirs to
+    /// do, in one more edit.
+    /// </remarks>
+    public const RecipeStatus UnarchivedStatus = RecipeStatus.Draft;
+
+    /// <summary>
     /// The largest value any of the four time fields may carry: one year, in minutes.
     /// </summary>
     /// <remarks>

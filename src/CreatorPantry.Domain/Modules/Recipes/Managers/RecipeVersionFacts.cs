@@ -12,12 +12,22 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// the two rows cannot disagree about when it happened or who did it.
 /// </para>
 /// <para>
+/// <see cref="RestoredFromVersionId"/> is here rather than among those mechanical values, although it is an
+/// id the DataLayer could see, because which version a restore drew from is the decision the operation
+/// <em>is</em> — the DataLayer is handed a reconciled aggregate and cannot tell where its content came from.
+/// It defaults to <c>null</c> so that no existing caller has to say "this was not a restore".
+/// </para>
+/// <para>
 /// One type for both writes rather than one per write. The distinction between a first version and a later
 /// one is entirely in those mechanical values, none of which a caller supplies, so a second record would
 /// have had the same three members and invited them to drift.
 /// </para>
 /// </remarks>
+/// <param name="RestoredFromVersionId">
+/// The version whose content this one was copied from, on a restore, and <c>null</c> on every other write.
+/// </param>
 public sealed record RecipeVersionFacts(
     RecipeVersionSource Source,
     RecipeVersionReadiness Readiness,
-    string? Reason);
+    string? Reason,
+    Guid? RestoredFromVersionId = null);

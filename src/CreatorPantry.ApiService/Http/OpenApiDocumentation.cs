@@ -357,6 +357,14 @@ public static class OpenApiDocumentation
                 case "limit" or "Limit":
                     operation.Parameters[index] = new OpenApiParameterReference(LimitParameter, context.Document);
                     break;
+                case "from" or "to":
+                    // A version number, bound from the query as a nullable int and generated with the same
+                    // wrong shape paging suffered: ["integer", "string"] with a regex that permits 0 and
+                    // negatives, and no requiredness. The type is nullable so that an absent parameter is a
+                    // refusal naming it rather than a zero the validator then complains is out of range —
+                    // a binding decision, not a contract one, and the document must not repeat it.
+                    UseVersionNumber(parameter);
+                    break;
                 default:
                     // A query parameter bound from a complex type inherits the action's summary when it has no
                     // description of its own, which documents every filter as though it were the endpoint.
@@ -372,6 +380,32 @@ public static class OpenApiDocumentation
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Publishes a version-number query parameter as what it actually is: a required int32 of at least 1.
+    /// </summary>
+    /// <remarks>
+    /// The floor matches the check constraint on <c>RecipeVersions.VersionNumber</c>, so a number no version
+    /// could carry is refused by a generated client rather than sent and looked up. Marking it required here
+    /// rather than with <c>[Required]</c> on the property is deliberate: the attribute would fire MVC's own
+    /// ModelState validation and answer a 400 with no stable <c>code</c>, where the validator answers
+    /// <c>recipes.comparison.invalid_request</c> naming the parameter.
+    /// </remarks>
+    private static void UseVersionNumber(IOpenApiParameter parameter)
+    {
+        if (parameter is not OpenApiParameter concrete)
+        {
+            return;
+        }
+
+        concrete.Required = true;
+        concrete.Schema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Integer,
+            Format = "int32",
+            Minimum = "1",
+        };
     }
 
     private static OpenApiSchema ProblemSchema(bool validation)

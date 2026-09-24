@@ -47,6 +47,20 @@ public static class RecipeDetailMapper
             YieldQuantity = recipe.YieldQuantity,
             YieldUnitId = recipe.YieldUnitId,
             Status = recipe.Status,
+
+            // Resolved by the DataLayer, because naming the source recipe takes a read this type cannot make.
+            // Null here means either "not a copy" or "the resolution was not performed" — and the second is
+            // unreachable, because every path that produces a TaggedRecipe goes through the one helper that
+            // resolves it.
+            DuplicatedFrom = loaded.DuplicatedFrom is { } source
+                ? new RecipeDuplicateSourceServiceModel
+                {
+                    RecipeId = source.RecipeId,
+                    RecipeTitle = source.RecipeTitle,
+                    VersionId = source.VersionId,
+                    VersionNumber = source.VersionNumber,
+                }
+                : null,
             CreatedAt = recipe.CreatedAt,
             UpdatedAt = recipe.UpdatedAt,
             ConcurrencyToken = RecipeConcurrencyToken.From(recipe.RowVersion),

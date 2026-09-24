@@ -1,0 +1,169 @@
+/* Semantic --cp-* tokens only. The kind colours are the same ones cp-diff-legend uses for its swatches, so
+   a row and the legend entry explaining it read as the same thing in both themes. */
+
+:host {
+  display: block;
+}
+
+.comparison {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+}
+
+.comparison-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+}
+
+.comparison-title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+  color: var(--cp-text);
+}
+
+.comparison-summary {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  padding-top: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+}
+
+.section-heading {
+  margin: 0;
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.section-empty {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.row-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--cp-space-1);
+  border-radius: var(--cp-radius-sm);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  line-height: 1;
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+}
+
+.row-glyph--inline {
+  margin-inline-end: var(--cp-space-1);
+}
+
+.row-kind {
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+.row-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-1) var(--cp-space-3);
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.row-label {
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  color: var(--cp-text);
+}
+
+.row-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-1) var(--cp-space-3);
+  min-width: 0;
+}
+
+.row-value {
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+  /* Creator text can be a whole instruction step, and an identifier has no spaces to break at. */
+  overflow-wrap: anywhere;
+}
+
+.row-value-tag {
+  font-size: var(--cp-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+.row-value--from {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--cp-text-muted);
+}
+
+.row-movement {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.row[data-kind='added'] .row-glyph {
+  background: var(--cp-primary-soft);
+  color: var(--cp-primary);
+}
+
+.row[data-kind='removed'] .row-glyph {
+  background: var(--cp-danger-soft);
+  color: var(--cp-danger);
+}
+
+.row[data-kind='changed'] .row-glyph {
+  background: var(--cp-blue-soft);
+  color: var(--cp-blue);
+}
+
+.row[data-kind='moved'] .row-glyph {
+  background: var(--cp-purple-soft);
+  color: var(--cp-purple);
+}

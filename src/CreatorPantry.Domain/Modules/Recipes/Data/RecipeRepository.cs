@@ -25,6 +25,13 @@ internal sealed class RecipeRepository(CreatorPantryDbContext context) : IRecipe
             .Select(recipe => recipe.RowVersion)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<bool> ExistsAsync(Guid recipeId, CancellationToken cancellationToken) =>
+        context.Recipes
+            // No WorkspaceId predicate, and no IgnoreQueryFilters: the global query filter is what makes an
+            // invisible recipe answer false here, which is the whole point of asking.
+            .AsNoTracking()
+            .AnyAsync(recipe => recipe.Id == recipeId, cancellationToken);
+
     /// <summary>
     /// The one query both reads use, because a snapshot taken from a half-loaded aggregate is a permanent
     /// mistake and two queries that had to stay identical would eventually not be.

@@ -118,6 +118,32 @@ public class Recipe : IWorkspaceOwned
     public RecipeStatus Status { get; set; } = RecipeStatus.Draft;
 
     /// <summary>
+    /// The <see cref="RecipeVersion"/> this recipe's content was copied from when it was created by
+    /// duplicating another recipe; null for a recipe someone wrote.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>On the recipe, not on its version 1.</strong> Being a copy is a fact about this whole recipe
+    /// and stays true however many times it is edited afterwards; the version row it would otherwise sit on
+    /// describes one moment. <c>RecipeVersionSource.Duplicate</c> on version 1 says a duplication happened,
+    /// and this says what it copied.
+    /// </para>
+    /// <para>
+    /// <strong>One column, not two.</strong> The source recipe is <c>RecipeVersion.RecipeId</c> on the row
+    /// this names, so storing it beside this would be a second copy of a fact that can then disagree with
+    /// the first. A reader wanting the source recipe joins; a reader wanting the exact content that was
+    /// copied already has it.
+    /// </para>
+    /// <para>
+    /// <strong>Lineage, not dependence.</strong> The copy is canonical source material in its own right —
+    /// editing either recipe does nothing to the other, and nothing here makes the copy a derivative of
+    /// anything. The composite foreign key exists so that lineage cannot point outside the workspace; see
+    /// <c>RecipeConfiguration</c> for what it costs.
+    /// </para>
+    /// </remarks>
+    public Guid? DuplicatedFromVersionId { get; set; }
+
+    /// <summary>
     /// The <c>WorkspaceMembership</c> of the creator who made this, not their Identity user id. Membership
     /// is the workspace-scoped identity (auth.md).
     /// </summary>

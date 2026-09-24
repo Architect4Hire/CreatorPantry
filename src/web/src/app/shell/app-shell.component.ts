@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, isDevMode, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
@@ -48,6 +48,9 @@ export class AppShellComponent {
   readonly isDevMode = isDevMode();
   readonly menuOpen = signal(false);
   readonly session = this.auth.session;
+  readonly brandMarkSrc = computed(() =>
+    this.theme.resolved() === 'dark' ? '/images/logodark.png' : '/images/logo.png',
+  );
 
   private readonly routeState = toSignal(
     this.router.events.pipe(

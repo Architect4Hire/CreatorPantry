@@ -696,6 +696,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<Guid?>("DuplicatedFromVersionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Headnote")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
@@ -771,12 +774,19 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("PrimaryTechniqueId");
 
-                    b.HasIndex("WorkspaceId", "Title")
-                        .HasDatabaseName("IX_Recipes_Workspace_Title");
+                    b.HasIndex("WorkspaceId", "DuplicatedFromVersionId");
 
                     b.HasIndex("YieldUnitId", "YieldUnitDimension");
 
-                    b.HasIndex("WorkspaceId", "Status", "UpdatedAt")
+                    b.HasIndex("WorkspaceId", "Title", "Id")
+                        .HasDatabaseName("IX_Recipes_Workspace_Title");
+
+                    b.HasIndex("WorkspaceId", "UpdatedAt", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_Recipes_Workspace_UpdatedAt");
+
+                    b.HasIndex("WorkspaceId", "Status", "UpdatedAt", "Id")
+                        .IsDescending(false, false, true, true)
                         .HasDatabaseName("IX_Recipes_Workspace_Status_UpdatedAt");
 
                     b.ToTable("Recipes", null, t =>
@@ -949,7 +959,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasIndex("WorkspaceId", "IngredientId")
                         .HasDatabaseName("IX_RecipeIngredients_Workspace_Ingredient");
 
-                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeIngredientGroupId");
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeIngredientGroupId")
+                        .HasDatabaseName("IX_RecipeIngredients_WorkspaceId_RecipeId_RecipeIngredientGroupId");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("WorkspaceId", "RecipeId", "RecipeIngredientGroupId"), new[] { "MatchStatus" });
 
                     b.HasIndex("WorkspaceId", "RecipeIngredientGroupId", "SortOrder")
                         .IsUnique()
@@ -1006,7 +1019,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionGroup", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("RecipeId")
@@ -1040,7 +1052,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionStep", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("DurationMinutes")
@@ -1152,6 +1163,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("RecipeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("RestoredFromVersionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("SnapshotSchemaVersion")
                         .HasColumnType("int");
 
@@ -1171,6 +1185,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("WorkspaceId", "ParentVersionId");
 
+                    b.HasIndex("WorkspaceId", "RestoredFromVersionId");
+
                     b.HasIndex("WorkspaceId", "SnapshotSchemaVersion")
                         .HasDatabaseName("IX_RecipeVersions_Workspace_SnapshotSchemaVersion");
 
@@ -1181,11 +1197,17 @@ namespace CreatorPantry.Domain.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_RecipeVersions_Workspace_Recipe_VersionNumber");
 
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("WorkspaceId", "RecipeId", "VersionNumber"), new[] { "Readiness" });
+
                     b.ToTable("RecipeVersions", null, t =>
                         {
                             t.HasCheckConstraint("CK_RecipeVersions_Parent_NotSelf", "ParentVersionId IS NULL OR ParentVersionId <> Id");
 
                             t.HasCheckConstraint("CK_RecipeVersions_Proposal_Source", "(AiProposalId IS NULL AND Source <> 1) OR (AiProposalId IS NOT NULL AND Source = 1)");
+
+                            t.HasCheckConstraint("CK_RecipeVersions_RestoredFrom_NotSelf", "RestoredFromVersionId IS NULL OR RestoredFromVersionId <> Id");
+
+                            t.HasCheckConstraint("CK_RecipeVersions_RestoredFrom_Source", "(RestoredFromVersionId IS NULL AND Source <> 3) OR (RestoredFromVersionId IS NOT NULL AND Source = 3)");
 
                             t.HasCheckConstraint("CK_RecipeVersions_VersionNumber_Positive", "VersionNumber >= 1");
                         });
@@ -1930,6 +1952,12 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "DuplicatedFromVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
                         .WithMany()
                         .HasForeignKey("YieldUnitId", "YieldUnitDimension")
@@ -2061,6 +2089,12 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RestoredFromVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersionSnapshot", b =>

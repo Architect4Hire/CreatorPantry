@@ -43,7 +43,7 @@
 }
 
 .banner--error {
-  background: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
+  background: var(--cp-danger-soft);
   color: var(--cp-danger);
 }
 

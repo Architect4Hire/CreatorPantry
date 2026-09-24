@@ -227,15 +227,32 @@ public sealed class UpdateRecipeViewModelValidatorTests
     public void An_undefined_status_is_refused() =>
         Assert.Single(ErrorsFor(Empty() with { Status = Set<SettableRecipeStatusViewModel?>((SettableRecipeStatusViewModel)99) }, "Status"));
 
+    /// <summary>
+    /// Archiving is its own audited command at its own role bar (REC-006), so an edit may not reach that
+    /// state — two ways to archive would mean the easier one skips the audit entry and the Editor check.
+    /// </summary>
     [Fact]
-    public void A_recipe_may_be_archived()
-    {
-        // The rule that differs from a create: archiving is a state a recipe is moved to, and this is the
-        // route that moves it.
-        var model = Empty() with { Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Archived) };
+    public void A_recipe_cannot_be_archived_by_editing_its_status() =>
+        Assert.Equal(
+            ["Archive a recipe with the archive command, not by editing its status."],
+            ErrorsFor(
+                Empty() with { Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Archived) },
+                "Status"));
 
-        Assert.True(_validator.Validate(model).IsValid);
-    }
+    /// <summary>
+    /// Refused by the validator rather than removed from the enum, so the refusal names the field and says
+    /// what to do instead — the reason <see cref="SettableRecipeStatusViewModel"/> records for keeping it.
+    /// Leaving it out would make this an unreadable-body 400.
+    /// </summary>
+    [Fact]
+    public void Archived_remains_a_value_the_wire_can_carry() =>
+        Assert.Contains(SettableRecipeStatusViewModel.Archived, Enum.GetValues<SettableRecipeStatusViewModel>());
+
+    [Theory]
+    [InlineData(SettableRecipeStatusViewModel.Draft)]
+    [InlineData(SettableRecipeStatusViewModel.Ready)]
+    public void The_other_states_may_still_be_set(SettableRecipeStatusViewModel status) =>
+        Assert.True(_validator.Validate(Empty() with { Status = Set<SettableRecipeStatusViewModel?>(status) }).IsValid);
 
     // ---- Tags ----
 

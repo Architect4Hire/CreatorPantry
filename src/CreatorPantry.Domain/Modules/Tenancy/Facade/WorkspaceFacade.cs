@@ -51,4 +51,11 @@ internal sealed class WorkspaceFacade(
         var renamed = await business.RenameCurrentAsync(model, cancellationToken);
         return OperationResult<WorkspaceServiceModel>.Success(renamed);
     }
+
+    public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        // No validation and no policy: the ids are not client input, and the lookup answers only for the
+        // resolved workspace by way of the query filter beneath it.
+        business.FindMemberDisplayNamesAsync(membershipIds, cancellationToken);
 }

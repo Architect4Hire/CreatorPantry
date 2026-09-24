@@ -101,6 +101,16 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
     private static string SlugCandidate(string baseSlug, int attempt) =>
         attempt == 0 ? baseSlug : Truncate($"{baseSlug}-{attempt + 1}");
 
+    /// <remarks>
+    /// Passed straight through: there is no product decision to make about a lookup that already answers only
+    /// for this workspace, and inventing a placeholder for an unresolved membership here would decide, on
+    /// every caller's behalf, what an unnamed actor reads as.
+    /// </remarks>
+    public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        dataLayer.FindMemberDisplayNamesAsync(membershipIds, cancellationToken);
+
     private static string Truncate(string slug) =>
         slug.Length > WorkspacePolicy.SlugMaxLength ? slug[..WorkspacePolicy.SlugMaxLength].Trim('-') : slug;
 

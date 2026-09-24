@@ -154,20 +154,9 @@ public static class RecipeSnapshotMapper
     /// </exception>
     public static Recipe Restore(RecipeSnapshotDocument document, Guid recipeId)
     {
-        // Older documents must stay readable. Refusing anything but the current version would mean that the
-        // day this constant is incremented, every snapshot already written in every workspace goes dark —
-        // no restore, no diff, no history — which is the exact outcome choosing a self-describing document
-        // over shadow tables was meant to prevent. Only the unreadable ends are refused: a document with no
-        // version at all (0, so truncated rows and foreign JSON cannot pass as current), and one from a
-        // future build whose meaning this code genuinely does not know.
-        if (document.SchemaVersion < RecipeSnapshotDocument.MinimumReadableSchemaVersion
-            || document.SchemaVersion > RecipeSnapshotDocument.CurrentSchemaVersion)
-        {
-            throw new NotSupportedException(
-                $"Recipe snapshot schema version {document.SchemaVersion} cannot be read by this build, which "
-                    + $"reads versions {RecipeSnapshotDocument.MinimumReadableSchemaVersion} through "
-                    + $"{RecipeSnapshotDocument.CurrentSchemaVersion}.");
-        }
+        // Why only the unreadable ends are refused, and why this guard lives on the document rather than
+        // here: RecipeSnapshotDocument.EnsureReadable. RecipeComparer calls the same one.
+        document.EnsureReadable();
 
         // Only one shape exists so far, so there is nothing to upgrade between. When CurrentSchemaVersion
         // becomes 2, this is where a v1 document is brought forward — and a pinned literal v1 document,

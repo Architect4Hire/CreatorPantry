@@ -1,1 +1,87 @@
 /* Showcase-only composition belongs here. Product teams should consume the library tokens and components. */
+
+/* ---------------------------------------------------------------------------
+   SweetAlert2 confirmations, themed to the CreatorPantry token set.
+
+   SweetAlert2 injects its own stylesheet and renders into a container appended to <body>, outside every
+   component's view — so its styling cannot live in a component stylesheet and it cannot be reached by
+   Angular's style encapsulation. It belongs here, applied through the customClass names ConfirmService
+   passes, with `buttonsStyling: false` so none of the library's own button colours are in play.
+
+   Every value below is a --cp-* token. Those are defined on :root by tokens.css and redefined per theme by
+   themes.css, and a popup appended to <body> inherits from the same :root — so a confirmation follows
+   data-cp-theme into dark mode with no separate markup and no second palette.
+   --------------------------------------------------------------------------- */
+
+.cp-swal {
+  padding: var(--cp-space-6);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-raised);
+  box-shadow: var(--cp-shadow-lg);
+  color: var(--cp-text);
+}
+
+.cp-swal__title {
+  padding: 0;
+  color: var(--cp-text);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
+}
+
+.cp-swal__body {
+  margin: var(--cp-space-3) 0 0;
+  padding: 0;
+  color: var(--cp-text-muted);
+  font: 400 var(--cp-font-size-sm) / var(--cp-leading-normal) var(--cp-font-sans);
+  text-align: left;
+}
+
+.cp-swal__actions {
+  margin: var(--cp-space-6) 0 0;
+  gap: var(--cp-space-3);
+
+  /* Right-aligned rather than centred: the destructive action sits where this product's dialogs put it. */
+  justify-content: flex-end;
+}
+
+.cp-swal__confirm,
+.cp-swal__cancel {
+  /* 40px is the minimum touch target the design system commits to (WCAG 2.2 AA target size). */
+  min-height: 40px;
+  padding: 0 var(--cp-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--cp-radius-md);
+  font: 600 var(--cp-font-size-sm) / 1 var(--cp-font-sans);
+  cursor: pointer;
+}
+
+.cp-swal__confirm {
+  background: var(--cp-primary);
+  color: var(--cp-primary-ink);
+}
+
+.cp-swal__confirm--danger {
+  background: var(--cp-danger);
+  color: var(--cp-ink-on-accent);
+}
+
+.cp-swal__cancel {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+}
+
+/* The library's own focus treatment, so a confirmation is keyboard-navigable to the same standard as the rest
+   of the product. SweetAlert2 removes its default outline, which would otherwise leave these unfocusable-looking. */
+.cp-swal__confirm:focus-visible,
+.cp-swal__cancel:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-swal {
+    animation: none !important;
+  }
+}
