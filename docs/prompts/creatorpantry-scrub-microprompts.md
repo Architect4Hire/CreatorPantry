@@ -1423,7 +1423,7 @@ BEHAVIOR: Show rules and warning taxonomy, wait for approval, implement with pro
 for qualitative, discrete, range, package, and extreme factors.
 ```
 
-### 7.7 Unit conversion domain service **pick up here**
+### 7.7 Unit conversion domain service
 
 ```text
 SCOPE: Implement compatible same-dimension unit conversion plus ingredient-specific mass-volume
