@@ -1,10 +1,12 @@
 import { isDevMode } from '@angular/core';
 
+import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
 import { routes } from './app.routes';
 import { AppShellComponent } from './shell/app-shell.component';
 import { PlaceholderSectionComponent } from './shell/placeholder-section.component';
 import { WorkspaceGateComponent } from './shell/workspace-gate.component';
+import { LandingComponent } from './features/landing/landing.component';
 import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
@@ -13,14 +15,21 @@ import { RecipeEditorComponent } from './features/recipes/recipe-editor.componen
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
 describe('app routes', () => {
-  it('guards the shell at the root path with authGuard', () => {
-    const root = routes.find((route) => route.path === '');
-    expect(root?.canActivate).toEqual([authGuard]);
+  it('guards the public landing route with anonymousOnlyGuard, matching only the exact empty path', () => {
+    const landing = routes.find((route) => route.path === '');
+    expect(landing?.canActivate).toEqual([anonymousOnlyGuard]);
+    expect(landing?.pathMatch).toBe('full');
   });
 
-  it("nests all 12 named sections under a ':workspaceSlug' child route", () => {
-    const root = routes.find((route) => route.path === '');
-    const workspaceRoute = root?.children?.find((route) => route.path === ':workspaceSlug');
+  it("guards 'app' and ':workspaceSlug' with authGuard", () => {
+    const appRoute = routes.find((route) => route.path === 'app');
+    const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug');
+    expect(appRoute?.canActivate).toEqual([authGuard]);
+    expect(workspaceRoute?.canActivate).toEqual([authGuard]);
+  });
+
+  it("nests all 12 named sections under the ':workspaceSlug' route", () => {
+    const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug');
     const sectionPaths = workspaceRoute?.children?.map((route) => route.path).filter((path) => path !== '');
 
     expect(sectionPaths).toEqual([
@@ -30,11 +39,17 @@ describe('app routes', () => {
   });
 
   it("redirects an empty section path to 'dashboard'", () => {
-    const root = routes.find((route) => route.path === '');
-    const workspaceRoute = root?.children?.find((route) => route.path === ':workspaceSlug');
+    const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug');
     const indexRedirect = workspaceRoute?.children?.find((route) => route.path === '');
 
     expect(indexRedirect?.redirectTo).toBe('dashboard');
+  });
+
+  it("mounts the workspace gate as 'app''s own index route", () => {
+    const appRoute = routes.find((route) => route.path === 'app');
+    const gateRoute = appRoute?.children?.find((route) => route.path === '');
+
+    expect(gateRoute?.pathMatch).toBe('full');
   });
 
   it('registers /sign-in ungated', () => {
@@ -58,17 +73,21 @@ describe('app routes', () => {
   });
 
   it('resolves every lazy loadComponent without throwing, to the right component class', async () => {
-    const root = routes.find((route) => route.path === '')!;
-    const workspaceRoute = root.children!.find((route) => route.path === ':workspaceSlug')!;
+    const landingRoute = routes.find((route) => route.path === '')!;
+    expect(await landingRoute.loadComponent!()).toBe(LandingComponent);
+
+    const appRoute = routes.find((route) => route.path === 'app')!;
+    expect(await appRoute.loadComponent!()).toBe(AppShellComponent);
+
+    const gateRoute = appRoute.children!.find((route) => route.path === '')!;
+    expect(await gateRoute.loadComponent!()).toBe(WorkspaceGateComponent);
+
+    const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug')!;
+    expect(await workspaceRoute.loadComponent!()).toBe(AppShellComponent);
 
     // Each route's loadComponent already does `.then(m => m.XComponent)`, so it resolves directly to
     // the component class itself. Compare by reference against a directly-imported class, not by
     // `.name` — the bundler can rename same-named classes duplicated across separate lazy chunks.
-    expect(await root.loadComponent!()).toBe(AppShellComponent);
-
-    const gateRoute = root.children!.find((route) => route.path === '')!;
-    expect(await gateRoute.loadComponent!()).toBe(WorkspaceGateComponent);
-
     for (const section of workspaceRoute.children!.filter((route) => route.path !== '' && route.path !== 'recipes')) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }

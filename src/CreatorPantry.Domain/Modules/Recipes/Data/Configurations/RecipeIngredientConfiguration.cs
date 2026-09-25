@@ -44,6 +44,11 @@ internal sealed class RecipeIngredientConfiguration : IEntityTypeConfiguration<R
 
         builder.HasKey(ingredient => ingredient.Id);
 
+        // See RecipeIngredientGroupConfiguration's Id configuration for why this matters: without it, a new
+        // line attached to an existing group during an edit is misread as an update to a row that does not
+        // exist.
+        builder.Property(ingredient => ingredient.Id).ValueGeneratedNever();
+
         builder.Property(ingredient => ingredient.DisplayText)
             .IsRequired()
             .HasMaxLength(RecipePolicy.LineTextMaxLength);

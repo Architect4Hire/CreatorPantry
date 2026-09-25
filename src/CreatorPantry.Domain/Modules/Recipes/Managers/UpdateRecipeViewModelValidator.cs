@@ -179,6 +179,46 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
                 .WithMessage("A step's temperature needs both a value and a unit, or neither.")
             .When(model => model.Instructions.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.Instructions));
+
+        RuleFor(model => model.IngredientGroups)
+            .Cascade(CascadeMode.Stop)
+            .Must(field => !IngredientGroups(field).Any(group => group is null))
+                .WithMessage("An ingredient group cannot be blank.")
+            .Must(field => IngredientGroups(field).Count <= RecipePolicy.MaxIngredientGroupsPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientGroupsPerRecipe} ingredient groups.")
+            .Must(field => IngredientGroups(field).Sum(group => Lines(group).Count) <= RecipePolicy.MaxIngredientLinesPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientLinesPerRecipe} ingredient lines.")
+            .Must(field => IngredientGroups(field).All(group => group.Id != Guid.Empty))
+                .WithMessage("That is not a valid ingredient group reference.")
+            .Must(field => HaveNoRepeatedIds(IngredientGroups(field).Select(group => group.Id)))
+                .WithMessage("The same ingredient group is named more than once.")
+            .Must(field => IngredientGroups(field).All(group => Trimmed(group.Title).Length <= RecipePolicy.GroupTitleMaxLength))
+                .WithMessage($"An ingredient group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
+            .Must(field => !AllLines(field).Any(line => line is null))
+                .WithMessage("An ingredient line cannot be blank.")
+            .Must(field => AllLines(field).All(line => line.Id != Guid.Empty))
+                .WithMessage("That is not a valid ingredient line reference.")
+            .Must(field => HaveNoRepeatedIds(AllLines(field).Select(line => line.Id)))
+                .WithMessage("The same ingredient line is named more than once.")
+            .Must(field => AllLines(field).All(line => !string.IsNullOrWhiteSpace(line.DisplayText)))
+                .WithMessage("An ingredient line cannot be blank.")
+            .Must(field => AllLines(field).All(line => Trimmed(line.DisplayText).Length <= RecipePolicy.LineTextMaxLength))
+                .WithMessage($"An ingredient line can be at most {RecipePolicy.LineTextMaxLength} characters.")
+            .Must(field => AllLines(field).All(line => Trimmed(line.PreparationNote).Length <= RecipePolicy.NoteMaxLength))
+                .WithMessage($"A preparation note can be at most {RecipePolicy.NoteMaxLength} characters.")
+            .Must(field => AllLines(field).All(line => line.Quantity is null or > 0m))
+                .WithMessage("A quantity must be greater than zero.")
+            .Must(field => AllLines(field).All(line => line.QuantityUpper is null or > 0m))
+                .WithMessage("A quantity must be greater than zero.")
+            .Must(field => AllLines(field).All(
+                line => line.QuantityUpper is null || (line.Quantity is not null && line.QuantityUpper > line.Quantity)))
+                .WithMessage("A quantity range needs a lower amount, and the upper amount must be greater than it.")
+            .Must(field => AllLines(field).All(line => line.MeasurementUnitId != Guid.Empty))
+                .WithMessage("That is not a valid unit reference.")
+            .Must(field => AllLines(field).All(line => line.IngredientId != Guid.Empty))
+                .WithMessage("That is not a valid ingredient reference.")
+            .When(model => model.IngredientGroups.IsSubmitted)
+            .OverridePropertyName(nameof(UpdateRecipeViewModel.IngredientGroups));
     }
 
     private static IReadOnlyList<RecipeInstructionGroupInputViewModel> Groups(PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> field) =>
@@ -189,6 +229,15 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
 
     private static IEnumerable<RecipeInstructionStepInputViewModel> AllSteps(PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> field) =>
         Groups(field).SelectMany(Steps);
+
+    private static IReadOnlyList<RecipeIngredientGroupInputViewModel> IngredientGroups(PatchField<IReadOnlyList<RecipeIngredientGroupInputViewModel?>?> field) =>
+        field.Value?.OfType<RecipeIngredientGroupInputViewModel>().ToList() ?? [];
+
+    private static IReadOnlyList<RecipeIngredientInputViewModel> Lines(RecipeIngredientGroupInputViewModel group) =>
+        group.Ingredients?.OfType<RecipeIngredientInputViewModel>().ToList() ?? [];
+
+    private static IEnumerable<RecipeIngredientInputViewModel> AllLines(PatchField<IReadOnlyList<RecipeIngredientGroupInputViewModel?>?> field) =>
+        IngredientGroups(field).SelectMany(Lines);
 
     /// <summary>
     /// Ids may repeat only as every group's and step's <c>null</c> — many new children, one recipe — but a

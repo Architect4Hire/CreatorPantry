@@ -11,5 +11,8 @@ public interface IIngredientDataLayer
         IngredientQuery query, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IIngredientRepository.IsUsableAsync"/>
+    Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
 }
 

@@ -36,10 +36,18 @@ public sealed class RecipeBusinessTests
             .BuildServiceProvider()
             .GetRequiredService<IRecipeBusiness>();
 
+    private static readonly IReadOnlyDictionary<Guid, MeasurementDimension> NoIngredientUnitDimensions =
+        new Dictionary<Guid, MeasurementDimension>();
+
     private Task<Domain.Managers.Results.OperationResult<CreatedRecipeServiceModel>> CreateAsync(
         CreateRecipeViewModel input,
-        MeasurementDimension? yieldUnitDimension = null) =>
-        _business.CreateAsync(CanonicalCreateRecipe.From(input), yieldUnitDimension, TestContext.Current.CancellationToken);
+        MeasurementDimension? yieldUnitDimension = null,
+        IReadOnlyDictionary<Guid, MeasurementDimension>? ingredientUnitDimensions = null) =>
+        _business.CreateAsync(
+            CanonicalCreateRecipe.From(input),
+            yieldUnitDimension,
+            ingredientUnitDimensions ?? NoIngredientUnitDimensions,
+            TestContext.Current.CancellationToken);
 
     // ---- Valid ----
 
@@ -273,6 +281,102 @@ public sealed class RecipeBusinessTests
         await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
 
         Assert.Empty(_dataLayer.Recipe!.InstructionGroups);
+    }
+
+    // ---- IngredientGroups (create) ----
+
+    [Fact]
+    public async Task Ingredient_groups_and_lines_are_built_fresh_with_new_ids_and_position_order()
+    {
+        var input = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups =
+            [
+                new RecipeIngredientGroupInputViewModel
+                {
+                    Title = "Batter",
+                    Ingredients =
+                    [
+                        new RecipeIngredientInputViewModel { DisplayText = "2 cups flour" },
+                        new RecipeIngredientInputViewModel { DisplayText = "1 cup sugar" },
+                    ],
+                },
+            ],
+        };
+
+        await CreateAsync(input);
+
+        var group = Assert.Single(_dataLayer.Recipe!.IngredientGroups);
+        Assert.NotEqual(Guid.Empty, group.Id);
+        Assert.Equal("Batter", group.Title);
+        Assert.Equal(0, group.SortOrder);
+
+        var lines = group.Ingredients.OrderBy(line => line.SortOrder).ToList();
+        Assert.Equal(2, lines.Count);
+        Assert.Equal("2 cups flour", lines[0].DisplayText);
+        Assert.Equal(0, lines[0].SortOrder);
+        Assert.Equal("1 cup sugar", lines[1].DisplayText);
+        Assert.Equal(1, lines[1].SortOrder);
+        Assert.NotEqual(lines[0].Id, lines[1].Id);
+    }
+
+    [Fact]
+    public async Task A_lines_unit_dimension_is_derived_from_what_the_facade_resolved_never_trusted_from_the_request()
+    {
+        var unitId = Guid.NewGuid();
+        var input = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups =
+            [
+                new RecipeIngredientGroupInputViewModel
+                {
+                    Ingredients = [new RecipeIngredientInputViewModel { DisplayText = "240 g flour", MeasurementUnitId = unitId }],
+                },
+            ],
+        };
+
+        await CreateAsync(input, ingredientUnitDimensions: new Dictionary<Guid, MeasurementDimension> { [unitId] = MeasurementDimension.Mass });
+
+        var line = _dataLayer.Recipe!.IngredientGroups.Single().Ingredients.Single();
+        Assert.Equal(unitId, line.MeasurementUnitId);
+        Assert.Equal(MeasurementDimension.Mass, line.MeasurementUnitDimension);
+    }
+
+    [Fact]
+    public async Task No_ingredients_is_a_recipe_with_no_ingredient_list_yet()
+    {
+        await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
+
+        Assert.Empty(_dataLayer.Recipe!.IngredientGroups);
+    }
+
+    [Fact]
+    public async Task A_display_text_survives_alongside_a_matched_ingredient_id_unchanged()
+    {
+        var ingredientId = Guid.NewGuid();
+        var input = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups =
+            [
+                new RecipeIngredientGroupInputViewModel
+                {
+                    Ingredients =
+                    [
+                        new RecipeIngredientInputViewModel { DisplayText = "2 cups (240g) all-purpose flour, sifted", IngredientId = ingredientId },
+                    ],
+                },
+            ],
+        };
+
+        await CreateAsync(input);
+
+        var line = _dataLayer.Recipe!.IngredientGroups.Single().Ingredients.Single();
+        Assert.Equal("2 cups (240g) all-purpose flour, sifted", line.DisplayText);
+        Assert.Equal(ingredientId, line.IngredientId);
+        Assert.Equal(IngredientMatchStatus.Matched, line.MatchStatus);
     }
 
     // ---- Nothing reaches the DataLayer when an invariant fails ----
@@ -509,6 +613,7 @@ public sealed class RecipeBusinessTests
         Recipe recipe,
         UpdateRecipeViewModel edit,
         MeasurementDimension? submittedYieldUnitDimension = null,
+        IReadOnlyDictionary<Guid, MeasurementDimension>? ingredientUnitDimensions = null,
         params WorkspaceTag[] tags)
     {
         _dataLayer.Detail = Tagged(recipe, CurrentVersion(recipe), tags);
@@ -517,6 +622,7 @@ public sealed class RecipeBusinessTests
             recipe.Id,
             CanonicalRecipePatch.From(edit),
             submittedYieldUnitDimension,
+            ingredientUnitDimensions ?? NoIngredientUnitDimensions,
             TestContext.Current.CancellationToken);
     }
 
@@ -612,7 +718,7 @@ public sealed class RecipeBusinessTests
         _dataLayer.Detail = null;
 
         var result = await _business.UpdateAsync(
-            Guid.NewGuid(), CanonicalRecipePatch.From(Edit()), null, TestContext.Current.CancellationToken);
+            Guid.NewGuid(), CanonicalRecipePatch.From(Edit()), null, NoIngredientUnitDimensions, TestContext.Current.CancellationToken);
 
         Assert.False(result.Succeeded);
         Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
@@ -1001,6 +1107,225 @@ public sealed class RecipeBusinessTests
         var step = recipe.InstructionGroups.Single().Steps.Single();
         Assert.Equal(MeasurementDimension.Temperature, step.TemperatureUnitDimension);
     }
+
+    // ---- IngredientGroups (update) ----
+
+    [Fact]
+    public async Task A_new_ingredient_group_with_no_id_is_added()
+    {
+        var recipe = Stored();
+
+        await UpdateAsync(
+            recipe,
+            Edit() with { IngredientGroups = IngredientGroups(IngredientGroup(id: null, title: "Batter", IngredientLine(id: null, "2 cups flour"))) });
+
+        var group = Assert.Single(recipe.IngredientGroups);
+        Assert.NotEqual(Guid.Empty, group.Id);
+        Assert.Equal("Batter", group.Title);
+        Assert.Equal("2 cups flour", group.Ingredients.Single().DisplayText);
+    }
+
+    [Fact]
+    public async Task An_existing_ingredient_group_and_line_are_updated_in_place_by_id()
+    {
+        var groupId = Guid.NewGuid();
+        var lineId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(
+            ExistingIngredientGroup(groupId, "Batter", ExistingIngredientLine(lineId, "2 cups flour"))));
+
+        await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                IngredientGroups = IngredientGroups(IngredientGroup(groupId, "Cake batter", IngredientLine(lineId, "2 1/4 cups flour"))),
+            });
+
+        var group = Assert.Single(recipe.IngredientGroups);
+        Assert.Equal(groupId, group.Id); // same row, not replaced
+        Assert.Equal("Cake batter", group.Title);
+        var line = Assert.Single(group.Ingredients);
+        Assert.Equal(lineId, line.Id);
+        Assert.Equal("2 1/4 cups flour", line.DisplayText);
+    }
+
+    [Fact]
+    public async Task An_ingredient_group_not_named_by_the_submission_is_removed()
+    {
+        var keepId = Guid.NewGuid();
+        var removeId = Guid.NewGuid();
+        var recipe = Stored(stored =>
+        {
+            stored.IngredientGroups.Add(ExistingIngredientGroup(keepId, "Batter", ExistingIngredientLine(Guid.NewGuid(), "Flour")));
+            stored.IngredientGroups.Add(ExistingIngredientGroup(removeId, "Frosting", ExistingIngredientLine(Guid.NewGuid(), "Butter")));
+        });
+
+        await UpdateAsync(
+            recipe, Edit() with { IngredientGroups = IngredientGroups(IngredientGroup(keepId, "Batter", IngredientLine(null, "Flour"))) });
+
+        var group = Assert.Single(recipe.IngredientGroups);
+        Assert.Equal(keepId, group.Id);
+    }
+
+    [Fact]
+    public async Task An_ingredient_line_not_named_by_the_submission_is_removed_from_its_group()
+    {
+        var groupId = Guid.NewGuid();
+        var keepLineId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(ExistingIngredientGroup(
+            groupId, "Batter", ExistingIngredientLine(keepLineId, "Flour"), ExistingIngredientLine(Guid.NewGuid(), "Sugar"))));
+
+        await UpdateAsync(
+            recipe, Edit() with { IngredientGroups = IngredientGroups(IngredientGroup(groupId, "Batter", IngredientLine(keepLineId, "Flour"))) });
+
+        var line = Assert.Single(recipe.IngredientGroups.Single().Ingredients);
+        Assert.Equal(keepLineId, line.Id);
+    }
+
+    [Fact]
+    public async Task Reordering_ingredient_lines_updates_their_sort_order()
+    {
+        var groupId = Guid.NewGuid();
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(
+            ExistingIngredientGroup(groupId, null, ExistingIngredientLine(firstId, "Flour", sortOrder: 0), ExistingIngredientLine(secondId, "Sugar", sortOrder: 1))));
+
+        // The same two lines, listed in the opposite order.
+        await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                IngredientGroups = IngredientGroups(IngredientGroup(groupId, null, IngredientLine(secondId, "Sugar"), IngredientLine(firstId, "Flour"))),
+            });
+
+        var group = recipe.IngredientGroups.Single();
+        Assert.Equal(0, group.Ingredients.Single(line => line.Id == secondId).SortOrder);
+        Assert.Equal(1, group.Ingredients.Single(line => line.Id == firstId).SortOrder);
+    }
+
+    [Fact]
+    public async Task Resubmitting_the_exact_same_ingredients_writes_nothing()
+    {
+        var groupId = Guid.NewGuid();
+        var lineId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(
+            ExistingIngredientGroup(groupId, "Batter", ExistingIngredientLine(lineId, "Flour"))));
+
+        var result = await UpdateAsync(
+            recipe, Edit() with { IngredientGroups = IngredientGroups(IngredientGroup(groupId, "Batter", IngredientLine(lineId, "Flour"))) });
+
+        Assert.True(result.Succeeded);
+
+        // Not an optimisation, for the same reason a no-op instruction resubmission writes nothing: a version
+        // recording no change is noise in a history a creator reads, and would invalidate collaborators'
+        // tokens for nothing.
+        Assert.Equal(0, _dataLayer.Calls);
+    }
+
+    [Fact]
+    public async Task An_id_naming_no_line_of_this_recipe_is_treated_as_a_new_line_not_an_error()
+    {
+        var groupId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(ExistingIngredientGroup(groupId, "Batter")));
+
+        // A foreign or bogus id, indistinguishable to this recipe. Refusing it would first have to decide
+        // which of those it is, and answering that at all is the disclosure tenancy.md forbids.
+        var result = await UpdateAsync(
+            recipe, Edit() with { IngredientGroups = IngredientGroups(IngredientGroup(groupId, "Batter", IngredientLine(Guid.NewGuid(), "Flour"))) });
+
+        Assert.True(result.Succeeded);
+        var line = Assert.Single(recipe.IngredientGroups.Single().Ingredients);
+        Assert.Equal("Flour", line.DisplayText);
+    }
+
+    [Fact]
+    public async Task IngredientGroups_left_unsubmitted_are_left_exactly_as_they_are()
+    {
+        var groupId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(ExistingIngredientGroup(groupId, "Batter", ExistingIngredientLine(Guid.NewGuid(), "Flour"))));
+
+        await UpdateAsync(recipe, Edit() with { Title = Set<string?>("Lemon cake") });
+
+        Assert.Single(recipe.IngredientGroups);
+    }
+
+    [Fact]
+    public async Task Submitting_an_empty_ingredient_list_clears_every_group()
+    {
+        var recipe = Stored(stored => stored.IngredientGroups.Add(ExistingIngredientGroup(Guid.NewGuid(), "Batter", ExistingIngredientLine(Guid.NewGuid(), "Flour"))));
+
+        await UpdateAsync(recipe, Edit() with { IngredientGroups = IngredientGroups() });
+
+        Assert.Empty(recipe.IngredientGroups);
+    }
+
+    [Fact]
+    public async Task A_lines_unit_dimension_is_derived_on_update_too()
+    {
+        var groupId = Guid.NewGuid();
+        var lineId = Guid.NewGuid();
+        var unitId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(ExistingIngredientGroup(groupId, "Batter", ExistingIngredientLine(lineId, "Flour"))));
+
+        await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                IngredientGroups = IngredientGroups(IngredientGroup(groupId, "Batter", IngredientLine(lineId, "240 g flour", measurementUnitId: unitId))),
+            },
+            ingredientUnitDimensions: new Dictionary<Guid, MeasurementDimension> { [unitId] = MeasurementDimension.Mass });
+
+        var line = recipe.IngredientGroups.Single().Ingredients.Single();
+        Assert.Equal(MeasurementDimension.Mass, line.MeasurementUnitDimension);
+    }
+
+    [Fact]
+    public async Task A_display_text_is_preserved_exactly_on_update_even_when_matched_by_id()
+    {
+        var groupId = Guid.NewGuid();
+        var lineId = Guid.NewGuid();
+        var ingredientId = Guid.NewGuid();
+        var recipe = Stored(stored => stored.IngredientGroups.Add(ExistingIngredientGroup(groupId, "Batter", ExistingIngredientLine(lineId, "flour"))));
+
+        await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                IngredientGroups = IngredientGroups(IngredientGroup(
+                    groupId, "Batter", IngredientLine(lineId, "2 cups (240g) all-purpose flour, sifted", ingredientId: ingredientId))),
+            });
+
+        var line = recipe.IngredientGroups.Single().Ingredients.Single();
+        Assert.Equal("2 cups (240g) all-purpose flour, sifted", line.DisplayText);
+        Assert.Equal(ingredientId, line.IngredientId);
+        Assert.Equal(IngredientMatchStatus.Matched, line.MatchStatus);
+    }
+
+    private static RecipeIngredientGroup ExistingIngredientGroup(Guid id, string? title, params RecipeIngredient[] lines)
+    {
+        var group = new RecipeIngredientGroup { Id = id, Title = title, SortOrder = 0 };
+        foreach (var line in lines)
+        {
+            group.Ingredients.Add(line);
+        }
+
+        return group;
+    }
+
+    private static RecipeIngredient ExistingIngredientLine(Guid id, string displayText, int sortOrder = 0) =>
+        new() { Id = id, DisplayText = displayText, SortOrder = sortOrder };
+
+    private static PatchField<IReadOnlyList<RecipeIngredientGroupInputViewModel?>?> IngredientGroups(
+        params RecipeIngredientGroupInputViewModel[] groups) =>
+        PatchField<IReadOnlyList<RecipeIngredientGroupInputViewModel?>?>.Submitted(groups);
+
+    private static RecipeIngredientGroupInputViewModel IngredientGroup(
+        Guid? id, string? title, params RecipeIngredientInputViewModel[] ingredients) =>
+        new() { Id = id, Title = title, Ingredients = ingredients };
+
+    private static RecipeIngredientInputViewModel IngredientLine(
+        Guid? id, string displayText, Guid? measurementUnitId = null, Guid? ingredientId = null) =>
+        new() { Id = id, DisplayText = displayText, MeasurementUnitId = measurementUnitId, IngredientId = ingredientId };
 
     private static RecipeInstructionGroup ExistingGroup(Guid id, string? title, params RecipeInstructionStep[] steps)
     {

@@ -5,11 +5,38 @@ import { RouterTestingHarness } from '@angular/router/testing';
 
 import { RecipeEditorComponent } from './recipe-editor.component';
 import { recipeEditorCanDeactivateGuard } from './recipe-editor.guard';
+import { EditableIngredientGroup, EditableIngredientRow } from './recipe-ingredient-editor.component';
 import { ConfirmService } from '../../core/confirm.service';
 import { WorkspaceRole } from '../../models/auth.models';
 import { CreatedRecipe, RecipeDetail } from '../../models/recipe.models';
 import { RecipeService } from '../../services/recipe.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
+
+/** A minimal, otherwise-blank editable ingredient row — the working copy's own defaults, not the server's. */
+function editableRow(overrides: Partial<EditableIngredientRow> = {}): EditableIngredientRow {
+  return {
+    key: 'row-' + Math.random().toString(36).slice(2),
+    id: null,
+    displayText: '',
+    ingredientNameText: '',
+    quantityText: '',
+    detectedQuantityText: null,
+    unitId: null,
+    unitLabel: '',
+    ingredientId: null,
+    matchState: 'unreviewed',
+    preparationNote: '',
+    isOptional: false,
+    scalingBehavior: 'Proportional',
+    ingredientCandidates: [],
+    unitCandidates: [],
+    ...overrides,
+  };
+}
+
+function editableGroup(overrides: Partial<EditableIngredientGroup> = {}): EditableIngredientGroup {
+  return { key: 'group-' + Math.random().toString(36).slice(2), id: null, title: '', ingredients: [], ...overrides };
+}
 
 const RECIPE_DETAIL: RecipeDetail = {
   id: 'r1',
@@ -689,6 +716,258 @@ describe('RecipeEditorComponent', () => {
     });
   });
 
+  describe('ingredients', () => {
+    it('submits ingredient groups on save, dropping lines left blank and trimming the rest', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Weeknight Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.title.set('Weeknight Chili');
+      component.onIngredientGroupsChanged([
+        editableGroup({
+          title: ' Dry ingredients ',
+          ingredients: [
+            editableRow({ displayText: '   ' }), // left blank — must not reach the request
+            editableRow({
+              displayText: '  2 cups flour  ',
+              quantityText: '2',
+              unitId: 'unit1',
+              ingredientId: 'ref1',
+              preparationNote: '  sifted  ',
+              isOptional: true,
+              scalingBehavior: 'Fixed',
+            }),
+          ],
+        }),
+      ]);
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      expect(request.ingredientGroups).toEqual([
+        {
+          id: null,
+          title: 'Dry ingredients',
+          ingredients: [
+            {
+              id: null,
+              displayText: '2 cups flour',
+              quantity: 2,
+              quantityUpper: null,
+              measurementUnitId: 'unit1',
+              ingredientId: 'ref1',
+              preparationNote: 'sifted',
+              isOptional: true,
+              scalingBehavior: 'Fixed',
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('loads an existing recipe’s ingredients into editable state, carrying their ids, without waiting on the child editor to resync', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          ingredientGroups: [
+            {
+              id: 'g1',
+              title: 'Dry ingredients',
+              sortOrder: 0,
+              ingredients: [
+                {
+                  id: 'ing1',
+                  sortOrder: 0,
+                  displayText: '2 cups flour',
+                  ingredientNameText: 'flour',
+                  quantity: 2,
+                  quantityUpper: null,
+                  measurementUnitId: 'unit1',
+                  ingredientId: 'ref1',
+                  matchStatus: 'Matched',
+                  preparationNote: null,
+                  isOptional: false,
+                  scalingBehavior: 'Proportional',
+                },
+              ],
+            },
+          ],
+        },
+      });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      // Asserted with no harness.detectChanges() in between: applyDetail sets editedIngredientGroups
+      // synchronously rather than waiting on the child editor's own effect to resync from [initialGroups].
+      expect(component.editedIngredientGroups()).toEqual([
+        {
+          key: 'g1',
+          id: 'g1',
+          title: 'Dry ingredients',
+          ingredients: [
+            {
+              key: 'ing1',
+              id: 'ing1',
+              displayText: '2 cups flour',
+              ingredientNameText: 'flour',
+              quantityText: '2',
+              detectedQuantityText: null,
+              unitId: 'unit1',
+              unitLabel: '',
+              ingredientId: 'ref1',
+              matchState: 'matched',
+              preparationNote: '',
+              isOptional: false,
+              scalingBehavior: 'Proportional',
+              ingredientCandidates: [],
+              unitCandidates: [],
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('sends an edited existing ingredient line with its id, so the server updates it in place rather than adding a new one', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          ingredientGroups: [
+            {
+              id: 'g1',
+              title: null,
+              sortOrder: 0,
+              ingredients: [
+                {
+                  id: 'ing1',
+                  sortOrder: 0,
+                  displayText: '2 cups flour',
+                  ingredientNameText: null,
+                  quantity: 2,
+                  quantityUpper: null,
+                  measurementUnitId: null,
+                  ingredientId: null,
+                  matchStatus: 'NotAttempted',
+                  preparationNote: null,
+                  isOptional: false,
+                  scalingBehavior: 'Proportional',
+                },
+              ],
+            },
+          ],
+        },
+      });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: RECIPE_DETAIL });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      const [group] = component.editedIngredientGroups();
+      component.onIngredientGroupsChanged([
+        { ...group, ingredients: group.ingredients.map((row) => (row.id === 'ing1' ? { ...row, displayText: '3 cups flour', quantityText: '3' } : row)) },
+      ]);
+
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.ingredientGroups.value).toEqual([
+        {
+          id: 'g1',
+          title: null,
+          ingredients: [
+            { id: 'ing1', displayText: '3 cups flour', quantity: 3, quantityUpper: null, measurementUnitId: null, ingredientId: null, preparationNote: null, isOptional: false, scalingBehavior: 'Proportional' },
+          ],
+        },
+      ]);
+    });
+
+    it('ingredient edits survive a save and a reload', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.onIngredientGroupsChanged([
+        editableGroup({
+          title: 'Dry ingredients',
+          ingredients: [editableRow({ displayText: '2 cups flour', quantityText: '2', unitId: 'unit1' })],
+        }),
+      ]);
+      expect(component.isDirty()).toBeTrue();
+
+      const saved: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        concurrencyToken: 'AAAAAAAAB9I=',
+        ingredientGroups: [
+          {
+            id: 'g1',
+            title: 'Dry ingredients',
+            sortOrder: 0,
+            ingredients: [
+              {
+                id: 'ing1',
+                sortOrder: 0,
+                displayText: '2 cups flour',
+                ingredientNameText: null,
+                quantity: 2,
+                quantityUpper: null,
+                measurementUnitId: 'unit1',
+                ingredientId: null,
+                matchStatus: 'NotAttempted',
+                preparationNote: null,
+                isOptional: false,
+                scalingBehavior: 'Proportional',
+              },
+            ],
+          },
+        ],
+      };
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: saved });
+
+      await component.save();
+
+      // Survives the save: dirty clears, and the working copy now carries the server-assigned ids.
+      expect(component.isDirty()).toBeFalse();
+      expect(component.editedIngredientGroups()[0].id).toBe('g1');
+      expect(component.editedIngredientGroups()[0].ingredients[0].id).toBe('ing1');
+
+      // Survives a full reload too (e.g. coming back to this recipe later) — not just the in-memory
+      // post-save state. The form is clean, so this reloads without asking.
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: saved });
+      await component.reloadAfterConflict();
+
+      expect(component.editedIngredientGroups()).toEqual([
+        {
+          key: 'g1',
+          id: 'g1',
+          title: 'Dry ingredients',
+          ingredients: [
+            {
+              key: 'ing1',
+              id: 'ing1',
+              displayText: '2 cups flour',
+              ingredientNameText: '',
+              quantityText: '2',
+              detectedQuantityText: null,
+              unitId: 'unit1',
+              unitLabel: '',
+              ingredientId: null,
+              matchState: 'unreviewed',
+              preparationNote: '',
+              isOptional: false,
+              scalingBehavior: 'Proportional',
+              ingredientCandidates: [],
+              unitCandidates: [],
+            },
+          ],
+        },
+      ]);
+      expect(component.isDirty()).toBeFalse();
+    });
+  });
+
   describe('unsaved-change detection and leave confirmation', () => {
     it('is not dirty on a fresh create-mode form, becomes dirty on a field edit', async () => {
       const recipeService = recipeServiceSpy();
@@ -716,6 +995,58 @@ describe('RecipeEditorComponent', () => {
       expect(component.isDirty()).toBeFalse();
       component.addInstructionGroup();
       expect(component.isDirty()).toBeTrue();
+    });
+
+    it('becomes dirty from an ingredient edit', async () => {
+      const recipeService = recipeServiceSpy();
+      const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      expect(component.isDirty()).toBeFalse();
+      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      expect(component.isDirty()).toBeTrue();
+    });
+
+    it('lights the "Unsaved changes" pill for an ingredient-only edit', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      harness.detectChanges();
+      expect(harness.routeNativeElement?.querySelector('.dirty-indicator')).toBeFalsy();
+
+      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      harness.detectChanges();
+
+      const pill = harness.routeNativeElement?.querySelector('.dirty-indicator');
+      expect(pill?.textContent).toContain('Unsaved changes');
+    });
+
+    it('blocks a real router navigation when only an ingredient edit is unsaved, until the user confirms discarding', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+
+      const navPromise = harness.navigateByUrl('/cozy-fall/elsewhere');
+      await waitUntil(() => confirmService.isOpen);
+      harness.detectChanges();
+
+      expect(confirmService.isOpen).toBeTrue();
+      expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/new');
+
+      confirmService.answer(true);
+      await navPromise;
+      expect(TestBed.inject(Router).url).toBe('/cozy-fall/elsewhere');
+    });
+
+    it('clears dirty state after a successful update with only an ingredient edit', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...RECIPE_DETAIL, concurrencyToken: 'AAAAAAAAB9I=' } });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      expect(component.isDirty()).toBeTrue();
+      await component.save();
+
+      expect(component.isDirty()).toBeFalse();
     });
 
     it('is dirty while typing an uncommitted tag, independent of the saved baseline', async () => {

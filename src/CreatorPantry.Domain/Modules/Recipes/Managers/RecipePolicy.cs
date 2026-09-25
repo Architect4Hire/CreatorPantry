@@ -147,4 +147,16 @@ public static class RecipePolicy
     /// <see cref="MaxInstructionGroupsPerRecipe"/>, at the level that actually determines payload size.
     /// </summary>
     public const int MaxInstructionStepsPerRecipe = 200;
+
+    /// <summary>
+    /// How many ingredient groups one recipe may carry. The same cap as <see cref="MaxInstructionGroupsPerRecipe"/>
+    /// and for the same reason: a bound on staged rows per request, not a judgement about a recipe's shape.
+    /// </summary>
+    public const int MaxIngredientGroupsPerRecipe = 50;
+
+    /// <summary>
+    /// How many ingredient lines one recipe may carry in total, across every group. Bounds the same risk as
+    /// <see cref="MaxIngredientGroupsPerRecipe"/>, at the level that actually determines payload size.
+    /// </summary>
+    public const int MaxIngredientLinesPerRecipe = 200;
 }

@@ -23,9 +23,10 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// <para>
 /// <strong>What is deliberately absent.</strong> No <c>WorkspaceId</c>, owner, author, version number,
 /// timestamp or <c>YieldUnitDimension</c> — for the reasons <see cref="CreateRecipeViewModel"/> records at
-/// length. Also no id: the recipe is named by the route. And no ingredients, equipment or asset links;
-/// editing those means reordering and identifying children, which is a contract of its own —
-/// <see cref="Instructions"/> is that contract, written for the method specifically.
+/// length. Also no id: the recipe is named by the route. And no equipment or asset links; editing those means
+/// reordering and identifying children, which is a contract of its own — <see cref="Instructions"/> and
+/// <see cref="IngredientGroups"/> are that contract, written for the method and the ingredient list
+/// respectively.
 /// </para>
 /// <para>
 /// <strong>Every field is nullable inside its <see cref="PatchField{T}"/>, including
@@ -134,4 +135,12 @@ public sealed record UpdateRecipeViewModel
     /// it is; an empty list clears it to no steps at all.
     /// </summary>
     public PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> Instructions { get; init; }
+
+    /// <summary>
+    /// The recipe's complete ingredient list, in creator-defined order. Submitting replaces: a group or line
+    /// named by an <c>id</c> is updated in place, one submitted without an <c>id</c> is new, and one the
+    /// recipe currently has but this list does not name is removed. Omitting the field leaves the ingredient
+    /// list exactly as it is; an empty list clears it to no lines at all.
+    /// </summary>
+    public PatchField<IReadOnlyList<RecipeIngredientGroupInputViewModel?>?> IngredientGroups { get; init; }
 }

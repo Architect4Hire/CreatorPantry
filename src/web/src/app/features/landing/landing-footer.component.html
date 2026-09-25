@@ -1,0 +1,13 @@
+<footer class="landing-footer">
+  <p class="brand">© {{ currentYear }} {{ productName() }}</p>
+  <nav class="footer-links" aria-label="Footer">
+    <a routerLink="/sign-in">Sign in</a>
+  </nav>
+  <div class="legal-placeholders">
+    @for (link of legalLinks(); track link) {
+      <button type="button" class="legal-link" disabled>
+        {{ link }} <span class="coming-soon">(coming soon)</span>
+      </button>
+    }
+  </div>
+</footer>

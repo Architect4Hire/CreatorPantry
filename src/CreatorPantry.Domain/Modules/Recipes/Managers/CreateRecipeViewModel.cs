@@ -18,10 +18,10 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// distrusts binding this way; this states it in the type.
 /// </para>
 /// <para>
-/// This creates the recipe, not most of its contents. Ingredients and equipment are edited through their own
-/// contract, which has ordering and concurrency concerns this one does not. Instructions are the exception,
-/// present here and on <see cref="UpdateRecipeViewModel"/> alike, because a creator routinely writes the
-/// method in the same sitting as the title.
+/// This creates the recipe, not all of its contents. Equipment is edited through its own contract, which has
+/// ordering and concurrency concerns this one does not. Ingredients and instructions are the exception,
+/// present here and on <see cref="UpdateRecipeViewModel"/> alike, because a creator routinely writes both in
+/// the same sitting as the title.
 /// </para>
 /// </remarks>
 public sealed record CreateRecipeViewModel
@@ -105,4 +105,10 @@ public sealed record CreateRecipeViewModel
     /// nothing exists yet to name — and the validator refuses one.
     /// </summary>
     public IReadOnlyList<RecipeInstructionGroupInputViewModel?>? Instructions { get; init; }
+
+    /// <summary>
+    /// The recipe's ingredient list, in creator-defined order. A group's or line's <c>id</c> must be omitted
+    /// here — nothing exists yet to name — and the validator refuses one.
+    /// </summary>
+    public IReadOnlyList<RecipeIngredientGroupInputViewModel?>? IngredientGroups { get; init; }
 }

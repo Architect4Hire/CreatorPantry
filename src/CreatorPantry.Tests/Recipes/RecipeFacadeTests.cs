@@ -27,6 +27,7 @@ public sealed class RecipeFacadeTests
 
     private readonly RecordingRecipeBusiness _business = new();
     private readonly StubReferenceModules _references = new();
+    private readonly StubIngredientModule _ingredients = new();
     private readonly StubWorkspaceDirectory _workspaces = new();
     private readonly ReplayingIdempotency _idempotency = new();
 
@@ -57,6 +58,7 @@ public sealed class RecipeFacadeTests
             .AddSingleton<IWorkspaceContext>(workspace)
             .AddSingleton<IVocabularyFacade>(_references)
             .AddSingleton<IMeasurementFacade>(_references)
+            .AddSingleton<CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade>(_ingredients)
             .AddSingleton<IWorkspaceFacade>(_workspaces)
             .AddSingleton<IIdempotentCommandExecutor>(_idempotency)
             .AddSingleton<IRecipeFacade, RecipeFacade>()
@@ -248,6 +250,94 @@ public sealed class RecipeFacadeTests
         await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
 
         Assert.Equal(0, _references.VocabularyLookups);
+        Assert.Equal(0, _references.UnitLookups);
+    }
+
+    // ---- Ingredient reference checks ----
+
+    [Fact]
+    public async Task An_unknown_ingredient_in_a_line_is_refused()
+    {
+        _ingredients.UsableIngredient = false;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups = [new RecipeIngredientGroupInputViewModel
+            {
+                Ingredients = [new RecipeIngredientInputViewModel { DisplayText = "flour", IngredientId = Guid.NewGuid() }],
+            }],
+        });
+
+        Assert.False(result.Result.Succeeded);
+        Assert.Contains("ingredientId", result.Result.Error!.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_unit_that_measures_temperature_is_refused_on_an_ingredient_line()
+    {
+        _references.UnitDimension = MeasurementDimension.Temperature;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups = [new RecipeIngredientGroupInputViewModel
+            {
+                Ingredients = [new RecipeIngredientInputViewModel { DisplayText = "240g flour", MeasurementUnitId = Guid.NewGuid() }],
+            }],
+        });
+
+        Assert.False(result.Result.Succeeded);
+        Assert.Contains("measurementUnitId", result.Result.Error!.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task An_unavailable_unit_on_an_ingredient_line_is_refused()
+    {
+        _references.UnitDimension = null;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups = [new RecipeIngredientGroupInputViewModel
+            {
+                Ingredients = [new RecipeIngredientInputViewModel { DisplayText = "240g flour", MeasurementUnitId = Guid.NewGuid() }],
+            }],
+        });
+
+        Assert.False(result.Result.Succeeded);
+        Assert.Contains("measurementUnitId", result.Result.Error!.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_real_mass_unit_and_a_real_ingredient_pass()
+    {
+        _references.UnitDimension = MeasurementDimension.Mass;
+
+        var result = await CreateAsync(new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups = [new RecipeIngredientGroupInputViewModel
+            {
+                Ingredients = [new RecipeIngredientInputViewModel
+                {
+                    DisplayText = "240g flour", MeasurementUnitId = Guid.NewGuid(), IngredientId = Guid.NewGuid(),
+                }],
+            }],
+        });
+
+        Assert.True(result.Result.Succeeded);
+    }
+
+    [Fact]
+    public async Task No_ingredients_means_no_ingredient_reference_lookups()
+    {
+        await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
+
+        Assert.Equal(0, _ingredients.Lookups);
         Assert.Equal(0, _references.UnitLookups);
     }
 
@@ -1888,10 +1978,14 @@ public sealed class RecipeFacadeTests
         };
 
         public Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
-            CanonicalCreateRecipe input, MeasurementDimension? yieldUnitDimension, CancellationToken cancellationToken)
+            CanonicalCreateRecipe input,
+            MeasurementDimension? yieldUnitDimension,
+            IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
+            CancellationToken cancellationToken)
         {
             Calls++;
             YieldUnitDimension = yieldUnitDimension;
+            IngredientUnitDimensions = ingredientUnitDimensions;
             Input = input;
 
             return Task.FromResult(OperationResult<CreatedRecipeServiceModel>.Success(new CreatedRecipeServiceModel(
@@ -1901,16 +1995,21 @@ public sealed class RecipeFacadeTests
         /// <summary>The patch the facade handed down, reduced to its meaning.</summary>
         public CanonicalRecipePatch? Patch { get; private set; }
 
+        /// <summary>The resolved ingredient unit dimensions the facade handed down on the last create or update.</summary>
+        public IReadOnlyDictionary<Guid, MeasurementDimension>? IngredientUnitDimensions { get; private set; }
+
         public Task<OperationResult<RecipeDetailServiceModel>> UpdateAsync(
             Guid recipeId,
             CanonicalRecipePatch patch,
             MeasurementDimension? submittedYieldUnitDimension,
+            IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
             CancellationToken cancellationToken)
         {
             Calls++;
             RequestedRecipeId = recipeId;
             YieldUnitDimension = submittedYieldUnitDimension;
             Patch = patch;
+            IngredientUnitDimensions = ingredientUnitDimensions;
 
             return Task.FromResult(Detail is null
                 ? OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
@@ -2127,6 +2226,29 @@ public sealed class RecipeFacadeTests
 
         public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Vocabulary.Managers.DescribedReferenceEntryServiceModel>>> ListAllergensAsync(
             Domain.Modules.Vocabulary.Managers.ReferenceQueryViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    /// <summary>Stands in for the Ingredients module, and counts that it was consulted.</summary>
+    private sealed class StubIngredientModule : CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade
+    {
+        public bool UsableIngredient { get; set; } = true;
+
+        public int Lookups { get; private set; }
+
+        public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken)
+        {
+            Lookups++;
+            return Task.FromResult(UsableIngredient);
+        }
+
+        // Not exercised by the facade under test.
+        public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Ingredients.Managers.IngredientServiceModel>>> ListIngredientsAsync(
+            Domain.Modules.Ingredients.Managers.IngredientQueryViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<IReadOnlyList<Domain.Modules.Ingredients.Managers.IngredientMatchResult>>> ResolveCandidatesAsync(
+            IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
     }
 

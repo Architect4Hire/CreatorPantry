@@ -99,6 +99,12 @@ public sealed record CanonicalRecipePatch
     /// </summary>
     public PatchField<IReadOnlyList<CanonicalInstructionGroup>> Instructions { get; init; }
 
+    /// <summary>
+    /// The recipe's complete ingredient list, or absent to leave it alone. Order is creator-defined and
+    /// preserved exactly as submitted, for the same reason <see cref="Instructions"/> is.
+    /// </summary>
+    public PatchField<IReadOnlyList<CanonicalIngredientGroup>> IngredientGroups { get; init; }
+
     /// <summary>Reduces a validated request to its meaning.</summary>
     /// <remarks>
     /// Pure and total. It assumes shape validation has already run: it does not reject anything, it only
@@ -147,6 +153,10 @@ public sealed record CanonicalRecipePatch
         Instructions = model.Instructions.IsSubmitted
             ? PatchField<IReadOnlyList<CanonicalInstructionGroup>>.Submitted(CanonicalInstructions.From(model.Instructions.Value))
             : PatchField<IReadOnlyList<CanonicalInstructionGroup>>.Absent,
+
+        IngredientGroups = model.IngredientGroups.IsSubmitted
+            ? PatchField<IReadOnlyList<CanonicalIngredientGroup>>.Submitted(CanonicalIngredients.From(model.IngredientGroups.Value))
+            : PatchField<IReadOnlyList<CanonicalIngredientGroup>>.Absent,
     };
 
     /// <summary>
@@ -200,6 +210,7 @@ public sealed record CanonicalRecipePatch
         }
 
         Add("instructions", Instructions);
+        Add("ingredientGroups", IngredientGroups);
 
         return new
         {

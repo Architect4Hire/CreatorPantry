@@ -4349,6 +4349,15 @@
             "items": {
               "$ref": "#/components/schemas/RecipeInstructionGroupInput"
             }
+          },
+          "ingredientGroups": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipeIngredientGroupInput"
+            }
           }
         }
       },
@@ -5795,6 +5804,105 @@
           }
         }
       },
+      "RecipeIngredientGroupInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ingredients": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipeIngredientInput"
+            }
+          }
+        }
+      },
+      "RecipeIngredientInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "displayText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "quantityUpper": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "measurementUnitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "ingredientId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "preparationNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isOptional": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "scalingBehavior": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IngredientScaling"
+              }
+            ]
+          }
+        }
+      },
       "RecipeIngredientScalingPreviewLine": {
         "required": [
           "id",
@@ -7141,6 +7249,15 @@
             ],
             "items": {
               "$ref": "#/components/schemas/RecipeInstructionGroupInput"
+            }
+          },
+          "ingredientGroups": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipeIngredientGroupInput"
             }
           }
         }

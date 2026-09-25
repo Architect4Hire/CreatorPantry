@@ -57,6 +57,11 @@ internal sealed class IngredientFacade(
             business.ResolveCandidates(candidateTexts, index));
     }
 
+    // Forwarded directly, with no validation and no cache: a single AnyAsync by primary key, exactly as
+    // ControlledVocabularyRepository.IsUsableAsync answers the equivalent question for the four vocabularies.
+    public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
+        business.IsUsableAsync(ingredientId, cancellationToken);
+
     /// <summary>
     /// One global key for the whole flattened match index, not one per candidate: the catalogue is small
     /// enough to hold in memory entirely, and resolving a batch of candidates against it costs one cache read

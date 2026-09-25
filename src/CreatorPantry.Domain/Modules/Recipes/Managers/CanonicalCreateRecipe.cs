@@ -81,6 +81,9 @@ public sealed record CanonicalCreateRecipe
     /// <summary>The recipe's method, in creator-defined order. Every group's and step's <c>Id</c> is null.</summary>
     public required IReadOnlyList<CanonicalInstructionGroup> Instructions { get; init; }
 
+    /// <summary>The recipe's ingredient list, in creator-defined order. Every group's and line's <c>Id</c> is null.</summary>
+    public required IReadOnlyList<CanonicalIngredientGroup> IngredientGroups { get; init; }
+
     /// <summary>Reduces a validated request to its meaning.</summary>
     /// <remarks>
     /// Pure and total. It assumes shape validation has already run — it does not reject anything, it only
@@ -115,6 +118,7 @@ public sealed record CanonicalCreateRecipe
         Status = SettableRecipeStatus.ToDomain(model.Status),
         Tags = TagNames(model.Tags),
         Instructions = CanonicalInstructions.From(model.Instructions),
+        IngredientGroups = CanonicalIngredients.From(model.IngredientGroups),
     };
 
     /// <summary>

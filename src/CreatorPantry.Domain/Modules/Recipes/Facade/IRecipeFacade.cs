@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Quantities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Ingredients.Facade;
 using CreatorPantry.Domain.Modules.Measurement.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Business;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
@@ -454,6 +455,7 @@ internal sealed class RecipeFacade(
     IVocabularyFacade vocabulary,
     IWorkspaceFacade workspaces,
     IMeasurementFacade measurement,
+    IIngredientFacade ingredients,
     IIdempotentCommandExecutor idempotency) : IRecipeFacade
 {
     /// <summary>Stable operation names for the idempotency scope. Changing one orphans in-flight keys.</summary>
@@ -572,6 +574,13 @@ internal sealed class RecipeFacade(
             return Refused<CreatedRecipeServiceModel>(instructionError);
         }
 
+        var (ingredientError, ingredientUnitDimensions) = await VerifyIngredientReferencesAsync(
+            canonical.IngredientGroups, CannotCreate, cancellationToken);
+        if (ingredientError is not null)
+        {
+            return Refused<CreatedRecipeServiceModel>(ingredientError);
+        }
+
         return await idempotency.ExecuteAsync(
             new IdempotentCommand(
                 userId,
@@ -585,7 +594,7 @@ internal sealed class RecipeFacade(
                 // demanding one would refuse every client that does not send one, and a create is useful
                 // without the protection. A caller who wants exactly-once semantics opts in by sending a key.
                 KeyRequired: false),
-            token => business.CreateAsync(canonical, yieldUnitDimension, token),
+            token => business.CreateAsync(canonical, yieldUnitDimension, ingredientUnitDimensions, token),
             cancellationToken);
     }
 
@@ -887,6 +896,18 @@ internal sealed class RecipeFacade(
             return Refused<RecipeDetailServiceModel>(instructionError);
         }
 
+        var ingredientUnitDimensions = EmptyIngredientUnitDimensions;
+        if (canonical.IngredientGroups.TryGetSubmitted(out var ingredientGroups))
+        {
+            OperationError? ingredientError;
+            (ingredientError, ingredientUnitDimensions) = await VerifyIngredientReferencesAsync(
+                ingredientGroups, CannotChange, cancellationToken);
+            if (ingredientError is not null)
+            {
+                return Refused<RecipeDetailServiceModel>(ingredientError);
+            }
+        }
+
         return await idempotency.ExecuteAsync(
             new IdempotentCommand(
                 userId,
@@ -899,7 +920,7 @@ internal sealed class RecipeFacade(
                 // answer.
                 Fingerprint: canonical.Fingerprint(recipeId),
                 KeyRequired: false),
-            token => business.UpdateAsync(recipeId, canonical, yieldUnitDimension, token),
+            token => business.UpdateAsync(recipeId, canonical, yieldUnitDimension, ingredientUnitDimensions, token),
             cancellationToken);
     }
 
@@ -1186,6 +1207,73 @@ internal sealed class RecipeFacade(
         return errors.Count == 0
             ? null
             : OperationError.Validation(RecipeErrorCodes.RecipeInvalidRequest, message, errors);
+    }
+
+    /// <summary>Shared by every caller with nothing submitted to verify, so none allocates its own empty map.</summary>
+    private static readonly IReadOnlyDictionary<Guid, MeasurementDimension> EmptyIngredientUnitDimensions =
+        new Dictionary<Guid, MeasurementDimension>();
+
+    /// <summary>
+    /// Confirms every unit and every ingredient named by a submitted ingredient list is real, still offered,
+    /// and — for the unit — actually measures something an ingredient can be measured in.
+    /// </summary>
+    /// <returns>
+    /// An error, or none — and, when none, the resolved dimension of every distinct unit the list named. That
+    /// map is what lets Business store <c>RecipeIngredient.MeasurementUnitDimension</c> without calling
+    /// another module's facade itself (backend.md): a unit's dimension can be anything but
+    /// <see cref="MeasurementDimension.Temperature"/>, unlike a step's temperature unit, so Business cannot
+    /// hardcode the one acceptable value the way <c>ApplyStep</c> does.
+    /// </returns>
+    /// <remarks>
+    /// Deliberately separate from <see cref="VerifyInstructionReferencesAsync"/> for the same reason that one
+    /// is separate from <see cref="VerifyReferencesAsync"/>: this reads the canonical, already-shape-validated
+    /// ingredient list rather than the raw view model, and its references are per-line rather than
+    /// one-per-request.
+    /// </remarks>
+    private async Task<(OperationError? Error, IReadOnlyDictionary<Guid, MeasurementDimension> UnitDimensions)> VerifyIngredientReferencesAsync(
+        IReadOnlyList<CanonicalIngredientGroup> groups, string message, CancellationToken cancellationToken)
+    {
+        var lines = groups.SelectMany(group => group.Ingredients).ToList();
+        if (lines.Count == 0)
+        {
+            return (null, EmptyIngredientUnitDimensions);
+        }
+
+        var errors = new List<(string Field, string Error)>();
+        var unitDimensions = new Dictionary<Guid, MeasurementDimension>();
+        var lineNumber = 0;
+
+        foreach (var line in lines)
+        {
+            lineNumber++;
+
+            if (line.MeasurementUnitId is { } unitId && !unitDimensions.ContainsKey(unitId))
+            {
+                var dimension = await measurement.FindUsableUnitDimensionAsync(unitId, cancellationToken);
+
+                if (dimension is null)
+                {
+                    errors.Add((nameof(RecipeIngredientInputViewModel.MeasurementUnitId), $"Line {lineNumber}'s unit is not available."));
+                }
+                else if (dimension == MeasurementDimension.Temperature)
+                {
+                    errors.Add((nameof(RecipeIngredientInputViewModel.MeasurementUnitId), $"Line {lineNumber} cannot be measured in degrees."));
+                }
+                else
+                {
+                    unitDimensions[unitId] = dimension.Value;
+                }
+            }
+
+            if (line.IngredientId is { } ingredientId && !await ingredients.IsUsableAsync(ingredientId, cancellationToken))
+            {
+                errors.Add((nameof(RecipeIngredientInputViewModel.IngredientId), $"Line {lineNumber}'s ingredient is not available."));
+            }
+        }
+
+        return errors.Count == 0
+            ? (null, unitDimensions)
+            : (OperationError.Validation(RecipeErrorCodes.RecipeInvalidRequest, message, errors), EmptyIngredientUnitDimensions);
     }
 
     /// <summary>

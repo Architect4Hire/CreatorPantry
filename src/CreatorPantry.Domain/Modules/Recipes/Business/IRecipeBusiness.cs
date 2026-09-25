@@ -33,18 +33,26 @@ public interface IRecipeBusiness
     /// <param name="yieldUnitDimension">
     /// The dimension of <c>input.YieldUnitId</c>, or <c>null</c> when no unit was named.
     /// </param>
+    /// <param name="ingredientUnitDimensions">
+    /// The resolved dimension of every distinct <c>MeasurementUnitId</c> named by <c>input.IngredientGroups</c>,
+    /// keyed by that id. An ingredient's unit is not restricted to one dimension the way a yield unit's
+    /// possibilities are enumerable or a step's temperature unit is fixed, so — unlike
+    /// <see cref="RecipeInstructionStep.TemperatureUnitDimension"/>, which this layer hardcodes — Business
+    /// cannot derive this fact itself and must be handed it.
+    /// </param>
     /// <remarks>
     /// The dimension is a parameter rather than something looked up here, and that is a boundary decision
     /// rather than a convenience. Measurement units belong to another module, whose only permitted entry
     /// point is its facade — and Business may call nothing but its own DataLayer. So the Facade resolves it
     /// and passes the fact down. The same applies to whether the cuisine, course and technique ids exist and
-    /// are active: <strong>the Facade must verify those before calling this method</strong>, because nothing
-    /// below will, and an unverified id becomes a foreign-key violation at save time — a 500 where the honest
-    /// answer is a 400 naming the field.
+    /// are active, and whether an ingredient id is one the catalogue still offers: <strong>the Facade must
+    /// verify those before calling this method</strong>, because nothing below will, and an unverified id
+    /// becomes a foreign-key violation at save time — a 500 where the honest answer is a 400 naming the field.
     /// </remarks>
     Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
         CanonicalCreateRecipe input,
         MeasurementDimension? yieldUnitDimension,
+        IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -76,6 +84,11 @@ public interface IRecipeBusiness
     /// including when the request submitted <c>null</c> to clear the unit. When the unit was not submitted,
     /// the recipe's stored dimension stands, because the unit is not changing.
     /// </param>
+    /// <param name="ingredientUnitDimensions">
+    /// The resolved dimension of every distinct <c>MeasurementUnitId</c> the patch's ingredient list names,
+    /// when it submitted one at all — see <see cref="CreateAsync"/> for why Business cannot derive this
+    /// itself. Empty, and unused, when <c>patch.IngredientGroups</c> was not submitted.
+    /// </param>
     /// <returns>
     /// The edited recipe, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/>,
     /// <see cref="RecipeErrorCodes.RecipeInvalidRequest"/> or
@@ -104,6 +117,7 @@ public interface IRecipeBusiness
         Guid recipeId,
         CanonicalRecipePatch patch,
         MeasurementDimension? submittedYieldUnitDimension,
+        IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -506,6 +520,7 @@ internal sealed class RecipeBusiness(
     public async Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
         CanonicalCreateRecipe input,
         MeasurementDimension? yieldUnitDimension,
+        IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
         CancellationToken cancellationToken)
     {
         if (Validate(input, yieldUnitDimension) is { } error)
@@ -559,6 +574,11 @@ internal sealed class RecipeBusiness(
         for (var index = 0; index < input.Instructions.Count; index++)
         {
             recipe.InstructionGroups.Add(BuildInstructionGroup(recipe, input.Instructions[index], index));
+        }
+
+        for (var index = 0; index < input.IngredientGroups.Count; index++)
+        {
+            recipe.IngredientGroups.Add(BuildIngredientGroup(recipe, input.IngredientGroups[index], index, ingredientUnitDimensions));
         }
 
         var version = new RecipeVersionFacts(
@@ -998,6 +1018,7 @@ internal sealed class RecipeBusiness(
         Guid recipeId,
         CanonicalRecipePatch patch,
         MeasurementDimension? submittedYieldUnitDimension,
+        IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
         CancellationToken cancellationToken)
     {
         var loaded = await dataLayer.GetForUpdateAsync(recipeId, cancellationToken);
@@ -1157,7 +1178,10 @@ internal sealed class RecipeBusiness(
         var instructionsChanged = patch.Instructions.TryGetSubmitted(out var submittedInstructions)
             && ReconcileInstructions(recipe, submittedInstructions);
 
-        if (changes.Count == 0 && !tagsChanged && !instructionsChanged)
+        var ingredientsChanged = patch.IngredientGroups.TryGetSubmitted(out var submittedIngredients)
+            && ReconcileIngredientGroups(recipe, submittedIngredients, ingredientUnitDimensions);
+
+        if (changes.Count == 0 && !tagsChanged && !instructionsChanged && !ingredientsChanged)
         {
             // Nothing to record. Answering with the recipe as it stands is the honest reply — the creator
             // asked for a state it is already in — and writing a version for it would put a change with no
@@ -1770,6 +1794,224 @@ internal sealed class RecipeBusiness(
         step.TemperatureUnitId = source.TemperatureUnitId;
         step.TemperatureUnitDimension = dimension;
         step.Note = source.Note;
+
+        return true;
+    }
+
+    /// <inheritdoc cref="BuildInstructionGroup" path="//remarks"/>
+    private static RecipeIngredientGroup BuildIngredientGroup(
+        Recipe recipe,
+        CanonicalIngredientGroup source,
+        int sortOrder,
+        IReadOnlyDictionary<Guid, MeasurementDimension> unitDimensions)
+    {
+        var group = new RecipeIngredientGroup
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = recipe.WorkspaceId,
+            RecipeId = recipe.Id,
+            Title = source.Title,
+            SortOrder = sortOrder,
+        };
+
+        for (var index = 0; index < source.Ingredients.Count; index++)
+        {
+            group.Ingredients.Add(BuildIngredientLine(recipe, group.Id, source.Ingredients[index], index, unitDimensions));
+        }
+
+        return group;
+    }
+
+    /// <inheritdoc cref="BuildInstructionGroup" path="//remarks"/>
+    private static RecipeIngredient BuildIngredientLine(
+        Recipe recipe,
+        Guid groupId,
+        CanonicalIngredientLine source,
+        int sortOrder,
+        IReadOnlyDictionary<Guid, MeasurementDimension> unitDimensions)
+    {
+        var line = new RecipeIngredient
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = recipe.WorkspaceId,
+            RecipeId = recipe.Id,
+            RecipeIngredientGroupId = groupId,
+        };
+        ApplyIngredientLine(line, source, sortOrder, unitDimensions);
+
+        return line;
+    }
+
+    /// <summary>
+    /// Makes <paramref name="recipe"/>'s ingredient list match <paramref name="submitted"/> exactly — the
+    /// ingredient counterpart of <see cref="ReconcileInstructions"/>, and identical in every particular
+    /// including the one worth restating: an id the submission names that does not belong to this recipe is
+    /// silently treated as a new group rather than refused, because refusing it would first have to decide
+    /// whether the id is unknown or names a row in a different workspace, and answering that at all is the
+    /// disclosure tenancy.md forbids.
+    /// </summary>
+    /// <returns>Whether anything about the ingredient list actually changed.</returns>
+    private static bool ReconcileIngredientGroups(
+        Recipe recipe,
+        IReadOnlyList<CanonicalIngredientGroup> submitted,
+        IReadOnlyDictionary<Guid, MeasurementDimension> unitDimensions)
+    {
+        var changed = false;
+        var existing = recipe.IngredientGroups.ToDictionary(group => group.Id);
+        var kept = new HashSet<Guid>();
+
+        for (var index = 0; index < submitted.Count; index++)
+        {
+            var source = submitted[index];
+            RecipeIngredientGroup group;
+
+            if (source.Id is { } groupId && existing.TryGetValue(groupId, out var found))
+            {
+                group = found;
+                kept.Add(groupId);
+
+                if (group.Title != source.Title)
+                {
+                    group.Title = source.Title;
+                    changed = true;
+                }
+
+                if (group.SortOrder != index)
+                {
+                    group.SortOrder = index;
+                    changed = true;
+                }
+            }
+            else
+            {
+                group = new RecipeIngredientGroup
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = recipe.WorkspaceId, // see BuildInstructionGroup's remarks
+                    RecipeId = recipe.Id,
+                    Title = source.Title,
+                    SortOrder = index,
+                };
+                recipe.IngredientGroups.Add(group);
+                changed = true;
+            }
+
+            if (ReconcileIngredientLines(recipe, group, source.Ingredients, unitDimensions))
+            {
+                changed = true;
+            }
+        }
+
+        foreach (var orphan in existing.Values.Where(group => !kept.Contains(group.Id)).ToList())
+        {
+            recipe.IngredientGroups.Remove(orphan);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <inheritdoc cref="ReconcileIngredientGroups"/>
+    private static bool ReconcileIngredientLines(
+        Recipe recipe,
+        RecipeIngredientGroup group,
+        IReadOnlyList<CanonicalIngredientLine> submitted,
+        IReadOnlyDictionary<Guid, MeasurementDimension> unitDimensions)
+    {
+        var changed = false;
+        var existing = group.Ingredients.ToDictionary(line => line.Id);
+        var kept = new HashSet<Guid>();
+
+        for (var index = 0; index < submitted.Count; index++)
+        {
+            var source = submitted[index];
+
+            if (source.Id is { } lineId && existing.TryGetValue(lineId, out var found))
+            {
+                kept.Add(lineId);
+                changed |= ApplyIngredientLine(found, source, index, unitDimensions);
+            }
+            else
+            {
+                group.Ingredients.Add(BuildIngredientLine(recipe, group.Id, source, index, unitDimensions));
+                changed = true;
+            }
+        }
+
+        foreach (var orphan in existing.Values.Where(line => !kept.Contains(line.Id)).ToList())
+        {
+            group.Ingredients.Remove(orphan);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Applies <paramref name="source"/> and <paramref name="sortOrder"/> onto <paramref name="line"/> in
+    /// place — the ingredient counterpart of <see cref="ApplyStep"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong><see cref="RecipeIngredient.DisplayText"/> is copied verbatim, never derived.</strong> A
+    /// recognised <see cref="CanonicalIngredientLine.IngredientId"/> enriches the line; recipes.md forbids it
+    /// ever replacing or normalizing what the creator typed, so this never reads <c>IngredientId</c> to decide
+    /// what <c>DisplayText</c> should say.
+    /// </para>
+    /// <para>
+    /// <see cref="RecipeIngredient.MeasurementUnitDimension"/> is derived from <paramref name="unitDimensions"/>
+    /// rather than trusted from the request, exactly as <see cref="ApplyStep"/> derives a step's temperature
+    /// dimension — except that an ingredient's unit is not restricted to one acceptable dimension, so this
+    /// cannot hardcode the value the way that one does and instead looks up what the Facade already resolved.
+    /// </para>
+    /// <para>
+    /// <see cref="RecipeIngredient.MatchStatus"/> is derived from whether <c>IngredientId</c> is present, for
+    /// the same reason the dimension is: <c>CK_RecipeIngredients_Match_Status</c> requires the two to agree,
+    /// and this is the one submission that can only ever report <see cref="IngredientMatchStatus.Matched"/> or
+    /// <see cref="IngredientMatchStatus.NotAttempted"/> — a creator naming an id has not asked this system to
+    /// attempt a match and fail one, the way AI-assisted matching elsewhere can.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whether anything about the line actually changed.</returns>
+    private static bool ApplyIngredientLine(
+        RecipeIngredient line,
+        CanonicalIngredientLine source,
+        int sortOrder,
+        IReadOnlyDictionary<Guid, MeasurementDimension> unitDimensions)
+    {
+        var dimension = source.MeasurementUnitId is { } unitId && unitDimensions.TryGetValue(unitId, out var resolved)
+            ? resolved
+            : (MeasurementDimension?)null;
+        var matchStatus = source.IngredientId is null ? IngredientMatchStatus.NotAttempted : IngredientMatchStatus.Matched;
+
+        var changed = line.SortOrder != sortOrder
+            || line.DisplayText != source.DisplayText
+            || line.Quantity != source.Quantity
+            || line.QuantityUpper != source.QuantityUpper
+            || line.MeasurementUnitId != source.MeasurementUnitId
+            || line.MeasurementUnitDimension != dimension
+            || line.IngredientId != source.IngredientId
+            || line.MatchStatus != matchStatus
+            || line.PreparationNote != source.PreparationNote
+            || line.IsOptional != source.IsOptional
+            || line.ScalingBehavior != source.ScalingBehavior;
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        line.SortOrder = sortOrder;
+        line.DisplayText = source.DisplayText;
+        line.Quantity = source.Quantity;
+        line.QuantityUpper = source.QuantityUpper;
+        line.MeasurementUnitId = source.MeasurementUnitId;
+        line.MeasurementUnitDimension = dimension;
+        line.IngredientId = source.IngredientId;
+        line.MatchStatus = matchStatus;
+        line.PreparationNote = source.PreparationNote;
+        line.IsOptional = source.IsOptional;
+        line.ScalingBehavior = source.ScalingBehavior;
 
         return true;
     }

@@ -17,5 +17,8 @@ public interface IIngredientBusiness
     /// <summary>Resolves each candidate against an already-loaded index. Pure: no I/O, no caching decision.</summary>
     IReadOnlyList<IngredientMatchResult> ResolveCandidates(
         IReadOnlyList<string> candidateTexts, IReadOnlyList<IngredientMatchIndexEntry> index);
+
+    /// <summary>Whether the id names an ingredient another module's writer may reference, such as a recipe line.</summary>
+    Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
 }
 

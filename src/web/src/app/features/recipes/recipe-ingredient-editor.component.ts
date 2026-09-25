@@ -137,7 +137,13 @@ export function rowFromParsedLine(line: ParsedIngredientLine, overrides: Ingredi
   };
 }
 
-function toEditableGroups(groups: readonly RecipeIngredientGroup[]): EditableIngredientGroup[] {
+/**
+ * Converts server-shaped ingredient groups into this editor's working copy. Exported so
+ * `RecipeEditorComponent` can build the same working copy directly (in `applyDetail`) rather than
+ * waiting on this component's own `effect()` to resync from `initialGroups` — the parent needs its
+ * mirror to be correct the instant a save/load applies, not on the next change-detection pass.
+ */
+export function toEditableGroups(groups: readonly RecipeIngredientGroup[]): EditableIngredientGroup[] {
   return groups.map((group) => ({
     key: group.id,
     id: group.id,
@@ -198,10 +204,9 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
 /**
  * The structured ingredient editor: groups and ingredient lines a creator can paste-and-parse, add, edit,
  * reorder and remove (ING-001, ING-002, 7.5). Parsed values are a proposal until explicitly confirmed —
- * accepting a parsed line turns it into an editable row here, but nothing is sent anywhere: the recipe
- * create/update endpoints have no ingredient fields yet, so this component's state is local only, the
- * same boundary `RecipeEditorComponent.ingredientGroups` already draws for the read-only rendering this
- * replaces.
+ * accepting a parsed line turns it into an editable row here. This component owns editing only; it emits
+ * `groupsChanged` on every edit and `RecipeEditorComponent` is what submits the result on Save, the same
+ * way it already does for instructions.
  */
 @Component({
   selector: 'cp-recipe-ingredient-editor',

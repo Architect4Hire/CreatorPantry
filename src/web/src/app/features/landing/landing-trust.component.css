@@ -1,0 +1,40 @@
+:host {
+  display: block;
+}
+
+.trust {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+  text-align: center;
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-5);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 400;
+}
+
+.mission {
+  margin: 0 0 var(--cp-space-4);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.audience,
+.stage {
+  margin: 0 0 var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.proof-note {
+  margin: 0;
+  color: var(--cp-text-faint);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}

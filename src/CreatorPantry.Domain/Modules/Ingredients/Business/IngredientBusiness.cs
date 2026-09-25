@@ -26,5 +26,8 @@ internal sealed class IngredientBusiness(IIngredientDataLayer dataLayer) : IIngr
 
         return candidateTexts.Select(text => IngredientMatcher.Resolve(text, lookup)).ToList();
     }
+
+    public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
+        dataLayer.IsUsableAsync(ingredientId, cancellationToken);
 }
 

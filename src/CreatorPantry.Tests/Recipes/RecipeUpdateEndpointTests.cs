@@ -470,6 +470,117 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         Assert.Equal("A's step.", aStep.GetProperty("text").GetString());
     }
 
+    // ---- Ingredients ----
+
+    [Fact]
+    public async Task Ingredients_are_created_edited_reordered_and_partially_removed_through_the_real_seam()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: cancellation);
+
+        var seeded = await SeedAsync(client, _fixture.WorkspaceA, new
+        {
+            title = "Olive oil cake",
+            ingredientGroups = new[]
+            {
+                new
+                {
+                    title = "Batter",
+                    ingredients = new[]
+                    {
+                        new { displayText = "2 cups flour" },
+                        new { displayText = "1 cup sugar" },
+                    },
+                },
+            },
+        });
+
+        var firstGroup = seeded.Detail.GetProperty("ingredientGroups").EnumerateArray().Single();
+        var lines = firstGroup.GetProperty("ingredients").EnumerateArray().ToList();
+        var groupId = firstGroup.GetProperty("id").GetGuid();
+        var keepLineId = lines[0].GetProperty("id").GetGuid();
+        var dropLineId = lines[1].GetProperty("id").GetGuid();
+        Assert.NotEqual(keepLineId, dropLineId);
+
+        // One edit: reorders the kept line, drops the other, renames the group, and adds a new second group —
+        // all through the one PATCH a recipe editor's Save button sends.
+        var response = await client.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceA, seeded.RecipeId),
+            new
+            {
+                expectedConcurrencyToken = seeded.Token,
+                ingredientGroups = new object[]
+                {
+                    new
+                    {
+                        id = groupId,
+                        title = "Cake batter",
+                        ingredients = new[] { new { id = keepLineId, displayText = "2 1/4 cups flour" } },
+                    },
+                    new { title = "Frosting", ingredients = new[] { new { displayText = "1 cup butter" } } },
+                },
+            },
+            cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await BodyOf(response);
+        var groups = body.GetProperty("ingredientGroups").EnumerateArray().ToList();
+
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(groupId, groups[0].GetProperty("id").GetGuid()); // same row, updated in place
+        Assert.Equal("Cake batter", groups[0].GetProperty("title").GetString());
+        var remainingLine = Assert.Single(groups[0].GetProperty("ingredients").EnumerateArray());
+        Assert.Equal(keepLineId, remainingLine.GetProperty("id").GetGuid());
+        Assert.Equal("2 1/4 cups flour", remainingLine.GetProperty("displayText").GetString());
+        Assert.Equal("Frosting", groups[1].GetProperty("title").GetString());
+
+        // A version was written for it, exactly as any other content edit does.
+        Assert.Equal(2, body.GetProperty("currentVersion").GetProperty("versionNumber").GetInt32());
+
+        // Re-reading confirms it was actually persisted, not only echoed back in the response.
+        var reread = await BodyOf(await client.GetAsync(RecipeIn(_fixture.WorkspaceA, seeded.RecipeId), cancellation));
+        Assert.Equal(2, reread.GetProperty("ingredientGroups").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task An_id_naming_another_workspaces_ingredient_line_is_created_as_new_rather_than_reaching_it()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+
+        using var ownerA = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: cancellation);
+        var a = await SeedAsync(ownerA, _fixture.WorkspaceA, new
+        {
+            title = "A's cake",
+            ingredientGroups = new[] { new { ingredients = new[] { new { displayText = "A's flour" } } } },
+        });
+        var lineIdFromA = a.Detail.GetProperty("ingredientGroups")[0].GetProperty("ingredients")[0].GetProperty("id").GetGuid();
+
+        using var ownerB = await _fixture.SignInAsync(_fixture.WorkspaceB.OwnerEmail, cancellationToken: cancellation);
+        var b = await SeedAsync(ownerB, _fixture.WorkspaceB, new { title = "B's cake" });
+
+        // B submits an id that only exists in A's recipe. It must be created as a new row in B, never read,
+        // matched, or mutated against A's — the same answer a bogus id would get.
+        var response = await ownerB.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceB, b.RecipeId),
+            new
+            {
+                expectedConcurrencyToken = b.Token,
+                ingredientGroups = new[] { new { ingredients = new[] { new { id = lineIdFromA, displayText = "B's flour" } } } },
+            },
+            cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var bLine = (await BodyOf(response)).GetProperty("ingredientGroups")[0].GetProperty("ingredients")[0];
+        Assert.NotEqual(lineIdFromA, bLine.GetProperty("id").GetGuid());
+        Assert.Equal("B's flour", bLine.GetProperty("displayText").GetString());
+
+        // And A's own line is exactly as it was.
+        var untouchedA = await BodyOf(await ownerA.GetAsync(RecipeIn(_fixture.WorkspaceA, a.RecipeId), cancellation));
+        var aLine = untouchedA.GetProperty("ingredientGroups")[0].GetProperty("ingredients")[0];
+        Assert.Equal(lineIdFromA, aLine.GetProperty("id").GetGuid());
+        Assert.Equal("A's flour", aLine.GetProperty("displayText").GetString());
+    }
+
     // ---- Workspace isolation ----
 
     [Fact]

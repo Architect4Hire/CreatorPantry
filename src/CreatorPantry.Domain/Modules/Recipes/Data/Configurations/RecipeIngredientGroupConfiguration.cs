@@ -16,6 +16,15 @@ internal sealed class RecipeIngredientGroupConfiguration : IEntityTypeConfigurat
 
         builder.HasKey(group => group.Id);
 
+        // Business always assigns this itself (Guid.NewGuid()); it is never store-generated. Without this,
+        // EF's default convention for a Guid key infers Added-vs-Modified from whether the value looks
+        // "already assigned" — harmless for a brand-new recipe, where the whole graph is added together, but
+        // wrong the moment a new group is attached to an *already-tracked* recipe (an edit): EF treats the
+        // non-empty id as evidence the row might already exist, marks the entity Modified instead of Added,
+        // and the resulting UPDATE matches no row — surfacing as a false concurrency conflict. See
+        // RecipeInstructionGroupConfiguration, which carries the same fix for the same reason.
+        builder.Property(group => group.Id).ValueGeneratedNever();
+
         // Carries RecipeId as well as WorkspaceId so an ingredient line's composite foreign key pins both:
         // a line cannot end up in a group belonging to another recipe, nor to another workspace.
         builder.HasAlternateKey(group => new { group.WorkspaceId, group.RecipeId, group.Id })

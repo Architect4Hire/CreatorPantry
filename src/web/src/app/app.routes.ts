@@ -1,6 +1,7 @@
 import { isDevMode } from '@angular/core';
 import { Routes } from '@angular/router';
 
+import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
@@ -51,17 +52,34 @@ export const routes: Routes = [
         },
       ]
     : []),
-  // Must come after every literal top-level path (sign-in, design-system, ...): ':workspaceSlug' below
-  // matches any single segment, so if this route were tried first it would swallow those literal paths
-  // as a workspace slug, send them through authGuard, and redirect back into the same trap — an infinite
-  // navigation loop with no console error, since nothing ever actually throws.
+  // The public landing page. Anonymous-only: an already-authenticated visitor is forwarded into the app
+  // instead of seeing marketing content. It renders before any workspace context exists, so it must
+  // never request or expose workspace-scoped data.
   {
     path: '',
+    pathMatch: 'full',
+    canActivate: [anonymousOnlyGuard],
+    loadComponent: () => import('./features/landing/landing.component').then((m) => m.LandingComponent),
+  },
+  // 'app' hosts the signed-in shell's own index page (workspace resolution/creation) before a workspace
+  // is chosen. It is therefore, like 'sign-in'/'sign-up'/etc., a literal top-level slug no real workspace
+  // may use.
+  {
+    path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./shell/app-shell.component').then((m) => m.AppShellComponent),
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./shell/workspace-gate.component').then((m) => m.WorkspaceGateComponent), data: { title: 'Workspaces' } },
-      { path: ':workspaceSlug', children: SECTION_ROUTES },
     ],
+  },
+  // Must come after every literal top-level path (sign-in, app, design-system, ...): ':workspaceSlug'
+  // below matches any single segment, so if this route were tried first it would swallow those literal
+  // paths as a workspace slug, send them through authGuard, and redirect back into the same trap — an
+  // infinite navigation loop with no console error, since nothing ever actually throws.
+  {
+    path: ':workspaceSlug',
+    canActivate: [authGuard],
+    loadComponent: () => import('./shell/app-shell.component').then((m) => m.AppShellComponent),
+    children: SECTION_ROUTES,
   },
 ];
