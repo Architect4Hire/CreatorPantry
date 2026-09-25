@@ -500,6 +500,69 @@
       </cp-tab-panel>
 
       @if (!isCreateMode) {
+        <cp-tab-panel id="scaling">
+          <!-- Mounted lazily by the tab, and read-only throughout: the panel asks the server for a scaling
+               preview and renders it. Nothing it shows is saved, and the "before" column is the saved
+               ingredient lines this component already loaded — the same content the server scaled — so no
+               amount on screen was worked out twice. -->
+          <cp-recipe-scaling-preview
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+            [recipeYieldQuantity]="savedYieldQuantity()"
+            [recipeYieldText]="savedYieldText()"
+            [editorIsDirty]="isDirty()"
+          />
+        </cp-tab-panel>
+
+        <cp-tab-panel id="converting">
+          <!-- Mounted lazily by the tab, and read-only throughout. Two calculations stacked rather than
+               nested in their own tabs: the units form refuses a temperature unit by pointing at the
+               section below it, which would be hidden exactly when it is needed. -->
+          <cp-recipe-unit-conversion
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+          />
+
+          <hr class="conversion-divider" />
+
+          <cp-recipe-temperature-conversion
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedInstructionGroups]="savedInstructionGroups()"
+            [editorIsDirty]="isDirty()"
+            (applyRequested)="onTemperatureApplyRequested($event)"
+          />
+        </cp-tab-panel>
+
+        <cp-tab-panel id="yield-display">
+          <!-- Mounted lazily by the tab, and read-only throughout. Stacked for the reason the Convert tab
+               stacks: each section is short, and both are about reading the recipe's own numbers rather
+               than changing them. -->
+          <cp-recipe-yield-reconciliation
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [yieldUnitId]="savedYieldUnitId()"
+            [savedYieldQuantity]="savedYieldQuantity()"
+            [editorIsDirty]="isDirty()"
+            (applyRequested)="onYieldApplyRequested($event)"
+          />
+
+          <hr class="conversion-divider" />
+
+          <cp-recipe-display-normalization
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+          />
+        </cp-tab-panel>
+
         <cp-tab-panel id="media">
           <cp-empty-state title="Media" description="Media management arrives in a later phase." icon="▧" />
         </cp-tab-panel>

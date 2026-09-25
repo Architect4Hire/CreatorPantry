@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using FluentValidation;
 
@@ -53,9 +54,13 @@ public sealed class ConvertTemperatureViewModelValidator : AbstractValidator<Con
                 .WithMessage("That temperature scale is not recognized.")
             .OverridePropertyName(nameof(ConvertTemperatureViewModel.ToScale));
 
+        // Bounded above, not only below: Quantity.ToDecimal refuses a scale outside 0–28 by throwing, so an
+        // unbounded precision was a 500 a creator could reach by typing. The cap is the platform's own
+        // documented display maximum, already enforced on units and density references.
         RuleFor(model => model.Precision)
-            .GreaterThanOrEqualTo(0)
-                .WithMessage("Precision cannot be negative.")
+            .InclusiveBetween(QuantityFormat.MinDisplayPrecision, QuantityFormat.MaxDisplayPrecision)
+                .WithMessage(
+                    $"Precision must be between {QuantityFormat.MinDisplayPrecision} and {QuantityFormat.MaxDisplayPrecision}.")
             .OverridePropertyName(nameof(ConvertTemperatureViewModel.Precision));
     }
 }

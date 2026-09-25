@@ -1,0 +1,232 @@
+/* Semantic --cp-* tokens only; no literal theme colours, so both themes follow the foundation
+   (.claude/rules/frontend.md). */
+
+:host {
+  display: block;
+}
+
+.conversion-heading {
+  margin: 0 0 var(--cp-space-2);
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.conversion-intro,
+.conversion-empty,
+.conversion-blocked {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.conversion-problem {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-danger);
+}
+
+.conversion-form {
+  display: grid;
+  gap: var(--cp-space-4);
+  justify-items: start;
+  margin-bottom: var(--cp-space-4);
+}
+
+.conversion-form cp-field {
+  min-width: 12rem;
+}
+
+.input-row,
+.scale-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.scale-group,
+.context-group {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+}
+
+.scale-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-4);
+}
+
+.context-group {
+  display: grid;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.scale-group legend,
+.context-group legend {
+  padding: 0 var(--cp-space-2);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.context-group legend {
+  color: var(--cp-text-muted);
+  font-weight: 400;
+}
+
+.scale-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  /* A comfortable target for the label as well as the control itself. */
+  min-height: 2.5rem;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+  cursor: pointer;
+}
+
+.scale-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+.result-card {
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-subtle);
+}
+
+.result-amount {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-3);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-exact {
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.result-subheading {
+  margin: 0 0 var(--cp-space-2);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+/* Term/value pairs rather than a table: labelled facts about one calculation, not rows of data. */
+.result-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+}
+
+.result-detail dt {
+  font-weight: 700;
+  color: var(--cp-text-muted);
+}
+
+.result-detail dd {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  color: var(--cp-text);
+}
+
+.result-formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--cp-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.result-formula-plain {
+  color: var(--cp-text-muted);
+}
+
+.result-caution {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-3);
+  max-width: 68ch;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+/* The same orange the warning status pill uses, so one caution does not read as two different kinds. */
+.caution-glyph {
+  color: var(--cp-orange);
+}
+
+.result-provenance {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+/* The apply handshake: the diff, the control, and why it is or is not available. */
+.apply {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-2);
+  margin-top: var(--cp-space-4);
+  padding-top: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+}
+
+.apply-diff {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+.apply-diff dt {
+  font-weight: 700;
+  color: var(--cp-text-muted);
+}
+
+.apply-diff dd {
+  margin: 0;
+  color: var(--cp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The arrow is decorative; "becomes" is read in its place, so the direction of the change never depends on
+   recognising a glyph. */
+.apply-arrow {
+  color: var(--cp-text-muted);
+}
+
+.apply-after {
+  font-weight: 700;
+}
+
+.apply-blocked {
+  margin: 0;
+  max-width: 68ch;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}

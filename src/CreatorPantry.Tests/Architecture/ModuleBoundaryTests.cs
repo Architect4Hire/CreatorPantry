@@ -53,12 +53,19 @@ public sealed class ModuleBoundaryTests
     /// live in <c>.Facade</c>, <c>.Business</c> and <c>.Data</c>, and only <c>.Facade</c> is permitted.
     /// </para>
     /// <para>
-    /// <c>.Managers</c> is deliberately absent. 4A.7 allows exactly one manager type to cross — the
-    /// ServiceModel a facade returns — and a namespace cannot express "only the ServiceModels", because a
-    /// module's Managers area also holds its ViewModels, validators, query types and repository records.
-    /// Nothing crosses that way today, so the rule is stated at its narrowest; the day a module really does
-    /// call another's facade, add <c>.Managers</c> here <em>and</em> extend
-    /// <see cref="No_module_names_another_modules_internal_manager_types"/> to keep the rest out.
+    /// <c>.Managers</c> is permitted, and only in the shape this remark used to describe as hypothetical.
+    /// 4A.7 allows the ServiceModel a facade returns to cross, and a namespace cannot express "only the
+    /// ServiceModels" — so the pairing this rule was always documented to need is in force: the namespace is
+    /// open here, and <see cref="No_module_names_another_modules_internal_manager_types"/> keeps the module's
+    /// ViewModels, validators, query types, repository records and policies out by name.
+    /// </para>
+    /// <para>
+    /// What made it real is Phase 7: Recipes now calls Measurement's facade to resolve units, so
+    /// <c>MeasurementUnitServiceModel</c> genuinely crosses, and with it the enums reachable through its own
+    /// surface (<c>MeasurementDimension</c>, <c>TemperatureScale</c>) — a ServiceModel a caller cannot name
+    /// the members of is not a ServiceModel that crossed. The pure calculators cross on the same footing:
+    /// they are stateless functions over those models with no state, no dependencies and no I/O, which is
+    /// the opposite of the module-internal reach this rule exists to stop.
     /// </para>
     /// </remarks>
     private static readonly Func<string, string, bool>[] PermittedCrossModule =
@@ -72,6 +79,12 @@ public sealed class ModuleBoundaryTests
 
         // Seed data composes across the reference modules by design; the seeder is one deployment-time unit.
         (used, module) => used == $"{Root}.Modules.{module}.Seeding",
+
+        // The ServiceModels a facade returns, and the stateless calculators over them. Everything this rule
+        // actually protects — repositories, data layers, business types, view models, validators, policies —
+        // is kept out by name in No_module_names_another_modules_internal_manager_types, which is what makes
+        // opening the namespace safe rather than a hole.
+        (used, module) => used == $"{Root}.Modules.{module}.Managers",
     ];
 
     /// <summary>

@@ -25,6 +25,7 @@ import {
   InstructionStepInput,
   RecipeDetail,
   RecipeIngredientGroup,
+  RecipeInstructionGroup,
   SettableRecipeStatus,
   UpdateRecipeRequest,
   submitted,
@@ -33,6 +34,11 @@ import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
 import { EditableIngredientGroup, RecipeIngredientEditorComponent } from './recipe-ingredient-editor.component';
 import { RecipeVersionRestored } from './recipe-restore.component';
+import { RecipeDisplayNormalizationComponent } from './recipe-display-normalization.component';
+import { RecipeScalingPreviewComponent } from './recipe-scaling-preview.component';
+import { RecipeTemperatureConversionComponent, TemperatureApplication } from './recipe-temperature-conversion.component';
+import { RecipeUnitConversionComponent } from './recipe-unit-conversion.component';
+import { RecipeYieldReconciliationComponent, YieldApplication } from './recipe-yield-reconciliation.component';
 
 /**
  * The editor's own working copy of one instruction step — a `key` stable across reorders for
@@ -48,6 +54,14 @@ interface EditableInstructionStep {
   text: string;
   note: string;
   durationMinutes: number | null;
+
+  // Carried, never edited. `Instructions` is a full replace and the server applies a submitted step
+  // wholesale, so a field this form omits is a field the next save sets to null — which silently destroyed
+  // every step's technique and recorded temperature. These are round-tripped so that editing a step's prose
+  // leaves the rest of what the recipe knows about it alone.
+  techniqueId: string | null;
+  temperatureValue: number | null;
+  temperatureUnitId: string | null;
 }
 
 interface EditableInstructionGroup {
@@ -167,6 +181,11 @@ type RecipeEditorSaveState =
     CpTabsComponent,
     RecipeHistoryComponent,
     RecipeIngredientEditorComponent,
+    RecipeDisplayNormalizationComponent,
+    RecipeScalingPreviewComponent,
+    RecipeTemperatureConversionComponent,
+    RecipeUnitConversionComponent,
+    RecipeYieldReconciliationComponent,
   ],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
@@ -196,6 +215,10 @@ export class RecipeEditorComponent {
     { id: 'instructions', label: 'Instructions' },
     { id: 'notes', label: 'Notes' },
     { id: 'timing', label: 'Timing & yield' },
+    // Both calculation tabs read an exact saved version, which a recipe being created does not have yet.
+    { id: 'scaling', label: 'Scale', disabled: this.isCreateMode },
+    { id: 'converting', label: 'Convert', disabled: this.isCreateMode },
+    { id: 'yield-display', label: 'Yield & display', disabled: this.isCreateMode },
     { id: 'media', label: 'Media', disabled: this.isCreateMode },
     { id: 'history', label: 'History', disabled: this.isCreateMode },
   ];
@@ -258,6 +281,52 @@ export class RecipeEditorComponent {
   private readonly concurrencyTokenSignal = signal<string | null>(null);
   readonly concurrencyToken = this.concurrencyTokenSignal.asReadonly();
 
+  /**
+   * The version number the recipe currently stands at, exposed because a calculation preview names the exact
+   * version it was computed from. Null while the recipe is loading, and in create mode, where there is no
+   * saved version to calculate anything from yet.
+   *
+   * It is refreshed by every path that replaces the loaded recipe — a save, a restore, an archive — so a
+   * preview taken before one of those can notice that it is describing content the page has moved past.
+   */
+  private readonly currentVersionNumberSignal = signal<number | null>(null);
+  readonly currentVersionNumber = this.currentVersionNumberSignal.asReadonly();
+
+  /**
+   * The recipe's yield **as saved**, held apart from the `yieldText`/`yieldQuantity` form fields above.
+   *
+   * A calculation is computed from the saved version, so the saved yield is the one it scaled — a target
+   * typed against an unsaved yield edit would be a target for a recipe that does not exist yet. The form
+   * values stay the form's; these are the recipe's.
+   */
+  private readonly savedYieldQuantitySignal = signal<number | null>(null);
+  readonly savedYieldQuantity = this.savedYieldQuantitySignal.asReadonly();
+
+  private readonly savedYieldTextSignal = signal<string | null>(null);
+  readonly savedYieldText = this.savedYieldTextSignal.asReadonly();
+
+  /**
+   * The recipe's saved yield unit.
+   *
+   * No control in this editor sets it, so it never enters the form. It is kept because a yield calculation
+   * reads the amounts it is given in this unit — resolved server-side from the same version — and the panel
+   * has to be able to say which unit that is rather than leaving it as an unstated assumption.
+   */
+  private readonly savedYieldUnitIdSignal = signal<string | null>(null);
+  readonly savedYieldUnitId = this.savedYieldUnitIdSignal.asReadonly();
+
+  /**
+   * The recipe's instruction groups **as saved**, kept beside the editable {@link instructionGroups} copy
+   * rather than derived from it.
+   *
+   * The editable copy carries only what this form edits — text, note and duration — and drops the recorded
+   * temperature and its unit, which no control here can change. A calculation that reads a step's
+   * temperature needs those, and needs them as the saved version has them, since that is the version it is
+   * computed against.
+   */
+  private readonly savedInstructionGroupsSignal = signal<readonly RecipeInstructionGroup[]>([]);
+  readonly savedInstructionGroups = this.savedInstructionGroupsSignal.asReadonly();
+
   // The idempotency key is stable across a retry of the exact same request body (a transient
   // failure — network drop, unavailable) and only regenerated when the payload actually changes
   // (a new logical operation). Reusing a stale key against a since-changed body would either be
@@ -267,6 +336,21 @@ export class RecipeEditorComponent {
   // create a second recipe on retry instead of being deduplicated.
   private pendingIdempotencyKey: string | null = null;
   private pendingRequestSignature: string | null = null;
+
+  /**
+   * The idempotency key for an apply in flight, held apart from the save key above.
+   *
+   * An apply and a save are different logical operations, and sharing one key would let a retried apply
+   * replay a save's response or the reverse. Stable across retries of the identical apply — which is what
+   * stops a lost response from writing a second version of the same change — and regenerated as soon as the
+   * change being applied differs.
+   */
+  private pendingApplyKey: string | null = null;
+  private pendingApplySignature: string | null = null;
+
+  /** Whether an apply is in flight, so a second click cannot start a second one. */
+  private readonly applyingSignal = signal(false);
+  readonly isApplying = this.applyingSignal.asReadonly();
 
   readonly title = signal('');
   readonly description = signal('');
@@ -445,7 +529,22 @@ export class RecipeEditorComponent {
     this.instructionGroups.update((groups) =>
       groups.map((group) =>
         group.key === groupKey
-          ? { ...group, steps: [...group.steps, { key: crypto.randomUUID(), id: null, text: '', note: '', durationMinutes: null }] }
+          ? {
+              ...group,
+              steps: [
+                ...group.steps,
+                {
+                  key: crypto.randomUUID(),
+                  id: null,
+                  text: '',
+                  note: '',
+                  durationMinutes: null,
+                  techniqueId: null,
+                  temperatureValue: null,
+                  temperatureUnitId: null,
+                },
+              ],
+            }
           : group,
       ),
     );
@@ -639,6 +738,179 @@ export class RecipeEditorComponent {
     this.saveStateSignal.set({ status: outcome.status });
   }
 
+  /**
+   * Writes one converted temperature back to the step it came from.
+   *
+   * The whole instruction list is rebuilt from the recipe **as saved**, not from the editor's own working
+   * copy: `Instructions` is a full replace and the server applies a submitted step wholesale, so anything
+   * left out of the list is set to null. Building from the saved detail is what keeps every other step's
+   * technique, temperature and note exactly as they were.
+   */
+  async onTemperatureApplyRequested(application: TemperatureApplication): Promise<void> {
+    await this.applyCalculation(
+      {
+        title: 'Save this temperature?',
+        message:
+          `${application.stepLabel} changes from ${application.beforeLabel} to ${application.afterLabel}. ` +
+          'This writes a new version of the recipe.',
+        confirmLabel: 'Save it',
+        cancelLabel: 'Leave it as it is',
+        tone: 'neutral',
+      },
+      `Converted a temperature: ${application.beforeLabel} → ${application.afterLabel}`,
+      (token, reason) => ({
+        expectedConcurrencyToken: token,
+        reason,
+        instructions: submitted(
+          this.savedInstructionGroupsSignal().map((group) => ({
+            id: group.id,
+            title: group.title,
+            steps: group.steps.map(
+              (step): InstructionStepInput => ({
+                id: step.id,
+                text: step.text,
+                techniqueId: step.techniqueId,
+                durationMinutes: step.durationMinutes,
+                note: step.note,
+                // Only the named step moves; every other one is submitted exactly as the recipe holds it.
+                temperatureValue: step.id === application.stepId ? application.temperatureValue : step.temperatureValue,
+                temperatureUnitId:
+                  step.id === application.stepId ? application.temperatureUnitId : step.temperatureUnitId,
+              }),
+            ),
+          })),
+        ),
+      }),
+      `Temperature saved: ${application.beforeLabel} → ${application.afterLabel}.`,
+    );
+  }
+
+  /**
+   * Records a reconciled batch yield as the recipe's own yield quantity.
+   *
+   * A narrow patch: every field this request does not name is left exactly as it is, which is what makes one
+   * confirmed change write one version containing only that change.
+   */
+  async onYieldApplyRequested(application: YieldApplication): Promise<void> {
+    await this.applyCalculation(
+      {
+        title: "Record this as the recipe's yield?",
+        message:
+          `The yield quantity changes from ${application.beforeLabel} to ${application.afterLabel}. ` +
+          'This writes a new version of the recipe.',
+        confirmLabel: 'Record it',
+        cancelLabel: 'Leave it as it is',
+        tone: 'neutral',
+      },
+      `Recorded a reconciled yield: ${application.beforeLabel} → ${application.afterLabel}`,
+      (token, reason) => ({
+        expectedConcurrencyToken: token,
+        reason,
+        yieldQuantity: submitted(application.yieldQuantity),
+      }),
+      `Yield recorded: ${application.beforeLabel} → ${application.afterLabel}.`,
+    );
+  }
+
+  /**
+   * The one handshake every calculation apply goes through.
+   *
+   * It writes through the ordinary REC-004 update route and nothing else: the same concurrency token an
+   * edit quotes, the same idempotency behaviour, the same version history. There is no second way to save a
+   * recipe, and this deliberately is not one.
+   *
+   * The editor must be clean before any of this is reached. A dirty form is refused by the panels
+   * themselves, because a narrow patch would write the calculated field while leaving the creator's unsaved
+   * edits in a form that then contradicts the recipe.
+   */
+  private async applyCalculation(
+    question: ConfirmRequest,
+    reason: string,
+    buildRequest: (token: string, reason: string) => UpdateRecipeRequest,
+    successText: string,
+  ): Promise<void> {
+    if (!this.recipeId || this.applyingSignal() || this.isDirty()) return;
+
+    const token = this.concurrencyTokenSignal();
+    if (!token) return;
+
+    // Claimed before the confirmation opens, not after it resolves. The guard above is only meaningful if
+    // nothing else can pass it while a creator is reading the dialog — otherwise two applies raised from the
+    // two panels both get through, and because their request bodies differ they take different idempotency
+    // keys, so the second quotes a token the first has already consumed.
+    this.applyingSignal.set(true);
+
+    if (!(await this.confirmService.confirm(question))) {
+      this.applyingSignal.set(false);
+      return;
+    }
+
+    const request = buildRequest(token, reason);
+    const outcome = await this.recipeService.updateRecipe(
+      this.workspaceSlug,
+      this.recipeId,
+      request,
+      this.applyKeyFor(request),
+    );
+    this.applyingSignal.set(false);
+
+    if (outcome.status === 'updated') {
+      this.applyDetail(outcome.recipe);
+      this.clearPendingApplyKey();
+
+      // A replay is the same single write arriving twice, so it is reported as the success it is — and
+      // never as a second version, because there is not one.
+      this.noticeSignal.set({
+        text: `${successText} The recipe is now at version ${outcome.recipe.currentVersion?.versionNumber ?? '—'}.`,
+        isProblem: false,
+        recipeLink: null,
+      });
+      return;
+    }
+
+    // Nothing was written in any of these. The key is kept for the cases a retry of the identical request
+    // is the right next step, and dropped where it is not.
+    this.noticeSignal.set({ text: this.applyProblemText(outcome.status), isProblem: true, recipeLink: null });
+    if (outcome.status !== 'unavailable') this.clearPendingApplyKey();
+  }
+
+  private applyProblemText(status: Exclude<UpdateRecipeOutcome['status'], 'updated'>): string {
+    switch (status) {
+      case 'conflict':
+        return 'Someone else changed this recipe, so nothing was applied. Reload it and try again.';
+      case 'forbidden':
+        return "You don't have permission to change this recipe, so nothing was applied.";
+      case 'not_found':
+        return 'This recipe could not be found, so nothing was applied.';
+      case 'idempotency_key_conflict':
+        // The one outcome that cannot promise nothing was written: the key belongs to a different request, so
+        // whether this creator's change landed is genuinely unknown from here. Saying "nothing was applied"
+        // would be a guess, and the remedy is to look rather than to retry.
+        return 'That change could not be applied safely, and it is not clear whether it was saved. Reload the recipe and check before trying again.';
+      case 'validation_failed':
+        return 'The recipe would not accept that change, so nothing was applied.';
+      default:
+        return "Couldn't apply that. Check your connection and try again — nothing was written.";
+    }
+  }
+
+  /** Reuses the in-flight key for a retry of the identical apply, so a lost response cannot write twice. */
+  private applyKeyFor(request: UpdateRecipeRequest): string {
+    const signature = JSON.stringify(request);
+    if (this.pendingApplyKey && this.pendingApplySignature === signature) {
+      return this.pendingApplyKey;
+    }
+    const key = crypto.randomUUID();
+    this.pendingApplyKey = key;
+    this.pendingApplySignature = signature;
+    return key;
+  }
+
+  private clearPendingApplyKey(): void {
+    this.pendingApplyKey = null;
+    this.pendingApplySignature = null;
+  }
+
   /** Reuses the in-flight key for a retry of the identical request; a changed payload is a new logical operation and gets a fresh one. */
   private idempotencyKeyFor(request: CreateRecipeRequest | UpdateRecipeRequest): string {
     const signature = JSON.stringify(request);
@@ -704,10 +976,18 @@ export class RecipeEditorComponent {
           text: step.text,
           note: step.note ?? '',
           durationMinutes: step.durationMinutes,
+          techniqueId: step.techniqueId,
+          temperatureValue: step.temperatureValue,
+          temperatureUnitId: step.temperatureUnitId,
         })),
       })),
     );
     this.concurrencyTokenSignal.set(detail.concurrencyToken);
+    this.currentVersionNumberSignal.set(detail.currentVersion?.versionNumber ?? null);
+    this.savedYieldQuantitySignal.set(detail.yieldQuantity);
+    this.savedYieldTextSignal.set(detail.yieldText);
+    this.savedYieldUnitIdSignal.set(detail.yieldUnitId);
+    this.savedInstructionGroupsSignal.set(detail.instructionGroups);
     this.baselineSignal.set(this.captureSnapshot());
   }
 
@@ -767,6 +1047,11 @@ export class RecipeEditorComponent {
             text: step.text.trim(),
             durationMinutes: step.durationMinutes,
             note: this.orNull(step.note),
+            // Submitted although no control here sets them: an omitted field is applied as null, so leaving
+            // these out is how a save wipes a step's technique and temperature.
+            techniqueId: step.techniqueId,
+            temperatureValue: step.temperatureValue,
+            temperatureUnitId: step.temperatureUnitId,
           }),
         ),
     }));

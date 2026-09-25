@@ -241,3 +241,11 @@ cp-tab-panel:not([hidden]) {
   font-size: var(--cp-font-size-lg);
   line-height: 1;
 }
+
+/* Separates the two stacked calculations on the Convert tab. Decorative only — each section carries its own
+   heading, which is what actually names it. */
+.conversion-divider {
+  margin: var(--cp-space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--cp-border);
+}

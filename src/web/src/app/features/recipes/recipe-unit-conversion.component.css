@@ -1,0 +1,125 @@
+/* Semantic --cp-* tokens only; no literal theme colours, so both themes follow the foundation
+   (.claude/rules/frontend.md). */
+
+:host {
+  display: block;
+}
+
+.conversion-heading {
+  margin: 0 0 var(--cp-space-2);
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.conversion-intro,
+.conversion-empty,
+.conversion-status,
+.conversion-blocked {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.conversion-problem {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-danger);
+}
+
+.conversion-form {
+  display: grid;
+  gap: var(--cp-space-4);
+  justify-items: start;
+  margin-bottom: var(--cp-space-4);
+}
+
+.conversion-form cp-field {
+  min-width: 12rem;
+}
+
+.input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.result-card {
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-subtle);
+}
+
+.result-amount {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-3);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-exact {
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.result-subheading {
+  margin: 0 0 var(--cp-space-2);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+/* Term/value pairs rather than a table: four labelled facts about one calculation, not four rows of data. */
+.result-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+}
+
+.result-detail dt {
+  font-weight: 700;
+  color: var(--cp-text-muted);
+}
+
+.result-detail dd {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  color: var(--cp-text);
+}
+
+.result-formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--cp-font-size-xs);
+  /* Long factor formulas wrap rather than forcing the card to scroll sideways at 200% zoom. */
+  overflow-wrap: anywhere;
+}
+
+.result-formula-plain {
+  color: var(--cp-text-muted);
+}
+
+.result-provenance {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+/* The apply that is not offered, and why. Text rather than an absent control. */
+.apply-unavailable {
+  margin: var(--cp-space-3) 0 0;
+  max-width: 68ch;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}

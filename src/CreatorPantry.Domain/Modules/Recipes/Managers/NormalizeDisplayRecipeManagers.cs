@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Quantities;
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using FluentValidation;
 
@@ -58,14 +59,22 @@ public sealed class NormalizeDisplayViewModelValidator : AbstractValidator<Norma
                 .WithMessage("Name the unit to render.")
             .OverridePropertyName(nameof(NormalizeDisplayViewModel.UnitId));
 
+        // Bounded above for the reason ConvertTemperatureViewModelValidator gives: an unbounded precision
+        // reaches Quantity.ToDecimal, which throws outside 0–28, and a 500 is not a refusal.
         RuleFor(model => model.Precision)
-            .GreaterThanOrEqualTo(0)
-                .WithMessage("Precision cannot be negative.")
+            .InclusiveBetween(QuantityFormat.MinDisplayPrecision, QuantityFormat.MaxDisplayPrecision)
+                .WithMessage(
+                    $"Precision must be between {QuantityFormat.MinDisplayPrecision} and {QuantityFormat.MaxDisplayPrecision}.")
             .OverridePropertyName(nameof(NormalizeDisplayViewModel.Precision));
 
+        // `IsInEnum` is not the check this field needs. MidpointRounding defines five members and
+        // Quantity.ToDecimal supports exactly two — the only two that are meaningful for an exact rational —
+        // so the other three passed validation and threw further down. Worse, they threw only sometimes: a
+        // value that matches a kitchen fraction never reaches ToDecimal at all, so the same mode appeared to
+        // work for one quantity and failed for the next.
         RuleFor(model => model.Rounding)
-            .IsInEnum()
-                .WithMessage("That rounding mode is not recognized.")
+            .Must(rounding => rounding is MidpointRounding.ToEven or MidpointRounding.AwayFromZero)
+                .WithMessage("Rounding must be half-to-even or half-away-from-zero.")
             .OverridePropertyName(nameof(NormalizeDisplayViewModel.Rounding));
     }
 }

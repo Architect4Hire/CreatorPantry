@@ -1,0 +1,171 @@
+<section class="conversion" [attr.aria-labelledby]="headingId">
+  <h3 class="conversion-heading" [id]="headingId">Convert units</h3>
+  <p class="conversion-intro">
+    A preview only — nothing here is saved, and your recipe is unchanged by having an amount converted.
+  </p>
+
+  @if (sourceVersionNumber() === null) {
+    <p class="conversion-blocked" role="status">
+      This recipe has no saved version yet, so there is nothing to convert against. Save it first.
+    </p>
+  }
+
+  @switch (catalogue().status) {
+    @case ('loading') {
+      <p class="conversion-status" role="status" aria-live="polite">Loading the unit catalogue…</p>
+    }
+    @case ('unavailable') {
+      <!-- Degraded rather than broken: the temperature section beside this one does not need the catalogue
+           and keeps working. -->
+      <p class="conversion-problem" role="alert">
+        The unit catalogue couldn't be loaded, so there is nothing to pick between yet.
+      </p>
+      <button type="button" cpButton variant="secondary" (click)="loadCatalogue()">Try loading units again</button>
+    }
+  }
+
+  @if (catalogue().status === 'ready') {
+    <form class="conversion-form" (ngSubmit)="convert()">
+      @if (hasIngredientLines()) {
+        <cp-field
+          label="Start from an ingredient line"
+          [forId]="prefillFieldId"
+          hint="Optional. Fills the amount and unit below; nothing on the line changes."
+        >
+          <select #prefill [id]="prefillFieldId" (change)="prefillFrom(prefill.value)">
+            <option value="">Choose a line…</option>
+            <!-- A line that cannot fill the form stays listed, disabled, with its reason **in the option
+                 text**: `disabled` alone announces nothing useful, and quietly omitting the line would read
+                 as a line the recipe does not have. -->
+            @for (line of ingredientLineOptions(); track line.id) {
+              <option [value]="line.id" [disabled]="line.unresolvedReason !== null">
+                {{ line.label }}{{ line.unresolvedReason ? ' — ' + line.unresolvedReason : '' }}
+              </option>
+            }
+          </select>
+        </cp-field>
+      }
+
+      <div class="input-row">
+        <cp-field label="Amount" [forId]="quantityFieldId" [error]="quantityError() ?? ''">
+          <input
+            type="number"
+            inputmode="decimal"
+            step="any"
+            min="0"
+            [id]="quantityFieldId"
+            [ngModel]="quantityValue()"
+            (ngModelChange)="quantityValue.set($event)"
+            [attr.aria-invalid]="quantityError() ? 'true' : null"
+            name="quantity"
+          />
+        </cp-field>
+
+        <cp-field label="From" [forId]="fromFieldId" [error]="fromUnitError() ?? ''">
+          <select
+            [id]="fromFieldId"
+            [ngModel]="fromUnitId()"
+            (ngModelChange)="fromUnitId.set($event)"
+            [attr.aria-invalid]="fromUnitError() ? 'true' : null"
+            name="fromUnit"
+          >
+            <option value="">Choose a unit…</option>
+            @for (group of unitGroups(); track group.label) {
+              <optgroup [label]="group.label">
+                @for (unit of group.units; track unit.id) {
+                  <option [value]="unit.id">{{ unit.displayName }} ({{ unit.abbreviation }})</option>
+                }
+              </optgroup>
+            }
+          </select>
+        </cp-field>
+
+        <cp-field label="To" [forId]="toFieldId" [error]="toUnitError() ?? ''">
+          <select
+            [id]="toFieldId"
+            [ngModel]="toUnitId()"
+            (ngModelChange)="toUnitId.set($event)"
+            [attr.aria-invalid]="toUnitError() ? 'true' : null"
+            name="toUnit"
+          >
+            <option value="">Choose a unit…</option>
+            @for (group of unitGroups(); track group.label) {
+              <optgroup [label]="group.label">
+                @for (unit of group.units; track unit.id) {
+                  <option [value]="unit.id">{{ unit.displayName }} ({{ unit.abbreviation }})</option>
+                }
+              </optgroup>
+            }
+          </select>
+        </cp-field>
+      </div>
+
+      @if (localError(); as problem) {
+        <p class="conversion-problem" role="alert">{{ problem }}</p>
+      }
+
+      <button type="submit" cpButton variant="primary" [disabled]="!canSubmit()">
+        {{ isWorking() ? 'Working…' : 'Convert' }}
+      </button>
+    </form>
+  }
+
+  @if (requestProblem(); as problem) {
+    <p class="conversion-problem" role="alert">{{ problem }}</p>
+  }
+
+
+  <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
+       region that appears already holding its content is not reliably announced. -->
+  <p class="conversion-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  @if (result(); as converted) {
+    <div class="result-card">
+      <p class="result-amount">
+        {{ convertedLabel() }}
+        @if (exactLabel(); as exact) {
+          <small class="result-exact">exact {{ exact }}</small>
+        }
+      </p>
+
+      <h4 class="result-subheading">How it was worked out</h4>
+      <dl class="result-detail">
+        <dt>Method</dt>
+        <dd>{{ methodLabel() }}</dd>
+
+        <dt>Formula</dt>
+        <dd>
+          <!-- The symbols are shown because they are what the domain computed with, and the sentence beneath
+               is what actually conveys it: ×, ÷ and a fraction are read inconsistently aloud, and the
+               formula is the whole reason this card exists. -->
+          <code class="result-formula">{{ converted.result.formula }}</code>
+          <span class="result-formula-plain">{{ methodExplanation() }}</span>
+        </dd>
+
+        <dt>Precision</dt>
+        <dd>{{ converted.result.precision }} decimal places</dd>
+
+        <dt>Rounding</dt>
+        <dd>{{ roundingLabel() }}</dd>
+
+        @if (converted.result.source; as source) {
+          <dt>Density source</dt>
+          <dd>{{ source }}</dd>
+        }
+      </dl>
+
+      <p class="result-provenance">
+        Computed against version {{ converted.sourceVersionNumber }}. Nothing was saved.
+      </p>
+
+      <!-- Said rather than left as an absent button. A control that is simply missing reads as an oversight;
+           this says what is actually true and what would change it. -->
+      <p class="apply-unavailable">
+        This converts one amount for you to read. Saving it back to an ingredient line needs ingredient
+        saving, which isn't built yet.
+      </p>
+    </div>
+  } @else if (catalogue().status === 'ready' && !isWorking() && requestProblem() === null) {
+    <p class="conversion-empty">Choose an amount and two units, then convert.</p>
+  }
+</section>

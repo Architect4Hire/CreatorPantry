@@ -584,7 +584,23 @@ describe('RecipeEditorComponent', () => {
 
       const [, request] = recipeService.createRecipe.calls.mostRecent().args;
       expect(request.instructions).toEqual([
-        { id: null, title: 'Batter', steps: [{ id: null, text: 'Cream the butter.', durationMinutes: 5, note: 'Room temperature' }] },
+        {
+          id: null,
+          title: 'Batter',
+          steps: [
+            {
+              id: null,
+              text: 'Cream the butter.',
+              durationMinutes: 5,
+              note: 'Room temperature',
+              // Submitted although no control sets them: an omitted field is applied as null, so leaving
+              // them out is how a save wipes a step's technique and temperature.
+              techniqueId: null,
+              temperatureValue: null,
+              temperatureUnitId: null,
+            },
+          ],
+        },
       ]);
     });
 
@@ -609,7 +625,24 @@ describe('RecipeEditorComponent', () => {
       const { component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
 
       expect(component.instructionGroups()).toEqual([
-        { key: 'g1', id: 'g1', title: 'Batter', steps: [{ key: 's1', id: 's1', text: 'Mix.', note: 'Gently', durationMinutes: 3 }] },
+        {
+          key: 'g1',
+          id: 'g1',
+          title: 'Batter',
+          steps: [
+            {
+              key: 's1',
+              id: 's1',
+              text: 'Mix.',
+              note: 'Gently',
+              durationMinutes: 3,
+              // Carried on the working copy although no control edits them, so a save cannot drop them.
+              techniqueId: null,
+              temperatureValue: null,
+              temperatureUnitId: null,
+            },
+          ],
+        },
       ]);
     });
 
@@ -637,7 +670,21 @@ describe('RecipeEditorComponent', () => {
 
       const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
       expect(request.instructions.value).toEqual([
-        { id: 'g1', title: 'Batter', steps: [{ id: 's1', text: 'Mix thoroughly.', durationMinutes: null, note: null }] },
+        {
+          id: 'g1',
+          title: 'Batter',
+          steps: [
+            {
+              id: 's1',
+              text: 'Mix thoroughly.',
+              durationMinutes: null,
+              note: null,
+              techniqueId: null,
+              temperatureValue: null,
+              temperatureUnitId: null,
+            },
+          ],
+        },
       ]);
     });
   });
@@ -1262,6 +1309,352 @@ describe('RecipeEditorComponent', () => {
 
       expect(component.notice()).toBeNull();
       expect(harness.routeNativeElement?.textContent).not.toContain('restored as version 9');
+    });
+  });
+
+  /**
+   * The apply handshake (7.12c): a calculation preview becomes a recipe diff and is written through the
+   * ordinary REC-004 update route — the same token, the same idempotency behaviour, the same history. The
+   * panels decide *whether* a result can be applied and prove it in their own specs; these cover what the
+   * editor does once one asks.
+   */
+  describe('applying a calculation', () => {
+    const STEP_WITH_TEMPERATURE = {
+      id: 's1',
+      sortOrder: 0,
+      text: 'Bake until golden',
+      techniqueId: 't1',
+      durationMinutes: 40,
+      temperatureValue: 180,
+      temperatureUnitId: 'unit-celsius',
+      note: 'rotate halfway',
+    };
+
+    const SIBLING_STEP = {
+      id: 's2',
+      sortOrder: 1,
+      text: 'Rest before slicing',
+      techniqueId: 't2',
+      durationMinutes: 10,
+      temperatureValue: 74,
+      temperatureUnitId: 'unit-celsius',
+      note: 'centre should read 74',
+    };
+
+    const DETAIL_WITH_STEPS: RecipeDetail = {
+      ...RECIPE_DETAIL,
+      yieldQuantity: 12,
+      yieldUnitId: 'unit-cup',
+      currentVersion: {
+        id: 'v3',
+        versionNumber: 3,
+        source: 'CreatorEdit',
+        readiness: 'Draft',
+        reason: null,
+        createdAt: '2026-03-01T00:00:00Z',
+      },
+      instructionGroups: [{ id: 'g1', title: null, sortOrder: 0, steps: [STEP_WITH_TEMPERATURE, SIBLING_STEP] }],
+    };
+
+    const TEMPERATURE_APPLICATION = {
+      stepId: 's1',
+      stepLabel: 'Step 1 — Bake until golden',
+      temperatureValue: 356,
+      temperatureUnitId: 'unit-fahrenheit',
+      beforeLabel: '180 °C',
+      afterLabel: '356 °F',
+    };
+
+    const YIELD_APPLICATION = { yieldQuantity: 24, beforeLabel: '12', afterLabel: '24' };
+
+    function updatedDetail(versionNumber: number): RecipeDetail {
+      return {
+        ...DETAIL_WITH_STEPS,
+        concurrencyToken: 'BBBBBBBBB9E=',
+        currentVersion: { ...DETAIL_WITH_STEPS.currentVersion!, versionNumber },
+      };
+    }
+
+    async function loadedEditor() {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: DETAIL_WITH_STEPS });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+      harness.detectChanges();
+      return { harness, component, recipeService };
+    }
+
+    // ---- Success ----
+
+    it('writes one narrow patch through the ordinary update route, quoting the recipe token', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+
+      expect(recipeService.updateRecipe).toHaveBeenCalledTimes(1);
+      const [slug, recipeId, request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(slug).toBe('cozy-fall');
+      expect(recipeId).toBe('r1');
+      expect(request.expectedConcurrencyToken).toBe('AAAAAAAAB9E=');
+      expect(request.reason).toContain('180 °C → 356 °F');
+
+      // Narrow: every field this patch does not name is left exactly as it is, so one confirmed change
+      // writes one version holding only that change.
+      expect(Object.keys(request).sort()).toEqual(['expectedConcurrencyToken', 'instructions', 'reason']);
+    });
+
+    it('moves only the named step and leaves every sibling exactly as the recipe holds it', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+
+      const steps = recipeService.updateRecipe.calls.mostRecent().args[2].instructions.value[0].steps;
+
+      expect(steps[0]).toEqual(
+        jasmine.objectContaining({
+          id: 's1',
+          temperatureValue: 356,
+          temperatureUnitId: 'unit-fahrenheit',
+          techniqueId: 't1',
+          note: 'rotate halfway',
+        }),
+      );
+      expect(steps[1]).toEqual(
+        jasmine.objectContaining({
+          id: 's2',
+          temperatureValue: 74,
+          temperatureUnitId: 'unit-celsius',
+          techniqueId: 't2',
+          note: 'centre should read 74',
+        }),
+      );
+    });
+
+    it('reports the new version and re-seeds the form from the response', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+
+      expect(component.notice()?.isProblem).toBeFalse();
+      expect(component.notice()?.text).toContain('356 °F');
+      expect(component.notice()?.text).toContain('version 4');
+      expect(component.currentVersionNumber()).toBe(4);
+      // The refreshed token is what the next write must quote.
+      expect(component.concurrencyToken()).toBe('BBBBBBBBB9E=');
+    });
+
+    it('records a reconciled yield as a patch naming only the yield quantity', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const applying = component.onYieldApplyRequested(YIELD_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+
+      const request = recipeService.updateRecipe.calls.mostRecent().args[2];
+      expect(Object.keys(request).sort()).toEqual(['expectedConcurrencyToken', 'reason', 'yieldQuantity']);
+      expect(request.yieldQuantity).toEqual({ submitted: true, value: 24 });
+    });
+
+    // ---- Rejection ----
+
+    it('writes nothing when the confirmation is declined', async () => {
+      const { component, recipeService } = await loadedEditor();
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(false);
+      await applying;
+
+      expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+      expect(component.notice()).toBeNull();
+      expect(component.currentVersionNumber()).toBe(3);
+    });
+
+    // The confirmation names the change and its consequence, so a creator is never asked a bare "are you sure".
+    it('names the change and says a version will be written when it asks', async () => {
+      const { component } = await loadedEditor();
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+
+      const question = confirmService.confirm.calls.mostRecent().args[0];
+      expect(question.message).toContain('180 °C');
+      expect(question.message).toContain('356 °F');
+      expect(question.message).toContain('new version');
+      expect(question.confirmLabel).not.toBe('OK');
+
+      confirmService.answer(false);
+      await applying;
+    });
+
+    // ---- Conflict ----
+
+    it('reports a conflict as nothing written, and does not retry on its own', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'conflict' });
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+
+      expect(recipeService.updateRecipe).toHaveBeenCalledTimes(1);
+      expect(component.notice()?.isProblem).toBeTrue();
+      expect(component.notice()?.text).toContain('Someone else changed this recipe');
+      expect(component.notice()?.text).toContain('nothing was applied');
+      // The recipe is untouched: still the version and token it was loaded with.
+      expect(component.currentVersionNumber()).toBe(3);
+      expect(component.concurrencyToken()).toBe('AAAAAAAAB9E=');
+    });
+
+    it('states that nothing was written for every other refusal', async () => {
+      for (const status of ['forbidden', 'not_found', 'validation_failed', 'unavailable'] as const) {
+        const { component, recipeService } = await loadedEditor();
+        recipeService.updateRecipe.and.resolveTo(
+          status === 'validation_failed' ? { status, fieldErrors: {} } : { status },
+        );
+
+        const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(true);
+        await applying;
+
+        expect(component.notice()?.isProblem).toBeTrue();
+        expect(component.notice()?.text).toContain('nothing was');
+        expect(component.currentVersionNumber()).toBe(3);
+      }
+    });
+
+    // ---- Replay ----
+
+    // A lost response is the case this exists for: the client retries, the server recognises the key, and
+    // the one change stays one version rather than becoming two.
+    it('reuses one idempotency key across a retry of the identical apply', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'unavailable' });
+
+      const first = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await first;
+
+      const second = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await second;
+
+      const [firstKey, secondKey] = recipeService.updateRecipe.calls.all().map((call) => call.args[3]);
+      expect(firstKey).toBeTruthy();
+      expect(secondKey).toBe(firstKey);
+    });
+
+    it('treats a replayed response as the one success it is, claiming no second version', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: true });
+
+      const applying = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+
+      expect(component.notice()?.isProblem).toBeFalse();
+      expect(component.notice()?.text).toContain('version 4');
+      expect(component.currentVersionNumber()).toBe(4);
+    });
+
+    it('starts a fresh key once the apply has landed, so the next one is its own operation', async () => {
+      const { component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const first = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await first;
+
+      const second = component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await second;
+
+      const [firstKey, secondKey] = recipeService.updateRecipe.calls.all().map((call) => call.args[3]);
+      expect(secondKey).not.toBe(firstKey);
+    });
+
+    // ---- Ineligibility ----
+
+    // A narrow patch would write the calculated field and leave the creator's unsaved edits in a form that
+    // then contradicts the recipe. The panels disable the control; this is the gate behind it.
+    it('refuses to apply while the editor has unsaved changes, without even asking', async () => {
+      const { component, recipeService, harness } = await loadedEditor();
+      component.title.set('Chili, reworked');
+      harness.detectChanges();
+      expect(component.isDirty()).toBeTrue();
+
+      await component.onTemperatureApplyRequested(TEMPERATURE_APPLICATION);
+
+      expect(confirmService.confirm).not.toHaveBeenCalled();
+      expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * `Instructions` is a full replace and the server applies a submitted step wholesale, so a field this form
+   * omits is a field the next save sets to null. These guard the fields no control here edits.
+   */
+  describe('preserving instruction fields no control edits', () => {
+    const DETAIL_WITH_RICH_STEP: RecipeDetail = {
+      ...RECIPE_DETAIL,
+      instructionGroups: [
+        {
+          id: 'g1',
+          title: null,
+          sortOrder: 0,
+          steps: [
+            {
+              id: 's1',
+              sortOrder: 0,
+              text: 'Bake until golden',
+              techniqueId: 't1',
+              durationMinutes: 40,
+              temperatureValue: 180,
+              temperatureUnitId: 'unit-celsius',
+              note: null,
+            },
+          ],
+        },
+      ],
+    };
+
+    it('carries technique and temperature through an ordinary save of an unrelated field', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: DETAIL_WITH_RICH_STEP });
+      recipeService.updateRecipe.and.resolveTo({ status: 'unavailable' });
+
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await waitUntil(() => component.loadState().status === 'ready');
+
+      component.title.set('Chili, reworked');
+      harness.detectChanges();
+      await component.save();
+
+      const step = recipeService.updateRecipe.calls.mostRecent().args[2].instructions.value[0].steps[0];
+      expect(step.techniqueId).toBe('t1');
+      expect(step.temperatureValue).toBe(180);
+      expect(step.temperatureUnitId).toBe('unit-celsius');
     });
   });
 });

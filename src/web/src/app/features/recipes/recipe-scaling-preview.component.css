@@ -1,0 +1,225 @@
+/* Semantic --cp-* tokens only; no literal theme colours, so both themes follow the foundation
+   (.claude/rules/frontend.md). */
+
+:host {
+  display: block;
+}
+
+.scaling-heading {
+  margin: 0 0 var(--cp-space-2);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.scaling-intro {
+  margin: 0 0 var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.scaling-caveat {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+.scaling-caveat--muted {
+  color: var(--cp-text-muted);
+}
+
+.scaling-blocked,
+.scaling-problem {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+}
+
+.scaling-problem {
+  color: var(--cp-danger);
+}
+
+.scaling-blocked {
+  color: var(--cp-text-muted);
+}
+
+.scaling-form {
+  display: grid;
+  gap: var(--cp-space-4);
+  justify-items: start;
+  margin-bottom: var(--cp-space-5);
+}
+
+.mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+}
+
+.mode legend {
+  padding: 0 var(--cp-space-2);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.mode-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  /* A comfortable target for the label as well as the control itself. */
+  min-height: 2.5rem;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+  cursor: pointer;
+}
+
+.mode-choice input:disabled,
+.mode-choice:has(input:disabled) {
+  cursor: not-allowed;
+  color: var(--cp-text-muted);
+}
+
+.mode-note {
+  margin: 0;
+  max-width: 48ch;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+.input-row cp-field {
+  min-width: 12rem;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  /* Sits level with the input rather than with the label above it. */
+  padding-bottom: var(--cp-space-1);
+}
+
+.scaling-result {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.scaling-summary {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.scaling-stale {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+.recipe-warnings,
+.line-notes ul {
+  display: grid;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recipe-warning,
+.line-notes li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+.recipe-warning {
+  max-width: 68ch;
+}
+
+/* The same orange the warning status pill uses, so one caution does not read as two different kinds. */
+.warning-glyph {
+  color: var(--cp-orange);
+}
+
+.scaling-empty {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.scaled-lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cp-font-size-sm);
+}
+
+.scaled-lines th,
+.scaled-lines td {
+  padding: var(--cp-space-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.scaled-lines thead th {
+  font-size: var(--cp-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+.line-name {
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.line-amount {
+  display: grid;
+  gap: var(--cp-space-1);
+  justify-items: start;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.line-exact {
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.line-notes {
+  min-width: 18rem;
+}
+
+/* A line that was not scaled is marked by its pill and its note as well; this is only a quieter background,
+   never the thing that carries the meaning. */
+.scaled-lines tr[data-scaled='false'] {
+  background: var(--cp-surface-subtle);
+}
+
+/* The apply that is not offered, and why. Text rather than an absent control. */
+.apply-unavailable {
+  margin: var(--cp-space-3) 0 0;
+  max-width: 68ch;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}

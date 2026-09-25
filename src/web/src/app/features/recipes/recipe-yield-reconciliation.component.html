@@ -1,0 +1,241 @@
+<section class="calculation" [attr.aria-labelledby]="headingId">
+  <h3 class="calculation-heading" [id]="headingId">Yield and portions</h3>
+  <p class="calculation-intro">
+    A preview only — nothing here is saved, and your recipe is unchanged by having its yield reconciled.
+  </p>
+
+  <!-- The two assumptions the form cannot show on its own. Said before the numbers are entered, not
+       afterwards, because both change what the answer below means. -->
+  <ul class="assumptions" role="list">
+    <li>{{ unitAssumption() }}</li>
+    <li>
+      Only what you type here is used. The recipe's own yield quantity is never filled in or assumed on your
+      behalf.
+    </li>
+  </ul>
+
+  @if (sourceVersionNumber() === null) {
+    <p class="calculation-blocked" role="status">
+      This recipe has no saved version yet, so there is nothing to reconcile against. Save it first.
+    </p>
+  }
+
+  <form class="calculation-form" (ngSubmit)="reconcile()">
+    <div class="input-row">
+      <cp-field
+        label="Batch yield"
+        [forId]="batchYieldFieldId"
+        [error]="batchYieldError() ?? ''"
+        hint="What the whole recipe makes."
+      >
+        <input
+          type="number"
+          inputmode="decimal"
+          step="any"
+          min="0"
+          [id]="batchYieldFieldId"
+          [ngModel]="batchYield()"
+          (ngModelChange)="batchYield.set($event)"
+          [attr.aria-invalid]="batchYieldError() ? 'true' : null"
+          name="batchYield"
+        />
+      </cp-field>
+
+      <cp-field
+        label="Servings"
+        [forId]="servingCountFieldId"
+        [error]="servingCountError() ?? ''"
+        hint="A count, not a measurement."
+      >
+        <input
+          type="number"
+          inputmode="decimal"
+          step="any"
+          min="0"
+          [id]="servingCountFieldId"
+          [ngModel]="servingCount()"
+          (ngModelChange)="servingCount.set($event)"
+          [attr.aria-invalid]="servingCountError() ? 'true' : null"
+          name="servingCount"
+        />
+      </cp-field>
+
+      <cp-field
+        label="Serving size"
+        [forId]="servingSizeFieldId"
+        [error]="servingSizeError() ?? ''"
+        hint="What one serving is."
+      >
+        <input
+          type="number"
+          inputmode="decimal"
+          step="any"
+          min="0"
+          [id]="servingSizeFieldId"
+          [ngModel]="servingSize()"
+          (ngModelChange)="servingSize.set($event)"
+          [attr.aria-invalid]="servingSizeError() ? 'true' : null"
+          name="servingSize"
+        />
+      </cp-field>
+    </div>
+
+    <div class="input-row">
+      <cp-field
+        label="Pan or vessel capacity"
+        [forId]="panVolumeFieldId"
+        [error]="panVolumeError() ?? ''"
+        hint="Optional. Compared as a ratio only."
+      >
+        <input
+          type="number"
+          inputmode="decimal"
+          step="any"
+          min="0"
+          [id]="panVolumeFieldId"
+          [ngModel]="panVolume()"
+          (ngModelChange)="panVolume.set($event)"
+          [attr.aria-invalid]="panVolumeError() ? 'true' : null"
+          name="panVolume"
+        />
+      </cp-field>
+
+      <cp-field
+        label="Decimal places"
+        [forId]="precisionFieldId"
+        [error]="precisionError() ?? ''"
+        hint="How close counts as agreeing."
+      >
+        <input
+          type="number"
+          inputmode="numeric"
+          step="1"
+          min="0"
+          [attr.max]="maxPrecision"
+          [id]="precisionFieldId"
+          [ngModel]="displayPrecision()"
+          (ngModelChange)="displayPrecision.set($event)"
+          [attr.aria-invalid]="precisionError() ? 'true' : null"
+          name="displayPrecision"
+        />
+      </cp-field>
+    </div>
+
+    <button type="submit" cpButton variant="primary" [disabled]="!canSubmit()">
+      {{ isWorking() ? 'Working…' : 'Reconcile' }}
+    </button>
+  </form>
+
+  @if (requestProblem(); as problem) {
+    <p class="calculation-problem" role="alert">{{ problem }}</p>
+  }
+
+
+  <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
+       region that appears already holding its content is not reliably announced. -->
+  <p class="calculation-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  @if (result(); as reconciliation) {
+    <div class="result-card">
+      <!-- The pill's tone is a second signal, never the only one: the headline beside it and the sentence
+           below both say the same thing in words (WCAG 2.2 AA, 1.4.1). -->
+      <p class="result-status">
+        <cp-status-pill [tone]="statusTone()">{{ statusHeadline() }}</cp-status-pill>
+      </p>
+      <p class="result-explanation">{{ statusExplanation() }}</p>
+
+      <dl class="result-detail">
+        @for (row of rows(); track row.field) {
+          <dt>{{ row.label }}</dt>
+          <dd>
+            <span class="row-value">
+              @if (row.value !== null) {
+                {{ row.value }}
+              } @else {
+                <span class="cp-sr-only">No value</span>
+                <span aria-hidden="true">—</span>
+              }
+            </span>&ngsp;
+            <!-- Which number the creator gave and which one the server worked out, in words rather than by
+                 styling one of the rows differently. `&ngsp;` above keeps a real space between the two, so
+                 the value and its provenance are not announced as one run-together word. -->
+            <span class="row-provenance">{{ row.provenance }}</span>
+          </dd>
+        }
+
+        @if (reconciliation.preview.formula; as formula) {
+          <dt>Formula</dt>
+          <dd>
+            <code class="result-formula">{{ formula }}</code>
+            @if (formulaExplanation(); as plain) {
+              <span class="result-formula-plain">{{ plain }}</span>
+            }
+          </dd>
+        }
+      </dl>
+
+      @if (hasPan()) {
+        <h4 class="result-subheading">Pan comparison</h4>
+
+        @if (panComparable()) {
+          <dl class="result-detail">
+            <dt>Capacity</dt>
+            <dd>{{ reconciliation.preview.panVolume }}</dd>
+
+            <dt>Fill ratio</dt>
+            <dd>{{ panFillRatioLabel() }}</dd>
+          </dl>
+
+          <!-- Required by recipes.md: a ratio is descriptive, and the system has no pan geometry or fill
+               assumption to turn it into a verdict with. -->
+          <p class="result-caution">
+            <span class="caution-glyph" aria-hidden="true">⚠</span>
+            <span>
+              This is how the batch compares to the vessel, not whether it fits. CreatorPantry does not know
+              your pan's shape or how full it should be.
+            </span>
+          </p>
+        } @else {
+          <p class="result-explanation">
+            A capacity of {{ reconciliation.preview.panVolume }} was given, but it could not be compared. That
+            needs the recipe's yield to be a volume and a batch yield to be known.
+          </p>
+        }
+      }
+
+      <p class="result-provenance">
+        Computed against version {{ reconciliation.sourceVersionNumber }}. Nothing was saved.
+      </p>
+
+      <!-- Writes exactly one field through the ordinary update seam, after an explicit confirmation. -->
+      <div class="apply">
+        @if (applyDiff(); as diff) {
+          <h4 class="result-subheading">What would change</h4>
+          <dl class="apply-diff">
+            <dt>Recipe yield quantity</dt>
+            <dd>
+              <span class="apply-before">{{ diff.before }}</span>&ngsp;
+              <span class="apply-arrow" aria-hidden="true">→</span>&ngsp;
+              <span class="cp-sr-only">becomes</span>&ngsp;
+              <span class="apply-after">{{ diff.after }}</span>
+            </dd>
+          </dl>
+        }
+
+        <button type="button" cpButton variant="secondary" [disabled]="!canApply()" (click)="requestApply()">
+          Record this as the recipe's yield
+        </button>
+
+        @if (applyBlockedReason(); as reason) {
+          <p class="apply-blocked">{{ reason }}</p>
+        } @else {
+          <p class="apply-blocked">This writes one change and creates a new version. You'll be asked first.</p>
+        }
+      </div>
+    </div>
+  } @else if (!isWorking() && requestProblem() === null) {
+    <p class="calculation-empty">
+      Enter what you know — at least two of batch yield, servings and serving size — then reconcile.
+    </p>
+  }
+</section>

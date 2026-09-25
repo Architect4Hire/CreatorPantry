@@ -907,6 +907,8 @@ internal sealed class RecipeBusiness(
             (TargetYieldQuantityField, "The target yield must be greater than zero."),
         RecipeScalingRequestError.RecipeYieldNotStructured =>
             (TargetYieldQuantityField, "This recipe has no structured yield to scale toward."),
+        RecipeScalingRequestError.FactorOutOfRange =>
+            (MultiplierField, "That is too large a change to scale by. Try a factor closer to the recipe's own size."),
         _ => (MultiplierField, "That request could not be resolved."),
     };
 

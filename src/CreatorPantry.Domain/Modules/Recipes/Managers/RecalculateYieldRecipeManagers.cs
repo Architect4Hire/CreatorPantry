@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Reference;
 using FluentValidation;
 
 namespace CreatorPantry.Domain.Modules.Recipes.Managers;
@@ -69,9 +70,12 @@ public sealed class RecalculateYieldViewModelValidator : AbstractValidator<Recal
             .When(model => model.PanVolume is not null)
             .OverridePropertyName(nameof(RecalculateYieldViewModel.PanVolume));
 
+        // Bounded above for the reason ConvertTemperatureViewModelValidator gives: an unbounded precision
+        // reaches Quantity.ToDecimal, which throws outside 0–28, and a 500 is not a refusal.
         RuleFor(model => model.DisplayPrecision)
-            .GreaterThanOrEqualTo(0)
-                .WithMessage("Precision cannot be negative.")
+            .InclusiveBetween(QuantityFormat.MinDisplayPrecision, QuantityFormat.MaxDisplayPrecision)
+                .WithMessage(
+                    $"Precision must be between {QuantityFormat.MinDisplayPrecision} and {QuantityFormat.MaxDisplayPrecision}.")
             .When(model => model.DisplayPrecision is not null)
             .OverridePropertyName(nameof(RecalculateYieldViewModel.DisplayPrecision));
     }

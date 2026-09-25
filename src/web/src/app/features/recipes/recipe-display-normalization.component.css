@@ -1,0 +1,171 @@
+/* Semantic --cp-* tokens only; no literal theme colours, so both themes follow the foundation
+   (.claude/rules/frontend.md). */
+
+:host {
+  display: block;
+}
+
+.calculation-heading {
+  margin: 0 0 var(--cp-space-2);
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  color: var(--cp-text);
+}
+
+.calculation-intro,
+.calculation-empty,
+.calculation-status,
+.calculation-blocked {
+  margin: 0 0 var(--cp-space-3);
+  max-width: 72ch;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.calculation-problem {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-danger);
+}
+
+.calculation-form {
+  display: grid;
+  gap: var(--cp-space-4);
+  justify-items: start;
+  margin-bottom: var(--cp-space-4);
+}
+
+.calculation-form cp-field {
+  min-width: 11rem;
+}
+
+/* The rounding labels are full sentences, so this one needs room the other fields do not. */
+.calculation-form cp-field:has(select[name='rounding']) {
+  min-width: 24rem;
+  flex: 1 1 24rem;
+}
+
+.input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  /* A comfortable target for the label as well as the box itself. */
+  min-height: 2.5rem;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+  cursor: pointer;
+}
+
+.result-card {
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-subtle);
+}
+
+/* The two halves of the distinction this section exists to make. Given their own block, above everything
+   else on the card, because neither reads correctly without the other beside it. */
+.canonical-pair {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  margin: 0 0 var(--cp-space-4);
+  padding-bottom: var(--cp-space-3);
+  border-bottom: 1px solid var(--cp-border);
+  font-size: var(--cp-font-size-sm);
+}
+
+.canonical-pair dt {
+  font-weight: 700;
+  color: var(--cp-text-muted);
+}
+
+.canonical-pair dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: 0;
+  color: var(--cp-text);
+}
+
+.canonical-value,
+.display-value {
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.canonical-note {
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.result-subheading {
+  margin: 0 0 var(--cp-space-2);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+.result-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+}
+
+.result-detail dt {
+  font-weight: 700;
+  color: var(--cp-text-muted);
+}
+
+.result-detail dd {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  color: var(--cp-text);
+}
+
+.result-plain {
+  color: var(--cp-text-muted);
+}
+
+.result-caution {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-3);
+  max-width: 68ch;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+/* The same orange the warning status pill uses, so one caution does not read as two different kinds. */
+.caution-glyph {
+  color: var(--cp-orange);
+}
+
+.result-provenance {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+/* The apply that is not offered, and why. Text rather than an absent control. */
+.apply-unavailable {
+  margin: var(--cp-space-3) 0 0;
+  max-width: 68ch;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}

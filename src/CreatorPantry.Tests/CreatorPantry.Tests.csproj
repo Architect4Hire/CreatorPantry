@@ -15,6 +15,14 @@
       explorers that have not moved to MTP.
     -->
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+
+    <!--
+      Makes `dotnet test` drive the MTP runner above. Without it that command finds no VSTest adapter and
+      reports "Zero tests ran" with a non-zero exit code — success-shaped output for a suite that never ran,
+      which is how a red ModuleBoundaryTests stayed invisible. CLAUDE.md prescribes `dotnet test` as the
+      backend verification command, so the command it names has to be the command that runs the tests.
+    -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
   <ItemGroup>

@@ -71,8 +71,12 @@ public static class YieldReconciliationCalculator
             var solved = Quantity.FromDecimal(input.ServingCount!.Value).Multiply(Quantity.FromDecimal(input.ServingSize!.Value));
             var resolved = input with { BatchYield = solved.ToDecimal(input.DisplayPrecision) };
 
+            // The exact solved value is carried alongside the rounded echo, because the pan ratio is derived
+            // from it: rounding first and dividing second is a rounding computed from a rounding, and the
+            // ratio is published as exact. `3 × 0.3333` at precision 2 rounds to 1.00 and would report a pan
+            // filled exactly to the brim when the true ratio is 9999/10000.
             return YieldReconciliationOutcome.Success(BuildPreview(
-                resolved, YieldReconciliationStatus.Solved, YieldReconciliationField.BatchYield, "batchYield = servingCount × servingSize"));
+                resolved, YieldReconciliationStatus.Solved, YieldReconciliationField.BatchYield, "batchYield = servingCount × servingSize", solved));
         }
 
         if (input.ServingSize is null)
@@ -93,10 +97,21 @@ public static class YieldReconciliationCalculator
         }
     }
 
+    /// <param name="exactBatchYield">
+    /// The unrounded batch yield, when this call solved for one. The pan ratio is derived from it rather than
+    /// from <see cref="YieldReconciliationInput.BatchYield"/>, which by then holds the rounded echo — CALC-002
+    /// requires the exact value to be the one every result is computed from, never a previous rounding.
+    /// <see langword="null"/> when the batch yield was given rather than solved, where the stated decimal is
+    /// itself the exact value.
+    /// </param>
     private static YieldReconciliationPreview BuildPreview(
-        YieldReconciliationInput input, YieldReconciliationStatus status, YieldReconciliationField? solvedField, string? formula)
+        YieldReconciliationInput input,
+        YieldReconciliationStatus status,
+        YieldReconciliationField? solvedField,
+        string? formula,
+        Quantity? exactBatchYield = null)
     {
-        var (panFillRatio, panComparable) = ComparePan(input);
+        var (panFillRatio, panComparable) = ComparePan(input, exactBatchYield);
 
         return new YieldReconciliationPreview
         {
@@ -112,7 +127,7 @@ public static class YieldReconciliationCalculator
         };
     }
 
-    private static (Quantity? Ratio, bool? Comparable) ComparePan(YieldReconciliationInput input)
+    private static (Quantity? Ratio, bool? Comparable) ComparePan(YieldReconciliationInput input, Quantity? exactBatchYield)
     {
         if (input.PanVolume is null)
             return (null, null);
@@ -120,7 +135,9 @@ public static class YieldReconciliationCalculator
         if (input.Dimension is not MeasurementDimension.Volume || input.BatchYield is null)
             return (null, false);
 
-        return (Divide(Quantity.FromDecimal(input.BatchYield.Value), Quantity.FromDecimal(input.PanVolume.Value)), true);
+        var batchYield = exactBatchYield ?? Quantity.FromDecimal(input.BatchYield.Value);
+
+        return (Divide(batchYield, Quantity.FromDecimal(input.PanVolume.Value)), true);
     }
 
     /// <summary>Division for two exact quantities — <see cref="Quantity"/> has no <c>Divide</c> of its own; composed from <see cref="Quantity.Multiply"/> via the reciprocal fraction.</summary>

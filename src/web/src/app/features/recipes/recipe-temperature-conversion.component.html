@@ -1,0 +1,258 @@
+<section class="conversion" [attr.aria-labelledby]="headingId">
+  <h3 class="conversion-heading" [id]="headingId">Convert a temperature</h3>
+  <p class="conversion-intro">
+    A preview only — nothing here is saved, and your recipe is unchanged by having a temperature converted.
+  </p>
+
+  @if (sourceVersionNumber() === null) {
+    <p class="conversion-blocked" role="status">
+      This recipe has no saved version yet, so there is nothing to convert against. Save it first.
+    </p>
+  }
+
+  <!-- Degraded, not broken: converting still works. Said once here rather than letting each step claim the
+       recipe records no scale, which would be a statement about the creator's recipe instead of about a
+       lookup that failed. -->
+  @if (catalogueProblem(); as problem) {
+    <p class="conversion-problem" role="alert">{{ problem }}</p>
+    <button type="button" cpButton variant="secondary" (click)="loadUnits()">Try loading units again</button>
+  }
+
+  <form class="conversion-form" (ngSubmit)="convert()">
+    @if (hasSteps()) {
+      <cp-field
+        label="Start from a step"
+        [forId]="prefillFieldId"
+        hint="Optional. Fills the temperature below; nothing in the step changes."
+      >
+        <select #prefill [id]="prefillFieldId" (change)="prefillFrom(prefill.value)">
+          <option value="">Choose a step…</option>
+          <!-- A step whose heat is only described in words stays listed, disabled, saying so. recipes.md
+               forbids inferring a temperature from that language, and omitting the step would read as a step
+               with no heat in it rather than one whose heat was never written as a number. -->
+          @for (step of stepOptions(); track step.id) {
+            <option [value]="step.id" [disabled]="step.unresolvedReason !== null">
+              {{ step.label }}{{ step.unresolvedReason ? ' — ' + step.unresolvedReason : '' }}
+            </option>
+          }
+        </select>
+      </cp-field>
+    }
+
+    <div class="input-row">
+      <cp-field label="Temperature" [forId]="valueFieldId" [error]="valueError() ?? ''">
+        <input
+          type="number"
+          inputmode="decimal"
+          step="any"
+          [id]="valueFieldId"
+          [ngModel]="temperatureValue()"
+          (ngModelChange)="temperatureValue.set($event)"
+          [attr.aria-invalid]="valueError() ? 'true' : null"
+          name="temperature"
+        />
+      </cp-field>
+
+      <cp-field
+        label="Decimal places"
+        [forId]="precisionFieldId"
+        [error]="precisionError() ?? ''"
+        hint="How many digits to show. The exact value is kept either way."
+      >
+        <input
+          type="number"
+          inputmode="numeric"
+          step="1"
+          min="0"
+          [attr.max]="maxPrecision"
+          [id]="precisionFieldId"
+          [ngModel]="precisionValue()"
+          (ngModelChange)="precisionValue.set($event)"
+          [attr.aria-invalid]="precisionError() ? 'true' : null"
+          name="precision"
+        />
+      </cp-field>
+    </div>
+
+    <div class="scale-row">
+      <fieldset class="scale-group">
+        <legend [id]="fromLegendId">This temperature is in</legend>
+        @for (scale of scales; track scale) {
+          <label class="scale-choice">
+            <input
+              type="radio"
+              name="fromScale"
+              [value]="scale"
+              [checked]="fromScale() === scale"
+              (change)="setFromScale(scale)"
+            />
+            <span>{{ scaleLabels[scale] }} ({{ scaleSymbols[scale] }})</span>
+          </label>
+        }
+      </fieldset>
+
+      <fieldset class="scale-group">
+        <legend [id]="toLegendId">Convert it to</legend>
+        @for (scale of scales; track scale) {
+          <label class="scale-choice">
+            <input
+              type="radio"
+              name="toScale"
+              [value]="scale"
+              [checked]="toScale() === scale"
+              (change)="setToScale(scale)"
+            />
+            <span>{{ scaleLabels[scale] }} ({{ scaleSymbols[scale] }})</span>
+          </label>
+        }
+      </fieldset>
+    </div>
+
+    @if (scaleNote(); as note) {
+      <p class="scale-note">
+        <cp-status-pill tone="warning" role="status">Scale not recorded</cp-status-pill>
+        <span>{{ note }}</span>
+      </p>
+    }
+
+    @if (scaleError(); as problem) {
+      <p class="conversion-problem" role="alert">{{ problem }}</p>
+    }
+
+    <!-- Both fields go through the calculation untouched and come back exactly as typed. Saying so before
+         they are filled in, not only afterwards, is what keeps them from reading as inputs to the maths. -->
+    <fieldset class="context-group">
+      <legend>Carried through untouched — not used in the calculation</legend>
+
+      <cp-field label="Oven mode" [forId]="ovenModeFieldId" hint="Optional, for example convection or fan.">
+        <input
+          type="text"
+          [id]="ovenModeFieldId"
+          [ngModel]="ovenModeContext()"
+          (ngModelChange)="ovenModeContext.set($event)"
+          name="ovenMode"
+        />
+      </cp-field>
+
+      <cp-field
+        label="Safety note"
+        [forId]="safetyNoteFieldId"
+        hint="Optional. Your own words, kept with the result and never checked."
+      >
+        <input
+          type="text"
+          [id]="safetyNoteFieldId"
+          [ngModel]="safetyNote()"
+          (ngModelChange)="safetyNote.set($event)"
+          name="safetyNote"
+        />
+      </cp-field>
+    </fieldset>
+
+    @if (localError(); as problem) {
+      <p class="conversion-problem" role="alert">{{ problem }}</p>
+    }
+
+    <button type="submit" cpButton variant="primary" [disabled]="!canSubmit()">
+      {{ isWorking() ? 'Working…' : 'Convert' }}
+    </button>
+  </form>
+
+  @if (requestProblem(); as problem) {
+    <p class="conversion-problem" role="alert">{{ problem }}</p>
+  }
+
+
+  <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
+       region that appears already holding its content is not reliably announced. -->
+  <p class="conversion-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  @if (result(); as converted) {
+    <div class="result-card">
+      <p class="result-amount">
+        {{ convertedLabel() }}
+        @if (exactLabel(); as exact) {
+          <small class="result-exact">exact {{ exact }}</small>
+        }
+      </p>
+
+      <h4 class="result-subheading">How it was worked out</h4>
+      <dl class="result-detail">
+        <dt>Formula</dt>
+        <dd>
+          <!-- Shown because it is what the domain computed with, and glossed beneath because °, ×, − and a
+               fraction are read inconsistently aloud. -->
+          <code class="result-formula">{{ converted.result.formula }}</code>
+          @if (formulaExplanation(); as plain) {
+            <span class="result-formula-plain">{{ plain }}</span>
+          }
+        </dd>
+
+        <dt>Precision</dt>
+        <dd>{{ converted.result.precision }} decimal places</dd>
+
+        <dt>Rounding</dt>
+        <dd>{{ roundingLabel() }}</dd>
+      </dl>
+
+      @if (hasCarriedContext()) {
+        <h4 class="result-subheading">Carried through unchanged</h4>
+        <dl class="result-detail">
+          @if (converted.result.ovenModeContext; as ovenMode) {
+            <dt>Oven mode</dt>
+            <dd>{{ ovenMode }}</dd>
+          }
+          @if (converted.result.safetyNote; as note) {
+            <dt>Safety note</dt>
+            <dd>{{ note }}</dd>
+          }
+        </dl>
+
+        <!-- Required by recipes.md. The note came back because it was sent, not because anything examined
+             it, and a note reappearing beside a result is exactly where that would be misread. -->
+        <p class="result-caution">
+          <span class="caution-glyph" aria-hidden="true">⚠</span>
+          <span>
+            These words are yours, returned exactly as you typed them. CreatorPantry did not read or check
+            them, and does not confirm that any temperature is safe.
+          </span>
+        </p>
+      }
+
+      <p class="result-provenance">
+        Computed against version {{ converted.sourceVersionNumber }}. Nothing was saved.
+      </p>
+
+      <!-- The one place in these panels that can write to the recipe, and it writes exactly one field
+           through the ordinary update seam after an explicit confirmation. -->
+      <div class="apply">
+        @if (applyDiff(); as diff) {
+          <h4 class="result-subheading">What would change</h4>
+          <dl class="apply-diff">
+            <dt>{{ diff.label }}</dt>
+            <dd>
+              <span class="apply-before">{{ diff.before }}</span>&ngsp;
+              <span class="apply-arrow" aria-hidden="true">→</span>&ngsp;
+              <span class="cp-sr-only">becomes</span>&ngsp;
+              <span class="apply-after">{{ diff.after }}</span>
+            </dd>
+          </dl>
+        }
+
+        <button type="button" cpButton variant="secondary" [disabled]="!canApply()" (click)="requestApply()">
+          Save this temperature to the step
+        </button>
+
+        <!-- Stated beside a disabled control rather than left to an absent one: a button that is simply not
+             there says nothing about what would bring it back. -->
+        @if (applyBlockedReason(); as reason) {
+          <p class="apply-blocked">{{ reason }}</p>
+        } @else {
+          <p class="apply-blocked">This writes one change and creates a new version. You'll be asked first.</p>
+        }
+      </div>
+    </div>
+  } @else if (!isWorking() && requestProblem() === null) {
+    <p class="conversion-empty">Enter a temperature and choose two scales, then convert.</p>
+  }
+</section>

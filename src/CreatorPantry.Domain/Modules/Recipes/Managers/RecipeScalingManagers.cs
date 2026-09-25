@@ -22,6 +22,25 @@ public static class RecipeScalingPolicy
 
     /// <summary>The low-side mirror of <see cref="ExtremeFactorHigh"/> — a factor at or below 1/20.</summary>
     public static readonly Quantity ExtremeFactorLow = Quantity.FromFraction(1, 20);
+
+    /// <summary>
+    /// The largest factor this calculator will resolve, and the reciprocal of the smallest.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A hard refusal, not a warning — <see cref="RecipeScalingWarningCode.ExtremeScaleFactor"/> is the
+    /// warning, and it deliberately does not gate anything. This exists because
+    /// <see cref="Quantity.ToDecimal(int, MidpointRounding)"/> throws <see cref="OverflowException"/> when a
+    /// result will not fit a <c>decimal</c>, and an escaping exception is a 500 rather than an answer.
+    /// </para>
+    /// <para>
+    /// A million is far beyond any recipe and still leaves seven orders of magnitude of headroom: ingredient
+    /// quantities are <c>decimal(28,12)</c>, so at most about 1e16, and 1e16 × 1e6 is 1e22 against decimal's
+    /// 7.9e28 ceiling. It also catches the indirect route, where a target yield against a near-zero recipe
+    /// yield derives an astronomical factor from two individually reasonable numbers.
+    /// </para>
+    /// </remarks>
+    public static readonly Quantity MaxFactor = Quantity.FromInt(1_000_000);
 }
 
 /// <summary>
@@ -97,6 +116,18 @@ public enum RecipeScalingRequestError
     /// zero, or negative — the recipe's yield is text-only ("serves a crowd") or was never given a number.
     /// </summary>
     RecipeYieldNotStructured = 2,
+
+    /// <summary>
+    /// The resolved factor is beyond <see cref="RecipeScalingPolicy.MaxFactor"/>, or below its reciprocal.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="RecipeScalingWarningCode.ExtremeScaleFactor"/>, which is a caution about a
+    /// calculation that still runs. This is a refusal: past this point a scaled quantity no longer fits a
+    /// <c>decimal</c>, and the honest answer is that the request cannot be computed rather than an exception
+    /// escaping as a 500. Reachable both directly and through a target yield against a near-zero recipe
+    /// yield.
+    /// </remarks>
+    FactorOutOfRange = 3,
 }
 
 /// <summary>

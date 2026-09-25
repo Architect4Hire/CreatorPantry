@@ -46,7 +46,7 @@ export interface Quantity {
   readonly denominator: string;
 }
 
-function decodeQuantity(value: unknown): Quantity | null {
+export function decodeQuantity(value: unknown): Quantity | null {
   if (!isRecord(value)) return null;
   const { numerator, denominator } = value;
   if (typeof numerator !== 'string' || typeof denominator !== 'string') return null;

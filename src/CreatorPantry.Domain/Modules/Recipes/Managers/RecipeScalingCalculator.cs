@@ -89,9 +89,10 @@ public static class RecipeScalingCalculator
     {
         if (request.Multiplier is { } multiplier)
         {
-            return multiplier.IsZero || multiplier.IsNegative
-                ? (null, RecipeScalingRequestError.NonPositiveMultiplier)
-                : (multiplier, null);
+            if (multiplier.IsZero || multiplier.IsNegative)
+                return (null, RecipeScalingRequestError.NonPositiveMultiplier);
+
+            return WithinRange(multiplier) ? (multiplier, null) : (null, RecipeScalingRequestError.FactorOutOfRange);
         }
 
         var target = request.TargetYieldQuantity!.Value;
@@ -105,8 +106,18 @@ public static class RecipeScalingCalculator
         // target / yield, computed as a fraction rather than through a Quantity.Divide this type does not have.
         var derivedFactor = Quantity.FromFraction(target.Numerator * yield.Denominator, target.Denominator * yield.Numerator);
 
-        return (derivedFactor, null);
+        // Checked on the derived factor too, and not only on a submitted multiplier: a target of 1,000,000
+        // against a recipe yield of 0.000000000001 is two individually legal numbers whose ratio is not.
+        return WithinRange(derivedFactor) ? (derivedFactor, null) : (null, RecipeScalingRequestError.FactorOutOfRange);
     }
+
+    /// <summary>
+    /// Whether a factor is one every downstream <c>ToDecimal</c> can represent. Beyond this the scaled value
+    /// overflows <c>decimal</c> and the calculator would throw rather than answer.
+    /// </summary>
+    private static bool WithinRange(Quantity factor) =>
+        factor.CompareTo(RecipeScalingPolicy.MaxFactor) <= 0
+        && factor.CompareTo(Quantity.FromFraction(RecipeScalingPolicy.MaxFactor.Denominator, RecipeScalingPolicy.MaxFactor.Numerator)) >= 0;
 
     private static RecipeIngredientScalingPreviewLine ScaleLine(RecipeIngredientScalingInput line, Quantity factor) =>
         line.ScalingBehavior switch
