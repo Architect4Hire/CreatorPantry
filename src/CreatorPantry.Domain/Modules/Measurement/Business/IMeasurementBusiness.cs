@@ -19,6 +19,10 @@ public interface IMeasurementBusiness
     Task<CursorPageServiceModel<MeasurementUnitServiceModel>> ListUnitsAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
 
+    /// <summary>The active units among the ids given, in no particular order. Fewer than asked for is a normal answer.</summary>
+    Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken);
+
     /// <summary>Loads the flattened match index the facade caches and passes back into <see cref="ResolveCandidates"/>.</summary>
     Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
 

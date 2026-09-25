@@ -386,6 +386,96 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/ingredient-tools/parse": {
+      "post": {
+        "tags": [
+          "IngredientTools"
+        ],
+        "summary": "Tokenizes and matches a batch of free-form recipe ingredient lines against the shared ingredient and\nunit catalogues. Read-only: nothing here is persisted, and no recipe is read or modified (ING-001).",
+        "description": "A proposal only, at every stage: quantity/range and unit candidates never overwrite anything, and an\nunresolved or ambiguous match is returned as such rather than guessed at (recipes.md).",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseIngredientLines"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseIngredientLines"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseIngredientLines"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseIngredientLinesResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseIngredientLinesResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseIngredientLinesResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -1146,6 +1236,556 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/calculations/scale": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Computes a deterministic scaling preview for one recipe of the workspace named by the route.",
+        "description": "Read-only (ING-003): nothing here is persisted, and the recipe is unchanged by having been scaled. The\nsource version is required rather than defaulted, so the response\u0027s provenance is never ambiguous about\nwhat was scaled.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to scale. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleRecipe"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleRecipe"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleRecipe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeScalingResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeScalingResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeScalingResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/calculations/convert-units": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Computes a deterministic unit-conversion preview for one recipe of the workspace named by the route.",
+        "description": "Read-only (ING-004): nothing here is persisted, and the recipe is unchanged by having a quantity\nconverted. Same-dimension conversion only \u2014 a cross-dimension request answers 400 rather than\ninventing a density.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertUnits"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertUnits"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertUnits"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeUnitConversionResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeUnitConversionResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeUnitConversionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/calculations/convert-temperature": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Computes a deterministic temperature-conversion preview for one recipe of the workspace named by the route.",
+        "description": "Read-only (CALC-003): nothing here is persisted, and the recipe is unchanged by having a temperature\nconverted. \u0060value\u0060 must already be a structured number \u2014 this never infers one from heat language.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertTemperature"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertTemperature"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertTemperature"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTemperatureConversionResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTemperatureConversionResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTemperatureConversionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/calculations/recalculate-yield": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Computes a deterministic yield-reconciliation preview for one recipe of the workspace named by the route.",
+        "description": "Read-only (ING-005): nothing here is persisted, and the recipe is unchanged by having its yield\nrecalculated. An unknown pan geometry or serving definition stays visibly unresolved rather than\ninvented.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecalculateYield"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecalculateYield"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RecalculateYield"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeYieldReconciliationResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeYieldReconciliationResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeYieldReconciliationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/calculations/normalize-display": {
+      "post": {
+        "tags": [
+          "Recipes"
+        ],
+        "summary": "Computes a deterministic display-normalization preview for one recipe of the workspace named by the route.",
+        "description": "Read-only and presentation-only (ING-006): nothing here is persisted, and no canonical quantity or\nrecipe version changes.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NormalizeDisplay"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NormalizeDisplay"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/NormalizeDisplay"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeQuantityDisplayResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeQuantityDisplayResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeQuantityDisplayResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -2653,6 +3293,97 @@
           }
         }
       },
+      "ConvertTemperature": {
+        "required": [
+          "sourceVersionNumber",
+          "value",
+          "fromScale",
+          "toScale",
+          "precision",
+          "ovenModeContext",
+          "safetyNote"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "fromScale": {
+            "$ref": "#/components/schemas/TemperatureScale"
+          },
+          "toScale": {
+            "$ref": "#/components/schemas/TemperatureScale"
+          },
+          "precision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ovenModeContext": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "safetyNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConvertUnits": {
+        "required": [
+          "sourceVersionNumber",
+          "quantity",
+          "fromUnitId",
+          "toUnitId"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "fromUnitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toUnitId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "CookingTechnique": {
         "required": [
           "id",
@@ -2998,6 +3729,14 @@
           }
         }
       },
+      "FractionPresentation": {
+        "enum": [
+          "Whole",
+          "Fraction",
+          "Decimal"
+        ],
+        "type": "string"
+      },
       "Ingredient": {
         "required": [
           "id",
@@ -3032,6 +3771,182 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "IngredientLineAmbiguity": {
+        "required": [
+          "kind",
+          "span",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/IngredientLineAmbiguityKind"
+          },
+          "span": {
+            "$ref": "#/components/schemas/IngredientLineSpan"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "IngredientLineAmbiguityKind": {
+        "enum": [
+          "NoQuantityDetected",
+          "InvalidQuantity"
+        ],
+        "type": "string"
+      },
+      "IngredientLineSpan": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "length": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "IngredientLineTokens": {
+        "required": [
+          "originalText"
+        ],
+        "type": "object",
+        "properties": {
+          "originalText": {
+            "type": "string"
+          },
+          "isGroupMarker": {
+            "type": "boolean"
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/QuantityToken"
+              }
+            ]
+          },
+          "packageQuantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PackageQuantityToken"
+              }
+            ]
+          },
+          "unitCandidate": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IngredientLineSpan"
+              }
+            ]
+          },
+          "ingredientText": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IngredientLineSpan"
+              }
+            ]
+          },
+          "preparationText": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientLineSpan"
+            }
+          },
+          "isOptional": {
+            "type": "boolean"
+          },
+          "ambiguities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientLineAmbiguity"
+            }
+          }
+        }
+      },
+      "IngredientMatchCandidate": {
+        "required": [
+          "ingredientId",
+          "canonicalName",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "ingredientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonicalName": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/IngredientMatchKind"
+          }
+        }
+      },
+      "IngredientMatchKind": {
+        "enum": [
+          "CanonicalName",
+          "Alias"
+        ],
+        "type": "string"
+      },
+      "IngredientMatchResult": {
+        "required": [
+          "inputText"
+        ],
+        "type": "object",
+        "properties": {
+          "inputText": {
+            "type": "string"
+          },
+          "resolved": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IngredientMatchCandidate"
+              }
+            ]
+          },
+          "alternates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientMatchCandidate"
+            }
+          },
+          "isAmbiguous": {
+            "type": "boolean"
           }
         }
       },
@@ -3168,6 +4083,16 @@
           }
         }
       },
+      "MidpointRounding": {
+        "enum": [
+          "ToEven",
+          "AwayFromZero",
+          "ToZero",
+          "ToNegativeInfinity",
+          "ToPositiveInfinity"
+        ],
+        "type": "string"
+      },
       "MyWorkspaceMembership": {
         "required": [
           "workspaceId",
@@ -3198,6 +4123,146 @@
           },
           "status": {
             "$ref": "#/components/schemas/WorkspaceMembershipStatus"
+          }
+        }
+      },
+      "NormalizeDisplay": {
+        "required": [
+          "sourceVersionNumber",
+          "value",
+          "upperValue",
+          "unitId",
+          "precision",
+          "useAbbreviation",
+          "rounding"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "upperValue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "precision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "useAbbreviation": {
+            "type": "boolean"
+          },
+          "rounding": {
+            "$ref": "#/components/schemas/MidpointRounding"
+          }
+        }
+      },
+      "PackageQuantityToken": {
+        "required": [
+          "span",
+          "quantity",
+          "unit"
+        ],
+        "type": "object",
+        "properties": {
+          "span": {
+            "$ref": "#/components/schemas/IngredientLineSpan"
+          },
+          "quantity": {
+            "$ref": "#/components/schemas/QuantityToken"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/IngredientLineSpan"
+          }
+        }
+      },
+      "ParsedIngredientLine": {
+        "required": [
+          "tokens",
+          "ingredientMatch",
+          "unitMatch"
+        ],
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "$ref": "#/components/schemas/IngredientLineTokens"
+          },
+          "ingredientMatch": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IngredientMatchResult"
+              }
+            ]
+          },
+          "unitMatch": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnitMatchResult"
+              }
+            ]
+          }
+        }
+      },
+      "ParseIngredientLines": {
+        "required": [
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ParseIngredientLinesResult": {
+        "required": [
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParsedIngredientLine"
+            }
           }
         }
       },
@@ -3257,6 +4322,147 @@
           "traceId": {
             "type": "string",
             "description": "Correlation id for support and tracing."
+          }
+        }
+      },
+      "Quantity": {},
+      "QuantityDisplayResult": {
+        "required": [
+          "text",
+          "presentation",
+          "upperPresentation",
+          "precision",
+          "rounding"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "presentation": {
+            "$ref": "#/components/schemas/FractionPresentation"
+          },
+          "upperPresentation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FractionPresentation"
+              }
+            ]
+          },
+          "precision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rounding": {
+            "$ref": "#/components/schemas/MidpointRounding"
+          }
+        }
+      },
+      "QuantityRange": {},
+      "QuantityToken": {
+        "required": [
+          "span"
+        ],
+        "type": "object",
+        "properties": {
+          "span": {
+            "$ref": "#/components/schemas/IngredientLineSpan"
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            ]
+          },
+          "range": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/QuantityRange"
+              }
+            ]
+          },
+          "isInvalid": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecalculateYield": {
+        "required": [
+          "sourceVersionNumber",
+          "batchYield",
+          "servingCount",
+          "servingSize",
+          "panVolume",
+          "displayPrecision"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "batchYield": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "panVolume": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "displayPrecision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -3859,6 +5065,75 @@
           }
         }
       },
+      "RecipeIngredientScalingPreviewLine": {
+        "required": [
+          "id",
+          "displayText",
+          "wasScaled",
+          "scaledQuantity",
+          "scaledQuantityUpper",
+          "scaledDisplayQuantity",
+          "scaledDisplayQuantityUpper",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayText": {
+            "type": "string"
+          },
+          "wasScaled": {
+            "type": "boolean"
+          },
+          "scaledQuantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            ]
+          },
+          "scaledQuantityUpper": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            ]
+          },
+          "scaledDisplayQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "scaledDisplayQuantityUpper": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeScalingWarningCode"
+            }
+          }
+        }
+      },
       "RecipeInstructionGroup": {
         "required": [
           "id",
@@ -4127,6 +5402,117 @@
           }
         }
       },
+      "RecipeQuantityDisplayResult": {
+        "required": [
+          "sourceVersionNumber",
+          "result"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "result": {
+            "$ref": "#/components/schemas/QuantityDisplayResult"
+          }
+        }
+      },
+      "RecipeScalingPreview": {
+        "required": [
+          "factor",
+          "requestedTargetYieldQuantity",
+          "scaledYieldQuantity",
+          "scaledYieldDisplayQuantity",
+          "lines",
+          "recipeWarnings"
+        ],
+        "type": "object",
+        "properties": {
+          "factor": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "requestedTargetYieldQuantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            ]
+          },
+          "scaledYieldQuantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            ]
+          },
+          "scaledYieldDisplayQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeIngredientScalingPreviewLine"
+            }
+          },
+          "recipeWarnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeScalingWarningCode"
+            }
+          }
+        }
+      },
+      "RecipeScalingResult": {
+        "required": [
+          "sourceVersionNumber",
+          "preview"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/RecipeScalingPreview"
+          }
+        }
+      },
+      "RecipeScalingWarningCode": {
+        "enum": [
+          "FixedQuantityNotScaled",
+          "ReviewRequiredQualitative",
+          "ReviewRequiredDiscreteCount",
+          "ReviewRequiredRange",
+          "ReviewRequiredOther",
+          "NoQuantityToScale",
+          "ScaledToNegligibleDisplay",
+          "RecipeYieldNotStructured",
+          "ExtremeScaleFactor"
+        ],
+        "type": "string"
+      },
       "RecipeSearchPage": {
         "required": [
           "items",
@@ -4257,6 +5643,46 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "RecipeTemperatureConversionResult": {
+        "required": [
+          "sourceVersionNumber",
+          "result"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "result": {
+            "$ref": "#/components/schemas/TemperatureConversionResult"
+          }
+        }
+      },
+      "RecipeUnitConversionResult": {
+        "required": [
+          "sourceVersionNumber",
+          "result"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "result": {
+            "$ref": "#/components/schemas/UnitConversionResult"
           }
         }
       },
@@ -4464,6 +5890,26 @@
           }
         }
       },
+      "RecipeYieldReconciliationResult": {
+        "required": [
+          "sourceVersionNumber",
+          "preview"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/YieldReconciliationPreview"
+          }
+        }
+      },
       "ReferenceEntry": {
         "required": [
           "id",
@@ -4555,6 +6001,42 @@
           }
         }
       },
+      "ScaleRecipe": {
+        "required": [
+          "sourceVersionNumber",
+          "multiplier",
+          "targetYieldQuantity"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "multiplier": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "targetYieldQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "SettableRecipeStatus": {
         "enum": [
           "Draft",
@@ -4562,6 +6044,191 @@
           "Archived"
         ],
         "type": "string"
+      },
+      "TemperatureConversionResult": {
+        "required": [
+          "sourceValue",
+          "sourceScale",
+          "convertedValue",
+          "convertedDisplayValue",
+          "convertedScale",
+          "precision",
+          "rounding",
+          "formula",
+          "ovenModeContext",
+          "safetyNote"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceValue": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "sourceScale": {
+            "$ref": "#/components/schemas/TemperatureScale"
+          },
+          "convertedValue": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "convertedDisplayValue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "convertedScale": {
+            "$ref": "#/components/schemas/TemperatureScale"
+          },
+          "precision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rounding": {
+            "$ref": "#/components/schemas/MidpointRounding"
+          },
+          "formula": {
+            "type": "string"
+          },
+          "ovenModeContext": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "safetyNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TemperatureScale": {
+        "enum": [
+          "Celsius",
+          "Fahrenheit"
+        ],
+        "type": "string"
+      },
+      "UnitConversionMethod": {
+        "enum": [
+          "SameDimensionFactor",
+          "IngredientDensity"
+        ],
+        "type": "string"
+      },
+      "UnitConversionResult": {
+        "required": [
+          "method",
+          "convertedQuantity",
+          "convertedDisplayQuantity",
+          "precision",
+          "rounding",
+          "formula",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/UnitConversionMethod"
+          },
+          "convertedQuantity": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "convertedDisplayQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "precision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rounding": {
+            "$ref": "#/components/schemas/MidpointRounding"
+          },
+          "formula": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "UnitMatchCandidate": {
+        "required": [
+          "measurementUnitId",
+          "displayName",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "measurementUnitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/UnitMatchKind"
+          }
+        }
+      },
+      "UnitMatchKind": {
+        "enum": [
+          "Code",
+          "DisplayName",
+          "Abbreviation",
+          "PluralName",
+          "Alias"
+        ],
+        "type": "string"
+      },
+      "UnitMatchResult": {
+        "required": [
+          "inputText"
+        ],
+        "type": "object",
+        "properties": {
+          "inputText": {
+            "type": "string"
+          },
+          "resolved": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnitMatchCandidate"
+              }
+            ]
+          },
+          "alternates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnitMatchCandidate"
+            }
+          },
+          "isAmbiguous": {
+            "type": "boolean"
+          }
+        }
       },
       "UpdateRecipe": {
         "type": "object",
@@ -4849,6 +6516,110 @@
           "Owner"
         ],
         "type": "string"
+      },
+      "YieldReconciliationField": {
+        "enum": [
+          "BatchYield",
+          "ServingCount",
+          "ServingSize"
+        ],
+        "type": "string"
+      },
+      "YieldReconciliationPreview": {
+        "required": [
+          "status",
+          "batchYield",
+          "servingCount",
+          "servingSize",
+          "solvedField",
+          "formula",
+          "panVolume",
+          "panFillRatio",
+          "panComparable"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/YieldReconciliationStatus"
+          },
+          "batchYield": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "solvedField": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/YieldReconciliationField"
+              }
+            ]
+          },
+          "formula": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "panVolume": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "panFillRatio": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Quantity"
+              }
+            ]
+          },
+          "panComparable": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "YieldReconciliationStatus": {
+        "enum": [
+          "Reconciled",
+          "Solved",
+          "Contradictory",
+          "InsufficientInput"
+        ],
+        "type": "string"
       }
     },
     "parameters": {
@@ -4930,6 +6701,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "IngredientTools"
     },
     {
       "name": "Me"

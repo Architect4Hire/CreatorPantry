@@ -88,6 +88,12 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         MeasurementUnitQuery query, CancellationToken cancellationToken) =>
         Count(new CursorPageServiceModel<MeasurementUnitServiceModel>([], null));
 
+    // Not counted, for the same reason FindUsableUnitDimensionAsync is not: these fakes were written for the
+    // cached list endpoints, and a batch unit lookup used elsewhere would make Calls mean two different things.
+    public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<MeasurementUnitServiceModel>>([]);
+
     public Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
         Count<IReadOnlyList<IngredientMatchIndexEntry>>([]);
 

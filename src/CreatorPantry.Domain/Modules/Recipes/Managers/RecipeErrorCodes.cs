@@ -117,4 +117,38 @@ public static class RecipeErrorCodes
     /// which is the failure the keyset design exists to prevent.
     /// </remarks>
     public const string CursorInvalidRequest = "recipes.cursor.invalid_request";
+
+    /// <summary>
+    /// A scaling request named neither or both of a multiplier and a target yield, named a non-positive one,
+    /// or named a target yield the recipe's own yield cannot be scaled toward (it has no structured number).
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="RecipeInvalidRequest"/> for the reason <see cref="ComparisonInvalidRequest"/>
+    /// is: the field names in the problem body are this request's own (<c>multiplier</c>,
+    /// <c>targetYieldQuantity</c>), not a generic recipe edit's.
+    /// </remarks>
+    public const string ScalingInvalidRequest = "recipes.scaling.invalid_request";
+
+    /// <summary>
+    /// A unit-conversion request named units that cannot be bridged as asked: different dimensions with no
+    /// density approved for the pair, a temperature unit (its own operation — 7.8), or a unit id that is
+    /// unknown or no longer offered.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="RecipeInvalidRequest"/> for the reason <see cref="ScalingInvalidRequest"/> is:
+    /// the field names in the problem body are this request's own (<c>fromUnitId</c>, <c>toUnitId</c>).
+    /// </remarks>
+    public const string UnitConversionInvalidRequest = "recipes.unitConversion.invalid_request";
+
+    /// <summary>A temperature-conversion request named a value, precision, or scale that could not be resolved.</summary>
+    public const string TemperatureConversionInvalidRequest = "recipes.temperatureConversion.invalid_request";
+
+    /// <summary>
+    /// A yield-reconciliation request named a batch yield, serving count, serving size, or pan/vessel capacity
+    /// that was zero or negative, and slipped past the validator's own field-specific checks.
+    /// </summary>
+    public const string YieldRecalculationInvalidRequest = "recipes.yieldRecalculation.invalid_request";
+
+    /// <summary>A display-normalization request named a value, unit, or precision that could not be rendered.</summary>
+    public const string DisplayNormalizationInvalidRequest = "recipes.displayNormalization.invalid_request";
 }

@@ -73,6 +73,10 @@ public sealed class IngredientParsingFacadeTests
             MeasurementUnitQueryViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+            IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(
             IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken)
         {

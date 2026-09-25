@@ -2,9 +2,11 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Quantities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
@@ -189,6 +191,106 @@ public interface IRecipeBusiness
         Guid recipeId,
         int fromVersionNumber,
         int toVersionNumber,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic scaling preview for one explicit recipe version. Read-only: nothing here is
+    /// persisted, and the recipe is unchanged by having been scaled (ING-003).
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="sourceVersionNumber">The version to scale — required, never "whatever is current".</param>
+    /// <param name="request">A multiplier or a target yield, already translated from the submitted decimals.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/>,
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/>, or <see cref="RecipeErrorCodes.ScalingInvalidRequest"/>
+    /// when <c>RecipeScalingCalculator</c> itself could not resolve a factor (CALC-005).
+    /// </returns>
+    Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeScalingRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic unit-conversion preview in the context of one explicit recipe version.
+    /// Read-only: nothing here is persisted, and the recipe is unchanged by having a quantity converted
+    /// (ING-004).
+    /// </summary>
+    /// <param name="recipeId">The recipe to check visibility against, resolved from the route.</param>
+    /// <param name="sourceVersionNumber">The version this preview is asked in the context of — required, never "whatever is current".</param>
+    /// <param name="request">The quantity to convert, with both units already resolved by the Facade.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/>,
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/>, or <see cref="RecipeErrorCodes.UnitConversionInvalidRequest"/>
+    /// when <c>UnitConversionCalculator</c> could not bridge the two units (ING-004).
+    /// </returns>
+    Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeUnitConversionRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic temperature-conversion preview in the context of one explicit recipe version.
+    /// Read-only: nothing here is persisted, and the recipe is unchanged by having a temperature converted
+    /// (CALC-003).
+    /// </summary>
+    /// <param name="recipeId">The recipe to check visibility against, resolved from the route.</param>
+    /// <param name="sourceVersionNumber">The version this preview is asked in the context of — required, never "whatever is current".</param>
+    /// <param name="model">The value, scales, precision, and pass-through context, already shape-validated.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/> or
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/>. <c>TemperatureConversionCalculator</c> never fails once
+    /// its inputs are well formed, so no calculation-level error code is ever returned here.
+    /// </returns>
+    Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        ConvertTemperatureViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic yield-reconciliation preview in the context of one explicit recipe version.
+    /// Read-only: nothing here is persisted, and the recipe is unchanged by having its yield recalculated
+    /// (ING-005).
+    /// </summary>
+    /// <param name="recipeId">The recipe to check visibility against, resolved from the route.</param>
+    /// <param name="sourceVersionNumber">The version this preview is asked in the context of — required, never "whatever is current".</param>
+    /// <param name="request">The creator's explicit batch yield, serving count, serving size, and pan capacity.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/>,
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/>, or <see cref="RecipeErrorCodes.YieldRecalculationInvalidRequest"/>
+    /// on the rare non-positive value that reaches <c>YieldReconciliationCalculator</c> itself.
+    /// </returns>
+    /// <remarks>
+    /// The dimension the four values are read in is resolved here, from the source version's own stored
+    /// yield unit — never invented, and never a value the request could name itself (ING-005's restriction
+    /// against inventing a missing serving definition applies to the dimension exactly as it does to a pan
+    /// geometry).
+    /// </remarks>
+    Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeYieldReconciliationRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic display-normalization preview in the context of one explicit recipe version.
+    /// Read-only and presentation-only: nothing here is persisted, and no canonical quantity or recipe version
+    /// changes (ING-006).
+    /// </summary>
+    /// <param name="recipeId">The recipe to check visibility against, resolved from the route.</param>
+    /// <param name="sourceVersionNumber">The version this preview is asked in the context of — required, never "whatever is current".</param>
+    /// <param name="request">The value (and optional range upper bound) to render, with the unit already resolved by the Facade.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/> or
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/>. <c>QuantityDisplayCalculator</c> never fails once its
+    /// inputs are well formed, so no calculation-level error code is ever returned here.
+    /// </returns>
+    Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeQuantityDisplayRequest request,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -561,6 +663,252 @@ internal sealed class RecipeBusiness(
                 RecipeSnapshotSerializer.Deserialize(to!.Document)),
         });
     }
+
+    public async Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeScalingRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindCalculationSourceAsync(
+            recipeId, sourceVersionNumber, cancellationToken);
+
+        if (!visible)
+        {
+            // The recipe is not visible. Answered identically to one that was never created (tenancy.md).
+            return NotFound<RecipeScalingResultServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeScalingResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                "That recipe cannot be scaled as described.",
+                [(SourceVersionNumberField, $"This recipe has no version {sourceVersionNumber}.")]));
+        }
+
+        // Deserialized here rather than in the repository, for the reason CompareVersionsAsync gives: reading
+        // stored text as a document is translation, and deciding what an unreadable one means is a domain
+        // decision.
+        var document = RecipeSnapshotSerializer.Deserialize(source.Document);
+
+        // DisplayPrecision is left null on every line rather than resolved from the Measurement module: this
+        // read-only preview has nothing to gain from a second module's lookup that RecipeScalingCalculator
+        // does not already handle by falling back to its own documented default (7.6), and Business may call
+        // its own DataLayer only — resolving units belongs to the Facade, which does not yet have what it
+        // would need to know which ones to ask for before this method runs.
+        var lines = document.IngredientGroups
+            .SelectMany(group => group.Ingredients)
+            .Select(ingredient => new RecipeIngredientScalingInput
+            {
+                Id = ingredient.Id,
+                DisplayText = ingredient.DisplayText,
+                Quantity = ingredient.Quantity,
+                QuantityUpper = ingredient.QuantityUpper,
+                ScalingBehavior = ingredient.ScalingBehavior,
+                MeasurementUnitDimension = ingredient.MeasurementUnitDimension,
+                DisplayPrecision = null,
+            })
+            .ToList();
+
+        var recipeYieldQuantity = document.Recipe.YieldQuantity is { } yield
+            ? Quantity.FromDecimal(yield)
+            : (Quantity?)null;
+
+        var outcome = RecipeScalingCalculator.Scale(request, recipeYieldQuantity, lines);
+
+        if (outcome.Error is { } scalingError)
+        {
+            return OperationResult<RecipeScalingResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.ScalingInvalidRequest,
+                "That recipe could not be scaled as described.",
+                [ScalingErrorField(scalingError)]));
+        }
+
+        return OperationResult<RecipeScalingResultServiceModel>.Success(
+            new RecipeScalingResultServiceModel(sourceVersionNumber, outcome.Preview!));
+    }
+
+    public async Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeUnitConversionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindCalculationSourceAsync(
+            recipeId, sourceVersionNumber, cancellationToken);
+
+        if (!visible)
+        {
+            return NotFound<RecipeUnitConversionResultServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeUnitConversionResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                CannotConvertUnits,
+                [(SourceVersionNumberField, $"This recipe has no version {sourceVersionNumber}.")]));
+        }
+
+        // No density supplied: this route exposes same-dimension conversion only (ING-004's restriction — no
+        // cross-dimension conversion without an approved density, and nothing in the Ingredients module yet
+        // resolves one). A Mass/Volume request answers MissingDensity below rather than converting.
+        var outcome = UnitConversionCalculator.Convert(request.Quantity, request.FromUnit, request.ToUnit);
+
+        if (outcome.Error is { } conversionError)
+        {
+            return OperationResult<RecipeUnitConversionResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.UnitConversionInvalidRequest,
+                CannotConvertUnits,
+                [UnitConversionErrorField(conversionError)]));
+        }
+
+        return OperationResult<RecipeUnitConversionResultServiceModel>.Success(
+            new RecipeUnitConversionResultServiceModel(sourceVersionNumber, outcome.Result!));
+    }
+
+    private const string CannotConvertUnits = "That quantity could not be converted as described.";
+
+    private static (string Field, string Error) UnitConversionErrorField(UnitConversionError error) => error switch
+    {
+        UnitConversionError.IncompatibleUnits =>
+            (ToUnitIdField, "These units cannot be converted between each other."),
+        UnitConversionError.MissingDensity =>
+            (ToUnitIdField, "This conversion needs an ingredient-specific density reference, which is not yet available."),
+        UnitConversionError.TemperatureNotSupported =>
+            (ToUnitIdField, "Temperature units use the temperature calculation instead."),
+        _ => (ToUnitIdField, "That request could not be resolved."),
+    };
+
+    private const string ToUnitIdField = "toUnitId";
+
+    public async Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        ConvertTemperatureViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindCalculationSourceAsync(
+            recipeId, sourceVersionNumber, cancellationToken);
+
+        if (!visible)
+        {
+            return NotFound<RecipeTemperatureConversionResultServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeTemperatureConversionResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                "That temperature could not be converted as described.",
+                [(SourceVersionNumberField, $"This recipe has no version {sourceVersionNumber}.")]));
+        }
+
+        var result = TemperatureConversionCalculator.Convert(
+            model.Value, model.FromScale, model.ToScale, model.Precision, model.OvenModeContext, model.SafetyNote);
+
+        return OperationResult<RecipeTemperatureConversionResultServiceModel>.Success(
+            new RecipeTemperatureConversionResultServiceModel(sourceVersionNumber, result));
+    }
+
+    public async Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeYieldReconciliationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindCalculationSourceAsync(
+            recipeId, sourceVersionNumber, cancellationToken);
+
+        if (!visible)
+        {
+            return NotFound<RecipeYieldReconciliationResultServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeYieldReconciliationResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                "That yield could not be recalculated as described.",
+                [(SourceVersionNumberField, $"This recipe has no version {sourceVersionNumber}.")]));
+        }
+
+        // Deserialized only for the recipe's own stored yield dimension — see the interface remarks on why
+        // that is resolved here rather than accepted from the request. Falls back to Count, a neutral choice
+        // that never invents a geometry: it only decides whether pan/fill-ratio comparison is even attempted,
+        // which requires Volume specifically.
+        var document = RecipeSnapshotSerializer.Deserialize(source.Document);
+        var dimension = document.Recipe.YieldUnitDimension ?? MeasurementDimension.Count;
+
+        var input = new YieldReconciliationInput(
+            dimension,
+            request.DisplayPrecision ?? RecipeScalingPolicy.DefaultDisplayPrecision,
+            request.BatchYield,
+            request.ServingCount,
+            request.ServingSize,
+            request.PanVolume);
+
+        var outcome = YieldReconciliationCalculator.Reconcile(input);
+
+        if (outcome.Error is not null)
+        {
+            // Unreachable through the validator's own positivity rules in the ordinary case — kept as
+            // defense in depth, the same reasoning ScaleAsync's ScalingErrorField fallback gives. The
+            // calculator's error carries no field of its own to name.
+            return OperationResult<RecipeYieldReconciliationResultServiceModel>.Failure(new OperationError(
+                RecipeErrorCodes.YieldRecalculationInvalidRequest,
+                "That yield could not be recalculated as described.",
+                new Dictionary<string, string[]>()));
+        }
+
+        return OperationResult<RecipeYieldReconciliationResultServiceModel>.Success(
+            new RecipeYieldReconciliationResultServiceModel(sourceVersionNumber, outcome.Preview!));
+    }
+
+    public async Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        RecipeQuantityDisplayRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindCalculationSourceAsync(
+            recipeId, sourceVersionNumber, cancellationToken);
+
+        if (!visible)
+        {
+            return NotFound<RecipeQuantityDisplayResultServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeQuantityDisplayResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                "That value could not be rendered as described.",
+                [(SourceVersionNumberField, $"This recipe has no version {sourceVersionNumber}.")]));
+        }
+
+        var result = QuantityDisplayCalculator.Format(
+            request.Value, request.UpperValue, request.Unit, request.Precision, request.UseAbbreviation, request.Rounding);
+
+        return OperationResult<RecipeQuantityDisplayResultServiceModel>.Success(
+            new RecipeQuantityDisplayResultServiceModel(sourceVersionNumber, result));
+    }
+
+    private const string MultiplierField = "multiplier";
+
+    private const string TargetYieldQuantityField = "targetYieldQuantity";
+
+    private static (string Field, string Error) ScalingErrorField(RecipeScalingRequestError error) => error switch
+    {
+        RecipeScalingRequestError.NonPositiveMultiplier =>
+            (MultiplierField, "The multiplier must be greater than zero."),
+        RecipeScalingRequestError.NonPositiveTargetYield =>
+            (TargetYieldQuantityField, "The target yield must be greater than zero."),
+        RecipeScalingRequestError.RecipeYieldNotStructured =>
+            (TargetYieldQuantityField, "This recipe has no structured yield to scale toward."),
+        _ => (MultiplierField, "That request could not be resolved."),
+    };
 
     private static RecipeVersionComparisonSideServiceModel ToComparisonSide(RecipeVersionSnapshotRecord row) =>
         new()

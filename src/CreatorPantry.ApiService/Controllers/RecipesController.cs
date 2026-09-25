@@ -193,6 +193,152 @@ public sealed class RecipesController(IRecipeFacade recipeFacade) : ControllerBa
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>Computes a deterministic scaling preview for one recipe of the workspace named by the route.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">The recipe to scale. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="model">Which version to scale, and by a multiplier or a target yield.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only (ING-003): nothing here is persisted, and the recipe is unchanged by having been scaled. The
+    /// source version is required rather than defaulted, so the response's provenance is never ambiguous about
+    /// what was scaled.
+    /// </remarks>
+    [HttpPost("{recipeId:guid}/calculations/scale")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeScalingResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    // ValidationProblemDetails, like CompareVersions: an unknown version number names the field at fault, and
+    // recipes.recipe.not_found (also possible here) is a plain ProblemDetails — both are documented as 404
+    // since the response shape genuinely differs by which refusal was returned.
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> Scale(
+        string workspaceSlug,
+        Guid recipeId,
+        ScaleRecipeViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var result = await recipeFacade.ScaleAsync(recipeId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Computes a deterministic unit-conversion preview for one recipe of the workspace named by the route.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="model">Which version, the quantity to convert, and the units to convert between.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only (ING-004): nothing here is persisted, and the recipe is unchanged by having a quantity
+    /// converted. Same-dimension conversion only — a cross-dimension request answers 400 rather than
+    /// inventing a density.
+    /// </remarks>
+    [HttpPost("{recipeId:guid}/calculations/convert-units")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeUnitConversionResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> ConvertUnits(
+        string workspaceSlug,
+        Guid recipeId,
+        ConvertUnitsViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var result = await recipeFacade.ConvertUnitsAsync(recipeId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Computes a deterministic temperature-conversion preview for one recipe of the workspace named by the route.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="model">Which version, the structured value, and the scales to convert between.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only (CALC-003): nothing here is persisted, and the recipe is unchanged by having a temperature
+    /// converted. <c>value</c> must already be a structured number — this never infers one from heat language.
+    /// </remarks>
+    [HttpPost("{recipeId:guid}/calculations/convert-temperature")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeTemperatureConversionResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> ConvertTemperature(
+        string workspaceSlug,
+        Guid recipeId,
+        ConvertTemperatureViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var result = await recipeFacade.ConvertTemperatureAsync(recipeId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Computes a deterministic yield-reconciliation preview for one recipe of the workspace named by the route.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="model">Which version, and the creator's explicit batch yield, serving count, serving size, and pan capacity.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only (ING-005): nothing here is persisted, and the recipe is unchanged by having its yield
+    /// recalculated. An unknown pan geometry or serving definition stays visibly unresolved rather than
+    /// invented.
+    /// </remarks>
+    [HttpPost("{recipeId:guid}/calculations/recalculate-yield")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeYieldReconciliationResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> RecalculateYield(
+        string workspaceSlug,
+        Guid recipeId,
+        RecalculateYieldViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var result = await recipeFacade.RecalculateYieldAsync(recipeId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Computes a deterministic display-normalization preview for one recipe of the workspace named by the route.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">The recipe to read. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="model">Which version, the value (and optional range upper bound), the unit, and the presentation choices.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only and presentation-only (ING-006): nothing here is persisted, and no canonical quantity or
+    /// recipe version changes.
+    /// </remarks>
+    [HttpPost("{recipeId:guid}/calculations/normalize-display")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeQuantityDisplayResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> NormalizeDisplay(
+        string workspaceSlug,
+        Guid recipeId,
+        NormalizeDisplayViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var result = await recipeFacade.NormalizeDisplayAsync(recipeId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Shelves one recipe: archives it without deleting anything.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and

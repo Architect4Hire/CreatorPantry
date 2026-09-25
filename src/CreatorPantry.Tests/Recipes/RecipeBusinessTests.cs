@@ -1,9 +1,11 @@
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Quantities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Business;
 using CreatorPantry.Domain.Modules.Recipes.Data;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -2171,6 +2173,377 @@ public sealed class RecipeBusinessTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => CompareAsync(1, 2));
     }
 
+    // ---- Scaling ----
+
+    [Fact]
+    public async Task An_invisible_recipe_is_reported_as_not_found()
+    {
+        _dataLayer.CalculationSourceVisible = false;
+
+        var result = await ScaleAsync(1, RecipeScalingRequest.ForMultiplier(Quantity.FromInt(2)));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_version_number_the_recipe_does_not_have_is_refused()
+    {
+        _dataLayer.RestoreSource = null;
+
+        var result = await ScaleAsync(9, RecipeScalingRequest.ForMultiplier(Quantity.FromInt(2)));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("sourceVersionNumber", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task A_multiplier_scales_an_ingredient_line_from_the_archived_snapshot()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(
+            1, yieldQuantity: null,
+            new RecipeSnapshotIngredient
+            {
+                Id = Guid.NewGuid(),
+                DisplayText = "2 cups flour",
+                Quantity = 2m,
+                ScalingBehavior = IngredientScaling.Proportional,
+                MeasurementUnitDimension = MeasurementDimension.Volume,
+            });
+
+        var result = await ScaleAsync(1, RecipeScalingRequest.ForMultiplier(Quantity.FromInt(3)));
+
+        Assert.True(result.Succeeded);
+        var line = Assert.Single(result.Value!.Preview.Lines);
+        Assert.True(line.WasScaled);
+        Assert.Equal(Quantity.FromInt(6), line.ScaledQuantity);
+    }
+
+    [Fact]
+    public async Task A_target_yield_resolves_a_factor_from_the_archived_yield()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: 12m);
+
+        var result = await ScaleAsync(1, RecipeScalingRequest.ForTargetYield(Quantity.FromInt(24)));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(Quantity.FromInt(2), result.Value!.Preview.Factor);
+        Assert.Equal(Quantity.FromInt(24), result.Value.Preview.ScaledYieldQuantity);
+    }
+
+    [Fact]
+    public async Task A_request_the_calculator_itself_refuses_is_reported_as_a_scaling_refusal()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: null);
+
+        // Zero bypasses only ScaleRecipeViewModelValidator's edge check; RecipeScalingCalculator's own
+        // positivity check (7.6) is the one this test proves Business still honours.
+        var result = await ScaleAsync(1, RecipeScalingRequest.ForMultiplier(Quantity.Zero));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.ScalingInvalidRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task The_recipe_and_version_reach_the_data_layer()
+    {
+        var recipeId = Guid.NewGuid();
+        _dataLayer.RestoreSource = ScalableSnapshotRow(4, yieldQuantity: null);
+
+        await _business.ScaleAsync(
+            recipeId, 4, RecipeScalingRequest.ForMultiplier(Quantity.FromInt(2)), TestContext.Current.CancellationToken);
+
+        Assert.Equal((recipeId, 4), _dataLayer.CalculationRequest);
+    }
+
+    private Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        int sourceVersionNumber, RecipeScalingRequest request) =>
+        _business.ScaleAsync(Guid.NewGuid(), sourceVersionNumber, request, TestContext.Current.CancellationToken);
+
+    /// <summary>One archived version with an optional yield and ingredient lines, for scaling tests.</summary>
+    private static RecipeVersionSnapshotRecord ScalableSnapshotRow(
+        int versionNumber, decimal? yieldQuantity, params RecipeSnapshotIngredient[] ingredients) =>
+        new(Guid.NewGuid(),
+            versionNumber,
+            RecipeVersionSource.CreatorEdit,
+            RecipeVersionReadiness.Draft,
+            CreatedAt: Now,
+            Document: RecipeSnapshotSerializer.Serialize(new RecipeSnapshotDocument
+            {
+                SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
+                Recipe = new RecipeSnapshotHeader { Title = "Olive oil cake", YieldQuantity = yieldQuantity },
+                IngredientGroups = ingredients.Length == 0
+                    ? []
+                    : [new RecipeSnapshotIngredientGroup { Id = Guid.NewGuid(), Ingredients = ingredients }],
+            }));
+
+    // ---- Unit conversion ----
+
+    private static readonly MeasurementUnitServiceModel Gram = new(
+        Guid.NewGuid(), "g", "gram", "grams", "g", MeasurementDimension.Mass, MeasurementSystem.Metric, 1m, 0);
+
+    private static readonly MeasurementUnitServiceModel Kilogram = new(
+        Guid.NewGuid(), "kg", "kilogram", "kilograms", "kg", MeasurementDimension.Mass, MeasurementSystem.Metric, 1000m, 3);
+
+    private static readonly MeasurementUnitServiceModel CupUs = new(
+        Guid.NewGuid(), "cup-us", "cup", "cups", "c", MeasurementDimension.Volume, MeasurementSystem.UsCustomary, 236.5882365m, 2);
+
+    [Fact]
+    public async Task An_invisible_recipe_is_reported_as_not_found_for_unit_conversion()
+    {
+        _dataLayer.CalculationSourceVisible = false;
+
+        var result = await ConvertUnitsAsync(1, new RecipeUnitConversionRequest(Quantity.FromInt(1000), Gram, Kilogram));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_version_number_the_recipe_does_not_have_is_refused_for_unit_conversion()
+    {
+        _dataLayer.RestoreSource = null;
+
+        var result = await ConvertUnitsAsync(9, new RecipeUnitConversionRequest(Quantity.FromInt(1000), Gram, Kilogram));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("sourceVersionNumber", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Same_dimension_units_convert_by_factor()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: null);
+
+        var result = await ConvertUnitsAsync(1, new RecipeUnitConversionRequest(Quantity.FromInt(1000), Gram, Kilogram));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitConversionMethod.SameDimensionFactor, result.Value!.Result.Method);
+        Assert.Equal(1m, result.Value.Result.ConvertedDisplayQuantity);
+        Assert.Equal(1, result.Value.SourceVersionNumber);
+    }
+
+    [Fact]
+    public async Task Cross_dimension_conversion_without_density_is_refused()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: null);
+
+        var result = await ConvertUnitsAsync(1, new RecipeUnitConversionRequest(Quantity.FromInt(2), CupUs, Gram));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.UnitConversionInvalidRequest, result.Error!.Code);
+        Assert.Contains("toUnitId", result.Error.FieldErrors.Keys);
+    }
+
+    private Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
+        int sourceVersionNumber, RecipeUnitConversionRequest request) =>
+        _business.ConvertUnitsAsync(Guid.NewGuid(), sourceVersionNumber, request, TestContext.Current.CancellationToken);
+
+    // ---- Temperature conversion ----
+
+    [Fact]
+    public async Task An_invisible_recipe_is_reported_as_not_found_for_temperature_conversion()
+    {
+        _dataLayer.CalculationSourceVisible = false;
+
+        var result = await ConvertTemperatureAsync(
+            1, new ConvertTemperatureViewModel(1, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, null, null));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_version_number_the_recipe_does_not_have_is_refused_for_temperature_conversion()
+    {
+        _dataLayer.RestoreSource = null;
+
+        var result = await ConvertTemperatureAsync(
+            9, new ConvertTemperatureViewModel(9, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, null, null));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("sourceVersionNumber", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task A_structured_temperature_converts_and_echoes_oven_mode_and_safety_note()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: null);
+
+        var result = await ConvertTemperatureAsync(
+            1,
+            new ConvertTemperatureViewModel(
+                1, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, "convection", "until golden"));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(356m, result.Value!.Result.ConvertedDisplayValue);
+        Assert.Equal("convection", result.Value.Result.OvenModeContext);
+        Assert.Equal("until golden", result.Value.Result.SafetyNote);
+    }
+
+    private Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
+        int sourceVersionNumber, ConvertTemperatureViewModel model) =>
+        _business.ConvertTemperatureAsync(Guid.NewGuid(), sourceVersionNumber, model, TestContext.Current.CancellationToken);
+
+    // ---- Yield recalculation ----
+
+    [Fact]
+    public async Task An_invisible_recipe_is_reported_as_not_found_for_yield_recalculation()
+    {
+        _dataLayer.CalculationSourceVisible = false;
+
+        var result = await RecalculateYieldAsync(1, new RecipeYieldReconciliationRequest(12m, 6m, 2m, null, null));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_version_number_the_recipe_does_not_have_is_refused_for_yield_recalculation()
+    {
+        _dataLayer.RestoreSource = null;
+
+        var result = await RecalculateYieldAsync(9, new RecipeYieldReconciliationRequest(12m, 6m, 2m, null, null));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("sourceVersionNumber", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Three_agreeing_values_reconcile()
+    {
+        _dataLayer.RestoreSource = YieldSnapshotRow(1, MeasurementDimension.Count);
+
+        var result = await RecalculateYieldAsync(1, new RecipeYieldReconciliationRequest(12m, 6m, 2m, null, null));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(YieldReconciliationStatus.Reconciled, result.Value!.Preview.Status);
+    }
+
+    [Fact]
+    public async Task Two_known_values_solve_the_third()
+    {
+        _dataLayer.RestoreSource = YieldSnapshotRow(1, MeasurementDimension.Count);
+
+        var result = await RecalculateYieldAsync(1, new RecipeYieldReconciliationRequest(null, 6m, 2m, null, null));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(YieldReconciliationStatus.Solved, result.Value!.Preview.Status);
+        Assert.Equal(YieldReconciliationField.BatchYield, result.Value.Preview.SolvedField);
+        Assert.Equal(12m, result.Value.Preview.BatchYield);
+    }
+
+    [Fact]
+    public async Task Contradictory_values_are_reported_without_overriding_any_of_them()
+    {
+        _dataLayer.RestoreSource = YieldSnapshotRow(1, MeasurementDimension.Count);
+
+        var result = await RecalculateYieldAsync(1, new RecipeYieldReconciliationRequest(99m, 6m, 2m, null, null));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(YieldReconciliationStatus.Contradictory, result.Value!.Preview.Status);
+        Assert.Equal(99m, result.Value.Preview.BatchYield);
+    }
+
+    [Fact]
+    public async Task Fewer_than_two_values_is_insufficient_input_without_inventing_a_serving_definition()
+    {
+        _dataLayer.RestoreSource = YieldSnapshotRow(1, MeasurementDimension.Count);
+
+        var result = await RecalculateYieldAsync(1, new RecipeYieldReconciliationRequest(12m, null, null, null, null));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(YieldReconciliationStatus.InsufficientInput, result.Value!.Preview.Status);
+        Assert.Null(result.Value.Preview.Formula);
+    }
+
+    [Fact]
+    public async Task No_stored_yield_unit_falls_back_to_count_without_inventing_a_dimension()
+    {
+        _dataLayer.RestoreSource = YieldSnapshotRow(1, yieldUnitDimension: null);
+
+        var result = await RecalculateYieldAsync(1, new RecipeYieldReconciliationRequest(12m, 6m, 2m, null, null));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(YieldReconciliationStatus.Reconciled, result.Value!.Preview.Status);
+    }
+
+    private Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
+        int sourceVersionNumber, RecipeYieldReconciliationRequest request) =>
+        _business.RecalculateYieldAsync(Guid.NewGuid(), sourceVersionNumber, request, TestContext.Current.CancellationToken);
+
+    /// <summary>One archived version with only its yield unit dimension set, for yield-recalculation tests.</summary>
+    private static RecipeVersionSnapshotRecord YieldSnapshotRow(int versionNumber, MeasurementDimension? yieldUnitDimension) =>
+        new(Guid.NewGuid(),
+            versionNumber,
+            RecipeVersionSource.CreatorEdit,
+            RecipeVersionReadiness.Draft,
+            CreatedAt: Now,
+            Document: RecipeSnapshotSerializer.Serialize(new RecipeSnapshotDocument
+            {
+                SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
+                Recipe = new RecipeSnapshotHeader { Title = "Olive oil cake", YieldUnitDimension = yieldUnitDimension },
+            }));
+
+    // ---- Display normalization ----
+
+    [Fact]
+    public async Task An_invisible_recipe_is_reported_as_not_found_for_display_normalization()
+    {
+        _dataLayer.CalculationSourceVisible = false;
+
+        var result = await NormalizeDisplayAsync(
+            1, new RecipeQuantityDisplayRequest(Quantity.FromFraction(3, 2), null, CupUs, 2, false, MidpointRounding.ToEven));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_version_number_the_recipe_does_not_have_is_refused_for_display_normalization()
+    {
+        _dataLayer.RestoreSource = null;
+
+        var result = await NormalizeDisplayAsync(
+            9, new RecipeQuantityDisplayRequest(Quantity.FromFraction(3, 2), null, CupUs, 2, false, MidpointRounding.ToEven));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("sourceVersionNumber", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task A_fractional_value_renders_a_kitchen_fraction_glyph()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: null);
+
+        var result = await NormalizeDisplayAsync(
+            1, new RecipeQuantityDisplayRequest(Quantity.FromFraction(3, 2), null, CupUs, 2, false, MidpointRounding.ToEven));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("1½ cups", result.Value!.Result.Text);
+    }
+
+    [Fact]
+    public async Task A_range_renders_both_bounds_and_is_always_plural()
+    {
+        _dataLayer.RestoreSource = ScalableSnapshotRow(1, yieldQuantity: null);
+
+        var result = await NormalizeDisplayAsync(
+            1, new RecipeQuantityDisplayRequest(Quantity.FromInt(1), Quantity.FromInt(2), CupUs, 2, false, MidpointRounding.ToEven));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("1–2 cups", result.Value!.Result.Text);
+    }
+
+    private Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
+        int sourceVersionNumber, RecipeQuantityDisplayRequest request) =>
+        _business.NormalizeDisplayAsync(Guid.NewGuid(), sourceVersionNumber, request, TestContext.Current.CancellationToken);
+
     private Task<OperationResult<RecipeVersionComparisonServiceModel>> CompareAsync(int from, int to) =>
         _business.CompareVersionsAsync(Guid.NewGuid(), from, to, TestContext.Current.CancellationToken);
 
@@ -2464,6 +2837,27 @@ public sealed class RecipeBusinessTests
             // Uncounted, as the other reads are: Calls counts writes, so a test can prove a refused request
             // never reached one.
             return Task.FromResult(DuplicateSourceVisible
+                ? (true, RestoreSource)
+                : (false, (RecipeVersionSnapshotRecord?)null));
+        }
+
+        /// <summary>Whether the source recipe of a scaling calculation is visible.</summary>
+        public bool CalculationSourceVisible { get; set; } = true;
+
+        /// <summary>What the last calculation asked for, so a test can assert what was passed down.</summary>
+        public (Guid RecipeId, int VersionNumber)? CalculationRequest { get; private set; }
+
+        public Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindCalculationSourceAsync(
+            Guid recipeId,
+            int versionNumber,
+            CancellationToken cancellationToken)
+        {
+            RequestedRecipeId = recipeId;
+            CalculationRequest = (recipeId, versionNumber);
+
+            // Uncounted, as the other reads are: Calls counts writes, so a test can prove a refused request
+            // never reached one.
+            return Task.FromResult(CalculationSourceVisible
                 ? (true, RestoreSource)
                 : (false, (RecipeVersionSnapshotRecord?)null));
         }

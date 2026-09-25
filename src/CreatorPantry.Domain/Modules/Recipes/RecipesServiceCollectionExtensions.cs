@@ -29,6 +29,11 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IValidator<RecipeSearchViewModel>, RecipeSearchViewModelValidator>();
         services.AddScoped<IValidator<RecipeVersionHistoryViewModel>, RecipeVersionHistoryViewModelValidator>();
         services.AddScoped<IValidator<RecipeVersionComparisonViewModel>, RecipeVersionComparisonViewModelValidator>();
+        services.AddScoped<IValidator<ScaleRecipeViewModel>, ScaleRecipeViewModelValidator>();
+        services.AddScoped<IValidator<ConvertUnitsViewModel>, ConvertUnitsViewModelValidator>();
+        services.AddScoped<IValidator<ConvertTemperatureViewModel>, ConvertTemperatureViewModelValidator>();
+        services.AddScoped<IValidator<RecalculateYieldViewModel>, RecalculateYieldViewModelValidator>();
+        services.AddScoped<IValidator<NormalizeDisplayViewModel>, NormalizeDisplayViewModelValidator>();
         services.AddScoped<IValidator<RestoreRecipeVersionViewModel>, RestoreRecipeVersionViewModelValidator>();
         services.AddScoped<IValidator<DuplicateRecipeViewModel>, DuplicateRecipeViewModelValidator>();
         services.AddScoped<IValidator<RecipeLifecycleViewModel>, RecipeLifecycleViewModelValidator>();

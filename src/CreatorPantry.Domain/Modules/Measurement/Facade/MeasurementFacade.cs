@@ -32,6 +32,10 @@ internal sealed class MeasurementFacade(
             business.ListUnitsAsync,
             cancellationToken);
 
+    public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken) =>
+        business.FindUnitsByIdsAsync(unitIds, cancellationToken);
+
     public async Task<OperationResult<IReadOnlyList<UnitMatchResult>>> ResolveCandidatesAsync(
         IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken)
     {

@@ -17,6 +17,10 @@ public interface IMeasurementUnitRepository
     Task<(IReadOnlyList<MeasurementUnitRecord> Rows, bool HasMore)> ListAsync(
         MeasurementUnitQuery query, CancellationToken cancellationToken);
 
+    /// <summary>The active units among the ids given, in no particular order. Fewer than asked for is a normal answer.</summary>
+    Task<IReadOnlyList<MeasurementUnitRecord>> FindByIdsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken);
+
     /// <summary>
     /// Every active unit's code, display name, plural name, and abbreviation, plus every alias of an active
     /// unit, flattened into one list for <see cref="UnitMatcher"/> to resolve candidates against in memory.
@@ -93,6 +97,29 @@ internal sealed class MeasurementUnitRepository(CreatorPantryDbContext context) 
             .ToListAsync(cancellationToken);
 
         return fetched.ToPage(query.Limit);
+    }
+
+    public async Task<IReadOnlyList<MeasurementUnitRecord>> FindByIdsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken)
+    {
+        if (unitIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await context.MeasurementUnits.AsNoTracking()
+            .Where(unit => unit.IsActive && unitIds.Contains(unit.Id))
+            .Select(unit => new MeasurementUnitRecord(
+                unit.Id,
+                unit.Code,
+                unit.DisplayName,
+                unit.PluralName,
+                unit.Abbreviation,
+                unit.Dimension,
+                unit.System,
+                unit.BaseUnitFactor,
+                unit.DisplayPrecision))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<UnitMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken)

@@ -23,6 +23,19 @@ public interface IMeasurementFacade
         MeasurementUnitQueryViewModel model, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The active units among the ids given, in no particular order, with their dimension and display
+    /// precision together. Fewer than asked for is a normal answer — an id that names no active unit is simply
+    /// absent, not an error.
+    /// </summary>
+    /// <remarks>
+    /// Exists so a calculation seam that already knows which units it needs — unit conversion, most directly,
+    /// which reads a source and a target unit's <c>BaseUnitFactor</c> together — can resolve all of them in one
+    /// round trip rather than one call per id.
+    /// </remarks>
+    Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+        IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Matches each candidate string against the unit catalogue by exact/alias normalization, ranked by
     /// precedence with unresolved ambiguity called out rather than guessed (ING-001, AIREC-GR-003).
     /// </summary>

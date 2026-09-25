@@ -322,6 +322,23 @@ public interface IRecipeDataLayer
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the archived content a read-only calculation preview (scaling, unit conversion, and the like)
+    /// runs against: one named version of a recipe, required rather than optional — a calculation reasons
+    /// about the content it was explicitly given, never about whatever happens to be live.
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="versionNumber">The version to read. Always required — see the type's own remarks.</param>
+    /// <returns>
+    /// Whether the recipe is visible in the resolved workspace, and the version read when one was found. Same
+    /// shape and the same reasoning as <see cref="FindDuplicateSourceAsync"/>: an invisible recipe and a
+    /// readable one with no such version number are different facts a caller needs told apart.
+    /// </returns>
+    Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindCalculationSourceAsync(
+        Guid recipeId,
+        int versionNumber,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Moves a recipe between editorial states and records the move — atomically, and only if the recipe is
     /// still in the state the command was composed against.
     /// </summary>
@@ -502,6 +519,19 @@ internal sealed class RecipeDataLayer(
             : await versions.FindCurrentSnapshotAsync(recipeId, cancellationToken);
 
         return (true, source);
+    }
+
+    public async Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindCalculationSourceAsync(
+        Guid recipeId,
+        int versionNumber,
+        CancellationToken cancellationToken)
+    {
+        if (!await recipes.ExistsAsync(recipeId, cancellationToken))
+        {
+            return (false, null);
+        }
+
+        return (true, await versions.FindSnapshotAsync(recipeId, versionNumber, cancellationToken));
     }
 
     public async Task<bool> TrySetStatusAsync(

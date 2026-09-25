@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Quantities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Measurement.Facade;
@@ -164,6 +165,108 @@ public interface IRecipeFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Computes a deterministic scaling preview for one recipe of the workspace resolved for this scope, by
+    /// multiplier or by target yield, against one explicit version (ING-003).
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="model">Which version to scale, and by how much.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.ScalingInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Read-only and uncached</strong>, for the same reasons as <see cref="CompareVersionsAsync"/>:
+    /// nothing here writes, and the version scaled is immutable, so caching would trade a cheap calculation for
+    /// an invalidation obligation nothing yet needs.
+    /// </para>
+    /// <para>
+    /// <strong>No role gate</strong>, matching every other read in this module — see <see cref="GetDetailAsync"/>.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        Guid recipeId,
+        ScaleRecipeViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic unit-conversion preview for one recipe of the workspace resolved for this
+    /// scope, in the context of one explicit version (ING-004).
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="model">Which version, the quantity to convert, and the units to convert between.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.UnitConversionInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
+    /// </returns>
+    /// <remarks>
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// Both units are resolved here, not in Business: they come from the request rather than the recipe, and
+    /// resolving another module's data is a facade-to-facade call Business may not make (backend.md).
+    /// </remarks>
+    Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
+        Guid recipeId,
+        ConvertUnitsViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic temperature-conversion preview for one recipe of the workspace resolved for
+    /// this scope, in the context of one explicit version (CALC-003).
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="model">Which version, the structured value, and the scales to convert between.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.TemperatureConversionInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
+    /// </returns>
+    /// <remarks>
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// No cross-module lookup: a temperature scale is an enum, not a reference id.
+    /// </remarks>
+    Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
+        Guid recipeId,
+        ConvertTemperatureViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic yield-reconciliation preview for one recipe of the workspace resolved for this
+    /// scope, in the context of one explicit version (ING-005).
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="model">Which version, and the creator's explicit batch yield, serving count, serving size, and pan capacity.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.YieldRecalculationInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
+    /// </returns>
+    /// <remarks>
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// No cross-module lookup: Business resolves the dimension itself from the recipe's own stored yield unit.
+    /// </remarks>
+    Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
+        Guid recipeId,
+        RecalculateYieldViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Computes a deterministic display-normalization preview for one recipe of the workspace resolved for
+    /// this scope, in the context of one explicit version (ING-006).
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from, resolved from the route.</param>
+    /// <param name="model">Which version, the value (and optional range upper bound), the unit, and the presentation choices.</param>
+    /// <returns>
+    /// The computed preview, or a failure carrying <see cref="RecipeErrorCodes.DisplayNormalizationInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
+    /// </returns>
+    /// <remarks>
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// The unit is resolved here, not in Business, for the same reason <see cref="ConvertUnitsAsync"/> gives.
+    /// </remarks>
+    Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
+        Guid recipeId,
+        NormalizeDisplayViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Puts one recipe of the workspace resolved for this scope back to what one of its versions said, and
     /// returns the recipe as it now stands.
     /// </summary>
@@ -295,6 +398,11 @@ internal sealed class RecipeFacade(
     IValidator<RecipeSearchViewModel> searchValidator,
     IValidator<RecipeVersionHistoryViewModel> historyValidator,
     IValidator<RecipeVersionComparisonViewModel> comparisonValidator,
+    IValidator<ScaleRecipeViewModel> scaleValidator,
+    IValidator<ConvertUnitsViewModel> convertUnitsValidator,
+    IValidator<ConvertTemperatureViewModel> convertTemperatureValidator,
+    IValidator<RecalculateYieldViewModel> recalculateYieldValidator,
+    IValidator<NormalizeDisplayViewModel> normalizeDisplayValidator,
     IValidator<RestoreRecipeVersionViewModel> restoreValidator,
     IValidator<DuplicateRecipeViewModel> duplicateValidator,
     IValidator<RecipeLifecycleViewModel> lifecycleValidator,
@@ -323,6 +431,16 @@ internal sealed class RecipeFacade(
     private const string CannotListHistory = "That history cannot be read as described.";
 
     private const string CannotCompare = "Those versions cannot be compared as described.";
+
+    private const string CannotScale = "That recipe cannot be scaled as described.";
+
+    private const string CannotConvertUnits = "That quantity cannot be converted as described.";
+
+    private const string CannotConvertTemperature = "That temperature cannot be converted as described.";
+
+    private const string CannotRecalculateYield = "That yield cannot be recalculated as described.";
+
+    private const string CannotNormalizeDisplay = "That value cannot be rendered as described.";
 
     private const string CannotRestore = "That version cannot be restored as described.";
 
@@ -537,6 +655,145 @@ internal sealed class RecipeFacade(
         // named. Non-null by the validation above.
         return await business.CompareVersionsAsync(
             recipeId, model.From!.Value, model.To!.Value, cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        Guid recipeId,
+        ScaleRecipeViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var validation = await scaleValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<RecipeScalingResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.ScalingInvalidRequest,
+                CannotScale,
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        // Non-null by the validator's exactly-one-of rule above.
+        var request = model.Multiplier is { } multiplier
+            ? RecipeScalingRequest.ForMultiplier(Quantity.FromDecimal(multiplier))
+            : RecipeScalingRequest.ForTargetYield(Quantity.FromDecimal(model.TargetYieldQuantity!.Value));
+
+        return await business.ScaleAsync(recipeId, model.SourceVersionNumber, request, cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
+        Guid recipeId,
+        ConvertUnitsViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var validation = await convertUnitsValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<RecipeUnitConversionResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.UnitConversionInvalidRequest,
+                CannotConvertUnits,
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        // One round trip for both units — FindUnitsByIdsAsync exists precisely for a calculation seam that
+        // already knows which units it needs. Missing from the result means unknown or no longer offered;
+        // the two are reported the same way, mirroring VerifyReferencesAsync's own unit check.
+        var units = await measurement.FindUnitsByIdsAsync([model.FromUnitId, model.ToUnitId], cancellationToken);
+        var byId = units.ToDictionary(unit => unit.Id);
+
+        var errors = new List<(string Field, string Error)>();
+        if (!byId.TryGetValue(model.FromUnitId, out var fromUnit))
+        {
+            errors.Add((nameof(ConvertUnitsViewModel.FromUnitId), "That unit is not available."));
+        }
+
+        if (!byId.TryGetValue(model.ToUnitId, out var toUnit))
+        {
+            errors.Add((nameof(ConvertUnitsViewModel.ToUnitId), "That unit is not available."));
+        }
+
+        if (errors.Count > 0)
+        {
+            return OperationResult<RecipeUnitConversionResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.UnitConversionInvalidRequest, CannotConvertUnits, errors));
+        }
+
+        var request = new RecipeUnitConversionRequest(Quantity.FromDecimal(model.Quantity), fromUnit!, toUnit!);
+
+        return await business.ConvertUnitsAsync(recipeId, model.SourceVersionNumber, request, cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
+        Guid recipeId,
+        ConvertTemperatureViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var validation = await convertTemperatureValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<RecipeTemperatureConversionResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.TemperatureConversionInvalidRequest,
+                CannotConvertTemperature,
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        // No cross-module lookup: a temperature scale is an enum this module already knows, not a reference
+        // id, so the shape-validated model is handed straight to Business.
+        return await business.ConvertTemperatureAsync(recipeId, model.SourceVersionNumber, model, cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
+        Guid recipeId,
+        RecalculateYieldViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var validation = await recalculateYieldValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<RecipeYieldReconciliationResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.YieldRecalculationInvalidRequest,
+                CannotRecalculateYield,
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        var request = new RecipeYieldReconciliationRequest(
+            model.BatchYield, model.ServingCount, model.ServingSize, model.PanVolume, model.DisplayPrecision);
+
+        return await business.RecalculateYieldAsync(recipeId, model.SourceVersionNumber, request, cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
+        Guid recipeId,
+        NormalizeDisplayViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var validation = await normalizeDisplayValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<RecipeQuantityDisplayResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.DisplayNormalizationInvalidRequest,
+                CannotNormalizeDisplay,
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        var units = await measurement.FindUnitsByIdsAsync([model.UnitId], cancellationToken);
+        var unit = units.FirstOrDefault(candidate => candidate.Id == model.UnitId);
+
+        if (unit is null)
+        {
+            return OperationResult<RecipeQuantityDisplayResultServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.DisplayNormalizationInvalidRequest,
+                CannotNormalizeDisplay,
+                [(nameof(NormalizeDisplayViewModel.UnitId), "That unit is not available.")]));
+        }
+
+        var request = new RecipeQuantityDisplayRequest(
+            Quantity.FromDecimal(model.Value),
+            model.UpperValue is { } upper ? Quantity.FromDecimal(upper) : null,
+            unit,
+            model.Precision,
+            model.UseAbbreviation,
+            model.Rounding);
+
+        return await business.NormalizeDisplayAsync(recipeId, model.SourceVersionNumber, request, cancellationToken);
     }
 
     public async Task<IdempotentOutcome<RecipeDetailServiceModel>> UpdateAsync(

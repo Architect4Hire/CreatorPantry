@@ -2,9 +2,11 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Quantities;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Measurement.Facade;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Business;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
@@ -40,6 +42,11 @@ public sealed class RecipeFacadeTests
                 new RecipeVersionHistoryViewModelValidator())
             .AddSingleton<FluentValidation.IValidator<RecipeVersionComparisonViewModel>>(
                 new RecipeVersionComparisonViewModelValidator())
+            .AddSingleton<FluentValidation.IValidator<ScaleRecipeViewModel>>(new ScaleRecipeViewModelValidator())
+            .AddSingleton<FluentValidation.IValidator<ConvertUnitsViewModel>>(new ConvertUnitsViewModelValidator())
+            .AddSingleton<FluentValidation.IValidator<ConvertTemperatureViewModel>>(new ConvertTemperatureViewModelValidator())
+            .AddSingleton<FluentValidation.IValidator<RecalculateYieldViewModel>>(new RecalculateYieldViewModelValidator())
+            .AddSingleton<FluentValidation.IValidator<NormalizeDisplayViewModel>>(new NormalizeDisplayViewModelValidator())
             .AddSingleton<FluentValidation.IValidator<RestoreRecipeVersionViewModel>>(
                 new RestoreRecipeVersionViewModelValidator())
             .AddSingleton<FluentValidation.IValidator<DuplicateRecipeViewModel>>(
@@ -786,6 +793,449 @@ public sealed class RecipeFacadeTests
         }
     }
 
+    // ---- Scaling ----
+
+    [Fact]
+    public async Task Neither_multiplier_nor_target_yield_is_refused_before_business_is_called()
+    {
+        var result = await Facade().ScaleAsync(
+            Guid.NewGuid(), new ScaleRecipeViewModel(1, null, null), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.ScalingInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task Both_multiplier_and_target_yield_is_refused_before_business_is_called()
+    {
+        var result = await Facade().ScaleAsync(
+            Guid.NewGuid(), new ScaleRecipeViewModel(1, 2m, 4m), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.ScalingInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task A_nonpositive_multiplier_is_refused_before_business_is_called(decimal multiplier)
+    {
+        var result = await Facade().ScaleAsync(
+            Guid.NewGuid(), new ScaleRecipeViewModel(1, multiplier, null), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.ScalingInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_source_version_below_one_is_refused_before_business_is_called()
+    {
+        var result = await Facade().ScaleAsync(
+            Guid.NewGuid(), new ScaleRecipeViewModel(0, 2m, null), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.ScalingInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_valid_multiplier_request_reaches_business_once_translated_to_an_exact_quantity()
+    {
+        var recipeId = Guid.NewGuid();
+
+        var result = await Facade().ScaleAsync(
+            recipeId, new ScaleRecipeViewModel(3, 2.5m, null), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(recipeId, _business.RequestedRecipeId);
+        Assert.Equal(1, _business.Calls);
+
+        var (sourceVersionNumber, request) = _business.ScaledRequest!.Value;
+        Assert.Equal(3, sourceVersionNumber);
+        Assert.Equal(Quantity.FromDecimal(2.5m), request.Multiplier);
+        Assert.Null(request.TargetYieldQuantity);
+    }
+
+    [Fact]
+    public async Task A_valid_target_yield_request_reaches_business_once_translated_to_an_exact_quantity()
+    {
+        var result = await Facade().ScaleAsync(
+            Guid.NewGuid(), new ScaleRecipeViewModel(1, null, 24m), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+
+        var (_, request) = _business.ScaledRequest!.Value;
+        Assert.Null(request.Multiplier);
+        Assert.Equal(Quantity.FromDecimal(24m), request.TargetYieldQuantity);
+    }
+
+    /// <summary>
+    /// No role gate: Viewer is the lowest role there is, so a resolved context already is the authorization,
+    /// the same reasoning as version comparison.
+    /// </summary>
+    [Fact]
+    public async Task Every_member_including_a_viewer_may_scale()
+    {
+        foreach (var role in (WorkspaceRole[])[WorkspaceRole.Viewer, WorkspaceRole.Contributor, WorkspaceRole.Owner])
+        {
+            var result = await Facade(role).ScaleAsync(
+                Guid.NewGuid(), new ScaleRecipeViewModel(1, 2m, null), TestContext.Current.CancellationToken);
+
+            Assert.True(result.Succeeded);
+        }
+    }
+
+    [Fact]
+    public async Task Cancellation_propagates_into_business()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Facade().ScaleAsync(
+            Guid.NewGuid(), new ScaleRecipeViewModel(1, 2m, null), cts.Token));
+    }
+
+    // ---- Unit conversion ----
+
+    private static readonly MeasurementUnitServiceModel Gram = new(
+        Guid.NewGuid(), "g", "gram", "grams", "g", MeasurementDimension.Mass, MeasurementSystem.Metric, 1m, 0);
+
+    private static readonly MeasurementUnitServiceModel Kilogram = new(
+        Guid.NewGuid(), "kg", "kilogram", "kilograms", "kg", MeasurementDimension.Mass, MeasurementSystem.Metric, 1000m, 3);
+
+    [Fact]
+    public async Task A_source_version_below_one_is_refused_before_business_is_called_for_unit_conversion()
+    {
+        var result = await Facade().ConvertUnitsAsync(
+            Guid.NewGuid(), new ConvertUnitsViewModel(0, 2m, Guid.NewGuid(), Guid.NewGuid()), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.UnitConversionInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_nonpositive_quantity_is_refused_before_business_is_called()
+    {
+        var result = await Facade().ConvertUnitsAsync(
+            Guid.NewGuid(), new ConvertUnitsViewModel(1, 0m, Guid.NewGuid(), Guid.NewGuid()), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.UnitConversionInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task An_unknown_unit_id_is_refused_naming_the_field_before_business_is_called()
+    {
+        var fromUnitId = Guid.NewGuid();
+        var toUnitId = Guid.NewGuid();
+        _references.Units[fromUnitId] = Gram with { Id = fromUnitId };
+        // toUnitId is deliberately never registered.
+
+        var result = await Facade().ConvertUnitsAsync(
+            Guid.NewGuid(), new ConvertUnitsViewModel(1, 2m, fromUnitId, toUnitId), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.UnitConversionInvalidRequest, result.Error!.Code);
+        Assert.Contains("toUnitId", result.Error.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task Both_units_resolved_reaches_business_with_full_metadata()
+    {
+        var fromUnitId = Guid.NewGuid();
+        var toUnitId = Guid.NewGuid();
+        _references.Units[fromUnitId] = Gram with { Id = fromUnitId };
+        _references.Units[toUnitId] = Kilogram with { Id = toUnitId };
+        var recipeId = Guid.NewGuid();
+
+        var result = await Facade().ConvertUnitsAsync(
+            recipeId, new ConvertUnitsViewModel(1, 1000m, fromUnitId, toUnitId), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(recipeId, _business.RequestedRecipeId);
+        Assert.Equal(1, _business.Calls);
+
+        var (sourceVersionNumber, request) = _business.ConvertedUnitsRequest!.Value;
+        Assert.Equal(1, sourceVersionNumber);
+        Assert.Equal(Quantity.FromDecimal(1000m), request.Quantity);
+        Assert.Equal(fromUnitId, request.FromUnit.Id);
+        Assert.Equal(toUnitId, request.ToUnit.Id);
+    }
+
+    [Fact]
+    public async Task Every_member_including_a_viewer_may_convert_units()
+    {
+        var fromUnitId = Guid.NewGuid();
+        var toUnitId = Guid.NewGuid();
+        _references.Units[fromUnitId] = Gram with { Id = fromUnitId };
+        _references.Units[toUnitId] = Kilogram with { Id = toUnitId };
+
+        foreach (var role in (WorkspaceRole[])[WorkspaceRole.Viewer, WorkspaceRole.Contributor, WorkspaceRole.Owner])
+        {
+            var result = await Facade(role).ConvertUnitsAsync(
+                Guid.NewGuid(), new ConvertUnitsViewModel(1, 1000m, fromUnitId, toUnitId), TestContext.Current.CancellationToken);
+
+            Assert.True(result.Succeeded);
+        }
+    }
+
+    [Fact]
+    public async Task Cancellation_propagates_into_business_for_unit_conversion()
+    {
+        var fromUnitId = Guid.NewGuid();
+        var toUnitId = Guid.NewGuid();
+        _references.Units[fromUnitId] = Gram with { Id = fromUnitId };
+        _references.Units[toUnitId] = Kilogram with { Id = toUnitId };
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Facade().ConvertUnitsAsync(
+            Guid.NewGuid(), new ConvertUnitsViewModel(1, 1000m, fromUnitId, toUnitId), cts.Token));
+    }
+
+    // ---- Temperature conversion ----
+
+    [Fact]
+    public async Task A_source_version_below_one_is_refused_before_business_is_called_for_temperature_conversion()
+    {
+        var result = await Facade().ConvertTemperatureAsync(
+            Guid.NewGuid(),
+            new ConvertTemperatureViewModel(0, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, null, null),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.TemperatureConversionInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_negative_precision_is_refused_before_business_is_called()
+    {
+        var result = await Facade().ConvertTemperatureAsync(
+            Guid.NewGuid(),
+            new ConvertTemperatureViewModel(1, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, -1, null, null),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.TemperatureConversionInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_valid_request_reaches_business_unchanged()
+    {
+        var recipeId = Guid.NewGuid();
+
+        var result = await Facade().ConvertTemperatureAsync(
+            recipeId,
+            new ConvertTemperatureViewModel(2, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, "convection", "until golden"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(recipeId, _business.RequestedRecipeId);
+
+        var (sourceVersionNumber, model) = _business.ConvertedTemperature!.Value;
+        Assert.Equal(2, sourceVersionNumber);
+        Assert.Equal(180m, model.Value);
+        Assert.Equal("convection", model.OvenModeContext);
+        Assert.Equal("until golden", model.SafetyNote);
+    }
+
+    [Fact]
+    public async Task Every_member_including_a_viewer_may_convert_temperature()
+    {
+        foreach (var role in (WorkspaceRole[])[WorkspaceRole.Viewer, WorkspaceRole.Contributor, WorkspaceRole.Owner])
+        {
+            var result = await Facade(role).ConvertTemperatureAsync(
+                Guid.NewGuid(),
+                new ConvertTemperatureViewModel(1, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, null, null),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Succeeded);
+        }
+    }
+
+    [Fact]
+    public async Task Cancellation_propagates_into_business_for_temperature_conversion()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Facade().ConvertTemperatureAsync(
+            Guid.NewGuid(),
+            new ConvertTemperatureViewModel(1, 180m, TemperatureScale.Celsius, TemperatureScale.Fahrenheit, 0, null, null),
+            cts.Token));
+    }
+
+    // ---- Yield recalculation ----
+
+    [Fact]
+    public async Task A_source_version_below_one_is_refused_before_business_is_called_for_yield_recalculation()
+    {
+        var result = await Facade().RecalculateYieldAsync(
+            Guid.NewGuid(), new RecalculateYieldViewModel(0, 12m, 6m, 2m, null, null), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.YieldRecalculationInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_nonpositive_batch_yield_is_refused_before_business_is_called()
+    {
+        var result = await Facade().RecalculateYieldAsync(
+            Guid.NewGuid(), new RecalculateYieldViewModel(1, 0m, 6m, 2m, null, null), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.YieldRecalculationInvalidRequest, result.Error!.Code);
+        Assert.Contains("batchYield", result.Error.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_request_naming_nothing_still_reaches_business()
+    {
+        var recipeId = Guid.NewGuid();
+
+        var result = await Facade().RecalculateYieldAsync(
+            recipeId, new RecalculateYieldViewModel(1, null, null, null, null, null), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(recipeId, _business.RequestedRecipeId);
+
+        var (sourceVersionNumber, request) = _business.RecalculatedYield!.Value;
+        Assert.Equal(1, sourceVersionNumber);
+        Assert.Null(request.BatchYield);
+    }
+
+    [Fact]
+    public async Task Every_member_including_a_viewer_may_recalculate_yield()
+    {
+        foreach (var role in (WorkspaceRole[])[WorkspaceRole.Viewer, WorkspaceRole.Contributor, WorkspaceRole.Owner])
+        {
+            var result = await Facade(role).RecalculateYieldAsync(
+                Guid.NewGuid(), new RecalculateYieldViewModel(1, 12m, 6m, 2m, null, null), TestContext.Current.CancellationToken);
+
+            Assert.True(result.Succeeded);
+        }
+    }
+
+    [Fact]
+    public async Task Cancellation_propagates_into_business_for_yield_recalculation()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Facade().RecalculateYieldAsync(
+            Guid.NewGuid(), new RecalculateYieldViewModel(1, 12m, 6m, 2m, null, null), cts.Token));
+    }
+
+    // ---- Display normalization ----
+
+    private static readonly MeasurementUnitServiceModel CupUs = new(
+        Guid.NewGuid(), "cup-us", "cup", "cups", "c", MeasurementDimension.Volume, MeasurementSystem.UsCustomary, 236.5882365m, 2);
+
+    [Fact]
+    public async Task A_source_version_below_one_is_refused_before_business_is_called_for_display_normalization()
+    {
+        var result = await Facade().NormalizeDisplayAsync(
+            Guid.NewGuid(),
+            new NormalizeDisplayViewModel(0, 1.5m, null, Guid.NewGuid(), 2, false, MidpointRounding.ToEven),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.DisplayNormalizationInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task An_upper_value_not_greater_than_the_value_is_refused_before_business_is_called()
+    {
+        var result = await Facade().NormalizeDisplayAsync(
+            Guid.NewGuid(),
+            new NormalizeDisplayViewModel(1, 2m, 2m, Guid.NewGuid(), 2, false, MidpointRounding.ToEven),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.DisplayNormalizationInvalidRequest, result.Error!.Code);
+        Assert.Contains("upperValue", result.Error.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task An_unknown_unit_id_is_refused_naming_the_field_before_business_is_called_for_display_normalization()
+    {
+        var result = await Facade().NormalizeDisplayAsync(
+            Guid.NewGuid(),
+            new NormalizeDisplayViewModel(1, 1.5m, null, Guid.NewGuid(), 2, false, MidpointRounding.ToEven),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.DisplayNormalizationInvalidRequest, result.Error!.Code);
+        Assert.Contains("unitId", result.Error.FieldErrors.Keys);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    [Fact]
+    public async Task A_resolved_unit_reaches_business_with_full_metadata()
+    {
+        var unitId = Guid.NewGuid();
+        _references.Units[unitId] = CupUs with { Id = unitId };
+        var recipeId = Guid.NewGuid();
+
+        var result = await Facade().NormalizeDisplayAsync(
+            recipeId,
+            new NormalizeDisplayViewModel(1, 1.5m, null, unitId, 2, false, MidpointRounding.ToEven),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(recipeId, _business.RequestedRecipeId);
+
+        var (sourceVersionNumber, request) = _business.NormalizedDisplay!.Value;
+        Assert.Equal(1, sourceVersionNumber);
+        Assert.Equal(Quantity.FromDecimal(1.5m), request.Value);
+        Assert.Equal(unitId, request.Unit.Id);
+    }
+
+    [Fact]
+    public async Task Every_member_including_a_viewer_may_normalize_display()
+    {
+        var unitId = Guid.NewGuid();
+        _references.Units[unitId] = CupUs with { Id = unitId };
+
+        foreach (var role in (WorkspaceRole[])[WorkspaceRole.Viewer, WorkspaceRole.Contributor, WorkspaceRole.Owner])
+        {
+            var result = await Facade(role).NormalizeDisplayAsync(
+                Guid.NewGuid(),
+                new NormalizeDisplayViewModel(1, 1.5m, null, unitId, 2, false, MidpointRounding.ToEven),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Succeeded);
+        }
+    }
+
+    [Fact]
+    public async Task Cancellation_propagates_into_business_for_display_normalization()
+    {
+        var unitId = Guid.NewGuid();
+        _references.Units[unitId] = CupUs with { Id = unitId };
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Facade().NormalizeDisplayAsync(
+            Guid.NewGuid(),
+            new NormalizeDisplayViewModel(1, 1.5m, null, unitId, 2, false, MidpointRounding.ToEven),
+            cts.Token));
+    }
+
     // ---- Naming the author of a version ----
 
     private static RecipeVersionHistoryServiceModel HistoryEntry(Guid id, int versionNumber) => new()
@@ -1298,6 +1748,136 @@ public sealed class RecipeFacadeTests
             Recipe = new RecipeSnapshotHeader { Title = "Olive oil cake" },
         };
 
+        /// <summary>What the facade handed down, so a test can assert what it translated the submitted decimals into.</summary>
+        public (int SourceVersionNumber, RecipeScalingRequest Request)? ScaledRequest { get; private set; }
+
+        public Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+            Guid recipeId,
+            int sourceVersionNumber,
+            RecipeScalingRequest request,
+            CancellationToken cancellationToken)
+        {
+            // Checked here, not in the facade: proves the token the facade was given is the one that reaches
+            // business, the same shape IngredientParsingFacadeTests uses.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Calls++;
+            RequestedRecipeId = recipeId;
+            ScaledRequest = (sourceVersionNumber, request);
+
+            // A fixed stand-in yield: harmless for a multiplier request, and enough to let a target-yield
+            // request resolve a factor rather than fail on RecipeScalingCalculator's own "no structured
+            // yield" check — these tests assert what the facade translated, not what the calculator computed.
+            var outcome = RecipeScalingCalculator.Scale(request, Quantity.FromInt(1), []);
+
+            return Task.FromResult(outcome.Succeeded
+                ? OperationResult<RecipeScalingResultServiceModel>.Success(
+                    new RecipeScalingResultServiceModel(sourceVersionNumber, outcome.Preview!))
+                : OperationResult<RecipeScalingResultServiceModel>.Failure(new OperationError(
+                    RecipeErrorCodes.ScalingInvalidRequest,
+                    "That recipe could not be scaled as described.",
+                    new Dictionary<string, string[]>())));
+        }
+
+        /// <summary>What the facade handed down for the last unit conversion, so a test can assert what it resolved.</summary>
+        public (int SourceVersionNumber, RecipeUnitConversionRequest Request)? ConvertedUnitsRequest { get; private set; }
+
+        public Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
+            Guid recipeId,
+            int sourceVersionNumber,
+            RecipeUnitConversionRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Calls++;
+            RequestedRecipeId = recipeId;
+            ConvertedUnitsRequest = (sourceVersionNumber, request);
+
+            return Task.FromResult(OperationResult<RecipeUnitConversionResultServiceModel>.Success(
+                new RecipeUnitConversionResultServiceModel(sourceVersionNumber, new UnitConversionResult
+                {
+                    Method = UnitConversionMethod.SameDimensionFactor,
+                    ConvertedQuantity = request.Quantity,
+                    ConvertedDisplayQuantity = request.Quantity.ToDecimal(request.ToUnit.DisplayPrecision),
+                    Precision = request.ToUnit.DisplayPrecision,
+                    Rounding = MidpointRounding.ToEven,
+                    Formula = "stub",
+                    Source = null,
+                })));
+        }
+
+        /// <summary>What the facade handed down for the last temperature conversion, so a test can assert it.</summary>
+        public (int SourceVersionNumber, ConvertTemperatureViewModel Model)? ConvertedTemperature { get; private set; }
+
+        public Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
+            Guid recipeId,
+            int sourceVersionNumber,
+            ConvertTemperatureViewModel model,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Calls++;
+            RequestedRecipeId = recipeId;
+            ConvertedTemperature = (sourceVersionNumber, model);
+
+            var result = TemperatureConversionCalculator.Convert(
+                model.Value, model.FromScale, model.ToScale, model.Precision, model.OvenModeContext, model.SafetyNote);
+
+            return Task.FromResult(OperationResult<RecipeTemperatureConversionResultServiceModel>.Success(
+                new RecipeTemperatureConversionResultServiceModel(sourceVersionNumber, result)));
+        }
+
+        /// <summary>What the facade handed down for the last yield recalculation, so a test can assert it.</summary>
+        public (int SourceVersionNumber, RecipeYieldReconciliationRequest Request)? RecalculatedYield { get; private set; }
+
+        public Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
+            Guid recipeId,
+            int sourceVersionNumber,
+            RecipeYieldReconciliationRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Calls++;
+            RequestedRecipeId = recipeId;
+            RecalculatedYield = (sourceVersionNumber, request);
+
+            var outcome = YieldReconciliationCalculator.Reconcile(new YieldReconciliationInput(
+                MeasurementDimension.Count, 2, request.BatchYield, request.ServingCount, request.ServingSize, request.PanVolume));
+
+            return Task.FromResult(outcome.Succeeded
+                ? OperationResult<RecipeYieldReconciliationResultServiceModel>.Success(
+                    new RecipeYieldReconciliationResultServiceModel(sourceVersionNumber, outcome.Preview!))
+                : OperationResult<RecipeYieldReconciliationResultServiceModel>.Failure(new OperationError(
+                    RecipeErrorCodes.YieldRecalculationInvalidRequest,
+                    "That yield could not be recalculated as described.",
+                    new Dictionary<string, string[]>())));
+        }
+
+        /// <summary>What the facade handed down for the last display normalization, so a test can assert it.</summary>
+        public (int SourceVersionNumber, RecipeQuantityDisplayRequest Request)? NormalizedDisplay { get; private set; }
+
+        public Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
+            Guid recipeId,
+            int sourceVersionNumber,
+            RecipeQuantityDisplayRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Calls++;
+            RequestedRecipeId = recipeId;
+            NormalizedDisplay = (sourceVersionNumber, request);
+
+            var result = QuantityDisplayCalculator.Format(
+                request.Value, request.UpperValue, request.Unit, request.Precision, request.UseAbbreviation, request.Rounding);
+
+            return Task.FromResult(OperationResult<RecipeQuantityDisplayResultServiceModel>.Success(
+                new RecipeQuantityDisplayResultServiceModel(sourceVersionNumber, result)));
+        }
+
         private static RecipeVersionComparisonSideServiceModel Side(int versionNumber) => new()
         {
             VersionId = Guid.NewGuid(),
@@ -1481,6 +2061,20 @@ public sealed class RecipeFacadeTests
         public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Measurement.Managers.MeasurementUnitServiceModel>>> ListUnitsAsync(
             Domain.Modules.Measurement.Managers.MeasurementUnitQueryViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        /// <summary>The units this stub knows about, keyed by id — configured per test.</summary>
+        public Dictionary<Guid, MeasurementUnitServiceModel> Units { get; } = [];
+
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
+            IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken)
+        {
+            UnitLookups++;
+
+            IReadOnlyList<MeasurementUnitServiceModel> found =
+                [.. unitIds.Where(Units.ContainsKey).Select(id => Units[id])];
+
+            return Task.FromResult(found);
+        }
 
         public Task<OperationResult<IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult>>> ResolveCandidatesAsync(
             IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken) =>
