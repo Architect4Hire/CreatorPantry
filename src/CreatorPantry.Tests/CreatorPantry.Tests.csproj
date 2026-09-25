@@ -48,7 +48,17 @@
     <PackageReference Include="xunit.v3" Version="4.0.1" />
   </ItemGroup>
 
+  <!--
+    Prompt-template fixtures, embedded the same way CreatorPantry.Domain embeds real ones, so the loader is
+    exercised through the resource path it actually uses rather than a string handed to it.
+  -->
   <ItemGroup>
+    <None Remove="**\*.prompt.md" />
+    <EmbeddedResource Include="**\*.prompt.md" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreatorPantry.AiProvider\CreatorPantry.AiProvider.csproj" />
     <ProjectReference Include="..\CreatorPantry.Domain\CreatorPantry.Domain.csproj" />
     <ProjectReference Include="..\CreatorPantry.ApiService\CreatorPantry.ApiService.csproj" Aliases="ApiService" />
     <ProjectReference Include="..\CreatorPantry.Gateway\CreatorPantry.Gateway.csproj" Aliases="Gateway" />

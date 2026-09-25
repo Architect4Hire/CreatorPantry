@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="..\CreatorPantry.AiProvider\CreatorPantry.AiProvider.csproj" />
     <ProjectReference Include="..\CreatorPantry.Domain\CreatorPantry.Domain.csproj" />
     <ProjectReference Include="..\CreatorPantry.ServiceDefaults\CreatorPantry.ServiceDefaults.csproj" />
   </ItemGroup>

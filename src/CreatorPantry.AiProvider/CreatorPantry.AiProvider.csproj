@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- This project carries its architectural reasoning in XML doc, as CreatorPantry.Domain does. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1574</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The only model-provider SDK reference in the solution. Aspire.Azure.AI.Inference brings
+      Azure.AI.Inference with it, which is exactly why this assembly exists: CreatorPantry.Domain depends on
+      IChatClient and IEmbeddingGenerator alone, and DomainReferenceTests fails if a provider SDK reaches it.
+
+      Preview because Aspire has not shipped a stable AI client integration for 13.5.4; it is the same build
+      as the stable 13.5.4 hosting packages the AppHost pins.
+    -->
+    <PackageReference Include="Aspire.Azure.AI.Inference" Version="13.5.4-preview.1.26464.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreatorPantry.Domain\CreatorPantry.Domain.csproj" />
+  </ItemGroup>
+
+  <!-- Application time: only IClock and ITimeZoneConverter may read the clock or resolve zones. -->
+  <PropertyGroup>
+    <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <AdditionalFiles Include="..\BannedSymbols.txt" />
+  </ItemGroup>
+
+</Project>

@@ -15,6 +15,12 @@ public class AccountMessageDeliveryTests
         using var factory = new WebApplicationFactory<ApiService::Program>().WithWebHostBuilder(web =>
         {
             TestDatabase.ConfigureWithoutHealthCheck(web);
+
+            // Message delivery is the missing provider under test, so every other provider this host demands
+            // outside Development has to be present — otherwise the model deployments' own startup failure
+            // gets there first and this test passes on the wrong exception.
+            TestDatabase.ConfigureModelDeployments(web);
+
             web.UseEnvironment(environment);
         });
 

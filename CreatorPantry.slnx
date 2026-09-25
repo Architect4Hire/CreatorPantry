@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/CreatorPantry.AiProvider/CreatorPantry.AiProvider.csproj" />
     <Project Path="src/CreatorPantry.ApiService/CreatorPantry.ApiService.csproj" />
     <Project Path="src/CreatorPantry.AppHost/CreatorPantry.AppHost.csproj" />
     <Project Path="src/CreatorPantry.Domain/CreatorPantry.Domain.csproj" />

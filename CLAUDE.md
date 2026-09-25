@@ -57,7 +57,7 @@ AI generates drafts, proposals, structured commands, and derivatives. It does no
 - **Frontend:** Angular 22, standalone components, signals where appropriate, strict TypeScript, `cp-` selector prefix.
 - **Edge:** YARP backend-for-frontend. The browser talks to the gateway, not directly to the API.
 - **Identity:** ASP.NET Core Identity. Identity answers who the user is; workspace membership answers what the user may do.
-- **AI:** `Microsoft.Extensions.AI` abstractions (`IChatClient`, `IEmbeddingGenerator`) with Semantic Kernel for orchestration and plugins.
+- **AI:** `Microsoft.Extensions.AI` abstractions (`IChatClient`, `IEmbeddingGenerator`) with Semantic Kernel for orchestration and plugins. Microsoft Foundry is the provider (B-15) — Foundry Local in development, Azure Foundry deployments when deployed — with separate `chat` and `embeddings` deployments wired in `CreatorPantry.AiProvider`.
 - **Media:** metadata in SQL; object bytes in blob storage or an Aspire-compatible local resource.
 - **Observability:** OpenTelemetry through ServiceDefaults; correlation across gateway, API, worker, database, cache, and AI calls.
 
@@ -71,6 +71,7 @@ src/
 ├── CreatorPantry.Web/                 # production host for Angular bundle
 ├── CreatorPantry.ApiService/          # controllers, identity endpoints, policies, middleware
 ├── CreatorPantry.Domain/              # module-first: Modules/<Context>/ and the Managers/ shared kernel
+├── CreatorPantry.AiProvider/          # the only assembly permitted to name a model provider SDK
 ├── CreatorPantry.Worker/              # generation, media, embedding, publishing jobs
 ├── CreatorPantry.MigrationService/    # applies migrations once before dependents start
 ├── CreatorPantry.Tests/

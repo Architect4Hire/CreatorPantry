@@ -24,6 +24,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- The provider-neutral model abstractions only: IChatClient and IEmbeddingGenerator. A provider SDK
+         in this assembly is an architectural defect; DomainReferenceTests enforces that. -->
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.10.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="NodaTime" Version="3.3.4" />
   </ItemGroup>
@@ -31,6 +34,18 @@
   <ItemGroup>
     <!-- Identity's data-protection token providers (password reset) ship in the ASP.NET Core framework. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!--
+    Prompt templates are compiled in, not read from disk, so a prompt cannot drift from the code whose output
+    schema it promises and there is no file path for a template to reach through. EmbeddedPromptTemplateStore
+    finds them by the .prompt.md suffix, so a template lives beside the module that owns it.
+    The None Remove is required because .md files are otherwise picked up as None items, and the same file in
+    two item groups is a build error.
+  -->
+  <ItemGroup>
+    <None Remove="**\*.prompt.md" />
+    <EmbeddedResource Include="**\*.prompt.md" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
   </ItemGroup>
 
   <ItemGroup>

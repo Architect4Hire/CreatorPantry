@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CreatorPantry.AiProvider;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Caching;
 using CreatorPantry.ApiService.Development;
@@ -16,6 +17,7 @@ using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
+using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Managers.Time;
@@ -37,6 +39,10 @@ builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
 // Redis where the AppHost supplies it, in-process otherwise. Reference reads are the only consumer today.
 builder.AddCreatorPantryCache();
 
+// IChatClient and IEmbeddingGenerator over the AppHost's model deployments, or the unconfigured clients in
+// development where there are none. Nothing calls a model yet; this establishes the abstractions.
+builder.AddCreatorPantryAi();
+
 builder.Services.AddApplicationTime();
 builder.Services.AddAuthDomain();
 builder.Services.AddTenancy();
@@ -44,6 +50,7 @@ builder.Services.AddMeasurementModule();
 builder.Services.AddVocabularyModule();
 builder.Services.AddIngredientModule();
 builder.Services.AddRecipesModule();
+builder.Services.AddPromptTemplates();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

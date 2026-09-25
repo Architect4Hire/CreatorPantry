@@ -46,15 +46,30 @@ var cache = builder.AddRedis("cache");
 ```
 Consume with `builder.AddRedisDistributedCache("cache")`.
 
-**Azure AI Foundry** (preview integration — verify the API before writing against it):
+**Microsoft Foundry** — the provider this repo chose (B-15). Both integrations are preview at 13.5.4:
 ```csharp
-var foundry = builder.AddFoundry("foundry").RunAsFoundryLocal();   // local for dev
-var chat       = foundry.AddDeployment("chat", FoundryModel.OpenAI.Gpt5Mini);
-var embeddings = foundry.AddDeployment("embeddings", /* embedding model */);
+// Aspire.Hosting.Foundry. RunAsFoundryLocal() needs the Foundry CLI on the machine, which is why
+// AppHost.cs gates the whole block on Foundry:Enabled.
+var foundry = builder.AddFoundry("foundry").RunAsFoundryLocal();
+
+// Model name/version/format come from configuration, so take the string overload rather than a
+// FoundryModels.Local.* constant.
+var chat       = foundry.AddDeployment("chat", "phi-4-mini", "5", "Microsoft");
+var embeddings = foundry.AddDeployment("embeddings", "qwen3-embedding-0.6b", "1", "Microsoft");
 ```
-Consume with `builder.AddAzureAIInferenceChatClient("chat").AsIChatClient()`
-(`Aspire.Azure.AI.Inference`). Chat and embedding deployments stay **separate named resources** so
-they can be sized, swapped and traced independently.
+Consume with `Aspire.Azure.AI.Inference` — two different client types, so neither needs a service key:
+```csharp
+builder.AddAzureChatCompletionsClient("chat").AddChatClient();            // non-keyed IChatClient
+builder.AddAzureEmbeddingsClient("embeddings").AddEmbeddingGenerator();   // non-keyed IEmbeddingGenerator
+```
+Both read `ConnectionStrings:<name>`, take the deployment name from it, and register the
+`Microsoft.Extensions.AI` trace sources and meters themselves — ServiceDefaults needs no change. No API key
+belongs in configuration: Foundry Local publishes its own key in the connection string, and Azure mode
+publishes none and uses the ambient Azure credential.
+
+Chat and embedding deployments stay **separate named resources** so they can be sized, swapped and traced
+independently. This wiring belongs in `CreatorPantry.AiProvider`, the only assembly allowed to name a
+provider SDK; `CreatorPantry.Domain` sees `IChatClient` and `IEmbeddingGenerator` alone.
 
 **Another project**:
 ```csharp

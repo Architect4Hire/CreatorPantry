@@ -7,7 +7,9 @@ AI augments creator workflows; it does not become an alternate application archi
 - Depend on `IChatClient` and `IEmbeddingGenerator`, not a provider SDK in domain code.
 - Semantic Kernel plugins are thin adapters over facades.
 - Plugins never call `DbContext`, repositories, or gateways and never accept a model-supplied workspace id.
-- Prompts live as versioned files with declared inputs and outputs.
+- Prompts live as versioned files with declared inputs and outputs. The format is one embedded `.prompt.md`
+  file per version, with a JSON front-matter manifest and a declared body checksum (B-16); see the
+  `add-ai-capability` skill for the convention and `Managers/Prompts/` for the loader.
 - Structured outputs use schemas and server validation.
 - The model never emits executable SQL, file paths, or arbitrary provider commands.
 

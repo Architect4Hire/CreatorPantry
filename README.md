@@ -67,6 +67,7 @@ Versions are a starting baseline. Confirm current compatible package versions be
     ├── CreatorPantry.Web/
     ├── CreatorPantry.ApiService/
     ├── CreatorPantry.Domain/
+    ├── CreatorPantry.AiProvider/       # the only assembly that names a model provider SDK
     ├── CreatorPantry.Worker/
     ├── CreatorPantry.MigrationService/
     ├── CreatorPantry.Tests/
@@ -130,6 +131,19 @@ Normalized reference data may enrich creator content, but it never destructively
 7. Build feature seams with the matching `.claude/skills/` playbook and atomic SCRUB prompts.
 
 8. Run `aspire run` for the complete local application and `dotnet test` plus the frontend commands above for verification.
+
+9. Optionally enable local models. The model provider (B-15) is off by default so the application starts
+   without it; with it off, the API and Worker register model clients that throw rather than answer.
+   To turn it on, install the Foundry CLI and set the switch on the AppHost:
+   
+   ```bash
+   winget install Microsoft.FoundryLocal
+   aspire secret set Foundry:Enabled true
+   ```
+   
+   Which models run is `Foundry:ChatModel` and `Foundry:EmbeddingModel` in the AppHost's `appsettings.json`;
+   only Foundry Local models work while `RunAsFoundryLocal()` is in effect. First start downloads them.
+   No API key is needed — Foundry Local publishes its own endpoint and key to the consuming services.
 
 ## Installed design system
 

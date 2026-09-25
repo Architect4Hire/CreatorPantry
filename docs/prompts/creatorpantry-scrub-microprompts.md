@@ -1569,7 +1569,7 @@ BEHAVIOR: Return findings, wait for approval, fix blockers, rerun property/integ
 
 > Build one safe proposal pipeline before individual AI features. Models propose; deterministic server code validates, diffs, authorizes, and writes.
 
-### 8.1 AI provider resources and abstractions
+### 8.1 AI provider resources and abstractions - done
 
 ```text
 SCOPE: Add Aspire resources/configuration for separate chat and embedding deployments and register
@@ -1582,7 +1582,7 @@ BEHAVIOR: Verify current first-party APIs, show resource/DI plan, wait for appro
 the system starts with a configured fake/local client.
 ```
 
-### 8.2 Versioned prompt-template loader
+### 8.2 Versioned prompt-template loader - done
 
 ```text
 SCOPE: Add a prompt-template store/loader for versioned files with declared template ID, semantic

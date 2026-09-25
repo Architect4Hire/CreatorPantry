@@ -11,6 +11,14 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.5.4" />
+    <!--
+      Microsoft Foundry (B-15). Preview because Aspire has not shipped this integration stable for 13.5.4;
+      it is the same build as the stable 13.5.4 packages beside it.
+
+      Note this pulls in Aspire.Hosting.Azure, so publish mode wants Azure:SubscriptionId,
+      Azure:ResourceGroupPrefix and Azure:Location. Run mode uses RunAsFoundryLocal() and wants none of them.
+    -->
+    <PackageReference Include="Aspire.Hosting.Foundry" Version="13.5.4-preview.1.26464.4" />
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.5.4" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.5.4" />
     <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.5.4" />

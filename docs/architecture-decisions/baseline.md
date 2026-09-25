@@ -37,6 +37,8 @@ later documents may reference them.
 | B-12 | Unmapped DEC items | TBD | **DECIDE** | See [Open items](#open-items). |
 | B-13 | Gateway-to-API trust (no OIDC server) | TBD | Decided | Direct BFF: the gateway owns the session and forwards a short-lived gateway-signed internal token; no OAuth/OIDC authorization server. |
 | B-14 | Machine operations access | TBD | Decided | Hashed, rotatable per-client API keys limited to explicit `ops` routes; never a creator identity. |
+| B-15 | Model provider | TBD | Decided | Microsoft Foundry: Foundry Local in development, Azure Foundry deployments when deployed; separate `chat` and `embeddings` deployments behind `IChatClient` and `IEmbeddingGenerator`. |
+| B-16 | Prompt templates | TBD | Decided | Embedded `.prompt.md` files with JSON front matter and a declared body checksum; validated at startup; many versions of an id coexist. |
 
 ## Decisions
 
@@ -235,6 +237,82 @@ server). The OpenIddict-ready note in prompt 1.5 no longer applies.
 **Options considered:** OAuth `client_credentials` (no authorization server under B-13) and gateway-minted
 service tokens were rejected.
 **Rules:** `auth.md`, `external.md` (credential handling).
+
+### B-15 Model provider
+
+*Recorded 2026-09-25 by microprompt 8.1, which required a provider before any prompt or model call.*
+
+- The provider is **Microsoft Foundry**, added to the AppHost with `Aspire.Hosting.Foundry`.
+  `RunAsFoundryLocal()` runs models on the developer's machine in run mode; publish mode targets Azure
+  Foundry deployments. The logical resource names do not change between the two.
+- **Chat and embeddings are separate named deployments** (`chat`, `embeddings`), not one resource with two
+  uses, so they can be sized, priced, swapped and traced independently. Re-embedding a workspace is a far
+  more expensive change than switching chat models, and the two should never be coupled by accident.
+- **Which model** each deployment runs is AppHost configuration (`Foundry:ChatModel`,
+  `Foundry:EmbeddingModel`), never a literal in the application model. Local development runs
+  `phi-4-mini` and `qwen3-embedding-0.6b`; the intended deployed chat model is `claude-sonnet-5`
+  (Foundry format `Anthropic`), with a Cohere or OpenAI embedding deployment beside it. Foundry hosts
+  several model families, which is the main reason it was chosen over a single-vendor endpoint.
+- **No credential lives in configuration.** Foundry Local publishes its own endpoint and key in the
+  deployment's connection string; Azure mode publishes no key at all and the client authenticates with the
+  ambient Azure credential.
+- **Application code depends on `IChatClient` and `IEmbeddingGenerator<string, Embedding<float>>` only.**
+  `CreatorPantry.AiProvider` is the single assembly permitted to name a provider SDK — it consumes the
+  deployments through `Aspire.Azure.AI.Inference` — and `DomainReferenceTests` fails if one reaches
+  `CreatorPantry.Domain`.
+- **Foundry is opt-in locally** (`Foundry:Enabled`, default off), because `RunAsFoundryLocal()` drives the
+  Foundry CLI on the developer's machine. With it off, the API and Worker register clients that throw
+  rather than answer, so a clean clone starts with no Foundry install and no model account, and nothing can
+  mistake a stub for a generation.
+
+**Options considered:** an OpenAI-compatible endpoint via `Aspire.Hosting.OpenAI` (stable rather than
+preview, and redirectable at Ollama or LM Studio with `WithEndpoint`) was rejected because it fixes both
+deployments to one model family. Splitting the two across two hosting integrations was rejected as two
+credential paths to maintain before anything calls a model.
+**Consequences:** `Aspire.Hosting.Foundry` pulls in `Aspire.Hosting.Azure`, so publish mode now wants
+`Azure:SubscriptionId`, `Azure:ResourceGroupPrefix` and `Azure:Location`; run mode wants none of them. Both
+the hosting and client integrations are preview at 13.5.4, and `Azure.AI.Inference` is itself `1.0.0-beta.5`
+— revisit the pins when a stable AI client integration ships.
+**Rules:** `ai.md`, `aspire.md`.
+
+### B-16 Prompt templates
+
+*Recorded 2026-09-25 by microprompt 8.2. Note that AI-001 and AI-002, which that prompt cites, are not
+defined anywhere in this repository — the same gap [B-12](#b-12-unmapped-dec-items--decide) records for
+`DEC-001`–`DEC-012`. This decision takes them from `ai.md`: prompts are versioned files with declared inputs
+and outputs, and structured outputs use schemas and server validation.*
+
+- A template is **one `.prompt.md` file**: a JSON front-matter manifest fenced by `---`, then the body.
+  The manifest declares `id`, `version`, `outputSchemaVersion`, `safetyClass`, `inputs`, and `bodyChecksum`.
+- **Embedded as a resource, never read from disk.** "Templates cannot access secrets or arbitrary files"
+  becomes a property of the design rather than a rule to police: there is no path to traverse and no ambient
+  read. A prompt also cannot drift from the code whose output schema it promises, because they ship together.
+- **JSON front matter, not YAML** — the solution has no YAML package and this does not justify adding one.
+  **`.md`, not `.txt`** — `.gitattributes` already declares `*.md text eol=lf`, which is what makes a body
+  checksum the same value in a Windows checkout and a Linux one.
+- **The body checksum is declared in the manifest and verified at load.** A prompt body therefore cannot
+  change without its manifest changing in the same diff, which puts a prompt change in front of a reviewer
+  instead of letting it land as a text tweak. The verified value is carried on as provenance.
+- **Validated at startup**, during service registration rather than on first use, so a malformed, mis-declared
+  or duplicated template stops the host instead of surfacing inside a creator's generation.
+- **Several versions of one id coexist.** New work resolves the highest; anything reproducing or explaining a
+  stored generation resolves the exact version recorded against it. Otherwise a template bump would orphan
+  every proposal that named the old one.
+- **`safetyClass` is required and has no default**, with `Unspecified` occupying zero so that omitting the
+  field fails rather than silently meaning the least restrictive class. The five classes — `None`,
+  `CulinaryAdvice`, `DietaryOrAllergen`, `NutritionEstimate`, `FoodSafety` — are one per distinct caution in
+  `ai.md`. This phase requires the declaration; the structured-output validator and the individual
+  capabilities are what act on it.
+- A template body carries **task instructions only**. System policy, retrieved references and untrusted
+  creator or imported text are assembled around it by the context envelope, which owns the delimiting.
+
+**Options considered:** files under a configured content root were rejected — editing a prompt without a
+rebuild is not worth a traversal surface, a deployed copy that can drift from the build that declared its
+output schema, and turning a structural guarantee into a rule. A single version per id was rejected because it
+makes the template version recorded on a stored proposal unresolvable as soon as the template moves on.
+**Consequences:** changing a prompt's wording requires recomputing `bodyChecksum` and rebuilding. Old versions
+accumulate until a retention decision retires them.
+**Rules:** `ai.md`.
 
 ## Open items
 

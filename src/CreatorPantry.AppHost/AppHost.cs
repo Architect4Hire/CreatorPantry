@@ -1,3 +1,6 @@
+using Aspire.Hosting.Foundry;
+using Microsoft.Extensions.Configuration;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 var sqlPassword = builder.AddParameter("sql-password", secret: true);
@@ -41,10 +44,31 @@ var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchPro
     .WaitForCompletion(migrations)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.CreatorPantry_Worker>("worker")
+var worker = builder.AddProject<Projects.CreatorPantry_Worker>("worker")
     .WithReference(db).WaitFor(db)
     .WithReference(blobs).WaitFor(blobs)
     .WaitForCompletion(migrations);
+
+// Microsoft Foundry (B-15). Chat and embeddings are separate named deployments, so they can be sized,
+// swapped and traced independently — the API and Worker consume them as "chat" and "embeddings", the names
+// CreatorPantry.AiProvider's AiModelConnections declares.
+//
+// Opt-in, because RunAsFoundryLocal() drives the Foundry CLI on this machine: with Foundry:Enabled off, the
+// API and Worker register the unconfigured clients instead and `aspire run` still starts on a clean clone
+// with no Foundry install and no model account. Turning it on costs a one-time model download on first run,
+// which is why the dependents WaitFor the deployments rather than racing them.
+if (builder.Configuration.GetValue("Foundry:Enabled", false))
+{
+    var foundry = builder.AddFoundry("foundry").RunAsFoundryLocal();
+
+    var chat = AddConfiguredDeployment(foundry, "chat", "Foundry:ChatModel");
+    var embeddings = AddConfiguredDeployment(foundry, "embeddings", "Foundry:EmbeddingModel");
+
+    api.WithReference(chat).WaitFor(chat)
+        .WithReference(embeddings).WaitFor(embeddings);
+    worker.WithReference(chat).WaitFor(chat)
+        .WithReference(embeddings).WaitFor(embeddings);
+}
 
 // Production host for the Angular bundle; serves /runtime-config.json with the gateway's public URL.
 var web = builder.AddProject<Projects.CreatorPantry_Web>("web", launchProfileName: "https")
@@ -89,3 +113,25 @@ if (builder.ExecutionContext.IsRunMode)
 }
 
 builder.Build().Run();
+
+// Which model a deployment runs is configuration, not a literal here: a Foundry Local model id in
+// development, an Azure deployment name when deployed, and neither belongs in the application model's
+// source. This takes AddDeployment's string overload rather than a FoundryModels.Local.* constant for the
+// same reason.
+IResourceBuilder<FoundryDeploymentResource> AddConfiguredDeployment(
+    IResourceBuilder<FoundryResource> foundry,
+    string name,
+    string configurationSection)
+{
+    var model = builder.Configuration.GetSection(configurationSection);
+
+    return foundry.AddDeployment(
+        name,
+        Required("Name"),
+        Required("Version"),
+        Required("Format"));
+
+    string Required(string key) => model[key]
+        ?? throw new InvalidOperationException(
+            $"'{configurationSection}:{key}' is required when Foundry:Enabled is true.");
+}

@@ -1,3 +1,4 @@
+using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -35,5 +36,26 @@ internal static class TestDatabase
     {
         Configure(web);
         web.UseSetting("Aspire:Microsoft:EntityFrameworkCore:SqlServer:DisableHealthChecks", "true");
+    }
+
+    /// <summary>
+    /// The shape Foundry Local publishes for a model deployment: its own endpoint and key, plus the loaded
+    /// model id. Nothing here is reachable — it exists so a client can be constructed, never called.
+    /// </summary>
+    public const string ModelDeploymentConnectionString =
+        "Endpoint=http://127.0.0.1:61799/v1;Key=foundry-local-test-key;Model=phi-4-mini-instruct-generic-gpu:5";
+
+    /// <summary>
+    /// Supplies both model deployments, which a host outside Development requires.
+    /// </summary>
+    /// <remarks>
+    /// Not part of <see cref="Configure"/>: a Development host is meant to start without deployments, and
+    /// several tests assert exactly that. Any test that raises the environment needs this, though, or
+    /// <c>AddCreatorPantryAi</c>'s own startup failure pre-empts whichever one it meant to observe.
+    /// </remarks>
+    public static void ConfigureModelDeployments(IWebHostBuilder web)
+    {
+        web.UseSetting($"ConnectionStrings:{AiModelConnections.Chat}", ModelDeploymentConnectionString);
+        web.UseSetting($"ConnectionStrings:{AiModelConnections.Embeddings}", ModelDeploymentConnectionString);
     }
 }
