@@ -186,6 +186,435 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("OutboxMessages", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiExecutionMetadata", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("EstimatedCost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int?>("FailureCategory")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FailureSummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LatencyMilliseconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModelDeployment")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PromptTemplateId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptTemplateVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("SafetyBlocked")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "CorrelationId")
+                        .HasDatabaseName("IX_AiExecutionMetadata_Workspace_Correlation");
+
+                    b.HasIndex("WorkspaceId", "AiOperationId", "AttemptNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AiExecutionMetadata_Workspace_Operation_Attempt");
+
+                    b.ToTable("AiExecutionMetadata", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_Attempt_Positive", "AttemptNumber >= 1");
+
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_Completed_After_Started", "CompletedAt >= StartedAt");
+
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_Cost_NotNegative", "EstimatedCost IS NULL OR EstimatedCost >= 0");
+
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_FailureCategory_Declared", "FailureCategory IS NULL OR FailureCategory <> 0");
+
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_Latency_NotNegative", "LatencyMilliseconds >= 0");
+
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_Summary_Requires_Failure", "FailureSummary IS NULL OR FailureCategory IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AiExecutionMetadata_Tokens_NotNegative", "(InputTokens IS NULL OR InputTokens >= 0) AND (OutputTokens IS NULL OR OutputTokens >= 0)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("FailureCategory")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("LeasedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RequestedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("TaskType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_AiOperations_Workspace_Id");
+
+                    b.HasIndex("Status", "AvailableAt")
+                        .HasDatabaseName("IX_AiOperations_Status_AvailableAt");
+
+                    b.HasIndex("Status", "LeaseExpiresAt")
+                        .HasDatabaseName("IX_AiOperations_Status_LeaseExpiresAt");
+
+                    b.HasIndex("WorkspaceId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AiOperations_Workspace_IdempotencyKey");
+
+                    b.HasIndex("WorkspaceId", "RecipeVersionId");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "StatusChangedAt")
+                        .HasDatabaseName("IX_AiOperations_Workspace_Recipe_StatusChangedAt");
+
+                    b.ToTable("AiOperations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiOperations_Attempts_NotNegative", "Attempts >= 0");
+
+                            t.HasCheckConstraint("CK_AiOperations_Completed_Terminal", "(CompletedAt IS NULL AND Status NOT IN (3, 4, 5, 6, 7)) OR (CompletedAt IS NOT NULL AND Status IN (3, 4, 5, 6, 7))");
+
+                            t.HasCheckConstraint("CK_AiOperations_FailureCategory_Declared", "FailureCategory IS NULL OR FailureCategory <> 0");
+
+                            t.HasCheckConstraint("CK_AiOperations_Failure_Status", "(FailureCategory IS NULL AND Status <> 6) OR (FailureCategory IS NOT NULL AND Status = 6)");
+
+                            t.HasCheckConstraint("CK_AiOperations_Lease_Complete", "(LeasedBy IS NULL AND LeaseExpiresAt IS NULL) OR (LeasedBy IS NOT NULL AND LeaseExpiresAt IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AiOperations_Lease_Requires_Running", "LeasedBy IS NULL OR Status = 1");
+
+                            t.HasCheckConstraint("CK_AiOperations_Running_HasStarted", "Status <> 1 OR StartedAt IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AiOperations_Scope_Declared", "Scope <> 0");
+
+                            t.HasCheckConstraint("CK_AiOperations_TaskType_Declared", "TaskType <> 0");
+
+                            t.HasCheckConstraint("CK_AiOperations_Version_Requires_Recipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ModelDeployment")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("OutputSchemaVersion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PromptTemplateBodyChecksum")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("PromptTemplateId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptTemplateVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("SourceRecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_AiProposals_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "AiOperationId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AiProposals_Workspace_Operation");
+
+                    b.HasIndex("WorkspaceId", "SourceRecipeVersionId")
+                        .HasDatabaseName("IX_AiProposals_Workspace_SourceVersion");
+
+                    b.HasIndex("WorkspaceId", "PromptTemplateId", "PromptTemplateVersion")
+                        .HasDatabaseName("IX_AiProposals_Workspace_Template");
+
+                    b.ToTable("AiProposals", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool?>("WasHelpful")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId", "CreatedAt")
+                        .HasDatabaseName("IX_AiProposalFeedback_Workspace_Proposal_CreatedAt");
+
+                    b.ToTable("AiProposalFeedback", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiProposalFeedback_SaysSomething", "WasHelpful IS NOT NULL OR Comment IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiStructuredChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AfterValue")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BeforeValue")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("ChangeKind")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DecidedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Disposition")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FieldName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ProposedPosition")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("TargetKind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_AiStructuredChanges_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId", "Disposition")
+                        .HasDatabaseName("IX_AiStructuredChanges_Workspace_Proposal_Disposition");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId", "SortOrder")
+                        .HasDatabaseName("IX_AiStructuredChanges_Workspace_Proposal_SortOrder");
+
+                    b.ToTable("AiStructuredChanges", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiStructuredChanges_ChangeKind_Declared", "ChangeKind <> 0");
+
+                            t.HasCheckConstraint("CK_AiStructuredChanges_Decision_Complete", "(Disposition = 0 AND DecidedAt IS NULL AND DecidedByMembershipId IS NULL) OR (Disposition <> 0 AND DecidedAt IS NOT NULL AND DecidedByMembershipId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AiStructuredChanges_FieldName_Set", "(FieldName IS NOT NULL AND ChangeKind = 1) OR (FieldName IS NULL AND ChangeKind <> 1)");
+
+                            t.HasCheckConstraint("CK_AiStructuredChanges_HasAValue", "BeforeValue IS NOT NULL OR AfterValue IS NOT NULL OR ProposedPosition IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AiStructuredChanges_Position_Kind", "ProposedPosition IS NULL OR ChangeKind IN (2, 4)");
+
+                            t.HasCheckConstraint("CK_AiStructuredChanges_Position_NotNegative", "ProposedPosition IS NULL OR ProposedPosition >= 0");
+
+                            t.HasCheckConstraint("CK_AiStructuredChanges_TargetKind_Declared", "TargetKind <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiWarning", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiStructuredChangeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "AiStructuredChangeId");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId", "SortOrder")
+                        .HasDatabaseName("IX_AiWarnings_Workspace_Proposal_SortOrder");
+
+                    b.ToTable("AiWarnings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiWarnings_Kind_Declared", "Kind <> 0");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -1815,6 +2244,89 @@ namespace CreatorPantry.Domain.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiExecutionMetadata", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiOperation", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiOperationId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiOperation", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiOperation", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiOperationId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "SourceRecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalFeedback", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany("Feedback")
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiStructuredChange", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany("Changes")
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiWarning", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany("Warnings")
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiStructuredChange", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiStructuredChangeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
@@ -2216,6 +2728,15 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", b =>
+                {
+                    b.Navigation("Changes");
+
+                    b.Navigation("Feedback");
+
+                    b.Navigation("Warnings");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>

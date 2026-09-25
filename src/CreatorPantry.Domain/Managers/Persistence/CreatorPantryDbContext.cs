@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
@@ -166,6 +167,44 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
 
     /// <inheritdoc cref="RecipeIngredientGroups"/>
     public DbSet<RecipeTag> RecipeTags => Set<RecipeTag>();
+
+    /// <remarks>
+    /// The AI module's aggregate root: one request for assistance and what became of it. Deliberately holds
+    /// no prompt body, model response, or generated text — ai.md forbids storing those by default, and a
+    /// table with no column for them cannot accumulate them by accident.
+    /// </remarks>
+    public DbSet<AiOperation> AiOperations => Set<AiOperation>();
+
+    /// <remarks>
+    /// What one operation proposed, and the root of the proposal aggregate. Write-once —
+    /// <see cref="ImmutableRecordInterceptor"/> refuses every update and delete of a row here, because a
+    /// proposal records what a model said at a moment and a different answer is a different operation.
+    /// </remarks>
+    public DbSet<AiProposal> AiProposals => Set<AiProposal>();
+
+    /// <remarks>
+    /// Interior to the <see cref="AiProposal"/> aggregate, and the one entity in this module that is not
+    /// write-once: the creator's per-change decision is written after insert. Everything describing the change
+    /// is written once by the seam that creates the proposal.
+    /// </remarks>
+    public DbSet<AiStructuredChange> AiStructuredChanges => Set<AiStructuredChange>();
+
+    /// <inheritdoc cref="AiStructuredChanges"/>
+    /// <remarks>
+    /// Write-once. A warning records what a creator was shown at review time; absence of one is never a
+    /// finding of safety.
+    /// </remarks>
+    public DbSet<AiWarning> AiWarnings => Set<AiWarning>();
+
+    /// <inheritdoc cref="AiStructuredChanges"/>
+    /// <remarks>Write-once and append-only: a creator who changes their mind leaves another row.</remarks>
+    public DbSet<AiProposalFeedback> AiProposalFeedback => Set<AiProposalFeedback>();
+
+    /// <remarks>
+    /// One write-once row per provider attempt, hanging off the operation rather than the proposal because a
+    /// failed attempt produces no proposal. Holds no prompt body, response, or provider payload.
+    /// </remarks>
+    public DbSet<AiExecutionMetadata> AiExecutionMetadata => Set<AiExecutionMetadata>();
 
     Guid? IWorkspaceIdSource.CurrentWorkspaceIdOrNull => workspaceContext is { IsResolved: true } context ? context.WorkspaceId : null;
 

@@ -27,6 +27,9 @@
     <!-- The provider-neutral model abstractions only: IChatClient and IEmbeddingGenerator. A provider SDK
          in this assembly is an architectural defect; DomainReferenceTests enforces that. -->
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.10.0" />
+    <!-- ResiliencePipelineProvider only. The pipeline itself is configured in ServiceDefaults, which this
+         project may not reference (DomainReferenceTests); Polly is the shared vocabulary between them. -->
+    <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.6.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="NodaTime" Version="3.3.4" />
   </ItemGroup>

@@ -107,6 +107,49 @@ public interface IRecipeBusiness
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Applies the changes a creator accepted from an AI proposal, capturing one version that records where
+    /// they came from.
+    /// </summary>
+    /// <param name="expectedVersionId">
+    /// The version the proposal was computed against, which must still be the recipe's current version.
+    /// </param>
+    /// <param name="aiProposalId">
+    /// The proposal the creator accepted. Recorded on the version beside
+    /// <see cref="RecipeVersionSource.AiProposalAccepted"/>, so a version a model helped write stays
+    /// identifiable afterwards.
+    /// </param>
+    /// <param name="changes">
+    /// The accepted changes and only those. Whoever calls this has already decided which ones the creator took;
+    /// nothing here re-reads a proposal or a disposition, because this module does not own either.
+    /// </param>
+    /// <returns>
+    /// The edited recipe, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/>,
+    /// <see cref="RecipeErrorCodes.RecipeInvalidRequest"/>, <see cref="RecipeErrorCodes.RecipeConflict"/> —
+    /// which is also how a stale source is reported — or
+    /// <see cref="RecipeErrorCodes.RecipeArchivedConflict"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Every rule an ordinary edit obeys applies here unchanged.</strong> The accepted changes become a
+    /// <see cref="CanonicalRecipePatch"/> and travel the same merge path a creator's own edit travels — the same
+    /// invariant checks, the same archived-recipe refusal, the same instruction reconciliation, the same single
+    /// version. A model cannot reach a recipe by a route that skips any of it.
+    /// </para>
+    /// <para>
+    /// <strong>Accepting changes that amount to nothing writes nothing</strong>, for the reason
+    /// <see cref="UpdateAsync"/> gives. A proposal whose accepted changes all match the recipe's current values
+    /// is a decision worth recording on the proposal, but not a version worth putting in a history a creator
+    /// reads.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
+        Guid recipeId,
+        Guid expectedVersionId,
+        Guid aiProposalId,
+        IReadOnlyList<ProposedRecipeChange> changes,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads one page of the workspace's recipes, as the client reads it: summaries, the cursor that resumes
     /// them, and the total when it was asked for.
     /// </summary>
@@ -963,6 +1006,78 @@ internal sealed class RecipeBusiness(
             return NotFound<RecipeDetailServiceModel>();
         }
 
+        return await MergeAsync(
+            loaded, patch, submittedYieldUnitDimension, RecipeVersionSource.CreatorEdit, null, cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
+        Guid recipeId,
+        Guid expectedVersionId,
+        Guid aiProposalId,
+        IReadOnlyList<ProposedRecipeChange> changes,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+
+        var loaded = await dataLayer.GetForUpdateAsync(recipeId, cancellationToken);
+        if (loaded is null)
+        {
+            return NotFound<RecipeDetailServiceModel>();
+        }
+
+        // The staleness rule, at the point of writing. The creator reviewed a diff computed against exactly
+        // this version; if the recipe has since moved on, every before value they were shown describes content
+        // that is no longer there. Refusing is the only honest answer — rebasing silently would apply their
+        // decision to text they never read.
+        if (loaded.Recipe.CurrentVersion?.Id != expectedVersionId)
+        {
+            return Conflict();
+        }
+
+        var plan = RecipeProposalApplication.Plan(loaded, changes);
+
+        if (!plan.Succeeded)
+        {
+            return OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
+                RecipeErrorCodes.RecipeInvalidRequest,
+                plan.Error!,
+                new Dictionary<string, string[]>()));
+        }
+
+        // No submitted yield unit, because no proposal can name one: AiDiffFields lists no identifier field, so
+        // the recipe's stored dimension stands.
+        return await MergeAsync(
+            loaded,
+            plan.Patch!,
+            null,
+            RecipeVersionSource.AiProposalAccepted,
+            aiProposalId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Merges a patch into a loaded recipe and captures the one version that records it.
+    /// </summary>
+    /// <param name="source">What produced this edit. Recorded on the version, and pinned to its proposal.</param>
+    /// <param name="aiProposalId">
+    /// The accepted proposal, when <paramref name="source"/> is
+    /// <see cref="RecipeVersionSource.AiProposalAccepted"/>, and <c>null</c> otherwise. A check constraint on
+    /// the table refuses either without the other.
+    /// </param>
+    /// <remarks>
+    /// Shared by a creator's own edit and by an accepted AI proposal, and that sharing is the point rather than
+    /// a convenience: AIREC-GR-007 requires accepted changes to pass ordinary recipe validation, and the only
+    /// way to be sure they do is for there to be one merge path. A second one written for proposals would be a
+    /// second definition of what a valid recipe is, and would drift.
+    /// </remarks>
+    private async Task<OperationResult<RecipeDetailServiceModel>> MergeAsync(
+        TaggedRecipe loaded,
+        CanonicalRecipePatch patch,
+        MeasurementDimension? submittedYieldUnitDimension,
+        RecipeVersionSource source,
+        Guid? aiProposalId,
+        CancellationToken cancellationToken)
+    {
         var recipe = loaded.Recipe.Recipe;
 
         // Checked before anything is merged, so a refused edit is answered from the state it was composed
@@ -1061,12 +1176,13 @@ internal sealed class RecipeBusiness(
         recipe.UpdatedByMembershipId = workspace.MembershipId;
 
         var facts = new RecipeVersionFacts(
-            RecipeVersionSource.CreatorEdit,
+            source,
 
             // The version inherits the recipe's editorial state, exactly as version 1 does: an edit that
             // leaves it Ready captures a ready version, and one that does not, does not.
             recipe.Status == RecipeStatus.Ready ? RecipeVersionReadiness.Ready : RecipeVersionReadiness.Draft,
-            patch.Reason);
+            patch.Reason,
+            AiProposalId: aiProposalId);
 
         // Tags are handed down only when they are actually changing. Submitting the set a recipe already has
         // is not a request to rewrite its links.

@@ -82,6 +82,49 @@ public interface IRecipeFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Applies changes a creator accepted from an AI proposal, as one new version that records the proposal it
+    /// came from.
+    /// </summary>
+    /// <param name="expectedVersionId">
+    /// The version the proposal was computed against. A recipe that has moved past it is a conflict, never a
+    /// silent rebase.
+    /// </param>
+    /// <param name="aiProposalId">The proposal the creator accepted, recorded on the version.</param>
+    /// <param name="changes">The accepted changes, translated into this module's vocabulary by the caller.</param>
+    /// <returns>
+    /// The edited recipe, or a failure carrying <see cref="RecipeErrorCodes.RecipeForbidden"/>,
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, <see cref="RecipeErrorCodes.RecipeInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.RecipeConflict"/> or
+    /// <see cref="RecipeErrorCodes.RecipeArchivedConflict"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>The application boundary an accepted proposal comes through</strong>, and the only one. The AI
+    /// module has no other way into a recipe: it cannot reach this module's repositories, data layer or business
+    /// rules, so an accepted change is subject to the same role check, the same invariants and the same archived
+    /// refusal as an edit a creator typed. That is what AIREC-GR-007 asks for, expressed structurally rather
+    /// than promised in a comment.
+    /// </para>
+    /// <para>
+    /// <strong>No idempotency key, and no role for one.</strong> Unlike <see cref="UpdateAsync"/>, this is never
+    /// called by a client — the caller is the AI module, inside a transaction it owns, having already decided
+    /// that this proposal has not been dispositioned before. A second idempotency record around that would be
+    /// guarding a decision already guarded, and would need its own scope and key to do it.
+    /// </para>
+    /// <para>
+    /// <strong>It does not save on its own terms.</strong> The write happens on the request's shared
+    /// <c>DbContext</c>, so it enlists in whatever transaction the caller has open — which is what lets a
+    /// recipe version and the proposal's dispositions commit together or not at all.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
+        Guid recipeId,
+        Guid expectedVersionId,
+        Guid aiProposalId,
+        IReadOnlyList<ProposedRecipeChange> changes,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads one page of the recipes of the workspace resolved for this scope.
     /// </summary>
     /// <returns>
@@ -858,6 +901,31 @@ internal sealed class RecipeFacade(
                 KeyRequired: false),
             token => business.UpdateAsync(recipeId, canonical, yieldUnitDimension, token),
             cancellationToken);
+    }
+
+    public async Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
+        Guid recipeId,
+        Guid expectedVersionId,
+        Guid aiProposalId,
+        IReadOnlyList<ProposedRecipeChange> changes,
+        CancellationToken cancellationToken)
+    {
+        // Contributor, the same bar as editing by hand. Accepting a proposal is an edit — the model proposed it,
+        // a person made it happen — so it must cost exactly the role that writing it out by hand would.
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
+                RecipeErrorCodes.RecipeForbidden,
+                "You do not have permission to change recipes in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // No ViewModel validator, because there is no ViewModel: the input is not a client request. The shape
+        // checks a validator would make — parsable numbers, text that is not blank — happen where the accepted
+        // values are translated, and every invariant a recipe has is checked by Business against the merged
+        // recipe, which is where they belong for a patch.
+        return await business.ApplyProposedChangesAsync(
+            recipeId, expectedVersionId, aiProposalId, changes, cancellationToken);
     }
 
     public async Task<IdempotentOutcome<RecipeDetailServiceModel>> RestoreVersionAsync(

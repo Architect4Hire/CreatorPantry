@@ -1918,6 +1918,27 @@ public sealed class RecipeFacadeTests
                 : OperationResult<RecipeDetailServiceModel>.Success(Detail));
         }
 
+        /// <summary>What the facade handed down when an accepted AI proposal was applied.</summary>
+        public (Guid RecipeId, Guid ExpectedVersionId, Guid ProposalId, IReadOnlyList<ProposedRecipeChange> Changes)?
+            AppliedProposal { get; private set; }
+
+        public Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
+            Guid recipeId,
+            Guid expectedVersionId,
+            Guid aiProposalId,
+            IReadOnlyList<ProposedRecipeChange> changes,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            RequestedRecipeId = recipeId;
+            AppliedProposal = (recipeId, expectedVersionId, aiProposalId, changes);
+
+            return Task.FromResult(Detail is null
+                ? OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
+                    RecipeErrorCodes.RecipeNotFound, "That recipe could not be found.", new Dictionary<string, string[]>()))
+                : OperationResult<RecipeDetailServiceModel>.Success(Detail));
+        }
+
         /// <summary>The lifecycle command the facade called, and the token it passed down.</summary>
         public (string Command, string ActorUserId, string? Token)? Lifecycle { get; private set; }
 

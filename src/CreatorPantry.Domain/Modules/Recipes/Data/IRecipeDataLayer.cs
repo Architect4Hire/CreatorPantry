@@ -839,6 +839,10 @@ internal sealed class RecipeDataLayer(
             Readiness = facts.Readiness,
             Reason = facts.Reason,
 
+            // Paired with Source by a check constraint: AiProposalAccepted requires an id and every other
+            // source refuses one, so a version a model helped write stays identifiable after the fact.
+            AiProposalId = facts.AiProposalId,
+
             // Copied from the recipe rather than read from a clock again, so the recipe and the version that
             // records it cannot disagree about when it happened or who did it.
             CreatedByMembershipId = writtenBy,

@@ -2,9 +2,11 @@ using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
-using CreatorPantry.Domain.Managers.Prompts;
+using CreatorPantry.Domain.Modules.Ai;
+using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.ServiceDefaults;
 using CreatorPantry.Worker;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,8 +25,12 @@ builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
 // here. See AiProviderRegistration for the unconfigured-development fallback.
 builder.AddCreatorPantryAi();
 
-// Validates and loads every prompt template now, so a malformed one stops this host rather than a job.
-builder.Services.AddPromptTemplates();
+// The provider-specific classifier first: AddAiModule's fallback cannot read a provider SDK's status code, so
+// it cannot tell a rate limit or a safety block from a generic transient fault. AddAiModule also validates and
+// loads every prompt template, so a malformed one stops this host rather than a job.
+builder.Services.AddSingleton<IAiFailureClassifier, AzureInferenceFailureClassifier>();
+builder.AddAiResilience(static exception => exception is AiTransientFailureException);
+builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
 
 builder.Services.AddOutbox();
 builder.Services.AddHostedService<OutboxDispatcherHostedService>();

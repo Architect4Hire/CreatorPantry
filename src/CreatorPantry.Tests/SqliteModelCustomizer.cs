@@ -1,4 +1,4 @@
-using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -51,15 +51,20 @@ internal sealed class SqliteModelCustomizer(ModelCustomizerDependencies dependen
     {
         base.Customize(modelBuilder, context);
 
-        modelBuilder.Entity<Recipe>()
-            .Property(recipe => recipe.RowVersion)
-            .HasDefaultValueSql("randomblob(8)");
-
         // Applied by walking the model rather than by naming columns, so an entity added later is covered
         // without anyone remembering to come back here.
+        //
+        // The row-version pass used to name Recipe.RowVersion directly, and AiOperation arrived with a token of
+        // its own — under SQLite every insert failed on a NOT NULL column EF never sends, which reads as
+        // "the operation insert was rejected" a long way from its cause. Discovering them from the model is
+        // what stops the next concurrency token repeating that.
         foreach (var property in modelBuilder.Model.GetEntityTypes().SelectMany(entity => entity.GetProperties()))
         {
-            if (property.ClrType == typeof(DateTimeOffset))
+            if (property.ValueGenerated == ValueGenerated.OnAddOrUpdate && property.IsConcurrencyToken)
+            {
+                property.SetDefaultValueSql("randomblob(8)");
+            }
+            else if (property.ClrType == typeof(DateTimeOffset))
             {
                 property.SetValueConverter(ToUtcTicks);
             }

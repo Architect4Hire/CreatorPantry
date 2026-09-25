@@ -86,6 +86,391 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/ai-proposals": {
+      "post": {
+        "tags": [
+          "AiProposals"
+        ],
+        "summary": "Asks for an AI proposal against one version of a recipe.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet. The request is durable and the model\n            is called by the worker afterwards, so the API does not stay open around unbounded provider work\n            (api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs; nothing here reads it, and no request field may name one\n(tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to work on. From the route, never from the body.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Generation spends a provider budget, so a repeat of the same key and the same request returns\nthe original with \u0060Idempotent-Replayed: true\u0060 rather than buying a second answer.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestAiProposal"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestAiProposal"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestAiProposal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/ai-proposals/{aiProposalId}": {
+      "get": {
+        "tags": [
+          "AiProposals"
+        ],
+        "summary": "Where a requested proposal has got to, and the proposal itself once there is one.",
+        "description": "Polling before the proposal exists is a \u0060200\u0060 carrying a status, not a \u0060404\u0060 \u2014 the request\nresource exists from the moment it was accepted, and reporting it missing would make a normal poll look\nlike a failure.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Where a requested proposal has got to, and the proposal itself once there is one.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "Where a requested proposal has got to, and the proposal itself once there is one.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "aiProposalId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id: a request exists from the moment it is accepted,\nlong before a proposal does, so there would be nothing else to poll. The proposal carries its own\nidentity inside the reply for a disposition to act on.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/ai-proposals/{aiProposalId}/disposition": {
+      "post": {
+        "tags": [
+          "AiProposals"
+        ],
+        "summary": "Records what the creator decided about a proposal, and applies what they accepted.",
+        "description": "\u0060200\u0060 rather than \u0060202\u0060: unlike requesting a proposal, this finishes before it returns. There is\n            no provider call \u2014 the answer was generated long ago \u2014 and the recipe version, the per-change decisions,\n            the feedback and the operation\u0027s terminal status all commit in one transaction before the reply is written.\n\n\u0060Contributor\u0060 at the edge, because accepting changes writes a recipe version. A \u0060Viewer\u0060 cannot\n            reject either, which is the deliberate cost of one policy per route: rejecting decides the fate of a\n            workspace\u0027s content, and the role that may not change a recipe should not be the role that closes a\n            proposal against it.\n\nRetrying is safe and needs no \u0060Idempotency-Key\u0060. A proposal can be decided once; a repeat of the same\ndecision is recognised and answered without writing anything, and a repeat asking for a\ndifferent decision is a \u0060409\u0060 rather than a second version of the recipe.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Records what the creator decided about a proposal, and applies what they accepted.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "Records what the creator decided about a proposal, and applies what they accepted.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "aiProposalId",
+            "in": "path",
+            "description": "The same id  takes \u2014 the request\u0027s. An operation has at most one proposal, so the request\nidentifies it without ambiguity, and one route segment meaning two different identities would be a trap.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiProposalDisposition"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiProposalDisposition"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AiProposalDisposition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalDisposition"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalDisposition"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalDisposition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "tags": [
@@ -3257,6 +3642,351 @@
   },
   "components": {
     "schemas": {
+      "AiChangeDisposition": {
+        "enum": [
+          "Pending",
+          "Accepted",
+          "Rejected"
+        ],
+        "type": "string"
+      },
+      "AiChangeKind": {
+        "enum": [
+          "Unspecified",
+          "Set",
+          "Add",
+          "Remove",
+          "Move"
+        ],
+        "type": "string"
+      },
+      "AiChangeTargetKind": {
+        "enum": [
+          "Unspecified",
+          "Recipe",
+          "Ingredient",
+          "IngredientGroup",
+          "InstructionStep",
+          "InstructionGroup",
+          "Equipment",
+          "AssetLink",
+          "Tag"
+        ],
+        "type": "string"
+      },
+      "AiFailureCategory": {
+        "enum": [
+          "Unspecified",
+          "Validation",
+          "Quota",
+          "TemplateUnavailable",
+          "Provider",
+          "RateLimited",
+          "Timeout",
+          "OutputSchemaInvalid",
+          "DomainInvalid",
+          "SafetyBlocked",
+          "Cancelled",
+          "LeaseAbandoned"
+        ],
+        "type": "string"
+      },
+      "AiOperationScope": {
+        "enum": [
+          "Unspecified",
+          "WholeRecipe",
+          "Ingredients",
+          "Instructions",
+          "Metadata",
+          "Media"
+        ],
+        "type": "string"
+      },
+      "AiOperationStatus": {
+        "enum": [
+          "Requested",
+          "Running",
+          "Proposed",
+          "Accepted",
+          "PartiallyAccepted",
+          "Rejected",
+          "Failed",
+          "Expired"
+        ],
+        "type": "string"
+      },
+      "AiProposalDetail": {
+        "required": [
+          "proposalId",
+          "outputSchemaVersion",
+          "promptTemplateId",
+          "promptTemplateVersion",
+          "promptTemplateBodyChecksum",
+          "providerName",
+          "modelName",
+          "createdAt",
+          "changes",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outputSchemaVersion": {
+            "type": "string"
+          },
+          "promptTemplateId": {
+            "type": "string"
+          },
+          "promptTemplateVersion": {
+            "type": "string"
+          },
+          "promptTemplateBodyChecksum": {
+            "type": "string"
+          },
+          "providerName": {
+            "type": "string"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiProposedChange"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiProposalWarning"
+            }
+          }
+        }
+      },
+      "AiProposalDisposition": {
+        "required": [
+          "aiProposalRequestId",
+          "status",
+          "acceptedChangeCount",
+          "rejectedChangeCount",
+          "recipeVersionNumber",
+          "decidedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "aiProposalRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AiOperationStatus"
+          },
+          "acceptedChangeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rejectedChangeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recipeVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AiProposalStatus": {
+        "required": [
+          "aiProposalRequestId",
+          "status",
+          "taskType",
+          "scope",
+          "sourceVersionId",
+          "requestedAt",
+          "statusChangedAt",
+          "failureCategory",
+          "proposal"
+        ],
+        "type": "object",
+        "properties": {
+          "aiProposalRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AiOperationStatus"
+          },
+          "taskType": {
+            "$ref": "#/components/schemas/AiTaskType"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AiOperationScope"
+          },
+          "sourceVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statusChangedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failureCategory": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiFailureCategory"
+              }
+            ]
+          },
+          "proposal": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiProposalDetail"
+              }
+            ]
+          }
+        }
+      },
+      "AiProposalWarning": {
+        "required": [
+          "kind",
+          "message",
+          "changeId"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/AiWarningKind"
+          },
+          "message": {
+            "type": "string"
+          },
+          "changeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "AiProposedChange": {
+        "required": [
+          "changeId",
+          "changeKind",
+          "targetKind",
+          "targetId",
+          "fieldName",
+          "beforeValue",
+          "afterValue",
+          "proposedPosition",
+          "disposition"
+        ],
+        "type": "object",
+        "properties": {
+          "changeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeKind": {
+            "$ref": "#/components/schemas/AiChangeKind"
+          },
+          "targetKind": {
+            "$ref": "#/components/schemas/AiChangeTargetKind"
+          },
+          "targetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "fieldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "beforeValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "afterValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "proposedPosition": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/AiChangeDisposition"
+          }
+        }
+      },
+      "AiTaskType": {
+        "enum": [
+          "Unspecified",
+          "Diagnostic"
+        ],
+        "type": "string"
+      },
+      "AiWarningKind": {
+        "enum": [
+          "Unspecified",
+          "Assumption",
+          "CulinaryCaution",
+          "NonScalableLanguage",
+          "UnverifiedClaim",
+          "SafetyCaution"
+        ],
+        "type": "string"
+      },
       "ChangePassword": {
         "type": "object",
         "properties": {
@@ -5976,6 +6706,24 @@
           }
         }
       },
+      "RequestAiProposal": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scope": {
+            "$ref": "#/components/schemas/AiOperationScope"
+          },
+          "sourceVersionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "RequestPasswordReset": {
         "type": "object",
         "properties": {
@@ -6698,6 +7446,9 @@
   "tags": [
     {
       "name": "Account"
+    },
+    {
+      "name": "AiProposals"
     },
     {
       "name": "Auth"

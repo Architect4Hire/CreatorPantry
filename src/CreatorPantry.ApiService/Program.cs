@@ -18,6 +18,8 @@ using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
+using CreatorPantry.Domain.Modules.Ai;
+using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Managers.Time;
@@ -50,7 +52,15 @@ builder.Services.AddMeasurementModule();
 builder.Services.AddVocabularyModule();
 builder.Services.AddIngredientModule();
 builder.Services.AddRecipesModule();
-builder.Services.AddPromptTemplates();
+// The provider-specific failure classifier goes in before AddAiModule, whose TryAdd fallback is deliberately
+// weaker: it cannot read a provider SDK's status code, so it cannot tell a rate limit or a safety block from a
+// generic transient fault.
+builder.Services.AddSingleton<IAiFailureClassifier, AzureInferenceFailureClassifier>();
+builder.AddAiResilience(static exception => exception is AiTransientFailureException);
+builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
+
+// The request seam, which the worker does not register: it needs the recipe module, already added above.
+builder.Services.AddAiProposalSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

@@ -163,8 +163,8 @@ public sealed class ModuleBoundaryTests
         var files = DomainFiles();
 
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
-        Assert.InRange(files.Count, 150, 400);
-        Assert.Equal(6, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        Assert.InRange(files.Count, 150, 600);
+        Assert.Equal(7, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.
@@ -283,13 +283,64 @@ public sealed class ModuleBoundaryTests
     {
         var moduleRoot = Path.Combine(DomainRoot(), "Modules", module);
 
+        var required = ModulesUnderConstruction.Contains(module)
+            ? (string[])["Data", "Managers"]
+            : ["Facade", "Business", "Data", "Managers"];
+
         Assert.All(
-            (string[])["Facade", "Business", "Data", "Managers"],
+            required,
             area => Assert.True(Directory.Exists(Path.Combine(moduleRoot, area)), $"{module} has no {area} area"));
+
+        if (ModulesUnderConstruction.Contains(module))
+        {
+            return;
+        }
 
         Assert.True(
             Directory.EnumerateFiles(moduleRoot, "*ServiceCollectionExtensions.cs").Any(),
             $"{module} has no composition root");
+    }
+
+    /// <summary>
+    /// Modules whose entities exist before their seam does, and which therefore have no Facade or Business
+    /// area yet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The AI module is built over several prompts: the operation entity and its state machine land first, the
+    /// repository and data layer follow, and the facade arrives with the endpoint. Creating an empty
+    /// <c>IAiOperationFacade</c> now purely to satisfy the shape above would make this test pass while telling
+    /// a reader nothing — a module is a vertical slice or it is not, and pretending otherwise is worse than
+    /// recording that it is unfinished.
+    /// </para>
+    /// <para>
+    /// <see cref="No_module_is_still_listed_as_under_construction_once_it_has_a_facade"/> is what makes this
+    /// safe rather than a permanent hole: the moment the module grows a Facade area, that test fails and the
+    /// name has to come out of this list.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] ModulesUnderConstruction = [];
+
+    [Fact]
+    public void No_module_is_still_listed_as_under_construction_once_it_has_a_facade()
+    {
+        var finished = ModulesUnderConstruction
+            .Where(module => Directory.Exists(Path.Combine(DomainRoot(), "Modules", module, "Facade")))
+            .ToList();
+
+        Assert.True(
+            finished.Count == 0,
+            "these modules have a Facade area and must be removed from ModulesUnderConstruction so the full "
+                + "shape is enforced again: " + string.Join(", ", finished));
+    }
+
+    [Fact]
+    public void Every_module_under_construction_still_exists()
+    {
+        Assert.All(ModulesUnderConstruction, module =>
+            Assert.True(
+                Directory.Exists(Path.Combine(DomainRoot(), "Modules", module)),
+                $"ModulesUnderConstruction names '{module}', which is not a module"));
     }
 
     public static TheoryData<string> Modules()

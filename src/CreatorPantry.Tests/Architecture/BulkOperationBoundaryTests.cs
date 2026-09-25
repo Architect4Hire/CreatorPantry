@@ -46,11 +46,25 @@ public sealed class BulkOperationBoundaryTests
     /// Files permitted to name one of these, with the reason. Empty on purpose: nothing needs one today.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// When the first documented erasure or platform-maintenance path arrives — the carve-out tenancy.md
     /// anticipates — it is added here with a comment, in a diff a reviewer can see. That is the whole value
     /// of an explicit list over a convention: granting the exception costs a visible, arguable line.
+    /// </para>
+    /// <para>
+    /// The AI queue claim is the first. A worker looks for work <em>before</em> it knows which workspace it
+    /// will serve, so there is no <c>IWorkspaceContext</c> to filter by and the global filter throws rather
+    /// than returning nothing. tenancy.md names background queue claims as a fourth carve-out category, with
+    /// the constraint that such a query returns identifiers only — and
+    /// <c>AiOperationClaimTests.A_claim_carries_no_creator_content</c> holds it to that. The file is
+    /// deliberately the smallest one that could carry it: the workspace-scoped repository beside it gets no
+    /// exemption.
+    /// </para>
     /// </remarks>
-    private static readonly string[] Exemptions = [];
+    private static readonly string[] Exemptions =
+    [
+        "Modules/Ai/Data/AiOperationClaimRepository.cs",
+    ];
 
     [Fact]
     public void No_domain_code_bypasses_the_interceptors_or_the_query_filters()
@@ -85,7 +99,7 @@ public sealed class BulkOperationBoundaryTests
     {
         var files = DomainSourceFiles();
 
-        Assert.InRange(files.Count, 150, 400);
+        Assert.InRange(files.Count, 150, 600);
 
         // And it can actually detect an offender: the pattern matches text of the shape it is looking for.
         Assert.Matches(@"\.ExecuteDeleteAsync\s*[(<]", "await db.RecipeVersions.ExecuteDeleteAsync();");

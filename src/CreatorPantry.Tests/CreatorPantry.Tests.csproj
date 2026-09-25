@@ -17,10 +17,22 @@
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
 
     <!--
-      Makes `dotnet test` drive the MTP runner above. Without it that command finds no VSTest adapter and
-      reports "Zero tests ran" with a non-zero exit code — success-shaped output for a suite that never ran,
-      which is how a red ModuleBoundaryTests stayed invisible. CLAUDE.md prescribes `dotnet test` as the
-      backend verification command, so the command it names has to be the command that runs the tests.
+      The .NET 9 mechanism for making `dotnet test` drive the MTP runner. Kept because it is harmless, but be
+      clear about what it does not achieve:
+
+      `DOTNET TEST DOES NOT WORK ON THIS PROJECT.` It reports "Zero tests ran" and exits 5, whatever this
+      property is set to. Verified 2026-09-25 against SDK 10.0.401, xunit.v3 4.0.1 and MTP 2.4.0, from both
+      Git Bash and PowerShell, with and without this property, with and without UseMicrosoftTestingPlatformRunner,
+      with and without the VSTest packages below, and with MTP pinned to 2.4.1.
+
+      The cause is upstream and narrow. `dotnet test` on the .NET 10 SDK launches the test app in MTP server
+      mode (the "server dotnettestcli" argument, with a named pipe); xunit.v3 4.0.1 accepts those arguments
+      and exits silently without ever registering its test framework. Running the same assembly in console
+      mode discovers and runs all of it, and running it in server mode with a nonexistent pipe still exits 0
+      having done nothing, so this is not a build, discovery, filter or environment problem.
+
+      Use `dotnet run` on this project instead. It builds first and runs the whole suite; CLAUDE.md has the
+      command. Revisit when xunit.v3 ships past 4.0.1.
     -->
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>

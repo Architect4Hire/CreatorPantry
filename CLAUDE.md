@@ -186,7 +186,7 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 ## Usage
 
 - Run the complete system with `aspire run` from the repository root or AppHost directory.
-- Run backend verification with `dotnet test`.
+- Run backend verification with `dotnet run --project src/CreatorPantry.Tests`. **Not `dotnet test`** — it reports "Zero tests ran" and exits 5 on this project, which is success-shaped output for a suite that never ran. The cause is upstream in xunit.v3 4.0.1's handling of the .NET 10 SDK's `--server dotnettestcli` mode; see the comment in `CreatorPantry.Tests.csproj`. Narrow a run with `-- --filter-class "CreatorPantry.Tests.<Area>.*"`.
 - Add migrations with `dotnet ef migrations add <Name> --project src/CreatorPantry.Domain --startup-project src/CreatorPantry.ApiService`.
 - In `src/web/`, use `npm ci`, `npm run build`, and `npm test`.
 - Use the matching skill in `.claude/skills/` before implementing a seam.

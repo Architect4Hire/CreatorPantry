@@ -26,8 +26,14 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// <param name="RestoredFromVersionId">
 /// The version whose content this one was copied from, on a restore, and <c>null</c> on every other write.
 /// </param>
+/// <param name="AiProposalId">
+/// The proposal a creator accepted, when <c>Source</c> is <c>AiProposalAccepted</c>, and <c>null</c> on every
+/// other write. The two move together: a check constraint on the table refuses a proposal id without that
+/// source and that source without a proposal id, so provenance cannot be half-recorded.
+/// </param>
 public sealed record RecipeVersionFacts(
     RecipeVersionSource Source,
     RecipeVersionReadiness Readiness,
     string? Reason,
-    Guid? RestoredFromVersionId = null);
+    Guid? RestoredFromVersionId = null,
+    Guid? AiProposalId = null);

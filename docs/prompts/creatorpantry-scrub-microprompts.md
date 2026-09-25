@@ -57,6 +57,11 @@ BEHAVIOR:     inspect, plan, wait for approval, implement, test, and report
   instead of overloading one Kanban card to mean both.
 - Plan first and wait for approval whenever the prompt says to wait. The plan is the cheapest place to stop a wrong architecture.
 - Mark a prompt `- done` only after its stated verification passes.
+- **The `- done` markers before Phase 8 are not a reliable completion record.** They are patchy — 4.1 through
+  4.4 are unmarked while 4.5 through 4.8 are marked, and 4.6 through 4.8 carried the marker twice until it was
+  cleaned up on 2026-09-25 — and nothing in phases 5 through 7 is marked at all despite that work being
+  committed. Read the git history, not these markers, to find out what shipped. They are maintained from
+  Phase 8 onward.
 
 ## Credentials and external prerequisites
 
@@ -797,7 +802,7 @@ BEHAVIOR: Present the smallest schema that covers current requirements, wait for
 migrate, and test stable keys.
 ```
 
-### 4.6 Reference seed set - done - done
+### 4.6 Reference seed set - done
 
 ```text
 SCOPE: Add deterministic development/test seed data for units, aliases, a compact ingredient set,
@@ -810,7 +815,7 @@ BEHAVIOR: Show seed inventory and provenance, wait for approval, implement, and 
 the same records.
 ```
 
-### 4.7 Reference repository and read seam - done - done
+### 4.7 Reference repository and read seam - done
 
 ```text
 SCOPE: Implement paged/searchable reads for ingredients, units, cuisines, techniques, equipment, and
@@ -824,7 +829,7 @@ BEHAVIOR: Plan one consistent contract, wait for approval, implement, and test c
 pagination clamp, filtering, and cancellation.
 ```
 
-### 4.8 Reference-domain audit - done - done
+### 4.8 Reference-domain audit - done
 
 ```text
 SCOPE: Review all Phase 4 tables, migrations, APIs, and cache keys against the global/private data-zone
@@ -1594,7 +1599,14 @@ BEHAVIOR: Show file convention and validation, wait for approval, implement with
 missing-input, and invalid-manifest tests.
 ```
 
-### 8.3 AI operation entity and state machine
+### 8.3 AI operation entity and state machine - done
+
+*Delivery note, now closed: "no migration yet" here and in 8.4 left the EF model ahead of the migration
+history, and the phase 5–7 SQL Server fixtures added since this sequence was written call `MigrateAsync`,
+which refuses on `PendingModelChangesWarning`. Between 8.3 and 8.5 that meant 122 failing tests on one cause
+and an `aspire run` that could not start. 8.5 closed it; the suite is green. **If this sequence is ever run
+again, expect that window and do not chase it as a regression** — and note that the SQLite-backed model tests
+cannot see a multiple-cascade-path defect, which is why 8.5 found one that 8.3 and 8.4 had both passed.*
 
 ```text
 SCOPE: Add workspace-owned AiOperation with Requested, Running, Proposed, Accepted, PartiallyAccepted,
@@ -1607,7 +1619,7 @@ BEHAVIOR: Show transition table and uniqueness indexes, wait for approval, imple
 with exhaustive transition tests; no migration yet.
 ```
 
-### 8.4 AI proposal and structured-change entities
+### 8.4 AI proposal and structured-change entities - done
 
 ```text
 SCOPE: Add workspace-owned AiProposal, AiStructuredChange, AiWarning, AiExecutionMetadata, and
@@ -1619,7 +1631,7 @@ BEHAVIOR: Plan record boundaries and retention, wait for approval, implement con
 fields without migration.
 ```
 
-### 8.5 AI proposal migration
+### 8.5 AI proposal migration - done
 
 ```text
 SCOPE: Generate the migration for AI operations, proposals, changes, warnings, execution metadata, and
@@ -1631,7 +1643,7 @@ BEHAVIOR: Show migration and retention implications, wait for approval, apply th
 and confirm pending model changes are clean.
 ```
 
-### 8.6 Structured-output validator
+### 8.6 Structured-output validator - done
 
 ```text
 SCOPE: Add a versioned JSON-schema validation and deserialization boundary for model output, followed by
@@ -1643,7 +1655,7 @@ BEHAVIOR: Show validation stages, wait for approval, implement with valid, extra
 truncated, hostile-string, and domain-invalid fixtures.
 ```
 
-### 8.7 Untrusted-context envelope
+### 8.7 Untrusted-context envelope - done
 
 ```text
 SCOPE: Implement a reusable prompt-context builder that separates system policy, task template,
@@ -1656,7 +1668,7 @@ BEHAVIOR: Show envelope structure and injection cases, wait for approval, implem
 tests proving untrusted instructions remain data.
 ```
 
-### 8.8 AI execution telemetry and resilience
+### 8.8 AI execution telemetry and resilience - done
 
 ```text
 SCOPE: Add a provider execution wrapper recording model/deployment, template version, latency, tokens,
@@ -1669,7 +1681,7 @@ BEHAVIOR: Plan telemetry fields and error taxonomy, wait for approval, implement
 for success, transient retry, timeout, cancellation, rate limit, safety block, and malformed output.
 ```
 
-### 8.9 AI operation repository and durable job claim
+### 8.9 AI operation repository and durable job claim - done
 
 ```text
 SCOPE: Implement repository/DataLayer methods to create idempotent operations, claim Requested work,
@@ -1683,7 +1695,7 @@ BEHAVIOR: Show state/lease transaction design, wait for approval, implement with
 replay, lease-expiry, partial-failure, and workspace-isolation tests.
 ```
 
-### 8.10 Generic AI proposal request/status endpoints
+### 8.10 Generic AI proposal request/status endpoints - done
 
 ```text
 SCOPE: Add POST /api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/ai-proposals and GET
@@ -1696,7 +1708,17 @@ BEHAVIOR: Plan contract and status codes, wait for approval, implement with auth
 idempotency, polling, cancellation, not-found, and isolation tests.
 ```
 
-### 8.11 Server-calculated proposal diff
+### 8.11 Server-calculated proposal diff - done, except snapshot loading (8.14)
+
+*Delivery note: the mapping rules, the diff calculator and the staleness rule are complete and tested. Loading
+the pinned version's snapshot is not here — `IRecipeFacade` exposes no read for one, the existing data path is
+keyed by version number rather than id, and 8.14's own scope says the worker "loads the exact authorized
+recipe/version ... calculates diff". Adding a four-layer read to the recipe module from this prompt would have
+been scope growth into another module; the calculator takes the snapshot as an argument instead.*
+
+*Amended by 8.12: the ingredient mapping rules written here were for changes the recipe update seam cannot apply,
+and have been removed. See 8.12's note for what replaced them.*
+
 
 ```text
 SCOPE: Convert validated structured changes into a deterministic comparison against the exact source
@@ -1708,7 +1730,49 @@ BEHAVIOR: Show mapping rules, wait for approval, implement with forged-before, m
 duplicate-change, and stale-source tests.
 ```
 
-### 8.12 Proposal disposition and atomic acceptance
+### 8.12 Proposal disposition and atomic acceptance - done
+
+*Delivery note, in two parts.*
+
+*First, the narrowing. 8.11's mapping rules let a proposal offer changes the recipe update seam has no way to
+apply, which meant a creator could review a suggestion, accept it, and only then be told no. Two allow-lists now
+prevent that, both documented where they live: `AiDiffFields` no longer lists ingredient fields (the recipe patch
+contract has no ingredients field, and the entries to restore are named there for when it does), and the new
+`AiChangeApplicability` restricts change kinds to the pairs the patch can express — `Set` on the recipe, an
+instruction group or a step; `Remove`/`Move` on a group or step; `Add`/`Remove` on a tag. Adding an instruction
+step is refused for a structural reason rather than a policy one: `AiStructuredChange` carries one value, and a
+step is text, a note, a duration and a temperature. A tag is the one child whose whole content is one string.*
+
+*Second, the contract. The disposition is addressed by the **request** id, the same one the `GET` takes, because
+an operation has at most one proposal and one route segment meaning two identities would be a trap; the
+`ProposalId` in the reply is for correlation. The confirmation is `acceptedChangeIds`, required for both accept
+decisions — `AcceptAll` must name every change, which is what makes it a confirmation rather than a flag.
+Accepted changes become an ordinary `CanonicalRecipePatch` and travel the same merge path a creator's own edit
+travels, so nothing about the recipe domain can be skipped. The AI data layer owns an explicit
+`CreateExecutionStrategy().ExecuteAsync` transaction and calls the recipe facade through a delegate, so the
+version, the per-change dispositions, the feedback row, the status change and the audit entry commit together.
+Replay compares the requested decision with the recorded one: the same decision answers without writing, and a
+different one is a 409.*
+
+*One defect fixed in passing: 8.10's error codes used underscores throughout (`ai.recipe_not_found`), and
+`ProblemResults.StatusFor` reads the segment after the last dot — so the routes advertised 404 and returned 400.
+The codes are now dotted (`ai.recipe.not_found`).*
+
+*Third, what `ai-safety-reviewer` found, because most of it was real. The apply path runs no ViewModel validator
+— deliberately, there is no ViewModel — and the consequence had not been thought through: every length, range and
+format rule that lived only in `UpdateRecipeViewModelValidator` was unenforced for accepted changes. The worst of
+it was `sourceUrl`, whose scheme check exists to keep a `javascript:` value out of something later rendered as a
+link; that field is now not proposable at all, on the same grounds as an identifier — a model cannot know where a
+recipe came from. The rest became `ProposedRecipeValues`, owned by the recipe module and called from both the diff
+calculator and the apply path, so an over-long title is a refusal rather than a truncation error surfacing as a
+500. A step temperature was the other real one: it was settable on a step with no temperature unit, which no
+change row can supply, so accepting one could only ever fail at the database — the exact outcome
+`AiChangeApplicability` exists to prevent. Also fixed: an inexpressible stored change now refuses instead of
+throwing inside the transaction; the change tracker is cleared if the apply callback throws; the audit summary
+counts accepted changes that carried a safety caution; and the reply's `recipeVersionNumber` documents its third
+null case (a replay). The reviewer's remaining notes were on test coverage, and six end-to-end tests were added —
+a step change, a tag addition, the temperature refusal, an over-long value, an inexpressible target, and accepting
+onto an archived recipe.*
 
 ```text
 SCOPE: Implement AIREC-007: accept all, accept selected, reject, and feedback through POST

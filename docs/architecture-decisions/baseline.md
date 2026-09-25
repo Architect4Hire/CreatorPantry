@@ -39,6 +39,11 @@ later documents may reference them.
 | B-14 | Machine operations access | TBD | Decided | Hashed, rotatable per-client API keys limited to explicit `ops` routes; never a creator identity. |
 | B-15 | Model provider | TBD | Decided | Microsoft Foundry: Foundry Local in development, Azure Foundry deployments when deployed; separate `chat` and `embeddings` deployments behind `IChatClient` and `IEmbeddingGenerator`. |
 | B-16 | Prompt templates | TBD | Decided | Embedded `.prompt.md` files with JSON front matter and a declared body checksum; validated at startup; many versions of an id coexist. |
+| B-17 | AI proposal boundaries | TBD | Decided | Proposal is write-once; per-change disposition on the change row; one execution row per provider attempt, owned by the operation; structured change targets, not path strings. |
+| B-18 | Model output contract | TBD | Decided | The C# document type is the schema, exported for the prompt with `JsonSchemaExporter`; validated in five stages; no repair; an empty proposal is a valid answer. |
+| B-19 | Prompt context envelope | TBD | Decided | Instructions in the system role, data in the user role; nonce-fenced segments; trust fixed by segment kind; every non-instruction segment stamped with its workspace and checked. |
+| B-20 | Model execution wrapper | TBD | Decided | Resilience pipeline in ServiceDefaults with the transience predicate supplied by the host; classification behind a provider-implemented interface; one attempt record per call; exactly one corrective re-ask for a schema failure. |
+| B-21 | Proposal disposition and atomic acceptance | TBD | Decided | A proposal may only offer a change the recipe patch can apply; accepted changes travel the recipe module's own merge path; the confirmation names the accepted change ids; one explicit transaction in the AI data layer spans both modules; replay compares the decision rather than a key. |
 
 ## Decisions
 
@@ -313,6 +318,249 @@ makes the template version recorded on a stored proposal unresolvable as soon as
 **Consequences:** changing a prompt's wording requires recomputing `bodyChecksum` and rebuilding. Old versions
 accumulate until a retention decision retires them.
 **Rules:** `ai.md`.
+
+### B-17 AI proposal boundaries and retention
+
+*Recorded 2026-09-25 by microprompts 8.3 and 8.4. `DATA-008` and `AIREC-GR-001/007`, which they cite, are
+undefined in this repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+```text
+AiOperation                         root, workspace-owned
+├── AiProposal            0..1      root, unique per operation
+│   ├── AiStructuredChange 0..n     the server-calculated diff
+│   ├── AiWarning          0..n     warnings and assumptions
+│   └── AiProposalFeedback 0..n     append-only, per member
+└── AiExecutionMetadata    0..n     one per provider attempt
+```
+
+- **Everything is write-once except the operation and the structured change.** A proposal records what a model
+  said at a moment against a pinned source under a named template; a different answer is a different
+  operation, never an edit. The change row is mutable solely so the creator's per-change decision can be
+  written to it, which keeps "accept selected" answerable without a sixth table — at the cost that
+  "content never changes" is a convention there rather than an interceptor-enforced guarantee.
+- **The structured changes *are* the diff.** There is no separate diff document: each change carries a
+  server-computed before value and the model's proposed after value. A blob beside them would be the same
+  information twice with nothing to say which copy was authoritative.
+- **A before value is always computed by the server** from the pinned version, never taken from the model. A
+  model-supplied before is an assertion about content the server already has, and trusting one would let a
+  forged or stale claim decide what a diff appears to change.
+- **Change targets are structured** — target kind, target id, field name, change kind, proposed position —
+  not path strings, so a change can be checked against its operation's scope before anything is applied. An
+  unparseable path arriving from a model is exactly the unvalidated instruction a proposal must not carry.
+- **Execution metadata is one row per attempt, owned by the operation.** A failed attempt produces a row and
+  no proposal, and lease recovery can re-run an operation, so a proposal-owned record would lose the attempts
+  worth diagnosing. Cost per operation is therefore a sum rather than a column read.
+- **The privacy line runs between the artifact and the diagnostics.** A structured change legitimately holds
+  proposed recipe text — that is what the creator reviews. `AiExecutionMetadata` holds no prompt body, no
+  response, no provider payload: its only free-text column is a short sanitized failure summary, and a test
+  asserts that column list so a `RawResponse` field cannot be added quietly. No raw model output is stored
+  anywhere.
+- **Retention:** every AI entity cascades from the workspace, which is the erasure path. References into the
+  recipe module are `Restrict`, so deleting a recipe that has AI history is refused and removing one stays a
+  deliberate act that says what becomes of the record. Each interior entity has exactly one cascading foreign
+  key, keeping the delete path a tree. Age-based retention of proposals is not decided here.
+
+**Options considered:** a separate append-only disposition entity (rejected: a sixth entity and a join for
+every "was this accepted?" read), recording acceptance only on the resulting `RecipeVersion` (rejected:
+rejections leave no trace and a partial acceptance cannot show what was declined), and one execution row per
+operation with counters (rejected: a retry's own latency and failure vanish into aggregates).
+**Consequences:** 8.5 states the migration and retention implications; the AI tables carry no age-based
+cleanup until a policy exists.
+**Rules:** `ai.md`, `tenancy.md`.
+
+### B-18 Model output contract
+
+*Recorded 2026-09-25 by microprompt 8.6. `AI-003` and `AIREC-GR-001`, which it cites, are undefined in this
+repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **`AiOutputDocument` is the schema.** The JSON Schema shown to a model is exported from that type with
+  `System.Text.Json.Schema.JsonSchemaExporter`, and its answer is held to the same type by strict
+  deserialization. One definition, so what the model is asked for and what it is judged against cannot drift.
+  A hand-written schema file beside the type would be the drift B-16's body checksum exists to prevent
+  elsewhere. The cost: expressive constraints live in the domain stage rather than in the schema document.
+- **Five stages, in this order:** envelope (size, non-empty) → parse → **schema version** → shape → value
+  hygiene → domain. The version is checked before the shape deliberately: a different version is a different
+  contract, and "unknown field" complaints about the wrong contract explain nothing.
+- **Nothing is repaired.** A truncated document is not completed, an unknown field is not dropped, a wrong
+  version is not coerced. Each failure reports whether a bounded re-ask could plausibly fix it; the execution
+  wrapper decides whether to spend an attempt, and the validator never retries anything itself.
+- **The document type has no before value, anywhere.** "Never trust a model-supplied before value" is
+  structural rather than a rule someone enforces — an attempt to send one is an unknown field and is refused.
+- **Raw payload cannot escape.** The boundary returns a typed document or a failure carrying a stable reason
+  code and a sanitized message bounded to the diagnostic limit. A test feeds a recognisable marker through
+  three failure paths and asserts it appears nowhere in the result.
+- **A hostile string is bounded, not interpreted.** Injection wording, system-prompt delimiters and
+  `{{placeholder}}` syntax pass through as inert data; what is refused is an overlong value or a control
+  character — tab, CR and LF exempted, because instruction text legitimately contains them.
+- **An empty proposal is valid.** "I looked and there is nothing to change" is a real answer, and failing it
+  would tell the creator something untrue and pollute the failure metrics the execution wrapper collects.
+- **Scope is enforced here.** A change addressing anything outside its operation's `AiOperationScope` is
+  rejected rather than trimmed, and reported as not correctable by re-asking. An undeclared scope permits
+  nothing, so a missing scope fails closed.
+- The domain stage mirrors the check constraints already on `AiStructuredChanges`, so a document that passes
+  validation cannot fail on insert.
+
+**Options considered:** hand-written JSON Schema files with a validation library (rejected: a new dependency
+and two sources of truth), and prose-described shape with no machine-readable contract (rejected: measurably
+worse structured-output compliance, and prose drifts from the type with nothing to catch it).
+**Rules:** `ai.md`.
+
+### B-19 Prompt context envelope
+
+*Recorded 2026-09-25 by microprompt 8.7. `AI-001/008` and `AIREC-GR-006`, which it cites, are undefined in
+this repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **Two defences, in order of strength.** Instructions go in the **system** message and data in the **user**
+  message, so the separation survives a model that ignores fences entirely. Within each, every segment is
+  fenced with a **fresh 128-bit token per envelope**, declared in the policy, so content cannot forge a
+  boundary without guessing it.
+- **Eight segments**, in fixed order regardless of the order a caller supplies them: `POLICY`, `TASK`,
+  `OUTPUT_SCHEMA` (system) then `PREFERENCES`, `SOURCE`, `REFERENCES`, `UNTRUSTED_TEXT`, `REMINDER` (user).
+  `OUTPUT_SCHEMA` and `REMINDER` are beyond the six 8.7 lists: the first because that prompt's own restriction
+  says retrieved text must not redefine the schema, which requires the schema to be a distinguishable part of
+  the envelope; the second because instructions placed only at the start lose ground to recency on a long
+  input, and a recipe snapshot plus references is a long input.
+- **Trust is a function of the segment kind**, not a field a caller sets. If trust were per-segment, promoting
+  an injection into the instruction position would be one wrong argument at one call site, and it would look
+  reasonable in review. Creator data is `CreatorData`, not `Instruction`: a creator's headnote can carry an
+  instruction as easily as an import can.
+- **Content is never altered** — no escaping, no stripping of fence-looking lines. recipes.md makes
+  creator-entered text canonical, and mangling it to defend a boundary the nonce already defends would trade a
+  real guarantee for a cosmetic one. The one hard failure is content carrying the envelope's *own* live token,
+  which cannot happen by chance and can happen when a previous envelope is echoed back through retrieval; an
+  envelope whose data contains its own fences has no single reading, so the build fails.
+- **Every non-instruction segment names the workspace it was read from**, and the build refuses a mismatch.
+  That makes "never ground a prompt with another workspace's material" a property of the builder rather than a
+  rule reviewers check — a retrieval bug returning a neighbour's row fails at envelope time instead of
+  reaching a model. The friction of passing the id per call site is the feature.
+- **`Describe()` is what may be logged**: segment names, trust levels and character counts. No content, no
+  nonce, no workspace id.
+
+**What this does not promise.** The envelope guarantees structure: untrusted bytes arrive inside an untrusted
+fence and nowhere else, unmodified. It cannot guarantee a model declines an instruction it finds in the data.
+That is behaviour, and it belongs to the evaluation harness — treating structural separation as behavioural
+compliance is the specific mistake to avoid here.
+
+**Options considered:** a JSON-encoded envelope (rejected: escaping makes breakout impossible in principle,
+but long recipe prose becomes unreadable escaped JSON that models follow measurably worse) and fixed tags with
+no nonce (rejected: untrusted text containing the closing tag forges a boundary, which is the attack in
+question, and defending it would require stripping creator content).
+**Rules:** `ai.md`, `tenancy.md`.
+
+### B-20 Model execution wrapper
+
+*Recorded 2026-09-25 by microprompt 8.8. `AI-004` through `AI-007`, which it cites, are undefined in this
+repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **The resilience pipeline lives in `CreatorPantry.ServiceDefaults`**, beside the standard HTTP handler, so
+  timeouts, backoff and breaker windows are decided in one place. Timeout 90s per attempt, two jittered
+  exponential retries, breaker at 50% failure over a 60s window with a 30s break.
+- **The transience predicate is supplied by the host.** Whether a failure is worth retrying is a domain
+  judgement — a schema failure, a safety block and a malformed request must never be retried — and no predicate
+  in ServiceDefaults could tell those from a 503 without naming domain types. Domain may not reference a host
+  assembly and ServiceDefaults may not reference the domain, so `Program.cs` hands the predicate in. Domain
+  gains a `Microsoft.Extensions.Resilience` package reference for `ResiliencePipelineProvider` only.
+- **Classification sits behind `IAiFailureClassifier`**, implemented in `CreatorPantry.AiProvider`, following
+  the `IAccountMessageSender` precedent. This matters concretely: a rate limit arrives as the SDK's
+  `RequestFailedException`, not `HttpRequestException`, so the domain's shape-based default would call it a
+  generic transient fault and would retry a content-filter block as though it were a dropped connection.
+- **Classification happens inside the pipeline**, and only failures judged transient are re-raised as
+  `AiTransientFailureException` for it to retry. Anything else passes straight out unretried. That ordering is
+  what makes "never retry a nontransient failure blindly" true rather than aspirational.
+- **Two retry mechanisms, deliberately distinct.** Transport failures retry inside the pipeline and remain
+  *one* attempt record. A **schema** failure is different — the provider answered and the answer was unusable —
+  so it gets exactly one corrective re-ask carrying the reason code, recorded as its own attempt with
+  `WasSchemaCorrection` set. Provenance would otherwise imply the template alone produced the answer when it
+  was the template plus a correction. A **domain** failure is never corrected.
+- **One attempt record per provider call**, shaped to `AiExecutionMetadata`. Token counts and estimated cost
+  are nullable: a provider that reported no usage did not use zero tokens, and a model with no configured price
+  has an unknown cost rather than a free one.
+- **Cancellation is recorded, not thrown.** Swallowing an `OperationCanceledException` is usually wrong; here
+  the attempt happened and its row must be persisted, which is the reason the wrapper exists.
+- **Nothing logs content** — not the envelope, not the response, not a failing value. The envelope is logged
+  through `Describe()`.
+
+**Options considered:** a hand-rolled retry loop with a small in-memory breaker (rejected: half-open state,
+sampling windows and thread safety are where such code is wrong in ways tests do not reveal) and deferring the
+breaker entirely (rejected: a failing provider would be retried once per queued operation).
+**Consequences:** `Ai:Cost` configuration is needed before any cost figure appears; without it every estimate
+is null, which is the honest default.
+**Rules:** `ai.md`, `external.md`.
+
+### B-21 Proposal disposition and atomic acceptance
+
+*Recorded 2026-09-25 by microprompt 8.12. `DATA-RQ-004/005` and `AIREC-GR-007`, which it cites, are undefined in
+this repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **A proposal may only offer a change that can be accepted.** Two allow-lists enforce it, both consulted before
+  a proposal is stored rather than at acceptance: `AiDiffFields` names the settable fields per target, and
+  `AiChangeApplicability` names the applicable `(kind, target)` pairs. A change outside either is refused with
+  `ai.output.not_applicable` and the operation fails before a creator sees anything. The alternative — offering
+  everything and refusing at acceptance — means a creator reviews a suggestion, confirms it, and is told no at
+  the last moment, which is worse than never being offered it.
+- **The applicable set is what the recipe patch contract can express**: `Set` on the recipe's header fields, an
+  instruction group's title, or an instruction step's text, note, duration and temperature; `Remove`/`Move` on a
+  group or step; `Add`/`Remove` on a tag. Ingredients, equipment and asset links are absent because
+  `UpdateRecipeViewModel` has no field for them. Adding an instruction step is absent for a structural reason
+  instead: `AiStructuredChange` carries one `AfterValue`, and a step is text plus a note plus a duration plus a
+  temperature. A tag is the one child whose whole content is one string.
+- **Accepted changes become an ordinary `CanonicalRecipePatch`** and travel the same merge path a creator's own
+  edit travels — `RecipeBusiness.MergeAsync`, shared by both. That sharing is the mechanism by which AI output
+  cannot skip recipe validation, the archived-recipe refusal or the concurrency guard; a second apply path would
+  be a second definition of what a valid recipe is. Changing one instruction step therefore re-emits the whole
+  method from the live aggregate, because the patch's instruction list replaces wholesale.
+- **The confirmation is the list of accepted change ids**, required for both accept decisions, and `AcceptAll`
+  must name every change on the proposal. That is what makes it a confirmation rather than a flag: a client
+  naming a different set is looking at something other than this proposal. The body can name no value, field,
+  target, recipe, version or workspace — only ids the server itself computed.
+- **The disposition is addressed by the request id**, the same id the status `GET` takes. An operation has at most
+  one proposal, so the request identifies it unambiguously, and one route segment meaning two identities would be
+  a trap. The proposal's own id stays in the reply for correlation.
+- **The AI data layer owns an explicit transaction** — `CreateExecutionStrategy().ExecuteAsync` around
+  `BeginTransactionAsync`, the pattern `IdempotencyDataLayer` already uses — and Business passes the recipe-facade
+  call in as a delegate. Both modules write on the same request-scoped `DbContext`, so the recipe version, the
+  per-change dispositions, the feedback row, the terminal status and the audit entry commit together or not at
+  all. The apply call runs **first** inside that transaction, because the recipe data layer clears the change
+  tracker on a conflict and would otherwise discard dispositions staged before it.
+- **Replay compares the decision, not a key.** The same decision on an already-decided proposal answers without
+  writing; a *different* decision is `ai.proposal.conflict`. This outlives an idempotency record, and it is why
+  the route needs no `Idempotency-Key`. A replay reports no version number, because it wrote none.
+- **A stale source cannot be accepted, but can be rejected.** The pinned version id is checked inside the recipe
+  module at the point of writing; rejecting reaches no recipe, so there is nothing to apply to the wrong thing.
+- **`Contributor` is checked at the edge, in the AI facade, and again in the recipe facade.** The recipe check
+  only runs when something is accepted, so without one on the AI facade a non-HTTP caller could close a proposal
+  against a workspace's content with no role at all.
+- **Value bounds are the recipe module's, not the AI module's** — `ProposedRecipeValues`, called from the diff
+  calculator so an unusable value is never offered and from the apply path so a row written before the check
+  existed refuses rather than reaching the database. Added after an audit of this seam: the apply path runs no
+  ViewModel validator, so length, range and format rules that only lived in `UpdateRecipeViewModelValidator` were
+  unenforced for accepted changes, and an over-long value arrived as a truncation error the recipe data layer
+  correctly declines to call a conflict and rethrows — a 500 with the creator's decision lost.
+- **`sourceUrl` is not a field a proposal may set.** A model cannot know where a recipe came from, so proposing a
+  source is inventing one; and the scheme check that keeps a `javascript:` or `data:` value out of a field later
+  rendered as a link lived only in the edge validator. Offering the field put a stored-link vector behind a diff a
+  creator would plausibly accept. Same audit.
+- **A step temperature can only be changed on a step that already records a unit.** All three temperature columns
+  move together or a check constraint refuses the row — "bake at 180 g" is a food-safety-adjacent fact recorded
+  wrongly — and a change row has nowhere to carry a unit. Clearing a temperature takes the unit with it.
+- **An inexpressible stored change refuses rather than throws.** A row whose kind or target the recipe seam cannot
+  express should be prevented by `AiChangeApplicability`, but one written before that gate must produce
+  `ai.selection.invalid_request` rather than a 500 inside the transaction. The tracker is also cleared if the apply
+  callback throws, so "nothing was written" is a property of the method rather than of the host.
+- **The audit summary counts accepted changes that carried a safety caution.** Still counts, never content:
+  without it, "accepted two changes" reads identically whether or not what the creator took came with a
+  preservation, temperature or allergen caution, which is the one question worth asking about this write later.
+
+**Options considered:** letting the AI module build the patch itself (rejected: reaching an instruction step means
+re-emitting the whole method from the aggregate, which the AI module neither has nor should assemble); a shared
+change type in the kernel (rejected: the kernel may not depend on a module, and a recipe field change is
+recipe-specific — so the vocabulary is restated as `ProposedRecipeChange` and translated at the boundary);
+Business owning the transaction (rejected: `backend.md` puts transaction boundaries in the DataLayer).
+**Consequences:** a creator cannot yet accept an ingredient change or an added step, and no proposal offers one.
+`AiOperationScope.Ingredients` currently permits nothing at all. The entries to restore are named in
+`AiDiffFields` and `AiChangeApplicability` for when `UpdateRecipeViewModel` grows an ingredients field and
+`AiStructuredChange` can carry a child payload.
+**Rules:** `ai.md`, `recipes.md`, `backend.md`, `api-contract.md`.
 
 ## Open items
 

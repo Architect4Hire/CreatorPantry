@@ -130,7 +130,7 @@ Normalized reference data may enrich creator content, but it never destructively
 
 7. Build feature seams with the matching `.claude/skills/` playbook and atomic SCRUB prompts.
 
-8. Run `aspire run` for the complete local application and `dotnet test` plus the frontend commands above for verification.
+8. Run `aspire run` for the complete local application, and `dotnet run --project src/CreatorPantry.Tests` plus the frontend commands above for verification. Note that `dotnet test` does **not** work on this solution — it reports "Zero tests ran" for an upstream reason recorded in `CreatorPantry.Tests.csproj`.
 
 9. Optionally enable local models. The model provider (B-15) is off by default so the application starts
    without it; with it off, the API and Worker register model clients that throw rather than answer.

@@ -23,7 +23,13 @@ Do not duplicate shared reference facts per workspace. Do not make creator intel
 - Apply a global EF Core query filter using `IWorkspaceContext`.
 - Include `WorkspaceId` in alternate keys and unique indexes when uniqueness is workspace-relative.
 - Set `WorkspaceId` server-side on creation. Reject attempts to change ownership by update mapping.
-- `IgnoreQueryFilters()` is prohibited except in documented migration, erasure, or platform-maintenance code paths.
+- `IgnoreQueryFilters()` is prohibited except in documented migration, erasure, platform-maintenance, or
+  **background queue-claim** code paths. A queue claim is a carve-out because a worker looks for work before it
+  knows which workspace it will serve, so no `IWorkspaceContext` exists to filter by. It carries two
+  conditions: the query returns **identifiers only** — never a title, a snapshot, or any creator content — and
+  the worker resolves and validates that workspace through the ordinary tenancy path before reading anything
+  else. Finding a row is not authorization. Every such file is listed by path in
+  `BulkOperationBoundaryTests.Exemptions`, so granting the exception costs a reviewable line.
 - Background jobs resolve and validate their workspace before invoking a facade.
 
 ## Authorization
