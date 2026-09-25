@@ -34,7 +34,7 @@ export class SignInComponent {
 
   constructor() {
     if (this.auth.session().status === 'authenticated') {
-      void this.router.navigateByUrl('/');
+      void this.router.navigateByUrl('/app');
     }
   }
 
@@ -47,7 +47,7 @@ export class SignInComponent {
     this.submitting.set(false);
 
     if (outcome.status === 'success') {
-      await this.router.navigateByUrl('/');
+      await this.router.navigateByUrl('/app');
       return;
     }
     this.errorMessage.set(OUTCOME_MESSAGES[outcome.status]);

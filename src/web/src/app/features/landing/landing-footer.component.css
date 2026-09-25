@@ -1,0 +1,62 @@
+:host {
+  display: block;
+}
+
+.landing-footer {
+  border-top: 1px solid var(--cp-border);
+  padding: var(--cp-space-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+}
+
+.brand {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.footer-links,
+.legal-placeholders {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-5);
+}
+
+/* min-height keeps the actual tap/click target at the 40px touch-target baseline even though the
+   visible text uses the smaller --cp-font-size-xs. */
+.footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
+.legal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  min-height: 2.5rem;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--cp-text-faint);
+  font-size: var(--cp-font-size-xs);
+  font-family: inherit;
+  cursor: not-allowed;
+}
+
+.coming-soon {
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-faint);
+}

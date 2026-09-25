@@ -1,0 +1,14 @@
+<section class="value-props" aria-labelledby="landing-value-props-heading">
+  <h2 id="landing-value-props-heading">{{ heading() }}</h2>
+  <ul class="grid" role="list">
+    @for (item of items(); track item.heading) {
+      <li>
+        <cp-card>
+          <cp-badge [tone]="item.badgeTone">{{ item.badgeLabel }}</cp-badge>
+          <h3>{{ item.heading }}</h3>
+          <p>{{ item.body }}</p>
+        </cp-card>
+      </li>
+    }
+  </ul>
+</section>

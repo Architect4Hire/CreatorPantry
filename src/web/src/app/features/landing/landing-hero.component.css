@@ -1,0 +1,67 @@
+:host {
+  display: block;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: var(--cp-space-10);
+  padding: var(--cp-space-10) var(--cp-space-6);
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-5);
+  max-width: 40rem;
+}
+
+h1 {
+  margin: 0;
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-2xl);
+  font-weight: 400;
+  line-height: var(--cp-leading-tight);
+}
+
+.subheadline {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-4);
+  margin-top: var(--cp-space-2);
+}
+
+.media {
+  min-width: 0;
+}
+
+.media:empty {
+  display: none;
+}
+
+.media ::ng-deep img,
+.media ::ng-deep picture,
+.media ::ng-deep svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--cp-radius-xl);
+}
+
+@media (min-width: 64rem) {
+  :host:has(.media:not(:empty)) .hero {
+    grid-template-columns: 1.1fr 1fr;
+  }
+}

@@ -1,0 +1,26 @@
+:host {
+  display: block;
+}
+
+.final-cta {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+  text-align: center;
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-6);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 400;
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-4);
+}

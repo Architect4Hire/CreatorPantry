@@ -46,10 +46,10 @@ describe('SignInComponent', () => {
 
   it('redirects immediately if already authenticated', async () => {
     await createFixture({ session: { status: 'authenticated', displayName: 'Robert' } });
-    expect(navigateSpy).toHaveBeenCalledWith('/');
+    expect(navigateSpy).toHaveBeenCalledWith('/app');
   });
 
-  it('submits the entered credentials and navigates home on success', async () => {
+  it('submits the entered credentials and navigates into the app on success', async () => {
     const fixture = await createFixture();
     fixture.componentInstance.email.set('robert@example.com');
     fixture.componentInstance.password.set('correct-password');
@@ -57,7 +57,7 @@ describe('SignInComponent', () => {
     await fixture.componentInstance.submit();
 
     expect(loginSpy).toHaveBeenCalledWith('robert@example.com', 'correct-password');
-    expect(navigateSpy).toHaveBeenCalledWith('/');
+    expect(navigateSpy).toHaveBeenCalledWith('/app');
   });
 
   it('shows an error message and does not navigate on invalid credentials', async () => {
@@ -69,7 +69,7 @@ describe('SignInComponent', () => {
 
     expect(fixture.componentInstance.errorMessage()).toContain("didn't work");
     expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toContain("didn't work");
-    expect(navigateSpy).not.toHaveBeenCalledWith('/');
+    expect(navigateSpy).not.toHaveBeenCalledWith('/app');
   });
 
   it('shows a distinct message for an unconfirmed email', async () => {

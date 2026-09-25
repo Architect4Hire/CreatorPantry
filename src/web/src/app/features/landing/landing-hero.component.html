@@ -1,0 +1,11 @@
+<section class="hero" aria-labelledby="landing-hero-heading">
+  <div class="copy">
+    <h1 id="landing-hero-heading">{{ headline() }}</h1>
+    <p class="subheadline">{{ subheadline() }}</p>
+    <div class="ctas">
+      <a cpButton variant="primary" size="lg" routerLink="/sign-up">{{ primaryCtaLabel() }}</a>
+      <a cpButton variant="secondary" size="lg" routerLink="/sign-in">{{ secondaryCtaLabel() }}</a>
+    </div>
+  </div>
+  <div class="media"><ng-content select="[cpLandingHeroMedia]" /></div>
+</section>
