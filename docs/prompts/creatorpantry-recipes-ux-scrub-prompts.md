@@ -73,7 +73,7 @@ None. Every prompt here runs against the existing local stack (`aspire run`) and
 
 ---
 
-## R.1 Recipe ingredient groups on the create/update contract
+## R.1 Recipe ingredient groups on the create/update contract - done
 
 ```text
 SCOPE: Extend the recipe create/update seam so ingredient groups round-trip the same way instructions
@@ -93,7 +93,7 @@ ingredientGroups contract and persistence plan, wait for approval, implement wit
 proving a create and an update both persist ingredient groups exactly as submitted, then report.
 ```
 
-## R.2 Wire the ingredient editor into save, dirty tracking, and navigation guards
+## R.2 Wire the ingredient editor into save, dirty tracking, and navigation guards - done
 
 ```text
 SCOPE: Make RecipeEditorComponent actually send ingredient groups on save using the R.1 contract, and

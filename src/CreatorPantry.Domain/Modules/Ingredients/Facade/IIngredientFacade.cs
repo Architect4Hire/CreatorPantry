@@ -20,5 +20,13 @@ public interface IIngredientFacade
     /// </remarks>
     Task<OperationResult<IReadOnlyList<IngredientMatchResult>>> ResolveCandidatesAsync(
         IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the id names an active ingredient — the same question <c>IVocabularyFacade.IsUsableAsync</c>
+    /// answers for the four controlled vocabularies, asked of this module's own catalogue instead. Used by
+    /// another module's write seam (a recipe's ingredient lines, say) to verify a submitted reference before
+    /// it reaches a foreign key.
+    /// </summary>
+    Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
 }
 

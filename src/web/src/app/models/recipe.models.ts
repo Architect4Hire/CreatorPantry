@@ -93,6 +93,30 @@ export interface InstructionStepInput {
   readonly note?: string | null;
 }
 
+/**
+ * Mirrors RecipeIngredientGroupInputViewModel/RecipeIngredientInputViewModel — shared by create and update,
+ * exactly like InstructionGroupInput/InstructionStepInput above. `id` names an existing group/line to edit in
+ * place; omit it (or send `null`) for a new one. On create, sending an `id` at all is refused server-side.
+ */
+export interface IngredientGroupInput {
+  readonly id?: string | null;
+  readonly title?: string | null;
+  readonly ingredients?: readonly IngredientInput[] | null;
+}
+
+export interface IngredientInput {
+  readonly id?: string | null;
+  /** The creator's own wording for the whole line, exactly as entered. Never rewritten by a matched `ingredientId`. */
+  readonly displayText: string;
+  readonly quantity?: number | null;
+  readonly quantityUpper?: number | null;
+  readonly measurementUnitId?: string | null;
+  readonly ingredientId?: string | null;
+  readonly preparationNote?: string | null;
+  readonly isOptional?: boolean | null;
+  readonly scalingBehavior?: IngredientScaling | null;
+}
+
 /** Mirrors CreateRecipeViewModel, whose `Title` is itself `string?` — required is a server-side validation rule, not a wire-level constraint. */
 export interface CreateRecipeRequest {
   readonly title?: string | null;
@@ -116,6 +140,7 @@ export interface CreateRecipeRequest {
   /** Omit to let the server default to Draft. Archived is rejected server-side on create. */
   readonly status?: SettableRecipeStatus;
   readonly instructions?: readonly InstructionGroupInput[] | null;
+  readonly ingredientGroups?: readonly IngredientGroupInput[] | null;
 }
 
 /** Builds the JSON body for POST .../recipes. `status`, when present, is already the wire's PascalCase name. */
@@ -186,6 +211,12 @@ export interface UpdateRecipeRequest {
    * one without an `id` is new, and one the recipe currently has but this list does not name is removed.
    */
   readonly instructions?: PatchField<readonly InstructionGroupInput[] | null>;
+  /**
+   * The recipe's complete ingredient list. Submitting replaces: a group/line named by `id` is updated in
+   * place, one without an `id` is new, and one the recipe currently has but this list does not name is
+   * removed.
+   */
+  readonly ingredientGroups?: PatchField<readonly IngredientGroupInput[] | null>;
 }
 
 const PATCH_FIELD_KEYS = [
@@ -209,6 +240,7 @@ const PATCH_FIELD_KEYS = [
   'tags',
   'status',
   'instructions',
+  'ingredientGroups',
 ] as const satisfies readonly (keyof UpdateRecipeRequest)[];
 
 /**

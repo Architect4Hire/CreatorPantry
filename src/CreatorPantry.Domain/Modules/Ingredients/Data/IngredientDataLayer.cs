@@ -12,4 +12,7 @@ internal sealed class IngredientDataLayer(IIngredientRepository ingredients) : I
 
     public Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
         ingredients.ListMatchIndexAsync(cancellationToken);
+
+    public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
+        ingredients.IsUsableAsync(ingredientId, cancellationToken);
 }

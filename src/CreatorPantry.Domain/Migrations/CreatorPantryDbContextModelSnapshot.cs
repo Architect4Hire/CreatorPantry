@@ -898,7 +898,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredient", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("DisplayText")
@@ -985,7 +984,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeIngredientGroup", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("RecipeId")

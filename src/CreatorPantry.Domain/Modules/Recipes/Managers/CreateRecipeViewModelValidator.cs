@@ -134,6 +134,44 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
                 step => (step!.TemperatureValue is null) == (step.TemperatureUnitId is null)))
                 .WithMessage("A step's temperature needs both a value and a unit, or neither.")
             .OverridePropertyName(nameof(CreateRecipeViewModel.Instructions));
+
+        RuleFor(model => model.IngredientGroups)
+            .Cascade(CascadeMode.Stop)
+            .Must(groups => !IngredientGroups(groups).Any(group => group is null))
+                .WithMessage("An ingredient group cannot be blank.")
+            .Must(groups => IngredientGroups(groups).Count <= RecipePolicy.MaxIngredientGroupsPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientGroupsPerRecipe} ingredient groups.")
+            .Must(groups => IngredientGroups(groups).Sum(group => Lines(group).Count) <= RecipePolicy.MaxIngredientLinesPerRecipe)
+                .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientLinesPerRecipe} ingredient lines.")
+            // Nothing exists yet for an id to name: a create that sends one is a client bug, not a request
+            // this could honour by ignoring it silently.
+            .Must(groups => IngredientGroups(groups).All(group => group!.Id is null))
+                .WithMessage("A new recipe's ingredients cannot name an existing group.")
+            .Must(groups => IngredientGroups(groups).All(group => Trimmed(group!.Title).Length <= RecipePolicy.GroupTitleMaxLength))
+                .WithMessage($"An ingredient group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
+            .Must(groups => !AllLines(groups).Any(line => line is null))
+                .WithMessage("An ingredient line cannot be blank.")
+            .Must(groups => AllLines(groups).All(line => line!.Id is null))
+                .WithMessage("A new recipe's ingredients cannot name an existing line.")
+            .Must(groups => AllLines(groups).All(line => !string.IsNullOrWhiteSpace(line!.DisplayText)))
+                .WithMessage("An ingredient line cannot be blank.")
+            .Must(groups => AllLines(groups).All(line => Trimmed(line!.DisplayText).Length <= RecipePolicy.LineTextMaxLength))
+                .WithMessage($"An ingredient line can be at most {RecipePolicy.LineTextMaxLength} characters.")
+            .Must(groups => AllLines(groups).All(line => Trimmed(line!.PreparationNote).Length <= RecipePolicy.NoteMaxLength))
+                .WithMessage($"A preparation note can be at most {RecipePolicy.NoteMaxLength} characters.")
+            .Must(groups => AllLines(groups).All(line => line!.Quantity is null or > 0m))
+                .WithMessage("A quantity must be greater than zero.")
+            .Must(groups => AllLines(groups).All(line => line!.QuantityUpper is null or > 0m))
+                .WithMessage("A quantity must be greater than zero.")
+            // Mirrors CK_RecipeIngredients_Quantity_Range: a range needs both ends and has to run upward.
+            .Must(groups => AllLines(groups).All(
+                line => line!.QuantityUpper is null || (line.Quantity is not null && line.QuantityUpper > line.Quantity)))
+                .WithMessage("A quantity range needs a lower amount, and the upper amount must be greater than it.")
+            .Must(groups => AllLines(groups).All(line => line!.MeasurementUnitId != Guid.Empty))
+                .WithMessage("That is not a valid unit reference.")
+            .Must(groups => AllLines(groups).All(line => line!.IngredientId != Guid.Empty))
+                .WithMessage("That is not a valid ingredient reference.")
+            .OverridePropertyName(nameof(CreateRecipeViewModel.IngredientGroups));
     }
 
     private static IReadOnlyList<RecipeInstructionGroupInputViewModel> Groups(IReadOnlyList<RecipeInstructionGroupInputViewModel?>? instructions) =>
@@ -144,6 +182,15 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
 
     private static IEnumerable<RecipeInstructionStepInputViewModel> AllSteps(IReadOnlyList<RecipeInstructionGroupInputViewModel?>? instructions) =>
         Groups(instructions).SelectMany(Steps);
+
+    private static IReadOnlyList<RecipeIngredientGroupInputViewModel> IngredientGroups(IReadOnlyList<RecipeIngredientGroupInputViewModel?>? groups) =>
+        groups?.OfType<RecipeIngredientGroupInputViewModel>().ToList() ?? [];
+
+    private static IReadOnlyList<RecipeIngredientInputViewModel> Lines(RecipeIngredientGroupInputViewModel group) =>
+        group.Ingredients?.OfType<RecipeIngredientInputViewModel>().ToList() ?? [];
+
+    private static IEnumerable<RecipeIngredientInputViewModel> AllLines(IReadOnlyList<RecipeIngredientGroupInputViewModel?>? groups) =>
+        IngredientGroups(groups).SelectMany(Lines);
 
     private static string Trimmed(string? value) => (value ?? string.Empty).Trim();
 

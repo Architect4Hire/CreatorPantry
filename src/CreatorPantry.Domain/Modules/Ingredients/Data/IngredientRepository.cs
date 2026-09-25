@@ -20,10 +20,16 @@ public interface IIngredientRepository
     /// list for <see cref="IngredientMatcher"/> to resolve candidates against in memory.
     /// </summary>
     Task<IReadOnlyList<IngredientMatchIndexEntry>> ListMatchIndexAsync(CancellationToken cancellationToken);
+
+    /// <summary>Whether the id names an active ingredient — the same "usable" a recipe line may reference.</summary>
+    Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
 }
 
 internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIngredientRepository
 {
+    public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
+        context.Ingredients.AsNoTracking().AnyAsync(ingredient => ingredient.Id == ingredientId && ingredient.IsActive, cancellationToken);
+
     public async Task<(IReadOnlyList<IngredientRecord> Rows, bool HasMore)> ListAsync(
         IngredientQuery query, CancellationToken cancellationToken)
     {

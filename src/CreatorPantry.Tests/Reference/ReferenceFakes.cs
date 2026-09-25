@@ -74,6 +74,11 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
+    // The Ingredients module's own version of the same check, used by the recipe facade for a submitted
+    // ingredient reference. Uncounted for the same reason the vocabulary one is.
+    public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
+
     public Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
         Guid unitId, CancellationToken cancellationToken) =>
         Task.FromResult<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?>(

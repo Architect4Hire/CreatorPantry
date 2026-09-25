@@ -21,6 +21,8 @@ import {
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import {
   CreateRecipeRequest,
+  IngredientGroupInput,
+  IngredientInput,
   InstructionGroupInput,
   InstructionStepInput,
   RecipeDetail,
@@ -31,7 +33,7 @@ import {
 } from '../../models/recipe.models';
 import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
-import { EditableIngredientGroup, RecipeIngredientEditorComponent } from './recipe-ingredient-editor.component';
+import { EditableIngredientGroup, RecipeIngredientEditorComponent, toEditableGroups } from './recipe-ingredient-editor.component';
 import { RecipeVersionRestored } from './recipe-restore.component';
 
 /**
@@ -70,10 +72,10 @@ function moveByKey<T extends { readonly key: string }>(items: readonly T[], key:
 
 /**
  * The saved/loaded baseline the form is diffed against for dirty-state. Covers every field that
- * actually gets submitted — `ingredientGroups` stays out because it's read-only this phase, and
- * `newTagText` (the not-yet-committed tag input) stays out deliberately: diffing it against a
- * baseline would let a post-save baseline reset silently swallow real unsaved text that was never
- * part of the request in the first place. It's checked live in `isDirty` instead.
+ * actually gets submitted, `ingredientGroups` included — `newTagText` (the not-yet-committed tag
+ * input) stays out deliberately: diffing it against a baseline would let a post-save baseline reset
+ * silently swallow real unsaved text that was never part of the request in the first place. It's
+ * checked live in `isDirty` instead.
  */
 interface RecipeFormSnapshot {
   readonly title: string;
@@ -92,6 +94,7 @@ interface RecipeFormSnapshot {
   readonly status: SettableRecipeStatus;
   readonly tags: readonly string[];
   readonly instructionsJson: string;
+  readonly ingredientGroupsJson: string;
 }
 
 /**
@@ -144,13 +147,10 @@ type RecipeEditorSaveState =
 
 /**
  * The recipe-editor route shell: create at `:workspaceSlug/recipes/new`, edit at
- * `:workspaceSlug/recipes/:recipeId`. Instructions are fully editable (add/edit/reorder/remove
- * groups and steps), submitted through the same PATCH/POST the rest of the form uses — one Save
- * saves everything together. Ingredients are structurally editable too (`RecipeIngredientEditorComponent`:
- * paste-and-parse review, groups, add/edit/remove/reorder), but stay local-only — see
- * {@link editedIngredientGroups} — because `CreateRecipeViewModel`/`UpdateRecipeViewModel` still have no
- * ingredient fields to submit them to; that seam is a later prompt. Media and history are inert
- * placeholders, disabled entirely until the recipe exists.
+ * `:workspaceSlug/recipes/:recipeId`. Instructions and ingredients are both fully editable
+ * (`RecipeIngredientEditorComponent` for groups/lines: paste-and-parse review, add/edit/remove/reorder),
+ * submitted through the same PATCH/POST the rest of the form uses — one Save saves everything together.
+ * Media and history are inert placeholders, disabled entirely until the recipe exists.
  */
 @Component({
   selector: 'cp-recipe-editor',
@@ -288,12 +288,13 @@ export class RecipeEditorComponent {
   readonly ingredientGroups = signal<readonly RecipeIngredientGroup[]>([]);
 
   /**
-   * The structured ingredient editor's own working copy — held here only so a later save-wiring prompt has
-   * somewhere to read from. It stays out of {@link RecipeFormSnapshot}/`isDirty` and out of every
-   * create/update request on purpose: `CreateRecipeViewModel`/`UpdateRecipeViewModel` still have no
-   * ingredient fields, so there is nowhere for this to be submitted to yet (ING-002, 7.5). Editing here
-   * cannot be lost silently either — `RecipeIngredientEditorComponent` keeps its own local state and this
-   * signal is a read-only mirror of it, not the other way around.
+   * The structured ingredient editor's own working copy, mirrored here — this is what
+   * {@link buildIngredientGroups}, {@link RecipeFormSnapshot} and `isDirty` all read. Kept in sync two
+   * ways: live edits arrive through `onIngredientGroupsChanged` (the child's `groupsChanged` output), and
+   * `applyDetail` also sets it directly from the server response via `toEditableGroups`, rather than
+   * waiting for `RecipeIngredientEditorComponent`'s own `effect()` to resync from `[initialGroups]` — that
+   * effect doesn't re-emit `groupsChanged`, and a save/load's baseline capture happens synchronously in
+   * the same call, before any queued effect would have run.
    */
   readonly editedIngredientGroups = signal<readonly EditableIngredientGroup[]>([]);
 
@@ -693,6 +694,7 @@ export class RecipeEditorComponent {
     this.status.set(detail.status === 'Archived' ? 'Draft' : detail.status);
     this.tags.set(detail.tags.map((tag) => tag.name));
     this.ingredientGroups.set(detail.ingredientGroups);
+    this.editedIngredientGroups.set(toEditableGroups(detail.ingredientGroups));
     this.instructionGroups.set(
       detail.instructionGroups.map((group) => ({
         key: group.id,
@@ -729,6 +731,7 @@ export class RecipeEditorComponent {
       tags: this.tags(),
       status: this.status(),
       instructions: this.buildInstructions(),
+      ingredientGroups: this.buildIngredientGroups(),
     };
   }
 
@@ -751,6 +754,7 @@ export class RecipeEditorComponent {
       tags: submitted(this.tags()),
       status: submitted(this.status()),
       instructions: submitted(this.buildInstructions()),
+      ingredientGroups: submitted(this.buildIngredientGroups()),
     };
   }
 
@@ -772,11 +776,48 @@ export class RecipeEditorComponent {
     }));
   }
 
+  /** A line left blank (never given any display text) is dropped rather than submitted and rejected. */
+  private buildIngredientGroups(): IngredientGroupInput[] {
+    return this.editedIngredientGroups().map((group) => ({
+      id: group.id,
+      title: this.orNull(group.title),
+      ingredients: group.ingredients
+        .filter((row) => row.displayText.trim().length > 0)
+        .map(
+          (row): IngredientInput => ({
+            id: row.id,
+            displayText: row.displayText.trim(),
+            quantity: this.parseQuantity(row.quantityText),
+            quantityUpper: null,
+            measurementUnitId: row.unitId,
+            ingredientId: row.ingredientId,
+            preparationNote: this.orNull(row.preparationNote),
+            isOptional: row.isOptional,
+            scalingBehavior: row.scalingBehavior,
+          }),
+        ),
+    }));
+  }
+
   /**
-   * Instructions are captured through `buildInstructions()` rather than the raw editable signal so
-   * dirty-state matches what would actually be submitted: a step added via "Add step" but never
-   * typed into doesn't register as a change (it's dropped from the request the same way), while an
-   * added group does (groups themselves are never filtered).
+   * The row's quantity is edited as free text (recipes.md preserves creator wording, and the editor
+   * doesn't reproduce fraction arithmetic — see `EditableIngredientRow`'s own doc comment), so this
+   * is a best-effort read of it as a plain decimal. Anything it can't parse (blank, or a fraction/range
+   * span like "1 1/2" straight from a parsed line the creator hasn't retyped) is submitted as `null`
+   * rather than guessed at.
+   */
+  private parseQuantity(text: string): number | null {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return null;
+    const value = Number(trimmed);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  /**
+   * Instructions and ingredients are captured through `buildInstructions()`/`buildIngredientGroups()`
+   * rather than the raw editable signals so dirty-state matches what would actually be submitted: a step
+   * or ingredient line added but never filled in doesn't register as a change (it's dropped from the
+   * request the same way), while an added group does (groups themselves are never filtered).
    */
   private captureSnapshot(): RecipeFormSnapshot {
     return {
@@ -796,6 +837,7 @@ export class RecipeEditorComponent {
       status: this.status(),
       tags: this.tags(),
       instructionsJson: JSON.stringify(this.buildInstructions()),
+      ingredientGroupsJson: JSON.stringify(this.buildIngredientGroups()),
     };
   }
 
@@ -816,6 +858,7 @@ export class RecipeEditorComponent {
       a.yieldQuantity === b.yieldQuantity &&
       a.status === b.status &&
       a.instructionsJson === b.instructionsJson &&
+      a.ingredientGroupsJson === b.ingredientGroupsJson &&
       a.tags.length === b.tags.length &&
       a.tags.every((tag, index) => tag === b.tags[index])
     );

@@ -61,6 +61,9 @@ public sealed class IngredientParsingFacadeTests
             return Task.FromResult(OperationResult<IReadOnlyList<IngredientMatchResult>>.Success(
                 candidateTexts.Select(text => new IngredientMatchResult { InputText = text }).ToList()));
         }
+
+        public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class CancellationCheckingMeasurementFacade : IMeasurementFacade
