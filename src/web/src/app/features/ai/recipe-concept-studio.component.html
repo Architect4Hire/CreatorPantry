@@ -1,0 +1,312 @@
+<section class="studio" aria-labelledby="cp-concept-studio-heading">
+  <header class="studio-header">
+    <h2 id="cp-concept-studio-heading">AI Recipe Studio</h2>
+    <p class="studio-intro">
+      Describe what you're after and get a handful of distinct recipe pitches back. Nothing here writes a
+      recipe — choosing one is the start of a draft, not the recipe itself.
+    </p>
+  </header>
+
+  @if (rolesKnown() && !canRequest()) {
+    <p class="studio-notice" role="alert">
+      Your role in this workspace does not permit asking for recipe concepts. Ask a contributor, editor, or the
+      owner.
+    </p>
+  }
+
+  <form class="studio-form" (submit)="$event.preventDefault(); submit()">
+    <div class="studio-grid">
+      <cp-field label="Audience" forId="concept-audience" [error]="fieldError('audience')">
+        <input
+          id="concept-audience"
+          type="text"
+          name="audience"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="audience()"
+          (ngModelChange)="audience.set($event)"
+          [attr.aria-invalid]="fieldError('audience') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Course" forId="concept-course" [error]="fieldError('course')">
+        <input
+          id="concept-course"
+          type="text"
+          name="course"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="course()"
+          (ngModelChange)="course.set($event)"
+          [attr.aria-invalid]="fieldError('course') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Cuisine" forId="concept-cuisine" [error]="fieldError('cuisine')">
+        <input
+          id="concept-cuisine"
+          type="text"
+          name="cuisine"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="cuisine()"
+          (ngModelChange)="cuisine.set($event)"
+          [attr.aria-invalid]="fieldError('cuisine') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Skill level" forId="concept-skill" [error]="fieldError('skill')">
+        <input
+          id="concept-skill"
+          type="text"
+          name="skill"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="skill()"
+          (ngModelChange)="skill.set($event)"
+          [attr.aria-invalid]="fieldError('skill') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Season" forId="concept-season" [error]="fieldError('season')">
+        <input
+          id="concept-season"
+          type="text"
+          name="season"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="season()"
+          (ngModelChange)="season.set($event)"
+          [attr.aria-invalid]="fieldError('season') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Time budget" forId="concept-time-budget" [error]="fieldError('timeBudget')">
+        <input
+          id="concept-time-budget"
+          type="text"
+          name="timeBudget"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="timeBudget()"
+          (ngModelChange)="timeBudget.set($event)"
+          [attr.aria-invalid]="fieldError('timeBudget') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Creator style" forId="concept-creator-style" [error]="fieldError('creatorStyle')" hint="How this should sound in your voice.">
+        <input
+          id="concept-creator-style"
+          type="text"
+          name="creatorStyle"
+          [maxlength]="shortFieldMaxLength"
+          [ngModel]="creatorStyle()"
+          (ngModelChange)="creatorStyle.set($event)"
+          [attr.aria-invalid]="fieldError('creatorStyle') ? 'true' : null"
+        />
+      </cp-field>
+    </div>
+
+    <div class="studio-grid">
+      <cp-field label="Dietary goals" forId="concept-dietary-goals" [error]="fieldError('dietaryGoals')" hint="Separate items with commas.">
+        <textarea
+          id="concept-dietary-goals"
+          name="dietaryGoals"
+          rows="2"
+          [maxlength]="listFieldMaxLength"
+          [ngModel]="dietaryGoals()"
+          (ngModelChange)="dietaryGoals.set($event)"
+          [attr.aria-invalid]="fieldError('dietaryGoals') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+
+      <cp-field label="Available ingredients" forId="concept-available-ingredients" [error]="fieldError('availableIngredients')" hint="Separate items with commas.">
+        <textarea
+          id="concept-available-ingredients"
+          name="availableIngredients"
+          rows="2"
+          [maxlength]="listFieldMaxLength"
+          [ngModel]="availableIngredients()"
+          (ngModelChange)="availableIngredients.set($event)"
+          [attr.aria-invalid]="fieldError('availableIngredients') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+
+      <cp-field label="Exclusions" forId="concept-exclusions" [error]="fieldError('exclusions')" hint="Separate items with commas.">
+        <textarea
+          id="concept-exclusions"
+          name="exclusions"
+          rows="2"
+          [maxlength]="listFieldMaxLength"
+          [ngModel]="exclusions()"
+          (ngModelChange)="exclusions.set($event)"
+          [attr.aria-invalid]="fieldError('exclusions') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+
+      <cp-field label="Equipment" forId="concept-equipment" [error]="fieldError('equipment')" hint="Separate items with commas.">
+        <textarea
+          id="concept-equipment"
+          name="equipment"
+          rows="2"
+          [maxlength]="listFieldMaxLength"
+          [ngModel]="equipment()"
+          (ngModelChange)="equipment.set($event)"
+          [attr.aria-invalid]="fieldError('equipment') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+    </div>
+
+    <div class="studio-submit">
+      <button cpButton type="submit" variant="primary" [disabled]="state() === 'submitting' || !canRequest()">
+        @if (state() === 'submitting') {
+          Asking…
+        } @else {
+          Get concepts
+        }
+      </button>
+      <span class="studio-submit-note">Every field is optional. Nothing beyond these is sent to the model.</span>
+    </div>
+  </form>
+
+  @if (refusal(); as problem) {
+    <p class="studio-refusal" role="alert">{{ problem.message }}</p>
+  }
+
+  @if (state() === 'gone') {
+    <p class="cp-sr-only" role="alert">
+      This request is no longer here. It has gone, or it belongs to a workspace you can't see.
+    </p>
+    <cp-empty-state
+      title="This request is no longer here"
+      description="It has gone, or it belongs to a workspace you can't see. Nothing was changed."
+      icon="○"
+      variant="no-results"
+    />
+  } @else if (state() === 'forbidden') {
+    <p class="studio-notice" role="alert">
+      This request can't be read with your role in this workspace.
+    </p>
+  } @else if (state() === 'loading') {
+    <p class="studio-notice" role="status">Looking for your request…</p>
+  } @else if (operation(); as op) {
+    <cp-ai-operation-status
+      [status]="op.status"
+      [failureCategory]="op.failureCategory"
+      [requestedAt]="op.requestedAt"
+      [statusChangedAt]="op.statusChangedAt"
+      [connection]="connection()"
+    />
+
+    <div class="studio-watch">
+      @if (isWatching() && state() === 'watching') {
+        <!-- "Stop checking", not "Cancel": there is no route that cancels generation. -->
+        <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
+        <span class="studio-watch-note">Your request keeps running; this page just stops asking about it.</span>
+      } @else if (canCheckAgain()) {
+        <button cpButton type="button" variant="secondary" size="sm" (click)="checkAgain()">Check again</button>
+        <span class="studio-watch-note">This page has stopped checking on its own.</span>
+      }
+    </div>
+
+    @if ((state() === 'failed' || state() === 'expired') && canAskAgain()) {
+      <div class="studio-recovery">
+        <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()">Try a new brief</button>
+      </div>
+    }
+
+    @if (state() === 'proposed') {
+      @if (generalWarnings().length > 0) {
+        <section class="warnings" aria-labelledby="cp-concept-warnings-heading">
+          <h3 id="cp-concept-warnings-heading" class="warnings-title">What the model flagged</h3>
+          <ul class="warnings-list" role="list">
+            @for (warning of generalWarnings(); track $index) {
+              <li class="warning" [attr.data-kind]="warning.kind">{{ warning.message }}</li>
+            }
+          </ul>
+        </section>
+      }
+
+      @if (conceptCards().length === 0) {
+        <p class="studio-notice" role="status">The model didn't return any concepts for this brief.</p>
+      } @else {
+        <ul class="concept-list" role="list">
+          @for (concept of conceptCards(); track concept.targetId) {
+            <li>
+              <cp-card>
+                <article [attr.aria-labelledby]="'concept-title-' + concept.targetId">
+                  <h3 [id]="'concept-title-' + concept.targetId" class="concept-title">{{ concept.title }}</h3>
+
+                  @if (concept.summary) {
+                    <p class="concept-summary">{{ concept.summary }}</p>
+                  }
+
+                  @if (concept.distinctnessRationale) {
+                    <p class="concept-distinct">
+                      <span class="concept-label">What makes this one different:</span>
+                      {{ concept.distinctnessRationale }}
+                    </p>
+                  }
+
+                  @if (concept.suggestedIngredients.length > 0) {
+                    <p class="concept-field">
+                      <span class="concept-label">Suggested ingredients:</span>
+                      {{ concept.suggestedIngredients.join(', ') }}
+                    </p>
+                  }
+
+                  @if (concept.timeBudgetNote) {
+                    <p class="concept-field">
+                      <span class="concept-label">Time budget:</span> {{ concept.timeBudgetNote }}
+                    </p>
+                  }
+
+                  @if (concept.skillLevelFit) {
+                    <p class="concept-field">
+                      <span class="concept-label">Skill fit:</span> {{ concept.skillLevelFit }}
+                    </p>
+                  }
+
+                  @if (concept.dietaryNotes.length > 0) {
+                    <p class="concept-field concept-dietary">
+                      <span class="concept-label">Dietary notes:</span> {{ concept.dietaryNotes.join(', ') }}
+                      <span class="concept-caveat">— descriptive only, not a guarantee.</span>
+                    </p>
+                  }
+
+                  @if (concept.assumptions.length > 0) {
+                    <p class="concept-field">
+                      <span class="concept-label">Assumed:</span> {{ concept.assumptions.join(', ') }}
+                    </p>
+                  }
+
+                  @if (concept.warnings.length > 0) {
+                    <ul class="warnings-list" role="list">
+                      @for (warning of concept.warnings; track $index) {
+                        <li class="warning" [attr.data-kind]="warning.kind">{{ warning.message }}</li>
+                      }
+                    </ul>
+                  }
+
+                  <button
+                    cpButton
+                    type="button"
+                    [variant]="isSelected(concept) ? 'secondary' : 'primary'"
+                    size="sm"
+                    (click)="choose(concept)"
+                  >
+                    {{ isSelected(concept) ? 'Chosen' : 'Choose this concept' }}
+                  </button>
+                </article>
+              </cp-card>
+            </li>
+          }
+        </ul>
+
+        @if (selectedConcept(); as chosen) {
+          <p class="studio-selection" role="status">
+            You've chosen “{{ chosen.title }}.” Turning a concept into a recipe draft isn't built yet.
+          </p>
+        }
+
+        <div class="studio-recovery">
+          <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()">Try a new brief</button>
+        </div>
+      }
+    }
+  }
+</section>

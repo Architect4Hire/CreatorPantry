@@ -168,6 +168,9 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   Equipment: 'Equipment',
   AssetLink: 'Media',
   Tag: 'Tag',
+  // Never actually reaches this panel: concept-generation answers are read through the Concept
+  // Studio, not this diff review panel, but the map must stay exhaustive over the wire enum.
+  RecipeConcept: 'Recipe concept',
 };
 
 /**

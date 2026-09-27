@@ -13,6 +13,7 @@ import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.co
 import { RecipeLibraryComponent } from './features/recipes/recipe-library.component';
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
+import { RecipeConceptStudioComponent } from './features/ai/recipe-concept-studio.component';
 
 describe('app routes', () => {
   it('guards the public landing route with anonymousOnlyGuard, matching only the exact empty path', () => {
@@ -88,9 +89,15 @@ describe('app routes', () => {
     // Each route's loadComponent already does `.then(m => m.XComponent)`, so it resolves directly to
     // the component class itself. Compare by reference against a directly-imported class, not by
     // `.name` — the bundler can rename same-named classes duplicated across separate lazy chunks.
-    for (const section of workspaceRoute.children!.filter((route) => route.path !== '' && route.path !== 'recipes')) {
+    for (const section of workspaceRoute.children!.filter(
+      (route) => route.path !== '' && route.path !== 'recipes' && route.path !== 'ai-recipe-studio',
+    )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
+
+    // 'ai-recipe-studio' hosts the real AIREC-001 concept form/result page rather than the placeholder.
+    const aiRecipeStudioRoute = workspaceRoute.children!.find((route) => route.path === 'ai-recipe-studio')!;
+    expect(await aiRecipeStudioRoute.loadComponent!()).toBe(RecipeConceptStudioComponent);
 
     // 'recipes' is a nested grouping instead of a single placeholder: an index library route plus
     // 'new'/':recipeId' editor routes, so it resolves through its own children rather than loadComponent.

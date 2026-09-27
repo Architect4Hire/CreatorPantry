@@ -78,9 +78,13 @@ export function isTerminalAiStatus(status: AiOperationStatus): boolean {
 }
 
 /** Mirrors AiTaskType. */
-export type AiTaskType = 'Unspecified' | 'Diagnostic';
+export type AiTaskType = 'Unspecified' | 'Diagnostic' | 'RecipeConcepts';
 
-const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>(['Unspecified', 'Diagnostic']);
+const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
+  'Unspecified',
+  'Diagnostic',
+  'RecipeConcepts',
+]);
 
 /**
  * The discriminator a request names for each task the server reports, mirroring `AiTaskCatalog.KnownTasks`.
@@ -97,6 +101,9 @@ const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>(['Unspecifi
 export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>> = {
   Unspecified: null,
   Diagnostic: 'diagnostic',
+  // Concept requests have their own dedicated route (recipe-concept-requests), not this generic
+  // ask-again discriminator, so there is nothing to name here.
+  RecipeConcepts: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -162,7 +169,8 @@ export type AiChangeTargetKind =
   | 'InstructionGroup'
   | 'Equipment'
   | 'AssetLink'
-  | 'Tag';
+  | 'Tag'
+  | 'RecipeConcept';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -174,6 +182,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'Equipment',
   'AssetLink',
   'Tag',
+  'RecipeConcept',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */
