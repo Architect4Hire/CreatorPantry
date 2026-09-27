@@ -30,4 +30,14 @@ public enum AiChangeTargetKind
     AssetLink = 7,
 
     Tag = 8,
+
+    /// <summary>
+    /// A generated recipe concept — a pitch, not a canonical recipe. Only ever <see cref="AiChangeKind.Add"/>
+    /// (the concept's title) followed by <see cref="AiChangeKind.Set"/> rows (its other fields), and never
+    /// resolved against a pinned recipe snapshot: a concept-generation operation names no recipe at all, so
+    /// there is nothing for <c>AiDiffCalculator</c> to diff against. <c>AiChangeApplicability</c> and
+    /// <c>AiDiffFields</c> do not cover it for the same reason — neither is consulted for a target with no
+    /// recipe to apply to.
+    /// </summary>
+    RecipeConcept = 9,
 }

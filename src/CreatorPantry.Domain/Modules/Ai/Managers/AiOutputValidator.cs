@@ -52,6 +52,24 @@ public static class AiOutputValidator
             ?? AiOutputValidationResult.Success(document!);
     }
 
+    /// <summary>
+    /// <see cref="Validate"/>, adapted to the generic shape <see cref="Gateways.IAiCompletionGateway"/> calls.
+    /// </summary>
+    /// <remarks>
+    /// The diff-shaped capabilities' answer to <see cref="AiOutputValidatorDelegate{TDocument}"/>. Every other
+    /// member of <see cref="Validate"/>'s own contract — the payload never escaping a failure, nothing repaired
+    /// — carries through unchanged; this only re-shapes the result.
+    /// </remarks>
+    public static AiOutputValidatorDelegate<AiOutputDocument> AsDelegate { get; } =
+        (payload, expectedSchemaVersion, scope) =>
+        {
+            var result = Validate(payload, expectedSchemaVersion, scope);
+
+            return result.Succeeded
+                ? AiOutputValidationOutcome<AiOutputDocument>.Success(result.Document!)
+                : AiOutputValidationOutcome<AiOutputDocument>.Failed(result.Failure!);
+        };
+
     /// <summary>Stage 0: bound the payload before spending anything parsing it.</summary>
     private static AiOutputValidationResult? Envelope(string? payload)
     {

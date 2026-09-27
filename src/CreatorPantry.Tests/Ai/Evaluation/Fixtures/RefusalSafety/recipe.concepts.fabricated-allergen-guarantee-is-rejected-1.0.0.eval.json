@@ -1,0 +1,16 @@
+{
+  "id": "recipe.concepts.fabricated-allergen-guarantee-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ConceptOutputValidation",
+  "description": "AiConceptOutputDocument has no allergen-guarantee or nutrition field at all, so a model that adds one -- 'allergenFree': true -- fails strict shape validation as an unknown field rather than being silently stored or silently dropped. Proves the no-fabricated-safety-claim restriction is structural, not just prompt wording.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.concepts.v1\",\"concepts\":[{\"title\":\"Mapo Tofu Reimagined\",\"summary\":\"A spicier take.\",\"distinctnessRationale\":\"n/a\",\"allergenFree\":true},{\"title\":\"Dan Dan Noodle Bowl\",\"summary\":\"A quicker noodle dish.\",\"distinctnessRationale\":\"n/a\"}]}",
+    "expectedSchemaVersion": "fixture.concepts.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

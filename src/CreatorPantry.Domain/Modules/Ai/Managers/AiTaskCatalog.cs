@@ -38,9 +38,13 @@ public static class AiTaskCatalog
     /// <summary>The discriminator for the inert task that exercises the lifecycle without calling a model.</summary>
     public const string Diagnostic = "diagnostic";
 
+    /// <summary>The discriminator for AIREC-001's recipe concept generation.</summary>
+    public const string RecipeConcepts = "recipe.concepts";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
+        [RecipeConcepts] = AiTaskType.RecipeConcepts,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>

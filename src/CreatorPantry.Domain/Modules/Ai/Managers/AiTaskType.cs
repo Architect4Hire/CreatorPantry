@@ -25,4 +25,11 @@ public enum AiTaskType
     /// the first generic proposal endpoint is wired to before any real capability is enabled.
     /// </summary>
     Diagnostic = 1,
+
+    /// <summary>
+    /// AIREC-001: proposes several distinct recipe concepts from a creator's structured brief — audience,
+    /// course, cuisine, dietary goals, available ingredients, exclusions, equipment, skill, season, time
+    /// budget, and creator style. Names no recipe: the brief is the source, not a pinned version.
+    /// </summary>
+    RecipeConcepts = 2,
 }

@@ -32,6 +32,13 @@ public enum AiEvaluationKind
 
     /// <summary>The full SQLite-backed <c>IAiOperationWorker</c> pipeline, against a fake provider.</summary>
     WorkerOperation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiConceptOutputValidator.Validate"/> directly. A
+    /// capability whose answer is not a recipe diff has its own document and its own domain rules, so its
+    /// SchemaValidity fixtures cannot run through <see cref="OutputValidation"/>'s case runner.
+    /// </summary>
+    ConceptOutputValidation,
 }
 
 /// <summary>

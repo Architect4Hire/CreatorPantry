@@ -1,0 +1,12 @@
+{
+  "id": "recipe.concepts.two-distinct-concepts-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ConceptOutputValidation",
+  "description": "Two distinct, fully-described concepts is the shape AIREC-001 asks for, and it validates.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.concepts.v1\",\"concepts\":[{\"title\":\"Mapo Tofu Reimagined\",\"summary\":\"A spicier take.\",\"distinctnessRationale\":\"Uses fermented broad bean paste.\"},{\"title\":\"Dan Dan Noodle Bowl\",\"summary\":\"A quicker noodle dish.\",\"distinctnessRationale\":\"Cold-tossed rather than braised.\"}]}",
+    "expectedSchemaVersion": "fixture.concepts.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

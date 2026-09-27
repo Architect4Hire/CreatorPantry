@@ -41,6 +41,15 @@ public static class AiOutputReason
     /// has a path through ordinary recipe validation. See <see cref="AiChangeApplicability"/>.
     /// </summary>
     public const string NotApplicable = "ai.output.not_applicable";
+
+    /// <summary>A concept-generation answer proposed fewer or more concepts than the capability requires.</summary>
+    public const string ConceptCountOutOfRange = "ai.output.concept_count_out_of_range";
+
+    /// <summary>Two proposed concepts share a title, so they are not the distinct concepts the task asked for.</summary>
+    public const string DuplicateConceptTitle = "ai.output.duplicate_concept_title";
+
+    /// <summary>A concept is missing its title, summary, or distinctness rationale.</summary>
+    public const string ConceptFieldMissing = "ai.output.concept_field_missing";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

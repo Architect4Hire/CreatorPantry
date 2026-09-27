@@ -359,7 +359,7 @@ public sealed class AiCompletionGatewayTests
         }
         """;
 
-    private static void AssertFailed(AiCompletionOutcome outcome, AiFailureCategory category)
+    private static void AssertFailed(AiCompletionOutcome<AiOutputDocument> outcome, AiFailureCategory category)
     {
         Assert.False(outcome.Succeeded);
         Assert.Null(outcome.Document);
@@ -367,7 +367,7 @@ public sealed class AiCompletionGatewayTests
         Assert.NotEmpty(outcome.Attempts);
     }
 
-    private static async Task<AiCompletionOutcome> Complete(
+    private static async Task<AiCompletionOutcome<AiOutputDocument>> Complete(
         FakeChatClient client,
         IAiFailureClassifier? classifier = null,
         AiCostOptions? costs = null,
@@ -420,13 +420,14 @@ public sealed class AiCompletionGatewayTests
             .Build();
 
         return await gateway.CompleteAsync(
-            new AiCompletionRequest(
+            new AiCompletionRequest<AiOutputDocument>(
                 envelope,
                 Schema,
                 scope,
                 "fixture.concepts",
                 "1.0.0",
-                correlationId ?? Guid.NewGuid()),
+                correlationId ?? Guid.NewGuid(),
+                AiOutputValidator.AsDelegate),
             cancellationToken);
     }
 

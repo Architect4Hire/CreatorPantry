@@ -36,7 +36,7 @@ public sealed class AiEvaluationHarnessTests
     [Fact]
     public void The_fixture_store_loaded_every_known_fixture()
     {
-        Assert.Equal(12, Store().All.Count);
+        Assert.Equal(17, Store().All.Count);
     }
 
     /// <summary>Every category this task's SCOPE names has at least one fixture demonstrating it.</summary>
@@ -61,6 +61,7 @@ public sealed class AiEvaluationHarnessTests
         AiEvaluationKind.PromptEnvelope => new PromptEnvelopeCase(),
         AiEvaluationKind.ProposalAssembly => new ProposalAssemblyCase(),
         AiEvaluationKind.WorkerOperation => new WorkerOperationCase(),
+        AiEvaluationKind.ConceptOutputValidation => new ConceptOutputValidationCase(),
         _ => throw new NotSupportedException($"No case runner is wired up for '{kind}'."),
     };
 }

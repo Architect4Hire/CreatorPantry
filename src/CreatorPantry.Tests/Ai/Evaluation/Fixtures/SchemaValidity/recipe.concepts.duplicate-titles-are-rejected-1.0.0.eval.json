@@ -1,0 +1,16 @@
+{
+  "id": "recipe.concepts.duplicate-titles-are-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ConceptOutputValidation",
+  "description": "Two concepts sharing a title (case-insensitively) are not the distinct concepts AIREC-001 asks for.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.concepts.v1\",\"concepts\":[{\"title\":\"Mapo Tofu\",\"summary\":\"A spicier take.\",\"distinctnessRationale\":\"n/a\"},{\"title\":\"mapo tofu\",\"summary\":\"A milder take.\",\"distinctnessRationale\":\"n/a\"}]}",
+    "expectedSchemaVersion": "fixture.concepts.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.duplicate_concept_title",
+    "category": "DomainInvalid"
+  }
+}

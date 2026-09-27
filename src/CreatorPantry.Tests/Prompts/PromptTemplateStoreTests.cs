@@ -87,7 +87,10 @@ public sealed class PromptTemplateStoreTests
     [Fact]
     public void An_assembly_with_no_templates_loads_empty()
     {
-        var store = EmbeddedPromptTemplateStore.Load(typeof(PromptTemplateFile).Assembly);
+        // The BCL, never CreatorPantry.Domain: that assembly now ships a real template (recipe.concepts), so
+        // this has to name an assembly with no embedded *.prompt.md resources on a more durable basis than
+        // "none happen to exist yet".
+        var store = EmbeddedPromptTemplateStore.Load(typeof(object).Assembly);
 
         Assert.Empty(store.All);
     }

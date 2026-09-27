@@ -3670,7 +3670,8 @@
           "InstructionGroup",
           "Equipment",
           "AssetLink",
-          "Tag"
+          "Tag",
+          "RecipeConcept"
         ],
         "type": "string"
       },
@@ -3972,7 +3973,8 @@
       "AiTaskType": {
         "enum": [
           "Unspecified",
-          "Diagnostic"
+          "Diagnostic",
+          "RecipeConcepts"
         ],
         "type": "string"
       },

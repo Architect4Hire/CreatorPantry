@@ -9,13 +9,21 @@ namespace CreatorPantry.Domain.Modules.Ai.Gateways;
 /// <param name="PromptTemplateId">Recorded per attempt, for provenance.</param>
 /// <param name="PromptTemplateVersion">Recorded per attempt, for provenance.</param>
 /// <param name="CorrelationId">Ties every attempt to the request or job that caused it.</param>
-public sealed record AiCompletionRequest(
+/// <param name="Validate">
+/// How the provider's raw text becomes <typeparamref name="TDocument"/>. The gateway calls this instead of
+/// hardcoding a validator, so a capability whose answer is not a recipe diff is held to its own schema and its
+/// own domain rules — <see cref="AiOutputValidator.AsDelegate"/> for the diff-shaped capabilities, a
+/// capability's own validator otherwise.
+/// </param>
+public sealed record AiCompletionRequest<TDocument>(
     PromptEnvelope Envelope,
     string ExpectedSchemaVersion,
     AiOperationScope Scope,
     string PromptTemplateId,
     string PromptTemplateVersion,
-    Guid CorrelationId);
+    Guid CorrelationId,
+    AiOutputValidatorDelegate<TDocument> Validate)
+    where TDocument : class;
 
 /// <summary>
 /// What one provider attempt cost and how it ended. Shaped to <c>AiExecutionMetadata</c>, which is where the
@@ -77,12 +85,13 @@ public sealed record AiAttemptRecord
 }
 
 /// <summary>
-/// The result of a completion: a validated document, or the failure that stopped it — plus one
-/// <see cref="AiAttemptRecord"/> per provider call made along the way.
+/// The result of a completion: a validated document of the capability's own shape, or the failure that stopped
+/// it — plus one <see cref="AiAttemptRecord"/> per provider call made along the way.
 /// </summary>
-public sealed record AiCompletionOutcome
+public sealed record AiCompletionOutcome<TDocument>
+    where TDocument : class
 {
-    public AiOutputDocument? Document { get; init; }
+    public TDocument? Document { get; init; }
 
     public AiOutputFailure? Failure { get; init; }
 

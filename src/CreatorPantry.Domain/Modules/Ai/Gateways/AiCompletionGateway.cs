@@ -13,7 +13,9 @@ namespace CreatorPantry.Domain.Modules.Ai.Gateways;
 /// <summary>Sends one assembled prompt to a model and returns a validated answer or a classified failure.</summary>
 public interface IAiCompletionGateway
 {
-    Task<AiCompletionOutcome> CompleteAsync(AiCompletionRequest request, CancellationToken cancellationToken);
+    Task<AiCompletionOutcome<TDocument>> CompleteAsync<TDocument>(
+        AiCompletionRequest<TDocument> request, CancellationToken cancellationToken)
+        where TDocument : class;
 }
 
 /// <summary>
@@ -47,9 +49,10 @@ public sealed class AiCompletionGateway(
     AiGatewayOptions options,
     ILogger<AiCompletionGateway> logger) : IAiCompletionGateway
 {
-    public async Task<AiCompletionOutcome> CompleteAsync(
-        AiCompletionRequest request,
+    public async Task<AiCompletionOutcome<TDocument>> CompleteAsync<TDocument>(
+        AiCompletionRequest<TDocument> request,
         CancellationToken cancellationToken)
+        where TDocument : class
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -69,21 +72,21 @@ public sealed class AiCompletionGateway(
         {
             var wasCorrection = attemptNumber > 1;
             var (record, response, failure) = await AttemptAsync(
-                request, messages, attemptNumber, wasCorrection, cancellationToken);
+                request.PromptTemplateId, request.PromptTemplateVersion, request.CorrelationId,
+                messages, attemptNumber, wasCorrection, cancellationToken);
 
             attempts.Add(record);
 
             if (failure is not null)
             {
-                return new AiCompletionOutcome { Failure = failure, Attempts = attempts };
+                return new AiCompletionOutcome<TDocument> { Failure = failure, Attempts = attempts };
             }
 
-            var validation = AiOutputValidator.Validate(
-                response!.Text, request.ExpectedSchemaVersion, request.Scope);
+            var validation = request.Validate(response!.Text, request.ExpectedSchemaVersion, request.Scope);
 
             if (validation.Succeeded)
             {
-                return new AiCompletionOutcome { Document = validation.Document, Attempts = attempts };
+                return new AiCompletionOutcome<TDocument> { Document = validation.Document, Attempts = attempts };
             }
 
             var invalid = validation.Failure!;
@@ -106,7 +109,7 @@ public sealed class AiCompletionGateway(
                     invalid.ReasonCode,
                     attemptNumber);
 
-                return new AiCompletionOutcome { Failure = invalid, Attempts = attempts };
+                return new AiCompletionOutcome<TDocument> { Failure = invalid, Attempts = attempts };
             }
 
             logger.LogInformation(
@@ -126,7 +129,9 @@ public sealed class AiCompletionGateway(
     }
 
     private async Task<(AiAttemptRecord Record, ChatResponse? Response, AiOutputFailure? Failure)> AttemptAsync(
-        AiCompletionRequest request,
+        string promptTemplateId,
+        string promptTemplateVersion,
+        Guid correlationId,
         IList<ChatMessage> messages,
         int attemptNumber,
         bool wasCorrection,
@@ -146,7 +151,9 @@ public sealed class AiCompletionGateway(
             elapsed.Stop();
 
             return (
-                Record(request, attemptNumber, wasCorrection, startedAt, elapsed, response, null),
+                Record(
+                    promptTemplateId, promptTemplateVersion, correlationId,
+                    attemptNumber, wasCorrection, startedAt, elapsed, response, null),
                 response,
                 null);
         }
@@ -180,11 +187,13 @@ public sealed class AiCompletionGateway(
 
             logger.LogWarning(
                 "AI provider attempt failed. correlationId={CorrelationId} attempt={Attempt} category={Category}",
-                request.CorrelationId,
+                correlationId,
                 attemptNumber,
                 classification.Category);
 
-            var record = Record(request, attemptNumber, wasCorrection, startedAt, elapsed, null, classification);
+            var record = Record(
+                promptTemplateId, promptTemplateVersion, correlationId,
+                attemptNumber, wasCorrection, startedAt, elapsed, null, classification);
 
             return (
                 record,
@@ -229,7 +238,9 @@ public sealed class AiCompletionGateway(
     }
 
     private AiAttemptRecord Record(
-        AiCompletionRequest request,
+        string promptTemplateId,
+        string promptTemplateVersion,
+        Guid correlationId,
         int attemptNumber,
         bool wasCorrection,
         DateTimeOffset startedAt,
@@ -246,8 +257,8 @@ public sealed class AiCompletionGateway(
             ProviderName = options.ProviderName,
             ModelName = response?.ModelId ?? options.ModelName,
             ModelDeployment = options.ModelDeployment,
-            PromptTemplateId = request.PromptTemplateId,
-            PromptTemplateVersion = request.PromptTemplateVersion,
+            PromptTemplateId = promptTemplateId,
+            PromptTemplateVersion = promptTemplateVersion,
             StartedAt = startedAt,
             CompletedAt = startedAt.AddMilliseconds(elapsed.Elapsed.TotalMilliseconds),
             LatencyMilliseconds = (int)elapsed.Elapsed.TotalMilliseconds,
@@ -258,7 +269,7 @@ public sealed class AiCompletionGateway(
             SafetyBlocked = classification?.Category is AiFailureCategory.SafetyBlocked,
             FailureCategory = classification?.Category,
             FailureSummary = classification?.Summary,
-            CorrelationId = request.CorrelationId,
+            CorrelationId = correlationId,
             WasSchemaCorrection = wasCorrection,
         };
     }

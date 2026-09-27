@@ -1,0 +1,16 @@
+{
+  "id": "recipe.concepts.below-minimum-count-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ConceptOutputValidation",
+  "description": "AIREC-001 asks for multiple distinct concepts; a single one is below the floor and is rejected rather than accepted as a lone idea.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.concepts.v1\",\"concepts\":[{\"title\":\"Mapo Tofu Reimagined\",\"summary\":\"A spicier take.\",\"distinctnessRationale\":\"n/a\"}]}",
+    "expectedSchemaVersion": "fixture.concepts.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.concept_count_out_of_range",
+    "category": "DomainInvalid"
+  }
+}

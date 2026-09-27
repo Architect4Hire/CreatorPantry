@@ -112,7 +112,9 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
                 .Build();
 
             var outcome = await gateway.CompleteAsync(
-                new AiCompletionRequest(envelope, "fixture.worker.v1", context.Scope, "fixture.worker", "1.0.0", context.CorrelationId),
+                new AiCompletionRequest<AiOutputDocument>(
+                    envelope, "fixture.worker.v1", context.Scope, "fixture.worker", "1.0.0", context.CorrelationId,
+                    AiOutputValidator.AsDelegate),
                 ct);
 
             return outcome.Succeeded

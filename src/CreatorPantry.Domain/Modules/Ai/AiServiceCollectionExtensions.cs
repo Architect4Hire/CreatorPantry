@@ -107,6 +107,7 @@ public static class AiServiceCollectionExtensions
     public static IServiceCollection AddAiOperationWorker(this IServiceCollection services)
     {
         services.AddKeyedScoped<IAiTaskHandler, DiagnosticAiTaskHandler>(AiTaskType.Diagnostic);
+        services.AddKeyedScoped<IAiTaskHandler, RecipeConceptsAiTaskHandler>(AiTaskType.RecipeConcepts);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

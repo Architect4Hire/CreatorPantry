@@ -18,6 +18,13 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// Extends this claim's lease. A handler that expects to run close to <see cref="AiPolicy.LeaseDuration"/> —
 /// a slow provider call being the case that matters — calls this partway through rather than racing the lease.
 /// </param>
+/// <param name="Inputs">
+/// The declared, capability-specific fields the request named — never a prompt, never free text outside a
+/// declared field. Null or missing a key means the creator did not supply that field, not that it was cleared.
+/// A task type that names no recipe reads its whole request from here; <see cref="AiOperation"/> deliberately
+/// carries no column for it yet, so an operation reaching a worker through today's recipe-bound request path
+/// carries none.
+/// </param>
 internal sealed record AiTaskExecutionContext(
     Guid OperationId,
     Guid WorkspaceId,
@@ -26,7 +33,8 @@ internal sealed record AiTaskExecutionContext(
     Guid? RecipeId,
     Guid? RecipeVersionId,
     Guid CorrelationId,
-    Func<CancellationToken, Task> RenewLeaseAsync);
+    Func<CancellationToken, Task> RenewLeaseAsync,
+    IReadOnlyDictionary<string, string>? Inputs = null);
 
 /// <summary>What running one operation produced: a proposal ready to store, or why it failed — plus every
 /// provider attempt made along the way, for a handler that called one.</summary>

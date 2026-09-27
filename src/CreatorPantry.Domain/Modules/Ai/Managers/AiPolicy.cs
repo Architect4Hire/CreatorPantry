@@ -52,6 +52,32 @@ public static class AiPolicy
     /// <summary>A warning's message, and a creator's feedback. Prose, not content.</summary>
     public const int MessageMaxLength = 1000;
 
+    /// <summary>A recipe concept's title, summary, or distinctness rationale.</summary>
+    public const int ConceptFieldMaxLength = 1000;
+
+    /// <summary>One assumption, suggested ingredient, or dietary note listed on a concept.</summary>
+    public const int ConceptListItemMaxLength = 300;
+
+    /// <summary>
+    /// The most assumptions, suggested ingredients, or dietary notes one concept may list.
+    /// </summary>
+    /// <remarks>
+    /// Bounded so the joined string <see cref="RecipeConceptsAiTaskHandler"/> stores in one
+    /// <c>AiStructuredChange.AfterValue</c> column cannot exceed <see cref="ChangeValueMaxLength"/> — ten items
+    /// at <see cref="ConceptListItemMaxLength"/> each is comfortably inside it, so a proposal is refused here
+    /// rather than reaching SQL Server as a truncation error.
+    /// </remarks>
+    public const int ConceptListMaxItems = 10;
+
+    /// <summary>
+    /// The fewest recipe concepts a concept-generation answer may propose.
+    /// </summary>
+    /// <remarks>"Return multiple distinct concepts" (AIREC-001) is a floor the answer is held to, not a hope.</remarks>
+    public const int MinConceptCount = 2;
+
+    /// <summary>The most recipe concepts one answer may propose, so a review panel stays reviewable.</summary>
+    public const int MaxConceptCount = 5;
+
     /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>

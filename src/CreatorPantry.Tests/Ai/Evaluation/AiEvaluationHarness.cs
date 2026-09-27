@@ -34,6 +34,7 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new PromptEnvelopeCase(),
             new ProposalAssemblyCase(),
             new WorkerOperationCase(),
+            new ConceptOutputValidationCase(),
         }.ToDictionary(evaluationCase => evaluationCase.Kind));
 
     public async Task<AiEvaluationReport> RunAllAsync(CancellationToken cancellationToken)
