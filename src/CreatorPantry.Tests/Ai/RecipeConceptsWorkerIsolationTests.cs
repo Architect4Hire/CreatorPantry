@@ -53,7 +53,7 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             .AddAudit()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton<IPromptTemplateStore>(EmbeddedPromptTemplateStore.Load(typeof(AiPolicy).Assembly))
-            .AddSingleton(BuildGateway(chatClient))
+            .AddSingleton<IAiCompletionGateway>(BuildGateway(chatClient))
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
@@ -113,15 +113,6 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
         var operationA = await QueueAsync(WorkspaceA, MembershipA, "key-a", "Sichuan");
         var operationB = await QueueAsync(WorkspaceB, MembershipB, "key-b", "Tuscan");
 
-        using (var debugScope = _provider.CreateScope())
-        {
-            var db = debugScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
-            var rows = await db.AiOperations.IgnoreQueryFilters().ToListAsync(TestContext.Current.CancellationToken);
-            Assert.Equal(
-                $"rows={rows.Count} statuses=[{string.Join(",", rows.Select(r => $"{r.Id}:{r.Status}:{r.AvailableAt:O}"))}]",
-                "debug");
-        }
-
         using var workerScope = _provider.CreateScope();
         var summary = await workerScope.ServiceProvider.GetRequiredService<IAiOperationWorker>()
             .RunPendingAsync(TestContext.Current.CancellationToken);
@@ -174,7 +165,9 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             .Include(p => p.Changes)
             .SingleAsync(p => p.AiOperationId == operationId, TestContext.Current.CancellationToken);
 
-        return proposal.Changes.Single(c => c.ChangeKind is AiChangeKind.Add).AfterValue!;
+        return proposal.Changes
+            .Single(c => c.ChangeKind is AiChangeKind.Add && c.ProposedPosition == 0)
+            .AfterValue!;
     }
 
     private static void Resolve(IServiceScope scope, Guid workspaceId) =>
