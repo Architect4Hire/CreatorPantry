@@ -7,6 +7,10 @@ internal sealed class WorkspaceDataLayer(IWorkspaceRepository repository) : IWor
     public Task<WorkspaceMembershipLookup> FindBySlugAsync(string slug, string userId, CancellationToken cancellationToken) =>
         repository.FindBySlugAsync(slug, userId, cancellationToken);
 
+    public Task<WorkspaceMembershipLookup> FindByIdWithMembershipAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken) =>
+        repository.FindByIdWithMembershipAsync(workspaceId, membershipId, cancellationToken);
+
     public Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken) =>
         repository.SlugExistsAsync(slug, cancellationToken);
 

@@ -115,6 +115,25 @@ public interface IRecipeVersionRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the archived content of one of a recipe's versions, named by id rather than by number.
+    /// </summary>
+    /// <returns>
+    /// The row, or <c>null</c> when this recipe has no such version or the version carries no document. As on
+    /// <see cref="FindSnapshotAsync"/>, this neither knows nor asks whether the recipe is visible.
+    /// </returns>
+    /// <remarks>
+    /// For a caller that only ever pins a version by id — an <c>AiOperation</c>'s
+    /// <c>RecipeVersionId</c>, recorded so a proposal computed against it can be told apart from a recipe that
+    /// has since moved on. Every other reader of this module names a version by its number because that is
+    /// what a creator sees and cites; this is the one exception, and it exists for that one caller rather than
+    /// replacing <see cref="FindSnapshotAsync"/>.
+    /// </remarks>
+    Task<RecipeVersionSnapshotRecord?> FindSnapshotByIdAsync(
+        Guid recipeId,
+        Guid versionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads the archived content of a recipe's most recent version.
     /// </summary>
     /// <returns>
@@ -257,6 +276,24 @@ internal sealed class RecipeVersionRepository(CreatorPantryDbContext context) : 
                 // Makes the projection's join inner, as on the two-sided read: a version with no archived
                 // document has nothing to restore, and returning it carrying a null document would push that
                 // discovery a layer up.
+                && version.Snapshot != null)
+            .Select(version => new RecipeVersionSnapshotRecord(
+                version.Id,
+                version.VersionNumber,
+                version.Source,
+                version.Readiness,
+                version.CreatedAt,
+                version.Snapshot!.Document))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<RecipeVersionSnapshotRecord?> FindSnapshotByIdAsync(
+        Guid recipeId,
+        Guid versionId,
+        CancellationToken cancellationToken) =>
+        await context.RecipeVersions
+            .AsNoTracking()
+            .Where(version => version.RecipeId == recipeId
+                && version.Id == versionId
                 && version.Snapshot != null)
             .Select(version => new RecipeVersionSnapshotRecord(
                 version.Id,

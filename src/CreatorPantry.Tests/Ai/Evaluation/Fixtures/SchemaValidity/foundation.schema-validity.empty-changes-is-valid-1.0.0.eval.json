@@ -1,0 +1,15 @@
+{
+  "id": "foundation.schema-validity.empty-changes-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "An answer proposing zero changes is a real, valid answer -- 'nothing needs changing' -- not a validation error.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.v1\",\"changes\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.v1",
+    "scope": "WholeRecipe"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

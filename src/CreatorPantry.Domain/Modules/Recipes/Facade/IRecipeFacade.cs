@@ -56,6 +56,32 @@ public interface IRecipeFacade
     Task<OperationResult<RecipeDetailServiceModel>> GetDetailAsync(Guid recipeId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the archived content of one exact, explicitly named version of one recipe of the workspace
+    /// resolved for this scope — never "current".
+    /// </summary>
+    /// <param name="recipeId">The recipe to read from.</param>
+    /// <param name="versionId">The exact version to read, pinned by id rather than by number.</param>
+    /// <returns>
+    /// The snapshot, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/> or
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>No role gate</strong>, for the reason <see cref="GetDetailAsync"/> gives: <c>Viewer</c> is
+    /// <c>0</c>, so a resolved workspace context already is the authorization.
+    /// </para>
+    /// <para>
+    /// <strong>Its one caller today is the AI worker</strong>, computing a diff against the exact version an
+    /// <c>AiOperation</c> pinned — never "the recipe as it currently stands", which is what
+    /// <see cref="GetDetailAsync"/> answers. Every other reader of this module names a version by its number,
+    /// the identity a creator recognises; this reads by id because that is the only form the pinning survives
+    /// in.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotAsync(
+        Guid recipeId, Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Applies a partial edit to one recipe of the workspace resolved for this scope, and returns the recipe
     /// as it now stands.
     /// </summary>
@@ -602,6 +628,12 @@ internal sealed class RecipeFacade(
         Guid recipeId,
         CancellationToken cancellationToken) =>
         business.GetDetailAsync(recipeId, cancellationToken);
+
+    public Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotAsync(
+        Guid recipeId,
+        Guid versionId,
+        CancellationToken cancellationToken) =>
+        business.GetSnapshotAsync(recipeId, versionId, cancellationToken);
 
     public async Task<OperationResult<CursorPageServiceModel<RecipeVersionHistoryServiceModel>>> GetVersionHistoryAsync(
         Guid recipeId,

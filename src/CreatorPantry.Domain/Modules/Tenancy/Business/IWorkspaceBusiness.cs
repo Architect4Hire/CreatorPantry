@@ -10,6 +10,20 @@ public interface IWorkspaceBusiness
     Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveAsync(
         string userId, ResolveWorkspaceViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves a workspace context for a background worker finishing work a creator already queued, keyed by
+    /// the exact membership id recorded on that request rather than by the caller's own identity.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="ResolveAsync"/>, the membership need not be <see cref="WorkspaceMembershipStatus.Active"/>:
+    /// that rule is about route resolution and authorization for a live actor, and this worker is completing
+    /// work a legitimately-active creator already queued, not authorizing a new action on their behalf. Nothing
+    /// on the path this feeds re-checks the resolved role — only accepting a proposal does, and that is
+    /// re-gated independently at the HTTP disposition boundary.
+    /// </remarks>
+    Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForOperationAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(string userId, CancellationToken cancellationToken);
 
     /// <summary>Creates a workspace and makes the caller its Owner atomically. The slug is derived from the name.</summary>

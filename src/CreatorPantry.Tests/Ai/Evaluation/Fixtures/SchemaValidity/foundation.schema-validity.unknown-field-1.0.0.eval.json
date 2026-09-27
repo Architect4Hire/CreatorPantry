@@ -1,0 +1,17 @@
+{
+  "id": "foundation.schema-validity.unknown-field",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "A field the output schema does not declare is rejected outright, never silently dropped.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.v1\",\"changes\":[],\"warnings\":[],\"unexpectedField\":true}",
+    "expectedSchemaVersion": "fixture.v1",
+    "scope": "WholeRecipe"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

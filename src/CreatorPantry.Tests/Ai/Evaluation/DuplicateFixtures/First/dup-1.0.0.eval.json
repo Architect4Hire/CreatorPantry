@@ -1,0 +1,9 @@
+{
+  "id": "dup",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "A fixture that deliberately shares an id and version with another, to test duplicate detection.",
+  "input": {},
+  "expect": {}
+}

@@ -1,0 +1,13 @@
+{
+  "id": "foundation.workspace-isolation.operation-not-visible-cross-workspace",
+  "version": "1.0.0",
+  "category": "WorkspaceIsolation",
+  "kind": "WorkerOperation",
+  "description": "Two operations queued in two different workspaces, drained in one worker pass, are each resolved and run against only their own workspace; neither proposal ever carries the other's workspace id.",
+  "input": {
+    "scenario": "workspace-isolation"
+  },
+  "expect": {
+    "outcome": "Proposed"
+  }
+}

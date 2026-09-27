@@ -6,6 +6,10 @@ public interface IWorkspaceDataLayer
 {
     Task<WorkspaceMembershipLookup> FindBySlugAsync(string slug, string userId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IWorkspaceRepository.FindByIdWithMembershipAsync"/>
+    Task<WorkspaceMembershipLookup> FindByIdWithMembershipAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken);
+
     Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken);
 
     Task<CreatedWorkspace> CreateWithOwnerAsync(

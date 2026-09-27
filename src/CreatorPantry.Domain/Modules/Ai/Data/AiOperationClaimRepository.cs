@@ -12,8 +12,15 @@ namespace CreatorPantry.Domain.Modules.Ai.Data;
 /// of workspace-owned data the claim is allowed to carry out.
 /// </param>
 /// <param name="LeaseToken">The token the worker presents on every later write for this claim.</param>
+/// <param name="RequestedByMembershipId">
+/// The membership that requested this — an identifier, like <see cref="WorkspaceId"/>, and the same class of
+/// exception: the worker needs it to resolve an <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceContext"/>
+/// before it can even read the operation row itself (workspace-owned, so strictly filtered), and there is no
+/// title or snapshot for it to carry alongside.
+/// </param>
 /// <param name="Attempts">How many times this operation has now been claimed, including this one.</param>
-public sealed record AiOperationClaim(Guid OperationId, Guid WorkspaceId, Guid LeaseToken, int Attempts);
+public sealed record AiOperationClaim(
+    Guid OperationId, Guid WorkspaceId, Guid LeaseToken, Guid RequestedByMembershipId, int Attempts);
 
 /// <summary>
 /// The queue claim, and the one place in the domain that reads across workspaces.
@@ -80,7 +87,7 @@ internal sealed class AiOperationClaimRepository(CreatorPantryDbContext context)
                 await context.SaveChangesAsync(cancellationToken);
 
                 return new AiOperationClaim(
-                    candidate.Id, candidate.WorkspaceId, leaseToken, candidate.Attempts);
+                    candidate.Id, candidate.WorkspaceId, leaseToken, candidate.RequestedByMembershipId, candidate.Attempts);
             }
             catch (DbUpdateConcurrencyException)
             {

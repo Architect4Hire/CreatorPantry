@@ -92,4 +92,23 @@ public static class AiServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
+    /// <see cref="AiTaskType"/>.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddAiModule"/> for the same reason <see cref="AddAiProposalSeam"/> is:
+    /// <see cref="DiagnosticAiTaskHandler"/> calls the recipe module's facade, so this carries a prerequisite
+    /// — <c>AddRecipesModule</c>, and <c>AddTenancy</c> for <see cref="Tenancy.Facade.IWorkspaceResolutionFacade"/>
+    /// — that a host with no use for either should not be made to carry just to call <see cref="AddAiModule"/>.
+    /// Only the worker calls this.
+    /// </remarks>
+    public static IServiceCollection AddAiOperationWorker(this IServiceCollection services)
+    {
+        services.AddKeyedScoped<IAiTaskHandler, DiagnosticAiTaskHandler>(AiTaskType.Diagnostic);
+        services.AddScoped<IAiOperationWorker, AiOperationWorker>();
+
+        return services;
+    }
 }

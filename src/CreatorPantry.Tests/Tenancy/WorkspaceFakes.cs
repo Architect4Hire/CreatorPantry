@@ -11,6 +11,10 @@ internal sealed class FakeWorkspaceDataLayer : IWorkspaceDataLayer
 
     public List<(string Slug, string UserId)> Calls { get; } = [];
 
+    public WorkspaceMembershipLookup LookupByMembership { get; set; } = new(null, null);
+
+    public List<(Guid WorkspaceId, Guid MembershipId)> MembershipCalls { get; } = [];
+
     /// <summary>Slugs <see cref="SlugExistsAsync"/> reports as already taken.</summary>
     public HashSet<string> ExistingSlugs { get; } = [];
 
@@ -28,6 +32,13 @@ internal sealed class FakeWorkspaceDataLayer : IWorkspaceDataLayer
     {
         Calls.Add((slug, userId));
         return Task.FromResult(Lookup);
+    }
+
+    public Task<WorkspaceMembershipLookup> FindByIdWithMembershipAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken)
+    {
+        MembershipCalls.Add((workspaceId, membershipId));
+        return Task.FromResult(LookupByMembership);
     }
 
     public Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken)

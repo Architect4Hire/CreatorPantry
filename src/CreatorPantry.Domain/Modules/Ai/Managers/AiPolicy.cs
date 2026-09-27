@@ -158,4 +158,14 @@ public static class AiPolicy
     /// </remarks>
     public static TimeSpan RequeueDelayFor(int attempts) =>
         TimeSpan.FromSeconds(Math.Min(30 * Math.Pow(2, Math.Max(attempts - 1, 0)), 600));
+
+    /// <summary>How often the worker checks for due operations. The same cadence <c>OutboxPolicy</c> uses.</summary>
+    public static readonly TimeSpan WorkerPollingInterval = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// How often the maintenance sweep (lease recovery, request/proposal expiry) runs. Comfortably more often
+    /// than <see cref="LeaseDuration"/> so an abandoned lease is recovered promptly, without polling on every
+    /// claim tick for work that is rare by comparison.
+    /// </summary>
+    public static readonly TimeSpan MaintenancePollingInterval = TimeSpan.FromMinutes(1);
 }

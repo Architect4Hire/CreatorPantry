@@ -1,0 +1,17 @@
+{
+  "id": "foundation.refusal-safety.outside-scope",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "OutputValidation",
+  "description": "A change targeting a part of the recipe outside its operation's declared scope is refused, not trimmed to fit.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"headnote\",\"afterValue\":\"A warmer opening.\"}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.v1",
+    "scope": "Ingredients"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.outside_scope",
+    "category": "DomainInvalid"
+  }
+}

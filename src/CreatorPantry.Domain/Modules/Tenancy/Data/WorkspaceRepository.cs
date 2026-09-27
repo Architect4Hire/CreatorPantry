@@ -23,6 +23,23 @@ internal sealed class WorkspaceRepository(CreatorPantryDbContext context) : IWor
         return new WorkspaceMembershipLookup(ToSummary(workspace), membership is null ? null : ToSummary(membership));
     }
 
+    public async Task<WorkspaceMembershipLookup> FindByIdWithMembershipAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken)
+    {
+        var workspace = await context.Workspaces.AsNoTracking()
+            .SingleOrDefaultAsync(candidate => candidate.Id == workspaceId, cancellationToken);
+
+        if (workspace is null)
+        {
+            return new WorkspaceMembershipLookup(null, null);
+        }
+
+        var membership = await context.WorkspaceMemberships.AsNoTracking()
+            .SingleOrDefaultAsync(candidate => candidate.WorkspaceId == workspace.Id && candidate.Id == membershipId, cancellationToken);
+
+        return new WorkspaceMembershipLookup(ToSummary(workspace), membership is null ? null : ToSummary(membership));
+    }
+
     public Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken) =>
         context.Workspaces.AsNoTracking().AnyAsync(workspace => workspace.Slug == slug, cancellationToken);
 

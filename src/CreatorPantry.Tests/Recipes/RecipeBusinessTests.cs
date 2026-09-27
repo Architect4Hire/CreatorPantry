@@ -2828,6 +2828,59 @@ public sealed class RecipeBusinessTests
                     : [new RecipeSnapshotIngredientGroup { Id = Guid.NewGuid(), Ingredients = ingredients }],
             }));
 
+    // ---- Snapshot by id ----
+
+    [Fact]
+    public async Task An_invisible_recipe_reports_a_snapshot_read_as_not_found()
+    {
+        _dataLayer.SnapshotSourceVisible = false;
+
+        var result = await _business.GetSnapshotAsync(
+            Guid.NewGuid(), Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_version_id_the_recipe_does_not_have_is_refused()
+    {
+        _dataLayer.RestoreSource = null;
+
+        var result = await _business.GetSnapshotAsync(
+            Guid.NewGuid(), Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.VersionNotFound, result.Error!.Code);
+        Assert.Contains("versionId", result.Error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task A_pinned_version_reads_the_archived_document_and_its_own_number()
+    {
+        var row = SnapshotRow(4, "Olive oil cake");
+        _dataLayer.RestoreSource = row;
+
+        var result = await _business.GetSnapshotAsync(
+            Guid.NewGuid(), row.Id, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(4, result.Value!.VersionNumber);
+        Assert.Equal("Olive oil cake", result.Value.Document.Recipe.Title);
+    }
+
+    [Fact]
+    public async Task The_recipe_and_version_id_reach_the_data_layer()
+    {
+        var recipeId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        _dataLayer.RestoreSource = SnapshotRow(1, "Olive oil cake");
+
+        await _business.GetSnapshotAsync(recipeId, versionId, TestContext.Current.CancellationToken);
+
+        Assert.Equal((recipeId, versionId), _dataLayer.SnapshotByIdRequest);
+    }
+
     // ---- Unit conversion ----
 
     private static readonly MeasurementUnitServiceModel Gram = new(
@@ -3408,6 +3461,25 @@ public sealed class RecipeBusinessTests
             // Uncounted, as the other reads are: Calls counts writes, so a test can prove a refused request
             // never reached one.
             return Task.FromResult(CalculationSourceVisible
+                ? (true, RestoreSource)
+                : (false, (RecipeVersionSnapshotRecord?)null));
+        }
+
+        /// <summary>Whether the source recipe of a snapshot-by-id read is visible.</summary>
+        public bool SnapshotSourceVisible { get; set; } = true;
+
+        /// <summary>What the last snapshot-by-id read asked for, so a test can assert what was passed down.</summary>
+        public (Guid RecipeId, Guid VersionId)? SnapshotByIdRequest { get; private set; }
+
+        public Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindSnapshotSourceAsync(
+            Guid recipeId,
+            Guid versionId,
+            CancellationToken cancellationToken)
+        {
+            RequestedRecipeId = recipeId;
+            SnapshotByIdRequest = (recipeId, versionId);
+
+            return Task.FromResult(SnapshotSourceVisible
                 ? (true, RestoreSource)
                 : (false, (RecipeVersionSnapshotRecord?)null));
         }

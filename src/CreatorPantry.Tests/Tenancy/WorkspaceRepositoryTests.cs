@@ -83,6 +83,54 @@ public sealed class WorkspaceRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task FindByIdWithMembership_finds_a_workspace_and_its_exact_membership_with_no_context_resolved()
+    {
+        var userId = await _services.CreateConfirmedUserAsync("cook@example.com", "correct horse battery");
+        var workspaceId = await SeedWorkspaceAsync("sams-kitchen");
+        var membershipId = await SeedMembershipAsync(workspaceId, userId, WorkspaceRole.Contributor, WorkspaceMembershipStatus.Removed);
+
+        // No IWorkspaceContextResolver.Resolve call precedes this -- the point of the method under test is that
+        // it works before any workspace is known, the same way FindBySlugAsync does for HTTP resolution.
+        await using var scope = _services.CreateScope();
+        var lookup = await scope.ServiceProvider.GetRequiredService<IWorkspaceRepository>()
+            .FindByIdWithMembershipAsync(workspaceId, membershipId, TestContext.Current.CancellationToken);
+
+        Assert.Equal(workspaceId, lookup.Workspace!.Id);
+        Assert.Equal("sams-kitchen", lookup.Workspace.Slug);
+        Assert.Equal(membershipId, lookup.Membership!.Id);
+        Assert.Equal(WorkspaceRole.Contributor, lookup.Membership.Role);
+
+        // Raw truth, unfiltered by status -- collapsing that is ResolveForOperationAsync's decision not to make.
+        Assert.Equal(WorkspaceMembershipStatus.Removed, lookup.Membership.Status);
+    }
+
+    [Fact]
+    public async Task FindByIdWithMembership_returns_no_membership_for_an_id_that_belongs_to_a_different_workspace()
+    {
+        var userId = await _services.CreateConfirmedUserAsync("cook@example.com", "correct horse battery");
+        var workspaceAId = await SeedWorkspaceAsync("workspace-a");
+        var workspaceBId = await SeedWorkspaceAsync("workspace-b");
+        var membershipInA = await SeedMembershipAsync(workspaceAId, userId, WorkspaceRole.Owner, WorkspaceMembershipStatus.Active);
+
+        await using var scope = _services.CreateScope();
+        var lookup = await scope.ServiceProvider.GetRequiredService<IWorkspaceRepository>()
+            .FindByIdWithMembershipAsync(workspaceBId, membershipInA, TestContext.Current.CancellationToken);
+
+        Assert.Equal(workspaceBId, lookup.Workspace!.Id);
+        Assert.Null(lookup.Membership);
+    }
+
+    [Fact]
+    public async Task FindByIdWithMembership_returns_neither_for_an_unknown_workspace()
+    {
+        var lookup = await _services.CreateScope().ServiceProvider.GetRequiredService<IWorkspaceRepository>()
+            .FindByIdWithMembershipAsync(Guid.NewGuid(), Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.Null(lookup.Workspace);
+        Assert.Null(lookup.Membership);
+    }
+
+    [Fact]
     public async Task SlugExists_reports_true_only_for_a_taken_slug()
     {
         await SeedWorkspaceAsync("sams-kitchen");

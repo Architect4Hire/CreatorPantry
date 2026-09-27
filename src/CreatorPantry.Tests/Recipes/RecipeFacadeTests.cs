@@ -443,6 +443,56 @@ public sealed class RecipeFacadeTests
         Assert.Equal(0, _idempotency.Calls);
     }
 
+    // ---- The snapshot read ----
+
+    [Theory]
+    [InlineData(WorkspaceRole.Viewer)]
+    [InlineData(WorkspaceRole.Owner)]
+    public async Task Every_member_may_read_a_pinned_snapshot(WorkspaceRole role)
+    {
+        var recipeId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        _business.Snapshot = Snapshot(3, "Olive oil cake");
+
+        var result = await Facade(role).GetSnapshotAsync(recipeId, versionId, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(3, result.Value!.VersionNumber);
+    }
+
+    [Fact]
+    public async Task The_recipe_and_version_asked_for_are_the_ones_looked_up()
+    {
+        var recipeId = Guid.NewGuid();
+        var versionId = Guid.NewGuid();
+        _business.Snapshot = Snapshot(1, "Olive oil cake");
+
+        await Facade().GetSnapshotAsync(recipeId, versionId, TestContext.Current.CancellationToken);
+
+        Assert.Equal(recipeId, _business.RequestedRecipeId);
+        Assert.Equal(versionId, _business.RequestedVersionId);
+    }
+
+    [Fact]
+    public async Task An_unreadable_version_is_reported_as_not_found()
+    {
+        _business.Snapshot = null;
+
+        var result = await Facade().GetSnapshotAsync(
+            Guid.NewGuid(), Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    private static RecipeSnapshotServiceModel Snapshot(int versionNumber, string title) => new(
+        versionNumber,
+        new RecipeSnapshotDocument
+        {
+            SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
+            Recipe = new RecipeSnapshotHeader { Title = title },
+        });
+
     /// <summary>
     /// A detail model built through the real mapper rather than by hand.
     /// </summary>
@@ -1772,6 +1822,24 @@ public sealed class RecipeFacadeTests
                 ? OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
                     RecipeErrorCodes.RecipeNotFound, "That recipe could not be found.", new Dictionary<string, string[]>()))
                 : OperationResult<RecipeDetailServiceModel>.Success(Detail));
+        }
+
+        /// <summary>What <see cref="GetSnapshotAsync"/> answers with; null makes it report not-found.</summary>
+        public RecipeSnapshotServiceModel? Snapshot { get; set; }
+
+        public Guid? RequestedVersionId { get; private set; }
+
+        public Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotAsync(
+            Guid recipeId, Guid versionId, CancellationToken cancellationToken)
+        {
+            Calls++;
+            RequestedRecipeId = recipeId;
+            RequestedVersionId = versionId;
+
+            return Task.FromResult(Snapshot is null
+                ? OperationResult<RecipeSnapshotServiceModel>.Failure(new OperationError(
+                    RecipeErrorCodes.RecipeNotFound, "That recipe could not be found.", new Dictionary<string, string[]>()))
+                : OperationResult<RecipeSnapshotServiceModel>.Success(Snapshot));
         }
 
         /// <summary>What <see cref="SearchAsync"/> answers with.</summary>

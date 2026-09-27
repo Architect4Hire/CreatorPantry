@@ -69,6 +69,15 @@
     <EmbeddedResource Include="**\*.prompt.md" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
   </ItemGroup>
 
+  <!--
+    AI evaluation fixtures (ai.md's "small versioned evaluation set"), embedded the same way and for the same
+    reason: the store loads them through the resource path it actually uses, not a string handed to it.
+  -->
+  <ItemGroup>
+    <None Remove="**\*.eval.json" />
+    <EmbeddedResource Include="**\*.eval.json" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CreatorPantry.AiProvider\CreatorPantry.AiProvider.csproj" />
     <ProjectReference Include="..\CreatorPantry.Domain\CreatorPantry.Domain.csproj" />

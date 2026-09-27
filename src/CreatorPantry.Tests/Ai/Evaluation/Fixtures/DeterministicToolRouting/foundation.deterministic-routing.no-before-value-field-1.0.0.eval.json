@@ -1,0 +1,17 @@
+{
+  "id": "foundation.deterministic-routing.no-before-value-field",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "OutputValidation",
+  "description": "The output schema has no field for a model to report a before value in -- every before value is read server-side from the pinned snapshot -- so a model naming one is an unknown field, not a value the diff would ever trust.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"headnote\",\"afterValue\":\"A warmer opening.\",\"beforeValue\":\"An old headnote.\"}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.v1",
+    "scope": "WholeRecipe"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

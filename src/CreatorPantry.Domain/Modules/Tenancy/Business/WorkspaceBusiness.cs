@@ -28,6 +28,21 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
             new ResolvedWorkspaceServiceModel(workspace.Id, workspace.Slug, membership.Id, membership.Role));
     }
 
+    public async Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForOperationAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken)
+    {
+        var lookup = await dataLayer.FindByIdWithMembershipAsync(workspaceId, membershipId, cancellationToken);
+
+        // No Active check here, unlike ResolveAsync — see the remarks on the interface member.
+        if (lookup is not { Workspace: { } workspace, Membership: { } membership })
+        {
+            return NotFound();
+        }
+
+        return OperationResult<ResolvedWorkspaceServiceModel>.Success(
+            new ResolvedWorkspaceServiceModel(workspace.Id, workspace.Slug, membership.Id, membership.Role));
+    }
+
     public async Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(
         string userId, CancellationToken cancellationToken)
     {

@@ -72,6 +72,24 @@ public interface IRecipeBusiness
     Task<OperationResult<RecipeDetailServiceModel>> GetDetailAsync(Guid recipeId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the archived content of one exact, explicitly named version — never "current" — for a caller with
+    /// no use for the recipe as it stands today.
+    /// </summary>
+    /// <returns>
+    /// The snapshot, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/> (the recipe is not
+    /// visible here, indistinguishable from one that was never created) or
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/> (the recipe is visible but names no such version).
+    /// </returns>
+    /// <remarks>
+    /// Named by version id rather than by number, unlike every calculation preview in this module: its one
+    /// caller is the AI worker, which pins a version by <c>AiOperation.RecipeVersionId</c> — a permanent id, not
+    /// a number a creator typed — so a proposal computed against it can be told apart from a recipe that has
+    /// since moved on.
+    /// </remarks>
+    Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotAsync(
+        Guid recipeId, Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Applies a creator's partial edit and captures the version that records it.
     /// </summary>
     /// <param name="recipeId">The recipe to edit, from the route.</param>
@@ -1018,6 +1036,28 @@ internal sealed class RecipeBusiness(
             : OperationResult<RecipeDetailServiceModel>.Success(RecipeDetailMapper.ToDetail(loaded));
     }
 
+    public async Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotAsync(
+        Guid recipeId, Guid versionId, CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindSnapshotSourceAsync(recipeId, versionId, cancellationToken);
+
+        if (!visible)
+        {
+            return NotFound<RecipeSnapshotServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeSnapshotServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                "That version could not be read.",
+                [(SourceVersionIdField, "This recipe has no such version.")]));
+        }
+
+        return OperationResult<RecipeSnapshotServiceModel>.Success(new RecipeSnapshotServiceModel(
+            source.VersionNumber, RecipeSnapshotSerializer.Deserialize(source.Document)));
+    }
+
     public async Task<OperationResult<RecipeDetailServiceModel>> UpdateAsync(
         Guid recipeId,
         CanonicalRecipePatch patch,
@@ -1605,6 +1645,8 @@ internal sealed class RecipeBusiness(
     /// <c>RecipeDuplicateEndpointTests</c> asserts the two agree.
     /// </remarks>
     private const string SourceVersionNumberField = "sourceVersionNumber";
+
+    private const string SourceVersionIdField = "versionId";
 
     /// <summary>
     /// The route segment a restore's version number arrives on, named in a refusal so a creator is told which

@@ -1,0 +1,25 @@
+{
+  "id": "foundation.proposal-acceptance.valid-diff-assembles",
+  "version": "1.0.0",
+  "category": "ProposalAcceptance",
+  "kind": "ProposalAssembly",
+  "description": "A valid change against the recipe's current version assembles into a proposal carrying exactly one structured change, with the before value read from the pinned snapshot and the after value from the model's answer.",
+  "input": {
+    "workspaceId": "11111111-1111-1111-1111-111111111111",
+    "operationId": "22222222-2222-2222-2222-222222222222",
+    "pinnedVersionId": "33333333-3333-3333-3333-333333333333",
+    "currentVersionId": "33333333-3333-3333-3333-333333333333",
+    "recipeTitle": "Olive oil cake",
+    "headnote": "An old headnote.",
+    "schemaVersion": "fixture.v1",
+    "changes": [
+      { "changeKind": "Set", "targetKind": "Recipe", "fieldName": "headnote", "afterValue": "A warmer opening." }
+    ]
+  },
+  "expect": {
+    "outcome": "Assembled",
+    "changeCount": 1,
+    "firstChangeBeforeValue": "An old headnote.",
+    "firstChangeAfterValue": "A warmer opening."
+  }
+}

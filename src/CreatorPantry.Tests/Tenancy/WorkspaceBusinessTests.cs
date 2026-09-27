@@ -87,6 +87,48 @@ public class WorkspaceBusinessTests
         Assert.Equal(unknown.Error.Message, inactive.Error.Message);
     }
 
+    [Theory]
+    [InlineData(WorkspaceMembershipStatus.Active)]
+    [InlineData(WorkspaceMembershipStatus.Invited)]
+    [InlineData(WorkspaceMembershipStatus.Removed)]
+    public async Task ResolveForOperation_resolves_regardless_of_membership_status(WorkspaceMembershipStatus status)
+    {
+        _dataLayer.LookupByMembership = new WorkspaceMembershipLookup(
+            new WorkspaceSummary(WorkspaceId, Slug),
+            new MembershipSummary(MembershipId, WorkspaceRole.Contributor, status));
+
+        var result = await CreateBusiness().ResolveForOperationAsync(
+            WorkspaceId, MembershipId, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(WorkspaceId, result.Value!.WorkspaceId);
+        Assert.Equal(Slug, result.Value.WorkspaceSlug);
+        Assert.Equal(MembershipId, result.Value.MembershipId);
+        Assert.Equal(WorkspaceRole.Contributor, result.Value.Role);
+    }
+
+    [Fact]
+    public async Task ResolveForOperation_fails_when_the_workspace_no_longer_exists()
+    {
+        _dataLayer.LookupByMembership = new WorkspaceMembershipLookup(null, null);
+
+        var result = await CreateBusiness().ResolveForOperationAsync(
+            WorkspaceId, MembershipId, TestContext.Current.CancellationToken);
+
+        AssertNotFound(result);
+    }
+
+    [Fact]
+    public async Task ResolveForOperation_fails_when_the_membership_does_not_belong_to_this_workspace()
+    {
+        _dataLayer.LookupByMembership = new WorkspaceMembershipLookup(new WorkspaceSummary(WorkspaceId, Slug), null);
+
+        var result = await CreateBusiness().ResolveForOperationAsync(
+            WorkspaceId, MembershipId, TestContext.Current.CancellationToken);
+
+        AssertNotFound(result);
+    }
+
     [Fact]
     public async Task The_slug_is_trimmed_before_lookup()
     {

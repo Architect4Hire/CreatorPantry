@@ -10,6 +10,16 @@ public interface IWorkspaceRepository
     /// </summary>
     Task<WorkspaceMembershipLookup> FindBySlugAsync(string slug, string userId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Looks up a workspace by id and one specific membership id in it, for a caller that already trusts both
+    /// from server-resolved state — a background worker finishing an <c>AiOperation</c> a creator already
+    /// queued, naming its own <c>WorkspaceId</c> and <c>RequestedByMembershipId</c> — rather than from a route
+    /// slug and an authenticated user. Raw truth only, like <see cref="FindBySlugAsync"/>: disclosure policy is
+    /// Business's job.
+    /// </summary>
+    Task<WorkspaceMembershipLookup> FindByIdWithMembershipAsync(
+        Guid workspaceId, Guid membershipId, CancellationToken cancellationToken);
+
     Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken);
 
     /// <summary>Atomically inserts a new <c>Workspace</c> and its creator's <c>Owner</c> membership.</summary>

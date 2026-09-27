@@ -1,0 +1,15 @@
+{
+  "id": "foundation.refusal-safety.provider-safety-block",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "WorkerOperation",
+  "description": "A provider-classified safety refusal fails the operation as SafetyBlocked in exactly one attempt; it is never retried the way a transient fault would be.",
+  "input": {
+    "scenario": "provider-safety-block"
+  },
+  "expect": {
+    "outcome": "Failed",
+    "failureCategory": "SafetyBlocked",
+    "attemptCount": 1
+  }
+}

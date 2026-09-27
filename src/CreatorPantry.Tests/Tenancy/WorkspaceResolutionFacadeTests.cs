@@ -49,7 +49,60 @@ public class WorkspaceResolutionFacadeTests
             " ", new ResolveWorkspaceViewModel("sams-kitchen"), TestContext.Current.CancellationToken));
     }
 
-    private WorkspaceResolutionFacade CreateFacade() => new(new ResolveWorkspaceViewModelValidator(), _business);
+    [Fact]
+    public async Task ResolveForOperation_delegates_straight_to_business_with_no_shape_validation()
+    {
+        var workspaceId = Guid.NewGuid();
+        var membershipId = Guid.NewGuid();
+        var expected = OperationResult<ResolvedWorkspaceServiceModel>.Success(
+            new ResolvedWorkspaceServiceModel(workspaceId, "sams-kitchen", membershipId, WorkspaceRole.Viewer));
+        _business.OperationResult = expected;
+
+        var result = await CreateFacade().ResolveForOperationAsync(
+            workspaceId, membershipId, TestContext.Current.CancellationToken);
+
+        Assert.Same(expected, result);
+        Assert.Equal((workspaceId, membershipId), _business.LastOperationArgs);
+    }
+
+    /// <summary>
+    /// Unlike <see cref="IWorkspaceResolutionFacade.ResolveAsync"/>, this method populates the ambient context
+    /// itself -- its one caller lives in another module and may not reach <see cref="IWorkspaceContextResolver"/>
+    /// directly.
+    /// </summary>
+    [Fact]
+    public async Task A_successful_resolution_populates_the_ambient_workspace_context()
+    {
+        var workspaceId = Guid.NewGuid();
+        var membershipId = Guid.NewGuid();
+        _business.OperationResult = OperationResult<ResolvedWorkspaceServiceModel>.Success(
+            new ResolvedWorkspaceServiceModel(workspaceId, "sams-kitchen", membershipId, WorkspaceRole.Contributor));
+
+        var context = new WorkspaceContext();
+        await CreateFacade(context).ResolveForOperationAsync(
+            workspaceId, membershipId, TestContext.Current.CancellationToken);
+
+        Assert.True(context.IsResolved);
+        Assert.Equal(workspaceId, context.WorkspaceId);
+        Assert.Equal(membershipId, context.MembershipId);
+        Assert.Equal(WorkspaceRole.Contributor, context.Role);
+    }
+
+    [Fact]
+    public async Task A_failed_resolution_leaves_the_ambient_context_unresolved()
+    {
+        _business.OperationResult = OperationResult<ResolvedWorkspaceServiceModel>.Failure(
+            new OperationError(TenancyErrorCodes.WorkspaceNotFound, "not found", new Dictionary<string, string[]>()));
+
+        var context = new WorkspaceContext();
+        await CreateFacade(context).ResolveForOperationAsync(
+            Guid.NewGuid(), Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.False(context.IsResolved);
+    }
+
+    private WorkspaceResolutionFacade CreateFacade(WorkspaceContext? contextResolver = null) =>
+        new(new ResolveWorkspaceViewModelValidator(), _business, contextResolver ?? new WorkspaceContext());
 
     private sealed class FakeWorkspaceBusiness : IWorkspaceBusiness
     {
@@ -66,6 +119,18 @@ public class WorkspaceResolutionFacadeTests
             Calls++;
             LastUserId = userId;
             return Task.FromResult(Result);
+        }
+
+        public OperationResult<ResolvedWorkspaceServiceModel> OperationResult { get; set; } =
+            OperationResult<ResolvedWorkspaceServiceModel>.Failure(new OperationError("unused", "unused", new Dictionary<string, string[]>()));
+
+        public (Guid WorkspaceId, Guid MembershipId)? LastOperationArgs { get; private set; }
+
+        public Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForOperationAsync(
+            Guid workspaceId, Guid membershipId, CancellationToken cancellationToken)
+        {
+            LastOperationArgs = (workspaceId, membershipId);
+            return Task.FromResult(OperationResult);
         }
 
         public Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(string userId, CancellationToken cancellationToken) =>

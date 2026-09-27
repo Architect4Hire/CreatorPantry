@@ -6,6 +6,11 @@ using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Recipes;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.ServiceDefaults;
 using CreatorPantry.Worker;
 using Microsoft.EntityFrameworkCore;
@@ -32,8 +37,22 @@ builder.Services.AddSingleton<IAiFailureClassifier, AzureInferenceFailureClassif
 builder.AddAiResilience(static exception => exception is AiTransientFailureException);
 builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
 
+// Registered deliberately, for the AI operation worker: it loads the exact recipe/version an operation names
+// through the recipe module's own facade, never its repositories, and that facade needs the whole seam below
+// it — tenancy for workspace resolution, and every module IRecipeFacade itself calls facade-to-facade.
+builder.Services.AddTenancy();
+builder.Services.AddMeasurementModule();
+builder.Services.AddVocabularyModule();
+builder.Services.AddIngredientModule();
+builder.Services.AddRecipesModule();
+builder.Services.AddAudit();
+builder.Services.AddIdempotency(builder.Configuration);
+builder.Services.AddAiOperationWorker();
+
 builder.Services.AddOutbox();
 builder.Services.AddHostedService<OutboxDispatcherHostedService>();
+builder.Services.AddHostedService<AiOperationWorkerHostedService>();
+builder.Services.AddHostedService<AiOperationMaintenanceHostedService>();
 
 var host = builder.Build();
 host.Run();

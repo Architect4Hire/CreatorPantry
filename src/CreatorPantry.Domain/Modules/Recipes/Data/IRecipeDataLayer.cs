@@ -339,6 +339,19 @@ public interface IRecipeDataLayer
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the archived content a caller who only holds an exact version id needs — an AI worker's own
+    /// pinned <c>RecipeVersionId</c>, never a version number a creator typed.
+    /// </summary>
+    /// <returns>
+    /// Whether the recipe is visible in the resolved workspace, and the version read when one was found. Same
+    /// shape and the same reasoning as <see cref="FindCalculationSourceAsync"/>.
+    /// </returns>
+    Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindSnapshotSourceAsync(
+        Guid recipeId,
+        Guid versionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Moves a recipe between editorial states and records the move — atomically, and only if the recipe is
     /// still in the state the command was composed against.
     /// </summary>
@@ -532,6 +545,19 @@ internal sealed class RecipeDataLayer(
         }
 
         return (true, await versions.FindSnapshotAsync(recipeId, versionNumber, cancellationToken));
+    }
+
+    public async Task<(bool RecipeVisible, RecipeVersionSnapshotRecord? Source)> FindSnapshotSourceAsync(
+        Guid recipeId,
+        Guid versionId,
+        CancellationToken cancellationToken)
+    {
+        if (!await recipes.ExistsAsync(recipeId, cancellationToken))
+        {
+            return (false, null);
+        }
+
+        return (true, await versions.FindSnapshotByIdAsync(recipeId, versionId, cancellationToken));
     }
 
     public async Task<bool> TrySetStatusAsync(

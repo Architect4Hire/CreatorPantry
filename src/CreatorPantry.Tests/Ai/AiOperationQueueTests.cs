@@ -158,7 +158,8 @@ public sealed class AiOperationQueueTests : IDisposable
     {
         var carried = typeof(AiOperationClaim).GetProperties().Select(property => property.Name).Order().ToArray();
 
-        Assert.Equal(["Attempts", "LeaseToken", "OperationId", "WorkspaceId"], carried);
+        Assert.Equal(
+            ["Attempts", "LeaseToken", "OperationId", "RequestedByMembershipId", "WorkspaceId"], carried);
         Assert.All(
             typeof(AiOperationClaim).GetProperties(),
             property => Assert.True(
