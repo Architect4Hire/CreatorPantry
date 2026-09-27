@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Ai.Business;
+using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using FluentValidation;
 
 namespace CreatorPantry.Tests.Ai;
 
@@ -139,6 +143,39 @@ public sealed class AiConceptRequestEndpointTests
     public void The_idempotency_header_is_the_one_the_rest_of_the_api_uses()
     {
         Assert.Equal("Idempotency-Key", IdempotencyPolicy.KeyHeader);
+    }
+
+    /// <summary>
+    /// A missing key is refused at the Facade, before Business (and therefore before anything is queued) --
+    /// proven by a business stub that throws if it is ever reached. Generation is not free, so a caller with
+    /// no natural key must not be allowed to omit one.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task A_missing_idempotency_key_is_refused_before_business_is_ever_called(string? key)
+    {
+        IAiConceptRequestFacade facade = new AiConceptRequestFacade(
+            new NeverCalledBusiness(), new RequestRecipeConceptsViewModelValidator());
+
+        var outcome = await facade.RequestAsync(
+            new RequestRecipeConceptsViewModel(), key, TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Replayed);
+        Assert.False(outcome.Result.Succeeded);
+        Assert.Equal(IdempotencyPolicy.KeyRequiredCode, outcome.Result.Error!.Code);
+    }
+
+    private sealed class NeverCalledBusiness : IAiConceptRequestBusiness
+    {
+        public Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
+            RequestRecipeConceptsViewModel model, string idempotencyKey, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Business must not be reached with no idempotency key.");
+
+        public Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(
+            Guid requestId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Not exercised by this test.");
     }
 
     /// <summary>Every code this seam can return is namespaced and distinct.</summary>
