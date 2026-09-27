@@ -168,6 +168,54 @@ public sealed class CreateRecipeViewModelValidatorTests
         Assert.False(_validator.Validate(
             new CreateRecipeViewModel { Title = "Cake", YieldQuantity = quantity }).IsValid);
 
+    // ---- Servings ----
+
+    /// <summary>
+    /// The gap the field closes, at the edge: a recipe that says only how many people it feeds.
+    /// </summary>
+    [Fact]
+    public void A_serving_count_needs_nothing_beside_it() =>
+        Assert.True(_validator.Validate(
+            new CreateRecipeViewModel { Title = "Chili", YieldText = "serves 12", ServingCount = 12m }).IsValid);
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_non_positive_serving_count_is_invalid(int count) =>
+        Assert.False(_validator.Validate(
+            new CreateRecipeViewModel { Title = "Chili", ServingCount = count }).IsValid);
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void A_non_positive_serving_size_is_invalid(int size) =>
+        Assert.False(_validator.Validate(
+            new CreateRecipeViewModel
+            {
+                Title = "Chili",
+                YieldQuantity = 2000m,
+                YieldUnitId = Guid.NewGuid(),
+                ServingSize = size,
+            }).IsValid);
+
+    [Fact]
+    public void A_serving_size_with_no_unit_to_measure_it_in_is_invalid() =>
+        // Mirrors CK_Recipes_ServingSize_RequiresYieldUnit. A bare 250 is not a serving size.
+        Assert.False(_validator.Validate(
+            new CreateRecipeViewModel { Title = "Chili", ServingSize = 250m }).IsValid);
+
+    [Fact]
+    public void A_serving_size_in_the_recipes_yield_unit_is_valid() =>
+        Assert.True(_validator.Validate(
+            new CreateRecipeViewModel
+            {
+                Title = "Chili",
+                YieldQuantity = 2000m,
+                YieldUnitId = Guid.NewGuid(),
+                ServingCount = 8m,
+                ServingSize = 250m,
+            }).IsValid);
+
     // ---- References ----
 
     [Theory]

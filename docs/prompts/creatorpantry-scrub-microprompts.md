@@ -1794,7 +1794,56 @@ BEHAVIOR: Plan selection and transaction contract, wait for approval, implement 
 partial, reject, stale, invalid, replay, rollback, and two-workspace tests; then run ai-safety-reviewer.
 ```
 
-### 8.13 AI proposal review UI *PICK UP HERE*
+### 8.13 AI proposal review UI - done, unmounted
+
+*Delivery note, in five parts.*
+
+*First, what shipped and what did not. `features/ai/` holds `cp-ai-proposal-panel` and
+`cp-ai-operation-status`, over `models/ai-proposal.models.ts` and `services/ai-proposal.service.ts`. Nothing
+mounts them: 8.14's worker does not exist, `diagnostic` ships disabled, and 9.2a/9.4a are the named hosts. One
+consequence to know — `tsconfig.app.json` compiles from `src/main.ts`, so `npm run build` does **not**
+type-check an unmounted component. `npm test` does, through the specs, and it is the real gate until a host
+lands. The panel takes `requestId` as a `model` and publishes a retry's new id through it, so a host that keeps
+that id in the URL survives a refresh; the panel's own resume-from-id is what a refresh reduces to, and is
+tested.*
+
+*Second, "edit before accept", which the disposition contract cannot express. `AiProposalDispositionViewModel`
+carries ids and nothing else, so an edited value has nowhere to go. An edited row is therefore left out of
+`acceptedChangeIds` — the server records it declined — and emitted to the host as the creator's own wording, to
+be applied through the ordinary recipe patch path. `changeEdited` carries `value: string | null`, and the null is
+not a nicety: without a withdrawal event, a creator who rewrote a field and then ticked the suggestion instead
+would have both written to it, the host's copy of their words and the accepted change. `dropEdit` is the single
+place an edit is forgotten, precisely so no path can forget to say so.*
+
+*Third, "cancellation", which the API does not offer. The controller has three actions — ask, read, decide — and
+none of them cancels. The button therefore reads "Stop checking" and says the request keeps running; claiming to
+cancel generation would be promising what the server cannot honour. Teardown aborts the read in flight, which is
+what `watchStatus` returning an Observable buys.*
+
+*Fourth, what the two reviewers found, because most of it was real and all of it is fixed. `ai-safety-reviewer`
+and `design-review` independently found the same blocker: the disposition reply says what the *operation*
+became, not what became of each *change*, so the rows kept their `Pending` disposition and reported "Not
+decided" directly under a summary saying two suggestions had been kept. The fix is a re-read, not a local
+mapping of the accepted ids — deriving the server's answer here is the one thing this panel must not do. Two
+more honesty defects went with it: `unavailable` on a disposition asserted "nothing was saved" about a
+transaction that may well have committed before the connection dropped (it now says unconfirmed, and checks),
+and an edit announced "Saved with your own edits" before anything was saved (now future tense). Also fixed: a
+403 on deciding no longer wipes a readable proposal off the screen; `Select all` no longer destroys typed
+wording; an `Add` no longer reads "moves to"; a bare `temperatureValue` now says which scale it is in, since
+`AiDiffFields` excludes the unit on purpose; the legend is derived from the kinds actually present, so the
+defensive `warning` glyph cannot appear unexplained; `ensureLoaded` is called and an unknown role no longer
+reads as a refusal; the provenance names the source version the "was" values came from; and one standing line
+says that an unflagged suggestion has not been checked rather than letting an empty flag list imply it.*
+
+*Fifth, two things found in passing and deliberately not fixed here. **The published contract misdescribes this
+route's request body**: `AiProposalDispositionViewModel` and `AiProposalDispositionServiceModel` both strip to
+`AiProposalDisposition` in `OpenApiDocumentation.PublicSchemaId`, so `openapi-v1.json` declares the disposition
+request as the *response* shape and a generated client would send the wrong body. This panel is written against
+the C# ViewModel and is correct. The fix — distinct ids for a colliding pair, plus a regenerated snapshot —
+belongs in its own backend diff. **And `AI-UI-001` through `AI-UI-006` do not exist in this repository**: only
+the ids appear, here. The panel was built against this prompt's RESTRICTION line plus
+`.claude/rules/{ai,frontend,design-system}.md`, and is worth a read-back if the requirement text lives
+somewhere else.*
 
 ```text
 SCOPE: Build the AI proposal panel and operation-status UI with Requested/Running/Proposed/final states,

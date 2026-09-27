@@ -995,6 +995,131 @@ public sealed class RecipeBusinessTests
         Assert.Equal(MeasurementDimension.Count, recipe.YieldUnitDimension);
     }
 
+    // ---- Servings ----
+
+    /// <summary>
+    /// The gap the field closes, through the seam: a recipe that records only how many it serves.
+    /// </summary>
+    [Fact]
+    public async Task A_serving_count_needs_no_unit_and_no_batch_yield()
+    {
+        var recipe = Stored();
+
+        var result = await UpdateAsync(recipe, Edit() with { ServingCount = Set<decimal?>(12m) });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(12m, recipe.ServingCount);
+        Assert.Null(recipe.YieldUnitId);
+        Assert.Null(recipe.YieldQuantity);
+    }
+
+    [Fact]
+    public async Task A_serving_size_is_refused_when_the_merged_recipe_would_have_no_unit()
+    {
+        // Neither half is wrong on its own: the recipe has no unit, and the patch names no unit either. Only
+        // the state the two produce together is incoherent, which is why this cannot be asked at the edge.
+        var recipe = Stored();
+
+        var result = await UpdateAsync(recipe, Edit() with { ServingSize = Set<decimal?>(250m) });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("servingSize", result.Error!.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Clearing_the_yield_unit_under_a_stored_serving_size_is_refused()
+    {
+        var recipe = Stored(stored =>
+        {
+            stored.YieldQuantity = 2000m;
+            stored.YieldUnitId = Guid.NewGuid();
+            stored.YieldUnitDimension = MeasurementDimension.Volume;
+            stored.ServingSize = 250m;
+        });
+
+        // The serving size is the half this patch does not mention, and it is the half that makes the result
+        // impossible: mirrors CK_Recipes_ServingSize_RequiresYieldUnit, which would otherwise arrive as a 500.
+        var result = await UpdateAsync(
+            recipe,
+            Edit() with { YieldQuantity = Set<decimal?>(null), YieldUnitId = Set<Guid?>(null) });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("servingSize", result.Error!.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task Clearing_the_serving_size_alongside_the_unit_is_allowed()
+    {
+        var recipe = Stored(stored =>
+        {
+            stored.YieldQuantity = 2000m;
+            stored.YieldUnitId = Guid.NewGuid();
+            stored.YieldUnitDimension = MeasurementDimension.Volume;
+            stored.ServingCount = 8m;
+            stored.ServingSize = 250m;
+        });
+
+        var result = await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                YieldQuantity = Set<decimal?>(null),
+                YieldUnitId = Set<Guid?>(null),
+                ServingSize = Set<decimal?>(null),
+            });
+
+        Assert.True(result.Succeeded);
+        Assert.Null(recipe.ServingSize);
+
+        // The count survives, because it never needed the unit. "Serves 8" is still true of this recipe.
+        Assert.Equal(8m, recipe.ServingCount);
+    }
+
+    /// <summary>
+    /// Non-positive amounts are refused by Business, not only by the shape validators.
+    /// </summary>
+    /// <remarks>
+    /// Unreachable for an ordinary request, which the validators already refuse — but the apply path for an
+    /// accepted AI proposal deliberately does not run them, and builds a patch straight from strings a model
+    /// produced. Without this, an accepted "serves -3" reaches the check constraint and the creator loses their
+    /// decision to a 500 instead of a message.
+    /// </remarks>
+    [Theory]
+    [InlineData("servingCount")]
+    [InlineData("servingSize")]
+    [InlineData("yieldQuantity")]
+    public async Task A_non_positive_amount_is_refused_by_business_too(string field)
+    {
+        var recipe = Stored(stored =>
+        {
+            stored.YieldQuantity = 2000m;
+            stored.YieldUnitId = Guid.NewGuid();
+            stored.YieldUnitDimension = MeasurementDimension.Volume;
+        });
+
+        var edit = field switch
+        {
+            "servingCount" => Edit() with { ServingCount = Set<decimal?>(-3m) },
+            "servingSize" => Edit() with { ServingSize = Set<decimal?>(-3m) },
+            _ => Edit() with { YieldQuantity = Set<decimal?>(-3m) },
+        };
+
+        var result = await UpdateAsync(recipe, edit);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(field, result.Error!.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task A_zero_serving_count_is_refused_as_well_as_a_negative_one()
+    {
+        // Zero is the one a model reaches for when it means "none". Clearing the field is how none is said.
+        var result = await UpdateAsync(Stored(), Edit() with { ServingCount = Set<decimal?>(0m) });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("servingCount", result.Error!.FieldErrors.Keys);
+    }
+
     // ---- Tags ----
 
     [Fact]

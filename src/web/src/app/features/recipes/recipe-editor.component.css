@@ -396,18 +396,45 @@ cp-tab-panel:not([hidden]) {
   display: flex;
 }
 
-/* The total-time box and the button that offers the derived sum, on one line. The box takes the room; the
-   button takes its content width and wraps below at narrow widths and at 200% zoom. */
+/* The derived total, which is read and never typed into. Given the height an input in this row would have
+   taken so the row's baseline does not move, and deliberately not given an input's border or background: it is
+   a result, and looking like a box a creator could type in would be a lie about what it is. */
 .derived-total {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-2);
+  min-height: 2.75rem;
+  font-size: var(--cp-font-size-md);
+  font-weight: 700;
+  color: var(--cp-text);
 }
 
-.derived-total input {
-  flex: 1 1 6rem;
-  min-width: 0;
+/* The em dash standing in for "no total yet". Muted and unbolded, because an absence is not a value. */
+.derived-total-absent {
+  color: var(--cp-text-muted);
+  font-weight: 400;
+}
+
+/* Said across the whole row rather than in a field's hint, because it is about what Save will do to the saved
+   recipe rather than about the field it sits under. Toned and glyphed both, like .section-problem, so it does
+   not depend on telling two hues apart. */
+.total-time-replacement {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid var(--cp-orange);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-orange-soft);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.total-time-replacement::before {
+  content: '\25B2';
+  flex: none;
+  font-weight: 700;
+  color: var(--cp-orange);
 }
 
 /* The server's one sentence about a whole list, under the heading of the section it is about. Danger-toned like

@@ -78,8 +78,17 @@ public sealed record CreateRecipeViewModel
     /// <summary>The numeric yield, when there is one. Additive to <see cref="YieldText"/>.</summary>
     public decimal? YieldQuantity { get; init; }
 
-    /// <summary>The serving unit. Meaningless without <see cref="YieldQuantity"/>, and rejected without it.</summary>
+    /// <summary>The unit the yield and the serving size are measured in. Meaningless without
+    /// <see cref="YieldQuantity"/>, and rejected without it.</summary>
     public Guid? YieldUnitId { get; init; }
+
+    /// <summary>How many servings the batch makes. Unitless, and independent of <see cref="YieldQuantity"/>.</summary>
+    public decimal? ServingCount { get; init; }
+
+    /// <summary>
+    /// How much one serving is, in <see cref="YieldUnitId"/>. Rejected without a unit to read it in.
+    /// </summary>
+    public decimal? ServingSize { get; init; }
 
     /// <summary>
     /// The creator's tag names, in their own words. Names rather than ids, so tagging is one action: a name

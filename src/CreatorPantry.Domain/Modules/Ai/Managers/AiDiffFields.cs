@@ -76,7 +76,12 @@ public static class AiDiffFields
         ("restTimeMinutes", header => Format(header.RestTimeMinutes)),
         ("totalTimeMinutes", header => Format(header.TotalTimeMinutes)),
         ("yieldText", header => header.YieldText),
-        ("yieldQuantity", header => Format(header.YieldQuantity)));
+        ("yieldQuantity", header => Format(header.YieldQuantity)),
+        // Settable alongside yieldQuantity rather than held back, because a proposal that could change the
+        // batch but not the servings it is divided into can leave a recipe stating two incompatible things.
+        // Still a proposal: recipes.md forbids a silent change, not a reviewed one.
+        ("servingCount", header => Format(header.ServingCount)),
+        ("servingSize", header => Format(header.ServingSize)));
 
     private static readonly Dictionary<string, Read> InstructionGroupFields = Fields<RecipeSnapshotInstructionGroup>(
         ("title", group => group.Title));

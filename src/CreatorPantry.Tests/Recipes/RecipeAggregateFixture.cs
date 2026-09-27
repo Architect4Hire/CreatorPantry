@@ -186,6 +186,8 @@ internal sealed class RecipeAggregateFixture : IDisposable
         recipe.YieldQuantity = 12m;
         recipe.YieldUnitId = EachId;
         recipe.YieldUnitDimension = MeasurementDimension.Count;
+        recipe.ServingCount = 12m;
+        recipe.ServingSize = 1m;
         recipe.Status = RecipeStatus.Ready;
 
         // Set so the detail read is proven to publish it. Not persisted by any test that uses this recipe, so

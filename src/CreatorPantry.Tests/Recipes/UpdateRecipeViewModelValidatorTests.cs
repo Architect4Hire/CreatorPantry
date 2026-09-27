@@ -209,6 +209,30 @@ public sealed class UpdateRecipeViewModelValidatorTests
         Assert.True(_validator.Validate(Empty() with { YieldUnitId = Set<Guid?>(Guid.NewGuid()) }).IsValid);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void A_serving_count_must_be_greater_than_zero(int count) =>
+        Assert.Single(ErrorsFor(Empty() with { ServingCount = Set<decimal?>(count) }, "ServingCount"));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void A_serving_size_must_be_greater_than_zero(int size) =>
+        Assert.Single(ErrorsFor(Empty() with { ServingSize = Set<decimal?>(size) }, "ServingSize"));
+
+    [Fact]
+    public void A_serving_size_without_a_unit_is_not_refused_here()
+    {
+        // Unlike on a create, and for the same reason the yield pairing is not: the unit may be the half this
+        // patch does not mention, so only the merged recipe can be judged — which is Business's job.
+        Assert.True(_validator.Validate(Empty() with { ServingSize = Set<decimal?>(250m) }).IsValid);
+    }
+
+    [Fact]
+    public void A_serving_count_may_be_cleared() =>
+        Assert.True(_validator.Validate(Empty() with { ServingCount = Set<decimal?>(null) }).IsValid);
+
     [Fact]
     public void An_empty_guid_is_not_a_reference() =>
         Assert.Single(ErrorsFor(Empty() with { CuisineId = Set<Guid?>(Guid.Empty) }, "CuisineId"));

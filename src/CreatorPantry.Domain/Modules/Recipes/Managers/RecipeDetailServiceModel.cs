@@ -80,6 +80,12 @@ public sealed record RecipeDetailServiceModel
 
     public required Guid? YieldUnitId { get; init; }
 
+    /// <summary>How many servings the batch makes, when the creator recorded it. Unitless.</summary>
+    public required decimal? ServingCount { get; init; }
+
+    /// <summary>How much one serving is, in <see cref="YieldUnitId"/>.</summary>
+    public required decimal? ServingSize { get; init; }
+
     /// <summary>The creator's editorial state. It implies nothing about external publication.</summary>
     public required RecipeStatus Status { get; init; }
 

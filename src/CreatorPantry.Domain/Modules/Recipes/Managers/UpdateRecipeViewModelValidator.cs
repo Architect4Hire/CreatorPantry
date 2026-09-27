@@ -90,6 +90,18 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
             .When(model => model.YieldQuantity.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.YieldQuantity));
 
+        RuleFor(model => model.ServingCount)
+            .Must(field => field.Value is null or > 0m)
+                .WithMessage("A serving count must be greater than zero.")
+            .When(model => model.ServingCount.IsSubmitted)
+            .OverridePropertyName(nameof(UpdateRecipeViewModel.ServingCount));
+
+        RuleFor(model => model.ServingSize)
+            .Must(field => field.Value is null or > 0m)
+                .WithMessage("A serving size must be greater than zero.")
+            .When(model => model.ServingSize.IsSubmitted)
+            .OverridePropertyName(nameof(UpdateRecipeViewModel.ServingSize));
+
         Reference(model => model.CuisineId, nameof(UpdateRecipeViewModel.CuisineId));
         Reference(model => model.CourseId, nameof(UpdateRecipeViewModel.CourseId));
         Reference(model => model.PrimaryTechniqueId, nameof(UpdateRecipeViewModel.PrimaryTechniqueId));

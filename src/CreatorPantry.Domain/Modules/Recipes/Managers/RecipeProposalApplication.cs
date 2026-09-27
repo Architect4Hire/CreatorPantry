@@ -143,6 +143,8 @@ public static class RecipeProposalApplication
         private PatchField<int?> totalTimeMinutes;
         private PatchField<string?> yieldText;
         private PatchField<decimal?> yieldQuantity;
+        private PatchField<decimal?> servingCount;
+        private PatchField<decimal?> servingSize;
 
         /// <summary>Records one accepted field value, or says why it cannot be recorded.</summary>
         public string? Set(string? fieldName, string? value) => fieldName switch
@@ -160,6 +162,8 @@ public static class RecipeProposalApplication
             "totalTimeMinutes" => Integer(value, ref totalTimeMinutes),
             "yieldText" => Text(value, ref yieldText),
             "yieldQuantity" => Number(value, ref yieldQuantity),
+            "servingCount" => Number(value, ref servingCount),
+            "servingSize" => Number(value, ref servingSize),
             _ => $"'{fieldName}' is not a field of a recipe that an accepted change can set.",
         };
 
@@ -188,6 +192,8 @@ public static class RecipeProposalApplication
                 TotalTimeMinutes = totalTimeMinutes,
                 YieldText = yieldText,
                 YieldQuantity = yieldQuantity,
+                ServingCount = servingCount,
+                ServingSize = servingSize,
 
                 Instructions = instructions is null
                     ? PatchField<IReadOnlyList<CanonicalInstructionGroup>>.Absent

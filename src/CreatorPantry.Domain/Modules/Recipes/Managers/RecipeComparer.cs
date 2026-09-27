@@ -462,6 +462,8 @@ public static class RecipeComparer
         (RecipeComparisonField.YieldQuantity, header.YieldQuantity),
         (RecipeComparisonField.YieldUnitId, header.YieldUnitId),
         (RecipeComparisonField.YieldUnitDimension, header.YieldUnitDimension),
+        (RecipeComparisonField.ServingCount, header.ServingCount),
+        (RecipeComparisonField.ServingSize, header.ServingSize),
     ];
 
     private static (RecipeComparisonField Field, object? Value)[] NotesFields(RecipeSnapshotHeader header) =>

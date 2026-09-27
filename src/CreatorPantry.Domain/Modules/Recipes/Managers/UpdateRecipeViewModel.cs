@@ -113,6 +113,16 @@ public sealed record UpdateRecipeViewModel
     /// </summary>
     public PatchField<Guid?> YieldUnitId { get; init; }
 
+    /// <inheritdoc cref="CreateRecipeViewModel.ServingCount"/>
+    public PatchField<decimal?> ServingCount { get; init; }
+
+    /// <summary>
+    /// How much one serving is. Needs a yield unit to be measured in — and because a patch names only part of
+    /// the recipe, that pairing is checked against what the recipe <em>would become</em> rather than against
+    /// this request alone.
+    /// </summary>
+    public PatchField<decimal?> ServingSize { get; init; }
+
     /// <summary>
     /// The recipe's complete set of tag names, in the creator's own words. Submitting replaces; omitting
     /// leaves them alone; <c>null</c> or <c>[]</c> clears them.

@@ -63,6 +63,8 @@ public static class RecipeSnapshotMapper
             YieldQuantity = recipe.YieldQuantity,
             YieldUnitId = recipe.YieldUnitId,
             YieldUnitDimension = recipe.YieldUnitDimension,
+            ServingCount = recipe.ServingCount,
+            ServingSize = recipe.ServingSize,
             Status = recipe.Status,
         },
 
@@ -186,6 +188,8 @@ public static class RecipeSnapshotMapper
             YieldQuantity = header.YieldQuantity,
             YieldUnitId = header.YieldUnitId,
             YieldUnitDimension = header.YieldUnitDimension,
+            ServingCount = header.ServingCount,
+            ServingSize = header.ServingSize,
             Status = header.Status,
         };
 

@@ -4322,6 +4322,24 @@
             ],
             "format": "uuid"
           },
+          "servingCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
           "tags": {
             "type": [
               "null",
@@ -5292,6 +5310,8 @@
           "YieldQuantity",
           "YieldUnitId",
           "YieldUnitDimension",
+          "ServingCount",
+          "ServingSize",
           "Headnote",
           "Notes",
           "StorageNotes",
@@ -5390,6 +5410,8 @@
           "yieldText",
           "yieldQuantity",
           "yieldUnitId",
+          "servingCount",
+          "servingSize",
           "status",
           "duplicatedFrom",
           "createdAt",
@@ -5525,6 +5547,24 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "servingCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           },
           "status": {
             "$ref": "#/components/schemas/RecipeStatus"
@@ -7263,6 +7303,24 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "servingCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           },
           "tags": {
             "type": [

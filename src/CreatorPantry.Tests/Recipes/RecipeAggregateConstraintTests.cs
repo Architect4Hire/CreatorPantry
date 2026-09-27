@@ -178,6 +178,77 @@ public sealed class RecipeAggregateConstraintTests : IDisposable
         Assert.Equal(12m, (await db.Recipes.SingleAsync(TestContext.Current.CancellationToken)).YieldQuantity);
     }
 
+    /// <summary>
+    /// The gap the serving fields close: a recipe that only knows how many people it feeds.
+    /// </summary>
+    /// <remarks>
+    /// Unlike a serving <em>size</em>, a serving count needs no unit — "serves 12" is complete on its own, and
+    /// requiring a unit beside it would put the creator back where they started, with nowhere to record the
+    /// number.
+    /// </remarks>
+    [Fact]
+    public async Task A_serving_count_needs_no_unit_and_no_batch_yield()
+    {
+        await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
+        var db = RecipeAggregateFixture.Db(scope);
+        var recipe = await SeedAsync(db);
+
+        recipe.YieldText = "serves 12";
+        recipe.ServingCount = 12m;
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var stored = await db.Recipes.SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(12m, stored.ServingCount);
+        Assert.Null(stored.YieldQuantity);
+        Assert.Null(stored.YieldUnitId);
+    }
+
+    [Fact]
+    public async Task A_serving_size_needs_a_unit_to_be_measured_in()
+    {
+        await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
+        var db = RecipeAggregateFixture.Db(scope);
+        var recipe = await SeedAsync(db);
+
+        recipe.ServingSize = 250m;
+        recipe.YieldUnitId = null;
+        recipe.YieldUnitDimension = null;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task A_serving_count_is_a_positive_number(int count)
+    {
+        await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
+        var db = RecipeAggregateFixture.Db(scope);
+        var recipe = await SeedAsync(db);
+
+        recipe.ServingCount = count;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task A_serving_size_is_a_positive_number(int size)
+    {
+        await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
+        var db = RecipeAggregateFixture.Db(scope);
+        var recipe = await SeedAsync(db);
+
+        recipe.YieldQuantity = 12m;
+        recipe.YieldUnitId = RecipeAggregateFixture.GramId;
+        recipe.YieldUnitDimension = MeasurementDimension.Mass;
+        recipe.ServingSize = size;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task Times_cannot_run_backwards()
     {

@@ -148,8 +148,9 @@ const INSTRUCTION_GROUP_ANCHOR_PREFIX = 'instruction-group-';
 /**
  * `RecipePolicy.MaxTimeMinutes` — one year, the most the server accepts for any one time field.
  *
- * Mirrored because three times each inside the limit can add to a sum outside it, and offering a total that
- * comes straight back as a validation error is worse than saying why it cannot be offered.
+ * Mirrored because three times each inside the limit can add to a sum outside it, and the total is derived:
+ * a sum past the limit has to be reported rather than recorded, because it would come straight back as a
+ * validation error on a field the creator has no way to correct.
  */
 const MAX_TIME_MINUTES = 525_600;
 
@@ -200,10 +201,15 @@ const FIELD_LOCATIONS: readonly FieldLocation[] = [
   { field: 'prepTimeMinutes', controlId: 'recipe-prep-time', tabId: 'general' },
   { field: 'cookTimeMinutes', controlId: 'recipe-cook-time', tabId: 'general' },
   { field: 'restTimeMinutes', controlId: 'recipe-rest-time', tabId: 'general' },
-  { field: 'totalTimeMinutes', controlId: 'recipe-total-time', tabId: 'general' },
+  // The section rather than the field: the total is derived, so there is no control on it to correct. In
+  // practice the client can only ever submit the sum or null, which no server rule on this field can refuse —
+  // but a target that cannot be acted on would be worse than the section heading if one ever arrived.
+  { field: 'totalTimeMinutes', controlId: 'section-timing', tabId: 'general' },
   { field: 'yieldText', controlId: 'recipe-yield-text', tabId: 'general' },
+  { field: 'servingCount', controlId: 'recipe-serving-count', tabId: 'general' },
   { field: 'yieldQuantity', controlId: 'recipe-yield-quantity', tabId: 'general' },
   { field: 'yieldUnitId', controlId: 'recipe-yield-unit', tabId: 'general' },
+  { field: 'servingSize', controlId: 'recipe-serving-size', tabId: 'general' },
   // The server validates each list as a whole and stops at the first problem, so these two keys arrive without
   // an index — one sentence about the ingredients, one about the method. There is no single control to blame,
   // so the target is the section itself, which carries `tabindex="-1"` for exactly this and is named by its own
@@ -230,10 +236,11 @@ interface RecipeFormSnapshot {
   readonly prepTimeMinutes: number | null;
   readonly cookTimeMinutes: number | null;
   readonly restTimeMinutes: number | null;
-  readonly totalTimeMinutes: number | null;
   readonly yieldText: string;
   readonly yieldQuantity: number | null;
   readonly yieldUnitId: string | null;
+  readonly servingCount: number | null;
+  readonly servingSize: number | null;
   readonly status: SettableRecipeStatus;
   readonly tags: readonly string[];
   readonly instructionsJson: string;
@@ -521,6 +528,14 @@ export class RecipeEditorComponent {
   private readonly savedInstructionGroupsSignal = signal<readonly RecipeInstructionGroup[]>([]);
   readonly savedInstructionGroups = this.savedInstructionGroupsSignal.asReadonly();
 
+  /**
+   * The total time the loaded recipe is **saved with**, which the form no longer holds because it no longer
+   * edits it — read only by {@link totalTimeReplacementNote}, to say when a save would change it.
+   *
+   * Null on a new recipe, and null for a saved recipe that records no total.
+   */
+  private readonly savedTotalTimeMinutes = signal<number | null>(null);
+
   // The idempotency key is stable across a retry of the exact same request body (a transient
   // failure — network drop, unavailable) and only regenerated when the payload actually changes
   // (a new logical operation). Reusing a stale key against a since-changed body would either be
@@ -556,7 +571,6 @@ export class RecipeEditorComponent {
   readonly prepTimeMinutes = signal<number | null>(null);
   readonly cookTimeMinutes = signal<number | null>(null);
   readonly restTimeMinutes = signal<number | null>(null);
-  readonly totalTimeMinutes = signal<number | null>(null);
 
   /**
    * What prep + cook + rest come to, or null when none of the three is recorded.
@@ -590,37 +604,60 @@ export class RecipeEditorComponent {
   });
 
   /**
-   * Whether the sum is worth offering: there is one, the server would accept it, and it is not already what
-   * the field says.
+   * The recipe's total time: prep + cook + rest, and nothing else.
+   *
+   * Derived rather than entered, and the form has no control that writes it. That is a deliberate reversal of
+   * what the server's own model argues for `Recipe.TotalTimeMinutes` — a stored total lets a creator say
+   * "about two hours, mostly waiting" when prep overlaps cooking — and the trade is that the number now moves
+   * the moment one of the three parts does, with no second step. The editor is therefore the authority on the
+   * total it saves: an existing recipe whose stored total disagrees with its parts is corrected by the next
+   * save, and the note below says so rather than letting the change arrive unannounced.
+   *
+   * Null in two cases, which the note tells apart: none of the three recorded, so there is nothing to total;
+   * and a sum past {@link MAX_TIME_MINUTES}, which the server would refuse and no control here could fix.
    */
-  readonly canUseTimingSum = computed(() => {
+  readonly totalTimeMinutes = computed<number | null>(() => {
     const sum = this.timingSum();
+    if (sum === null || sum.minutes > MAX_TIME_MINUTES) return null;
 
-    return sum !== null && sum.minutes <= MAX_TIME_MINUTES && sum.minutes !== this.totalTimeMinutes();
+    return sum.minutes;
   });
 
   /**
-   * What the total-time field says about the sum beneath itself.
-   *
-   * A disagreement is reported, never corrected and never called an error. The server is explicit that a total
-   * is *deliberately* not the sum — prep overlaps cooking, resting is unattended, and "about two hours, mostly
-   * waiting" is a creator meaning it — so this states both numbers and leaves the choice where it belongs. The
-   * field stays theirs; nothing here writes to it without the button being pressed.
+   * What the total-time field says beneath itself: what the number was added up from, so it never reads as
+   * though it were invented, and why there is no number when there is none.
    */
   readonly totalTimeNote = computed(() => {
     const sum = this.timingSum();
-    if (sum === null) return '';
+    if (sum === null) return 'Added up from prep, cook and rest times once one of them is recorded.';
 
     const breakdown = sum.parts.join(' + ');
     if (sum.minutes > MAX_TIME_MINUTES) {
-      return `${breakdown} is more than the longest time that can be recorded, so it cannot be used as a total.`;
+      return `${breakdown} is more than the longest time that can be recorded, so no total can be saved.`;
     }
 
-    const total = this.totalTimeMinutes();
-    if (total === null) return `${breakdown} = ${sum.minutes} minutes.`;
-    if (total === sum.minutes) return `Matches ${breakdown}.`;
+    return `${breakdown} = ${sum.minutes} minutes.`;
+  });
 
-    return `${breakdown} adds up to ${sum.minutes} minutes. Yours says ${total}.`;
+  /**
+   * Whether the saved recipe's total differs from the sum this form would write.
+   *
+   * Announced rather than left to be discovered, because the total is no longer the creator's to hold: a
+   * recipe saved with a total of its own — by an earlier version of this editor, an import, or an accepted
+   * proposal — has that total replaced the next time anything here is saved, and being told beforehand is the
+   * difference between a correction and a silent overwrite. Null until a recipe is loaded, and on a recipe
+   * that already agrees.
+   */
+  readonly totalTimeReplacementNote = computed(() => {
+    const saved = this.savedTotalTimeMinutes();
+    if (saved === null) return '';
+
+    const derived = this.totalTimeMinutes();
+    if (derived === saved) return '';
+
+    return derived === null
+      ? `This recipe is saved with a total of ${saved} minutes. Saving will clear it, because its parts no longer add up to a total that can be recorded.`
+      : `This recipe is saved with a total of ${saved} minutes. Saving will replace it with ${derived}.`;
   });
   readonly yieldText = signal('');
   readonly yieldQuantity = signal<number | null>(null);
@@ -635,6 +672,25 @@ export class RecipeEditorComponent {
    * (`CK_Recipes_YieldUnit_RequiresQuantity`) — see {@link yieldUnitHint}.
    */
   readonly yieldUnitId = signal<string | null>(null);
+
+  /**
+   * How many servings the recipe makes, which is the one thing the yield fields could not say before.
+   *
+   * Unitless and independent of {@link yieldQuantity}: "makes 2 loaves, serves 12" is a batch of two loaves
+   * and twelve servings, and a creator who only knows the second should not have to invent the first. A
+   * recipe that says nothing about servings leaves this null — 0 would be a claim.
+   */
+  readonly servingCount = signal<number | null>(null);
+
+  /**
+   * How much one serving is, measured in {@link yieldUnitId} rather than in a unit of its own.
+   *
+   * The same unit as the batch deliberately, because that is the only arrangement in which
+   * `batchYield = servingCount x servingSize` — the relationship the reconciliation panel computes — holds at
+   * all. The server refuses a size with no unit to read it in (`CK_Recipes_ServingSize_RequiresYieldUnit`),
+   * which {@link servingSizeHint} states up front rather than leaving to a refused save.
+   */
+  readonly servingSize = signal<number | null>(null);
 
   /**
    * What the yield-unit box reads, which is display only and never submitted.
@@ -703,7 +759,41 @@ export class RecipeEditorComponent {
       return 'Add a yield quantity as well — a unit on its own cannot be saved.';
     }
 
-    return 'Optional. Read with the quantity when scaling; your Yield wording is kept as you wrote it.';
+    return 'Optional. Measures both the batch yield and one serving; your own wording is kept as you wrote it.';
+  });
+
+  /**
+   * What the serving-size field says beneath itself.
+   *
+   * The missing-unit case is stated rather than discovered through a refused save, exactly as the yield
+   * unit's own hint states the quantity it needs. Naming the chosen unit in the ordinary case is what stops
+   * a bare "250" being ambiguous between millilitres and grams on a recipe whose unit is one field away.
+   */
+  readonly servingSizeHint = computed(() => {
+    // The same two branches yieldUnitHint leads with, and for the same reason: with the catalogue unreadable
+    // the unit box is disabled, so "pick one first" would be telling a creator to do what the page has just
+    // made impossible.
+    const catalogue = this.unitCatalogue().status;
+    if (catalogue === 'loading') return 'Loading the unit list…';
+    if (catalogue === 'unavailable') {
+      return this.yieldUnitId() === null
+        ? 'The unit list cannot be read, so there is no unit to measure a serving in yet.'
+        : 'The unit list cannot be read, so this recipe’s yield unit cannot be named. A serving size is still measured in it.';
+    }
+
+    if (this.servingSize() !== null && this.yieldUnitId() === null) {
+      return 'Pick a yield unit as well — a serving size needs something to be measured in.';
+    }
+
+    if (this.yieldUnitId() === null) {
+      return 'Optional. Needs a yield unit, so pick one first.';
+    }
+
+    const unit = this.yieldUnitSelection();
+
+    return unit === null
+      ? 'Optional. Measured in this recipe’s yield unit.'
+      : `Optional. Measured in ${unit.label.toLowerCase()}, from the Yield unit field.`;
   });
 
   readonly status = signal<SettableRecipeStatus>('Draft');
@@ -1006,20 +1096,6 @@ export class RecipeEditorComponent {
   clearYieldUnit(): void {
     this.yieldUnitId.set(null);
     this.yieldUnitText.set('');
-  }
-
-  /**
-   * Takes the derived sum as the total, on the creator's click and only on their click.
-   *
-   * The one path by which the sum ever reaches the recipe. Loading never writes it, typing in prep never writes
-   * it, and a manually entered total is never replaced behind anyone's back — so an existing recipe's total
-   * survives every path but this one.
-   */
-  useTimingSum(): void {
-    const sum = this.timingSum();
-    if (sum === null || sum.minutes > MAX_TIME_MINUTES) return;
-
-    this.totalTimeMinutes.set(sum.minutes);
   }
 
   retryLoad(): void {
@@ -1645,10 +1721,14 @@ export class RecipeEditorComponent {
     this.prepTimeMinutes.set(detail.prepTimeMinutes);
     this.cookTimeMinutes.set(detail.cookTimeMinutes);
     this.restTimeMinutes.set(detail.restTimeMinutes);
-    this.totalTimeMinutes.set(detail.totalTimeMinutes);
+    // Not set into the form: the total is derived from the three above, so there is nothing here to load it
+    // into. It is kept only so the form can say that saving would change it — see totalTimeReplacementNote.
+    this.savedTotalTimeMinutes.set(detail.totalTimeMinutes);
     this.yieldText.set(detail.yieldText ?? '');
     this.yieldQuantity.set(detail.yieldQuantity);
     this.yieldUnitId.set(detail.yieldUnitId);
+    this.servingCount.set(detail.servingCount);
+    this.servingSize.set(detail.servingSize);
 
     // An archived recipe's status is held beside the form rather than in it: the select offers Draft and
     // Ready, an archive matches neither, and the API refuses `status: "Archived"` on an edit — so the form
@@ -1707,6 +1787,8 @@ export class RecipeEditorComponent {
       yieldText: this.orNull(this.yieldText()),
       yieldQuantity: this.yieldQuantity(),
       yieldUnitId: this.yieldUnitId(),
+      servingCount: this.servingCount(),
+      servingSize: this.servingSize(),
       tags: this.tags(),
       status: this.status(),
       instructions: this.buildInstructions(),
@@ -1731,6 +1813,8 @@ export class RecipeEditorComponent {
       yieldText: submitted(this.orNull(this.yieldText())),
       yieldQuantity: submitted(this.yieldQuantity()),
       yieldUnitId: submitted(this.yieldUnitId()),
+      servingCount: submitted(this.servingCount()),
+      servingSize: submitted(this.servingSize()),
       tags: submitted(this.tags()),
       status: submitted(this.status()),
       instructions: submitted(this.buildInstructions()),
@@ -1823,10 +1907,11 @@ export class RecipeEditorComponent {
       prepTimeMinutes: this.prepTimeMinutes(),
       cookTimeMinutes: this.cookTimeMinutes(),
       restTimeMinutes: this.restTimeMinutes(),
-      totalTimeMinutes: this.totalTimeMinutes(),
       yieldText: this.yieldText(),
       yieldQuantity: this.yieldQuantity(),
       yieldUnitId: this.yieldUnitId(),
+      servingCount: this.servingCount(),
+      servingSize: this.servingSize(),
       status: this.status(),
       tags: this.tags(),
       instructionsJson: JSON.stringify(this.buildInstructions()),
@@ -1846,10 +1931,11 @@ export class RecipeEditorComponent {
       a.prepTimeMinutes === b.prepTimeMinutes &&
       a.cookTimeMinutes === b.cookTimeMinutes &&
       a.restTimeMinutes === b.restTimeMinutes &&
-      a.totalTimeMinutes === b.totalTimeMinutes &&
       a.yieldText === b.yieldText &&
       a.yieldQuantity === b.yieldQuantity &&
       a.yieldUnitId === b.yieldUnitId &&
+      a.servingCount === b.servingCount &&
+      a.servingSize === b.servingSize &&
       a.status === b.status &&
       a.instructionsJson === b.instructionsJson &&
       a.ingredientGroupsJson === b.ingredientGroupsJson &&

@@ -563,6 +563,9 @@ internal sealed class RecipeBusiness(
             // it names, and the composite foreign key would then be pinning a lie.
             YieldUnitDimension = input.YieldUnitId is null ? null : yieldUnitDimension,
 
+            ServingCount = input.ServingCount,
+            ServingSize = input.ServingSize,
+
             Status = input.Status,
 
             // The authenticated creator, from the resolved membership. Never from the request body.
@@ -1176,6 +1179,8 @@ internal sealed class RecipeBusiness(
             // it names, and the composite foreign key would then be pinning a lie.
             recipe.YieldUnitDimension = yieldUnitDimension;
         });
+        Change(patch.ServingCount, recipe.ServingCount, value => recipe.ServingCount = value);
+        Change(patch.ServingSize, recipe.ServingSize, value => recipe.ServingSize = value);
 
         // Handled outside the generic helper because the request's type and the recipe's differ: a status
         // may be submitted as null, and the validation above has already refused that.
@@ -2136,6 +2141,43 @@ internal sealed class RecipeBusiness(
             errors.Add((nameof(UpdateRecipeViewModel.YieldUnitId), "A yield cannot be measured in degrees."));
         }
 
+        // Mirrors CK_Recipes_ServingSize_RequiresYieldUnit, and asked here rather than at the edge for the
+        // reason the yield pairing is: either half may be the half this patch does not mention, so clearing
+        // the unit and keeping the serving size is a request the edge cannot see is incoherent.
+        if (patch.ServingSize.Or(recipe.ServingSize) is not null && yieldUnitId is null)
+        {
+            errors.Add((
+                nameof(UpdateRecipeViewModel.ServingSize),
+                "Give the yield a unit as well, so a serving size has something to be measured in."));
+        }
+
+        // Mirrors the three positivity constraints. The shape validators already refuse a non-positive number,
+        // so for an ordinary request this is unreachable — but the apply path for an accepted AI proposal
+        // deliberately does not run them (see ProposedRecipeValues), and it builds a patch straight from
+        // strings a model produced. Without this, an accepted "serves -3" reaches the check constraint and the
+        // creator loses their decision to a 500. This method is the documented last line of defence for
+        // exactly those non-ViewModel callers.
+        Positive(
+            patch.ServingCount.Or(recipe.ServingCount),
+            nameof(UpdateRecipeViewModel.ServingCount),
+            "A serving count must be greater than zero.");
+        Positive(
+            patch.ServingSize.Or(recipe.ServingSize),
+            nameof(UpdateRecipeViewModel.ServingSize),
+            "A serving size must be greater than zero.");
+        Positive(
+            patch.YieldQuantity.Or(recipe.YieldQuantity),
+            nameof(UpdateRecipeViewModel.YieldQuantity),
+            "A yield must be greater than zero.");
+
+        void Positive(decimal? value, string field, string message)
+        {
+            if (value is <= 0m)
+            {
+                errors.Add((field, message));
+            }
+        }
+
         return errors.Count == 0
             ? null
             : OperationError.Validation(
@@ -2170,6 +2212,27 @@ internal sealed class RecipeBusiness(
         if (input.YieldUnitId is not null && yieldUnitDimension == MeasurementDimension.Temperature)
         {
             errors.Add((nameof(CreateRecipeViewModel.YieldUnitId), "A yield cannot be measured in degrees."));
+        }
+
+        // Mirrored here as well as at the edge, for the reason the patch overload gives: the validator runs on
+        // a request, and a worker or plugin composing a CanonicalCreateRecipe directly never passes one.
+        if (input.ServingSize is not null && input.YieldUnitId is null)
+        {
+            errors.Add((
+                nameof(CreateRecipeViewModel.ServingSize),
+                "Give the yield a unit as well, so a serving size has something to be measured in."));
+        }
+
+        Positive(input.ServingCount, nameof(CreateRecipeViewModel.ServingCount), "A serving count must be greater than zero.");
+        Positive(input.ServingSize, nameof(CreateRecipeViewModel.ServingSize), "A serving size must be greater than zero.");
+        Positive(input.YieldQuantity, nameof(CreateRecipeViewModel.YieldQuantity), "A yield must be greater than zero.");
+
+        void Positive(decimal? value, string field, string message)
+        {
+            if (value is <= 0m)
+            {
+                errors.Add((field, message));
+            }
         }
 
         return errors.Count == 0

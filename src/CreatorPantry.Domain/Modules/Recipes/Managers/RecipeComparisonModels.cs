@@ -188,7 +188,7 @@ public enum RecipeComparisonSection
     /// <summary>Prep, cook, rest, and total times.</summary>
     Timing = 1,
 
-    /// <summary>What the recipe makes, as text and as a measured quantity.</summary>
+    /// <summary>What the recipe makes: the creator's wording, the measured batch, and the servings.</summary>
     Yield = 2,
 
     /// <summary>Headnote, notes, and storage notes — the creator's prose around the recipe.</summary>
@@ -266,6 +266,8 @@ public enum RecipeComparisonField
     YieldQuantity,
     YieldUnitId,
     YieldUnitDimension,
+    ServingCount,
+    ServingSize,
 
     // Notes.
     Headnote,

@@ -1,0 +1,38 @@
+<!-- The pill states the status in words; its tone and glyph add nothing a reader could otherwise miss. -->
+<div class="status">
+  <div class="status-line">
+    <cp-status-pill [tone]="tone()">{{ label() }}</cp-status-pill>
+
+    @if (connection() === 'degraded') {
+      <!-- Said, not implied by the panel going quiet: what follows is the last thing we heard, not the
+           current state. -->
+      <cp-status-pill tone="stale">Not up to date</cp-status-pill>
+    }
+
+    <span class="status-time">asked at {{ requestedAtLabel() }}</span>
+  </div>
+
+  <p class="status-detail">{{ detail() }}</p>
+
+  @if (failureDetail() !== null) {
+    <p class="status-failure">{{ failureDetail() }}</p>
+  }
+
+  @if (connection() === 'degraded') {
+    <p class="status-detail">We couldn't check just now. This is the state as of {{ changedAtLabel() }}.</p>
+  }
+</div>
+
+<!-- Both regions are always in the DOM so that a status arriving later is announced rather than being the
+     content a newly-created live region was born with. A failure is assertive because it ends the request;
+     everything else is polite. -->
+<p class="cp-sr-only" role="status" aria-live="polite">
+  @if (!isFailure()) {
+    {{ announcement() }}
+  }
+</p>
+<p class="cp-sr-only" role="alert">
+  @if (isFailure()) {
+    {{ announcement() }}
+  }
+</p>

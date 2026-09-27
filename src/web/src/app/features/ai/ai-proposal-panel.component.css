@@ -1,0 +1,377 @@
+/* Semantic --cp-* tokens only. The kind colours are the ones cp-diff-legend uses for its swatches, so a row and
+   the legend entry explaining it read as the same thing in both themes — and every one of them is reinforcement
+   for a word that is already there. */
+
+/* container-type, not a viewport media query: this panel is always embedded in a column narrower than the
+   window, so it has to answer to the space it actually has — which also makes it respond identically to a
+   narrowed window and to 200% zoom, and lets a test set this host's width and assert the result. */
+:host {
+  display: block;
+  container: cp-ai-proposal / inline-size;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+.panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.panel-title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+  color: var(--cp-text);
+}
+
+/* Purple, the tool colour, rather than a warning colour: this is a standing fact about what the panel holds,
+   not a problem. The words carry it either way. */
+.panel-unsaved {
+  margin: 0;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--cp-purple);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-purple-soft);
+  color: var(--cp-purple);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+}
+
+.panel-notice,
+.panel-watch-note,
+.bulk-count,
+.actions-note,
+.row-disposition {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.panel-watch-note,
+.bulk-count,
+.actions-note {
+  font-size: var(--cp-font-size-xs);
+}
+
+.panel-refusal {
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-inline-start: 4px solid var(--cp-danger);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-danger-soft);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.panel-watch,
+.panel-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.panel-recovery {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* A neutral surface, not the success one: the same box carries "Kept 2 suggestions" and "Declined. Nothing was
+   changed", and only the words should distinguish them. */
+.panel-outcome {
+  margin: 0;
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.warnings,
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.warnings-title {
+  margin: 0;
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.warnings-list,
+.row-warnings,
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+}
+
+.warning-kind {
+  flex: 0 0 auto;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Reinforcement only: every one of these already names itself in the text beside it. */
+.warning[data-kind='SafetyCaution'] .warning-kind {
+  background: var(--cp-danger-soft);
+  color: var(--cp-danger);
+}
+
+.warning[data-kind='CulinaryCaution'] .warning-kind,
+.warning[data-kind='UnverifiedClaim'] .warning-kind,
+.warning[data-kind='NonScalableLanguage'] .warning-kind {
+  background: var(--cp-orange-soft);
+  color: var(--cp-orange);
+}
+
+.warning-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bulk,
+.row-actions,
+.row-edit-actions,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+}
+
+.row-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--cp-space-1);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.row-kind {
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+.row-label {
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  color: var(--cp-text);
+}
+
+.row-caution {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-danger-soft);
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+}
+
+.row-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-1) var(--cp-space-3);
+  min-width: 0;
+}
+
+.row-value {
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+  /* A suggested value can be a whole instruction step, and an identifier has no spaces to break at. */
+  overflow-wrap: anywhere;
+}
+
+.row-value-tag {
+  font-size: var(--cp-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cp-text-muted);
+}
+
+.row-value--from {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--cp-text-muted);
+}
+
+.row-edited {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: var(--cp-space-2);
+  border-inline-start: 4px solid var(--cp-blue);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
+  overflow-wrap: anywhere;
+}
+
+.row-edited-note,
+.row-unacceptable,
+.row-field-note {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.row-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.row[data-kind='added'] .row-glyph {
+  background: var(--cp-primary-soft);
+  color: var(--cp-primary);
+}
+
+.row[data-kind='removed'] .row-glyph {
+  background: var(--cp-danger-soft);
+  color: var(--cp-danger);
+}
+
+.row[data-kind='changed'] .row-glyph {
+  background: var(--cp-blue-soft);
+  color: var(--cp-blue);
+}
+
+.row[data-kind='moved'] .row-glyph {
+  background: var(--cp-purple-soft);
+  color: var(--cp-purple);
+}
+
+.row[data-kind='warning'] .row-glyph {
+  background: var(--cp-orange-soft);
+  color: var(--cp-orange);
+}
+
+.feedback-helpful {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feedback-helpful legend {
+  padding: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.provenance {
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+/* `list-item`, deliberately not flex: flex drops the native ::marker, and what is left looks like a link and
+   gives no sign of being open or closed. The 40px target comes from padding instead. */
+.provenance summary {
+  display: list-item;
+  padding-block: var(--cp-space-2);
+  cursor: pointer;
+  color: var(--cp-primary);
+  font-weight: 700;
+}
+
+.provenance-list {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) 1fr;
+  gap: var(--cp-space-1) var(--cp-space-3);
+  margin: var(--cp-space-2) 0 0;
+}
+
+.provenance-list dt {
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.provenance-list dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A literal stack, not a token: the design system has no monospace family, and this is the one place a
+   checksum has to be read character by character. Not a colour, so it introduces no second palette. */
+.provenance-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--cp-font-size-xs);
+}
+
+/* Narrow layouts: the provenance grid is the only thing here with a fixed shape. */
+@container cp-ai-proposal (max-width: 30rem) {
+  .provenance-list {
+    grid-template-columns: 1fr;
+  }
+
+  .provenance-list dd {
+    margin-block-end: var(--cp-space-1);
+  }
+}

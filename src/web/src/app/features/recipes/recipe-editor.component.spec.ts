@@ -76,6 +76,8 @@ const RECIPE_DETAIL: RecipeDetail = {
   yieldText: null,
   yieldQuantity: null,
   yieldUnitId: null,
+  servingCount: null,
+  servingSize: null,
   status: 'Draft',
   duplicatedFrom: null,
   createdAt: '2026-01-01T00:00:00Z',
@@ -1245,50 +1247,85 @@ describe('RecipeEditorComponent', () => {
 
 
   /**
-   * Total time, derived from prep + cook + rest and offered rather than imposed.
+   * Total time, derived from prep + cook + rest and not editable.
    *
-   * The server is explicit that a total is *deliberately* not the sum — prep overlaps cooking, resting is
-   * unattended, and it only ever floor-validates total against the longest single phase. So the sum is a
-   * suggestion the creator takes with a click, and everything below is about the field staying theirs.
+   * The reversal worth stating: the server's own model argues for a stored total, because prep overlaps
+   * cooking and "about two hours, mostly waiting" is a creator meaning it. The editor no longer offers that —
+   * the total moves with its parts and has no control of its own — so what these tests are about is the two
+   * things that follow: the number arriving without an interaction, and a recipe saved with a total of its own
+   * being told beforehand that a save will replace it.
    */
   describe('total time', () => {
-    function useButton(harness: RouterTestingHarness): HTMLButtonElement | null {
-      return harness.routeNativeElement!.querySelector<HTMLButtonElement>('.derived-total button');
+    function total(harness: RouterTestingHarness): string {
+      return harness.routeNativeElement!.querySelector('[id="recipe-total-time"]')?.textContent?.trim() ?? '';
     }
 
     function note(harness: RouterTestingHarness): string {
       return harness.routeNativeElement!.querySelector('[id="recipe-total-time-hint"]')?.textContent?.trim() ?? '';
     }
 
-    // The case the restriction names outright: a recipe that says nothing about its timing has no total to
-    // suggest, and 0 would be an answer rather than the absence of one.
-    it('all three blank: suggests nothing, and never a total of 0', async () => {
+    function replacementNote(harness: RouterTestingHarness): string {
+      return harness.routeNativeElement!.querySelector('.total-time-replacement')?.textContent?.trim() ?? '';
+    }
+
+    it('has no control of its own, so nothing can be typed into it', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      expect(harness.routeNativeElement!.querySelector('input[id="recipe-total-time"]')).toBeNull();
+
+      const output = harness.routeNativeElement!.querySelector('output[id="recipe-total-time"]');
+      expect(output).not.toBeNull();
+
+      // Explicitly off, not merely unset: `output` carries an implicit role="status", which is a polite live
+      // region, so three number fields feeding it would announce a bare integer per keystroke.
+      expect(output!.getAttribute('aria-live')).toBe('off');
+
+      // And not a focus target: there is nothing here to correct, so revealFirstFieldError aims at the section.
+      expect(output!.hasAttribute('tabindex')).toBeFalse();
+    });
+
+    // A recipe that says nothing about its timing has no total, and 0 would be an answer rather than the
+    // absence of one. The dash is what stands in, and the note says what would fill it.
+    it('all three blank: no total, and never a total of 0', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.timingSum()).toBeNull();
-      expect(component.canUseTimingSum()).toBeFalse();
-      expect(note(harness)).toBe('');
-      expect(useButton(harness)).toBeNull();
       expect(component.totalTimeMinutes()).toBeNull();
+      // The dash is aria-hidden and the words beside it are what is announced: an em dash is not spoken at
+      // default punctuation levels, so on its own the state would read as an empty field.
+      expect(total(harness)).toContain('No total yet');
+      expect(harness.routeNativeElement!.querySelector('.derived-total-absent')?.getAttribute('aria-hidden')).toBe('true');
+      expect(note(harness)).toBe('Added up from prep, cook and rest times once one of them is recorded.');
     });
 
-    // A single recorded time is a sum of one, and `parts` is what stops 45 reading as though it were invented.
-    it('partial: sums what is there and names it', async () => {
+    // The whole point of the change: the number is there once the part is entered, with nothing to press.
+    it('a part entered updates the total with no further interaction', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       component.cookTimeMinutes.set(45);
       harness.detectChanges();
 
-      expect(component.timingSum()).toEqual({ minutes: 45, parts: ['cook 45'] });
+      expect(component.totalTimeMinutes()).toBe(45);
+      // Self-describing, because an `output` is read on its own in browse mode.
+      expect(total(harness)).toBe('45 minutes');
       expect(note(harness)).toBe('cook 45 = 45 minutes.');
-      expect(useButton(harness)?.textContent?.trim()).toBe('Use 45');
 
       component.prepTimeMinutes.set(15);
       harness.detectChanges();
 
+      expect(component.totalTimeMinutes()).toBe(60);
+      expect(total(harness)).toBe('60 minutes');
       expect(note(harness)).toBe('prep 15 + cook 45 = 60 minutes.');
+
+      // And downwards too, which a sum that only ever grew would get wrong.
+      component.cookTimeMinutes.set(5);
+      harness.detectChanges();
+
+      expect(component.totalTimeMinutes()).toBe(20);
+      expect(note(harness)).toBe('prep 15 + cook 5 = 20 minutes.');
     });
 
     it('a recorded zero counts, because the creator recorded it', async () => {
@@ -1300,74 +1337,10 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
 
       expect(component.timingSum()).toEqual({ minutes: 20, parts: ['prep 0', 'cook 20'] });
+      expect(component.totalTimeMinutes()).toBe(20);
     });
 
-    it('exact sum: confirms the agreement and offers nothing to change', async () => {
-      const recipeService = recipeServiceSpy();
-      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-
-      component.prepTimeMinutes.set(15);
-      component.cookTimeMinutes.set(30);
-      component.restTimeMinutes.set(10);
-      component.totalTimeMinutes.set(55);
-      harness.detectChanges();
-
-      expect(note(harness)).toBe('Matches prep 15 + cook 30 + rest 10.');
-      expect(component.canUseTimingSum()).withContext('nothing to take').toBeFalse();
-      expect(useButton(harness)).toBeNull();
-    });
-
-    /**
-     * The conflict case. A total under the sum is legitimate — the server says so in as many words — so both
-     * numbers are stated and neither is called wrong, and the creator decides.
-     */
-    it('conflicting manual total: reports both numbers without correcting either', async () => {
-      const recipeService = recipeServiceSpy();
-      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-
-      component.prepTimeMinutes.set(15);
-      component.cookTimeMinutes.set(30);
-      component.restTimeMinutes.set(10);
-      component.totalTimeMinutes.set(40);
-      harness.detectChanges();
-
-      expect(note(harness)).toBe('prep 15 + cook 30 + rest 10 adds up to 55 minutes. Yours says 40.');
-      // Stated, not applied.
-      expect(component.totalTimeMinutes()).toBe(40);
-
-      useButton(harness)!.click();
-      harness.detectChanges();
-
-      // And only now, on the click.
-      expect(component.totalTimeMinutes()).toBe(55);
-      expect(note(harness)).toBe('Matches prep 15 + cook 30 + rest 10.');
-    });
-
-    // The restriction: a stored total is not replaced by loading a recipe whose components disagree with it.
-    it('an existing manual total survives loading, and is what a save submits', async () => {
-      const recipeService = recipeServiceSpy();
-      const loaded: RecipeDetail = {
-        ...RECIPE_DETAIL,
-        prepTimeMinutes: 20,
-        cookTimeMinutes: 40,
-        restTimeMinutes: 30,
-        totalTimeMinutes: 65,
-      };
-      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
-      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...loaded, concurrencyToken: 'AAAAAAAAB9I=' } });
-      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
-
-      expect(component.totalTimeMinutes()).withContext('90 would be the sum; the recipe says 65').toBe(65);
-      expect(note(harness)).toBe('prep 20 + cook 40 + rest 30 adds up to 90 minutes. Yours says 65.');
-      expect(component.isDirty()).withContext('a suggestion is not an edit').toBeFalse();
-
-      await component.save();
-
-      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
-      expect(request.totalTimeMinutes).toEqual({ submitted: true, value: 65 });
-    });
-
-    it('taking the sum is an edit, and is what then reaches the request', async () => {
+    it('the derived total is what a create submits', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.createRecipe.and.resolveTo({
         status: 'created',
@@ -1380,9 +1353,6 @@ describe('RecipeEditorComponent', () => {
       component.cookTimeMinutes.set(30);
       harness.detectChanges();
 
-      // Derived in the browser and submitted, which is the whole of it: the server keeps taking the field as
-      // the creator's, exactly as it did before.
-      useButton(harness)!.click();
       await component.save();
 
       const [, request] = recipeService.createRecipe.calls.mostRecent().args;
@@ -1391,19 +1361,92 @@ describe('RecipeEditorComponent', () => {
       expect(request.cookTimeMinutes).toBe(30);
     });
 
-    // Three times each inside the server's limit can add to a sum outside it. Saying why beats offering a
-    // value that comes straight back as a validation error.
-    it('a sum beyond the recordable maximum is explained rather than offered', async () => {
+    /**
+     * The one case the old behaviour existed to protect, now handled by saying so rather than by keeping the
+     * number. A recipe saved with a total of its own shows the derived one, is told what a save would do to
+     * the stored one, and submits the derived one.
+     */
+    it('a stored total that disagrees is announced, and replaced by a save', async () => {
       const recipeService = recipeServiceSpy();
+      const loaded: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        prepTimeMinutes: 20,
+        cookTimeMinutes: 40,
+        restTimeMinutes: 30,
+        totalTimeMinutes: 65,
+      };
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'updated',
+        recipe: { ...loaded, totalTimeMinutes: 90, concurrencyToken: 'AAAAAAAAB9I=' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(component.totalTimeMinutes()).withContext('the sum, not the stored 65').toBe(90);
+      expect(note(harness)).toBe('prep 20 + cook 40 + rest 30 = 90 minutes.');
+      expect(replacementNote(harness)).toBe('This recipe is saved with a total of 65 minutes. Saving will replace it with 90.');
+      // Loading is not an edit: the total is no longer part of the form, so nothing about it can make the
+      // form dirty on arrival and warn about leaving a recipe nobody touched.
+      expect(component.isDirty()).toBeFalse();
+
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.totalTimeMinutes).toEqual({ submitted: true, value: 90 });
+
+      // The saved recipe now agrees, so there is nothing left to announce.
+      harness.detectChanges();
+      expect(replacementNote(harness)).toBe('');
+    });
+
+    it('a stored total that already agrees is not announced', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: { ...RECIPE_DETAIL, prepTimeMinutes: 20, cookTimeMinutes: 40, restTimeMinutes: 30, totalTimeMinutes: 90 },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(component.totalTimeMinutes()).toBe(90);
+      expect(replacementNote(harness)).toBe('');
+    });
+
+    // Three times each inside the server's limit can add to a sum outside it. There is no control to correct
+    // it on now, so the note has to carry the whole explanation — and nothing unsendable is submitted.
+    it('a sum beyond the recordable maximum yields no total and says why', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Aged Vinegar', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
+      component.title.set('Aged Vinegar');
       component.prepTimeMinutes.set(525_600);
       component.cookTimeMinutes.set(60);
       harness.detectChanges();
 
-      expect(component.canUseTimingSum()).toBeFalse();
-      expect(useButton(harness)).toBeNull();
+      expect(component.totalTimeMinutes()).toBeNull();
+      expect(total(harness)).toContain('No total yet');
       expect(note(harness)).toContain('more than the longest time that can be recorded');
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      expect(request.totalTimeMinutes).toBeNull();
+    });
+
+    it('a stored total that the parts can no longer produce is announced as a clearing', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: { ...RECIPE_DETAIL, prepTimeMinutes: 525_600, cookTimeMinutes: 60, restTimeMinutes: null, totalTimeMinutes: 120 },
+      });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(replacementNote(harness)).toBe(
+        'This recipe is saved with a total of 120 minutes. Saving will clear it, because its parts no longer add up to a total that can be recorded.',
+      );
     });
 
     it('the note is wired to the field, so it is not read by nobody', async () => {
@@ -1416,8 +1459,8 @@ describe('RecipeEditorComponent', () => {
       // render hooks. A real application ticks them on every cycle; this is the test asking for one.
       TestBed.inject(ApplicationRef).tick();
 
-      const input = harness.routeNativeElement!.querySelector('input[id="recipe-total-time"]');
-      expect(input?.getAttribute('aria-describedby')).toContain('recipe-total-time-hint');
+      const output = harness.routeNativeElement!.querySelector('output[id="recipe-total-time"]');
+      expect(output?.getAttribute('aria-describedby')).toContain('recipe-total-time-hint');
     });
   });
   describe('idempotency key stability', () => {
@@ -4389,7 +4432,7 @@ describe('RecipeEditorComponent', () => {
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
       await settleUnits(harness, component);
 
-      expect(component.yieldUnitHint()).toContain('Read with the quantity when scaling');
+      expect(component.yieldUnitHint()).toContain('Measures both the batch yield and one serving');
 
       pickUnit(harness, 'u-servings');
       expect(component.yieldUnitHint()).toContain('Add a yield quantity as well');
@@ -4397,6 +4440,31 @@ describe('RecipeEditorComponent', () => {
       component.yieldQuantity.set(4);
       harness.detectChanges();
       expect(component.yieldUnitHint()).not.toContain('Add a yield quantity');
+    });
+
+    /**
+     * The serving size shares this unit, so its hint belongs to this suite: the ready-state messages need a
+     * settled catalogue, which is what settleUnits provides.
+     */
+    it('says a serving size needs a unit, before a save can refuse it', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      expect(component.servingSizeHint()).toContain('Needs a yield unit');
+
+      // Entered without one, which the server refuses (CK_Recipes_ServingSize_RequiresYieldUnit). Said here
+      // rather than learned from a refused save.
+      component.servingSize.set(250);
+      harness.detectChanges();
+      expect(component.servingSizeHint()).toContain('Pick a yield unit as well');
+
+      // And once there is a unit, the hint names it — a bare 250 is otherwise ambiguous between the units one
+      // field away.
+      component.yieldQuantity.set(2000);
+      pickUnit(harness, 'u-grams');
+      harness.detectChanges();
+      expect(component.servingSizeHint()).toContain('grams');
     });
 
     it('shows a server error on the yield unit beside the control', async () => {
@@ -4415,6 +4483,148 @@ describe('RecipeEditorComponent', () => {
       expect(component.fieldError('yieldUnitId')).toBe('A yield cannot be measured in degrees.');
       const field = unitBox(harness).closest('cp-field');
       expect(field?.querySelector('.error')?.textContent?.trim()).toBe('A yield cannot be measured in degrees.');
+    });
+  });
+
+  /**
+   * The servings half of the yield.
+   *
+   * The gap it closes: before this the only structured amount a recipe could record was a measured batch, so
+   * a creator writing "serves 12" had nowhere to put the 12 except their own prose — and scaling, which reads
+   * the structured values, could not see it. `servingCount` is that number and is unitless on purpose;
+   * `servingSize` is how much one serving is and shares the recipe's yield unit, because that is the only
+   * arrangement in which batch, count and size describe the same thing.
+   */
+  describe('servings', () => {
+    function numberInput(harness: RouterTestingHarness, id: string): HTMLInputElement {
+      const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="${id}"]`);
+      if (input === null) throw new Error(`No input with id ${id}.`);
+      return input;
+    }
+
+    it('offers a serving count that needs no unit, and submits it', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Weeknight Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      // The field exists at all, which is the whole of the complaint: a number of servings had nowhere to go.
+      expect(numberInput(harness, 'recipe-serving-count')).toBeTruthy();
+
+      component.title.set('Weeknight Chili');
+      component.servingCount.set(12);
+      harness.detectChanges();
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      expect(request.servingCount).toBe(12);
+      // Unitless, deliberately: nothing about a serving count asks for a yield unit, and a recipe that says
+      // only "serves 12" must be savable.
+      expect(request.yieldUnitId).toBeNull();
+      expect(request.yieldQuantity).toBeNull();
+      expect(request.servingSize).toBeNull();
+    });
+
+    it('keeps the creator’s own yield wording untouched while the numbers are filled in', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.yieldText.set('Makes 2 loaves, serves 12');
+      component.servingCount.set(12);
+      component.yieldQuantity.set(2);
+      harness.detectChanges();
+
+      expect(component.yieldText()).toBe('Makes 2 loaves, serves 12');
+      expect(component.servingCount()).toBe(12);
+    });
+
+    it('a loaded recipe’s servings reach the form, and loading is not an edit', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: { ...RECIPE_DETAIL, yieldQuantity: 2000, yieldUnitId: 'u-ml', servingCount: 8, servingSize: 250 },
+      });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(component.servingCount()).toBe(8);
+      expect(component.servingSize()).toBe(250);
+      expect(component.isDirty()).toBeFalse();
+    });
+
+    it('a serving count edit is a change, and reaches the patch', async () => {
+      const recipeService = recipeServiceSpy();
+      const loaded: RecipeDetail = { ...RECIPE_DETAIL, servingCount: 4 };
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'updated',
+        recipe: { ...loaded, servingCount: 6, concurrencyToken: 'AAAAAAAAB9I=' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.servingCount.set(6);
+      harness.detectChanges();
+      expect(component.isDirty()).toBeTrue();
+
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.servingCount).toEqual({ submitted: true, value: 6 });
+      expect(component.isDirty()).withContext('saved, so no longer dirty').toBeFalse();
+    });
+
+    it('a serving size edit is a change, and reaches the patch', async () => {
+      const recipeService = recipeServiceSpy();
+      const loaded: RecipeDetail = { ...RECIPE_DETAIL, yieldQuantity: 4, yieldUnitId: 'u-cup', servingSize: 1 };
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'updated',
+        recipe: { ...loaded, servingSize: 2, concurrencyToken: 'AAAAAAAAB9I=' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.servingSize.set(2);
+      harness.detectChanges();
+      expect(component.isDirty()).toBeTrue();
+
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.servingSize).toEqual({ submitted: true, value: 2 });
+    });
+
+    /**
+     * The server refuses a serving size with no unit to read it in
+     * (`CK_Recipes_ServingSize_RequiresYieldUnit`). Said on the field, so it is not learned from a refused
+     * save — the same choice the yield unit's own hint makes about the quantity it needs.
+     */
+    // The degraded state its neighbour already had: with the catalogue unreadable the unit box is disabled, so
+    // telling a creator to pick a unit would be telling them to do what the page has made impossible.
+    it('says why a serving size cannot be measured when the unit list cannot be read', async () => {
+      const recipeService = recipeServiceSpy();
+      const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      await waitUntil(() => component.unitCatalogue().status !== 'loading');
+
+      expect(component.servingSizeHint()).toContain('The unit list cannot be read');
+    });
+
+    it('routes a server error on a serving field to that field', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { servingCount: ['A serving count must be greater than zero.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.title.set('Weeknight Chili');
+      await component.save();
+      harness.detectChanges();
+
+      expect(component.fieldError('servingCount')).toBe('A serving count must be greater than zero.');
+      const field = numberInput(harness, 'recipe-serving-count').closest('cp-field');
+      expect(field?.querySelector('.error')?.textContent?.trim()).toBe('A serving count must be greater than zero.');
     });
   });
 });

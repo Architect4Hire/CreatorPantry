@@ -64,6 +64,10 @@ public sealed record CanonicalCreateRecipe
 
     public Guid? YieldUnitId { get; init; }
 
+    public decimal? ServingCount { get; init; }
+
+    public decimal? ServingSize { get; init; }
+
     /// <summary>Resolved, never absent: an omitted status means <see cref="RecipeStatus.Draft"/>.</summary>
     public required RecipeStatus Status { get; init; }
 
@@ -112,6 +116,8 @@ public sealed record CanonicalCreateRecipe
         YieldText = Text(model.YieldText),
         YieldQuantity = model.YieldQuantity,
         YieldUnitId = model.YieldUnitId,
+        ServingCount = model.ServingCount,
+        ServingSize = model.ServingSize,
 
         // The one place a requested status becomes a domain state. Everything below this line — the
         // fingerprint, the aggregate, the version's readiness — speaks only RecipeStatus.

@@ -159,6 +159,21 @@ public sealed record RecipeSnapshotHeader
 
     public MeasurementDimension? YieldUnitDimension { get; init; }
 
+    /// <summary>
+    /// The serving count and size the version recorded.
+    /// </summary>
+    /// <remarks>
+    /// Added after <see cref="RecipeSnapshotDocument.CurrentSchemaVersion"/> 1 was already being written, and
+    /// deliberately without a bump. A document written before these existed has no key for them and reads back
+    /// as <c>null</c>, which is exactly what it means: that version recorded no serving count. The version
+    /// number exists for a change that would make an older document read <em>incorrectly</em>, and this is not
+    /// one.
+    /// </remarks>
+    public decimal? ServingCount { get; init; }
+
+    /// <inheritdoc cref="ServingCount"/>
+    public decimal? ServingSize { get; init; }
+
     public RecipeStatus Status { get; init; }
 }
 

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 
@@ -89,6 +90,51 @@ public sealed class RecipeProposalApplicationTests
         Assert.False(plan.Succeeded);
         Assert.Contains(field, plan.Error!, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Every field a proposal is <em>allowed</em> to set is a field this plan can actually apply.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two tables are separate by necessity — <c>AiDiffFields</c> reads a snapshot header, this builds a
+    /// patch — and nothing but this test holds them together. Adding a field to one and forgetting the other
+    /// is not a small mistake: <c>Plan</c> refuses the whole batch on an unrecognised name, so one unwired
+    /// field discards every other change the creator accepted in the same action, and tells them so in a
+    /// vocabulary that is not theirs. Both tables' own remarks say they exist to keep a creator from accepting
+    /// a change that can only fail; this is the assertion that makes that true rather than intended.
+    /// </para>
+    /// <para>
+    /// Driven from <c>AiDiffFields.For</c> rather than an <c>InlineData</c> list, so a field added there is
+    /// covered without anyone remembering to add it here too.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_field_a_proposal_may_set_is_a_field_this_plan_can_apply()
+    {
+        var settable = AiDiffFields.For(AiChangeTargetKind.Recipe);
+        Assert.NotEmpty(settable);
+
+        foreach (var field in settable)
+        {
+            var plan = RecipeProposalApplication.Plan(
+                Loaded(),
+                [Set(ProposedRecipeTarget.Recipe, null, field, SampleValueFor(field))]);
+
+            Assert.True(plan.Succeeded, $"'{field}' is settable by a proposal but the plan refused it: {plan.Error}");
+        }
+    }
+
+    /// <summary>
+    /// A value the named field can hold. Cleared rather than guessed wherever null is legal, so this needs no
+    /// per-field table: only the numeric fields and the checksum-bearing ones care what arrives.
+    /// </summary>
+    private static string? SampleValueFor(string field) => field switch
+    {
+        "title" => "A title, which may not be cleared",
+        "prepTimeMinutes" or "cookTimeMinutes" or "restTimeMinutes" or "totalTimeMinutes" => "30",
+        "yieldQuantity" or "servingCount" or "servingSize" => "4",
+        _ => null,
+    };
 
     // ---- the method ----------------------------------------------------------------------------------
 

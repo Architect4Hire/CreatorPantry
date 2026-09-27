@@ -176,6 +176,20 @@ public static class AiDiffCalculator
                 "That step records no temperature unit, so a temperature cannot be proposed for it."));
         }
 
+        // The same shape as the temperature case above, for the same reason. A serving size is measured in the
+        // recipe's yield unit, a proposal can never set an identifier and so can never supply that unit, and
+        // Business refuses a size with no unit to read it in — so a recipe that records no yield unit today
+        // cannot be proposed a serving size. A serving *count* is unitless and always proposable, which is why
+        // only one of the two is named here.
+        if (field is "servingSize"
+            && change.AfterValue is not null
+            && target is RecipeSnapshotHeader { YieldUnitId: null })
+        {
+            return (null, Failure(
+                AiOutputReason.NotApplicable,
+                "This recipe records no yield unit, so a serving size cannot be proposed for it."));
+        }
+
         return (
             new AiResolvedChange(
                 AiChangeKind.Set,

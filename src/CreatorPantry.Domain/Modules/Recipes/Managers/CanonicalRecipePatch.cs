@@ -69,6 +69,10 @@ public sealed record CanonicalRecipePatch
 
     public PatchField<Guid?> YieldUnitId { get; init; }
 
+    public PatchField<decimal?> ServingCount { get; init; }
+
+    public PatchField<decimal?> ServingSize { get; init; }
+
     /// <summary>
     /// The domain state the request asked for, or a submitted <c>null</c> asking for the state to be
     /// cleared — which no recipe may be, and which Business refuses.
@@ -136,6 +140,8 @@ public sealed record CanonicalRecipePatch
         YieldText = Clearable(model.YieldText),
         YieldQuantity = model.YieldQuantity,
         YieldUnitId = model.YieldUnitId,
+        ServingCount = model.ServingCount,
+        ServingSize = model.ServingSize,
 
         // The one place a requested status becomes a domain state. Everything below this line — the
         // fingerprint, the merge, the version's readiness — speaks only RecipeStatus. A submitted null is
@@ -202,6 +208,8 @@ public sealed record CanonicalRecipePatch
         Add("yieldText", YieldText);
         Add("yieldQuantity", YieldQuantity);
         Add("yieldUnitId", YieldUnitId);
+        Add("servingCount", ServingCount);
+        Add("servingSize", ServingSize);
         Add("status", Status);
 
         if (Tags.IsSubmitted)

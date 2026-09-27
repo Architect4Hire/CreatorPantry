@@ -206,6 +206,76 @@ public sealed class AiDiffCalculatorTests
         AssertFailed(result, AiOutputReason.NotApplicable);
     }
 
+    /// <summary>
+    /// A serving size is measured in the recipe's yield unit, and no proposal may set an identifier — so on a
+    /// recipe with no yield unit, a proposed serving size could only ever fail when it was applied. Refused at
+    /// diff time instead, so it is never offered: the same rule, for the same reason, as a temperature on a step
+    /// that records no temperature unit.
+    /// </summary>
+    [Fact]
+    public void A_serving_size_is_refused_on_a_recipe_with_no_yield_unit()
+    {
+        var result = Calculate(Set(AiChangeTargetKind.Recipe, null, "servingSize", "250"));
+
+        AssertFailed(result, AiOutputReason.NotApplicable);
+    }
+
+    /// <summary>A serving count is unitless, so nothing about the recipe can make it unapplicable.</summary>
+    [Fact]
+    public void A_serving_count_resolves_without_a_yield_unit()
+    {
+        var result = Calculate(Set(AiChangeTargetKind.Recipe, null, "servingCount", "12"));
+
+        Assert.True(result.Succeeded, result.Failure?.Message);
+        Assert.Equal("12", Assert.Single(result.Changes!).AfterValue);
+    }
+
+    /// <summary>And with a unit to be measured in, a serving size resolves like any other number.</summary>
+    [Fact]
+    public void A_serving_size_resolves_on_a_recipe_that_has_a_yield_unit()
+    {
+        var source = Source();
+        var withUnit = source with
+        {
+            Recipe = source.Recipe with { YieldUnitId = Guid.NewGuid(), ServingSize = 200m },
+        };
+
+        var result = AiDiffCalculator.Calculate(
+            withUnit,
+            new AiOutputDocument
+            {
+                SchemaVersion = "v1",
+                Changes = [Set(AiChangeTargetKind.Recipe, null, "servingSize", "250")],
+            });
+
+        Assert.True(result.Succeeded, result.Failure?.Message);
+
+        var change = Assert.Single(result.Changes!);
+        Assert.Equal("200", change.BeforeValue);
+        Assert.Equal("250", change.AfterValue);
+    }
+
+    /// <summary>
+    /// Clearing a serving size needs no unit: the guard is about giving a recipe a measured size it has nothing
+    /// to measure in, and removing one is the opposite of that.
+    /// </summary>
+    [Fact]
+    public void Clearing_a_serving_size_is_not_refused_for_want_of_a_unit()
+    {
+        var source = Source();
+        var withSize = source with { Recipe = source.Recipe with { ServingSize = 200m } };
+
+        var result = AiDiffCalculator.Calculate(
+            withSize,
+            new AiOutputDocument
+            {
+                SchemaVersion = "v1",
+                Changes = [Set(AiChangeTargetKind.Recipe, null, "servingSize", null)],
+            });
+
+        Assert.True(result.Succeeded, result.Failure?.Message);
+    }
+
     // ---- reorder --------------------------------------------------------------------------------------
 
     [Fact]

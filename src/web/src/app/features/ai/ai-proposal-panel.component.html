@@ -1,0 +1,396 @@
+<!-- Nothing renders without a request to watch: the host owns asking, this owns reviewing. -->
+@if (state() !== 'idle') {
+  <section class="panel" [attr.aria-labelledby]="headingId" [attr.aria-busy]="state() === 'deciding' ? 'true' : null">
+    <header class="panel-header">
+      <h3 class="panel-title" [id]="headingId">AI suggestions</h3>
+
+      <!-- Said wherever generated content is on screen, and said in words: a creator must never have to work out
+           from styling whether what they are reading is already in their recipe. Derived from "is a proposal
+           showing and undecided" rather than from a list of states, so a proposal that expires while waiting —
+           which keeps its suggestions — cannot lose the chip. -->
+      @if (proposal() !== null && state() !== 'decided') {
+        <p class="panel-unsaved">Not saved to your recipe yet.</p>
+      }
+    </header>
+
+    @if (state() === 'gone') {
+      <!-- `role="alert"` on both of these, not `status`: a live region announces changes to content it already
+           had, and these two arrive by replacing the status component that held the panel's regions. An alert
+           announces on insertion, which is the only reason a creator would hear about either. -->
+      <p class="cp-sr-only" role="alert">
+        These suggestions are no longer here. The request has gone, or it belongs to a recipe you can't see.
+      </p>
+      <cp-empty-state
+        title="These suggestions are no longer here"
+        description="The request has gone, or it belongs to a recipe you can't see. Nothing was changed."
+        icon="○"
+        variant="no-results"
+      />
+    } @else if (state() === 'forbidden') {
+      <p class="panel-notice" role="alert">
+        These suggestions can't be read with your role in this workspace. Ask an editor or the owner about them.
+      </p>
+    } @else if (state() === 'loading') {
+      <p class="panel-notice" role="status">Looking for your request…</p>
+    } @else if (operation(); as op) {
+      <cp-ai-operation-status
+        [status]="op.status"
+        [failureCategory]="op.failureCategory"
+        [requestedAt]="op.requestedAt"
+        [statusChangedAt]="op.statusChangedAt"
+        [connection]="connection()"
+      />
+
+      <!-- Every refusal is visible and says what was written, which in every case here is nothing. -->
+      @if (refusal(); as problem) {
+        <p class="panel-refusal" role="alert">{{ problem.message }}</p>
+      }
+
+      <div class="panel-watch">
+        @if (isWatching() && (state() === 'watching' || state() === 'deciding')) {
+          <!-- "Stop checking", not "Cancel": there is no route that cancels generation, so the button says what
+               it does and the sentence beside it says what carries on regardless. -->
+          <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
+          <span class="panel-watch-note">Your request keeps running; this page just stops asking about it.</span>
+        } @else if (canCheckAgain()) {
+          <button cpButton type="button" variant="secondary" size="sm" (click)="checkAgain()">Check again</button>
+          <span class="panel-watch-note">This page has stopped checking on its own.</span>
+        }
+      </div>
+
+      @if (state() === 'stale') {
+        <div class="panel-recovery">
+          <p class="panel-notice">
+            Start again from your recipe as it stands now. These suggestions can't be applied to it, and nothing
+            about them was saved.
+          </p>
+          <button cpButton type="button" variant="primary" size="sm" (click)="requestRestart()">
+            Start again from this recipe
+          </button>
+        </div>
+      }
+
+      @if ((state() === 'failed' || state() === 'expired') && canAskAgain()) {
+        <div class="panel-recovery">
+          <button cpButton type="button" variant="secondary" size="sm" (click)="askAgain()">Ask again</button>
+          <span class="panel-watch-note">This asks for a fresh set of suggestions. Your recipe isn't touched.</span>
+        </div>
+      }
+
+      @if (outcomeSummary(); as summary) {
+        <!-- Focused after a decision, so a keyboard user lands on the answer rather than on whatever followed
+             the buttons that have just gone. -->
+        <p class="panel-outcome" [id]="outcomeId" tabindex="-1" role="status">{{ summary }}</p>
+      }
+
+      @if (proposal(); as detail) {
+        @if (generalWarnings().length > 0) {
+          <section class="warnings" [attr.aria-labelledby]="headingId + '-flags'">
+            <h4 class="warnings-title" [id]="headingId + '-flags'">What the model flagged</h4>
+            <!-- One list for assumptions and cautions alike, so an assumption cannot be shown with less weight
+                 than a caution. Nothing here is a verdict: an unflagged suggestion has not been found safe. -->
+            <ul class="warnings-list" role="list">
+              @for (warning of generalWarnings(); track $index) {
+                <li class="warning" [attr.data-kind]="warning.kind">
+                  <span class="warning-kind">{{ warningLabel(warning.kind) }}</span>
+                  <span class="warning-message">{{ warning.message }}</span>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+
+        @if (detail.changes.length === 0) {
+          <p class="panel-notice" role="status">
+            Nothing needed changing — the model had no suggestions for this recipe.
+          </p>
+        } @else {
+          <cp-diff-legend [show]="legendKinds()" />
+
+          <!-- Said once, before the rows, because the flags above can only ever be a list of what was noticed.
+               ai.md forbids presenting a safety, allergen or nutrition conclusion as settled, and an empty flag
+               list is exactly the place a reader would otherwise infer one. -->
+          <p class="panel-notice">
+            A suggestion with no flag beside it hasn't been checked for safety, allergens or nutrition — it simply
+            wasn't flagged. Your own judgement decides.
+          </p>
+
+          @if (state() === 'proposed' && mayDecide()) {
+            <div class="bulk">
+              <button cpButton type="button" variant="text" size="sm" (click)="selectAll()">Select all</button>
+              <button cpButton type="button" variant="text" size="sm" (click)="clearSelection()">
+                Clear selection
+              </button>
+              <span class="bulk-count" role="status">
+                {{ selectedCount() }} of {{ rows().length }} selected@if (editedCount() > 0) {,
+                {{ editedCount() }} rewritten}.
+              </span>
+            </div>
+          }
+
+          <ul class="rows" role="list">
+            @for (row of rows(); track row.key) {
+              <li class="row" [attr.data-kind]="row.kind">
+                <div class="row-head">
+                  <!-- The glyph is decorative; the word beside it states the kind, so meaning never depends on
+                       colour or on recognising a symbol (WCAG 2.2 AA, 1.4.1). -->
+                  <span class="row-glyph" aria-hidden="true">{{ glyphFor(row.kind) }}</span>
+                  <span class="row-kind">{{ row.kindLabel }}</span>
+                  <span class="row-label">{{ row.label }}</span>
+                  @if (row.hasSafetyCaution) {
+                    <span class="row-caution">Check this yourself</span>
+                  }
+                </div>
+
+                <div class="row-values">
+                  @if (row.before !== null) {
+                    <span class="row-value row-value--from">
+                      <span class="row-value-tag">was</span> {{ row.before }}
+                    </span>
+                  }
+                  @if (row.after !== null) {
+                    <span class="row-value"><span class="row-value-tag">suggested</span> {{ row.after }}</span>
+                  }
+                  @if (row.positionNote !== null) {
+                    <!-- "adds at" for an insertion, "moves to" for a reordering: the accessible name on the
+                         checkbox draws that distinction, and the visible row must not contradict it. -->
+                    <span class="row-value">
+                      <span class="row-value-tag">{{ row.positionTag }}</span> {{ row.positionNote }}
+                    </span>
+                  }
+                </div>
+
+                @if (row.fieldNote !== null) {
+                  <p class="row-field-note">{{ row.fieldNote }}</p>
+                }
+
+                @if (row.warnings.length > 0) {
+                  <ul class="row-warnings" role="list">
+                    @for (warning of row.warnings; track $index) {
+                      <li class="warning" [attr.data-kind]="warning.kind">
+                        <span class="warning-kind">{{ warningLabel(warning.kind) }}</span>
+                        <span class="warning-message">{{ warning.message }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+
+                @if (row.editedValue !== null) {
+                  <!-- Future tense, and deliberately: committing an edit here stores it and hands it to the host,
+                       which applies it through the ordinary recipe edit path. Nothing is saved at this point, and
+                       the header four lines up says so. The server records the suggestion itself as declined. -->
+                  <p class="row-edited">
+                    <span class="row-value-tag">your wording</span> {{ row.editedValue }}
+                    <span class="row-edited-note">
+                      Will be applied as your own edit, not as an accepted suggestion.
+                    </span>
+                  </p>
+                }
+
+                @if (state() === 'proposed' && mayDecide()) {
+                  @if (editingChangeId() === row.key) {
+                    <div class="row-edit">
+                      <cp-field
+                        label="Your wording"
+                        [forId]="editInputId(row.key)"
+                        hint="Escape cancels. Ctrl+Enter, or the button, uses this wording."
+                        [error]="editError()"
+                      >
+                        <!-- `standalone`, so mounting this panel inside a host form does not throw; escape stops
+                             propagating, so one keypress cancels the edit without also closing whatever the host
+                             closes on escape. -->
+                        <textarea
+                          [id]="editInputId(row.key)"
+                          rows="2"
+                          [ngModel]="editDraft()"
+                          [ngModelOptions]="{ standalone: true }"
+                          (ngModelChange)="editDraft.set($event)"
+                          (keydown.escape)="cancelEdit(row); $event.stopPropagation()"
+                          (keydown.control.enter)="commitEdit(row)"
+                          (keydown.meta.enter)="commitEdit(row)"
+                        ></textarea>
+                      </cp-field>
+                      <div class="row-edit-actions">
+                        <button cpButton type="button" variant="secondary" size="sm" (click)="commitEdit(row)">
+                          Use my wording
+                        </button>
+                        <button cpButton type="button" variant="text" size="sm" (click)="cancelEdit(row)">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="row-actions">
+                      @if (row.acceptable) {
+                        <cp-checkbox
+                          [label]="row.checkboxLabel"
+                          [checked]="row.selected"
+                          (checkedChange)="onRowToggled(row, $event)"
+                        />
+                      } @else {
+                        <p class="row-unacceptable">{{ row.checkboxLabel }}</p>
+                      }
+
+                      @if (row.acceptable && row.after !== null) {
+                        <button
+                          cpButton
+                          type="button"
+                          variant="text"
+                          size="sm"
+                          [id]="editButtonId(row.key)"
+                          (click)="startEdit(row)"
+                        >
+                          Edit before accepting
+                        </button>
+                      }
+                      @if (row.editedValue !== null) {
+                        <button cpButton type="button" variant="text" size="sm" (click)="undoEdit(row)">
+                          Undo my wording
+                        </button>
+                      }
+                    </div>
+                  }
+                } @else {
+                  <p class="row-disposition">
+                    @switch (row.change.disposition) {
+                      @case ('Accepted') {
+                        You kept this one.
+                      }
+                      @case ('Rejected') {
+                        You declined this one.
+                      }
+                      @default {
+                        Not decided.
+                      }
+                    }
+                  </p>
+                }
+              </li>
+            }
+          </ul>
+
+          @if (state() === 'proposed' || state() === 'deciding') {
+            @if (mayDecide()) {
+              <div class="feedback">
+                <fieldset class="feedback-helpful">
+                  <legend>Were these useful?</legend>
+                  <button
+                    cpButton
+                    type="button"
+                    [variant]="wasHelpful() === true ? 'secondary' : 'text'"
+                    size="sm"
+                    [attr.aria-pressed]="wasHelpful() === true"
+                    (click)="onHelpfulChange(true)"
+                  >
+                    Useful
+                  </button>
+                  <button
+                    cpButton
+                    type="button"
+                    [variant]="wasHelpful() === false ? 'secondary' : 'text'"
+                    size="sm"
+                    [attr.aria-pressed]="wasHelpful() === false"
+                    (click)="onHelpfulChange(false)"
+                  >
+                    Not useful
+                  </button>
+                </fieldset>
+
+                <cp-field
+                  label="Anything you'd like to add?"
+                  [forId]="commentFieldId"
+                  hint="Optional, and sent with your decision."
+                >
+                  <textarea
+                    [id]="commentFieldId"
+                    rows="2"
+                    [ngModel]="comment()"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="comment.set($event)"
+                  ></textarea>
+                </cp-field>
+              </div>
+
+              <div class="actions">
+                <!-- Each disabled button names the paragraph that explains it, so the reason reaches a screen
+                     reader rather than only a pair of eyes. -->
+                <button
+                  cpButton
+                  type="button"
+                  variant="primary"
+                  [disabled]="state() === 'deciding' || acceptSelectedBlockedReason() !== null"
+                  [attr.aria-describedby]="acceptSelectedBlockedReason() === null ? null : outcomeId + '-selected-note'"
+                  (click)="acceptSelected()"
+                >
+                  Keep selected
+                </button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  [disabled]="state() === 'deciding' || !canAcceptAll()"
+                  [attr.aria-describedby]="acceptAllBlockedReason() === null ? null : outcomeId + '-all-note'"
+                  (click)="acceptAll()"
+                >
+                  Keep all
+                </button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="danger"
+                  [disabled]="state() === 'deciding'"
+                  (click)="reject()"
+                >
+                  Decline all
+                </button>
+              </div>
+
+              <!-- Said in words, not left to the buttons fading: this is the moment a creator is waiting to learn
+                   whether their recipe changed. -->
+              @if (state() === 'deciding') {
+                <p class="panel-notice" role="status">Recording your decision…</p>
+              }
+
+              <!-- A disabled button explains itself in text. A control that is off for a reason nobody states is
+                   a dead end for everyone, and invisible to a screen reader. -->
+              @if (acceptSelectedBlockedReason(); as reason) {
+                <p class="actions-note" [id]="outcomeId + '-selected-note'">{{ reason }}</p>
+              }
+              @if (acceptAllBlockedReason(); as reason) {
+                <p class="actions-note" [id]="outcomeId + '-all-note'">{{ reason }}</p>
+              }
+            } @else if (rolesKnown()) {
+              <p class="panel-notice" role="status">
+                Your role in this workspace can read these suggestions but not decide about them.
+              </p>
+            } @else {
+              <!-- Not a role claim: the memberships have not arrived, so what the creator may do is unknown. -->
+              <p class="panel-notice" role="status">Checking what you can do with these…</p>
+            }
+          }
+
+          <!-- Closed by default: a creator reviewing wording does not need the machinery, and advanced detail is
+               disclosed rather than displayed. Plain words first, identifiers after, for the support
+               conversation that needs them. -->
+          <details class="provenance">
+            <summary>How this was generated</summary>
+            <dl class="provenance-list">
+              <dt>Made by</dt>
+              <dd>{{ detail.modelName }} ({{ detail.providerName }})</dd>
+              <dt>Instructions used</dt>
+              <dd>{{ detail.promptTemplateId }}, version {{ detail.promptTemplateVersion }}</dd>
+              <!-- Which version of the recipe every "was" value above was read from. The whole basis for
+                   accepting a suggestion safely is that this is still the current version, so it is named. -->
+              <dt>Read from recipe version</dt>
+              <dd class="provenance-code">{{ op.sourceVersionId ?? 'not recorded' }}</dd>
+              <dt>Reference</dt>
+              <dd class="provenance-code">
+                {{ detail.proposalId }} · {{ detail.outputSchemaVersion }} · {{ detail.promptTemplateBodyChecksum }}
+              </dd>
+            </dl>
+          </details>
+        }
+      }
+    }
+  </section>
+}

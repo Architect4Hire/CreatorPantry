@@ -20,6 +20,13 @@
 - Store quantity, unit, preparation note, optionality, grouping, and display text separately when known.
 - Steps have stable identifiers and explicit ordering.
 - Model prep, cook, rest, total time, yield, serving unit, equipment, storage, substitutions, and notes explicitly when required.
+- A yield has three separable facts and the model keeps them separate: the creator's own wording (`YieldText`,
+  canonical), the measured batch (`YieldQuantity` in `YieldUnitId`), and the servings (`ServingCount`, unitless,
+  plus `ServingSize` in the same yield unit). "Makes 2 loaves, serves 12" needs all three; a recipe that knows
+  only how many it serves records `ServingCount` alone, with no unit and no batch.
+- Total time is stored independently of prep, cook and rest, and no write path sums them — except the recipe
+  editor, which derives it, offers no control for it, and says before a save that it will replace a stored
+  total that disagrees.
 - Explicitly published or named `RecipeVersion` records are immutable.
 
 ## Scaling and conversions

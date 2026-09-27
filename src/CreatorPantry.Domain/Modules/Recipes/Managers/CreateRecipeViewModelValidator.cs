@@ -63,6 +63,22 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
             .When(model => model.YieldUnitId.HasValue)
             .OverridePropertyName(nameof(CreateRecipeViewModel.YieldQuantity));
 
+        RuleFor(model => model.ServingCount)
+            .GreaterThan(0).WithMessage("A serving count must be greater than zero.")
+            .When(model => model.ServingCount.HasValue);
+
+        RuleFor(model => model.ServingSize)
+            .GreaterThan(0).WithMessage("A serving size must be greater than zero.")
+            .When(model => model.ServingSize.HasValue);
+
+        // Mirrors CK_Recipes_ServingSize_RequiresYieldUnit, for the reason the pairing above is mirrored: a
+        // readable 400 beats a database error surfacing as a 500. The reverse is allowed, and a serving
+        // *count* needs no unit at all — "serves 12" is complete on its own.
+        RuleFor(model => model.ServingSize)
+            .Null().WithMessage("Give the yield a unit as well, so a serving size has something to be measured in.")
+            .When(model => !model.YieldUnitId.HasValue)
+            .OverridePropertyName(nameof(CreateRecipeViewModel.ServingSize));
+
         NotEmptyGuid(model => model.CuisineId, nameof(CreateRecipeViewModel.CuisineId));
         NotEmptyGuid(model => model.CourseId, nameof(CreateRecipeViewModel.CourseId));
         NotEmptyGuid(model => model.PrimaryTechniqueId, nameof(CreateRecipeViewModel.PrimaryTechniqueId));

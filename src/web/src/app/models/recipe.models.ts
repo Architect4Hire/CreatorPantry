@@ -149,6 +149,8 @@ export interface CreateRecipeRequest {
   readonly yieldText?: string | null;
   readonly yieldQuantity?: number | null;
   readonly yieldUnitId?: string | null;
+  readonly servingCount?: number | null;
+  readonly servingSize?: number | null;
   readonly tags?: readonly string[] | null;
   /** Omit to let the server default to Draft. Archived is rejected server-side on create. */
   readonly status?: SettableRecipeStatus;
@@ -217,6 +219,8 @@ export interface UpdateRecipeRequest {
   readonly yieldText?: PatchField<string | null>;
   readonly yieldQuantity?: PatchField<number | null>;
   readonly yieldUnitId?: PatchField<string | null>;
+  readonly servingCount?: PatchField<number | null>;
+  readonly servingSize?: PatchField<number | null>;
   readonly tags?: PatchField<readonly string[] | null>;
   readonly status?: PatchField<SettableRecipeStatus>;
   /**
@@ -250,6 +254,8 @@ const PATCH_FIELD_KEYS = [
   'yieldText',
   'yieldQuantity',
   'yieldUnitId',
+  'servingCount',
+  'servingSize',
   'tags',
   'status',
   'instructions',
@@ -605,6 +611,10 @@ export interface RecipeDetail {
   readonly yieldText: string | null;
   readonly yieldQuantity: number | null;
   readonly yieldUnitId: string | null;
+  /** How many servings the batch makes, when the creator recorded it. Unitless. */
+  readonly servingCount: number | null;
+  /** How much one serving is, measured in `yieldUnitId`. */
+  readonly servingSize: number | null;
   readonly status: RecipeStatus;
   /**
    * Where this recipe was copied from, when it was created by duplicating another; null for a recipe
@@ -645,6 +655,8 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
     yieldText,
     yieldQuantity,
     yieldUnitId,
+    servingCount,
+    servingSize,
     status: rawStatus,
     duplicatedFrom: rawDuplicatedFrom,
     createdAt,
@@ -678,6 +690,8 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
     !isStringOrNull(yieldText) ||
     !isNumberOrNull(yieldQuantity) ||
     !isStringOrNull(yieldUnitId) ||
+    !isNumberOrNull(servingCount) ||
+    !isNumberOrNull(servingSize) ||
     status === null ||
     typeof createdAt !== 'string' ||
     typeof updatedAt !== 'string' ||
@@ -734,6 +748,8 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
     yieldText,
     yieldQuantity,
     yieldUnitId,
+    servingCount,
+    servingSize,
     status,
     duplicatedFrom,
     createdAt,

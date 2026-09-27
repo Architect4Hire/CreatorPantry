@@ -46,6 +46,8 @@ public static class RecipeDetailMapper
             YieldText = recipe.YieldText,
             YieldQuantity = recipe.YieldQuantity,
             YieldUnitId = recipe.YieldUnitId,
+            ServingCount = recipe.ServingCount,
+            ServingSize = recipe.ServingSize,
             Status = recipe.Status,
 
             // Resolved by the DataLayer, because naming the source recipe takes a read this type cannot make.

@@ -24,6 +24,15 @@
           <cp-status-pill tone="warning" role="status" class="dirty-indicator">Unsaved changes</cp-status-pill>
         }
 
+        <!-- Said here as well as under the Timing field, because Save is in this header and is reachable from
+             every tab while the field is on one of them. A creator who opens a recipe, edits a step and saves
+             would otherwise replace the stored total having never been near the sentence that says so. Not a
+             confirmation: the total is derived now, and a modal on every save of a recipe whose stored total
+             disagrees would be a toll rather than a choice. -->
+        @if (totalTimeReplacementNote()) {
+          <cp-status-pill tone="warning" role="status" class="dirty-indicator">Total time will be recalculated</cp-status-pill>
+        }
+
         <!-- Shelving is not deleting, so it sits beside Save as an ordinary secondary action rather than as a
              danger control. It is offered only to a role that could use it; the server still decides. -->
         @if (!isCreateMode && !isArchived() && canArchive()) {
@@ -312,8 +321,13 @@
       </section>
 
       <section id="section-timing" class="editor-section" aria-labelledby="heading-timing" tabindex="-1">
-        <h2 id="heading-timing" class="section-heading">Timing &amp; yield</h2>
-        <p class="section-intro">How long it takes, and how much it makes.</p>
+        <h2 id="heading-timing" class="section-heading">Timing</h2>
+        <p class="section-intro">How long it takes. The total is added up from the three parts.</p>
+
+        @if (totalTimeReplacementNote(); as note) {
+          <p class="total-time-replacement">{{ note }}</p>
+        }
+
         <div class="field-row">
 
         <cp-field label="Prep time (minutes)" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
@@ -352,46 +366,59 @@
           />
         </cp-field>
 
-        <!-- Derived, not imposed. The sum of prep, cook and rest is offered with what it was derived from, and
-             the field stays the creator's: the server is explicit that a total is deliberately not the sum,
-             because prep overlaps cooking and resting is unattended. Nothing here writes to the field without
-             the button being pressed, so a recipe's own total survives loading and every edit but that one. -->
+        <!-- Derived, and so not a control. The total is prep + cook + rest and updates as they do, which is
+             why there is nothing here to type into: an editable box that rewrote itself would be worse than
+             no box. `output` rather than a div because it is a labelable element, so cp-field's own label
+             names it.
+
+             `aria-live="off"` explicitly, and not merely by omitting the attribute: `output` carries an
+             implicit `role="status"`, which is itself a polite live region, so leaving it alone would
+             announce a bare integer on every keystroke in prep, cook and rest — three fields feeding one
+             region, each character its own announcement. What a creator needs is the sentence under the
+             field, which cp-field wires up as `aria-describedby` and which says what the number came from.
+             The unit is written into the value for the same reason: in browse mode this element is read on its
+             own. -->
         <cp-field
-          label="Total time (minutes)"
+          label="Total time"
           forId="recipe-total-time"
           [hint]="totalTimeNote()"
           [error]="fieldError('totalTimeMinutes')"
         >
-          <div class="derived-total">
-            <input
-              id="recipe-total-time"
-              type="number"
-              min="0"
-              [attr.aria-invalid]="fieldError('totalTimeMinutes') ? 'true' : null"
-              [ngModel]="totalTimeMinutes()"
-              (ngModelChange)="totalTimeMinutes.set($event)"
-              name="totalTimeMinutes"
-            />
-            @if (canUseTimingSum()) {
-              <button
-                cpButton
-                variant="text"
-                size="sm"
-                type="button"
-                [attr.aria-label]="'Use ' + timingSum()!.minutes + ' minutes, the total of ' + timingSum()!.parts.join(' plus ')"
-                (click)="useTimingSum()"
-              >
-                Use {{ timingSum()!.minutes }}
-              </button>
+          <output id="recipe-total-time" class="derived-total" aria-live="off">
+            @if (totalTimeMinutes() !== null) {
+              {{ totalTimeMinutes() }} minutes
+            } @else {
+              <span aria-hidden="true" class="derived-total-absent">&mdash;</span>
+              <span class="cp-sr-only">No total yet</span>
             }
-          </div>
+          </output>
         </cp-field>
 
-        <cp-field label="Yield" forId="recipe-yield-text" [error]="fieldError('yieldText')">
+        </div>
+      </section>
+
+      <!-- Its own section rather than four more cells in the timing grid. Two things were wrong with that:
+           yield fields interleaved with time fields in one auto-fitting row, and — the substantive one — the
+           only structured amount a recipe could record was a measured batch, so a creator had no way at all to
+           say how many people it feeds. "Serves" is that field, and it is first here because it is the yield
+           most recipes state. -->
+      <section id="section-yield" class="editor-section" aria-labelledby="heading-yield" tabindex="-1">
+        <h2 id="heading-yield" class="section-heading">Yield</h2>
+        <p class="section-intro">
+          What the recipe makes. Your own wording is the yield; the numbers beneath it are additional, and only
+          needed for scaling.
+        </p>
+
+        <cp-field
+          label="Yield, in your own words"
+          forId="recipe-yield-text"
+          hint="Kept exactly as you write it. Nothing below ever rewrites this."
+          [error]="fieldError('yieldText')"
+        >
           <input
             id="recipe-yield-text"
             type="text"
-            placeholder="e.g. 4 servings"
+            placeholder="e.g. Makes 2 loaves, serves 12"
             [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
             [ngModel]="yieldText()"
             (ngModelChange)="yieldText.set($event)"
@@ -399,10 +426,38 @@
           />
         </cp-field>
 
-        <cp-field label="Yield quantity" forId="recipe-yield-quantity" [error]="fieldError('yieldQuantity')">
+        <div class="field-row">
+
+        <cp-field
+          label="Serves"
+          forId="recipe-serving-count"
+          hint="Optional. How many servings the batch makes. No unit needed."
+          [error]="fieldError('servingCount')"
+        >
+          <input
+            id="recipe-serving-count"
+            type="number"
+            inputmode="decimal"
+            step="any"
+            min="0"
+            [attr.aria-invalid]="fieldError('servingCount') ? 'true' : null"
+            [ngModel]="servingCount()"
+            (ngModelChange)="servingCount.set($event)"
+            name="servingCount"
+          />
+        </cp-field>
+
+        <cp-field
+          label="Batch yield"
+          forId="recipe-yield-quantity"
+          hint="Optional. How much the whole batch makes, in the Yield unit."
+          [error]="fieldError('yieldQuantity')"
+        >
           <input
             id="recipe-yield-quantity"
             type="number"
+            inputmode="decimal"
+            step="any"
             min="0"
             [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
             [ngModel]="yieldQuantity()"
@@ -411,13 +466,13 @@
           />
         </cp-field>
 
-        <!-- The structured half of the yield, beside the creator's own wording rather than instead of it: both
-             facts exist deliberately (recipes.md), and nothing here touches the Yield field above.
+        <!-- The unit both measured amounts are read in, beside the creator's own wording rather than instead of
+             it: both facts exist deliberately (recipes.md), and nothing here touches the field above.
 
              `restricted`, unlike the ingredient editor's unit box, because text that names no unit has nowhere
-             to go — yieldUnitId is an id or nothing, and the creator's own words already have a home one field
-             to the left. Which is also why removing one needs the explicit Clear: restricted text reverts to
-             the chosen unit's name when the field is left. -->
+             to go — yieldUnitId is an id or nothing, and the creator's own words already have a home. Which is
+             also why removing one needs the explicit Clear: restricted text reverts to the chosen unit's name
+             when the field is left. -->
         <cp-field label="Yield unit" forId="recipe-yield-unit" [hint]="yieldUnitHint()" [error]="fieldError('yieldUnitId')">
           <div class="yield-unit-control">
             <cp-combobox
@@ -425,7 +480,7 @@
               [options]="yieldUnitOptions()"
               [disabled]="unitCatalogue().status !== 'ready'"
               mode="restricted"
-              placeholder="e.g. servings"
+              placeholder="e.g. loaves"
               [value]="yieldUnitText()"
               (valueChange)="yieldUnitText.set($event)"
               [selected]="yieldUnitSelection()"
@@ -442,6 +497,25 @@
               </button>
             }
           </div>
+        </cp-field>
+
+        <cp-field
+          label="One serving is"
+          forId="recipe-serving-size"
+          [hint]="servingSizeHint()"
+          [error]="fieldError('servingSize')"
+        >
+          <input
+            id="recipe-serving-size"
+            type="number"
+            inputmode="decimal"
+            step="any"
+            min="0"
+            [attr.aria-invalid]="fieldError('servingSize') ? 'true' : null"
+            [ngModel]="servingSize()"
+            (ngModelChange)="servingSize.set($event)"
+            name="servingSize"
+          />
         </cp-field>
         </div>
       </section>

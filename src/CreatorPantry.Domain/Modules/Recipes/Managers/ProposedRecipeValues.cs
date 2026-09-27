@@ -53,7 +53,8 @@ public static class ProposedRecipeValues
     {
         "prepTimeMinutes" or "cookTimeMinutes" or "restTimeMinutes" or "totalTimeMinutes"
             or "durationMinutes" => ValueKind.Minutes,
-        "yieldQuantity" or "quantity" or "quantityUpper" or "temperatureValue" => ValueKind.Number,
+        "yieldQuantity" or "servingCount" or "servingSize" or "quantity" or "quantityUpper"
+            or "temperatureValue" => ValueKind.Number,
         "isOptional" => ValueKind.Flag,
         _ => ValueKind.Text,
     };

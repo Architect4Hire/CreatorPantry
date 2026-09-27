@@ -166,6 +166,8 @@ public sealed class RecipeComparisonCompletenessTests
         recipe.YieldQuantity = 13m;
         recipe.YieldUnitId = Guid.NewGuid();
         recipe.YieldUnitDimension = MeasurementDimension.Mass;
+        recipe.ServingCount = 13m;
+        recipe.ServingSize = 2m;
         recipe.Status = RecipeStatus.Archived;
 
         var ingredientGroup = recipe.IngredientGroups.Single();

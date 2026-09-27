@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CreatorPantry.Domain.Migrations
 {
     [DbContext(typeof(CreatorPantryDbContext))]
-    partial class CreatorPantryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260927113543_AddRecipeServingYield")]
+    partial class AddRecipeServingYield
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

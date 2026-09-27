@@ -144,6 +144,8 @@ public static class RecipeSnapshotReconciler
             || recipe.YieldQuantity != target.YieldQuantity
             || recipe.YieldUnitId != target.YieldUnitId
             || recipe.YieldUnitDimension != target.YieldUnitDimension
+            || recipe.ServingCount != target.ServingCount
+            || recipe.ServingSize != target.ServingSize
             || recipe.Status != target.Status;
 
         if (!changed)
@@ -169,6 +171,8 @@ public static class RecipeSnapshotReconciler
         recipe.YieldQuantity = target.YieldQuantity;
         recipe.YieldUnitId = target.YieldUnitId;
         recipe.YieldUnitDimension = target.YieldUnitDimension;
+        recipe.ServingCount = target.ServingCount;
+        recipe.ServingSize = target.ServingSize;
         recipe.Status = target.Status;
 
         return true;

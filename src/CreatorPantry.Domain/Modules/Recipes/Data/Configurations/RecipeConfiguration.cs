@@ -41,6 +41,22 @@ internal sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
             table.HasCheckConstraint(
                 "CK_Recipes_YieldUnit_RequiresQuantity",
                 "YieldUnitId IS NULL OR YieldQuantity IS NOT NULL");
+
+            table.HasCheckConstraint(
+                "CK_Recipes_ServingCount_Positive",
+                "ServingCount IS NULL OR ServingCount > 0");
+
+            table.HasCheckConstraint(
+                "CK_Recipes_ServingSize_Positive",
+                "ServingSize IS NULL OR ServingSize > 0");
+
+            // A serving size is a measurement, so it needs the unit it is measured in — and it shares the
+            // recipe's yield unit rather than carrying one, because "batchYield = servingCount x servingSize"
+            // only holds when both sides are measured the same way. A serving *count* needs no such pairing:
+            // "serves 12" is complete on its own, which is the whole point of holding it separately.
+            table.HasCheckConstraint(
+                "CK_Recipes_ServingSize_RequiresYieldUnit",
+                "ServingSize IS NULL OR YieldUnitId IS NOT NULL");
         });
 
         builder.HasKey(recipe => recipe.Id);
@@ -64,6 +80,12 @@ internal sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.Property(recipe => recipe.YieldText).HasMaxLength(RecipePolicy.YieldTextMaxLength);
 
         builder.Property(recipe => recipe.YieldQuantity)
+            .HasColumnType(QuantityFormat.DecimalColumnType);
+
+        builder.Property(recipe => recipe.ServingCount)
+            .HasColumnType(QuantityFormat.DecimalColumnType);
+
+        builder.Property(recipe => recipe.ServingSize)
             .HasColumnType(QuantityFormat.DecimalColumnType);
 
         builder.Property(recipe => recipe.Status).IsRequired();

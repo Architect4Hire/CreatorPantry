@@ -82,10 +82,17 @@ public class Recipe : IWorkspaceOwned
     public int? RestTimeMinutes { get; set; }
 
     /// <summary>
-    /// Stored rather than derived from the other three, and deliberately so. Prep overlaps cooking, resting
-    /// is often unattended, and a creator who writes "about 2 hours, mostly waiting" means it. Summing the
-    /// parts would overwrite a fact the creator stated with one the system inferred.
+    /// Stored rather than derived from the other three. Prep overlaps cooking, resting is often unattended,
+    /// and a creator who writes "about 2 hours, mostly waiting" means it, so nothing on this side sums the
+    /// parts: an import, a restore, or an accepted proposal may set a total that is not the sum, and it is
+    /// kept.
     /// </summary>
+    /// <remarks>
+    /// The recipe editor no longer offers that freedom. It shows the sum, has no control that writes this
+    /// field, and submits the sum — so a recipe edited there converges on prep + cook + rest, and the editor
+    /// says so before a save replaces a total it did not derive. The column stays independent because the
+    /// other write paths still are; do not add a server-side derivation without deciding what it does to them.
+    /// </remarks>
     public int? TotalTimeMinutes { get; set; }
 
     /// <summary>
@@ -110,6 +117,35 @@ public class Recipe : IWorkspaceOwned
     /// unlikely. Redundant by design, exactly as <c>Ingredient.DefaultCountUnitDimension</c> is.
     /// </summary>
     public MeasurementDimension? YieldUnitDimension { get; set; }
+
+    /// <summary>
+    /// How many servings the batch makes: "serves 12".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A separate fact from <see cref="YieldQuantity"/>, because a recipe routinely states both: "makes 2
+    /// loaves, serves 12" is a batch yield of two loaves <em>and</em> a serving count of twelve. Holding only
+    /// the first left a creator with nowhere to record how many people a recipe feeds, which is the gap this
+    /// closes.
+    /// </para>
+    /// <para>
+    /// Deliberately unitless. A serving is a serving, and giving this a <c>MeasurementUnit</c> of its own
+    /// would offer a second way to say the thing the field already says. Additive to <see cref="YieldText"/>,
+    /// which remains the canonical yield in the creator's own words.
+    /// </para>
+    /// </remarks>
+    public decimal? ServingCount { get; set; }
+
+    /// <summary>
+    /// How much one serving is, measured in <see cref="YieldUnitId"/>: "250 ml per serving".
+    /// </summary>
+    /// <remarks>
+    /// In the recipe's own yield unit rather than a unit of its own, which is the shape
+    /// <c>YieldReconciliationCalculator</c> already reasons in — <c>batchYield = servingCount × servingSize</c>
+    /// holds only when the batch and the serving are measured the same way. A number with no unit to read it
+    /// in is not a serving size, so <c>CK_Recipes_ServingSize_RequiresYieldUnit</c> refuses one.
+    /// </remarks>
+    public decimal? ServingSize { get; set; }
 
     /// <summary>
     /// The creator's editorial state. Never a statement about external delivery — content.md keeps provider

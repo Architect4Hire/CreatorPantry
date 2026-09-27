@@ -68,6 +68,8 @@ const VALID_RECIPE_DETAIL: RecipeDetail = {
   yieldText: '4 servings',
   yieldQuantity: 4,
   yieldUnitId: null,
+  servingCount: null,
+  servingSize: null,
   status: 'Draft',
   duplicatedFrom: null,
   createdAt: '2026-01-01T00:00:00Z',

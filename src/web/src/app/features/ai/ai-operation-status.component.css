@@ -1,0 +1,36 @@
+/* Semantic --cp-* tokens only. The pill carries its own tone colours; nothing here adds meaning by colour. */
+
+:host {
+  display: block;
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+}
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.status-time {
+  font-size: var(--cp-font-size-xs);
+  color: var(--cp-text-muted);
+}
+
+.status-detail {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text-muted);
+}
+
+.status-failure {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  /* The text colour reinforces the pill that already says "Didn't finish" in words. */
+  color: var(--cp-danger);
+}
