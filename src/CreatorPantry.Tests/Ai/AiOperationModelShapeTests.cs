@@ -163,19 +163,27 @@ public sealed class AiOperationModelShapeTests : IDisposable
 
     /// <summary>
     /// ai.md forbids storing private prompt bodies and generated creator content by default. This table has
-    /// nowhere to put either — the only text column is the caller's idempotency key — and that is a property
-    /// worth asserting rather than trusting, because the cheapest way to break it is to add a "Notes" or
-    /// "LastError" string when something needs debugging.
+    /// nowhere to put either — asserted rather than trusted, because the cheapest way to break it is to add a
+    /// "Notes" or "LastError" string when something needs debugging.
     /// </summary>
+    /// <remarks>
+    /// <see cref="AiOperation.TaskInputsJson"/> is the one deliberate exception, not an oversight this test
+    /// failed to catch: it holds a task's own declared, capability-specific fields — AIREC-001's structured
+    /// brief, for instance — which are the creator's structured intake for a task with no recipe to be the
+    /// source instead, never a rendered prompt and never a model's answer. A future column that is either of
+    /// those must not widen this list to include it.
+    /// </remarks>
     [Fact]
-    public void Has_no_free_text_column_a_prompt_body_could_land_in()
+    public void Has_no_free_text_column_a_prompt_body_or_generated_content_could_land_in()
     {
         var textProperties = Operations().GetProperties()
             .Where(property => property.ClrType == typeof(string))
             .Select(property => property.Name)
             .ToArray();
 
-        Assert.Equal([nameof(AiOperation.IdempotencyKey)], textProperties);
+        Assert.Equal(
+            [nameof(AiOperation.IdempotencyKey), nameof(AiOperation.TaskInputsJson)],
+            textProperties);
     }
 
     [Fact]

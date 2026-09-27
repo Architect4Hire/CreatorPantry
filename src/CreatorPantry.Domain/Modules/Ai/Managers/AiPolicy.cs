@@ -79,6 +79,24 @@ public static class AiPolicy
     public const int MaxConceptCount = 5;
 
     /// <summary>
+    /// One of AIREC-001's short brief fields: audience, course, cuisine, skill, season, or time budget.
+    /// </summary>
+    public const int BriefFieldMaxLength = 200;
+
+    /// <summary>
+    /// One of AIREC-001's comma-separated brief fields: dietary goals, available ingredients, exclusions,
+    /// equipment, or creator style. Longer than <see cref="BriefFieldMaxLength"/> because several distinct
+    /// items are expected to share the one field.
+    /// </summary>
+    public const int BriefListFieldMaxLength = 500;
+
+    /// <summary>
+    /// The bound on an operation's stored <c>TaskInputsJson</c> column: every declared brief field, each
+    /// individually bounded above, still comfortably fits with room for JSON structure and key names.
+    /// </summary>
+    public const int TaskInputsJsonMaxLength = 4000;
+
+    /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>
     /// <remarks>

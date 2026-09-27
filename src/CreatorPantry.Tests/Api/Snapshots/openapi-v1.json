@@ -915,6 +915,211 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipe-concept-requests": {
+      "post": {
+        "tags": [
+          "RecipeConceptRequests"
+        ],
+        "summary": "Asks for two to five distinct recipe concepts from a structured brief.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet. The request is durable and the model\n            is called by the worker afterwards, so the API does not stay open around unbounded provider work\n            (api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Generation spends a provider budget, so a repeat of the same key and the same brief returns\nthe original with \u0060Idempotent-Replayed: true\u0060 rather than buying a second answer.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecipeConcepts"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecipeConcepts"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecipeConcepts"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipe-concept-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "RecipeConceptRequests"
+        ],
+        "summary": "Where a requested generation has got to, and the proposed concepts once there are any.",
+        "description": "Polling before the concepts exist is a \u0060200\u0060 carrying a status, not a \u0060404\u0060 -- the request\nresource exists from the moment it was accepted, and reporting it missing would make a normal poll look\nlike a failure.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Where a requested generation has got to, and the proposed concepts once there are any.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes": {
       "post": {
         "tags": [
@@ -3699,7 +3904,8 @@
           "Ingredients",
           "Instructions",
           "Metadata",
-          "Media"
+          "Media",
+          "NotApplicable"
         ],
         "type": "string"
       },
@@ -6924,6 +7130,77 @@
           }
         }
       },
+      "RequestRecipeConcepts": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "course": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cuisine": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dietaryGoals": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "availableIngredients": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "exclusions": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "equipment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "skill": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "season": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeBudget": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creatorStyle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RestoreRecipeVersion": {
         "type": "object",
         "properties": {
@@ -7677,6 +7954,9 @@
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "RecipeConceptRequests"
     },
     {
       "name": "Recipes"

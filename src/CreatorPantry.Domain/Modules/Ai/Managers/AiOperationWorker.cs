@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
@@ -157,7 +158,8 @@ internal sealed class AiOperationWorker(
             operation.RecipeId,
             operation.RecipeVersionId,
             CorrelationId(),
-            ct => operations.RenewLeaseAsync(claim.OperationId, claim.LeaseToken, ct));
+            ct => operations.RenewLeaseAsync(claim.OperationId, claim.LeaseToken, ct),
+            DeserializeInputs(operation.TaskInputsJson));
 
         var outcome = await handler.HandleAsync(context, cancellationToken);
 
@@ -190,6 +192,16 @@ internal sealed class AiOperationWorker(
 
         return new AiOperationMaintenanceSummary(requeued, abandoned, expired);
     }
+
+    /// <summary>
+    /// An operation's stored brief, as the declared-field dictionary a handler reads. Written once by
+    /// Business at request time and never by the model; a row with none stored (a recipe-bound task, or one
+    /// that declares no fields) reads as no inputs at all rather than an empty one.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string>? DeserializeInputs(string? taskInputsJson) =>
+        taskInputsJson is null
+            ? null
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(taskInputsJson);
 
     /// <summary>
     /// The ambient request's trace id, as a <see cref="Guid"/> -- the same reasoning

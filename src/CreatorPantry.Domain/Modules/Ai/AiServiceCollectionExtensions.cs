@@ -94,6 +94,24 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-001's recipe-concept generation.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddAiModule"/> for the same reason <see cref="AddAiProposalSeam"/> is: a host
+    /// with no use for this route should not carry its validator and business type just to call
+    /// <see cref="AddAiModule"/>. Unlike <see cref="AddAiProposalSeam"/>, this carries no recipe-module
+    /// prerequisite — a concept request names no recipe, so nothing here ever calls <c>IRecipeFacade</c>.
+    /// </remarks>
+    public static IServiceCollection AddAiConceptRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiConceptRequestBusiness, AiConceptRequestBusiness>();
+        services.AddScoped<IAiConceptRequestFacade, AiConceptRequestFacade>();
+        services.AddScoped<IValidator<RequestRecipeConceptsViewModel>, RequestRecipeConceptsViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>

@@ -33,4 +33,11 @@ public enum AiOperationScope
 
     /// <summary>Alt text, visual briefs, and asset links. Never the bytes of an original upload.</summary>
     Media = 5,
+
+    /// <summary>
+    /// For a task that names no recipe at all, such as AIREC-001's concept generation. Not "unbounded" — a
+    /// scope declared this way permits nothing under <see cref="AiPolicy.AllowedTargets"/>, the same as an
+    /// undeclared one, because there is no recipe for a change to address in the first place.
+    /// </summary>
+    NotApplicable = 6,
 }

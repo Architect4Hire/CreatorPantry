@@ -96,6 +96,9 @@ internal sealed class AiOperationConfiguration : IEntityTypeConfiguration<AiOper
             .IsRequired()
             .HasMaxLength(AiPolicy.IdempotencyKeyMaxLength);
 
+        builder.Property(operation => operation.TaskInputsJson)
+            .HasMaxLength(AiPolicy.TaskInputsJsonMaxLength);
+
         builder.Property(operation => operation.Attempts).IsRequired();
         builder.Property(operation => operation.AvailableAt).IsRequired();
 

@@ -77,6 +77,19 @@ public class AiOperation : IWorkspaceOwned
     public string IdempotencyKey { get; set; } = string.Empty;
 
     /// <summary>
+    /// The declared, capability-specific fields the request named, as a JSON object — never a prompt, never
+    /// free text outside a declared field. Null for a task that names no fields, or a recipe-bound one whose
+    /// source is the pinned version rather than a brief.
+    /// </summary>
+    /// <remarks>
+    /// This is the exception to this aggregate's own rule that it records "shape... not content" — see the
+    /// type's remarks. The declared fields are the request itself, for a task with no recipe to be the source
+    /// instead; they are the creator's own structured intake, never a rendered prompt or a model's answer, so
+    /// storing them does not accumulate either of the things ai.md forbids logging by default.
+    /// </remarks>
+    public string? TaskInputsJson { get; set; }
+
+    /// <summary>
     /// The <c>WorkspaceMembership</c> of the creator who asked, not their Identity user id. Membership is the
     /// workspace-scoped identity (auth.md).
     /// </summary>

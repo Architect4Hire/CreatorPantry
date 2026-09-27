@@ -61,6 +61,9 @@ builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
 
 // The request seam, which the worker does not register: it needs the recipe module, already added above.
 builder.Services.AddAiProposalSeam();
+
+// AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
+builder.Services.AddAiConceptRequestSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);
