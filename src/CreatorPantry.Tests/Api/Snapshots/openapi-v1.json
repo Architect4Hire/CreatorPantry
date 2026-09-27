@@ -4513,6 +4513,13 @@
           }
         }
       },
+      "IngredientDisplayTextSource": {
+        "enum": [
+          "Creator",
+          "Composed"
+        ],
+        "type": "string"
+      },
       "IngredientLineAmbiguity": {
         "required": [
           "kind",
@@ -5291,7 +5298,9 @@
           "Status",
           "IngredientGroupTitle",
           "IngredientDisplayText",
+          "IngredientDisplayTextSource",
           "IngredientNameText",
+          "IngredientUnitText",
           "IngredientQuantity",
           "IngredientQuantityUpper",
           "IngredientMeasurementUnitId",
@@ -5688,6 +5697,8 @@
           "sortOrder",
           "displayText",
           "ingredientNameText",
+          "unitText",
+          "displayTextSource",
           "quantity",
           "quantityUpper",
           "measurementUnitId",
@@ -5719,6 +5730,15 @@
               "null",
               "string"
             ]
+          },
+          "unitText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayTextSource": {
+            "$ref": "#/components/schemas/IngredientDisplayTextSource"
           },
           "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
@@ -5842,6 +5862,28 @@
             "format": "uuid"
           },
           "displayText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayTextSource": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IngredientDisplayTextSource"
+              }
+            ]
+          },
+          "ingredientNameText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unitText": {
             "type": [
               "null",
               "string"

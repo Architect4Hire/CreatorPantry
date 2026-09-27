@@ -1,6 +1,7 @@
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Reference;
 using FluentValidation;
+using FluentValidation.Results;
 
 namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 
@@ -143,6 +144,9 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
             .When(model => model.Tags.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.Tags));
 
+        // List-level only: a total, or two rows naming one id, is not about any one line. Everything a single
+        // group, line or step can be wrong about on its own is reported at its position instead — see the two
+        // rules below and RecipeInputPositions.
         RuleFor(model => model.Instructions)
             .Cascade(CascadeMode.Stop)
             .Must(field => !Groups(field).Any(group => group is null))
@@ -151,32 +155,12 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionGroupsPerRecipe} instruction groups.")
             .Must(field => Groups(field).Sum(group => Steps(group).Count) <= RecipePolicy.MaxInstructionStepsPerRecipe)
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionStepsPerRecipe} instruction steps.")
-            .Must(field => Groups(field).All(group => group.Id != Guid.Empty))
-                .WithMessage("That is not a valid instruction group reference.")
             .Must(field => HaveNoRepeatedIds(Groups(field).Select(group => group.Id)))
                 .WithMessage("The same instruction group is named more than once.")
-            .Must(field => Groups(field).All(group => Trimmed(group.Title).Length <= RecipePolicy.GroupTitleMaxLength))
-                .WithMessage($"An instruction group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
             .Must(field => !AllSteps(field).Any(step => step is null))
                 .WithMessage("An instruction step cannot be blank.")
-            .Must(field => AllSteps(field).All(step => step.Id != Guid.Empty))
-                .WithMessage("That is not a valid instruction step reference.")
             .Must(field => HaveNoRepeatedIds(AllSteps(field).Select(step => step.Id)))
                 .WithMessage("The same instruction step is named more than once.")
-            .Must(field => AllSteps(field).All(step => !string.IsNullOrWhiteSpace(step.Text)))
-                .WithMessage("An instruction step cannot be blank.")
-            .Must(field => AllSteps(field).All(step => Trimmed(step.Text).Length <= RecipePolicy.StepTextMaxLength))
-                .WithMessage($"An instruction step can be at most {RecipePolicy.StepTextMaxLength} characters.")
-            .Must(field => AllSteps(field).All(step => Trimmed(step.Note).Length <= RecipePolicy.NoteMaxLength))
-                .WithMessage($"A step note can be at most {RecipePolicy.NoteMaxLength} characters.")
-            .Must(field => AllSteps(field).All(step => step.DurationMinutes is null or (>= 0 and <= RecipePolicy.MaxTimeMinutes)))
-                .WithMessage("A step's duration must be a time in minutes between 0 and one year.")
-            .Must(field => AllSteps(field).All(step => step.TechniqueId != Guid.Empty))
-                .WithMessage("That is not a valid technique reference.")
-            .Must(field => AllSteps(field).All(step => step.TemperatureUnitId != Guid.Empty))
-                .WithMessage("That is not a valid unit reference.")
-            .Must(field => AllSteps(field).All(step => (step.TemperatureValue is null) == (step.TemperatureUnitId is null)))
-                .WithMessage("A step's temperature needs both a value and a unit, or neither.")
             .When(model => model.Instructions.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.Instructions));
 
@@ -188,37 +172,26 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientGroupsPerRecipe} ingredient groups.")
             .Must(field => IngredientGroups(field).Sum(group => Lines(group).Count) <= RecipePolicy.MaxIngredientLinesPerRecipe)
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientLinesPerRecipe} ingredient lines.")
-            .Must(field => IngredientGroups(field).All(group => group.Id != Guid.Empty))
-                .WithMessage("That is not a valid ingredient group reference.")
             .Must(field => HaveNoRepeatedIds(IngredientGroups(field).Select(group => group.Id)))
                 .WithMessage("The same ingredient group is named more than once.")
-            .Must(field => IngredientGroups(field).All(group => Trimmed(group.Title).Length <= RecipePolicy.GroupTitleMaxLength))
-                .WithMessage($"An ingredient group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
             .Must(field => !AllLines(field).Any(line => line is null))
                 .WithMessage("An ingredient line cannot be blank.")
-            .Must(field => AllLines(field).All(line => line.Id != Guid.Empty))
-                .WithMessage("That is not a valid ingredient line reference.")
             .Must(field => HaveNoRepeatedIds(AllLines(field).Select(line => line.Id)))
                 .WithMessage("The same ingredient line is named more than once.")
-            .Must(field => AllLines(field).All(line => !string.IsNullOrWhiteSpace(line.DisplayText)))
-                .WithMessage("An ingredient line cannot be blank.")
-            .Must(field => AllLines(field).All(line => Trimmed(line.DisplayText).Length <= RecipePolicy.LineTextMaxLength))
-                .WithMessage($"An ingredient line can be at most {RecipePolicy.LineTextMaxLength} characters.")
-            .Must(field => AllLines(field).All(line => Trimmed(line.PreparationNote).Length <= RecipePolicy.NoteMaxLength))
-                .WithMessage($"A preparation note can be at most {RecipePolicy.NoteMaxLength} characters.")
-            .Must(field => AllLines(field).All(line => line.Quantity is null or > 0m))
-                .WithMessage("A quantity must be greater than zero.")
-            .Must(field => AllLines(field).All(line => line.QuantityUpper is null or > 0m))
-                .WithMessage("A quantity must be greater than zero.")
-            .Must(field => AllLines(field).All(
-                line => line.QuantityUpper is null || (line.Quantity is not null && line.QuantityUpper > line.Quantity)))
-                .WithMessage("A quantity range needs a lower amount, and the upper amount must be greater than it.")
-            .Must(field => AllLines(field).All(line => line.MeasurementUnitId != Guid.Empty))
-                .WithMessage("That is not a valid unit reference.")
-            .Must(field => AllLines(field).All(line => line.IngredientId != Guid.Empty))
-                .WithMessage("That is not a valid ingredient reference.")
             .When(model => model.IngredientGroups.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.IngredientGroups));
+
+        // Each failure keyed to the group, line or step it is about, so the editor can mark that row. No
+        // OverridePropertyName: these rules supply their own paths.
+        RuleFor(model => model.IngredientGroups)
+            .Custom((field, context) => RecipeInputPositions.AddIngredientFailures(
+                field.Value, RecipeInputMode.Update, (path, message) => context.AddFailure(new ValidationFailure(path, message))))
+            .When(model => model.IngredientGroups.IsSubmitted);
+
+        RuleFor(model => model.Instructions)
+            .Custom((field, context) => RecipeInputPositions.AddInstructionFailures(
+                field.Value, RecipeInputMode.Update, (path, message) => context.AddFailure(new ValidationFailure(path, message))))
+            .When(model => model.Instructions.IsSubmitted);
     }
 
     private static IReadOnlyList<RecipeInstructionGroupInputViewModel> Groups(PatchField<IReadOnlyList<RecipeInstructionGroupInputViewModel?>?> field) =>

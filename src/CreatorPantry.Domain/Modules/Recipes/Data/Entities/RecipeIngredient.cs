@@ -46,11 +46,25 @@ public class RecipeIngredient : IWorkspaceOwned
     public string DisplayText { get; set; } = string.Empty;
 
     /// <summary>
+    /// Whether <see cref="DisplayText"/> is wording the creator wrote or wording assembled from the spans
+    /// below. See <see cref="IngredientDisplayTextSource"/>: an assembled line may be re-derived when those
+    /// change, and a line the creator wrote never may.
+    /// </summary>
+    public IngredientDisplayTextSource DisplayTextSource { get; set; } = IngredientDisplayTextSource.Creator;
+
+    /// <summary>
     /// The ingredient-name span of <see cref="DisplayText"/> as parsed — "all-purpose flour" out of the line
     /// above — so an interface can emphasise the name without re-parsing on every render. A reading of the
     /// text, not a correction to it.
     /// </summary>
     public string? IngredientNameText { get; set; }
+
+    /// <summary>
+    /// The unit span as written — "cups" out of the line above. Beside <see cref="MeasurementUnitId"/> rather
+    /// than in place of it: the id is the unit that was recognised, and this is the creator's word for it,
+    /// which is the whole of what is known when nothing was recognised.
+    /// </summary>
+    public string? UnitText { get; set; }
 
     /// <summary>
     /// The parsed quantity, or the low end of a range. Null when the line has no number ("a pinch of salt")

@@ -1,6 +1,7 @@
 // Wire models for the shared platform catalogue at /api/v1/reference/*. Mirrors
 // CreatorPantry.Domain/Modules/Measurement/Managers/MeasurementManagers.cs, MeasurementSystem.cs,
-// CreatorPantry.Domain/Managers/Reference/MeasurementDimension.cs and
+// CreatorPantry.Domain/Managers/Reference/MeasurementDimension.cs,
+// CreatorPantry.Domain/Modules/Ingredients/Managers/IngredientManagers.cs and
 // CreatorPantry.Domain/Managers/Paging/CursorPageServiceModel.cs exactly.
 //
 // Reference data is global, not workspace-owned (tenancy.md): these routes sit outside
@@ -88,6 +89,31 @@ export const MEASUREMENT_DIMENSION_LABELS: Readonly<Record<MeasurementDimension,
   Qualitative: 'Descriptive',
 };
 
+/**
+ * How each system reads to a creator. `Neutral` is blank because a clove belongs to no system and saying so
+ * would be answering a question nobody asked.
+ */
+export const MEASUREMENT_SYSTEM_LABELS: Readonly<Record<MeasurementSystem, string>> = {
+  Neutral: '',
+  Metric: 'metric',
+  UsCustomary: 'US customary',
+  Imperial: 'imperial',
+};
+
+/**
+ * The prefix the catalogue puts on a unit whose name would otherwise be ambiguous across systems — a US cup is
+ * 236.6ml and an imperial one is 284ml, so `US cup` earns its words.
+ *
+ * Kept as data beside the labels so a surface that would rather say the system on a second line can take the
+ * prefix off the name rather than string-matching for it. Null where no prefix is used.
+ */
+export const MEASUREMENT_SYSTEM_NAME_PREFIXES: Readonly<Record<MeasurementSystem, string | null>> = {
+  Neutral: null,
+  Metric: null,
+  UsCustomary: 'US ',
+  Imperial: 'Imperial ',
+};
+
 /** Mirrors MeasurementUnitServiceModel. */
 export interface MeasurementUnit {
   readonly id: string;
@@ -138,6 +164,46 @@ export function decodeMeasurementUnit(value: unknown): MeasurementUnit | null {
   }
 
   return { id, code, displayName, pluralName, abbreviation, dimension, system, baseUnitFactor, displayPrecision };
+}
+
+/**
+ * One ingredient in the shared platform catalogue. Mirrors IngredientServiceModel.
+ *
+ * A reference, never a replacement: matching one of these enriches a recipe line while the creator's own
+ * wording stays canonical (recipes.md).
+ */
+export interface Ingredient {
+  readonly id: string;
+  readonly canonicalName: string;
+  readonly foodCategoryCode: string | null;
+  /**
+   * The unit to suggest for a bare number — "2 garlic" proposing cloves. A suggestion only; it never
+   * overrides a unit the creator actually wrote.
+   */
+  readonly defaultCountUnitCode: string | null;
+  /**
+   * The aliases that may have caused a search to match. Carried so a picker can show *why* "scallion" found
+   * green onion — without it, a correct match is indistinguishable from a bug.
+   */
+  readonly aliases: readonly string[];
+}
+
+export function decodeIngredient(value: unknown): Ingredient | null {
+  if (!isRecord(value)) return null;
+  const { id, canonicalName, foodCategoryCode, defaultCountUnitCode, aliases } = value;
+
+  if (
+    typeof id !== 'string' ||
+    typeof canonicalName !== 'string' ||
+    !isStringOrNull(foodCategoryCode) ||
+    !isStringOrNull(defaultCountUnitCode) ||
+    !Array.isArray(aliases) ||
+    aliases.some((alias) => typeof alias !== 'string')
+  ) {
+    return null;
+  }
+
+  return { id, canonicalName, foodCategoryCode, defaultCountUnitCode, aliases: aliases as string[] };
 }
 
 /** Mirrors CursorPageServiceModel<T>. */

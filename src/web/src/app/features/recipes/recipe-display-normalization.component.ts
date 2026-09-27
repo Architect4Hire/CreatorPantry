@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CpButtonComponent, CpFieldComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpCheckboxComponent, CpFieldComponent } from '@creator-pantry/ui';
 
 import {
   FRACTION_PRESENTATION_EXPLANATIONS,
@@ -81,7 +81,7 @@ let nextInstance = 0;
 @Component({
   selector: 'cp-recipe-display-normalization',
   standalone: true,
-  imports: [FormsModule, CpButtonComponent, CpFieldComponent],
+  imports: [FormsModule, CpButtonComponent, CpCheckboxComponent, CpFieldComponent],
   templateUrl: './recipe-display-normalization.component.html',
   styleUrl: './recipe-display-normalization.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

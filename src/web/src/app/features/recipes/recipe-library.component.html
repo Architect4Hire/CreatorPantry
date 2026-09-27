@@ -48,12 +48,14 @@
   [errorMessage]="errorMessage()"
   emptyMessage="No recipes yet."
 >
+  <!-- Creating a recipe has nothing to do with whether this list could be read, so a failed search offers the
+       retry *beside* it rather than instead of it. Retry first: it is the secondary action, matching the
+       editor header's order, and it is what someone reading "Couldn't load" reaches for first. -->
   <div cpListShellActions>
     @if (state().status === 'error') {
       <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
-    } @else {
-      <a cpButton routerLink="new">New recipe</a>
     }
+    <a cpButton routerLink="new">New recipe</a>
   </div>
 
   <div cpListShellEmpty>

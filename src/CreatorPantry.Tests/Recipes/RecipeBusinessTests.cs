@@ -352,6 +352,104 @@ public sealed class RecipeBusinessTests
         Assert.Empty(_dataLayer.Recipe!.IngredientGroups);
     }
 
+    /// <summary>
+    /// The creator's own words for a line's name and unit are kept even when neither matched anything, because
+    /// there is nowhere else for them to go: an unmatched name has no <c>IngredientId</c> and an unmatched unit
+    /// has no <c>MeasurementUnitId</c>. Without this, a creator who types "cups" into an ingredient row can
+    /// only ever see it again inside the line's own text.
+    /// </summary>
+    [Fact]
+    public async Task A_lines_entered_name_and_unit_are_stored_even_when_neither_matched_anything()
+    {
+        var input = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups =
+            [
+                new RecipeIngredientGroupInputViewModel
+                {
+                    Ingredients =
+                    [
+                        new RecipeIngredientInputViewModel
+                        {
+                            DisplayText = "  2 cups all-purpose flour, sifted  ",
+                            DisplayTextSource = IngredientDisplayTextSource.Composed,
+                            IngredientNameText = "  all-purpose flour  ",
+                            UnitText = "  cups  ",
+                            Quantity = 2m,
+                            PreparationNote = "sifted",
+                        },
+                    ],
+                },
+            ],
+        };
+
+        await CreateAsync(input);
+
+        var line = _dataLayer.Recipe!.IngredientGroups.Single().Ingredients.Single();
+        Assert.Equal("2 cups all-purpose flour, sifted", line.DisplayText);
+        Assert.Equal("all-purpose flour", line.IngredientNameText);
+        Assert.Equal("cups", line.UnitText);
+
+        // Nothing was matched, and nothing pretends otherwise.
+        Assert.Null(line.IngredientId);
+        Assert.Null(line.MeasurementUnitId);
+        Assert.Equal(IngredientMatchStatus.NotAttempted, line.MatchStatus);
+    }
+
+    /// <summary>
+    /// Whether a line was written or assembled is recorded, so a later read can tell the two apart. An editor
+    /// that assembles a line from a creator's fields has to keep it in step with them, and it may only do that
+    /// to a line nobody wrote (recipes.md).
+    /// </summary>
+    [Fact]
+    public async Task How_a_line_got_its_wording_is_recorded_rather_than_left_to_be_guessed_at()
+    {
+        var composed = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups =
+            [
+                new RecipeIngredientGroupInputViewModel
+                {
+                    Ingredients =
+                    [
+                        new RecipeIngredientInputViewModel
+                        {
+                            DisplayText = "2 cups flour",
+                            DisplayTextSource = IngredientDisplayTextSource.Composed,
+                        },
+                    ],
+                },
+            ],
+        };
+
+        await CreateAsync(composed);
+
+        Assert.Equal(
+            IngredientDisplayTextSource.Composed,
+            _dataLayer.Recipe!.IngredientGroups.Single().Ingredients.Single().DisplayTextSource);
+
+        // Said nothing about it, so it is the creator's wording — the reading that re-derives nothing.
+        var unstated = new CreateRecipeViewModel
+        {
+            Title = "Cake",
+            IngredientGroups =
+            [
+                new RecipeIngredientGroupInputViewModel
+                {
+                    Ingredients = [new RecipeIngredientInputViewModel { DisplayText = "2 cups flour" }],
+                },
+            ],
+        };
+
+        await CreateAsync(unstated);
+
+        Assert.Equal(
+            IngredientDisplayTextSource.Creator,
+            _dataLayer.Recipe!.IngredientGroups.Single().Ingredients.Single().DisplayTextSource);
+    }
+
     [Fact]
     public async Task A_display_text_survives_alongside_a_matched_ingredient_id_unchanged()
     {
@@ -416,6 +514,8 @@ public sealed class RecipeBusinessTests
         // recipes.md sets, made visible on the wire.
         Assert.Equal("2 cups (240 g) all-purpose flour, sifted", line.DisplayText);
         Assert.Equal("all-purpose flour", line.IngredientNameText);
+        Assert.Equal("cups", line.UnitText);
+        Assert.Equal(IngredientDisplayTextSource.Composed, line.DisplayTextSource);
         Assert.Equal(IngredientMatchStatus.Matched, line.MatchStatus);
         Assert.Equal(IngredientScaling.Fixed, line.ScalingBehavior);
     }

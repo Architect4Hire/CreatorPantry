@@ -31,6 +31,15 @@ public sealed record CanonicalIngredientLine
     /// <summary>Never trimmed away to nothing — recipes.md keeps this the creator's own wording.</summary>
     public required string DisplayText { get; init; }
 
+    /// <inheritdoc cref="RecipeIngredientInputViewModel.DisplayTextSource"/>
+    public IngredientDisplayTextSource DisplayTextSource { get; init; }
+
+    /// <inheritdoc cref="RecipeIngredientInputViewModel.IngredientNameText"/>
+    public string? IngredientNameText { get; init; }
+
+    /// <inheritdoc cref="RecipeIngredientInputViewModel.UnitText"/>
+    public string? UnitText { get; init; }
+
     public decimal? Quantity { get; init; }
 
     public decimal? QuantityUpper { get; init; }
@@ -96,6 +105,9 @@ internal static class CanonicalIngredients
             {
                 Id = line.Id,
                 DisplayText = Text(line.DisplayText) ?? string.Empty,
+                DisplayTextSource = line.DisplayTextSource ?? IngredientDisplayTextSource.Creator,
+                IngredientNameText = Text(line.IngredientNameText),
+                UnitText = Text(line.UnitText),
                 Quantity = line.Quantity,
                 QuantityUpper = line.QuantityUpper,
                 MeasurementUnitId = line.MeasurementUnitId,

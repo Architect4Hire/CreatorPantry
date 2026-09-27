@@ -1,12 +1,30 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
-import { MeasurementUnit, decodeCursorPage, decodeMeasurementUnit } from '../models/reference.models';
+import {
+  Ingredient,
+  MeasurementUnit,
+  decodeCursorPage,
+  decodeIngredient,
+  decodeMeasurementUnit,
+} from '../models/reference.models';
 
 export type ListUnitsOutcome =
   | { readonly status: 'found'; readonly units: readonly MeasurementUnit[] }
+  | { readonly status: 'unavailable' };
+
+/**
+ * What one ingredient search came back with.
+ *
+ * `tooShort` is its own answer rather than an empty `found`: the server ignores a term under
+ * `INGREDIENT_SEARCH_MIN_LENGTH` and returns the first page unfiltered, so reporting zero matches would be a
+ * lie and reporting `unavailable` would blame an outage for a term nobody finished typing.
+ */
+export type SearchIngredientsOutcome =
+  | { readonly status: 'found'; readonly ingredients: readonly Ingredient[]; readonly hasMore: boolean }
+  | { readonly status: 'tooShort' }
   | { readonly status: 'unavailable' };
 
 /**
@@ -23,6 +41,24 @@ const MAX_PAGE_SIZE = 100;
  * read can never become an unbounded loop in a creator's browser.
  */
 const MAX_PAGES = 20;
+
+/**
+ * Below this a search term is ignored server-side (`ReferencePolicy.MinSearchLength`), which would come back
+ * as the first page of the whole catalogue. Exported so a type-ahead can say "keep typing" with the same
+ * threshold the server applies rather than a guess at it.
+ */
+export const INGREDIENT_SEARCH_MIN_LENGTH = 2;
+
+/** `ReferencePolicy.SearchMaxLength`. Above it the server refuses the request. */
+const SEARCH_MAX_LENGTH = 128;
+
+/**
+ * How many matches one ingredient search asks for.
+ *
+ * Small on purpose: this fills a dropdown someone is reading while they type, and a list longer than this is
+ * narrowed faster by another keystroke than by scrolling.
+ */
+const INGREDIENT_SEARCH_PAGE_SIZE = 20;
 
 /**
  * The typed client for the shared platform catalogue, `/api/v1/reference/*`.
@@ -100,5 +136,48 @@ export class ReferenceService {
     // The server is still offering more after MAX_PAGES. Answering `found` here would hand back a catalogue
     // that is quietly incomplete, which is the one thing this method promises not to do.
     return { status: 'unavailable' };
+  }
+
+  /**
+   * Ingredients in the shared catalogue matching `search`, as one page.
+   *
+   * Unlike {@link listUnits} this reads a single page and never follows the cursor. The ingredient catalogue
+   * is far too large to hold in a browser, so this is a search rather than a catalogue read, and the way to
+   * see past the first page of matches is to type more of the name — which is why `hasMore` is reported
+   * rather than paged through.
+   *
+   * **Returns an observable, not a promise, so that a caller can cancel it.** Unsubscribing aborts the
+   * request in flight, which is what lets a type-ahead abandon the answer to a term the creator has already
+   * typed past instead of racing it against the next one. Nothing here debounces: when to ask is the calling
+   * surface's decision, not this service's.
+   *
+   * Not cached either, for the same reason — the term is the key, and the server already caches reference
+   * pages under a global key.
+   */
+  searchIngredients(search: string): Observable<SearchIngredientsOutcome> {
+    // Cut rather than refused: the server rejects a longer term outright, and a creator who pasted a
+    // paragraph into the box is better served by a search on the front of it than by an error.
+    const term = search.trim().slice(0, SEARCH_MAX_LENGTH);
+    if (term.length < INGREDIENT_SEARCH_MIN_LENGTH) return of<SearchIngredientsOutcome>({ status: 'tooShort' });
+
+    const url = this.apiBase.url('/api/v1/reference/ingredients');
+    if (!url) return of<SearchIngredientsOutcome>({ status: 'unavailable' });
+
+    return this.http
+      .get<unknown>(url, {
+        withCredentials: true,
+        params: { search: term, limit: String(INGREDIENT_SEARCH_PAGE_SIZE) },
+      })
+      .pipe(
+        map((raw): SearchIngredientsOutcome => {
+          const decoded = decodeCursorPage(raw, decodeIngredient);
+          if (decoded === null) return { status: 'unavailable' };
+
+          return { status: 'found', ingredients: decoded.items, hasMore: decoded.nextCursor !== null };
+        }),
+        // A refusal, an outage and a shape this client cannot read are one answer to the caller: no list to
+        // offer. The typed text stands either way, so a failed search costs a suggestion, not an edit.
+        catchError(() => of<SearchIngredientsOutcome>({ status: 'unavailable' })),
+      );
   }
 }

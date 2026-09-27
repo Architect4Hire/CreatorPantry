@@ -1,4 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef, Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -7,19 +9,36 @@ import { RecipeEditorComponent } from './recipe-editor.component';
 import { recipeEditorCanDeactivateGuard } from './recipe-editor.guard';
 import { EditableIngredientGroup, EditableIngredientRow } from './recipe-ingredient-editor.component';
 import { ConfirmService } from '../../core/confirm.service';
+import { RuntimeConfigService } from '../../core/runtime-config.service';
 import { WorkspaceRole } from '../../models/auth.models';
-import { CreatedRecipe, RecipeDetail } from '../../models/recipe.models';
+import {
+  CreatedRecipe,
+  IngredientGroupInput,
+  InstructionGroupInput,
+  RecipeDetail,
+  RecipeIngredient,
+} from '../../models/recipe.models';
 import { RecipeService } from '../../services/recipe.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 
-/** A minimal, otherwise-blank editable ingredient row — the working copy's own defaults, not the server's. */
+/**
+ * A minimal, otherwise-blank editable ingredient row — the working copy's own defaults, not the server's.
+ *
+ * `displayTextIsComposed: false` rather than `blankRow()`'s `true`, because a test that hands a row a
+ * `displayText` is describing a line whose text is already owned (pasted, or loaded from a recipe). Building
+ * a row here at all skips the child editor, and with it the composition that gives a hand-entered line its
+ * text — so a test that means to cover hand entry drives the real inputs instead. See "a line typed into the
+ * row's own fields" below, and the child editor's own spec.
+ */
 function editableRow(overrides: Partial<EditableIngredientRow> = {}): EditableIngredientRow {
   return {
     key: 'row-' + Math.random().toString(36).slice(2),
     id: null,
     displayText: '',
+    displayTextIsComposed: false,
     ingredientNameText: '',
     quantityText: '',
+    quantityUpper: null,
     detectedQuantityText: null,
     unitId: null,
     unitLabel: '',
@@ -164,12 +183,19 @@ async function createHarness(
   recipeService: ReturnType<typeof recipeServiceSpy>,
   confirm: ReturnType<typeof confirmServiceStub> = confirmServiceStub(),
   role: WorkspaceRole | null = 'Editor',
+  gatewayUrl: string | null = null,
 ) {
   confirmService = confirm;
 
   TestBed.resetTestingModule();
   await TestBed.configureTestingModule({
     providers: [
+      // The editor reads the shared unit catalogue for its yield-unit picker, so `ReferenceService` has an
+      // `HttpClient` to inject. With no gateway resolved (the default below) that read cannot be addressed at
+      // all, so the picker reports itself unavailable and makes no request — which is what every test that is
+      // not about it wants.
+      provideHttpClient(),
+      provideHttpClientTesting(),
       { provide: ConfirmService, useValue: confirm },
       provideRouter([
         {
@@ -191,6 +217,15 @@ async function createHarness(
     ],
   }).compileComponents();
 
+  // A test that cares about the yield-unit picker resolves the gateway here and answers the catalogue read
+  // itself; see `settleUnits`.
+  if (gatewayUrl !== null) {
+    const http = TestBed.inject(HttpTestingController);
+    const loading = TestBed.inject(RuntimeConfigService).load();
+    http.expectOne('/runtime-config.json').flush({ gatewayUrl });
+    await loading;
+  }
+
   const harness = await RouterTestingHarness.create();
   const component = await harness.navigateByUrl(path, RecipeEditorComponent);
   harness.detectChanges();
@@ -199,6 +234,33 @@ async function createHarness(
 
 function tabButton(root: HTMLElement, label: string): HTMLButtonElement | undefined {
   return Array.from(root.querySelectorAll<HTMLButtonElement>('button[role="tab"]')).find((btn) => btn.textContent?.trim() === label);
+}
+
+/**
+ * Selects one of the Edit area's three form tabs.
+ *
+ * Needed by every case that reaches for a control inside Ingredients or Instructions: `CpTabPanelComponent`
+ * renders its content only once its tab has been selected, so those controls are absent from the DOM until
+ * this runs. That is the whole substance of the split, and the reason `revealFirstFieldError()` selects a tab
+ * before it goes looking for a field.
+ */
+function selectEditTab(harness: RouterTestingHarness, label: 'General' | 'Ingredients' | 'Instructions'): void {
+  // By data-tab-id, not by label text: a tab's label carries "(1 problem)" after a refusal that named a field
+  // on it, so matching the text would break exactly in the tests that are about a refusal.
+  const id = label.toLowerCase();
+  const button = harness.routeNativeElement!.querySelector<HTMLButtonElement>(
+    `button[role="tab"][data-tab-id="${id}"]`,
+  );
+  expect(button).withContext(`the ${label} form tab`).toBeTruthy();
+  button!.click();
+  harness.detectChanges();
+}
+
+/** The tablist of the Edit area's form tabs — the inner one, not the areas tablist above it. */
+function formTablist(root: HTMLElement): HTMLElement {
+  const tablists = Array.from(root.querySelectorAll<HTMLElement>('[role="tablist"]'));
+  expect(tablists.length).withContext('an areas tablist and a form tablist').toBeGreaterThan(1);
+  return tablists[1];
 }
 
 /** Polls with real macrotask delays rather than a guessed number of microtask ticks, for state that
@@ -232,37 +294,32 @@ describe('RecipeEditorComponent', () => {
       expect(component.canSave()).toBeTrue();
     });
 
-    it('switches which section is visible when a tab is clicked, not just which tab is marked selected', async () => {
+    it('offers four areas at the top level, with the form itself split inside Edit', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const root = harness.routeNativeElement!;
 
-      const metadataPanel = harness.routeNativeElement!.querySelector('#recipe-title')!.closest('cp-tab-panel') as HTMLElement;
-      expect(metadataPanel.hasAttribute('hidden')).toBeFalse();
-      expect(getComputedStyle(metadataPanel).display).not.toBe('none');
+      // Scoped to the outer tablist: the Edit area now contains a tablist of its own, and an unscoped query
+      // would conflate the two levels.
+      const areas = Array.from(root.querySelector('[role="tablist"]')!.querySelectorAll('button[role="tab"]'));
+      expect(areas.map((tab) => tab.textContent?.trim())).toEqual(['Edit', 'Tools', 'Media', 'History']);
 
-      const notesTab = tabButton(harness.routeNativeElement!, 'Notes')!;
-      notesTab.click();
-      harness.detectChanges();
-
-      // A CSS rule that gives cp-tab-panel an unconditional `display` would defeat the component's
-      // `[hidden]` attribute and show every section stacked at once — assert the actual rendered
-      // display, not just the attribute, so that regression can't slip back in silently.
-      expect(metadataPanel.hasAttribute('hidden')).toBeTrue();
-      expect(getComputedStyle(metadataPanel).display).toBe('none');
-
-      const notesPanel = harness.routeNativeElement!.querySelector('#recipe-notes')!.closest('cp-tab-panel') as HTMLElement;
-      expect(notesPanel.hasAttribute('hidden')).toBeFalse();
-      expect(getComputedStyle(notesPanel).display).not.toBe('none');
+      const form = Array.from(formTablist(root).querySelectorAll('button[role="tab"]'));
+      expect(form.map((tab) => tab.textContent?.trim())).toEqual(['General', 'Ingredients', 'Instructions']);
+      // None of the three is ever disabled: they hold the form being filled in, not something needing a
+      // saved recipe first.
+      expect(form.some((tab) => (tab as HTMLButtonElement).disabled)).toBeFalse();
     });
 
-    it('disables the Media and History tabs (no recipe exists yet)', async () => {
+    it('disables the Tools, Media and History areas (no recipe exists yet)', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      const media = tabButton(harness.routeNativeElement!, 'Media');
-      const history = tabButton(harness.routeNativeElement!, 'History');
-      expect(media?.disabled).toBeTrue();
-      expect(history?.disabled).toBeTrue();
+      expect(tabButton(harness.routeNativeElement!, 'Tools')?.disabled).toBeTrue();
+      expect(tabButton(harness.routeNativeElement!, 'Media')?.disabled).toBeTrue();
+      expect(tabButton(harness.routeNativeElement!, 'History')?.disabled).toBeTrue();
+      // Edit is the one area a recipe being created can use, and it is where the form is.
+      expect(tabButton(harness.routeNativeElement!, 'Edit')?.disabled).toBeFalse();
     });
 
     it('creates the recipe with the workspace slug from the route and navigates into edit mode on success', async () => {
@@ -336,13 +393,35 @@ describe('RecipeEditorComponent', () => {
       expect(harness.routeNativeElement?.querySelector('#recipe-title')).toBeTruthy();
     });
 
-    it('enables the Media and History tabs once the recipe exists', async () => {
+    it('enables the Tools, Media and History areas once the recipe exists', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      const media = tabButton(harness.routeNativeElement!, 'Media');
-      expect(media?.disabled).toBeFalse();
+      expect(tabButton(harness.routeNativeElement!, 'Tools')?.disabled).toBeFalse();
+      expect(tabButton(harness.routeNativeElement!, 'Media')?.disabled).toBeFalse();
+      expect(tabButton(harness.routeNativeElement!, 'History')?.disabled).toBeFalse();
+    });
+
+    it('still hides an unselected area entirely, not merely marks its tab unselected', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      // #panel-edit by id, not the nearest panel to the title: the title now sits inside the General form
+      // panel, which is nested in the area panel this case is about.
+      const editPanel = harness.routeNativeElement!.querySelector('#panel-edit') as HTMLElement;
+      expect(editPanel.hasAttribute('hidden')).toBeFalse();
+      expect(getComputedStyle(editPanel).display).not.toBe('none');
+
+      tabButton(harness.routeNativeElement!, 'History')!.click();
+      harness.detectChanges();
+
+      // A CSS rule that gives cp-tab-panel an unconditional `display` would defeat the component's
+      // `[hidden]` attribute and show every area stacked at once — assert the actual rendered display,
+      // not just the attribute, so that regression can't slip back in silently.
+      expect(editPanel.hasAttribute('hidden')).toBeTrue();
+      expect(getComputedStyle(editPanel).display).toBe('none');
     });
 
     it('sends every editable field as submitted, plus the loaded concurrency token, on save', async () => {
@@ -425,6 +504,222 @@ describe('RecipeEditorComponent', () => {
     });
   });
 
+  describe('why some areas are not available yet', () => {
+    it('says in words why the greyed-out areas are greyed out, in create mode', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      const note = harness.routeNativeElement!.querySelector('.area-lock-note') as HTMLElement;
+      expect(note).withContext('a disabled control with no stated reason is the defect').toBeTruthy();
+      expect(note.textContent).toContain('open once you save this recipe');
+    });
+
+    it('names every area that is actually disabled, and no area that is not', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const note = harness.routeNativeElement!.querySelector('.area-lock-note') as HTMLElement;
+
+      // Derived from the tab definitions, not written out: an area disabled before the first save is named
+      // here whether or not anyone remembered to update a sentence.
+      const disabled = component.areas.filter((area) => area.disabled).map((area) => area.label);
+      expect(disabled.length).toBeGreaterThan(0);
+      for (const label of disabled) {
+        expect(note.textContent).withContext(label).toContain(label);
+      }
+
+      for (const label of component.areas.filter((area) => !area.disabled).map((area) => area.label)) {
+        expect(note.textContent).withContext(label).not.toContain(label);
+      }
+    });
+
+    it('puts the reason with the tabs it explains, not elsewhere on the page', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const root = harness.routeNativeElement!;
+
+      const tablist = root.querySelector('[role="tablist"]')!;
+      const note = root.querySelector('.area-lock-note')!;
+
+      // Same container as the tablist, and after it — so a screen reader reaches the tabs, then the reason.
+      expect(note.parentElement).toBe(tablist.parentElement);
+      expect(tablist.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('exposes the reason to assistive technology, with only the glyph hidden', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const note = harness.routeNativeElement!.querySelector('.area-lock-note') as HTMLElement;
+
+      expect(note.getAttribute('aria-hidden')).toBeNull();
+      expect(note.classList.contains('cp-sr-only')).toBeFalse();
+      expect(getComputedStyle(note).display).not.toBe('none');
+
+      // Decoration beside the words, never the carrier of them.
+      const icon = note.querySelector('.area-lock-icon')!;
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      expect(note.textContent).toContain('open once you save this recipe');
+    });
+
+    it('drops the note once the recipe exists and the areas are open', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(harness.routeNativeElement!.querySelector('.area-lock-note')).toBeNull();
+    });
+
+    it('explains the rule without changing it — the areas are still disabled until the first save', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      // The note is a label on the existing behaviour, not a way around it.
+      for (const label of ['Tools', 'Media', 'History']) {
+        expect(tabButton(harness.routeNativeElement!, label)?.disabled)
+          .withContext(label)
+          .toBeTrue();
+      }
+      expect(tabButton(harness.routeNativeElement!, 'Edit')?.disabled).toBeFalse();
+    });
+  });
+
+  describe('layout and information architecture', () => {
+    it('splits the form into three tabs, General first, with the other two panels still unmounted', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      expect(component.selectedEditTabId()).toBe('general');
+
+      // General holds what Details, Notes and Timing & yield held on the old single surface — including the
+      // last of them, reachable with no tab click.
+      for (const id of ['section-details', 'section-notes', 'section-timing']) {
+        expect(root.querySelector('#' + id))
+          .withContext(id)
+          .toBeTruthy();
+      }
+      const yieldInput = root.querySelector('#recipe-yield-quantity') as HTMLElement;
+      expect(yieldInput).toBeTruthy();
+      expect(yieldInput.closest('cp-tab-panel')!.hasAttribute('hidden')).toBeFalse();
+
+      // The other two are not merely hidden, they have not rendered — which is what makes the split real and
+      // what revealFirstFieldError() has to account for.
+      expect(root.querySelector('#section-ingredients')).toBeNull();
+      expect(root.querySelector('#section-instructions')).toBeNull();
+
+      selectEditTab(harness, 'Instructions');
+      expect(root.querySelector('#section-instructions')).toBeTruthy();
+      // General stays mounted behind it, so an edit made there is not discarded by looking elsewhere.
+      expect(root.querySelector('#recipe-yield-quantity')).toBeTruthy();
+      expect(root.querySelector('#recipe-yield-quantity')!.closest('cp-tab-panel')!.hasAttribute('hidden')).toBeTrue();
+    });
+
+    it('spans the form tablist across the full width of the card it sits in', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      // A width wide enough for the measurement to mean something: at Karma's default the editor is already
+      // narrow, so a cap on the tabs would go unnoticed against a panel that is just as narrow.
+      root.style.width = '80rem';
+      harness.detectChanges();
+
+      const tablist = formTablist(root);
+      const host = tablist.closest('cp-tabs') as HTMLElement;
+      const panel = root.querySelector('#panel-edit') as HTMLElement;
+
+      // Full width of its own host, and the host full width of the area panel: nothing indents the tabs into
+      // a column the way the rail's gutter once did.
+      expect(panel.clientWidth).withContext('the edit panel at 80rem').toBeGreaterThan(600);
+      expect(tablist.getBoundingClientRect().width).toBeCloseTo(host.getBoundingClientRect().width, 0);
+      expect(host.getBoundingClientRect().width).toBeCloseTo(panel.clientWidth, 0);
+    });
+
+    it('keeps a tab switch inside the form: no navigation, and an unsaved edit survives it', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.title.set('An unsaved edit');
+      harness.detectChanges();
+      expect(component.isDirty()).toBeTrue();
+
+      selectEditTab(harness, 'Ingredients');
+
+      // A tablist of buttons, not the in-page anchors this replaced: nothing reaches the router, so the
+      // unsaved-changes guard is never asked and the edit is still there.
+      expect(component.selectedEditTabId()).toBe('ingredients');
+      expect(confirmService.isOpen).toBeFalse();
+      expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/r1');
+      expect(component.isDirty()).toBeTrue();
+      expect(component.title()).toBe('An unsaved edit');
+    });
+
+    it('stays within its own width at a narrow size, tabs included', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      // A phone, or a desktop at 200% zoom — both shrink the editor's CSS-px inline size, which is why this
+      // host is a container rather than answering to a viewport media query.
+      root.style.width = '24rem';
+      harness.detectChanges();
+
+      // Nothing reaches past the editor's own right edge (WCAG 2.2 SC 1.4.10, Reflow). Named rather than
+      // counted, so a regression says what broke.
+      const limit = root.getBoundingClientRect().right + 1;
+      const overflowing = Array.from(root.querySelectorAll('*'))
+        .filter((element) => element.getBoundingClientRect().right > limit)
+        .map((element) => element.tagName.toLowerCase() + (element.id ? '#' + element.id : ''));
+      expect(overflowing).withContext('overflowing the editor at 24rem').toEqual([]);
+
+      // The tabs wrapped rather than scrolled, and each still meets the 40px target at that width.
+      const tabs = Array.from(formTablist(root).querySelectorAll<HTMLButtonElement>('button[role="tab"]'));
+      expect(tabs.length).toBe(3);
+      for (const tab of tabs) {
+        expect(tab.getBoundingClientRect().height)
+          .withContext(tab.textContent?.trim())
+          .toBeGreaterThanOrEqual(40);
+      }
+
+      // Still operable: the roving tabindex and arrow keys are the library's, exercised here through the
+      // narrow layout to prove nothing here broke them.
+      tabs[0].focus();
+      tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      harness.detectChanges();
+      expect(document.activeElement).toBe(tabs[1]);
+    });
+
+
+    it('keeps each calculator lazy behind the Tools inner tabs, and History lazy behind its own area', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      // Nothing that fetches on mount has mounted just because the editor loaded.
+      expect(root.querySelector('cp-recipe-scaling-preview')).toBeNull();
+      expect(root.querySelector('cp-recipe-history')).toBeNull();
+
+      tabButton(root, 'Tools')!.click();
+      harness.detectChanges();
+
+      // Opening Tools mounts only the calculator whose inner tab is selected — the other two stay lazy, so
+      // one click does not start three requests.
+      expect(root.querySelector('cp-recipe-scaling-preview')).toBeTruthy();
+      expect(root.querySelector('cp-recipe-unit-conversion')).toBeNull();
+      expect(root.querySelector('cp-recipe-yield-reconciliation')).toBeNull();
+      expect(root.querySelector('cp-recipe-history')).toBeNull();
+
+      tabButton(root, 'Convert')!.click();
+      harness.detectChanges();
+      expect(root.querySelector('cp-recipe-unit-conversion')).toBeTruthy();
+      expect(root.querySelector('cp-recipe-yield-reconciliation')).toBeNull();
+    });
+  });
+
   describe('field-level validation errors', () => {
     it('shows the server message adjacent to its field and marks the control aria-invalid on create', async () => {
       const recipeService = recipeServiceSpy();
@@ -473,8 +768,658 @@ describe('RecipeEditorComponent', () => {
 
       expect(component.fieldError('title')).toBe('');
     });
+
+    it('brings an errored field that is out of view back into view and focuses it, from another area entirely', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { yieldQuantity: ['Yield quantity must be greater than zero.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const scrollSpy = spyOn(Element.prototype, 'scrollIntoView');
+
+      // Save lives in the header, so it can be pressed from an area that is not the form at all.
+      component.selectedAreaId.set('history');
+      component.yieldQuantity.set(0);
+      harness.detectChanges();
+
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      // The area comes back to the form, the tab holding the field is selected, the control itself is
+      // scrolled to and takes focus — which is what puts the existing visible focus ring on it. The generic
+      // banner alone would have left the creator hunting.
+      expect(component.selectedAreaId()).toBe('edit');
+      expect(component.selectedEditTabId()).toBe('general');
+      expect(scrollSpy.calls.all().some((call) => (call.object as Element).id === 'recipe-yield-quantity')).toBeTrue();
+      expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#recipe-yield-quantity'));
+
+      // The message and aria-invalid are still adjacent to the field, as before.
+      const input = harness.routeNativeElement!.querySelector('#recipe-yield-quantity')!;
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.closest('cp-field')?.textContent).toContain('Yield quantity must be greater than zero.');
+    });
+
+    it('selects the tab holding an errored field, then scrolls to and focuses it', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { yieldQuantity: ['Yield quantity must be greater than zero.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const scrollSpy = spyOn(Element.prototype, 'scrollIntoView');
+
+      // The creator is on Instructions; the field at fault is in General, whose panel is mounted but hidden —
+      // and a control inside a hidden panel cannot take focus, which is why the tab has to be selected first.
+      selectEditTab(harness, 'Instructions');
+      component.yieldQuantity.set(0);
+      harness.detectChanges();
+      const target = harness.routeNativeElement!.querySelector<HTMLElement>('#recipe-yield-quantity')!;
+      expect(target.closest('cp-tab-panel')!.hasAttribute('hidden')).withContext('hidden before the save').toBeTrue();
+
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(component.selectedEditTabId()).toBe('general');
+      expect(target.closest('cp-tab-panel')!.hasAttribute('hidden')).withContext('still hidden after the save').toBeFalse();
+      expect(scrollSpy.calls.all().some((call) => (call.object as Element).id === 'recipe-yield-quantity')).toBeTrue();
+      expect(document.activeElement).toBe(target);
+
+      // The message and aria-invalid are adjacent to the field, as on the single surface before it.
+      expect(target.getAttribute('aria-invalid')).toBe('true');
+      expect(target.closest('cp-field')?.textContent).toContain('Yield quantity must be greater than zero.');
+    });
+
+    it('reveals the first errored field in page order when the server names several', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { yieldText: ['Too long.'], headnote: ['Too long.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      // Headnote is in Details, above Timing's yield field, so it is the one a creator reading down the
+      // page reaches first — not whichever key the server happened to serialise first.
+      expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#recipe-headnote'));
+    });
+
+    it('leaves the banner to speak for an error on a field that has no control of its own', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'validation_failed',
+        // cuisineId is a real key the server can emit and this form has no control for — so it is genuinely
+        // unlocatable, where an indexed ingredient or instruction key now resolves to its own tab.
+        fieldErrors: { cuisineId: ['That is not a valid cuisine reference.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const scrollSpy = spyOn(Element.prototype, 'scrollIntoView');
+      const activeBefore = document.activeElement;
+
+      component.selectedAreaId.set('history');
+      harness.detectChanges();
+
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      // Nothing was guessed at: no scroll, no stolen focus, no area switch — and the generic banner is
+      // still there saying so. Focusing some arbitrary other control would have been worse than silence.
+      expect(scrollSpy).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(activeBefore);
+      expect(component.selectedAreaId()).toBe('history');
+      expect(harness.routeNativeElement?.textContent).toContain('Some fields need attention.');
+    });
+
+    it('reveals the errored field on a failed create too, not only on an update', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { sourceUrl: ['Not a valid URL.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.title.set('Weeknight Chili');
+      component.sourceUrl.set('not-a-url');
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#recipe-source-url'));
+    });
+
+    /**
+     * A refusal about a whole list — the ingredients or the method.
+     *
+     * The server validates each list as one rule with `CascadeMode.Stop`, so what comes back is a single
+     * sentence under the flat key `ingredientGroups` or `instructions`, with no index. There is no one control
+     * to blame, and before this the creator got only "Some fields need attention" with no tab and no sentence,
+     * on the two surfaces that hold the most input.
+     */
+    describe('a refusal about a whole list', () => {
+      const QUANTITY_PROBLEM = 'A quantity must be greater than zero.';
+      const STEP_PROBLEM = 'An instruction step can be at most 2000 characters.';
+
+      async function refusedWith(fieldErrors: Record<string, string[]>) {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+        recipeService.updateRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+        await component.save();
+        harness.detectChanges();
+        await harness.fixture.whenStable();
+        harness.detectChanges();
+
+        return { harness, component };
+      }
+
+      function tabLabels(harness: RouterTestingHarness): string[] {
+        return Array.from(formTablist(harness.routeNativeElement!).querySelectorAll('button[role="tab"]')).map(
+          (tab) => tab.textContent?.trim() ?? '',
+        );
+      }
+
+      it('takes the creator to the Ingredients tab and says what the server said', async () => {
+        const { harness, component } = await refusedWith({ ingredientGroups: [QUANTITY_PROBLEM] });
+
+        expect(component.selectedEditTabId()).toBe('ingredients');
+
+        const section = harness.routeNativeElement!.querySelector<HTMLElement>('#section-ingredients')!;
+        expect(section.closest('cp-tab-panel')!.hasAttribute('hidden')).withContext('the panel is showing').toBeFalse();
+
+        // The server's own sentence, under the heading of the list it is about.
+        const problem = harness.routeNativeElement!.querySelector('#problem-ingredients');
+        expect(problem?.textContent).toContain(QUANTITY_PROBLEM);
+        expect(problem?.getAttribute('role')).toBe('alert');
+
+        // Focused, and described by the problem — so arriving there reads the heading and then the reason.
+        expect(document.activeElement).toBe(section);
+        expect(section.getAttribute('aria-describedby')).toBe('problem-ingredients');
+      });
+
+      it('does the same for the method', async () => {
+        const { harness, component } = await refusedWith({ instructions: [STEP_PROBLEM] });
+
+        expect(component.selectedEditTabId()).toBe('instructions');
+        expect(harness.routeNativeElement!.querySelector('#problem-instructions')?.textContent).toContain(STEP_PROBLEM);
+        expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#section-instructions'));
+      });
+
+      /**
+       * The case the reveal cannot cover on its own: two tabs refused at once. It can only take the creator to
+       * one, so the other has to say so from its tab, where the label is also its accessible name.
+       */
+      it('marks every refused tab, not only the one it opened', async () => {
+        const { harness, component } = await refusedWith({
+          title: ['A recipe needs a title.'],
+          ingredientGroups: [QUANTITY_PROBLEM],
+          instructions: [STEP_PROBLEM],
+        });
+
+        // First in page order wins the reveal, which is General.
+        expect(component.selectedEditTabId()).toBe('general');
+
+        expect(tabLabels(harness)).toEqual([
+          'General (1 problem)',
+          'Ingredients (1 problem)',
+          'Instructions (1 problem)',
+        ]);
+      });
+
+      it('counts more than one problem on a tab, and leaves a clean tab unmarked', async () => {
+        const { harness } = await refusedWith({
+          yieldText: ['Too long.'],
+          yieldQuantity: ['A yield must be greater than zero.'],
+          ingredientGroups: [QUANTITY_PROBLEM],
+        });
+
+        expect(tabLabels(harness)).toEqual([
+          'General (2 problems)',
+          'Ingredients (1 problem)',
+          'Instructions',
+        ]);
+      });
+
+      // The banner stops saying "check your recipe details" when the problem is an ingredient line.
+      it('points the banner at the tabs once it has somewhere to point', async () => {
+        const { harness } = await refusedWith({ ingredientGroups: [QUANTITY_PROBLEM] });
+
+        const banner = harness.routeNativeElement!.querySelector('.banner--error');
+        expect(banner?.textContent).toContain('Some fields need attention.');
+        expect(banner?.textContent).toContain('The tabs below say which');
+      });
+
+      /**
+       * And keeps its old wording when it has nowhere to point. A key this form cannot locate leaves the banner
+       * as the whole message, which is the honest-silence behaviour `revealFirstFieldError` documents — telling
+       * the creator to look at the tabs would be sending them to look at nothing.
+       */
+      it('keeps the generic wording for a key it cannot locate, and marks no tab', async () => {
+        const { harness, component } = await refusedWith({ cuisineId: ['That is not a valid cuisine reference.'] });
+
+        const banner = harness.routeNativeElement!.querySelector('.banner--error');
+        expect(banner?.textContent).toContain('Check your recipe details and try again.');
+        expect(tabLabels(harness)).toEqual(['General', 'Ingredients', 'Instructions']);
+        expect(component.selectedEditTabId()).withContext('nowhere to reveal').toBe('general');
+        expect(harness.routeNativeElement!.querySelector('#problem-ingredients')).toBeNull();
+      });
+
+      it('clears the marks and the sentence once the next save succeeds', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+        recipeService.updateRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors: { ingredientGroups: [QUANTITY_PROBLEM] } });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+        await component.save();
+        harness.detectChanges();
+        expect(harness.routeNativeElement!.querySelector('#problem-ingredients')).toBeTruthy();
+
+        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...RECIPE_DETAIL, concurrencyToken: 'AAAAAAAAB9I=' } });
+        component.title.set('Weeknight Chili');
+        await component.save();
+        harness.detectChanges();
+
+        expect(harness.routeNativeElement!.querySelector('#problem-ingredients')).toBeNull();
+        expect(tabLabels(harness)).toEqual(['General', 'Ingredients', 'Instructions']);
+      });
+    });
+
+    /**
+     * A refusal the server reported at a position — the line or step it is actually about.
+     *
+     * The client resolves a position and never decides what is wrong: every rule stays on the server. The one
+     * piece of arithmetic here is which row a position names, and that is not the working copy's order, because
+     * a row with no text is filtered out of the request.
+     */
+    describe('a refusal about one line', () => {
+      const THREE_LINES: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        ingredientGroups: [
+          {
+            id: 'g1',
+            title: null,
+            sortOrder: 0,
+            ingredients: [0, 1, 2].map((index) => ({
+              id: `ing${index}`,
+              sortOrder: index,
+              displayText: `line ${index}`,
+              displayTextSource: 'Creator' as const,
+              ingredientNameText: null,
+              unitText: null,
+              quantity: 1,
+              quantityUpper: null,
+              measurementUnitId: null,
+              ingredientId: null,
+              matchStatus: 'NotAttempted',
+              preparationNote: null,
+              isOptional: false,
+              scalingBehavior: 'Proportional' as const,
+            })),
+          },
+        ],
+        instructionGroups: [
+          {
+            id: 'ig1',
+            // Titled, so the group heading field renders at all — an untitled lone group has no heading to show.
+            title: 'Batter',
+            sortOrder: 0,
+            steps: [0, 1].map((index) => ({
+              id: `s${index}`,
+              sortOrder: index,
+              text: `step ${index}`,
+              techniqueId: null,
+              durationMinutes: null,
+              temperatureValue: null,
+              temperatureUnitId: null,
+              note: null,
+            })),
+          },
+        ],
+      };
+
+      async function refused(fieldErrors: Record<string, string[]>, recipe: RecipeDetail = THREE_LINES) {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe });
+        recipeService.updateRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+        await component.save();
+        harness.detectChanges();
+        await harness.fixture.whenStable();
+        harness.detectChanges();
+
+        return { harness, component };
+      }
+
+      function rowProblems(harness: RouterTestingHarness): string[] {
+        return Array.from(harness.routeNativeElement!.querySelectorAll('.row-problem')).map(
+          (node) => node.textContent?.trim() ?? '',
+        );
+      }
+
+      it('marks the line the server named, and no other', async () => {
+        const { harness } = await refused({
+          'ingredientGroups[0].ingredients[1].quantity': ['A quantity must be greater than zero.'],
+        });
+        selectEditTab(harness, 'Ingredients');
+
+        expect(rowProblems(harness)).toEqual(['A quantity must be greater than zero.']);
+
+        // On the second row specifically — the one at the position the server sent.
+        const marked = harness.routeNativeElement!.querySelector('.row:has(.row-problem)');
+        expect(marked?.textContent).toContain('line 1');
+        expect(marked?.textContent).not.toContain('line 0');
+      });
+
+      it('says everything wrong with one line at once, rather than one refusal at a time', async () => {
+        const { harness } = await refused({
+          'ingredientGroups[0].ingredients[0].quantity': ['A quantity must be greater than zero.'],
+          'ingredientGroups[0].ingredients[0].displayText': ['An ingredient line cannot be blank.'],
+        });
+        selectEditTab(harness, 'Ingredients');
+
+        const [problem] = rowProblems(harness);
+        expect(problem).toContain('A quantity must be greater than zero.');
+        expect(problem).toContain('An ingredient line cannot be blank.');
+        expect(rowProblems(harness).length).withContext('one row, one message').toBe(1);
+      });
+
+      /**
+       * The mapping that is easy to get wrong: a row with no text never reaches the request, so the server's
+       * position 1 is the *second row it was sent*, which here is the third row on screen.
+       */
+      it('counts positions as the request sent them, not as the editor holds them', async () => {
+        const blanked: RecipeDetail = {
+          ...THREE_LINES,
+          ingredientGroups: [
+            {
+              ...THREE_LINES.ingredientGroups[0],
+              ingredients: [
+                { ...THREE_LINES.ingredientGroups[0].ingredients[0], displayText: '' },
+                ...THREE_LINES.ingredientGroups[0].ingredients.slice(1),
+              ],
+            },
+          ],
+        };
+
+        const { harness } = await refused(
+          { 'ingredientGroups[0].ingredients[1].quantity': ['A quantity must be greater than zero.'] },
+          blanked,
+        );
+        selectEditTab(harness, 'Ingredients');
+
+        // Submitted lines were "line 1" and "line 2"; position 1 is the second of those.
+        const marked = harness.routeNativeElement!.querySelector('.row:has(.row-problem)');
+        expect(marked?.textContent).toContain('line 2');
+      });
+
+      it('puts a refused step on that step, and a refused heading on that heading', async () => {
+        const { harness } = await refused({
+          'instructions[0].steps[1].text': ['An instruction step cannot be blank.'],
+          'instructions[0].title': ['An instruction group heading can be at most 120 characters.'],
+        });
+        selectEditTab(harness, 'Instructions');
+
+        const stepField = harness.routeNativeElement!.querySelector('textarea[id="step-text-s1"]')!.closest('cp-field');
+        expect(stepField?.textContent).toContain('An instruction step cannot be blank.');
+
+        // And not on the step beside it.
+        const other = harness.routeNativeElement!.querySelector('textarea[id="step-text-s0"]')!.closest('cp-field');
+        expect(other?.textContent).not.toContain('cannot be blank');
+
+        const heading = harness.routeNativeElement!.querySelector('input[id="group-title-ig1"]')!.closest('cp-field');
+        expect(heading?.textContent).toContain('at most 120 characters');
+      });
+
+      // An indexed key still belongs to its list's tab, so the reveal and the markers have to read it as one.
+      it('still selects the tab and marks it for an indexed key', async () => {
+        const { harness, component } = await refused({
+          'ingredientGroups[0].ingredients[1].quantity': ['A quantity must be greater than zero.'],
+        });
+
+        expect(component.selectedEditTabId()).toBe('ingredients');
+        expect(
+          Array.from(formTablist(harness.routeNativeElement!).querySelectorAll('button[role="tab"]')).map((tab) =>
+            tab.textContent?.trim(),
+          ),
+        ).toEqual(['General', 'Ingredients (1 problem)', 'Instructions']);
+      });
+
+      /**
+       * A position naming a row that is no longer there is dropped rather than pinned on whichever row moved
+       * into the slot — that would blame a line the creator never wrote.
+       */
+      it('drops a position that names no row rather than blaming the wrong one', async () => {
+        const { harness } = await refused({
+          'ingredientGroups[0].ingredients[9].quantity': ['A quantity must be greater than zero.'],
+        });
+        selectEditTab(harness, 'Ingredients');
+
+        expect(rowProblems(harness)).toEqual([]);
+        // The tab still says something is wrong, because it is — just not which line.
+        expect(
+          Array.from(formTablist(harness.routeNativeElement!).querySelectorAll('button[role="tab"]')).map((tab) =>
+            tab.textContent?.trim(),
+          ),
+        ).toContain('Ingredients (1 problem)');
+      });
+
+      it('clears the row marks once the next save succeeds', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: THREE_LINES });
+        recipeService.updateRecipe.and.resolveTo({
+          status: 'validation_failed',
+          fieldErrors: { 'ingredientGroups[0].ingredients[1].quantity': ['A quantity must be greater than zero.'] },
+        });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+        await component.save();
+        harness.detectChanges();
+        selectEditTab(harness, 'Ingredients');
+        expect(rowProblems(harness).length).toBe(1);
+
+        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...THREE_LINES, concurrencyToken: 'AAAAAAAAB9I=' } });
+        component.title.set('Weeknight Chili');
+        await component.save();
+        harness.detectChanges();
+
+        expect(rowProblems(harness)).toEqual([]);
+      });
+    });
   });
 
+
+  /**
+   * Total time, derived from prep + cook + rest and offered rather than imposed.
+   *
+   * The server is explicit that a total is *deliberately* not the sum — prep overlaps cooking, resting is
+   * unattended, and it only ever floor-validates total against the longest single phase. So the sum is a
+   * suggestion the creator takes with a click, and everything below is about the field staying theirs.
+   */
+  describe('total time', () => {
+    function useButton(harness: RouterTestingHarness): HTMLButtonElement | null {
+      return harness.routeNativeElement!.querySelector<HTMLButtonElement>('.derived-total button');
+    }
+
+    function note(harness: RouterTestingHarness): string {
+      return harness.routeNativeElement!.querySelector('[id="recipe-total-time-hint"]')?.textContent?.trim() ?? '';
+    }
+
+    // The case the restriction names outright: a recipe that says nothing about its timing has no total to
+    // suggest, and 0 would be an answer rather than the absence of one.
+    it('all three blank: suggests nothing, and never a total of 0', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      expect(component.timingSum()).toBeNull();
+      expect(component.canUseTimingSum()).toBeFalse();
+      expect(note(harness)).toBe('');
+      expect(useButton(harness)).toBeNull();
+      expect(component.totalTimeMinutes()).toBeNull();
+    });
+
+    // A single recorded time is a sum of one, and `parts` is what stops 45 reading as though it were invented.
+    it('partial: sums what is there and names it', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.cookTimeMinutes.set(45);
+      harness.detectChanges();
+
+      expect(component.timingSum()).toEqual({ minutes: 45, parts: ['cook 45'] });
+      expect(note(harness)).toBe('cook 45 = 45 minutes.');
+      expect(useButton(harness)?.textContent?.trim()).toBe('Use 45');
+
+      component.prepTimeMinutes.set(15);
+      harness.detectChanges();
+
+      expect(note(harness)).toBe('prep 15 + cook 45 = 60 minutes.');
+    });
+
+    it('a recorded zero counts, because the creator recorded it', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.prepTimeMinutes.set(0);
+      component.cookTimeMinutes.set(20);
+      harness.detectChanges();
+
+      expect(component.timingSum()).toEqual({ minutes: 20, parts: ['prep 0', 'cook 20'] });
+    });
+
+    it('exact sum: confirms the agreement and offers nothing to change', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.prepTimeMinutes.set(15);
+      component.cookTimeMinutes.set(30);
+      component.restTimeMinutes.set(10);
+      component.totalTimeMinutes.set(55);
+      harness.detectChanges();
+
+      expect(note(harness)).toBe('Matches prep 15 + cook 30 + rest 10.');
+      expect(component.canUseTimingSum()).withContext('nothing to take').toBeFalse();
+      expect(useButton(harness)).toBeNull();
+    });
+
+    /**
+     * The conflict case. A total under the sum is legitimate — the server says so in as many words — so both
+     * numbers are stated and neither is called wrong, and the creator decides.
+     */
+    it('conflicting manual total: reports both numbers without correcting either', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.prepTimeMinutes.set(15);
+      component.cookTimeMinutes.set(30);
+      component.restTimeMinutes.set(10);
+      component.totalTimeMinutes.set(40);
+      harness.detectChanges();
+
+      expect(note(harness)).toBe('prep 15 + cook 30 + rest 10 adds up to 55 minutes. Yours says 40.');
+      // Stated, not applied.
+      expect(component.totalTimeMinutes()).toBe(40);
+
+      useButton(harness)!.click();
+      harness.detectChanges();
+
+      // And only now, on the click.
+      expect(component.totalTimeMinutes()).toBe(55);
+      expect(note(harness)).toBe('Matches prep 15 + cook 30 + rest 10.');
+    });
+
+    // The restriction: a stored total is not replaced by loading a recipe whose components disagree with it.
+    it('an existing manual total survives loading, and is what a save submits', async () => {
+      const recipeService = recipeServiceSpy();
+      const loaded: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        prepTimeMinutes: 20,
+        cookTimeMinutes: 40,
+        restTimeMinutes: 30,
+        totalTimeMinutes: 65,
+      };
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...loaded, concurrencyToken: 'AAAAAAAAB9I=' } });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(component.totalTimeMinutes()).withContext('90 would be the sum; the recipe says 65').toBe(65);
+      expect(note(harness)).toBe('prep 20 + cook 40 + rest 30 adds up to 90 minutes. Yours says 65.');
+      expect(component.isDirty()).withContext('a suggestion is not an edit').toBeFalse();
+
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.totalTimeMinutes).toEqual({ submitted: true, value: 65 });
+    });
+
+    it('taking the sum is an edit, and is what then reaches the request', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Weeknight Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.title.set('Weeknight Chili');
+      component.prepTimeMinutes.set(15);
+      component.cookTimeMinutes.set(30);
+      harness.detectChanges();
+
+      // Derived in the browser and submitted, which is the whole of it: the server keeps taking the field as
+      // the creator's, exactly as it did before.
+      useButton(harness)!.click();
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      expect(request.totalTimeMinutes).toBe(45);
+      expect(request.prepTimeMinutes).toBe(15);
+      expect(request.cookTimeMinutes).toBe(30);
+    });
+
+    // Three times each inside the server's limit can add to a sum outside it. Saying why beats offering a
+    // value that comes straight back as a validation error.
+    it('a sum beyond the recordable maximum is explained rather than offered', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.prepTimeMinutes.set(525_600);
+      component.cookTimeMinutes.set(60);
+      harness.detectChanges();
+
+      expect(component.canUseTimingSum()).toBeFalse();
+      expect(useButton(harness)).toBeNull();
+      expect(note(harness)).toContain('more than the longest time that can be recorded');
+    });
+
+    it('the note is wired to the field, so it is not read by nobody', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      component.cookTimeMinutes.set(45);
+      harness.detectChanges();
+      // cp-field wires the hint in an afterRenderEffect, and the harness's detectChanges does not run the
+      // render hooks. A real application ticks them on every cycle; this is the test asking for one.
+      TestBed.inject(ApplicationRef).tick();
+
+      const input = harness.routeNativeElement!.querySelector('input[id="recipe-total-time"]');
+      expect(input?.getAttribute('aria-describedby')).toContain('recipe-total-time-hint');
+    });
+  });
   describe('idempotency key stability', () => {
     it('reuses the same key across a retry with an unchanged payload, but a fresh one once the payload changes', async () => {
       const recipeService = recipeServiceSpy();
@@ -511,10 +1456,18 @@ describe('RecipeEditorComponent', () => {
   });
 
   describe('instructions', () => {
+    /**
+     * Instructions is one of the Edit area's three form tabs, and its panel mounts when that tab is first
+     * selected — so this is where the cases below get their DOM. The single place that changes again if the
+     * section ever moves.
+     */
     async function openInstructionsTab(path: string, recipeService: ReturnType<typeof recipeServiceSpy>) {
       const { harness, component } = await createHarness(path, recipeService);
-      tabButton(harness.routeNativeElement!, 'Instructions')!.click();
-      harness.detectChanges();
+      expect(harness.routeNativeElement!.querySelector('#section-instructions')).withContext('before selecting the tab').toBeNull();
+
+      selectEditTab(harness, 'Instructions');
+
+      expect(harness.routeNativeElement!.querySelector('#section-instructions')).toBeTruthy();
       return { harness, component };
     }
 
@@ -663,6 +1616,8 @@ describe('RecipeEditorComponent', () => {
               text: 'Mix.',
               note: 'Gently',
               durationMinutes: 3,
+              // Shown without being asked for, because the recipe already records one.
+              showDuration: true,
               // Carried on the working copy although no control edits them, so a save cannot drop them.
               techniqueId: null,
               temperatureValue: null,
@@ -714,9 +1669,165 @@ describe('RecipeEditorComponent', () => {
         },
       ]);
     });
+
+    /**
+     * A step's duration is optional and always was, but a number box on every step read as something a creator
+     * was expected to fill in. It is offered instead — except where the recipe already records one, which the
+     * creator must never have to go looking for.
+     */
+    describe('a step’s duration', () => {
+      const WITH_DURATION: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        instructionGroups: [
+          {
+            id: 'g1',
+            title: null,
+            sortOrder: 0,
+            steps: [
+              { id: 's1', sortOrder: 0, text: 'Brown the beef.', techniqueId: null, durationMinutes: 25, temperatureValue: null, temperatureUnitId: null, note: null },
+              { id: 's2', sortOrder: 1, text: 'Add the tomatoes.', techniqueId: null, durationMinutes: null, temperatureValue: null, temperatureUnitId: null, note: null },
+            ],
+          },
+        ],
+      };
+
+      function durationBox(harness: RouterTestingHarness, stepKey: string): HTMLInputElement | null {
+        return harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="step-duration-${stepKey}"]`);
+      }
+
+      function revealButton(harness: RouterTestingHarness, stepIndex: number): HTMLButtonElement | null {
+        return harness.routeNativeElement!.querySelector<HTMLButtonElement>(
+          `button[aria-label="Add a duration to step ${stepIndex}"]`,
+        );
+      }
+
+      function stepKeys(component: RecipeEditorComponent): readonly string[] {
+        return component.instructionGroups()[0].steps.map((step) => step.key);
+      }
+
+      it('offers the field on a new step rather than presenting it, and saves cleanly without one', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.createRecipe.and.resolveTo({
+          status: 'created',
+          recipe: { recipeId: 'new-id', title: 'Weeknight Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        });
+        const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
+
+        component.title.set('Weeknight Chili');
+        component.addInstructionStep();
+        const [stepKey] = stepKeys(component);
+        component.updateInstructionStep(component.instructionGroups()[0].key, stepKey, { text: 'Brown the beef.' });
+        harness.detectChanges();
+
+        expect(durationBox(harness, stepKey)).withContext('no box until it is asked for').toBeNull();
+        expect(revealButton(harness, 1)).withContext('the offer').toBeTruthy();
+
+        await component.save();
+
+        // Still on the wire, still submitted — as null, which is what a step with no duration has always sent.
+        const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+        expect(request.instructions![0].steps![0].durationMinutes).toBeNull();
+      });
+
+      it('shows a recorded duration without being asked, and still submits it', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
+        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...WITH_DURATION, concurrencyToken: 'AAAAAAAAB9I=' } });
+        const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
+
+        // The restriction this guards: an existing duration is not hidden behind the offer.
+        expect(durationBox(harness, 's1')?.value).toBe('25');
+        expect(revealButton(harness, 1)).withContext('nothing to offer on a step that has one').toBeNull();
+
+        // And the step beside it, which has none, is the offer.
+        expect(durationBox(harness, 's2')).toBeNull();
+        expect(revealButton(harness, 2)).toBeTruthy();
+
+        await component.save();
+
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        expect(request.instructions.value![0].steps![0].durationMinutes).toBe(25);
+        expect(request.instructions.value![0].steps![1].durationMinutes).toBeNull();
+      });
+
+      // Revealing writes no duration, so it is not an edit to the recipe. Dirty state is built from
+      // buildInstructions(), which the flag is deliberately not part of.
+      it('revealing the field does not make the recipe dirty', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
+        const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
+
+        expect(component.isDirty()).toBeFalse();
+
+        revealButton(harness, 2)!.click();
+        harness.detectChanges();
+
+        expect(durationBox(harness, 's2')).withContext('the revealed field').toBeTruthy();
+        expect(component.isDirty()).withContext('asking for a field is not filling one in').toBeFalse();
+
+        // Typing in it is.
+        component.updateInstructionStep(component.instructionGroups()[0].key, 's2', { durationMinutes: 4 });
+        expect(component.isDirty()).toBeTrue();
+      });
+
+      // A field vanishing out from under the cursor is worse than an empty one, so it stays for the life of the
+      // form — and the emptied value still submits as null.
+      it('keeps the field once revealed, even when the creator empties it', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
+        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...WITH_DURATION, concurrencyToken: 'AAAAAAAAB9I=' } });
+        const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
+
+        component.updateInstructionStep(component.instructionGroups()[0].key, 's1', { durationMinutes: null });
+        harness.detectChanges();
+
+        expect(durationBox(harness, 's1')).withContext('still there').toBeTruthy();
+        expect(revealButton(harness, 1)).toBeNull();
+
+        await component.save();
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        expect(request.instructions.value![0].steps![0].durationMinutes).toBeNull();
+      });
+
+      it('says the field is optional, and the field says so to a screen reader too', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
+        const { harness } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
+
+        const box = durationBox(harness, 's1')!;
+        const describedBy = box.getAttribute('aria-describedby');
+        expect(describedBy).withContext('cp-field wires its hint to the control').toContain('step-duration-s1-hint');
+
+        const hint = harness.routeNativeElement!.querySelector(`[id="step-duration-s1-hint"]`);
+        expect(hint?.textContent).toContain('Optional');
+        // Optional means optional: nothing claims otherwise to assistive technology.
+        expect(box.getAttribute('aria-required')).toBeNull();
+      });
+
+      /**
+       * The convention the asterisk relies on, stated once. Three fields across the three tabs are required and
+       * sixteen are not, so marking the optional ones would mean marking almost everything.
+       */
+      it('states once what the asterisk means, and marks the step text required to assistive tech', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
+        const { harness } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
+
+        const legend = harness.routeNativeElement!.querySelector('.required-legend');
+        expect(legend?.textContent).toContain('are required');
+        // The glyph is decoration; the words beside it are what is read out.
+        expect(legend?.querySelector('[aria-hidden="true"]')?.textContent).toBe('*');
+        expect(legend?.querySelector('.cp-sr-only')?.textContent).toContain('asterisk');
+
+        const stepText = harness.routeNativeElement!.querySelector('textarea[id="step-text-s1"]');
+        expect(stepText?.getAttribute('aria-required')).withContext('the * is no longer visual only').toBe('true');
+      });
+    });
   });
 
   describe('ingredients', () => {
+    // These build rows directly, which covers what this component does with a row it is given. What a row
+    // arrives carrying is the child editor's business, and the test below drives that path through the DOM.
     it('submits ingredient groups on save, dropping lines left blank and trimming the rest', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.createRecipe.and.resolveTo({
@@ -755,6 +1866,10 @@ describe('RecipeEditorComponent', () => {
             {
               id: null,
               displayText: '2 cups flour',
+              // The row was given its text outright, so nothing here may re-derive it.
+              displayTextSource: 'Creator',
+              ingredientNameText: null,
+              unitText: null,
               quantity: 2,
               quantityUpper: null,
               measurementUnitId: 'unit1',
@@ -789,6 +1904,8 @@ describe('RecipeEditorComponent', () => {
                   quantityUpper: null,
                   measurementUnitId: 'unit1',
                   ingredientId: 'ref1',
+                  displayTextSource: 'Creator',
+                  unitText: null,
                   matchStatus: 'Matched',
                   preparationNote: null,
                   isOptional: false,
@@ -813,8 +1930,10 @@ describe('RecipeEditorComponent', () => {
               key: 'ing1',
               id: 'ing1',
               displayText: '2 cups flour',
+              displayTextIsComposed: false,
               ingredientNameText: 'flour',
               quantityText: '2',
+              quantityUpper: null,
               detectedQuantityText: null,
               unitId: 'unit1',
               unitLabel: '',
@@ -852,6 +1971,8 @@ describe('RecipeEditorComponent', () => {
                   quantityUpper: null,
                   measurementUnitId: null,
                   ingredientId: null,
+                  displayTextSource: 'Creator',
+                  unitText: null,
                   matchStatus: 'NotAttempted',
                   preparationNote: null,
                   isOptional: false,
@@ -878,10 +1999,185 @@ describe('RecipeEditorComponent', () => {
           id: 'g1',
           title: null,
           ingredients: [
-            { id: 'ing1', displayText: '3 cups flour', quantity: 3, quantityUpper: null, measurementUnitId: null, ingredientId: null, preparationNote: null, isOptional: false, scalingBehavior: 'Proportional' },
+            { id: 'ing1', displayText: '3 cups flour', displayTextSource: 'Creator', ingredientNameText: null, unitText: null, quantity: 3, quantityUpper: null, measurementUnitId: null, ingredientId: null, preparationNote: null, isOptional: false, scalingBehavior: 'Proportional' },
           ],
         },
       ]);
+    });
+
+    /**
+     * The hand-entry path end to end, through the real child editor and its real inputs: the bug this covers
+     * was a line filled into every visible field, reported as saved, and absent from the request body — because
+     * every test until this one built its rows directly and set the one field no control in the UI sets.
+     */
+    it('a line typed into the row’s own fields reaches the request and survives a reload', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      selectEditTab(harness, 'Ingredients');
+
+      const clickButton = (label: string) => {
+        const button = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).find(
+          (candidate) => candidate.textContent?.trim() === label,
+        );
+        expect(button).withContext(`the "${label}" button`).toBeTruthy();
+        button!.click();
+        harness.detectChanges();
+      };
+
+      const typeInto = (field: string, rowKey: string, value: string) => {
+        const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="row-${field}-${rowKey}"]`);
+        expect(input).withContext(`the row's ${field} input`).toBeTruthy();
+        input!.value = value;
+        input!.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+      };
+
+      clickButton('Add ingredient group');
+      clickButton('Add ingredient');
+
+      const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+      typeInto('quantity', rowKey, '2');
+      typeInto('unit', rowKey, 'cups');
+      typeInto('ingredient', rowKey, 'all-purpose flour');
+      typeInto('prep', rowKey, 'sifted');
+
+      const saved: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        concurrencyToken: 'AAAAAAAAB9I=',
+        ingredientGroups: [
+          {
+            id: 'g9',
+            title: null,
+            sortOrder: 0,
+            ingredients: [
+              {
+                id: 'ing9',
+                sortOrder: 0,
+                displayText: '2 cups all-purpose flour, sifted',
+                ingredientNameText: null,
+                quantity: 2,
+                quantityUpper: null,
+                measurementUnitId: null,
+                ingredientId: null,
+                displayTextSource: 'Creator',
+                unitText: null,
+                matchStatus: 'NotAttempted',
+                preparationNote: 'sifted',
+                isOptional: false,
+                scalingBehavior: 'Proportional',
+              },
+            ],
+          },
+        ],
+      };
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: saved });
+
+      await component.save();
+
+      // In the request body: the line is there, carrying the creator's own wording of the quantity, unit and
+      // ingredient — the last two have nowhere else to go, since IngredientInput has no free-text field for
+      // either one.
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.ingredientGroups).toEqual({
+        submitted: true,
+        value: [
+          {
+            id: null,
+            title: null,
+            ingredients: [
+              {
+                id: null,
+                displayText: '2 cups all-purpose flour, sifted',
+                // Assembled from the fields, and said to be — so a reload keeps assembling it rather than
+                // freezing a line that would then contradict the fields beside it.
+                displayTextSource: 'Composed',
+                // The creator's own words for the name and the unit, neither of which resolved to a reference.
+                ingredientNameText: 'all-purpose flour',
+                unitText: 'cups',
+                quantity: 2,
+                quantityUpper: null,
+                measurementUnitId: null,
+                ingredientId: null,
+                preparationNote: 'sifted',
+                isOptional: false,
+                scalingBehavior: 'Proportional',
+              },
+            ],
+          },
+        ],
+      });
+
+      // And still there after a full reload, rendered rather than blank.
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: saved });
+      await component.reloadAfterConflict();
+      harness.detectChanges();
+
+      expect(component.editedIngredientGroups()[0].ingredients[0].displayText).toBe('2 cups all-purpose flour, sifted');
+      expect(harness.routeNativeElement!.textContent).toContain('2 cups all-purpose flour, sifted');
+    });
+
+    /**
+     * The other half of the hand-entry path: an assembled line is still assembling one when the recipe is
+     * opened again, and a line the creator wrote is still theirs. The difference is the recipe's own record of
+     * which it is — not a comparison of the line against its parts, which cannot tell a line somebody wrote
+     * from one that merely reads like its parts.
+     */
+    it('an assembled line keeps following the fields after a reload, and a written one never does', async () => {
+      const lineFrom = (displayTextSource: 'Creator' | 'Composed'): RecipeDetail => ({
+        ...RECIPE_DETAIL,
+        ingredientGroups: [
+          {
+            id: 'g1',
+            title: null,
+            sortOrder: 0,
+            ingredients: [
+              {
+                id: 'ing1',
+                sortOrder: 0,
+                displayText: '2 cups flour',
+                displayTextSource,
+                ingredientNameText: 'flour',
+                unitText: 'cups',
+                quantity: 2,
+                quantityUpper: null,
+                measurementUnitId: null,
+                ingredientId: null,
+                matchStatus: 'NotAttempted' as const,
+                preparationNote: null,
+                isOptional: false,
+                scalingBehavior: 'Proportional',
+              },
+            ],
+          },
+        ],
+      });
+
+      const editQuantityTo = async (detail: RecipeDetail, value: string) => {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: detail });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        selectEditTab(harness, 'Ingredients');
+
+        const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+        const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="row-quantity-${rowKey}"]`);
+        expect(input).withContext('the row quantity input').toBeTruthy();
+        input!.value = value;
+        input!.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        return component.editedIngredientGroups()[0].ingredients[0];
+      };
+
+      // The unit and the name come back as the creator wrote them — they have no reference to be read from.
+      const composed = await editQuantityTo(lineFrom('Composed'), '3');
+      expect(composed.unitLabel).toBe('cups');
+      expect(composed.ingredientNameText).toBe('flour');
+      expect(composed.displayText).toBe('3 cups flour');
+
+      const written = await editQuantityTo(lineFrom('Creator'), '3');
+      expect(written.unitLabel).toBe('cups');
+      expect(written.displayText).toBe('2 cups flour');
     });
 
     it('ingredient edits survive a save and a reload', async () => {
@@ -915,6 +2211,8 @@ describe('RecipeEditorComponent', () => {
                 quantityUpper: null,
                 measurementUnitId: 'unit1',
                 ingredientId: null,
+                displayTextSource: 'Creator',
+                unitText: null,
                 matchStatus: 'NotAttempted',
                 preparationNote: null,
                 isOptional: false,
@@ -948,8 +2246,10 @@ describe('RecipeEditorComponent', () => {
               key: 'ing1',
               id: 'ing1',
               displayText: '2 cups flour',
+              displayTextIsComposed: false,
               ingredientNameText: '',
               quantityText: '2',
+              quantityUpper: null,
               detectedQuantityText: null,
               unitId: 'unit1',
               unitLabel: '',
@@ -965,6 +2265,596 @@ describe('RecipeEditorComponent', () => {
         },
       ]);
       expect(component.isDirty()).toBeFalse();
+    });
+
+    /**
+     * A recorded range, which the editor offers no control for and therefore has to carry.
+     *
+     * `IngredientGroups` is a full replace and the server applies a submitted line wholesale, so a working copy
+     * that drops the upper bound is a working copy whose next save clears it — a recipe losing "2–3 cups"
+     * because someone renamed the title, and being told it saved.
+     */
+    describe('an ingredient line that records a range', () => {
+      const RANGED_DETAIL: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        ingredientGroups: [
+          {
+            id: 'g1',
+            title: null,
+            sortOrder: 0,
+            ingredients: [
+              {
+                id: 'ing1',
+                sortOrder: 0,
+                displayText: '2–3 cups flour',
+                displayTextSource: 'Creator',
+                ingredientNameText: 'flour',
+                unitText: 'cups',
+                quantity: 2,
+                quantityUpper: 3,
+                measurementUnitId: null,
+                ingredientId: null,
+                matchStatus: 'NotAttempted',
+                preparationNote: null,
+                isOptional: false,
+                scalingBehavior: 'Proportional',
+              },
+            ],
+          },
+        ],
+      };
+
+      async function loadedWithRange(recipeService: ReturnType<typeof recipeServiceSpy>) {
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RANGED_DETAIL });
+        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...RANGED_DETAIL, concurrencyToken: 'AAAAAAAAB9I=' } });
+        return createHarness('/cozy-fall/recipes/r1', recipeService);
+      }
+
+      function submittedLine(recipeService: ReturnType<typeof recipeServiceSpy>) {
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        return request.ingredientGroups.value![0].ingredients![0];
+      }
+
+      // The bug, as a creator hits it: change the title and nothing else.
+      it('keeps the upper bound through a save that never touched the line', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness, component } = await loadedWithRange(recipeService);
+
+        const title = harness.routeNativeElement!.querySelector<HTMLInputElement>('#recipe-title')!;
+        title.value = 'Weeknight Chili';
+        title.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        await component.save();
+
+        expect(submittedLine(recipeService).quantity).toBe(2);
+        expect(submittedLine(recipeService).quantityUpper).withContext('the range the recipe recorded').toBe(3);
+        // And the creator's own wording for the line, which is where the range is actually written.
+        expect(submittedLine(recipeService).displayText).toBe('2–3 cups flour');
+      });
+
+      /**
+       * The other half of carrying it: there is no control for the upper bound, so once the quantity itself is
+       * retyped the recorded range no longer describes what the creator wrote. "2–3" edited to "5" must not be
+       * submitted as 5–3.
+       */
+      it('drops the upper bound once the quantity itself is retyped', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness, component } = await loadedWithRange(recipeService);
+        selectEditTab(harness, 'Ingredients');
+
+        const quantity = harness.routeNativeElement!.querySelector<HTMLInputElement>('input[id="row-quantity-ing1"]')!;
+        expect(quantity).withContext("the row's quantity input").toBeTruthy();
+        quantity.value = '5';
+        quantity.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        await component.save();
+
+        expect(submittedLine(recipeService).quantity).toBe(5);
+        expect(submittedLine(recipeService).quantityUpper).toBeNull();
+        // The line is the creator's, so their wording of the old range stays theirs to edit.
+        expect(submittedLine(recipeService).displayText).toBe('2–3 cups flour');
+      });
+
+      // Editing a different field on the same line leaves the range alone — only the quantity invalidates it.
+      it('keeps the upper bound when another field on the same line is edited', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness, component } = await loadedWithRange(recipeService);
+        selectEditTab(harness, 'Ingredients');
+
+        const prep = harness.routeNativeElement!.querySelector<HTMLInputElement>('input[id="row-prep-ing1"]')!;
+        prep.value = 'sifted';
+        prep.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        await component.save();
+
+        expect(submittedLine(recipeService).preparationNote).toBe('sifted');
+        expect(submittedLine(recipeService).quantityUpper).toBe(3);
+      });
+    });
+  });
+
+  /**
+   * Sections are opt-in on both halves of the form. The wire contract is unchanged — lines still travel inside
+   * an IngredientGroupInput and steps inside an InstructionGroupInput (R.1) — so what these prove is that the
+   * group a creator never asked for is untitled, invisible, and submitted exactly as the untitled group it is.
+   */
+  describe('ungrouped by default', () => {
+    const clickButton = (harness: RouterTestingHarness, label: string) => {
+      const button = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => candidate.textContent?.trim() === label,
+      );
+      expect(button).withContext(`the "${label}" button`).toBeTruthy();
+      button!.click();
+      harness.detectChanges();
+    };
+
+    const typeInto = (harness: RouterTestingHarness, selector: string, value: string) => {
+      const field = harness.routeNativeElement!.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
+      expect(field).withContext(selector).toBeTruthy();
+      field!.value = value;
+      field!.dispatchEvent(new Event('input'));
+      harness.detectChanges();
+    };
+
+    it('takes an ingredient and a step with no group made first, and saves each in one untitled group', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Weeknight Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      typeInto(harness, '#recipe-title', 'Weeknight Chili');
+
+      // Ingredients: the empty state's own action, with no group made first and no heading shown for the one
+      // the wire needs.
+      selectEditTab(harness, 'Ingredients');
+      clickButton(harness, 'Add ingredient');
+      const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+      typeInto(harness, `#row-quantity-${rowKey}`, '2');
+      typeInto(harness, `#row-unit-${rowKey}`, 'cups');
+      typeInto(harness, `#row-ingredient-${rowKey}`, 'kidney beans');
+      expect(harness.routeNativeElement!.querySelector('input[id^="ingredient-group-title-"]')).toBeNull();
+
+      // Instructions: the same, from its own empty state.
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      const stepKey = component.instructionGroups()[0].steps[0].key;
+      typeInto(harness, `#step-text-${stepKey}`, 'Simmer for an hour.');
+      expect(harness.routeNativeElement!.querySelector('input[id^="group-title-"]')).toBeNull();
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      expect(request.ingredientGroups).toEqual([
+        {
+          id: null,
+          title: null,
+          ingredients: [
+            {
+              id: null,
+              displayText: '2 cups kidney beans',
+              displayTextSource: 'Composed',
+              ingredientNameText: 'kidney beans',
+              unitText: 'cups',
+              quantity: 2,
+              quantityUpper: null,
+              measurementUnitId: null,
+              ingredientId: null,
+              preparationNote: null,
+              isOptional: false,
+              scalingBehavior: 'Proportional',
+            },
+          ],
+        },
+      ]);
+      expect(request.instructions).toEqual([
+        {
+          id: null,
+          title: null,
+          steps: [
+            {
+              id: null,
+              text: 'Simmer for an hour.',
+              durationMinutes: null,
+              note: null,
+              techniqueId: null,
+              temperatureValue: null,
+              temperatureUnitId: null,
+            },
+          ],
+        },
+      ]);
+    });
+
+    /**
+     * The group nav scrolls; it does not mount. So a line typed into the second group and then navigated away
+     * from is still in the DOM, still in the working copy, and still in the request — which is the property a
+     * lazily-mounted nav would have quietly broken.
+     */
+    it('counts an edit in a group the creator has navigated away from: still lights the pill and still submits', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Streusel cake', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const root = () => harness.routeNativeElement!;
+
+      const clickButton = (label: string) => {
+        const button = Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find(
+          (candidate) => candidate.textContent?.trim() === label,
+        );
+        expect(button).withContext(`the "${label}" button`).toBeTruthy();
+        button!.click();
+        harness.detectChanges();
+      };
+
+      const typeInto = (selector: string, value: string) => {
+        const field = root().querySelector<HTMLInputElement>(selector);
+        expect(field).withContext(selector).toBeTruthy();
+        field!.value = value;
+        field!.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+      };
+
+      component.title.set('Streusel cake');
+      selectEditTab(harness, 'Ingredients');
+
+      // Two groups, the second of which gets the line.
+      clickButton('Add ingredient group');
+      clickButton('Add ingredient group');
+      const [first, second] = component.editedIngredientGroups();
+      typeInto(`#ingredient-group-title-${first.key}`, 'For the cake');
+      typeInto(`#ingredient-group-title-${second.key}`, 'For the streusel');
+
+      const addToSecond = Array.from(root().querySelectorAll<HTMLButtonElement>('button')).filter(
+        (button) => button.textContent?.trim() === 'Add ingredient',
+      )[1];
+      addToSecond.click();
+      harness.detectChanges();
+      const rowKey = component.editedIngredientGroups()[1].ingredients[0].key;
+      typeInto(`#row-quantity-${rowKey}`, '3');
+      typeInto(`#row-unit-${rowKey}`, 'tbsp');
+      typeInto(`#row-ingredient-${rowKey}`, 'demerara sugar');
+
+      // Navigate back to the first group: the second is now scrolled away from, not unmounted.
+      const navLinks = Array.from(root().querySelectorAll<HTMLAnchorElement>('nav[aria-label="Ingredient groups"] a'));
+      expect(navLinks.length).toBe(2);
+      navLinks[0].click();
+      harness.detectChanges();
+      expect(navLinks[0].getAttribute('aria-current')).toBe('true');
+      expect(root().querySelector(`#row-ingredient-${rowKey}`)).withContext('still rendered').toBeTruthy();
+
+      // Still dirty, and the pill says so.
+      expect(component.isDirty()).toBeTrue();
+      expect(root().querySelector('.dirty-indicator')?.textContent).toContain('Unsaved changes');
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      const groups = request.ingredientGroups as IngredientGroupInput[];
+      expect(groups.map((group) => group.title)).toEqual(['For the cake', 'For the streusel']);
+      expect(groups[0].ingredients).toEqual([]);
+      expect(groups[1].ingredients!.map((line) => line.displayText)).toEqual(['3 tbsp demerara sugar']);
+    });
+
+    it('opens a recipe that has titled groups showing them, and round-trips them unchanged', async () => {
+      const titled: RecipeDetail = {
+        ...RECIPE_DETAIL,
+        ingredientGroups: [
+          {
+            id: 'g1',
+            title: 'For the crust',
+            sortOrder: 0,
+            ingredients: [
+              {
+                id: 'ing1',
+                sortOrder: 0,
+                displayText: '2 cups flour',
+                displayTextSource: 'Creator',
+                ingredientNameText: 'flour',
+                unitText: 'cups',
+                quantity: 2,
+                quantityUpper: null,
+                measurementUnitId: null,
+                ingredientId: null,
+                matchStatus: 'NotAttempted',
+                preparationNote: null,
+                isOptional: false,
+                scalingBehavior: 'Proportional',
+              },
+            ],
+          },
+          { id: 'g2', title: 'For the filling', sortOrder: 1, ingredients: [] },
+        ],
+        instructionGroups: [
+          {
+            id: 'ig1',
+            title: 'The day before',
+            sortOrder: 0,
+            steps: [
+              {
+                id: 'step1',
+                sortOrder: 0,
+                text: 'Chill the dough.',
+                techniqueId: null,
+                durationMinutes: null,
+                temperatureValue: null,
+                temperatureUnitId: null,
+                note: null,
+              },
+            ],
+          },
+          { id: 'ig2', title: 'On the day', sortOrder: 1, steps: [] },
+        ],
+      };
+
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: titled });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: titled });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      selectEditTab(harness, 'Ingredients');
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+      expect(
+        Array.from(harness.routeNativeElement!.querySelectorAll<HTMLInputElement>('input[id^="ingredient-group-title-"]')).map(
+          (input) => input.value,
+        ),
+      ).toEqual(['For the crust', 'For the filling']);
+
+      selectEditTab(harness, 'Instructions');
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+      expect(component.showInstructionGroups()).toBeTrue();
+      expect(
+        Array.from(harness.routeNativeElement!.querySelectorAll<HTMLInputElement>('input[id^="group-title-"]')).map(
+          (input) => input.value,
+        ),
+      ).toEqual(['The day before', 'On the day']);
+
+      // An edit elsewhere must not flatten or rename anything: both groups go back with their own ids and
+      // titles, and the empty second group is still a group.
+      component.title.set('Renamed');
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      const submittedIngredients = request.ingredientGroups.value as IngredientGroupInput[];
+      const submittedInstructions = request.instructions.value as InstructionGroupInput[];
+
+      expect(submittedIngredients.map((group) => [group.id, group.title])).toEqual([
+        ['g1', 'For the crust'],
+        ['g2', 'For the filling'],
+      ]);
+      expect(submittedIngredients[0].ingredients!.map((line) => line.displayText)).toEqual(['2 cups flour']);
+      expect(submittedInstructions.map((group) => [group.id, group.title])).toEqual([
+        ['ig1', 'The day before'],
+        ['ig2', 'On the day'],
+      ]);
+      expect(submittedInstructions[0].steps!.map((step) => step.text)).toEqual(['Chill the dough.']);
+    });
+
+    it('keeps existing steps in the first group when the creator asks for phases', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+
+      clickButton(harness, 'Add step');
+      const firstGroupKey = component.instructionGroups()[0].key;
+      const firstStepKey = component.instructionGroups()[0].steps[0].key;
+      typeInto(harness, `#step-text-${firstStepKey}`, 'Toast the spices.');
+      clickButton(harness, 'Add step');
+      const secondStepKey = component.instructionGroups()[0].steps[1].key;
+      typeInto(harness, `#step-text-${secondStepKey}`, 'Add the tomatoes.');
+
+      expect(component.showInstructionGroups()).toBeFalse();
+
+      clickButton(harness, 'Add instruction group');
+
+      const groups = component.instructionGroups();
+      expect(groups.length).toBe(2);
+      expect(groups[0].key).toBe(firstGroupKey);
+      expect(groups[0].steps.map((step) => step.text)).toEqual(['Toast the spices.', 'Add the tomatoes.']);
+      expect(groups[1].steps).toEqual([]);
+      expect(component.showInstructionGroups()).toBeTrue();
+
+      // The headings are now there to name, empty rather than invented — and the steps are still submitted.
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+      const headings = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLInputElement>('input[id^="group-title-"]'));
+      expect(headings.length).toBe(2);
+      expect(headings.map((input) => input.value)).toEqual(['', '']);
+    });
+  });
+
+  /**
+   * The nav down the side of the Instructions tab — the same `CpAnchorNavComponent` the ingredient editor
+   * renders, over a list that is always rendered in full. It scrolls; it never mounts.
+   */
+  describe('the instruction group nav', () => {
+    const navHost = (harness: RouterTestingHarness) =>
+      harness.routeNativeElement!.querySelector<HTMLElement>('cp-anchor-nav.group-nav');
+
+    const navLinks = (harness: RouterTestingHarness) =>
+      Array.from(harness.routeNativeElement!.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Instruction groups"] a'));
+
+    const clickButton = (harness: RouterTestingHarness, label: string) => {
+      const button = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => candidate.textContent?.trim() === label,
+      );
+      expect(button).withContext(`the "${label}" button`).toBeTruthy();
+      button!.click();
+      harness.detectChanges();
+    };
+
+    const typeInto = (harness: RouterTestingHarness, selector: string, value: string) => {
+      const field = harness.routeNativeElement!.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
+      expect(field).withContext(selector).toBeTruthy();
+      field!.value = value;
+      field!.dispatchEvent(new Event('input'));
+      harness.detectChanges();
+    };
+
+    /** Two phases, one named and one not, with different numbers of steps. */
+    async function twoPhases(recipeService: ReturnType<typeof recipeServiceSpy>) {
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+
+      clickButton(harness, 'Add step');
+      const firstKey = component.instructionGroups()[0].key;
+      typeInto(harness, `#step-text-${component.instructionGroups()[0].steps[0].key}`, 'Toast the spices.');
+      clickButton(harness, 'Add instruction group');
+      typeInto(harness, `#group-title-${firstKey}`, 'The day before');
+
+      const secondKey = component.instructionGroups()[1].key;
+      const addSteps = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter(
+        (button) => button.textContent?.trim() === 'Add step',
+      );
+      addSteps[1].click();
+      harness.detectChanges();
+
+      return { harness, component, firstKey, secondKey };
+    }
+
+    it('lists every instruction group, named and counted, and is the shared nav rather than a local copy', async () => {
+      const { harness } = await twoPhases(recipeServiceSpy());
+
+      expect(navLinks(harness).map((link) => link.querySelector('.label')?.textContent?.trim())).toEqual([
+        'The day before',
+        'Group 2 (untitled)',
+      ]);
+      expect(navLinks(harness).map((link) => link.querySelector('.detail')?.textContent?.trim())).toEqual([
+        '1 step',
+        '1 step',
+      ]);
+
+      // One implementation for both tabs: this nav is CpAnchorNavComponent, exactly as the ingredient editor's
+      // is, so neither can drift into a nav of its own.
+      expect(navHost(harness)).withContext('rendered by CpAnchorNavComponent').toBeTruthy();
+      expect(navLinks(harness)[0].closest('cp-anchor-nav')).toBe(navHost(harness));
+
+      // Ordinary navigation, not a tablist: tabbable in order, and every href names a group that exists.
+      expect(navLinks(harness).some((link) => link.hasAttribute('tabindex'))).toBeFalse();
+      for (const link of navLinks(harness)) {
+        expect(harness.routeNativeElement!.querySelector(link.getAttribute('href')!.replace('#', '#')))
+          .withContext(link.getAttribute('href')!)
+          .toBeTruthy();
+      }
+    });
+
+    it('reaches every group: each item scrolls to its own group and focuses its heading', async () => {
+      const { harness, firstKey, secondKey } = await twoPhases(recipeServiceSpy());
+      const scrollSpy = spyOn(Element.prototype, 'scrollIntoView');
+
+      for (const [index, key] of [firstKey, secondKey].entries()) {
+        navLinks(harness)[index].click();
+        harness.detectChanges();
+
+        expect((scrollSpy.calls.mostRecent().object as Element).id)
+          .withContext(`group ${index + 1}`)
+          .toBe(`instruction-group-${key}`);
+        expect(document.activeElement)
+          .withContext(`group ${index + 1} heading`)
+          .toBe(harness.routeNativeElement!.querySelector(`#group-title-${key}`));
+        expect(navLinks(harness)[index].getAttribute('aria-current')).toBe('true');
+      }
+
+      expect(navLinks(harness).filter((link) => link.getAttribute('aria-current') === 'true').length).toBe(1);
+    });
+
+    it('counts a step edited in a group navigated away from: still lights the pill and still submits', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { harness, component, secondKey } = await twoPhases(recipeService);
+
+      component.title.set('Chili');
+      const stepKey = component.instructionGroups()[1].steps[0].key;
+      typeInto(harness, `#step-text-${stepKey}`, 'Simmer for an hour.');
+      typeInto(harness, `#group-title-${secondKey}`, 'On the day');
+
+      // Jump back to the first phase: the second is scrolled away from, not unmounted.
+      navLinks(harness)[0].click();
+      harness.detectChanges();
+      expect(harness.routeNativeElement!.querySelector(`#step-text-${stepKey}`)).withContext('still rendered').toBeTruthy();
+
+      expect(component.isDirty()).toBeTrue();
+      expect(harness.routeNativeElement!.querySelector('.dirty-indicator')?.textContent).toContain('Unsaved changes');
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      const groups = request.instructions as InstructionGroupInput[];
+      expect(groups.map((group) => group.title)).toEqual(['The day before', 'On the day']);
+      expect(groups[1].steps!.map((step) => step.text)).toEqual(['Simmer for an hour.']);
+    });
+
+    it('renders no nav for a method with no phases, nor for a single one', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+
+      expect(navHost(harness)).withContext('nothing written yet').toBeNull();
+
+      clickButton(harness, 'Add step');
+      expect(component.instructionGroups().length).toBe(1);
+      expect(navHost(harness)).withContext('one ungrouped method').toBeNull();
+
+      clickButton(harness, 'Add instruction group');
+      expect(navLinks(harness).length).toBe(2);
+    });
+
+    it('gives the steps the full width when no nav sits beside them, and a gutter when one does', async () => {
+      const trackCount = (element: Element) => {
+        const value = getComputedStyle(element).gridTemplateColumns;
+        return value === 'none' || value === '' ? 0 : value.split(/\s+/).length;
+      };
+
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+
+      const root = harness.routeNativeElement!;
+      root.style.width = '80rem';
+      harness.detectChanges();
+
+      // No nav, so no gutter: the steps have the width, and a step's own fields are not squeezed into 12rem.
+      const layout = () => root.querySelector('.grouped-layout')!;
+      expect(navHost(harness)).toBeNull();
+      expect(trackCount(layout())).withContext('columns with no nav').toBe(1);
+      const groups = root.querySelector('.groups')!;
+      expect(groups.getBoundingClientRect().width).toBeGreaterThan(root.getBoundingClientRect().width * 0.8);
+
+      // A second phase brings the nav, and with it the gutter.
+      clickButton(harness, 'Add instruction group');
+      expect(trackCount(layout())).withContext('columns with a nav').toBe(2);
+      expect(getComputedStyle(navHost(harness)!).position).toBe('sticky');
+      expect(getComputedStyle(navHost(harness)!.querySelector('ul')!).flexDirection).toBe('column');
+
+      // Narrow — a phone, or 200% zoom. One column, full-size targets, nothing spilling sideways.
+      root.style.width = '24rem';
+      harness.detectChanges();
+      expect(trackCount(layout())).withContext('columns at 24rem').toBe(1);
+      expect(getComputedStyle(navHost(harness)!).position).toBe('static');
+      for (const link of navLinks(harness)) {
+        expect(link.getBoundingClientRect().height)
+          .withContext(link.textContent?.trim())
+          .toBeGreaterThanOrEqual(40);
+      }
+      const limit = root.getBoundingClientRect().right + 1;
+      const overflowing = Array.from(root.querySelectorAll('*'))
+        .filter((node) => node.getBoundingClientRect().right > limit)
+        .map((node) => node.tagName.toLowerCase() + (node.id ? '#' + node.id : ''));
+      expect(overflowing).withContext('overflowing the editor at 24rem').toEqual([]);
+
+      expect(component.instructionGroups().length).toBe(2);
     });
   });
 
@@ -1017,6 +2907,85 @@ describe('RecipeEditorComponent', () => {
 
       const pill = harness.routeNativeElement?.querySelector('.dirty-indicator');
       expect(pill?.textContent).toContain('Unsaved changes');
+    });
+
+    /**
+     * One Save writes all three tabs, so the pill has to light for an edit in any of them — the property the
+     * split most easily breaks, since each tab is its own panel and two of them are not even mounted at load.
+     */
+    it('lights the "Unsaved changes" pill for an edit made in each of the three form tabs', async () => {
+      const pillText = (harness: RouterTestingHarness) =>
+        harness.routeNativeElement?.querySelector('.dirty-indicator')?.textContent ?? null;
+
+      // General — typed into the real control, in the tab that is showing at load.
+      {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        expect(pillText(harness)).withContext('General, before the edit').toBeNull();
+
+        const title = harness.routeNativeElement!.querySelector<HTMLInputElement>('#recipe-title')!;
+        title.value = 'Weeknight chili, again';
+        title.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        expect(component.isDirty()).withContext('General').toBeTrue();
+        expect(pillText(harness)).withContext('General').toContain('Unsaved changes');
+      }
+
+      // Ingredients — a row added and typed into through the child editor's own inputs.
+      {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        selectEditTab(harness, 'Ingredients');
+        expect(pillText(harness)).withContext('Ingredients, before the edit').toBeNull();
+
+        const addGroup = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).find(
+          (button) => button.textContent?.trim() === 'Add ingredient group',
+        )!;
+        addGroup.click();
+        harness.detectChanges();
+        const addRow = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).find(
+          (button) => button.textContent?.trim() === 'Add ingredient',
+        )!;
+        addRow.click();
+        harness.detectChanges();
+
+        const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+        const ingredient = harness.routeNativeElement!.querySelector<HTMLInputElement>(`#row-ingredient-${rowKey}`)!;
+        ingredient.value = 'flaky sea salt';
+        ingredient.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        expect(component.isDirty()).withContext('Ingredients').toBeTrue();
+        expect(pillText(harness)).withContext('Ingredients').toContain('Unsaved changes');
+      }
+
+      // Instructions — a step added and typed into, in a tab that was not mounted when the editor loaded.
+      {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        selectEditTab(harness, 'Instructions');
+        expect(pillText(harness)).withContext('Instructions, before the edit').toBeNull();
+
+        component.addInstructionGroup();
+        harness.detectChanges();
+        const groupKey = component.instructionGroups()[0].key;
+        component.addInstructionStep(groupKey);
+        harness.detectChanges();
+
+        const stepKey = component.instructionGroups()[0].steps[0].key;
+        const step = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>(`#step-text-${stepKey}`);
+        expect(step).withContext('the new step textarea').toBeTruthy();
+        step!.value = 'Toast the spices.';
+        step!.dispatchEvent(new Event('input'));
+        harness.detectChanges();
+
+        expect(component.isDirty()).withContext('Instructions').toBeTrue();
+        expect(pillText(harness)).withContext('Instructions').toContain('Unsaved changes');
+      }
     });
 
     it('blocks a real router navigation when only an ingredient edit is unsaved, until the user confirms discarding', async () => {
@@ -1520,7 +3489,7 @@ describe('RecipeEditorComponent', () => {
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
       await waitUntil(() => component.loadState().status === 'ready');
 
-      component.selectedTabId.set('history');
+      component.selectedAreaId.set('history');
       component.title.set('Half-written edit');
       expect(component.isDirty()).toBeTrue();
 
@@ -1528,7 +3497,7 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
 
       expect(component.title()).toBe('Chilli');
-      expect(component.selectedTabId()).toBe('metadata');
+      expect(component.selectedAreaId()).toBe('edit');
       // The restore replaced the form wholesale, so there is nothing unsaved left to warn about.
       expect(component.isDirty()).toBeFalse();
       expect(harness.routeNativeElement?.textContent).toContain('Version 3 restored as version 9.');
@@ -1940,6 +3909,210 @@ describe('RecipeEditorComponent', () => {
       expect(confirmService.confirm).not.toHaveBeenCalled();
       expect(recipeService.updateRecipe).not.toHaveBeenCalled();
     });
+
+    /**
+     * A converted ingredient amount, recorded on the line it came from.
+     *
+     * The third apply path, and it goes through the same handshake as the other two — same confirmation, same
+     * token, same idempotency key, same one narrow patch. What is particular to it is the wording: the target
+     * line is re-derived from its own fields, and only ever because it was already a line the recipe assembled.
+     */
+    describe('a converted ingredient amount', () => {
+      const COMPOSED_LINE: RecipeIngredient = {
+        id: 'i1',
+        sortOrder: 0,
+        displayText: '2 cups flour',
+        displayTextSource: 'Composed',
+        ingredientNameText: 'flour',
+        unitText: 'cups',
+        quantity: 2,
+        quantityUpper: null,
+        measurementUnitId: 'unit-cup',
+        ingredientId: 'ref-flour',
+        matchStatus: 'Matched',
+        preparationNote: 'sifted',
+        isOptional: false,
+        scalingBehavior: 'Proportional',
+      };
+
+      /** The creator's own wording, which nothing may rewrite — here to prove it comes back untouched. */
+      const CREATOR_LINE: RecipeIngredient = {
+        ...COMPOSED_LINE,
+        id: 'i2',
+        sortOrder: 1,
+        displayText: 'a good pinch of flaky salt',
+        displayTextSource: 'Creator',
+        ingredientNameText: 'flaky salt',
+        unitText: 'pinch',
+        quantity: 1,
+        measurementUnitId: 'unit-pinch',
+        ingredientId: null,
+        matchStatus: 'NoMatch',
+        preparationNote: null,
+      };
+
+      const DETAIL_WITH_LINES: RecipeDetail = {
+        ...DETAIL_WITH_STEPS,
+        ingredientGroups: [{ id: 'ig1', title: null, sortOrder: 0, ingredients: [COMPOSED_LINE, CREATOR_LINE] }],
+      };
+
+      const CONVERSION_APPLICATION = {
+        recipeIngredientId: 'i1',
+        quantity: 473.18,
+        measurementUnitId: 'unit-milliliter',
+        unitText: 'milliliter',
+        lineLabel: '2 cups flour',
+        beforeLabel: '2 cup',
+        afterLabel: '473.18 ml',
+      };
+
+      async function editorWithLines() {
+        const recipeService = recipeServiceSpy();
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: DETAIL_WITH_LINES });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        await waitUntil(() => component.loadState().status === 'ready');
+        harness.detectChanges();
+        return { harness, component, recipeService };
+      }
+
+      it('asks first, then writes one narrow patch quoting the recipe token', async () => {
+        const { component, recipeService } = await editorWithLines();
+        recipeService.updateRecipe.and.resolveTo({
+          status: 'updated',
+          recipe: { ...DETAIL_WITH_LINES, concurrencyToken: 'BBBBBBBBB9E=' },
+          replayed: false,
+        });
+
+        const applying = component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+
+        // Nothing has been written while the question is on screen.
+        expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+        confirmService.answer(true);
+        await applying;
+
+        expect(recipeService.updateRecipe).toHaveBeenCalledTimes(1);
+        const [slug, recipeId, request, key] = recipeService.updateRecipe.calls.mostRecent().args;
+        expect(slug).toBe('cozy-fall');
+        expect(recipeId).toBe('r1');
+        expect(request.expectedConcurrencyToken).toBe('AAAAAAAAB9E=');
+        expect(key).toBeTruthy();
+
+        // One field group, and the reason that will appear in the version history.
+        expect(Object.keys(request).sort()).toEqual(['expectedConcurrencyToken', 'ingredientGroups', 'reason']);
+        expect(request.reason).toContain('2 cup');
+      });
+
+      it('moves the named line and re-derives its wording from its own fields', async () => {
+        const { component, recipeService } = await editorWithLines();
+        recipeService.updateRecipe.and.resolveTo({
+          status: 'updated',
+          recipe: { ...DETAIL_WITH_LINES, concurrencyToken: 'BBBBBBBBB9E=' },
+          replayed: false,
+        });
+
+        const applying = component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(true);
+        await applying;
+
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        const [target] = request.ingredientGroups.value![0].ingredients!;
+
+        expect(target.quantity).toBe(473.18);
+        expect(target.measurementUnitId).toBe('unit-milliliter');
+        expect(target.unitText).toBe('milliliter');
+        // Assembled from the line's own fields, in the order the line reads — not invented and not the old text.
+        expect(target.displayText).toBe('473.18 milliliter flour, sifted');
+        expect(target.displayTextSource).toBe('Composed');
+        // Everything the conversion has no business touching comes back as the recipe holds it.
+        expect(target.ingredientId).toBe('ref-flour');
+        expect(target.preparationNote).toBe('sifted');
+        expect(target.scalingBehavior).toBe('Proportional');
+      });
+
+      /**
+       * `IngredientGroups` is a full replace and the server applies a submitted line wholesale, so a sibling
+       * left out — or submitted differently — is a sibling quietly rewritten.
+       */
+      it('submits every other line exactly as the recipe holds it, wording included', async () => {
+        const { component, recipeService } = await editorWithLines();
+        recipeService.updateRecipe.and.resolveTo({
+          status: 'updated',
+          recipe: { ...DETAIL_WITH_LINES, concurrencyToken: 'BBBBBBBBB9E=' },
+          replayed: false,
+        });
+
+        const applying = component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(true);
+        await applying;
+
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        const sibling = request.ingredientGroups.value![0].ingredients![1];
+
+        expect(sibling).toEqual({
+          id: 'i2',
+          displayText: 'a good pinch of flaky salt',
+          displayTextSource: 'Creator',
+          ingredientNameText: 'flaky salt',
+          unitText: 'pinch',
+          quantity: 1,
+          quantityUpper: null,
+          measurementUnitId: 'unit-pinch',
+          ingredientId: null,
+          preparationNote: null,
+          isOptional: false,
+          scalingBehavior: 'Proportional',
+        });
+      });
+
+      // The restriction, in one test: no calculation writes to the recipe without an explicit confirmation.
+      it('a declined confirmation writes nothing at all', async () => {
+        const { component, recipeService } = await editorWithLines();
+
+        const applying = component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(false);
+        await applying;
+
+        expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+        expect(component.notice()).toBeNull();
+        // Still the version and token it loaded with.
+        expect(component.currentVersionNumber()).toBe(3);
+        expect(component.concurrencyToken()).toBe('AAAAAAAAB9E=');
+      });
+
+      it('reuses one idempotency key across a retry of the identical apply', async () => {
+        const { component, recipeService } = await editorWithLines();
+        recipeService.updateRecipe.and.resolveTo({ status: 'unavailable' });
+
+        const first = component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(true);
+        await first;
+
+        const second = component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(true);
+        await second;
+
+        const [firstKey, secondKey] = recipeService.updateRecipe.calls.all().map((call) => call.args[3]);
+        expect(firstKey).toBeTruthy();
+        expect(secondKey).toBe(firstKey);
+      });
+
+      // The editorIsDirty contract, enforced a second time here: the panel refuses, and so does this.
+      it('refuses outright while the form holds unsaved edits, without even asking', async () => {
+        const { component, recipeService } = await editorWithLines();
+        component.title.set('Something else');
+
+        await component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
+
+        expect(confirmService.confirm).not.toHaveBeenCalled();
+        expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+      });
+    });
   });
 
   /**
@@ -1986,6 +4159,262 @@ describe('RecipeEditorComponent', () => {
       expect(step.techniqueId).toBe('t1');
       expect(step.temperatureValue).toBe(180);
       expect(step.temperatureUnitId).toBe('unit-celsius');
+    });
+  });
+
+  /**
+   * The yield unit, as a picker over the shared platform catalogue.
+   *
+   * `yieldUnitId` and `yieldText` are two different facts and both exist deliberately (recipes.md): one is the
+   * creator's own sentence about how much a recipe makes, the other is the vocabulary entry a scaling or pan
+   * calculation reads. Most of what follows is about keeping them apart, and about the picker never costing
+   * the recipe a value it had already recorded.
+   */
+  describe('the yield unit picker', () => {
+    const GATEWAY = 'https://gateway.example';
+    const UNITS_URL = `${GATEWAY}/api/v1/reference/units`;
+
+    function unitJson(id: string, displayName: string, abbreviation: string, dimension: string): Record<string, unknown> {
+      return {
+        id,
+        code: displayName.toLowerCase(),
+        displayName,
+        pluralName: displayName,
+        abbreviation,
+        dimension,
+        system: 'Neutral',
+        baseUnitFactor: 1,
+        displayPrecision: 2,
+      };
+    }
+
+    const SERVINGS = unitJson('u-servings', 'Servings', 'srv', 'Count');
+    const GRAMS = unitJson('u-grams', 'Grams', 'g', 'Mass');
+    const CELSIUS = unitJson('u-celsius', 'Celsius', 'degC', 'Temperature');
+
+    /** The recipe an edit-mode case loads: a saved yield of four servings. */
+    const WITH_YIELD_UNIT: RecipeDetail = { ...RECIPE_DETAIL, yieldQuantity: 4, yieldUnitId: 'u-servings' };
+
+    /** Answers the catalogue read the editor starts as it is constructed. */
+    async function settleUnits(
+      harness: RouterTestingHarness,
+      component: RecipeEditorComponent,
+      units: readonly Record<string, unknown>[] = [SERVINGS, GRAMS, CELSIUS],
+    ): Promise<void> {
+      TestBed.inject(HttpTestingController)
+        .expectOne((request) => request.url === UNITS_URL)
+        .flush({ items: units, nextCursor: null });
+      await waitUntil(() => component.unitCatalogue().status !== 'loading');
+      harness.detectChanges();
+    }
+
+    async function failUnits(harness: RouterTestingHarness, component: RecipeEditorComponent): Promise<void> {
+      TestBed.inject(HttpTestingController)
+        .expectOne((request) => request.url === UNITS_URL)
+        .flush({}, { status: 500, statusText: 'Server Error' });
+      await waitUntil(() => component.unitCatalogue().status === 'unavailable');
+      harness.detectChanges();
+    }
+
+    function unitBox(harness: RouterTestingHarness): HTMLInputElement {
+      const input = harness.routeNativeElement!.querySelector<HTMLInputElement>('input[id="recipe-yield-unit"]');
+      expect(input).withContext('the yield unit box').toBeTruthy();
+      return input!;
+    }
+
+    /** `mousedown`, as the combobox listens for — a click would blur the box before it landed. */
+    function pickUnit(harness: RouterTestingHarness, unitId: string): void {
+      const option = harness.routeNativeElement!.querySelector(`[id="recipe-yield-unit-option-${unitId}"]`);
+      expect(option).withContext(`the "${unitId}" option`).toBeTruthy();
+      option!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      harness.detectChanges();
+    }
+
+    function clickLabelled(harness: RouterTestingHarness, ariaLabel: string): void {
+      const button = harness.routeNativeElement!.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
+      expect(button).withContext(`the "${ariaLabel}" button`).toBeTruthy();
+      button!.click();
+      harness.detectChanges();
+    }
+
+    it('records the unit a creator picks and leaves their own Yield wording alone', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'created',
+        recipe: { recipeId: 'new-id', title: 'Weeknight Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      component.title.set('Weeknight Chili');
+      component.yieldText.set('About 4 generous bowls');
+      component.yieldQuantity.set(4);
+      harness.detectChanges();
+
+      pickUnit(harness, 'u-servings');
+
+      expect(component.yieldUnitId()).toBe('u-servings');
+      expect(unitBox(harness).value).toBe('Servings');
+      // The sentence the creator wrote is a different fact, and picking a unit is not an edit to it.
+      expect(component.yieldText()).toBe('About 4 generous bowls');
+
+      await component.save();
+
+      const [, request] = recipeService.createRecipe.calls.mostRecent().args;
+      expect(request.yieldUnitId).toBe('u-servings');
+      expect(request.yieldText).toBe('About 4 generous bowls');
+      expect(request.yieldQuantity).toBe(4);
+    });
+
+    it('shows a loaded recipe’s unit by name, and counts a change to it as unsaved', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_YIELD_UNIT });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      // The id arrives with the recipe and the name only with the catalogue, so this is what the constructor's
+      // effect is for.
+      expect(unitBox(harness).value).toBe('Servings');
+      expect(component.isDirty()).withContext('loading a recipe is not editing it').toBeFalse();
+
+      pickUnit(harness, 'u-grams');
+
+      expect(component.yieldUnitId()).toBe('u-grams');
+      expect(component.isDirty()).toBeTrue();
+    });
+
+    it('clears a recorded unit, and submits the clearance rather than omitting it', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_YIELD_UNIT });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...WITH_YIELD_UNIT, yieldUnitId: null, concurrencyToken: 'AAAAAAAAB9I=' } });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      // Restricted text reverts to the chosen unit's name when the field is left, so this button is the only
+      // way back to "no unit" — hence a control of its own rather than an empty box.
+      clickLabelled(harness, 'Clear the yield unit');
+
+      expect(component.yieldUnitId()).toBeNull();
+      expect(unitBox(harness).value).toBe('');
+      expect(component.isDirty()).toBeTrue();
+
+      await component.save();
+
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.yieldUnitId).toEqual({ submitted: true, value: null });
+      // The creator's own wording was never part of this.
+      expect(request.yieldText).toEqual({ submitted: true, value: null });
+    });
+
+    it('offers no Clear until there is a unit to clear', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      expect(harness.routeNativeElement!.querySelector('button[aria-label="Clear the yield unit"]')).toBeNull();
+      pickUnit(harness, 'u-servings');
+      expect(harness.routeNativeElement!.querySelector('button[aria-label="Clear the yield unit"]')).toBeTruthy();
+    });
+
+    // Business refuses a temperature yield unit outright, so offering one would be offering a choice that can
+    // only ever come back as an error.
+    it('does not offer a unit the server would refuse', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      expect(component.yieldUnitOptions().map((option) => option.id)).toEqual(['u-grams', 'u-servings']);
+      expect(harness.routeNativeElement!.querySelector('[id="recipe-yield-unit-option-u-celsius"]')).toBeNull();
+    });
+
+    /**
+     * The failure this guards against: an unreadable catalogue quietly costing the recipe a unit it had
+     * already recorded. The form holds an id, not a name, so there is nothing for a missing list to take.
+     */
+    it('keeps a recorded unit when the unit list cannot be read, and offers a retry', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_YIELD_UNIT });
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...WITH_YIELD_UNIT, concurrencyToken: 'AAAAAAAAB9I=' } });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, undefined, 'Editor', GATEWAY);
+      await failUnits(harness, component);
+
+      // Nothing to pick from, so the box is not offered as if there were.
+      expect(unitBox(harness).disabled).toBeTrue();
+      expect(component.yieldUnitHint()).toContain('cannot be named');
+      expect(component.isDirty()).withContext('a failed read is not an edit').toBeFalse();
+
+      await component.save();
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.yieldUnitId).toEqual({ submitted: true, value: 'u-servings' });
+
+      // And the outage is not inherited for the rest of the session.
+      clickLabelled(harness, 'Try reading the unit list again');
+      await settleUnits(harness, component);
+
+      expect(unitBox(harness).disabled).toBeFalse();
+      expect(unitBox(harness).value).toBe('Servings');
+    });
+
+    it('lets a creator take a unit off even while the list is unreadable', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_YIELD_UNIT });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, undefined, 'Editor', GATEWAY);
+      await failUnits(harness, component);
+
+      clickLabelled(harness, 'Clear the yield unit');
+
+      expect(component.yieldUnitId()).toBeNull();
+      expect(component.yieldUnitHint()).toContain('nothing to pick from');
+    });
+
+    // The saved value is the recipe's; the form field is the form's. The reconciliation panel reads the saved
+    // one because a calculation is computed against the saved version.
+    it('leaves the saved yield unit where it is when the form field moves', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_YIELD_UNIT });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      expect(component.savedYieldUnitId()).toBe('u-servings');
+
+      clickLabelled(harness, 'Clear the yield unit');
+
+      expect(component.yieldUnitId()).toBeNull();
+      expect(component.savedYieldUnitId()).withContext('the saved unit is the recipe, not the form').toBe('u-servings');
+    });
+
+    // The server requires both halves of the pair. Said on the field rather than discovered by a refused save.
+    it('says a unit needs a quantity beside it', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      expect(component.yieldUnitHint()).toContain('Read with the quantity when scaling');
+
+      pickUnit(harness, 'u-servings');
+      expect(component.yieldUnitHint()).toContain('Add a yield quantity as well');
+
+      component.yieldQuantity.set(4);
+      harness.detectChanges();
+      expect(component.yieldUnitHint()).not.toContain('Add a yield quantity');
+    });
+
+    it('shows a server error on the yield unit beside the control', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.createRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { yieldUnitId: ['A yield cannot be measured in degrees.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+
+      component.title.set('Weeknight Chili');
+      await component.save();
+      harness.detectChanges();
+
+      expect(component.fieldError('yieldUnitId')).toBe('A yield cannot be measured in degrees.');
+      const field = unitBox(harness).closest('cp-field');
+      expect(field?.querySelector('.error')?.textContent?.trim()).toBe('A yield cannot be measured in degrees.');
     });
   });
 });

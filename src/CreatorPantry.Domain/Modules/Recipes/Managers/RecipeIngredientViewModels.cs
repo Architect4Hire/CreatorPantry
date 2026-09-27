@@ -30,6 +30,32 @@ public sealed record RecipeIngredientInputViewModel
     /// </summary>
     public string? DisplayText { get; init; }
 
+    /// <summary>
+    /// Whether <see cref="DisplayText"/> is the creator's own wording or was assembled from the spans below —
+    /// what lets an editor that has no line control keep an assembled line in step with the fields it does
+    /// offer, across a reload. Null defaults to <see cref="IngredientDisplayTextSource.Creator"/>, the reading
+    /// that re-derives nothing.
+    /// </summary>
+    /// <remarks>
+    /// A client's statement about its own creator's line, not a permission: it decides only whether wording may
+    /// be re-derived from the other spans on this same line. It cannot reach a quantity, a unit, a time or an
+    /// instruction, and it cannot reach another line.
+    /// </remarks>
+    public IngredientDisplayTextSource? DisplayTextSource { get; init; }
+
+    /// <summary>
+    /// The ingredient-name span of the line: "all-purpose flour" out of "2 cups all-purpose flour, sifted".
+    /// Additive and never a replacement for <see cref="DisplayText"/> — a name that matched nothing in the
+    /// vocabulary still keeps the creator's word for it here, where <see cref="IngredientId"/> has nothing.
+    /// </summary>
+    public string? IngredientNameText { get; init; }
+
+    /// <summary>
+    /// The unit span as written: "cups", "tbsp", "large". The counterpart to <see cref="MeasurementUnitId"/>
+    /// for a unit nothing matched, and then the only record of what the creator called it.
+    /// </summary>
+    public string? UnitText { get; init; }
+
     /// <summary>The parsed quantity, or the low end of a range. Null for "a pinch of salt", or when nothing has parsed it.</summary>
     public decimal? Quantity { get; init; }
 

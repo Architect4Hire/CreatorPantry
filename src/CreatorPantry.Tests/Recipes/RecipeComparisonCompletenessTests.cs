@@ -174,6 +174,8 @@ public sealed class RecipeComparisonCompletenessTests
         var line = ingredientGroup.Ingredients.Single();
         line.DisplayText = "3 cups (360 g) bread flour";
         line.IngredientNameText = "bread flour";
+        line.UnitText = "cups, scooped";
+        line.DisplayTextSource = IngredientDisplayTextSource.Creator;
         line.Quantity = 360m;
         line.QuantityUpper = 380m;
         line.MeasurementUnitId = Guid.NewGuid();

@@ -1,5 +1,9 @@
+/* container-type, not a viewport media query: this panel answers to the space it actually has, so it responds
+   identically to a narrowed window and to 200% zoom (both shrink the container's CSS-px inline size), and a
+   test can set this host's width and assert the result. */
 :host {
   display: block;
+  container: cp-history / inline-size;
 }
 
 /* The live region. Visually hidden rather than absent: it has to stay in the DOM to be announced, and its
@@ -17,11 +21,13 @@
 }
 
 /* One grid shared by the legend and every row, so the two radio columns line up with their headings
-   without either knowing the other's widths. */
+   without either knowing the other's widths. The two picker columns are --cp-space-10 wide, not narrower:
+   with the matching min-height on .pick that is the 40px target DESIGN-SYSTEM.md asks for in both
+   dimensions, where 1.5rem gave a 24px-wide one. */
 .legend,
 .version {
   display: grid;
-  grid-template-columns: var(--cp-space-6) var(--cp-space-6) 1fr;
+  grid-template-columns: var(--cp-space-10) var(--cp-space-10) 1fr;
   align-items: start;
   gap: var(--cp-space-3);
 }
@@ -113,14 +119,6 @@
   font-size: var(--cp-font-size-sm);
 }
 
-.compare {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
-  margin-top: var(--cp-space-4);
-}
-
 .compare-note {
   margin: 0;
   color: var(--cp-text-muted);
@@ -143,29 +141,53 @@
   color: var(--cp-danger);
 }
 
-/* Narrow layouts and 200% zoom: the radio columns stay, because they are the selection, and the metadata
-   takes the width it needs underneath rather than being squeezed into a third of it. */
-@media (max-width: 30rem) {
+/* Narrow widths and 200% zoom: the picker columns keep their 40px, because they are the selection and a
+   target does not get smaller for being on a narrow screen. Only the gap closes up, which is what gives the
+   metadata the width it needs. The legend keeps --cp-font-size-xs; it used to drop to a raw 0.625rem, which
+   is 10px — below the smallest size the system defines, in uppercase with added letter-spacing. */
+@container cp-history (max-width: 30rem) {
   .legend,
   .version {
-    grid-template-columns: var(--cp-space-6) var(--cp-space-6) 1fr;
     gap: var(--cp-space-2);
   }
-
-  .legend {
-    font-size: 0.625rem;
-  }
 }
 
-/* The row's one command, kept under the metadata rather than beside the version number: the number is what
-   a creator scans, and a button in that line would compete with it on every row. */
-.version-actions {
-  margin: var(--cp-space-2) 0 0;
-}
-
-/* Two commands sit here on most rows, and they wrap rather than shrink at a narrow width or at 200% zoom. */
+/* The row's commands, kept under the metadata rather than beside the version number: the number is what a
+   creator scans, and a button in that line would compete with it on every row. Two sit here on most rows, and
+   they wrap rather than shrink at a narrow width or at 200% zoom. */
 .version-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--cp-space-2);
+  margin: var(--cp-space-2) 0 0;
+}
+
+/* Where the two picked versions are named, beside the button that acts on them. `aria-hidden`, because each
+   radio already says which side it is and the live region says what the pair is — this is the sighted reader's
+   copy of a fact they would otherwise have to scroll to find. */
+.selection {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where the version came from, in the metadata line rather than as a third pill. */
+.version-origin {
+  white-space: nowrap;
+}
+
+.version-origin-glyph {
+  margin-inline-end: 0.125em;
+}
+
+/* The comparison, as a focus destination. The ring is the ordinary visible one; nothing here suppresses it,
+   because a region that takes focus without showing it strands the creator who sent it there. */
+.comparison-region {
+  display: block;
+  margin-top: var(--cp-space-4);
+  border-radius: var(--cp-radius-md);
+}
+
+.compare-note {
+  margin-top: var(--cp-space-4);
 }

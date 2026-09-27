@@ -1,7 +1,16 @@
+/* 90rem, not unbounded: the editor should use a desktop's width, but stretching Description or a step's
+   prose to a 2000px line is not readability. The reading measure is capped per control instead, below.
+
+   container-type here — not a viewport media query — so the layout answers to the space the editor actually
+   has. It responds identically to a narrowed window and to 200% zoom (both shrink the container's CSS-px
+   inline size), it stays correct if the editor is ever placed in a narrower shell, and it is testable: a
+   test sets this host's width and asserts the resulting track count, which a media query cannot offer
+   because Karma cannot resize the viewport. */
 :host {
   display: block;
   padding: var(--cp-space-8);
-  max-width: 48rem;
+  max-width: 90rem;
+  container: cp-editor / inline-size;
 }
 
 .status {
@@ -57,8 +66,13 @@
 /* :not([hidden]) — CpTabPanelComponent hides inactive panels via the native `hidden` attribute
    (relying on the UA default `[hidden]{display:none}`); an unconditional `display` here would
    override that and show every panel's content stacked at once regardless of the selected tab. */
+/* minmax(0, 1fr), for the reason spelled out on .tab-sections below: the default `auto` track's floor is its
+   content's max-content width, and a panel holding a tablist or a full-width control has a max-content width
+   far past a phone's. An auto track would hold the panel at that width and push the whole form sideways,
+   where the tablist should simply have wrapped onto another line. */
 cp-tab-panel:not([hidden]) {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-4);
   padding-top: var(--cp-space-6);
 }
@@ -77,6 +91,105 @@ cp-tab-panel:not([hidden]) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Sits between the tablist and the first panel, so it reads as a note about the tabs above it. Muted,
+   because it explains a state rather than reporting a problem — the greyed-out tabs are not an error. */
+.area-lock-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-3) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.area-lock-icon {
+  line-height: var(--cp-leading-normal);
+}
+
+/* The sections stacked inside one form tab. minmax(0, 1fr), not the default `auto` track: an `auto` track's
+   floor is its content's max-content contribution, and for a full-width control that contribution is its own
+   max-width (the 60ch reading measure below). So an auto track would hold the controls at 60ch and push the
+   page sideways at phone widths, exactly where the measure cap is not the binding constraint. Capping the
+   track at the space available lets the controls shrink, with 60ch still capping them when there is room. */
+.tab-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
+}
+
+.editor-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+  /* The tabindex="-1" in the template is a scroll/focus target of last resort; the ring belongs to the field
+     revealFirstFieldError() focuses, never to a section that merely scrolled. */
+  scroll-margin-top: var(--cp-space-6);
+}
+
+.editor-section:focus {
+  outline: none;
+}
+
+/* Short fields share a row instead of each taking one. Six numeric inputs stacked one-per-row in a narrow
+   column was the worst use of space in the old layout. Same min() floor, for the same reason. */
+.field-row {
+  display: grid;
+  gap: var(--cp-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  align-items: start;
+}
+
+/* Reading measure. On the cp-field wrapper, deliberately not on the control inside it: cp-field is itself a
+   single-column grid whose track floor is the control's max-content contribution, and a max-width on the
+   control *is* that contribution — so capping the control at 60ch widens the field to 60ch and the control
+   fills it, overflowing a narrower page. Capping the wrapper instead leaves it free to shrink, since the
+   control is only ever width:100% of whatever the wrapper ended up being.
+
+   View encapsulation keeps this to fields in this template: the ingredient editor's own fields are its
+   business, not something a descendant selector here should reach into. */
+.editor-section cp-field {
+  max-width: 60ch;
+}
+
+/* The instruction groups and the nav beside them. Its own container, like the ingredient editor's: the
+   layout answers to the space this section actually has, which is a tab panel inside a capped card, and
+   responds identically to a narrowed window and to 200% zoom. */
+#section-instructions {
+  container: cp-instructions / inline-size;
+}
+
+/* One column by default — the narrow layout, and the one 200% zoom lands on. The nav is a wrapping row above
+   the groups there; the gutter below is additive. */
+.grouped-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  align-items: start;
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* .has-group-nav, not .grouped-layout alone: the gutter is the nav's, and with no nav rendered the groups
+   themselves would be pinned into a 12rem track. */
+@container cp-instructions (min-width: 60rem) {
+  .grouped-layout.has-group-nav {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  .group-nav {
+    position: sticky;
+    top: var(--cp-space-4);
+    --cp-anchor-nav-direction: column;
   }
 }
 
@@ -248,4 +361,73 @@ cp-tab-panel:not([hidden]) {
   margin: var(--cp-space-6) 0;
   border: 0;
   border-top: 1px solid var(--cp-border);
+}
+
+/* The yield-unit box and the actions that go with it on one line. The combobox takes the room because its
+   popup is positioned against its own box, so a collapsed host would give a popup narrower than the list in
+   it; the buttons take their content width. Wraps at narrow widths and at 200% zoom rather than squeezing the
+   box below a usable size. */
+.yield-unit-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.yield-unit-control cp-combobox {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* The one statement of what the asterisk means, above the form tabs because the convention spans all three. */
+.required-legend {
+  margin: 0 0 var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.required-legend span[aria-hidden='true'] {
+  color: var(--cp-danger);
+  font-weight: 700;
+}
+
+/* The slot "Add a duration" sits in, so revealing the field does not shift the step's other rows sideways. */
+.step-reveal {
+  display: flex;
+}
+
+/* The total-time box and the button that offers the derived sum, on one line. The box takes the room; the
+   button takes its content width and wraps below at narrow widths and at 200% zoom. */
+.derived-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.derived-total input {
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+/* The server's one sentence about a whole list, under the heading of the section it is about. Danger-toned like
+   cp-field's own error, and a glyph as well as a hue so it does not depend on telling two colours apart. */
+.section-problem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid var(--cp-danger);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-danger-soft);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.section-problem::before {
+  content: '!';
+  flex: none;
+  font-weight: 700;
+  color: var(--cp-danger);
 }

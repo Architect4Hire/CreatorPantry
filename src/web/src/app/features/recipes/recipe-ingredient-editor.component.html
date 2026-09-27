@@ -6,13 +6,50 @@
 <!-- Silent to sighted users; announces a reorder to screen-reader users, since the up/down buttons alone are silent. -->
 <div class="cp-sr-only" role="status" aria-live="polite">{{ moveAnnouncement() }}</div>
 
+<!-- Degraded, not broken: the shared catalogue only ever supplies suggestions, so losing it costs the list and
+     never the typing. Announced from its own always-present region, for the same reason the one above is
+     always present — a live region that arrives together with its text is not reliably read. The Retry lives
+     in the visible notice rather than in here, where it would be re-announced on every change. -->
+<div class="cp-sr-only" role="status" aria-live="polite">{{ referenceAnnouncement() }}</div>
+
+@if (unitCatalogue().status === 'unavailable') {
+  <p class="reference-notice">
+    <span class="notice-glyph" aria-hidden="true">⚠</span>
+    <span>Unit list unavailable — units you type are still saved as you wrote them.</span>
+    <button cpButton variant="text" size="sm" type="button" (click)="loadUnits()">Try again</button>
+  </p>
+}
+
 @if (groups().length === 0) {
-  <cp-empty-state title="No ingredients yet" description="Paste a list of ingredient lines, or add a group to start typing them in." variant="first-use" />
+  <cp-empty-state title="No ingredients yet" description="Paste a list of ingredient lines, or add them one at a time." variant="first-use">
+    <button cpButton cpEmptyStateActions type="button" (click)="addRow()">Add ingredient</button>
+  </cp-empty-state>
 } @else {
+  <div class="grouped-layout" [class.has-group-nav]="showGroupNav()">
+    @if (showGroupNav()) {
+      <!-- The shared nav, not a local one: the instruction editor renders the same component, so the two cannot
+           drift apart. It emits which group was asked for; scrolling and focus are this editor's business. -->
+      <cp-anchor-nav
+        class="group-nav"
+        ariaLabel="Ingredient groups"
+        [items]="groupNav()"
+        [activeTargetId]="activeGroupTargetId()"
+        (activated)="onGroupNavActivated($event)"
+      />
+    }
+
+    <div class="groups">
   @for (group of groups(); track group.key; let groupIndex = $index, groupCount = $count) {
-    <section class="group">
+    <section class="group" [id]="'ingredient-group-' + group.key">
+      <!-- Only a recipe with sections has headings to show. Ungrouped, the list is the whole of it: no heading
+           field to leave blank, no "Remove group" for a group the creator never made. -->
+      @if (showGroups()) {
       <div class="group-header">
-        <cp-field [label]="'Group ' + (groupIndex + 1) + ' heading'" [forId]="'ingredient-group-title-' + group.key">
+        <cp-field
+          [label]="'Group ' + (groupIndex + 1) + ' heading'"
+          [forId]="'ingredient-group-title-' + group.key"
+          [error]="groupProblem(group.key)"
+        >
           <input
             [id]="'ingredient-group-title-' + group.key"
             type="text"
@@ -48,12 +85,26 @@
           </button>
         </div>
       </div>
+      }
 
       <ol class="rows">
         @for (row of group.ingredients; track row.key; let rowIndex = $index, rowCount = $count) {
           <li class="row">
+            <!-- The creator's own line: their pasted or stored wording, or the line a hand-entered row is composing. -->
             @if (row.displayText) {
-              <p class="original-text">{{ row.displayText }}</p>
+              <p class="original-text">
+                @if (row.displayTextIsComposed) {
+                  <span class="line-label">Will be saved as:</span>
+                }
+                {{ row.displayText }}
+              </p>
+            }
+
+            <!-- The server reports a refused line at its position, so its sentence lands on the line it is
+                 about rather than on the whole list. role="alert" because it arrives after a save the creator
+                 has already pressed, and the row is not necessarily what they are looking at. -->
+            @if (rowProblem(row.key); as problem) {
+              <p class="row-problem" role="alert">{{ problem }}</p>
             }
 
             <div class="row-status">
@@ -105,26 +156,38 @@
                 />
               </cp-field>
 
+              <!-- Its own control, not a second use of the yield field's: an ingredient line keeps the creator's
+                   own wording whatever the catalogue knows, and a yield unit is an id or nothing. See
+                   IngredientUnitPickerComponent. -->
               <cp-field label="Unit" [forId]="'row-unit-' + row.key">
-                <input
-                  [id]="'row-unit-' + row.key"
-                  type="text"
-                  placeholder="e.g. cups"
-                  [ngModel]="row.unitLabel"
-                  (ngModelChange)="updateRow(group.key, row.key, { unitLabel: $event })"
-                  [name]="'rowUnit' + row.key"
+                <cp-ingredient-unit-picker
+                  [inputId]="'row-unit-' + row.key"
+                  [catalogue]="unitCatalogue()"
+                  [unitId]="row.unitId"
+                  [unitLabel]="row.unitLabel"
+                  (textChanged)="onUnitTextChanged(group.key, row.key, $event)"
+                  (unitPicked)="onUnitPicked(group.key, row.key, $event)"
                 />
               </cp-field>
 
+              <!-- Server-filtered, so `filterLocally` is off: the ingredient catalogue is too large to hold in
+                   a browser, and filtering the search's own answers again would hide matches it found by
+                   alias. -->
               <cp-field label="Ingredient" [forId]="'row-ingredient-' + row.key" [required]="true">
-                <input
-                  [id]="'row-ingredient-' + row.key"
-                  type="text"
+                <cp-combobox
+                  [inputId]="'row-ingredient-' + row.key"
+                  [options]="ingredientOptionsFor(row.key)"
+                  [filterLocally]="false"
+                  [resultsLabel]="ingredientResultsLabel()"
+                  mode="free-text"
                   placeholder="e.g. all-purpose flour"
-                  [ngModel]="row.ingredientNameText"
-                  (ngModelChange)="updateRow(group.key, row.key, { ingredientNameText: $event })"
-                  [name]="'rowIngredient' + row.key"
-                />
+                  [value]="row.ingredientNameText"
+                  (valueChange)="onIngredientTextChanged(group.key, row.key, $event)"
+                  [selected]="ingredientSelectionFor(row)"
+                  (selectedChange)="onIngredientOptionPicked(group.key, row.key, $event)"
+                >
+                  <span cpComboboxEmpty>{{ ingredientEmptyTextFor(row.key) }}</span>
+                </cp-combobox>
               </cp-field>
 
               <cp-field label="Preparation note" [forId]="'row-prep-' + row.key">
@@ -140,15 +203,11 @@
             </div>
 
             <div class="row-toggles">
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  [ngModel]="row.isOptional"
-                  (ngModelChange)="updateRow(group.key, row.key, { isOptional: $event })"
-                  [name]="'rowOptional' + row.key"
-                />
-                Optional
-              </label>
+              <cp-checkbox
+                label="Optional"
+                [checked]="row.isOptional"
+                (checkedChange)="updateRow(group.key, row.key, { isOptional: $event })"
+              />
 
               <cp-field label="Scaling" [forId]="'row-scaling-' + row.key">
                 <select
@@ -198,11 +257,18 @@
       <button cpButton variant="secondary" type="button" (click)="addRow(group.key)">Add ingredient</button>
     </section>
   }
+    </div>
+  </div>
 }
 
 <cp-dialog [open]="pasteDialogOpen()" title="Paste and parse ingredients" description="Review what was detected before adding it to the recipe." (closed)="closePasteDialog()">
   @if (pasteDialogOpen()) {
-    <cp-ingredient-paste-review [workspaceSlug]="workspaceSlug()" (linesAccepted)="onLinesAccepted($event)" />
+    <cp-ingredient-paste-review
+      [workspaceSlug]="workspaceSlug()"
+      [groups]="pasteTargets()"
+      [(targetGroupKey)]="pasteTargetGroupKey"
+      (linesAccepted)="onLinesAccepted($event)"
+    />
   }
   <div cpDialogActions>
     <button cpButton type="button" (click)="closePasteDialog()">Done</button>

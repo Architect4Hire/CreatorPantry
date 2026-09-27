@@ -34,14 +34,17 @@
   margin-bottom: var(--cp-space-4);
 }
 
+/* min() on both, because minmax's and flex's first arguments are hard floors: an unclamped one keeps its track
+   at full width inside a container narrower than it and scrolls the page sideways (DESIGN-SYSTEM.md, SC 1.4.10).
+   Inside the editor card at a 320px viewport the room here is about 208px. */
 .calculation-form cp-field {
-  min-width: 11rem;
+  min-width: min(11rem, 100%);
 }
 
 /* The rounding labels are full sentences, so this one needs room the other fields do not. */
 .calculation-form cp-field:has(select[name='rounding']) {
-  min-width: 24rem;
-  flex: 1 1 24rem;
+  min-width: min(24rem, 100%);
+  flex: 1 1 min(24rem, 100%);
 }
 
 .input-row {
@@ -50,17 +53,6 @@
   align-items: flex-start;
   gap: var(--cp-space-3);
   width: 100%;
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: var(--cp-space-2);
-  /* A comfortable target for the label as well as the box itself. */
-  min-height: 2.5rem;
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-text);
-  cursor: pointer;
 }
 
 .result-card {

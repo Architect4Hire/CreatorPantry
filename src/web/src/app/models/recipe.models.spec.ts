@@ -30,6 +30,8 @@ const VALID_INGREDIENT: RecipeIngredient = {
   quantityUpper: null,
   measurementUnitId: 'unit1',
   ingredientId: 'ref1',
+  displayTextSource: 'Creator',
+  unitText: null,
   matchStatus: 'Matched',
   preparationNote: null,
   isOptional: false,

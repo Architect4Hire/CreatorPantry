@@ -22,12 +22,20 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// </para>
 /// <para>
 /// <strong>Ingredients are absent for a different reason, and it is a capability gap rather than a rule.</strong>
-/// The recipe update seam has patch fields for header content, tags, status and instructions, and none for
-/// ingredients — so an accepted ingredient change has no path through ordinary recipe validation. Offering one
-/// would mean a creator reviewing a change, accepting it, and being told no at the last moment, which is worse
-/// than not offering it. When <c>UpdateRecipeViewModel</c> grows an ingredients patch field, the ingredient and
-/// ingredient-group entries belong back here — <c>displayText</c>, <c>ingredientNameText</c>, <c>quantity</c>,
-/// <c>quantityUpper</c>, <c>preparationNote</c>, <c>isOptional</c>, and a group's <c>title</c>.
+/// When this list was narrowed, the recipe update seam had patch fields for header content, tags, status and
+/// instructions and none for ingredients, so an accepted ingredient change had no path through ordinary recipe
+/// validation — and offering one would have meant a creator reviewing a change, accepting it, and being told no
+/// at the last moment.
+/// </para>
+/// <para>
+/// <strong>That premise has since changed and this list has not caught up.</strong>
+/// <c>UpdateRecipeViewModel.IngredientGroups</c> now exists, so the gap is closed on the recipe side and the
+/// entries can come back: <c>displayText</c>, <c>ingredientNameText</c>, <c>quantity</c>, <c>quantityUpper</c>,
+/// <c>preparationNote</c>, <c>isOptional</c>, and a group's <c>title</c>. Restoring them is outstanding work
+/// rather than an oversight — it needs matching entries in <see cref="AiChangeApplicability"/>, an ingredient
+/// draft list in <c>RecipeProposalApplication</c> alongside the instruction one, and tests — and until it is
+/// done a proposal still may not touch an ingredient. <c>measurementUnitId</c> and <c>ingredientId</c> stay out
+/// permanently, for the reason the paragraph above gives.
 /// </para>
 /// <para>
 /// <strong><c>sourceUrl</c> is absent, and it was here until an audit pointed out what that meant.</strong> A

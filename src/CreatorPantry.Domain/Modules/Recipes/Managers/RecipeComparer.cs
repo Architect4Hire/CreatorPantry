@@ -484,7 +484,9 @@ public static class RecipeComparer
     private static (RecipeComparisonField Field, object? Value)[] IngredientFields(RecipeSnapshotIngredient line) =>
     [
         (RecipeComparisonField.IngredientDisplayText, line.DisplayText),
+        (RecipeComparisonField.IngredientDisplayTextSource, line.DisplayTextSource),
         (RecipeComparisonField.IngredientNameText, line.IngredientNameText),
+        (RecipeComparisonField.IngredientUnitText, line.UnitText),
         (RecipeComparisonField.IngredientQuantity, line.Quantity),
         (RecipeComparisonField.IngredientQuantityUpper, line.QuantityUpper),
         (RecipeComparisonField.IngredientMeasurementUnitId, line.MeasurementUnitId),

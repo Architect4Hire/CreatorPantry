@@ -1,7 +1,9 @@
 <section class="conversion" [attr.aria-labelledby]="headingId">
   <h3 class="conversion-heading" [id]="headingId">Convert units</h3>
   <p class="conversion-intro">
-    A preview only — nothing here is saved, and your recipe is unchanged by having an amount converted.
+    Converting changes nothing by itself. Where the result belongs to a saved line whose wording this recipe
+    assembled, you can record it on that line below — with a confirmation, as a new version. Anywhere else the
+    card says why, and the amount is edited in Ingredients.
   </p>
 
   @if (sourceVersionNumber() === null) {
@@ -158,12 +160,40 @@
         Computed against version {{ converted.sourceVersionNumber }}. Nothing was saved.
       </p>
 
-      <!-- Said rather than left as an absent button. A control that is simply missing reads as an oversight;
-           this says what is actually true and what would change it. -->
-      <p class="apply-unavailable">
-        This converts one amount for you to read. Saving it back to an ingredient line needs ingredient
-        saving, which isn't built yet.
-      </p>
+      <!-- Every outcome says its own reason. A control that is simply missing reads as an oversight, which is
+           what this card used to be: a correct number with nothing a creator could do about it. -->
+      @switch (applyTarget()) {
+        @case ('ready') {
+          <div class="apply-action">
+            <button cpButton size="sm" type="button" (click)="applyToLine()">Record this on the line</button>
+            <span class="apply-note">Asks first, then writes a new version of the recipe.</span>
+          </div>
+        }
+        @case ('creatorWording') {
+          <p class="apply-unavailable">
+            This line's wording is yours, so its amount is edited in Ingredients. Recording a new amount from
+            here would leave the line still reading “{{ applyLineLabel() }}”, and the recipe would contradict
+            itself.
+          </p>
+        }
+        @case ('range') {
+          <p class="apply-unavailable">
+            “{{ applyLineLabel() }}” records a range, and this converted one end of it. Edit the line in
+            Ingredients so both ends move together.
+          </p>
+        }
+        @case ('blockedByEdits') {
+          <p class="apply-unavailable">
+            Save or discard your changes first. Recording this writes to the recipe as it was last saved.
+          </p>
+        }
+        @case ('freehand') {
+          <p class="apply-unavailable">
+            This conversion isn't tied to a saved line, so there is nothing to record it on. Start from an
+            ingredient line above to record the result on it.
+          </p>
+        }
+      }
     </div>
   } @else if (catalogue().status === 'ready' && !isWorking() && requestProblem() === null) {
     <p class="conversion-empty">Choose an amount and two units, then convert.</p>

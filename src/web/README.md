@@ -45,7 +45,7 @@ import { CpButtonComponent, CpCardComponent } from '@creator-pantry/ui';
 - `CpButtonComponent`: primary, secondary, ghost, text, and danger variants
 - `CpCardComponent`: standard, interactive, and flush surfaces
 - `CpBadgeComponent`: semantic status and category tones
-- `CpFieldComponent`: accessible form label, hint, required, and error treatment
+- `CpFieldComponent`: form label, hint, required and error treatment. The projected control is wired up after each render — `aria-describedby` to the hint and the error, `aria-required` when required — because a template binding cannot reach projected content, and a `*` nobody hears is decoration. A consumer's own `aria-describedby` is merged, not replaced
 - `CpProgressComponent`: bounded accessible progress indicator
 - `CpDialogComponent`: modal shell with backdrop dismissal and focus target
 - `CpQuickActionComponent`: branded creator-tool action card
@@ -56,6 +56,9 @@ import { CpButtonComponent, CpCardComponent } from '@creator-pantry/ui';
 - `CpEmptyStateComponent`: title/description/icon empty state with a projected actions slot and `first-use`/`no-results` variants
 - `CpUploaderComponent`: uploader shell (browse + drag/drop) with per-item queued/uploading/success/error rendering, progress, retry, cancel, and remove — no upload transport of its own
 - `CpDiffLegendComponent`: accessible legend for diff/proposal states (`added | removed | changed | moved | unchanged | warning | selected`), plus `cpDiffGlyph(kind)` and `cpDiffLabel(kind)` so a surface that marks up individual changes prints the same glyph and wording the legend beside it explains
+- `CpComboboxComponent`: type-ahead combobox over a supplied option list — full WAI-ARIA combobox keyboard and `aria-activedescendant` wiring, an announced result count, `restricted` and `free-text` modes in one component, and `[filterLocally]="false"` for a consumer that filters server-side. Fetches nothing, and composes inside `cp-field` rather than rendering its own label. A caret marks it as a picker and a click opens the list, so it does not read as a plain text field before anything is typed; focus alone does not open it
+- `CpCheckboxComponent`: labelled checkbox with a drawn control — the native input stays focusable and announced, checked reads as a glyph rather than a colour, the whole label is a 40px target, and both themes come from tokens. Replaces the bare native control, which the inherited `color-scheme` paints as a dark filled box in dark mode
+- `CpAnchorNavComponent`: vertical list of in-page destinations (label plus optional detail) for a long form or document — ordinary tabbable links, not a tablist; it emits the activated item and leaves scrolling and focus to the consumer, renders nothing when given no items, and stacks into a gutter through `--cp-anchor-nav-direction`
 - `CpToastRegionComponent`: polite/assertive toast region with severity-based auto-dismiss timing, hover/focus pause, deduplication, and persistent warning/error toasts
 - Semantic CSS tokens for color, typography, spacing, radii, elevation, and motion
 

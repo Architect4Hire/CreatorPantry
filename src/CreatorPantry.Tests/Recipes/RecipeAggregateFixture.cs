@@ -194,6 +194,8 @@ internal sealed class RecipeAggregateFixture : IDisposable
 
         var line = recipe.IngredientGroups.Single().Ingredients.Single();
         line.IngredientNameText = "all-purpose flour";
+        line.UnitText = "cups";
+        line.DisplayTextSource = IngredientDisplayTextSource.Composed;
         line.QuantityUpper = 260m;
         line.IsOptional = true;
         line.ScalingBehavior = IngredientScaling.Fixed;

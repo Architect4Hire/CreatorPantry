@@ -542,6 +542,66 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         Assert.Equal(2, reread.GetProperty("ingredientGroups").GetArrayLength());
     }
 
+    /// <summary>
+    /// A line entered field by field rather than written out: its assembled wording, the creator's own words
+    /// for the name and the unit, and the record that the wording was assembled all survive the round trip.
+    /// </summary>
+    /// <remarks>
+    /// Through the real seam because that is where this went wrong before: the request shape had nowhere to put
+    /// an unmatched unit or name, so a creator typing "cups" into an ingredient row was the one person whose
+    /// word for it was never stored.
+    /// </remarks>
+    [Fact]
+    public async Task A_lines_entered_spans_and_the_source_of_its_wording_survive_a_save_and_a_reread()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: cancellation);
+
+        var seeded = await SeedAsync(client, _fixture.WorkspaceA, new { title = "Olive oil cake" });
+
+        var response = await client.PatchAsJsonAsync(
+            RecipeIn(_fixture.WorkspaceA, seeded.RecipeId),
+            new
+            {
+                expectedConcurrencyToken = seeded.Token,
+                ingredientGroups = new object[]
+                {
+                    new
+                    {
+                        ingredients = new[]
+                        {
+                            new
+                            {
+                                displayText = "2 cups all-purpose flour, sifted",
+                                displayTextSource = "Composed",
+                                ingredientNameText = "all-purpose flour",
+                                unitText = "cups",
+                                quantity = 2,
+                                preparationNote = "sifted",
+                            },
+                        },
+                    },
+                },
+            },
+            cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var reread = await BodyOf(await client.GetAsync(RecipeIn(_fixture.WorkspaceA, seeded.RecipeId), cancellation));
+        var line = Assert.Single(
+            Assert.Single(reread.GetProperty("ingredientGroups").EnumerateArray()).GetProperty("ingredients").EnumerateArray());
+
+        Assert.Equal("2 cups all-purpose flour, sifted", line.GetProperty("displayText").GetString());
+        Assert.Equal("Composed", line.GetProperty("displayTextSource").GetString());
+        Assert.Equal("all-purpose flour", line.GetProperty("ingredientNameText").GetString());
+        Assert.Equal("cups", line.GetProperty("unitText").GetString());
+        Assert.Equal("sifted", line.GetProperty("preparationNote").GetString());
+
+        // Neither span was invented into a reference it does not have.
+        Assert.Equal(JsonValueKind.Null, line.GetProperty("ingredientId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, line.GetProperty("measurementUnitId").ValueKind);
+    }
+
     [Fact]
     public async Task An_id_naming_another_workspaces_ingredient_line_is_created_as_new_rather_than_reaching_it()
     {

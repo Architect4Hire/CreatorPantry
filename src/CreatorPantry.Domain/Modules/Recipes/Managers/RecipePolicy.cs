@@ -136,6 +136,13 @@ public static class RecipePolicy
     public const int IngredientNameTextMaxLength = 128;
 
     /// <summary>
+    /// The unit span of an ingredient line as the creator wrote it: "cups", "tablespoons", "large". Bounded on
+    /// its own rather than by the unit vocabulary's naming, because this is what somebody typed and not what
+    /// was matched — a line may name a unit the catalogue has never heard of.
+    /// </summary>
+    public const int UnitTextMaxLength = 64;
+
+    /// <summary>
     /// How many instruction groups one recipe may carry. A cap rather than a judgement about method length:
     /// without one, a single request can stage unbounded rows, and an import can turn one recipe into
     /// thousands of them. Generous — a multi-day recipe with many phases is a real recipe.

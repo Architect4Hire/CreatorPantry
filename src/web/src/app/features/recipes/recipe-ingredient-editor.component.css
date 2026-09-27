@@ -1,6 +1,47 @@
+/* container-type, not a viewport media query: this editor answers to the space it actually has, which is a
+   tab panel inside a capped card. It then responds identically to a narrowed window and to 200% zoom (both
+   shrink the container's CSS-px inline size), and a test can set this host's width and assert the result.
+   Its own container rather than the recipe editor's `cp-editor`, so nothing here depends on which shell it is
+   placed in. */
 :host {
   display: grid;
   gap: var(--cp-space-4);
+  container: cp-ingredients / inline-size;
+}
+
+/* One column by default — the narrow layout, and the one 200% zoom lands on. The nav is a wrapping row above
+   the groups there; the sidebar below is additive. */
+.grouped-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  align-items: start;
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* A sticky gutter once there is room for one beside a still-comfortable list of groups.
+
+   .has-group-nav, not .grouped-layout alone: the gutter is the nav's, and with no nav rendered — an ungrouped
+   recipe, or a single group — the list itself became the first grid item and was pinned into the 12rem track,
+   which stacked every row's four fields into a narrow strip. */
+@container cp-ingredients (min-width: 60rem) {
+  .grouped-layout.has-group-nav {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  /* Sticky, and stacked: the one property the shared nav exposes for exactly this, since only the consumer
+     knows how much room it has. */
+  .group-nav {
+    position: sticky;
+    top: var(--cp-space-4);
+    --cp-anchor-nav-direction: column;
+  }
 }
 
 .toolbar {
@@ -15,6 +56,9 @@
   padding: var(--cp-space-4);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface-subtle);
+  /* Jumped to from the nav, which is sticky at wide widths — without this the group's own heading lands under
+     it. The ring belongs to the heading field onGroupNavClick() focuses, not to the section that scrolled. */
+  scroll-margin-top: var(--cp-space-4);
 }
 
 .group-header {
@@ -59,6 +103,12 @@
   font-style: italic;
 }
 
+/* Names the composed line as this editor's own reading, so it is not mistaken for text the creator wrote. */
+.line-label {
+  font-style: normal;
+  font-weight: 600;
+}
+
 .row-status {
   display: flex;
   flex-wrap: wrap;
@@ -71,9 +121,11 @@
   font-size: var(--cp-font-size-xs);
 }
 
+/* The floor is clamped: minmax's first argument is a hard floor, so an unclamped 10rem keeps a 160px track
+   inside a row that has about 152px at a 320px viewport, and the page scrolls sideways (DESIGN-SYSTEM.md). */
 .row-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
   gap: var(--cp-space-3);
 }
 
@@ -84,18 +136,61 @@
   gap: var(--cp-space-4);
 }
 
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cp-space-2);
-  min-height: 2.5rem;
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-text);
-}
-
 .row-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-2);
+}
+
+/* The shared catalogue is unreadable. A warning tone rather than a danger one, and it says so with a glyph as
+   well as a hue: nothing is lost here — the picker has no list to offer, and typing still saves. */
+.reference-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid var(--cp-orange);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-orange-soft);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.notice-glyph {
+  color: var(--cp-orange);
+  font-size: var(--cp-font-size-md);
+}
+
+/* The unit and ingredient pickers open a popup positioned against their own box. Each field is its own grid
+   item, so the popup is laid over the rows below rather than widening the track it sits in — but a `min-width`
+   of 0 is still what stops a long ingredient name from pushing the row's four columns out of shape. */
+.row-fields > cp-field {
+  min-width: 0;
+}
+
+/* A refused line's own sentence. Danger-toned like cp-field's error, with a glyph as well as a hue so it does
+   not depend on telling two colours apart. */
+.row-problem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-1);
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.row-problem::before {
+  content: '!';
+  flex: none;
+  font-weight: 700;
+}
+
+/* The row itself, so a refused line is findable by scrolling and not only by reading every sentence. */
+.row:has(.row-problem) {
+  border-inline-start: 3px solid var(--cp-danger);
+  padding-inline-start: var(--cp-space-3);
 }

@@ -25,6 +25,9 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
 - The browser calls relative BFF routes with credentials; no direct internal API URLs.
 - Every data surface has loading, empty, degraded, error, and success states.
 - Preserve unsaved creator edits through recoverable errors and navigation warnings.
+- A form that one Save writes keeps dirty state and validation per form, never per panel: an edit in a tab that
+  is not showing still counts and still submits, and a field error selects the tab holding it before scrolling
+  to and focusing the field. A panel that mounts lazily must not be able to swallow either.
 - Generated content is identified and editable before acceptance.
 - Use `async`, signals, or `takeUntilDestroyed`; no unmanaged subscriptions.
 - Never use `any`; decode unknown data at boundaries.

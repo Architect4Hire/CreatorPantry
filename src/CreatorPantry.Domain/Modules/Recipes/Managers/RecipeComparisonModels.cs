@@ -278,7 +278,11 @@ public enum RecipeComparisonField
     // Ingredients.
     IngredientGroupTitle,
     IngredientDisplayText,
+
+    /// <summary>Whether the line is the creator's wording or wording assembled from the spans beside it.</summary>
+    IngredientDisplayTextSource,
     IngredientNameText,
+    IngredientUnitText,
     IngredientQuantity,
     IngredientQuantityUpper,
     IngredientMeasurementUnitId,

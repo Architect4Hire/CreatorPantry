@@ -37,10 +37,14 @@
   cursor: pointer;
 }
 
+/* --cp-primary, not --cp-primary-ink: the ink token is for text on a *solid* primary fill, and on the soft
+   background it is white-on-pale-mint in the light theme and near-black-on-dark-green in the dark one — the
+   label disappearing at the moment it is selected. This is the pairing cp-status-pill's success tone already
+   uses with the same background. */
 .chip--on {
   border-color: var(--cp-primary);
   background: var(--cp-primary-soft);
-  color: var(--cp-primary-ink);
+  color: var(--cp-primary);
   font-weight: 600;
 }
 

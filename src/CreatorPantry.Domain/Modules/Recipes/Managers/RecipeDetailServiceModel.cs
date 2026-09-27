@@ -231,6 +231,19 @@ public sealed record RecipeIngredientServiceModel
     /// <summary>The ingredient name as parsed out of the line, when it was parsed. Not a replacement for it.</summary>
     public required string? IngredientNameText { get; init; }
 
+    /// <summary>
+    /// The unit span as the creator wrote it. Published beside <see cref="MeasurementUnitId"/> because a unit
+    /// that matched nothing has no id to send, and the creator's word for it is then all there is to show.
+    /// </summary>
+    public required string? UnitText { get; init; }
+
+    /// <summary>
+    /// Whether <see cref="DisplayText"/> is the creator's wording or was assembled from the spans beside it.
+    /// Published so an editor can keep an assembled line in step with those spans without ever re-deriving one
+    /// the creator wrote (recipes.md).
+    /// </summary>
+    public required IngredientDisplayTextSource DisplayTextSource { get; init; }
+
     public required decimal? Quantity { get; init; }
 
     /// <summary>The upper bound when the creator gave a range ("2 to 3 cups").</summary>

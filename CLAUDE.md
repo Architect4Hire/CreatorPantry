@@ -146,6 +146,7 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 ### Creator-owned content
 
 - Preserve the creator's entered ingredient and instruction text even when normalized references are available.
+- A line assembled from the creator's own fields is recorded as assembled and may be re-derived from them; a line they wrote or pasted is never rewritten. See `.claude/rules/recipes.md`.
 - Explicit recipe versions are immutable. Edits produce drafts or new versions.
 - AI changes are presented as a proposal or diff before replacing canonical content.
 - Derivative copy points back to its canonical source; it does not become a competing source of truth.
@@ -174,7 +175,7 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 
 - Angular components do not inject `HttpClient`; typed API services own HTTP.
 - `src/web/projects/creator-pantry-ui` is the only reusable UI library. Import its public API as `@creator-pantry/ui`; never deep-import `src/lib` files.
-- The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, and `CpToastRegionComponent`.
+- The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, `CpToastRegionComponent`, `CpAnchorNavComponent`, `CpCheckboxComponent`, and `CpComboboxComponent`.
 - Import `tokens.css`, `themes.css`, and `global.css` once, in that order, from `@creator-pantry/ui/styles/`.
 - `src/web/DESIGN-SYSTEM.md`, the library styles, and the showcase are the visual source of truth. Do not invent a separate visual reference.
 - The browser never stores access tokens in local or session storage.
@@ -187,7 +188,8 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 
 - Run the complete system with `aspire run` from the repository root or AppHost directory.
 - Run backend verification with `dotnet run --project src/CreatorPantry.Tests`. **Not `dotnet test`** — it reports "Zero tests ran" and exits 5 on this project, which is success-shaped output for a suite that never ran. The cause is upstream in xunit.v3 4.0.1's handling of the .NET 10 SDK's `--server dotnettestcli` mode; see the comment in `CreatorPantry.Tests.csproj`. Narrow a run with `-- --filter-class "CreatorPantry.Tests.<Area>.*"`.
-- Add migrations with `dotnet ef migrations add <Name> --project src/CreatorPantry.Domain --startup-project src/CreatorPantry.ApiService`.
+- Add migrations with `dotnet ef migrations add <Name> --project src/CreatorPantry.Domain --startup-project src/CreatorPantry.ApiService`. A live `aspire run` holds the API's output open, so both that command and the test run above fail to build until the output is redirected: pass `-p:BaseOutputPath=<scratch>/` to `dotnet run`, and set `BaseOutputPath=<scratch>\\` in the environment for `dotnet ef`, which takes no MSBuild properties of its own. Three `BulkOperationBoundaryTests` then fail on repository-root discovery and are not real failures.
+- A migration only reaches the running database when `MigrationService` starts, so restart `aspire run` after adding one — otherwise the API queries columns the database does not have.
 - In `src/web/`, use `npm ci`, `npm run build`, and `npm test`.
 - Use the matching skill in `.claude/skills/` before implementing a seam.
 - Use `.claude/agents/` as read-only reviewers after implementation.

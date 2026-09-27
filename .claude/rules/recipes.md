@@ -6,6 +6,17 @@
 
 - Preserve creator-entered titles, ingredient lines, instructions, headnotes, and notes.
 - A recognized `Ingredient` reference enriches a `RecipeIngredient`; it never replaces the entered display text.
+- Keep the creator's own words for a line's ingredient name and unit (`IngredientNameText`, `UnitText`) whether or
+  not either matched the vocabulary. Nothing matched means no id to store, so those spans are then the only
+  record of what the creator called it.
+- A line records where its display text came from (`DisplayTextSource`: `Creator` or `Composed`). An editor that
+  offers a creator fields and no line control has to assemble a line from those fields, and may keep it in step
+  with them — only for a line marked `Composed`, and only out of the creator's own words. A line they wrote or
+  pasted stays verbatim. Recorded rather than inferred: a line that happens to read exactly like its own spans
+  may still be one they typed, and re-deriving it would be the rewrite this rule forbids.
+- Grouping is opt-in. A recipe has one ingredient list and one method until the creator asks for sections. The
+  untitled group each travels in is a wire requirement — lines submit inside an `IngredientGroupInput` and steps
+  inside an `InstructionGroupInput` — not a heading to show them.
 - Store quantity, unit, preparation note, optionality, grouping, and display text separately when known.
 - Steps have stable identifiers and explicit ordering.
 - Model prep, cook, rest, total time, yield, serving unit, equipment, storage, substitutions, and notes explicitly when required.

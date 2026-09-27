@@ -23,10 +23,17 @@ public enum ProposedRecipeChangeKind
 
 /// <summary>Which part of the recipe an accepted change addresses.</summary>
 /// <remarks>
-/// Shorter than the AI module's target list on purpose: these are the parts the recipe patch contract has a
-/// field for, and so the only parts an accepted change can reach through ordinary recipe validation.
-/// Ingredients, equipment and asset links are absent because <c>UpdateRecipeViewModel</c> has no field for
-/// them.
+/// <para>
+/// Shorter than the AI module's target list on purpose: these are the parts an accepted change can reach
+/// through ordinary recipe validation. Equipment and asset links are absent because
+/// <see cref="UpdateRecipeViewModel"/> has no field for them.
+/// </para>
+/// <para>
+/// Ingredients are absent for a reason that has since expired: this list was written when the patch had no
+/// ingredients field, and <see cref="UpdateRecipeViewModel.IngredientGroups"/> now exists. Adding an
+/// <c>Ingredient</c> and an <c>IngredientGroup</c> member here is part of the outstanding work described on
+/// <c>AiChangeApplicability</c>, not a rule to preserve.
+/// </para>
 /// </remarks>
 public enum ProposedRecipeTarget
 {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CpButtonComponent, CpFieldComponent } from '@creator-pantry/ui';
 
@@ -9,9 +9,10 @@ import {
   UnitConversionMethod,
 } from '../../models/recipe-conversion.models';
 import { MEASUREMENT_DIMENSION_LABELS, MeasurementDimension, MeasurementUnit } from '../../models/reference.models';
-import { RecipeIngredientGroup } from '../../models/recipe.models';
+import { IngredientDisplayTextSource, RecipeIngredientGroup } from '../../models/recipe.models';
 import { RecipeCalculationService } from '../../services/recipe-calculation.service';
 import { ReferenceService } from '../../services/reference.service';
+import { recipeUnitName } from './recipe-unit-options';
 
 /** Where the shared unit catalogue stands. Without it there is nothing to pick between, so the form waits. */
 type CatalogueState =
@@ -41,6 +42,49 @@ export interface IngredientLineOption {
   readonly unresolvedReason: string | null;
   readonly quantity: number | null;
   readonly unitId: string | null;
+  /**
+   * Whether this line's wording was assembled from its own fields or written by the creator.
+   *
+   * What decides whether a converted amount can be recorded on it. A `Composed` line's wording is re-derived
+   * from the fields it came from, so a new amount and unit leave it coherent; a line the creator wrote stays
+   * verbatim (recipes.md), and writing a new amount under it would leave the line stating the old one.
+   */
+  readonly displayTextSource: IngredientDisplayTextSource;
+  /** True for a range. Converting one bound of a range would corrupt it, so such a line is never applied to. */
+  readonly isRange: boolean;
+}
+
+/**
+ * What can be done with the conversion on screen, and why not when nothing can.
+ *
+ * Every reason is stated rather than left as an absent button: a panel that silently offers nothing is the
+ * dead end this exists to close.
+ */
+export type UnitConversionApplyTarget =
+  | 'nothingToApply'
+  | 'freehand'
+  | 'creatorWording'
+  | 'range'
+  | 'blockedByEdits'
+  | 'ready';
+
+/**
+ * A converted amount the creator has confirmed they want recorded on the line it came from.
+ *
+ * The panel raises it; `RecipeEditorComponent` performs it through the ordinary update seam with its
+ * confirmation, idempotency key and version reporting. Nothing here writes, and nothing here composes the
+ * line's new wording — that is the editor's, built from the recipe as saved.
+ */
+export interface UnitConversionApplication {
+  readonly recipeIngredientId: string;
+  /** The rounded result, which is what a recipe quantity is: a decimal, not a fraction. */
+  readonly quantity: number;
+  readonly measurementUnitId: string;
+  /** The target unit as the creator was shown it, which becomes the line's own wording for the unit. */
+  readonly unitText: string;
+  readonly lineLabel: string;
+  readonly beforeLabel: string;
+  readonly afterLabel: string;
 }
 
 /** Units grouped for a picker, so a creator scans weights and volumes rather than one flat list. */
@@ -105,6 +149,22 @@ export class RecipeUnitConversionComponent {
 
   /** The recipe's saved ingredient lines, offered as starting points. Never edited, never submitted. */
   readonly savedIngredientGroups = input<readonly RecipeIngredientGroup[]>([]);
+
+  /**
+   * Whether the form beside this panel has edits a write to the recipe would have to reckon with.
+   *
+   * The same contract the scaling and reconciliation panels keep: a calculation runs against the recipe as
+   * last saved, so recording one while the form holds unsaved edits would write the calculated field and
+   * leave the creator's edits contradicting the recipe.
+   */
+  readonly editorIsDirty = input(false);
+
+  /**
+   * A converted amount the creator has confirmed they want recorded on its line.
+   *
+   * Raised, never performed: the editor writes it through the one update seam every apply goes through.
+   */
+  readonly applyRequested = output<UnitConversionApplication>();
 
   private readonly instance = nextInstance++;
   readonly headingId = `unit-conversion-heading-${this.instance}`;
@@ -201,6 +261,8 @@ export class RecipeUnitConversionComponent {
               : null,
         quantity: ingredient.quantity,
         unitId: ingredient.measurementUnitId,
+        displayTextSource: ingredient.displayTextSource,
+        isRange: ingredient.quantityUpper !== null,
       })),
     ),
   );
@@ -296,6 +358,83 @@ export class RecipeUnitConversionComponent {
    */
   private readonly convertedToUnitId = signal<string | null>(null);
 
+  /**
+   * The line the creator prefilled from, while it is still the line the form describes.
+   *
+   * The selector is a prefill and the amount stays editable afterwards, so this alone proves nothing. Paired
+   * with {@link formStillReadsAsPrefilledLine}, it is what lets a result be recorded on a line rather than
+   * merely computed near one.
+   */
+  private readonly prefilledLine = signal<IngredientLineOption | null>(null);
+
+  /** Whether the form still says what that line says; an edited amount or unit is no longer its conversion. */
+  private readonly formStillReadsAsPrefilledLine = computed(() => {
+    const line = this.prefilledLine();
+
+    return line !== null && this.quantityValue() === line.quantity && this.fromUnitId() === line.unitId;
+  });
+
+  /**
+   * The line the result on screen belongs to, captured when that result arrived.
+   *
+   * Captured rather than read live, for the reason `convertedToUnitId` beside it is: the card shows one
+   * conversion, and a form the creator has since started changing must not be able to change what the card
+   * would be recorded as.
+   */
+  private readonly convertedLine = signal<IngredientLineOption | null>(null);
+
+  /**
+   * What can be done with the conversion on screen.
+   *
+   * Every refusal names its reason. A converted amount can only be recorded on a line whose wording the recipe
+   * assembled: `recipes.md` keeps a line the creator wrote verbatim, so writing a new amount beneath one would
+   * leave the line stating the old amount — a recipe contradicting itself, which is worse than a calculation
+   * the creator copies across by hand.
+   */
+  readonly applyTarget = computed<UnitConversionApplyTarget>(() => {
+    if (this.resultSignal() === null || this.convertedToUnitId() === null) return 'nothingToApply';
+
+    const line = this.convertedLine();
+    if (line === null) return 'freehand';
+    if (line.isRange) return 'range';
+    if (line.displayTextSource !== 'Composed') return 'creatorWording';
+    if (this.editorIsDirty()) return 'blockedByEdits';
+
+    return 'ready';
+  });
+
+  /** The line the states above are talking about, so a refusal can quote it back. */
+  readonly applyLineLabel = computed<string | null>(() => this.convertedLine()?.label ?? null);
+
+  /**
+   * Raises the conversion for recording. Nothing is written here and nothing is written without the
+   * confirmation the editor opens.
+   */
+  applyToLine(): void {
+    const line = this.convertedLine();
+    const result = this.resultSignal();
+    const toUnitId = this.convertedToUnitId();
+    if (this.applyTarget() !== 'ready' || line === null || line.quantity === null || result === null || toUnitId === null) return;
+
+    const toUnit = this.unitsById().get(toUnitId);
+    if (toUnit === undefined) return;
+
+    // Labelled the same way the result card is, so the confirmation quotes what the creator is looking at.
+    const fromUnit = line.unitId === null ? undefined : this.unitsById().get(line.unitId);
+
+    this.applyRequested.emit({
+      recipeIngredientId: line.id,
+      quantity: result.result.convertedDisplayQuantity,
+      measurementUnitId: toUnitId,
+      // The cooking name, not the catalogue's: this becomes the line's own wording, and "473.18 US cup flour"
+      // is not how anybody writes a recipe. The picker above keeps the precise name, where precision is the point.
+      unitText: recipeUnitName(toUnit),
+      lineLabel: line.label,
+      beforeLabel: fromUnit ? `${line.quantity} ${fromUnit.abbreviation}` : String(line.quantity),
+      afterLabel: this.convertedLabel() ?? String(result.result.convertedDisplayQuantity),
+    });
+  }
+
   /** The converted amount with the unit it is in — the target unit the request named, not the one on screen. */
   readonly convertedLabel = computed<string | null>(() => {
     const result = this.resultSignal();
@@ -321,6 +460,7 @@ export class RecipeUnitConversionComponent {
 
     this.quantityValue.set(option.quantity);
     this.fromUnitId.set(option.unitId ?? '');
+    this.prefilledLine.set(option);
     this.localErrorSignal.set(null);
     this.requestSignal.set({ status: 'idle' });
     this.resultSignal.set(null);
@@ -360,11 +500,15 @@ export class RecipeUnitConversionComponent {
     if (outcome.status === 'converted') {
       this.resultSignal.set(outcome.result);
       this.convertedToUnitId.set(toUnitId);
+      // Captured here, from the form as it was submitted: a line the form has since been edited away from is
+      // not the line this result belongs to.
+      this.convertedLine.set(this.formStillReadsAsPrefilledLine() ? this.prefilledLine() : null);
       this.requestSignal.set({ status: 'done' });
       return;
     }
 
     this.convertedToUnitId.set(null);
+    this.convertedLine.set(null);
 
     // The result is cleared on every refusal, deliberately. A conversion is one number about one pair of
     // units: leaving the last successful one on screen beside "these units cannot be converted between each

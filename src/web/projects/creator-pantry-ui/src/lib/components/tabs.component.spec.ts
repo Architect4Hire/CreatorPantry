@@ -156,4 +156,108 @@ describe('CpTabsComponent', () => {
     expect(panels[0].hasAttribute('hidden')).toBe(true);
     expect(panels[0].textContent).toContain('Panel one content');
   });
+
+  it('wraps a long tab list onto more rows instead of overflowing or clipping it', async () => {
+    const fixture = await createFixture();
+    fixture.componentInstance.tabs = Array.from({ length: 10 }, (_, index) => ({
+      id: `t${index}`,
+      label: `A fairly long tab label ${index}`,
+    }));
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const tablist = host.querySelector('[role="tablist"]') as HTMLElement;
+    tablist.style.width = '30rem';
+    fixture.detectChanges();
+
+    // WCAG 2.2 SC 1.4.10 wants no horizontal scrolling at narrow widths, so the row wraps rather than
+    // scrolling sideways. Ten tabs cannot fit on one 30rem row, so they must occupy more than one.
+    expect(getComputedStyle(tablist).flexWrap).toBe('wrap');
+    expect(tablist.scrollWidth).toBeLessThanOrEqual(tablist.clientWidth + 1);
+
+    const buttons = tabButtons(host);
+    const rows = new Set(buttons.map((button) => button.getBoundingClientRect().top));
+    expect(rows.size).toBeGreaterThan(1);
+  });
+
+  it('gives every tab a touch target at least 40px tall', async () => {
+    const fixture = await createFixture();
+    fixture.detectChanges();
+
+    for (const button of tabButtons(fixture.nativeElement as HTMLElement)) {
+      expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+    }
+  });
+});
+
+@Component({
+  standalone: true,
+  imports: [CpTabsComponent, CpTabPanelComponent],
+  template: `
+    <cp-tabs [tabs]="outerTabs" ariaLabel="Areas" [(selectedId)]="outerId">
+      <cp-tab-panel id="shared">
+        <cp-tabs [tabs]="innerTabs" ariaLabel="Tools" [(selectedId)]="innerId">
+          <cp-tab-panel id="shared">Inner panel content</cp-tab-panel>
+          <cp-tab-panel id="inner-other">Inner other content</cp-tab-panel>
+        </cp-tabs>
+      </cp-tab-panel>
+      <cp-tab-panel id="outer-other">Outer other content</cp-tab-panel>
+    </cp-tabs>
+  `,
+})
+class NestedHostComponent {
+  // Deliberately colliding ids: the outer and inner tablists both own a tab called 'shared'.
+  outerTabs: CpTabDefinition[] = [
+    { id: 'shared', label: 'Shared' },
+    { id: 'outer-other', label: 'Outer other' },
+  ];
+  innerTabs: CpTabDefinition[] = [
+    { id: 'shared', label: 'Shared' },
+    { id: 'inner-other', label: 'Inner other' },
+  ];
+  outerId: string | undefined;
+  innerId: string | undefined;
+}
+
+describe('CpTabsComponent nested inside a panel', () => {
+  it('keyboard navigation focuses the tab of the tablist it happened in, even when ids collide across levels', async () => {
+    await TestBed.configureTestingModule({ imports: [NestedHostComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(NestedHostComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const tablists = Array.from(host.querySelectorAll('[role="tablist"]')) as HTMLElement[];
+    expect(tablists.length).toBe(2);
+
+    const [outerTablist, innerTablist] = tablists;
+    const innerButtons = Array.from(innerTablist.querySelectorAll('button[role="tab"]')) as HTMLButtonElement[];
+    const outerButtons = Array.from(outerTablist.querySelectorAll('button[role="tab"]')) as HTMLButtonElement[];
+
+    // Home in the inner tablist targets the inner 'shared' tab. An unscoped focus lookup would find the
+    // OUTER 'shared' button first — it comes earlier in the shared host subtree — and move focus out of
+    // the tablist the creator was operating.
+    innerTablist.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: false }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.innerId).toBe('shared');
+    expect(document.activeElement).toBe(innerButtons[0]);
+    expect(document.activeElement).not.toBe(outerButtons[0]);
+  });
+
+  it('does not let an inner tablist keypress change the outer selection', async () => {
+    await TestBed.configureTestingModule({ imports: [NestedHostComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(NestedHostComponent);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const innerTablist = host.querySelectorAll('[role="tablist"]')[1] as HTMLElement;
+
+    // bubbles: true is the realistic case — a real key event bubbles. The outer handler is bound to the
+    // outer tablist, which is a sibling of the projected panels, so it is never on the path.
+    innerTablist.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.innerId).toBe('inner-other');
+    expect(fixture.componentInstance.outerId).toBe('shared');
+  });
 });

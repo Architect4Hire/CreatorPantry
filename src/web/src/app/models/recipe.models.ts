@@ -15,6 +15,8 @@ export type RecipeVersionSource = 'CreatorEdit' | 'AiProposalAccepted' | 'Import
 export type RecipeVersionReadiness = 'Draft' | 'Ready';
 export type IngredientMatchStatus = 'NotAttempted' | 'Matched' | 'NoMatch' | 'Ambiguous';
 export type IngredientScaling = 'Proportional' | 'Fixed' | 'ReviewRequired';
+/** Mirrors IngredientDisplayTextSource: whether a line is the creator's wording or was assembled from its own spans. */
+export type IngredientDisplayTextSource = 'Creator' | 'Composed';
 export type RecipeAssetRole = 'Hero' | 'Gallery' | 'Process';
 
 const RECIPE_STATUS_VALUES: ReadonlySet<string> = new Set<RecipeStatus>(['Draft', 'Ready', 'Archived']);
@@ -33,6 +35,7 @@ const INGREDIENT_MATCH_STATUS_VALUES: ReadonlySet<string> = new Set<IngredientMa
   'Ambiguous',
 ]);
 const INGREDIENT_SCALING_VALUES: ReadonlySet<string> = new Set<IngredientScaling>(['Proportional', 'Fixed', 'ReviewRequired']);
+const INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES: ReadonlySet<string> = new Set<IngredientDisplayTextSource>(['Creator', 'Composed']);
 const RECIPE_ASSET_ROLE_VALUES: ReadonlySet<string> = new Set<RecipeAssetRole>(['Hero', 'Gallery', 'Process']);
 
 export function decodeEnum<T extends string>(values: ReadonlySet<string>, value: unknown): T | null {
@@ -108,6 +111,16 @@ export interface IngredientInput {
   readonly id?: string | null;
   /** The creator's own wording for the whole line, exactly as entered. Never rewritten by a matched `ingredientId`. */
   readonly displayText: string;
+  /**
+   * Whether `displayText` is the creator's own wording or was assembled from the spans below. Sent so the
+   * server records which it is, and so a later load can keep assembling an assembled line while leaving a
+   * written one alone.
+   */
+  readonly displayTextSource?: IngredientDisplayTextSource | null;
+  /** The ingredient name as the creator wrote it. Kept whether or not `ingredientId` matched anything. */
+  readonly ingredientNameText?: string | null;
+  /** The unit as the creator wrote it — the only record of it when `measurementUnitId` matched nothing. */
+  readonly unitText?: string | null;
   readonly quantity?: number | null;
   readonly quantityUpper?: number | null;
   readonly measurementUnitId?: string | null;
@@ -358,7 +371,9 @@ export interface RecipeIngredient {
   readonly id: string;
   readonly sortOrder: number;
   readonly displayText: string;
+  readonly displayTextSource: IngredientDisplayTextSource;
   readonly ingredientNameText: string | null;
+  readonly unitText: string | null;
   readonly quantity: number | null;
   readonly quantityUpper: number | null;
   readonly measurementUnitId: string | null;
@@ -375,7 +390,9 @@ function decodeRecipeIngredient(value: unknown): RecipeIngredient | null {
     id,
     sortOrder,
     displayText,
+    displayTextSource: rawDisplayTextSource,
     ingredientNameText,
+    unitText,
     quantity,
     quantityUpper,
     measurementUnitId,
@@ -387,12 +404,15 @@ function decodeRecipeIngredient(value: unknown): RecipeIngredient | null {
   } = value;
   const matchStatus = decodeEnum<IngredientMatchStatus>(INGREDIENT_MATCH_STATUS_VALUES, rawMatchStatus);
   const scalingBehavior = decodeEnum<IngredientScaling>(INGREDIENT_SCALING_VALUES, rawScalingBehavior);
+  const displayTextSource = decodeEnum<IngredientDisplayTextSource>(INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES, rawDisplayTextSource);
 
   if (
     typeof id !== 'string' ||
     typeof sortOrder !== 'number' ||
     typeof displayText !== 'string' ||
+    displayTextSource === null ||
     !isStringOrNull(ingredientNameText) ||
+    !isStringOrNull(unitText) ||
     !isNumberOrNull(quantity) ||
     !isNumberOrNull(quantityUpper) ||
     !isStringOrNull(measurementUnitId) ||
@@ -409,7 +429,9 @@ function decodeRecipeIngredient(value: unknown): RecipeIngredient | null {
     id,
     sortOrder,
     displayText,
+    displayTextSource,
     ingredientNameText,
+    unitText,
     quantity,
     quantityUpper,
     measurementUnitId,

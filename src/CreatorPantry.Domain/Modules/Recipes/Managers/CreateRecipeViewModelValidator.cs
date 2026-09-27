@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Managers.Reference;
 using FluentValidation;
+using FluentValidation.Results;
 
 namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 
@@ -98,6 +99,7 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
             .When(model => model.Tags is not null)
             .OverridePropertyName(nameof(CreateRecipeViewModel.Tags));
 
+        // List-level only, for the reason the ingredient block below gives.
         RuleFor(model => model.Instructions)
             .Cascade(CascadeMode.Stop)
             .Must(instructions => !Groups(instructions).Any(group => group is null))
@@ -106,35 +108,13 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionGroupsPerRecipe} instruction groups.")
             .Must(instructions => Groups(instructions).Sum(group => Steps(group).Count) <= RecipePolicy.MaxInstructionStepsPerRecipe)
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxInstructionStepsPerRecipe} instruction steps.")
-            // Nothing exists yet for an id to name: a create that sends one is a client bug, not a request
-            // this could honour by ignoring it silently.
-            .Must(instructions => Groups(instructions).All(group => group!.Id is null))
-                .WithMessage("A new recipe's instructions cannot name an existing group.")
-            .Must(instructions => Groups(instructions).All(group => Trimmed(group!.Title).Length <= RecipePolicy.GroupTitleMaxLength))
-                .WithMessage($"An instruction group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
             .Must(instructions => !AllSteps(instructions).Any(step => step is null))
                 .WithMessage("An instruction step cannot be blank.")
-            .Must(instructions => AllSteps(instructions).All(step => step!.Id is null))
-                .WithMessage("A new recipe's instructions cannot name an existing step.")
-            .Must(instructions => AllSteps(instructions).All(step => !string.IsNullOrWhiteSpace(step!.Text)))
-                .WithMessage("An instruction step cannot be blank.")
-            .Must(instructions => AllSteps(instructions).All(step => Trimmed(step!.Text).Length <= RecipePolicy.StepTextMaxLength))
-                .WithMessage($"An instruction step can be at most {RecipePolicy.StepTextMaxLength} characters.")
-            .Must(instructions => AllSteps(instructions).All(step => Trimmed(step!.Note).Length <= RecipePolicy.NoteMaxLength))
-                .WithMessage($"A step note can be at most {RecipePolicy.NoteMaxLength} characters.")
-            .Must(instructions => AllSteps(instructions).All(step => step!.DurationMinutes is null or (>= 0 and <= RecipePolicy.MaxTimeMinutes)))
-                .WithMessage("A step's duration must be a time in minutes between 0 and one year.")
-            .Must(instructions => AllSteps(instructions).All(step => step!.TechniqueId != Guid.Empty))
-                .WithMessage("That is not a valid technique reference.")
-            .Must(instructions => AllSteps(instructions).All(step => step!.TemperatureUnitId != Guid.Empty))
-                .WithMessage("That is not a valid unit reference.")
-            // Mirrors CK_RecipeInstructionSteps_Temperature_Dimension: present in both or neither. Whether the
-            // unit itself measures temperature needs a lookup, so that half stays in Business.
-            .Must(instructions => AllSteps(instructions).All(
-                step => (step!.TemperatureValue is null) == (step.TemperatureUnitId is null)))
-                .WithMessage("A step's temperature needs both a value and a unit, or neither.")
             .OverridePropertyName(nameof(CreateRecipeViewModel.Instructions));
 
+        // List-level only: a total, or two rows naming one id, is not about any one line. Everything a single
+        // group or line can be wrong about on its own is reported at its position instead — see the rule below
+        // and RecipeInputPositions.
         RuleFor(model => model.IngredientGroups)
             .Cascade(CascadeMode.Stop)
             .Must(groups => !IngredientGroups(groups).Any(group => group is null))
@@ -143,35 +123,19 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientGroupsPerRecipe} ingredient groups.")
             .Must(groups => IngredientGroups(groups).Sum(group => Lines(group).Count) <= RecipePolicy.MaxIngredientLinesPerRecipe)
                 .WithMessage($"A recipe can carry at most {RecipePolicy.MaxIngredientLinesPerRecipe} ingredient lines.")
-            // Nothing exists yet for an id to name: a create that sends one is a client bug, not a request
-            // this could honour by ignoring it silently.
-            .Must(groups => IngredientGroups(groups).All(group => group!.Id is null))
-                .WithMessage("A new recipe's ingredients cannot name an existing group.")
-            .Must(groups => IngredientGroups(groups).All(group => Trimmed(group!.Title).Length <= RecipePolicy.GroupTitleMaxLength))
-                .WithMessage($"An ingredient group heading can be at most {RecipePolicy.GroupTitleMaxLength} characters.")
             .Must(groups => !AllLines(groups).Any(line => line is null))
                 .WithMessage("An ingredient line cannot be blank.")
-            .Must(groups => AllLines(groups).All(line => line!.Id is null))
-                .WithMessage("A new recipe's ingredients cannot name an existing line.")
-            .Must(groups => AllLines(groups).All(line => !string.IsNullOrWhiteSpace(line!.DisplayText)))
-                .WithMessage("An ingredient line cannot be blank.")
-            .Must(groups => AllLines(groups).All(line => Trimmed(line!.DisplayText).Length <= RecipePolicy.LineTextMaxLength))
-                .WithMessage($"An ingredient line can be at most {RecipePolicy.LineTextMaxLength} characters.")
-            .Must(groups => AllLines(groups).All(line => Trimmed(line!.PreparationNote).Length <= RecipePolicy.NoteMaxLength))
-                .WithMessage($"A preparation note can be at most {RecipePolicy.NoteMaxLength} characters.")
-            .Must(groups => AllLines(groups).All(line => line!.Quantity is null or > 0m))
-                .WithMessage("A quantity must be greater than zero.")
-            .Must(groups => AllLines(groups).All(line => line!.QuantityUpper is null or > 0m))
-                .WithMessage("A quantity must be greater than zero.")
-            // Mirrors CK_RecipeIngredients_Quantity_Range: a range needs both ends and has to run upward.
-            .Must(groups => AllLines(groups).All(
-                line => line!.QuantityUpper is null || (line.Quantity is not null && line.QuantityUpper > line.Quantity)))
-                .WithMessage("A quantity range needs a lower amount, and the upper amount must be greater than it.")
-            .Must(groups => AllLines(groups).All(line => line!.MeasurementUnitId != Guid.Empty))
-                .WithMessage("That is not a valid unit reference.")
-            .Must(groups => AllLines(groups).All(line => line!.IngredientId != Guid.Empty))
-                .WithMessage("That is not a valid ingredient reference.")
             .OverridePropertyName(nameof(CreateRecipeViewModel.IngredientGroups));
+
+        // Each failure keyed to the group or line it is about, so the editor can mark that row. No
+        // OverridePropertyName: these rules supply their own paths.
+        RuleFor(model => model.IngredientGroups).Custom((groups, context) =>
+            RecipeInputPositions.AddIngredientFailures(
+                groups, RecipeInputMode.Create, (path, message) => context.AddFailure(new ValidationFailure(path, message))));
+
+        RuleFor(model => model.Instructions).Custom((groups, context) =>
+            RecipeInputPositions.AddInstructionFailures(
+                groups, RecipeInputMode.Create, (path, message) => context.AddFailure(new ValidationFailure(path, message))));
     }
 
     private static IReadOnlyList<RecipeInstructionGroupInputViewModel> Groups(IReadOnlyList<RecipeInstructionGroupInputViewModel?>? instructions) =>

@@ -56,6 +56,9 @@ internal sealed class RecipeIngredientConfiguration : IEntityTypeConfiguration<R
         builder.Property(ingredient => ingredient.IngredientNameText)
             .HasMaxLength(RecipePolicy.IngredientNameTextMaxLength);
 
+        builder.Property(ingredient => ingredient.UnitText)
+            .HasMaxLength(RecipePolicy.UnitTextMaxLength);
+
         builder.Property(ingredient => ingredient.PreparationNote).HasMaxLength(RecipePolicy.NoteMaxLength);
 
         builder.Property(ingredient => ingredient.Quantity)
@@ -67,6 +70,7 @@ internal sealed class RecipeIngredientConfiguration : IEntityTypeConfiguration<R
         builder.Property(ingredient => ingredient.SortOrder).IsRequired();
         builder.Property(ingredient => ingredient.IsOptional).IsRequired();
         builder.Property(ingredient => ingredient.MatchStatus).IsRequired();
+        builder.Property(ingredient => ingredient.DisplayTextSource).IsRequired();
         builder.Property(ingredient => ingredient.ScalingBehavior).IsRequired();
 
         // Three columns in the key, so neither the workspace nor the recipe can disagree with the group's.

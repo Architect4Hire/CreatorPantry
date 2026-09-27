@@ -39,14 +39,11 @@
     hint="Recorded on the new version, in your words. Optional."
     [error]="reasonError()"
   >
-    <!-- CpField renders its hint with this id but wires nothing to it, so the control points at the hint
-         itself — otherwise "Recorded on the new version" is invisible to a screen reader. -->
     <textarea
       [id]="reasonFieldId"
       rows="3"
       [maxlength]="reasonMaxLength"
       [attr.aria-invalid]="reasonError() ? 'true' : null"
-      [attr.aria-describedby]="reasonFieldId + '-hint'"
       [disabled]="submitting()"
       [ngModel]="reason()"
       (ngModelChange)="reason.set($event)"

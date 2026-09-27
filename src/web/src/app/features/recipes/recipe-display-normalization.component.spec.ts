@@ -50,6 +50,8 @@ const SAVED_GROUPS: readonly RecipeIngredientGroup[] = [
         quantityUpper: null,
         measurementUnitId: 'unit-cup',
         ingredientId: null,
+        displayTextSource: 'Creator',
+        unitText: null,
         matchStatus: 'NotAttempted',
         preparationNote: null,
         isOptional: false,
@@ -64,6 +66,8 @@ const SAVED_GROUPS: readonly RecipeIngredientGroup[] = [
         quantityUpper: null,
         measurementUnitId: null,
         ingredientId: null,
+        displayTextSource: 'Creator',
+        unitText: null,
         matchStatus: 'NotAttempted',
         preparationNote: null,
         isOptional: false,
@@ -156,7 +160,9 @@ describe('RecipeDisplayNormalizationComponent', () => {
     const { fixture } = await createFixture();
 
     expect(text(fixture)).toContain('Presentation only');
-    expect(text(fixture)).toContain("The recipe's own quantity stays exactly as it is");
+    expect(text(fixture)).toContain('A recipe records the number, never how it reads');
+    // And where the creator does the thing this panel cannot do for them.
+    expect(text(fixture)).toContain('type the amount you want on the line in Ingredients');
   });
 
   // ---- Canonical versus display ----

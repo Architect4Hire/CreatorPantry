@@ -6,6 +6,11 @@ import {
   CpButtonSize,
   CpButtonVariant,
   CpCardComponent,
+  CpAnchorNavComponent,
+  CpAnchorNavItem,
+  CpCheckboxComponent,
+  CpComboboxComponent,
+  CpComboboxOption,
   CpDiffLegendComponent,
   CpDialogComponent,
   CpEmptyStateComponent,
@@ -47,6 +52,9 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpToolbarComponent,
     CpEmptyStateComponent,
     CpUploaderComponent,
+    CpAnchorNavComponent,
+    CpCheckboxComponent,
+    CpComboboxComponent,
     CpDiffLegendComponent,
     CpToastRegionComponent,
   ],
@@ -85,6 +93,26 @@ export class DesignSystemShowcaseComponent {
   ];
   readonly selectedTabId = signal('ingredients');
 
+  /** Enough tabs, with long enough labels, that one row cannot hold them at a typical width. */
+  readonly manyTabs = [
+    { id: 'tools', label: 'Tools' },
+    { id: 'media', label: 'Media library' },
+    { id: 'history', label: 'Version history' },
+    { id: 'seo', label: 'SEO metadata' },
+    { id: 'social', label: 'Social captions' },
+    { id: 'newsletter', label: 'Newsletter copy' },
+    { id: 'publishing', label: 'Publishing targets' },
+    { id: 'analytics', label: 'Analytics' },
+  ];
+  readonly selectedManyTabId = signal('tools');
+
+  readonly nestedTabs = [
+    { id: 'scale', label: 'Scale' },
+    { id: 'convert', label: 'Convert' },
+    { id: 'yield', label: 'Yield & display' },
+  ];
+  readonly selectedNestedTabId = signal('scale');
+
   // --- Uploader ---
   readonly uploadItems = signal<CpUploadItem[]>([
     { id: '1', name: 'soup-hero.jpg', status: 'queued' },
@@ -117,6 +145,42 @@ export class DesignSystemShowcaseComponent {
   }
 
   // --- Toast region ---
+  /** The showcase's own anchor-nav sample, with one destination marked so the aria-current treatment is visible. */
+  readonly anchorNavItems: CpAnchorNavItem[] = [
+    { targetId: 'showcase-anchor-crust', label: 'For the crust', detail: '4 lines' },
+    { targetId: 'showcase-anchor-filling', label: 'For the filling', detail: '1 line' },
+    { targetId: 'showcase-anchor-glaze', label: 'For the glaze' },
+  ];
+  readonly activeAnchorNavId = signal<string | null>('showcase-anchor-filling');
+
+  onAnchorNavActivated(item: CpAnchorNavItem): void {
+    this.activeAnchorNavId.set(item.targetId);
+  }
+
+  /** A vocabulary a creator picks from, the shape R.15's unit picker and R.16's ingredient picker will pass. */
+  readonly unitOptions: CpComboboxOption[] = [
+    { id: 'g', label: 'Grams', detail: 'g · mass' },
+    { id: 'kg', label: 'Kilograms', detail: 'kg · mass' },
+    { id: 'cup', label: 'Cups', detail: 'c · volume' },
+    { id: 'tbsp', label: 'Tablespoons', detail: 'tbsp · volume' },
+    { id: 'tsp', label: 'Teaspoons', detail: 'tsp · volume' },
+    { id: 'each', label: 'Each', detail: 'count' },
+    { id: 'gill', label: 'Gills', detail: 'no longer offered', disabled: true },
+  ];
+  readonly unitText = signal('');
+  readonly unit = signal<CpComboboxOption | null>(null);
+
+  readonly tagOptions: CpComboboxOption[] = [
+    { id: 'weeknight', label: 'Weeknight', detail: '18 recipes' },
+    { id: 'make-ahead', label: 'Make ahead', detail: '7 recipes' },
+    { id: 'one-pan', label: 'One pan', detail: '4 recipes' },
+  ];
+  readonly tagText = signal('');
+  readonly tag = signal<CpComboboxOption | null>(null);
+
+  readonly showcaseOptional = signal(false);
+  readonly showcaseAbbreviate = signal(true);
+
   readonly toasts = signal<CpToast[]>([]);
   private toastCounter = 0;
 

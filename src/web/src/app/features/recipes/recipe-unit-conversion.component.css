@@ -123,3 +123,17 @@
   font-size: var(--cp-font-size-xs);
   color: var(--cp-text-muted);
 }
+
+/* The one place this card can act. Wraps at narrow widths and at 200% zoom rather than squeezing the note. */
+.apply-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin-top: var(--cp-space-3);
+}
+
+.apply-note {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}

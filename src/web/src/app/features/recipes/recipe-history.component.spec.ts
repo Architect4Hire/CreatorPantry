@@ -367,15 +367,16 @@ describe('RecipeHistoryComponent', () => {
     };
     const element = await render();
 
-    expect(rows(element)[0].textContent).toContain('Restored');
+    // 'v1' names no version in this page, so the row says what it can rather than guessing a number.
+    expect(rows(element)[0].textContent).toContain('restored from an earlier version');
     expect(rows(element)[1].textContent).toContain('Copied');
   });
 
   /**
-   * An ordinary creator edit is what almost every version is, so it gets no provenance pill — a badge on
+   * An ordinary creator edit is what almost every version is, so it gets no provenance note — something on
    * every row would make the rows that differ harder to spot.
    */
-  it('gives an ordinary creator edit no provenance pill', async () => {
+  it('gives an ordinary creator edit no provenance note at all', async () => {
     service.history = { status: 'found', page: { items: [entry(2), entry(1)], nextCursor: null } };
     const element = await render();
 
@@ -934,5 +935,251 @@ describe('RecipeHistoryComponent', () => {
     expect(service.duplicateCalls).toEqual([]);
     expect(duplicated).toEqual([]);
     expect(document.activeElement).toBe(trigger);
+  });
+
+  /**
+   * The reworked presentation: what a row must carry, and how a long history and a landed comparison read.
+   *
+   * The information rule first — the row gained the two facts it was dropping and kept all seven it had.
+   */
+  describe('the version row', () => {
+    it('names the version a restore copied, rather than only saying it was one', async () => {
+      service.history = {
+        status: 'found',
+        page: {
+          items: [entry(5, { source: 'Restore', restoredFromVersionId: 'v2' }), entry(4), entry(3), entry(2)],
+          nextCursor: null,
+        },
+      };
+      const element = await render();
+
+      // The whole question a restore row raises, and the answer is in the row rather than nowhere.
+      expect(rows(element)[0].textContent).toContain('restored from version 2');
+    });
+
+    it('says which version one follows only when the numbering does not already say it', async () => {
+      service.history = {
+        status: 'found',
+        page: {
+          // Version 5 was written from version 2, so 4 is not its parent and the numbering misleads.
+          items: [entry(5, { parentVersionId: 'v2' }), entry(4, { parentVersionId: 'v3' }), entry(3), entry(2)],
+          nextCursor: null,
+        },
+      };
+      const element = await render();
+
+      expect(rows(element)[0].textContent).toContain('follows version 2');
+      // Version 4's parent is 3, which the numbers already say — a note on every row is a note nobody reads.
+      expect(rows(element)[1].textContent).not.toContain('follows version');
+    });
+
+    it('keeps every fact it carried before', async () => {
+      service.history = {
+        status: 'found',
+        page: {
+          items: [entry(2, { readiness: 'Ready', reason: 'Shortened the bake.', createdByName: 'Ada Lovelace' })],
+          nextCursor: null,
+        },
+      };
+      const element = await render();
+      const row = rows(element)[0];
+
+      expect(row.textContent).toContain('Version 2');
+      expect(row.textContent).toContain('Ready');
+      expect(row.textContent).toContain('Ada Lovelace');
+      expect(row.textContent).toContain('Shortened the bake.');
+      // A machine-readable timestamp beside the human one, which is what a <time> is for.
+      expect(row.querySelector('time')?.getAttribute('datetime')).toBe('2026-03-12T14:02:00Z');
+    });
+
+    // An author outlives the membership that wrote the version, so this is an ordinary state.
+    it('still names a former member rather than leaving a gap', async () => {
+      service.history = { status: 'found', page: { items: [entry(2, { createdByName: null })], nextCursor: null } };
+      const element = await render();
+
+      expect(rows(element)[0].textContent).toContain('A former member');
+    });
+  });
+
+  describe('a long history', () => {
+    /** Forty versions, with an older page still to come — the case the compare controls have to survive. */
+    function longHistory(): RecipeVersionHistoryEntry[] {
+      return Array.from({ length: 40 }, (_, index) => entry(40 - index));
+    }
+
+    it('keeps the compare controls with the list heading, not below forty rows', async () => {
+      service.history = { status: 'found', page: { items: longHistory(), nextCursor: 'older' } };
+      const element = await render();
+
+      expect(rows(element).length).toBe(40);
+
+      // In the shell's own actions slot, which renders beside the heading — so picking From on row 1 and To on
+      // row 40 does not mean scrolling past 40 rows to find the button that acts on them.
+      const actions = element.querySelector('[cpListShellActions]')!;
+      expect(actions.textContent).toContain('Compare');
+      expect(actions.textContent).toContain('Refresh');
+      expect(actions.querySelector('[aria-label="Swap the two versions"]')).toBeTruthy();
+    });
+
+    it('names the chosen pair beside the button, so the selection is readable without scrolling', async () => {
+      service.history = { status: 'found', page: { items: longHistory(), nextCursor: 'older' } };
+      const element = await render();
+
+      fixture.componentInstance.selectFrom(2);
+      fixture.componentInstance.selectTo(39);
+      fixture.detectChanges();
+
+      expect(element.querySelector('.selection')?.textContent?.trim()).toBe('2 → 39');
+      // Decoration for the sighted reader: each radio already says which side it is, and the live region says
+      // what the pair is, so announcing it a third time would be noise.
+      expect(element.querySelector('.selection')?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('still says that older versions exist', async () => {
+      service.history = { status: 'found', page: { items: longHistory(), nextCursor: 'older' } };
+      const element = await render();
+
+      expect(element.textContent).toContain('Showing the 40 most recent versions.');
+      expect(buttonWith(element, 'Load older versions')).not.toBeUndefined();
+    });
+
+    // list-style: none strips list semantics in Safari, which is why the comparison's own ul carries this too.
+    it('keeps the rows a list for assistive technology', async () => {
+      service.history = { status: 'found', page: { items: longHistory(), nextCursor: null } };
+      const element = await render();
+
+      expect(element.querySelector('ul.versions')?.getAttribute('role')).toBe('list');
+    });
+  });
+
+  describe('comparing two versions', () => {
+    it('renders the comparison and moves to it once it lands', async () => {
+      service.history = {
+        status: 'found',
+        page: { items: Array.from({ length: 30 }, (_, index) => entry(30 - index)), nextCursor: null },
+      };
+      service.comparison = { status: 'found', comparison: comparisonOf(3, 29) };
+      const element = await render();
+
+      fixture.componentInstance.selectFrom(3);
+      fixture.componentInstance.selectTo(29);
+      fixture.detectChanges();
+
+      buttonWith(element, 'Compare')!.click();
+      await settle();
+
+      const region = element.querySelector<HTMLElement>('.comparison-region');
+      expect(region).withContext('the comparison').toBeTruthy();
+      expect(region!.textContent).toContain('Version 3 compared with version 29');
+
+      // A destination, never a tab stop — and focused, because on a history this long the answer renders below
+      // rows the creator has scrolled past and a live region alone helps nobody who can see.
+      expect(region!.getAttribute('tabindex')).toBe('-1');
+      await settle();
+      expect(document.activeElement).toBe(region);
+    });
+
+    // The legend is CpDiffLegendComponent's, and every row states its kind in words beside the glyph, so the
+    // meaning never rests on telling two colours apart (WCAG 2.2 AA, 1.4.1).
+    it('explains the diff with a legend and words, not colour', async () => {
+      service.history = { status: 'found', page: { items: [entry(5), entry(3)], nextCursor: null } };
+      service.comparison = { status: 'found', comparison: comparisonOf(3, 5) };
+      const element = await render();
+
+      buttonWith(element, 'Compare')!.click();
+      await settle();
+
+      expect(element.querySelector('cp-diff-legend')).withContext('the shared legend').toBeTruthy();
+
+      const row = element.querySelector('.comparison-region [role="option"], .comparison-region .row');
+      expect(row?.textContent).toContain('Title');
+      // The glyph is decorative; the word beside it is what carries the kind.
+      expect(row?.querySelector('.row-glyph')?.getAttribute('aria-hidden')).toBe('true');
+      expect(row?.querySelector('.row-kind')?.textContent?.trim()).toBeTruthy();
+    });
+
+    it('leaves the note about comparing a version with itself where a creator will read it', async () => {
+      service.history = { status: 'found', page: { items: [entry(2), entry(1)], nextCursor: null } };
+      const element = await render();
+
+      fixture.componentInstance.selectFrom(2);
+      fixture.componentInstance.selectTo(2);
+      fixture.detectChanges();
+
+      expect(element.querySelector('.compare-note')?.textContent).toContain('nothing to show');
+    });
+  });
+
+  /**
+   * The accessibility checklist in DESIGN-SYSTEM.md, at the two points this list used to miss it.
+   *
+   * Asserted on the computed box and the computed font size rather than on the rules, because what matters is
+   * the size a pointer actually has to hit and the size an eye actually has to read.
+   */
+  describe('density and targets', () => {
+    /**
+     * A component spec loads no `tokens.css`, so every `var(--cp-*)` here would be invalid at computed-value
+     * time — which silently drops the declaration and would make these assertions measure the browser's
+     * defaults instead of the design system's. The two the assertions depend on are supplied with the values
+     * `tokens.css` gives them.
+     */
+    function withTokens(element: HTMLElement): void {
+      element.style.setProperty('--cp-space-10', '2.5rem');
+      element.style.setProperty('--cp-space-2', '.5rem');
+      element.style.setProperty('--cp-space-3', '.75rem');
+      element.style.setProperty('--cp-font-size-xs', '.6875rem');
+      document.body.appendChild(element);
+    }
+
+    it('gives each picker a 40px target in both dimensions', async () => {
+      service.history = { status: 'found', page: { items: [entry(2), entry(1)], nextCursor: null } };
+      const element = await render();
+      withTokens(element);
+
+      try {
+        const box = radios(element, 'from')[0].getBoundingClientRect();
+
+        // It was 24 wide and 40 tall: the height was set, the grid column it sat in was not.
+        expect(box.width).toBeGreaterThanOrEqual(40);
+        expect(box.height).toBeGreaterThanOrEqual(40);
+      } finally {
+        element.remove();
+      }
+    });
+
+    /**
+     * Narrowed past the width the old media query fired at. The picker columns keep their target — a target does
+     * not get smaller for being on a narrow screen — and only the gap closes up.
+     */
+    it('keeps its targets when the panel is narrow', async () => {
+      service.history = { status: 'found', page: { items: [entry(2), entry(1)], nextCursor: null } };
+      const element = await render();
+      withTokens(element);
+      element.style.width = '22rem';
+
+      try {
+        const box = radios(element, 'from')[0].getBoundingClientRect();
+        expect(box.width).toBeGreaterThanOrEqual(40);
+        expect(box.height).toBeGreaterThanOrEqual(40);
+      } finally {
+        element.remove();
+      }
+    });
+
+    // It used to drop to a raw 0.625rem — 10px, below the smallest size the system defines, in uppercase with
+    // added letter-spacing.
+    it('never shrinks the picker headings below the smallest size the system defines', async () => {
+      service.history = { status: 'found', page: { items: [entry(2), entry(1)], nextCursor: null } };
+      const element = await render();
+      withTokens(element);
+      element.style.width = '22rem';
+
+      try {
+        const legend = element.querySelector<HTMLElement>('.legend')!;
+        expect(parseFloat(getComputedStyle(legend).fontSize)).toBeGreaterThanOrEqual(11);
+      } finally {
+        element.remove();
+      }
+    });
   });
 });

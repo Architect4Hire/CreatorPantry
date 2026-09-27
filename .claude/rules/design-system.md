@@ -33,7 +33,7 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpButtonComponent`: `primary | secondary | ghost | text | danger`; `sm | md | lg`; optional full width
 - `CpCardComponent`: standard, interactive, and flush surfaces
 - `CpBadgeComponent`: `neutral | success | pink | orange | purple | blue`
-- `CpFieldComponent`: label, hint, required, error, projected native control
+- `CpFieldComponent`: label, hint, required, error, projected native control; wires `aria-describedby` and `aria-required` onto that control so the hint and the `*` are not visual only
 - `CpProgressComponent`: labeled bounded progress
 - `CpDialogComponent`: modal shell, title/description, action projection, close event
 - `CpQuickActionComponent`: creator-tool action card with tone and activation event
@@ -45,6 +45,9 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpUploaderComponent`: browse/drag-drop shell, per-item queued/uploading/success/error rendering, retry/cancel/remove — no transport of its own
 - `CpDiffLegendComponent`: legend for `added | removed | changed | moved | unchanged | warning | selected`; presentation only, no diff computation
 - `CpToastRegionComponent`: polite/assertive toast region, auto-dismiss with hover/focus pause, dedup, persistent warning/error
+- `CpComboboxComponent`: type-ahead over a supplied list — WAI-ARIA combobox keyboard, `aria-activedescendant`, announced result count, `restricted`/`free-text` modes, `filterLocally` for server-filtered lists. No fetching, no domain vocabulary; composes inside `cp-field`
+- `CpCheckboxComponent`: labelled checkbox with a drawn control — glyph for checked, 40px label target, token-driven in both themes; the native input stays focusable and announced. Use it rather than a bare `input[type=checkbox]`, which the theme's `color-scheme` paints as a dark filled box in dark mode
+- `CpAnchorNavComponent`: in-page destination nav (label + optional detail); tabbable links, not a tablist; emits the activated item and leaves scrolling and focus to the consumer; renders nothing when empty
 
 Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are defects.
 

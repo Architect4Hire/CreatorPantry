@@ -20,8 +20,16 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// </para>
 /// <para>
 /// <strong>Ingredients, equipment and asset links are absent throughout</strong>, matching
-/// <see cref="AiDiffFields"/>: the recipe patch contract has no field for any of them, so no change to one
-/// has a path through ordinary recipe validation.
+/// <see cref="AiDiffFields"/>: when this table was written the recipe patch contract had no field for any of
+/// them, so no change to one had a path through ordinary recipe validation.
+/// </para>
+/// <para>
+/// <strong>Ingredients are no longer in that position.</strong> <c>UpdateRecipeViewModel.IngredientGroups</c>
+/// now exists, so <c>Set</c>, <c>Remove</c> and <c>Move</c> on an ingredient or an ingredient group could be
+/// added here — together with the fields listed in <see cref="AiDiffFields"/> and an ingredient draft list in
+/// <c>RecipeProposalApplication</c>. That work is outstanding, and until it is done this table is the thing
+/// keeping a proposal from offering an ingredient change it cannot apply. Equipment and asset links remain
+/// genuinely unexpressible.
 /// </para>
 /// </remarks>
 public static class AiChangeApplicability

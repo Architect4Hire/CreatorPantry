@@ -14,3 +14,6 @@ export * from './lib/components/empty-state.component';
 export * from './lib/components/uploader.component';
 export * from './lib/components/diff-legend.component';
 export * from './lib/components/toast-region.component';
+export * from './lib/components/anchor-nav.component';
+export * from './lib/components/checkbox.component';
+export * from './lib/components/combobox.component';

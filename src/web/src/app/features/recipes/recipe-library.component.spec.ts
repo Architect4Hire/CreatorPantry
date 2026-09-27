@@ -72,6 +72,15 @@ describe('RecipeLibraryComponent', () => {
     return match as HTMLButtonElement;
   }
 
+  /** Anchors, not buttons: "New recipe" is a routerLink, so `button()` cannot see it. */
+  function link(label: string): HTMLAnchorElement {
+    const match = Array.from(root().querySelectorAll('a')).find((each) =>
+      (each as HTMLAnchorElement).textContent?.includes(label),
+    );
+    if (!match) throw new Error(`no link labelled "${label}"`);
+    return match as HTMLAnchorElement;
+  }
+
   function chip(label: string): HTMLButtonElement {
     const match = Array.from(root().querySelectorAll('.chip')).find(
       (each) => (each as HTMLElement).textContent?.trim() === label,
@@ -152,6 +161,31 @@ describe('RecipeLibraryComponent', () => {
     await settle();
 
     expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+  });
+
+  it('still offers "New recipe" when the list fails to load, beside the retry rather than instead of it', async () => {
+    searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(of<RecipeSearchOutcome>({ status: 'unavailable' }));
+    await create();
+
+    // Whether the library could be read says nothing about whether a creator may write a new recipe, so a
+    // transient search failure must not take the create action away with it.
+    expect(root().querySelector('[role="alert"]')).toBeTruthy();
+    expect(button('Try again')).toBeTruthy();
+    expect(link('New recipe').getAttribute('href')).toContain('new');
+  });
+
+  it('keeps the retry working with the create action beside it', async () => {
+    searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(of<RecipeSearchOutcome>({ status: 'unavailable' }));
+    await create();
+
+    searchSpy.and.returnValue(found(TWO_RECIPES));
+    button('Try again').click();
+    await settle();
+
+    expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+    // Recovered: the retry has done its job and gone, and the create action is still there.
+    expect(root().querySelector('[role="alert"]')).toBeNull();
+    expect(link('New recipe')).toBeTruthy();
   });
 
   it('reports a rejected filter combination differently from a failed read', async () => {

@@ -476,7 +476,9 @@ public static class RecipeSnapshotReconciler
     {
         var changed = live.SortOrder != wanted.SortOrder
             || live.DisplayText != wanted.DisplayText
+            || live.DisplayTextSource != wanted.DisplayTextSource
             || live.IngredientNameText != wanted.IngredientNameText
+            || live.UnitText != wanted.UnitText
             || live.Quantity != wanted.Quantity
             || live.QuantityUpper != wanted.QuantityUpper
             || live.MeasurementUnitId != wanted.MeasurementUnitId
@@ -494,7 +496,9 @@ public static class RecipeSnapshotReconciler
 
         live.SortOrder = wanted.SortOrder;
         live.DisplayText = wanted.DisplayText;
+        live.DisplayTextSource = wanted.DisplayTextSource;
         live.IngredientNameText = wanted.IngredientNameText;
+        live.UnitText = wanted.UnitText;
         live.Quantity = wanted.Quantity;
         live.QuantityUpper = wanted.QuantityUpper;
         live.MeasurementUnitId = wanted.MeasurementUnitId;

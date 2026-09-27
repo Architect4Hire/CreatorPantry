@@ -9,7 +9,7 @@ Read `src/web/README.md`, `src/web/DESIGN-SYSTEM.md`, `src/web/CLAUDE.md`, the l
 
 ## Current foundation
 
-The reusable package is `@creator-pantry/ui` at `src/web/projects/creator-pantry-ui`. Its public API already contains theme service, button, card, badge, field, progress, dialog, and quick-action components. Reuse or compose these before adding anything.
+The reusable package is `@creator-pantry/ui` at `src/web/projects/creator-pantry-ui`. Read what it already exports from `public-api.ts`, with one line on each in `.claude/rules/design-system.md` — not from a list repeated here, which is how this sentence came to name eight of seventeen and invite rebuilding the other nine. Reuse or compose what is there before adding anything.
 
 ## Confirmations use SweetAlert2, not `CpDialogComponent`
 

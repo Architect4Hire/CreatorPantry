@@ -558,8 +558,16 @@ recipe-specific — so the vocabulary is restated as `ProposedRecipeChange` and 
 Business owning the transaction (rejected: `backend.md` puts transaction boundaries in the DataLayer).
 **Consequences:** a creator cannot yet accept an ingredient change or an added step, and no proposal offers one.
 `AiOperationScope.Ingredients` currently permits nothing at all. The entries to restore are named in
-`AiDiffFields` and `AiChangeApplicability` for when `UpdateRecipeViewModel` grows an ingredients field and
-`AiStructuredChange` can carry a child payload.
+`AiDiffFields` and `AiChangeApplicability`.
+
+**Superseded in part, the same day.** Work landing alongside this added
+`UpdateRecipeViewModel.IngredientGroups`, so the capability gap that justified excluding ingredients is closed on
+the recipe side. The AI side has not caught up: restoring the ingredient entries needs `AiDiffFields`,
+`AiChangeApplicability`, `ProposedRecipeTarget` and an ingredient draft list in `RecipeProposalApplication`, plus
+tests. Until then the applicability table is what keeps a proposal from offering an ingredient change it cannot
+apply, and that is the correct state to be in — but it is now a lag rather than a limit. `measurementUnitId` and
+`ingredientId` stay excluded permanently regardless, because a model naming a `Guid` is a model inventing one.
+Adding an instruction step remains blocked on `AiStructuredChange` being able to carry a child payload.
 **Rules:** `ai.md`, `recipes.md`, `backend.md`, `api-contract.md`.
 
 ## Open items

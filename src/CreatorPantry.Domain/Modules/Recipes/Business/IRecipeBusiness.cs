@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
@@ -1028,7 +1029,13 @@ internal sealed class RecipeBusiness(
         }
 
         return await MergeAsync(
-            loaded, patch, submittedYieldUnitDimension, RecipeVersionSource.CreatorEdit, null, cancellationToken);
+            loaded,
+            patch,
+            submittedYieldUnitDimension,
+            ingredientUnitDimensions,
+            RecipeVersionSource.CreatorEdit,
+            null,
+            cancellationToken);
     }
 
     public async Task<OperationResult<RecipeDetailServiceModel>> ApplyProposedChangesAsync(
@@ -1065,12 +1072,15 @@ internal sealed class RecipeBusiness(
                 new Dictionary<string, string[]>()));
         }
 
-        // No submitted yield unit, because no proposal can name one: AiDiffFields lists no identifier field, so
-        // the recipe's stored dimension stands.
+        // No submitted yield unit and no resolved ingredient unit dimensions, because no proposal can name a
+        // unit at all: AiDiffFields lists no identifier field, on the grounds that a model choosing a Guid is a
+        // model inventing one. So the recipe's stored dimensions stand, and an empty map is the accurate input
+        // rather than a missing one.
         return await MergeAsync(
             loaded,
             plan.Patch!,
             null,
+            ReadOnlyDictionary<Guid, MeasurementDimension>.Empty,
             RecipeVersionSource.AiProposalAccepted,
             aiProposalId,
             cancellationToken);
@@ -1079,6 +1089,11 @@ internal sealed class RecipeBusiness(
     /// <summary>
     /// Merges a patch into a loaded recipe and captures the one version that records it.
     /// </summary>
+    /// <param name="ingredientUnitDimensions">
+    /// The dimension of each measurement unit the submitted ingredient lines name, resolved by the caller.
+    /// Empty when no ingredient line was submitted — including on the AI path, where no proposal can name a
+    /// unit.
+    /// </param>
     /// <param name="source">What produced this edit. Recorded on the version, and pinned to its proposal.</param>
     /// <param name="aiProposalId">
     /// The accepted proposal, when <paramref name="source"/> is
@@ -1095,6 +1110,7 @@ internal sealed class RecipeBusiness(
         TaggedRecipe loaded,
         CanonicalRecipePatch patch,
         MeasurementDimension? submittedYieldUnitDimension,
+        IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
         RecipeVersionSource source,
         Guid? aiProposalId,
         CancellationToken cancellationToken)
@@ -1986,6 +2002,9 @@ internal sealed class RecipeBusiness(
 
         var changed = line.SortOrder != sortOrder
             || line.DisplayText != source.DisplayText
+            || line.DisplayTextSource != source.DisplayTextSource
+            || line.IngredientNameText != source.IngredientNameText
+            || line.UnitText != source.UnitText
             || line.Quantity != source.Quantity
             || line.QuantityUpper != source.QuantityUpper
             || line.MeasurementUnitId != source.MeasurementUnitId
@@ -2003,6 +2022,9 @@ internal sealed class RecipeBusiness(
 
         line.SortOrder = sortOrder;
         line.DisplayText = source.DisplayText;
+        line.DisplayTextSource = source.DisplayTextSource;
+        line.IngredientNameText = source.IngredientNameText;
+        line.UnitText = source.UnitText;
         line.Quantity = source.Quantity;
         line.QuantityUpper = source.QuantityUpper;
         line.MeasurementUnitId = source.MeasurementUnitId;

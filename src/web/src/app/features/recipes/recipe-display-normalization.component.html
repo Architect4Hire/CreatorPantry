@@ -1,8 +1,8 @@
 <section class="calculation" [attr.aria-labelledby]="headingId">
   <h3 class="calculation-heading" [id]="headingId">How a quantity reads</h3>
   <p class="calculation-intro">
-    Presentation only — this shows how an amount would read, and changes nothing. The recipe's own quantity
-    stays exactly as it is.
+    Presentation only — this shows how an amount would read, and changes nothing. A recipe records the number,
+    never how it reads, so there is nothing here to save: type the amount you want on the line in Ingredients.
   </p>
 
   @if (sourceVersionNumber() === null) {
@@ -136,16 +136,11 @@
         </cp-field>
       </div>
 
-      <label class="checkbox-row" [attr.for]="abbreviationFieldId">
-        <input
-          type="checkbox"
-          [id]="abbreviationFieldId"
-          [ngModel]="useAbbreviation()"
-          (ngModelChange)="useAbbreviation.set($event)"
-          name="useAbbreviation"
-        />
-        <span>Use the short form of the unit (c, g, tbsp)</span>
-      </label>
+      <cp-checkbox
+        label="Use the short form of the unit (c, g, tbsp)"
+        [inputId]="abbreviationFieldId"
+        [(checked)]="useAbbreviation"
+      />
 
       @if (localError(); as problem) {
         <p class="calculation-problem" role="alert">{{ problem }}</p>

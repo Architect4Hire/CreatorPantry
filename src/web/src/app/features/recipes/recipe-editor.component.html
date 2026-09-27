@@ -130,7 +130,7 @@
         <p class="banner" role="status">Saved.</p>
       }
       @case ('validation_failed') {
-        <p class="banner banner--error" role="alert">Some fields need attention. Check your recipe details and try again.</p>
+        <p class="banner banner--error" role="alert">{{ validationBannerText() }}</p>
       }
       @case ('forbidden') {
         <p class="banner banner--error" role="alert">You don't have permission to save this recipe.</p>
@@ -150,9 +150,42 @@
     }
 
     <cp-card class="editor-card">
-    <cp-tabs [tabs]="tabs" ariaLabel="Recipe sections" [(selectedId)]="selectedTabId">
-      <cp-tab-panel id="metadata">
-        <h2 class="section-heading">Metadata</h2>
+    <cp-tabs [tabs]="areas" ariaLabel="Recipe areas" [(selectedId)]="selectedAreaId">
+      <!-- Two levels, and they mean different things. Out here are areas: Edit is the form, and Tools, Media
+           and History are surfaces that read a saved recipe — the calculators refuse to run while the form is
+           dirty, so they must not sit inline beside edits they structurally cannot see. Inside Edit is the
+           form itself, split into three tabs that all save together under the one Save in the header. What
+           made an earlier five-tab form unusable was that a field error could land on a panel nobody was
+           looking at; revealFirstFieldError() now selects the tab holding the field, so the split costs
+           nothing there. -->
+      <!-- Immediately under the tabs it explains, so the reason for three greyed-out controls is the next
+           thing read after them rather than something to hunt for. Create mode only; see lockedAreaNotice
+           for why this is plain text and not a tooltip on the disabled tabs. -->
+      @if (isCreateMode && lockedAreaNotice) {
+        <p class="area-lock-note">
+          <span class="area-lock-icon" aria-hidden="true">⚑</span>
+          <span>{{ lockedAreaNotice }}</span>
+        </p>
+      }
+
+      <cp-tab-panel id="edit">
+        <!-- One Save, three surfaces. The section rail this replaced marked a single scroll surface five
+             sections long, which read as one very long form; these split it where the work splits, and the
+             panels keep their content mounted once opened so an edit in one is never lost by looking at
+             another. Everything here still saves together: isDirty() and the snapshot are per-form, not
+             per-tab, and revealFirstFieldError() selects whichever tab holds the field at fault. -->
+        <!-- Said once, here, rather than on each field: three fields across these three tabs are required and
+             the other sixteen are not, so marking the optional ones would be marking almost everything — and
+             marking one of them makes the rest read as required by contrast. -->
+        <p class="required-legend">Fields marked <span aria-hidden="true">*</span><span class="cp-sr-only">with an asterisk</span> are required. Everything else is optional.</p>
+
+        <cp-tabs [tabs]="editTabs()" ariaLabel="Recipe form" [(selectedId)]="selectedEditTabId">
+          <cp-tab-panel id="general">
+            <!-- Three sections rather than three more tabs: each is short, and they are read together when
+                 a creator is setting a recipe up. -->
+            <div class="tab-sections">
+      <section id="section-details" class="editor-section" aria-labelledby="heading-details" tabindex="-1">
+        <h2 id="heading-details" class="section-heading">Details</h2>
         <p class="section-intro">The essentials creators see first.</p>
 
         <cp-field label="Title" forId="recipe-title" [required]="true" [error]="fieldError('title')">
@@ -249,10 +282,189 @@
             <button cpButton variant="secondary" type="button" (click)="addTag()">Add tag</button>
           </div>
         </cp-field>
-      </cp-tab-panel>
+      </section>
 
-      <cp-tab-panel id="ingredients">
-        <h2 class="section-heading">Ingredients</h2>
+      <section id="section-notes" class="editor-section" aria-labelledby="heading-notes" tabindex="-1">
+        <h2 id="heading-notes" class="section-heading">Notes</h2>
+        <p class="section-intro">Extra context for future you, and for other creators in this workspace.</p>
+        <div class="field-row">
+
+        <cp-field label="Notes" forId="recipe-notes" [error]="fieldError('notes')">
+          <textarea
+            id="recipe-notes"
+            [attr.aria-invalid]="fieldError('notes') ? 'true' : null"
+            [ngModel]="notes()"
+            (ngModelChange)="notes.set($event)"
+            name="notes"
+          ></textarea>
+        </cp-field>
+
+        <cp-field label="Storage notes" forId="recipe-storage-notes" [error]="fieldError('storageNotes')">
+          <textarea
+            id="recipe-storage-notes"
+            [attr.aria-invalid]="fieldError('storageNotes') ? 'true' : null"
+            [ngModel]="storageNotes()"
+            (ngModelChange)="storageNotes.set($event)"
+            name="storageNotes"
+          ></textarea>
+        </cp-field>
+        </div>
+      </section>
+
+      <section id="section-timing" class="editor-section" aria-labelledby="heading-timing" tabindex="-1">
+        <h2 id="heading-timing" class="section-heading">Timing &amp; yield</h2>
+        <p class="section-intro">How long it takes, and how much it makes.</p>
+        <div class="field-row">
+
+        <cp-field label="Prep time (minutes)" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
+          <input
+            id="recipe-prep-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('prepTimeMinutes') ? 'true' : null"
+            [ngModel]="prepTimeMinutes()"
+            (ngModelChange)="prepTimeMinutes.set($event)"
+            name="prepTimeMinutes"
+          />
+        </cp-field>
+
+        <cp-field label="Cook time (minutes)" forId="recipe-cook-time" [error]="fieldError('cookTimeMinutes')">
+          <input
+            id="recipe-cook-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('cookTimeMinutes') ? 'true' : null"
+            [ngModel]="cookTimeMinutes()"
+            (ngModelChange)="cookTimeMinutes.set($event)"
+            name="cookTimeMinutes"
+          />
+        </cp-field>
+
+        <cp-field label="Rest time (minutes)" forId="recipe-rest-time" [error]="fieldError('restTimeMinutes')">
+          <input
+            id="recipe-rest-time"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('restTimeMinutes') ? 'true' : null"
+            [ngModel]="restTimeMinutes()"
+            (ngModelChange)="restTimeMinutes.set($event)"
+            name="restTimeMinutes"
+          />
+        </cp-field>
+
+        <!-- Derived, not imposed. The sum of prep, cook and rest is offered with what it was derived from, and
+             the field stays the creator's: the server is explicit that a total is deliberately not the sum,
+             because prep overlaps cooking and resting is unattended. Nothing here writes to the field without
+             the button being pressed, so a recipe's own total survives loading and every edit but that one. -->
+        <cp-field
+          label="Total time (minutes)"
+          forId="recipe-total-time"
+          [hint]="totalTimeNote()"
+          [error]="fieldError('totalTimeMinutes')"
+        >
+          <div class="derived-total">
+            <input
+              id="recipe-total-time"
+              type="number"
+              min="0"
+              [attr.aria-invalid]="fieldError('totalTimeMinutes') ? 'true' : null"
+              [ngModel]="totalTimeMinutes()"
+              (ngModelChange)="totalTimeMinutes.set($event)"
+              name="totalTimeMinutes"
+            />
+            @if (canUseTimingSum()) {
+              <button
+                cpButton
+                variant="text"
+                size="sm"
+                type="button"
+                [attr.aria-label]="'Use ' + timingSum()!.minutes + ' minutes, the total of ' + timingSum()!.parts.join(' plus ')"
+                (click)="useTimingSum()"
+              >
+                Use {{ timingSum()!.minutes }}
+              </button>
+            }
+          </div>
+        </cp-field>
+
+        <cp-field label="Yield" forId="recipe-yield-text" [error]="fieldError('yieldText')">
+          <input
+            id="recipe-yield-text"
+            type="text"
+            placeholder="e.g. 4 servings"
+            [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
+            [ngModel]="yieldText()"
+            (ngModelChange)="yieldText.set($event)"
+            name="yieldText"
+          />
+        </cp-field>
+
+        <cp-field label="Yield quantity" forId="recipe-yield-quantity" [error]="fieldError('yieldQuantity')">
+          <input
+            id="recipe-yield-quantity"
+            type="number"
+            min="0"
+            [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
+            [ngModel]="yieldQuantity()"
+            (ngModelChange)="yieldQuantity.set($event)"
+            name="yieldQuantity"
+          />
+        </cp-field>
+
+        <!-- The structured half of the yield, beside the creator's own wording rather than instead of it: both
+             facts exist deliberately (recipes.md), and nothing here touches the Yield field above.
+
+             `restricted`, unlike the ingredient editor's unit box, because text that names no unit has nowhere
+             to go — yieldUnitId is an id or nothing, and the creator's own words already have a home one field
+             to the left. Which is also why removing one needs the explicit Clear: restricted text reverts to
+             the chosen unit's name when the field is left. -->
+        <cp-field label="Yield unit" forId="recipe-yield-unit" [hint]="yieldUnitHint()" [error]="fieldError('yieldUnitId')">
+          <div class="yield-unit-control">
+            <cp-combobox
+              inputId="recipe-yield-unit"
+              [options]="yieldUnitOptions()"
+              [disabled]="unitCatalogue().status !== 'ready'"
+              mode="restricted"
+              placeholder="e.g. servings"
+              [value]="yieldUnitText()"
+              (valueChange)="yieldUnitText.set($event)"
+              [selected]="yieldUnitSelection()"
+              (selectedChange)="onYieldUnitPicked($event)"
+            />
+            @if (yieldUnitId() !== null) {
+              <button cpButton variant="text" size="sm" type="button" aria-label="Clear the yield unit" (click)="clearYieldUnit()">
+                Clear
+              </button>
+            }
+            @if (unitCatalogue().status === 'unavailable') {
+              <button cpButton variant="text" size="sm" type="button" aria-label="Try reading the unit list again" (click)="loadUnitCatalogue()">
+                Try again
+              </button>
+            }
+          </div>
+        </cp-field>
+        </div>
+      </section>
+            </div>
+          </cp-tab-panel>
+
+          <cp-tab-panel id="ingredients">
+      <!-- aria-describedby as well as role="alert": the section is what `revealFirstFieldError` focuses, so the
+           problem has to be part of what is read on arrival, and the alert is what announces it to a creator
+           already looking at this tab. The same pairing CpFieldComponent uses for an ordinary field. -->
+      <section
+        id="section-ingredients"
+        class="editor-section"
+        aria-labelledby="heading-ingredients"
+        [attr.aria-describedby]="sectionProblem('ingredientGroups') ? 'problem-ingredients' : null"
+        tabindex="-1"
+      >
+        <h2 id="heading-ingredients" class="section-heading">Ingredients</h2>
+
+        @if (sectionProblem('ingredientGroups'); as problem) {
+          <p id="problem-ingredients" class="section-problem" role="alert">{{ problem }}</p>
+        }
+
         <p class="section-intro">
           Paste ingredient lines to get a parsed proposal, or add and edit them directly. Ingredient edits save
           together with the rest of the recipe when you select Save.
@@ -260,22 +472,60 @@
         <cp-recipe-ingredient-editor
           [workspaceSlug]="workspaceSlug"
           [initialGroups]="ingredientGroups()"
+          [rowErrors]="ingredientRowErrors()"
+          [groupErrors]="ingredientGroupErrors()"
           (groupsChanged)="onIngredientGroupsChanged($event)"
         />
-      </cp-tab-panel>
+      </section>
+          </cp-tab-panel>
 
-      <cp-tab-panel id="instructions">
-        <h2 class="section-heading">Instructions</h2>
+          <cp-tab-panel id="instructions">
+      <!-- The same pairing as the Ingredients section above, for the method's own one sentence. -->
+      <section
+        id="section-instructions"
+        class="editor-section"
+        aria-labelledby="heading-instructions"
+        [attr.aria-describedby]="sectionProblem('instructions') ? 'problem-instructions' : null"
+        tabindex="-1"
+      >
+        <h2 id="heading-instructions" class="section-heading">Instructions</h2>
+
+        @if (sectionProblem('instructions'); as problem) {
+          <p id="problem-instructions" class="section-problem" role="alert">{{ problem }}</p>
+        }
         <p class="section-intro">The method, step by step.</p>
 
         @if (instructionGroups().length === 0) {
-          <p class="muted">No instructions yet.</p>
+          <p class="muted">No instructions yet. Add the first step, and give the method phases only if it has them.</p>
+          <div class="group-actions">
+            <button cpButton type="button" (click)="addInstructionStep()">Add step</button>
+          </div>
         }
 
+        <div class="grouped-layout" [class.has-group-nav]="showInstructionGroupNav()">
+          @if (showInstructionGroupNav()) {
+            <!-- The same component the ingredient editor renders, so the two navs cannot drift apart. It says
+                 which group was asked for; scrolling and focus are this editor's business. -->
+            <cp-anchor-nav
+              class="group-nav"
+              ariaLabel="Instruction groups"
+              [items]="instructionGroupNav()"
+              [activeTargetId]="activeInstructionGroupTargetId()"
+              (activated)="onInstructionGroupNavActivated($event)"
+            />
+          }
+
+          <div class="groups">
         @for (group of instructionGroups(); track group.key; let groupIndex = $index, groupCount = $count) {
-          <section class="group instruction-group">
+          <section class="group instruction-group" [id]="'instruction-group-' + group.key">
+            <!-- Only a method with phases has headings to show; see the same @if in the ingredient editor. -->
+            @if (showInstructionGroups()) {
             <div class="group-header">
-              <cp-field [label]="'Group ' + (groupIndex + 1) + ' heading'" [forId]="'group-title-' + group.key">
+              <cp-field
+                [label]="'Group ' + (groupIndex + 1) + ' heading'"
+                [forId]="'group-title-' + group.key"
+                [error]="instructionGroupProblem(group.key)"
+              >
                 <input
                   [id]="'group-title-' + group.key"
                   type="text"
@@ -317,11 +567,19 @@
                 </button>
               </div>
             </div>
+            }
 
             <ol class="steps">
               @for (step of group.steps; track step.key; let stepIndex = $index, stepCount = $count) {
                 <li class="step">
-                  <cp-field [label]="'Step ' + (stepIndex + 1)" [forId]="'step-text-' + step.key" [required]="true">
+                  <!-- The server reports a refused step at its position, so its sentence lands on the step it is
+                       about rather than on the whole method. -->
+                  <cp-field
+                    [label]="'Step ' + (stepIndex + 1)"
+                    [forId]="'step-text-' + step.key"
+                    [required]="true"
+                    [error]="stepProblem(step.key)"
+                  >
                     <textarea
                       [id]="'step-text-' + step.key"
                       [ngModel]="step.text"
@@ -330,16 +588,35 @@
                     ></textarea>
                   </cp-field>
 
-                  <cp-field label="Duration (minutes)" [forId]="'step-duration-' + step.key">
-                    <input
-                      [id]="'step-duration-' + step.key"
-                      type="number"
-                      min="0"
-                      [ngModel]="step.durationMinutes"
-                      (ngModelChange)="updateInstructionStep(group.key, step.key, { durationMinutes: $event })"
-                      [name]="'stepDuration' + step.key"
-                    />
-                  </cp-field>
+                  <!-- Most steps have no duration, and a number box on every one of a dozen reads as a field
+                       the creator is expected to fill in. So it is offered rather than presented — except on a
+                       step that already records one, which is shown without being looked for. Once on it stays
+                       on, because a field disappearing mid-edit is worse than an empty one. -->
+                  @if (step.showDuration) {
+                    <cp-field label="Duration (minutes)" [forId]="'step-duration-' + step.key" hint="Optional. Counted against the recipe's total time.">
+                      <input
+                        [id]="'step-duration-' + step.key"
+                        type="number"
+                        min="0"
+                        [ngModel]="step.durationMinutes"
+                        (ngModelChange)="updateInstructionStep(group.key, step.key, { durationMinutes: $event })"
+                        [name]="'stepDuration' + step.key"
+                      />
+                    </cp-field>
+                  } @else {
+                    <div class="step-reveal">
+                      <button
+                        cpButton
+                        variant="text"
+                        size="sm"
+                        type="button"
+                        [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
+                        (click)="revealStepDuration(group.key, step.key)"
+                      >
+                        + Add a duration
+                      </button>
+                    </div>
+                  }
 
                   <cp-field label="Note" [forId]="'step-note-' + step.key">
                     <input
@@ -393,113 +670,20 @@
             <button cpButton variant="secondary" type="button" (click)="addInstructionStep(group.key)">Add step</button>
           </section>
         }
+          </div>
+        </div>
 
         <button cpButton type="button" (click)="addInstructionGroup()">Add instruction group</button>
-      </cp-tab-panel>
-
-      <cp-tab-panel id="notes">
-        <h2 class="section-heading">Notes</h2>
-        <p class="section-intro">Extra context for future you, and for other creators in this workspace.</p>
-
-        <cp-field label="Notes" forId="recipe-notes" [error]="fieldError('notes')">
-          <textarea
-            id="recipe-notes"
-            [attr.aria-invalid]="fieldError('notes') ? 'true' : null"
-            [ngModel]="notes()"
-            (ngModelChange)="notes.set($event)"
-            name="notes"
-          ></textarea>
-        </cp-field>
-
-        <cp-field label="Storage notes" forId="recipe-storage-notes" [error]="fieldError('storageNotes')">
-          <textarea
-            id="recipe-storage-notes"
-            [attr.aria-invalid]="fieldError('storageNotes') ? 'true' : null"
-            [ngModel]="storageNotes()"
-            (ngModelChange)="storageNotes.set($event)"
-            name="storageNotes"
-          ></textarea>
-        </cp-field>
-      </cp-tab-panel>
-
-      <cp-tab-panel id="timing">
-        <h2 class="section-heading">Timing &amp; yield</h2>
-        <p class="section-intro">How long it takes, and how much it makes.</p>
-
-        <cp-field label="Prep time (minutes)" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
-          <input
-            id="recipe-prep-time"
-            type="number"
-            min="0"
-            [attr.aria-invalid]="fieldError('prepTimeMinutes') ? 'true' : null"
-            [ngModel]="prepTimeMinutes()"
-            (ngModelChange)="prepTimeMinutes.set($event)"
-            name="prepTimeMinutes"
-          />
-        </cp-field>
-
-        <cp-field label="Cook time (minutes)" forId="recipe-cook-time" [error]="fieldError('cookTimeMinutes')">
-          <input
-            id="recipe-cook-time"
-            type="number"
-            min="0"
-            [attr.aria-invalid]="fieldError('cookTimeMinutes') ? 'true' : null"
-            [ngModel]="cookTimeMinutes()"
-            (ngModelChange)="cookTimeMinutes.set($event)"
-            name="cookTimeMinutes"
-          />
-        </cp-field>
-
-        <cp-field label="Rest time (minutes)" forId="recipe-rest-time" [error]="fieldError('restTimeMinutes')">
-          <input
-            id="recipe-rest-time"
-            type="number"
-            min="0"
-            [attr.aria-invalid]="fieldError('restTimeMinutes') ? 'true' : null"
-            [ngModel]="restTimeMinutes()"
-            (ngModelChange)="restTimeMinutes.set($event)"
-            name="restTimeMinutes"
-          />
-        </cp-field>
-
-        <cp-field label="Total time (minutes)" forId="recipe-total-time" [error]="fieldError('totalTimeMinutes')">
-          <input
-            id="recipe-total-time"
-            type="number"
-            min="0"
-            [attr.aria-invalid]="fieldError('totalTimeMinutes') ? 'true' : null"
-            [ngModel]="totalTimeMinutes()"
-            (ngModelChange)="totalTimeMinutes.set($event)"
-            name="totalTimeMinutes"
-          />
-        </cp-field>
-
-        <cp-field label="Yield" forId="recipe-yield-text" [error]="fieldError('yieldText')">
-          <input
-            id="recipe-yield-text"
-            type="text"
-            placeholder="e.g. 4 servings"
-            [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
-            [ngModel]="yieldText()"
-            (ngModelChange)="yieldText.set($event)"
-            name="yieldText"
-          />
-        </cp-field>
-
-        <cp-field label="Yield quantity" forId="recipe-yield-quantity" [error]="fieldError('yieldQuantity')">
-          <input
-            id="recipe-yield-quantity"
-            type="number"
-            min="0"
-            [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
-            [ngModel]="yieldQuantity()"
-            (ngModelChange)="yieldQuantity.set($event)"
-            name="yieldQuantity"
-          />
-        </cp-field>
+      </section>
+          </cp-tab-panel>
+        </cp-tabs>
       </cp-tab-panel>
 
       @if (!isCreateMode) {
+        <cp-tab-panel id="tools">
+          <!-- An inner tablist, not three stacked sections: each calculator fetches on mount, and the
+               panels keep them lazy so opening Tools does not start three requests at once. -->
+          <cp-tabs [tabs]="toolTabs" ariaLabel="Recipe calculations" [(selectedId)]="selectedToolId">
         <cp-tab-panel id="scaling">
           <!-- Mounted lazily by the tab, and read-only throughout: the panel asks the server for a scaling
                preview and renders it. Nothing it shows is saved, and the "before" column is the saved
@@ -525,6 +709,8 @@
             [recipeId]="recipeIdOrEmpty"
             [sourceVersionNumber]="currentVersionNumber()"
             [savedIngredientGroups]="ingredientGroups()"
+            [editorIsDirty]="isDirty()"
+            (applyRequested)="onUnitConversionApplyRequested($event)"
           />
 
           <hr class="conversion-divider" />
@@ -561,6 +747,8 @@
             [sourceVersionNumber]="currentVersionNumber()"
             [savedIngredientGroups]="ingredientGroups()"
           />
+        </cp-tab-panel>
+          </cp-tabs>
         </cp-tab-panel>
 
         <cp-tab-panel id="media">

@@ -55,3 +55,32 @@ textarea {
 .match-row cp-field {
   flex: 1 1 12rem;
 }
+
+/* Wraps rather than shrinking: at a narrow width the selector and the bulk button each take their own row
+   instead of squeezing the button's count out of sight. */
+.batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--cp-space-3);
+  padding-bottom: var(--cp-space-3);
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.batch-actions cp-field {
+  flex: 1 1 14rem;
+  max-width: 24rem;
+}
+
+.batch-actions-accept {
+  display: grid;
+  gap: var(--cp-space-1);
+  justify-items: start;
+}
+
+.batch-actions-note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}

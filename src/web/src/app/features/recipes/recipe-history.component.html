@@ -4,6 +4,24 @@
 
 <cp-list-shell heading="Version history" [state]="listState()" [errorMessage]="errorMessage()">
   <div cpListShellActions>
+    @if (loadState().status === 'ready' && canChoose()) {
+      <!-- Beside the button rather than only down in the rows: on a long history the two chosen rows and the
+           button that acts on them cannot be on screen at once, so the pair is said here in words. -->
+      <span class="selection" aria-hidden="true">{{ selectionLabel() }}</span>
+
+      <button cpButton variant="ghost" type="button" aria-label="Swap the two versions" (click)="swap()">⇄</button>
+
+      <button
+        cpButton
+        type="button"
+        [disabled]="!canCompare() || comparing()"
+        [attr.aria-busy]="comparing()"
+        (click)="compare()"
+      >
+        {{ comparing() ? 'Comparing…' : 'Compare' }}
+      </button>
+    }
+
     <!-- The panel is never destroyed once its tab has been opened, and saving an edit happens in another
          tab, so without this the list would go on describing a history the recipe has moved past. -->
     <button cpButton variant="secondary" type="button" (click)="load()">Refresh</button>
@@ -32,7 +50,7 @@
     </div>
   }
 
-  <ul class="versions">
+  <ul class="versions" role="list">
     @for (version of versions(); track version.id) {
       <li class="version" [attr.aria-current]="isCurrent(version) ? 'true' : null">
         @if (canChoose()) {
@@ -68,17 +86,29 @@
             <cp-status-pill [tone]="readinessTone(version)" [icon]="version.readiness === 'Ready' ? '✓' : '◐'">
               {{ version.readiness }}
             </cp-status-pill>
-
-            <!-- Only provenance worth naming gets a pill; an ordinary creator edit gets none, so the rows
-                 that differ are the ones that stand out. -->
-            @if (provenance(version); as origin) {
-              <cp-status-pill tone="neutral" [icon]="origin.icon">{{ origin.text }}</cp-status-pill>
-            }
           </p>
 
+          <!-- Author, time and where the version came from, as one sentence rather than a third pill in the
+               line above: the number is what a creator scans, and provenance is something they read once they
+               have found the row. Only provenance worth naming appears — an ordinary creator edit says
+               nothing, so the rows that differ are the ones that stand out. -->
           <p class="version-meta">
             {{ authorOf(version) }} ·
             <time [attr.datetime]="version.createdAt">{{ version.createdAt | date: 'd MMM y, HH:mm' }}</time>
+
+            @if (provenance(version); as origin) {
+              <span class="version-origin">
+                · <span class="version-origin-glyph" aria-hidden="true">{{ origin.icon }}</span>
+                <!-- A restore says which version it copied, which is the whole question a restore row raises. -->
+                {{ restoredFromLabel(version) ?? origin.text }}
+              </span>
+            }
+
+            @if (followsLabel(version); as follows) {
+              <!-- Said only when the parent is not the number below, which is when the numbering alone stops
+                   describing the shape of the history. -->
+              <span class="version-origin">· {{ follows }}</span>
+            }
           </p>
 
           @if (version.reason) {
@@ -138,23 +168,9 @@
 </cp-list-shell>
 
 @if (loadState().status === 'ready' && canChoose()) {
-  <div class="compare">
-    <button cpButton variant="ghost" type="button" aria-label="Swap the two versions" (click)="swap()">⇄</button>
-
-    <button
-      cpButton
-      type="button"
-      [disabled]="!canCompare() || comparing()"
-      [attr.aria-busy]="comparing()"
-      (click)="compare()"
-    >
-      {{ comparing() ? 'Comparing…' : 'Compare' }}
-    </button>
-
-    @if (comparingWithItself()) {
-      <p class="compare-note">Both sides name the same version, so there will be nothing to show.</p>
-    }
-  </div>
+  @if (comparingWithItself()) {
+    <p class="compare-note">Both sides name the same version, so there will be nothing to show.</p>
+  }
 
   @switch (comparisonState().status) {
     @case ('stale') {
@@ -172,7 +188,12 @@
     @case ('ready') {
       @if (comparisonState(); as state) {
         @if (state.status === 'ready') {
-          <cp-recipe-version-comparison [comparison]="state.comparison" />
+          <!-- Focusable, and focused when a comparison lands: on a long history the answer renders below rows
+               the creator has scrolled past, and a live region alone helps nobody who can see. `tabindex="-1"`
+               only — it is a destination, never a tab stop. -->
+          <div class="comparison-region" tabindex="-1">
+            <cp-recipe-version-comparison [comparison]="state.comparison" />
+          </div>
         }
       }
     }

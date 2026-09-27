@@ -1334,6 +1334,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("DisplayTextSource")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("IngredientId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1374,6 +1377,10 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
+
+                    b.Property<string>("UnitText")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uniqueidentifier");

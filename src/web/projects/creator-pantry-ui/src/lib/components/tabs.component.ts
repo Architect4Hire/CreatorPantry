@@ -5,7 +5,7 @@ export interface CpTabDefinition { id: string; label: string; disabled?: boolean
 @Component({
   selector: 'cp-tabs', standalone: true,
   template: `<div role="tablist" [attr.aria-label]="ariaLabel()" (keydown)="onKeydown($event)">@for(tab of tabs(); track tab.id){<button type="button" role="tab" [id]="'tab-'+tab.id" [attr.data-tab-id]="tab.id" [attr.aria-controls]="'panel-'+tab.id" [attr.aria-selected]="isSelected(tab.id)" [attr.aria-disabled]="tab.disabled || null" [attr.tabindex]="isSelected(tab.id) ? 0 : -1" [disabled]="tab.disabled || false" (click)="selectTab(tab.id)">{{tab.label}}</button>}</div><ng-content />`,
-  styles: [`:host{display:block}[role='tablist']{display:flex;gap:var(--cp-space-1);border-bottom:1px solid var(--cp-border)}[role='tab']{appearance:none;border:0;background:transparent;padding:var(--cp-space-2) var(--cp-space-4);font:600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans);color:var(--cp-text-muted);cursor:pointer;border-radius:var(--cp-radius-md) var(--cp-radius-md) 0 0;margin-bottom:-1px;border-bottom:2px solid transparent}[role='tab']:hover:not(:disabled){color:var(--cp-text)}[role='tab'][aria-selected='true']{color:var(--cp-primary);border-bottom-color:var(--cp-primary)}[role='tab']:disabled{color:var(--cp-text-faint);cursor:not-allowed}`],
+  styles: [`:host{display:block}[role='tablist']{display:flex;flex-wrap:wrap;gap:var(--cp-space-1);border-bottom:1px solid var(--cp-border)}[role='tab']{appearance:none;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;min-height:2.5rem;padding:var(--cp-space-2) var(--cp-space-4);font:600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans);color:var(--cp-text-muted);cursor:pointer;border-radius:var(--cp-radius-md) var(--cp-radius-md) 0 0;margin-bottom:-1px;border-bottom:2px solid transparent}[role='tab']:hover:not(:disabled){color:var(--cp-text)}[role='tab'][aria-selected='true']{color:var(--cp-primary);border-bottom-color:var(--cp-primary)}[role='tab']:disabled{color:var(--cp-text-faint);cursor:not-allowed}`],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CpTabsComponent {
@@ -65,7 +65,12 @@ export class CpTabsComponent {
   }
 
   private focusTab(id: string): void {
-    const buttons = this.elementRef.nativeElement.querySelectorAll<HTMLButtonElement>('button[role="tab"]');
+    // Scoped to this instance's own tablist rather than the whole host: the host also contains the
+    // projected panels, so an unscoped query reaches a nested cp-tabs' buttons and would let an ancestor
+    // steal focus from a descendant whenever two levels happen to share a tab id.
+    const buttons = this.elementRef.nativeElement.querySelectorAll<HTMLButtonElement>(
+      ':scope > [role="tablist"] > button[role="tab"]',
+    );
     for (const button of Array.from(buttons)) {
       if (button.dataset['tabId'] === id) { button.focus(); return; }
     }

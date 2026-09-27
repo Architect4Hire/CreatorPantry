@@ -1,6 +1,10 @@
-<cp-field label="Paste ingredient lines" forId="paste-ingredients-text" hint="One ingredient per line, exactly as you'd type it into a recipe.">
+<cp-field
+  label="Paste ingredient lines"
+  [forId]="pasteFieldId"
+  hint="One ingredient per line, exactly as you'd type it into a recipe."
+>
   <textarea
-    id="paste-ingredients-text"
+    [id]="pasteFieldId"
     rows="6"
     placeholder="2 cups all-purpose flour&#10;1/2 tsp kosher salt&#10;1 (14.5 oz) can diced tomatoes"
     [ngModel]="pastedText()"
@@ -22,6 +26,51 @@
 }
 
 @if (state().status === 'parsed') {
+  <!-- Where the batch lands, and the one bulk action, above the list rather than below it: both are about the
+       whole batch, and the selector has to stay in view while the creator works down the per-line buttons,
+       which honour it too. -->
+  <div class="batch-actions">
+    <cp-field label="Add to" [forId]="targetGroupFieldId">
+      <select
+        [id]="targetGroupFieldId"
+        name="pasteTargetGroup"
+        [value]="targetGroupKey() ?? newGroupValue"
+        (change)="onTargetGroupChange($any($event.target).value)"
+      >
+        @for (group of groups(); track group.key) {
+          <option [value]="group.key">{{ group.label }}</option>
+        }
+        <option [value]="newGroupValue">A new group at the end</option>
+      </select>
+    </cp-field>
+
+    <div class="batch-actions-accept">
+      <button
+        cpButton
+        type="button"
+        [disabled]="bulkAcceptableCount() === 0"
+        (click)="acceptAllMatched()"
+      >
+        Add all matched ({{ bulkAcceptableCount() }})
+      </button>
+
+      <!-- Says what the bulk action will not touch, so "all matched" is never mistaken for "all of it". -->
+      <p class="batch-actions-note">
+        @if (needsReviewCount() > 0) {
+          {{ needsReviewCount() }} {{ needsReviewCount() === 1 ? 'line needs' : 'lines need' }} review
+        } @else {
+          Nothing left to review
+        }
+        @if (groupMarkerCount() > 0) {
+          · {{ groupMarkerCount() }} {{ groupMarkerCount() === 1 ? 'heading' : 'headings' }} skipped
+        }
+      </p>
+    </div>
+  </div>
+
+  <!-- Silent to sighted users, who see each line's button turn to "Added". -->
+  <div class="cp-sr-only" role="status" aria-live="polite">{{ bulkAnnouncement() }}</div>
+
   <ul class="review-list">
     @for (line of lines(); track $index; let index = $index) {
       <li class="review-line">

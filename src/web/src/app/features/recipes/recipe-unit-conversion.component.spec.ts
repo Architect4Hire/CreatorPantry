@@ -47,6 +47,8 @@ const SAVED_GROUPS: readonly RecipeIngredientGroup[] = [
         quantityUpper: null,
         measurementUnitId: 'unit-gram',
         ingredientId: null,
+        displayTextSource: 'Creator',
+        unitText: null,
         matchStatus: 'NotAttempted',
         preparationNote: null,
         isOptional: false,
@@ -61,6 +63,8 @@ const SAVED_GROUPS: readonly RecipeIngredientGroup[] = [
         quantityUpper: null,
         measurementUnitId: null,
         ingredientId: null,
+        displayTextSource: 'Creator',
+        unitText: null,
         matchStatus: 'NotAttempted',
         preparationNote: null,
         isOptional: false,
@@ -75,6 +79,8 @@ const SAVED_GROUPS: readonly RecipeIngredientGroup[] = [
         quantityUpper: null,
         measurementUnitId: null,
         ingredientId: null,
+        displayTextSource: 'Creator',
+        unitText: null,
         matchStatus: 'NotAttempted',
         preparationNote: null,
         isOptional: false,
@@ -159,10 +165,11 @@ function optionTexts(fixture: ComponentFixture<RecipeUnitConversionComponent>, s
 describe('RecipeUnitConversionComponent', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('says that nothing is saved before any conversion is made', async () => {
+  it('says up front that converting alone changes nothing, and where recording is possible', async () => {
     const { fixture } = await createFixture();
 
-    expect(text(fixture)).toContain('nothing here is saved');
+    expect(text(fixture)).toContain('Converting changes nothing by itself');
+    expect(text(fixture)).toContain('record it on that line');
     expect(text(fixture)).toContain('Choose an amount and two units');
   });
 
@@ -302,14 +309,16 @@ describe('RecipeUnitConversionComponent', () => {
 
   // Said in words rather than left as a missing button: a control that is simply absent reads as an
   // oversight, and this names what would bring it back.
-  it('says why a converted amount cannot be saved back yet', async () => {
+  it('says why a freehand conversion cannot be recorded on anything', async () => {
     const harness = await createFixture();
     harness.fixture.componentInstance.quantityValue.set(1000);
     harness.fixture.componentInstance.fromUnitId.set('unit-gram');
     harness.fixture.componentInstance.toUnitId.set('unit-kilogram');
     await convert(harness, (req) => req.flush(conversionPayload()));
 
-    expect(text(harness.fixture)).toContain('needs ingredient saving');
+    // Typed rather than prefilled, so the result belongs to no line and says so — the one thing this card must
+    // never do is offer a control that would write to a line it was not computed from.
+    expect(text(harness.fixture)).toContain("isn't tied to a saved line");
     expect(harness.fixture.nativeElement.querySelector('.apply')).toBeNull();
   });
 
@@ -526,5 +535,162 @@ describe('RecipeUnitConversionComponent', () => {
       `#${harness.fixture.componentInstance.toFieldId}`,
     );
     expect(select.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  /**
+   * Whether a conversion can be recorded on the line it came from.
+   *
+   * A converted amount may only be written to a line whose wording this recipe assembled: `recipes.md` keeps a
+   * line the creator wrote verbatim, so a new amount beneath one would leave the line stating the old amount.
+   * Every case that cannot be recorded says so — an absent button reads as an oversight, which is the dead end
+   * this replaced.
+   */
+  describe('recording a conversion on its line', () => {
+    /** A line the recipe assembled, which is therefore one whose wording may be re-derived. */
+    const COMPOSED_GROUPS: readonly RecipeIngredientGroup[] = [
+      {
+        ...SAVED_GROUPS[0],
+        ingredients: [
+          { ...SAVED_GROUPS[0].ingredients[0], id: 'line-composed', displayTextSource: 'Composed', unitText: 'g' },
+          {
+            ...SAVED_GROUPS[0].ingredients[0],
+            id: 'line-range',
+            displayText: '250–300 g flour',
+            displayTextSource: 'Composed',
+            quantityUpper: 300,
+          },
+        ],
+      },
+    ];
+
+    async function withGroups(groups: readonly RecipeIngredientGroup[]): Promise<Harness> {
+      const harness = await createFixture();
+      harness.fixture.componentRef.setInput('savedIngredientGroups', groups);
+      harness.fixture.detectChanges();
+      return harness;
+    }
+
+    function applyButton(fixture: ComponentFixture<RecipeUnitConversionComponent>): HTMLButtonElement | null {
+      return fixture.nativeElement.querySelector('.apply-action button');
+    }
+
+    /** Prefills from a line, converts, and hands back the panel. */
+    async function convertFromLine(harness: Harness, lineId: string): Promise<void> {
+      harness.fixture.componentInstance.prefillFrom(lineId);
+      harness.fixture.componentInstance.toUnitId.set('unit-kilogram');
+      await convert(harness, (req) => req.flush(conversionPayload()));
+    }
+
+    it('offers the apply for a line whose wording the recipe assembled, and emits what it was shown', async () => {
+      const harness = await withGroups(COMPOSED_GROUPS);
+      const applications: unknown[] = [];
+      harness.fixture.componentInstance.applyRequested.subscribe((application) => applications.push(application));
+
+      await convertFromLine(harness, 'line-composed');
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('ready');
+      expect(applyButton(harness.fixture)?.textContent?.trim()).toBe('Record this on the line');
+
+      applyButton(harness.fixture)!.click();
+
+      expect(applications).toEqual([
+        {
+          recipeIngredientId: 'line-composed',
+          quantity: 0.25,
+          measurementUnitId: 'unit-kilogram',
+          // The unit as the creator was shown it, which becomes the line's own wording for it.
+          unitText: 'kilogram',
+          lineLabel: '250 g all-purpose flour',
+          beforeLabel: '250 g',
+          afterLabel: '0.25 kg',
+        },
+      ]);
+    });
+
+    // The rule this whole restriction exists for.
+    it('refuses a line the creator worded, and says what it would have done to it', async () => {
+      const harness = await createFixture();
+
+      // SAVED_GROUPS' first line is `Creator`.
+      await convertFromLine(harness, 'line-1');
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('creatorWording');
+      expect(applyButton(harness.fixture)).toBeNull();
+      expect(text(harness.fixture)).toContain("This line's wording is yours");
+      expect(text(harness.fixture)).toContain('250 g all-purpose flour');
+    });
+
+    it('refuses a range, because converting one end of one would corrupt it', async () => {
+      const harness = await withGroups(COMPOSED_GROUPS);
+
+      await convertFromLine(harness, 'line-range');
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('range');
+      expect(applyButton(harness.fixture)).toBeNull();
+      expect(text(harness.fixture)).toContain('records a range');
+    });
+
+    // The editorIsDirty contract: a calculation is computed against the recipe as last saved.
+    it('refuses while the form beside it holds unsaved edits', async () => {
+      const harness = await withGroups(COMPOSED_GROUPS);
+      harness.fixture.componentRef.setInput('editorIsDirty', true);
+
+      await convertFromLine(harness, 'line-composed');
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('blockedByEdits');
+      expect(applyButton(harness.fixture)).toBeNull();
+      expect(text(harness.fixture)).toContain('Save or discard your changes first');
+    });
+
+    it('a freehand amount has no line to be recorded on, and says so', async () => {
+      const harness = await withGroups(COMPOSED_GROUPS);
+      harness.fixture.componentInstance.quantityValue.set(1000);
+      harness.fixture.componentInstance.fromUnitId.set('unit-gram');
+      harness.fixture.componentInstance.toUnitId.set('unit-kilogram');
+      await convert(harness, (req) => req.flush(conversionPayload()));
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('freehand');
+      expect(applyButton(harness.fixture)).toBeNull();
+      expect(text(harness.fixture)).toContain("isn't tied to a saved line");
+    });
+
+    /**
+     * The selector is a prefill, not a binding — the amount stays editable afterwards. A result computed from
+     * an edited amount is no longer that line's conversion, and must not be offered as one.
+     */
+    it('stops belonging to the line once the amount is edited away from it', async () => {
+      const harness = await withGroups(COMPOSED_GROUPS);
+      harness.fixture.componentInstance.prefillFrom('line-composed');
+      harness.fixture.componentInstance.quantityValue.set(999);
+      harness.fixture.componentInstance.toUnitId.set('unit-kilogram');
+      await convert(harness, (req) => req.flush(conversionPayload()));
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('freehand');
+      expect(applyButton(harness.fixture)).toBeNull();
+    });
+
+    it('offers nothing before a conversion, and nothing after a refused one', async () => {
+      const harness = await withGroups(COMPOSED_GROUPS);
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('nothingToApply');
+
+      harness.fixture.componentInstance.prefillFrom('line-composed');
+      harness.fixture.componentInstance.toUnitId.set('unit-kilogram');
+      await convert(harness, (req) => req.flush({}, { status: 503, statusText: 'Unavailable' }));
+
+      expect(harness.fixture.componentInstance.applyTarget()).toBe('nothingToApply');
+      expect(applyButton(harness.fixture)).toBeNull();
+    });
+
+    // Nothing is written here under any circumstances; the panel raises and the editor performs.
+    it('emits nothing when the apply is not on offer', async () => {
+      const harness = await createFixture();
+      const applications: unknown[] = [];
+      harness.fixture.componentInstance.applyRequested.subscribe((application) => applications.push(application));
+
+      await convertFromLine(harness, 'line-1');
+      harness.fixture.componentInstance.applyToLine();
+
+      expect(applications).toEqual([]);
+    });
   });
 });

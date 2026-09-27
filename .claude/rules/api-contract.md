@@ -22,6 +22,11 @@ All product routes are versioned from the first endpoint: `/api/v1/...`.
 
 Adding optional fields is usually compatible. Renaming/removing fields, changing meaning, changing nullability, narrowing accepted values, or changing ordering/pagination semantics is breaking. Add a new API version or migration path rather than quietly changing a shipped contract.
 
+The reviewed document at `src/CreatorPantry.Tests/Api/Snapshots/openapi-v1.json` is part of the contract, not a
+by-product of it: `OpenApiContractTests` fails on any shape change until the snapshot is regenerated with
+`UPDATE_OPENAPI_SNAPSHOT=1`, and that diff is what tells a reviewer whether the change was additive. Regenerate
+it in the same change that alters the shape, and read the diff before committing it.
+
 ## Examples
 
 ```text

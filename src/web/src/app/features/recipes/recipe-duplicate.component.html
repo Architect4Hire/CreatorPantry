@@ -26,7 +26,6 @@
       required
       [maxlength]="titleMaxLength"
       [attr.aria-invalid]="titleError() ? 'true' : null"
-      [attr.aria-describedby]="titleFieldId + '-hint'"
       [disabled]="submitting()"
       [ngModel]="title()"
       (ngModelChange)="title.set($event)"

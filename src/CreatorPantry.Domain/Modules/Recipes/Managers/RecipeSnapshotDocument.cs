@@ -185,7 +185,17 @@ public sealed record RecipeSnapshotIngredient
 
     public required string DisplayText { get; init; }
 
+    /// <summary>
+    /// Whether <see cref="DisplayText"/> was the creator's wording or was assembled from the spans below.
+    /// Archived because a restore that lost it would turn an assembled line into one nothing may re-derive,
+    /// or — worse — the other way about. See <see cref="IngredientDisplayTextSource"/>.
+    /// </summary>
+    public IngredientDisplayTextSource DisplayTextSource { get; init; }
+
     public string? IngredientNameText { get; init; }
+
+    /// <summary>The unit span as the creator wrote it, which for an unmatched unit is all the version records of it.</summary>
+    public string? UnitText { get; init; }
 
     public decimal? Quantity { get; init; }
 

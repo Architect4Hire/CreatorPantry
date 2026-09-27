@@ -28,6 +28,12 @@
   <section aria-labelledby="field-heading">
     <h2 id="field-heading">Field</h2>
     <p class="section-note">Label, hint, required, error, disabled, and every projected control type.</p>
+    <p class="section-note">
+      The control is projected, so no template binding can reach it — the field wires <code>aria-describedby</code>
+      to its hint and error, and <code>aria-required</code> when required, after each render. Without that the
+      <code>*</code> and the hint are visible and invisible at once. Optionality is the inverse and is stated
+      once per form: marking one optional field among a dozen unmarked ones makes the rest read as required.
+    </p>
     <div class="field-grid">
       <cp-field label="Recipe title" forId="showcase-default">
         <input id="showcase-default" placeholder="Creamy roasted tomato soup" />
@@ -188,6 +194,43 @@
         <p class="section-note">Disabled — never reachable via click or arrow keys.</p>
       </cp-tab-panel>
     </cp-tabs>
+
+    <h3>A long list wraps, and an area can nest its own tabs</h3>
+    <p class="section-note">
+      Too many tabs for one row go to a second row rather than scrolling sideways, so none is hidden off the
+      edge at narrow widths or at 200% zoom. Narrow this window to see it. “Tools” nests a second tablist,
+      which is how the recipe editor keeps each calculation lazy behind its own tab.
+    </p>
+    <cp-tabs
+      ariaLabel="Workspace areas"
+      [tabs]="manyTabs"
+      [selectedId]="selectedManyTabId()"
+      (selectedIdChange)="selectedManyTabId.set($event ?? 'tools')"
+    >
+      <cp-tab-panel id="tools">
+        <cp-tabs
+          ariaLabel="Recipe calculations"
+          [tabs]="nestedTabs"
+          [selectedId]="selectedNestedTabId()"
+          (selectedIdChange)="selectedNestedTabId.set($event ?? 'scale')"
+        >
+          <cp-tab-panel id="scale">
+            <p class="section-note">Scale a batch of brown-butter blondies from 16 to 24 squares.</p>
+          </cp-tab-panel>
+          <cp-tab-panel id="convert">
+            <p class="section-note">Cups to grams for the same flour line, with the rounding shown.</p>
+          </cp-tab-panel>
+          <cp-tab-panel id="yield">
+            <p class="section-note">Reconcile “makes 4 jars” against a yield quantity of 4.</p>
+          </cp-tab-panel>
+        </cp-tabs>
+      </cp-tab-panel>
+      @for (area of manyTabs.slice(1); track area.id) {
+        <cp-tab-panel [id]="area.id">
+          <p class="section-note">{{ area.label }} content.</p>
+        </cp-tab-panel>
+      }
+    </cp-tabs>
   </section>
 
   <section aria-labelledby="toolbar-heading">
@@ -254,6 +297,102 @@
 
     <p class="section-note">Narrowed to the kinds one surface actually renders, so it explains nothing a reader will not meet.</p>
     <cp-diff-legend [show]="['added', 'removed', 'changed', 'moved']" />
+  </section>
+
+  <section aria-labelledby="combobox-heading">
+    <h2 id="combobox-heading">Combobox</h2>
+    <p class="section-note">
+      A text input that filters a list it is given, with the WAI-ARIA combobox keyboard: arrows to move,
+      <code>Home</code>/<code>End</code> to jump, <code>Enter</code> to choose, <code>Escape</code> to close
+      without losing what was typed. Focus never leaves the input — the active row is named by
+      <code>aria-activedescendant</code> — and the number of remaining rows is announced. It fetches nothing;
+      a consumer filtering server-side passes its own list with <code>[filterLocally]="false"</code>.
+    </p>
+    <p class="section-note">
+      It renders no label of its own: it composes inside <code>cp-field</code>, which owns the label, hint and
+      error, and whose input styling reaches the text box inside it.
+    </p>
+    <p class="section-note">
+      A caret marks it as a picker, and clicking the box opens the list — without both, a combobox wearing
+      <code>cp-field</code>'s ordinary input styling is indistinguishable from a text box, and a creator who
+      clicks it and waits concludes the picker is missing. Focus alone does not open it: tabbing through a form
+      would pop every list open on the way past and announce a count nobody asked for.
+    </p>
+
+    <cp-field label="Unit" forId="showcase-unit" hint="Must be one of the measurement units">
+      <cp-combobox
+        inputId="showcase-unit"
+        [options]="unitOptions"
+        [(value)]="unitText"
+        [(selected)]="unit"
+        mode="restricted"
+        placeholder="Start typing — cups, grams…"
+      />
+    </cp-field>
+    <p class="section-note">
+      Restricted: text that names no unit reverts when the field is left, so the box only ever reads as the unit
+      it stands for. Chosen: <strong>{{ unit()?.label ?? 'nothing yet' }}</strong>.
+    </p>
+
+    <cp-field label="Tag" forId="showcase-tag" hint="Pick an existing tag or write a new one">
+      <cp-combobox inputId="showcase-tag" [options]="tagOptions" [(value)]="tagText" [(selected)]="tag" mode="free-text">
+        <span cpComboboxEmpty>No tag by that name yet — it will be created.</span>
+      </cp-combobox>
+    </cp-field>
+    <p class="section-note">
+      Free text: what was typed stands, and the selection says whether it names something that already exists.
+      Typed <strong>{{ tagText() || '—' }}</strong>, which is
+      <strong>{{ tag() ? 'an existing tag' : 'new' }}</strong>.
+    </p>
+
+    <cp-field label="Unit (unavailable)" forId="showcase-unit-disabled" hint="Disabled while a save is in flight">
+      <cp-combobox inputId="showcase-unit-disabled" [options]="unitOptions" [disabled]="true" />
+    </cp-field>
+  </section>
+
+  <section aria-labelledby="checkbox-heading">
+    <h2 id="checkbox-heading">Checkbox</h2>
+    <p class="section-note">
+      A drawn control, because an unstyled <code>&lt;input type="checkbox"&gt;</code> is painted from the
+      inherited <code>color-scheme</code> — in dark mode its <em>unchecked</em> box is a dark filled square — and
+      arrives at 13×13 with no author focus ring. The real input is still there, focusable and announced; it is
+      only visually replaced. Checked reads as a glyph, so the state does not depend on telling two colours
+      apart, and the whole label is a 40px target.
+    </p>
+    <div class="button-extras">
+      <cp-checkbox label="Optional" [(checked)]="showcaseOptional" />
+      <cp-checkbox label="Use the short form of the unit (c, g, tbsp)" [(checked)]="showcaseAbbreviate" />
+      <cp-checkbox label="Unavailable while a save is in flight" [disabled]="true" />
+      <cp-checkbox label="Disabled and checked" [checked]="true" [disabled]="true" />
+    </div>
+  </section>
+
+  <section aria-labelledby="anchor-nav-heading">
+    <h2 id="anchor-nav-heading">Anchor nav</h2>
+    <p class="section-note">
+      Ordinary navigation over a document that is all present — every item tabbable in order, no roving
+      tabindex, deliberately not a tablist. It emits which destination was asked for; scrolling and focus stay
+      with the consumer, which is the only side that can name the control worth focusing. With no items it
+      renders nothing at all, so a surface with one section shows no empty shell.
+    </p>
+    <cp-anchor-nav
+      ariaLabel="Showcase groups"
+      [items]="anchorNavItems"
+      [activeTargetId]="activeAnchorNavId()"
+      (activated)="onAnchorNavActivated($event)"
+    />
+    <p class="section-note">
+      Set <code>--cp-anchor-nav-direction: column</code> on the host — from inside a container query,
+      typically — to stack it in a gutter. The default wrapping row is what fits above the content it names on
+      a narrow screen and at 200% zoom.
+    </p>
+    <cp-anchor-nav
+      style="--cp-anchor-nav-direction: column; max-width: 12rem"
+      ariaLabel="Showcase groups, stacked"
+      [items]="anchorNavItems"
+      [activeTargetId]="activeAnchorNavId()"
+      (activated)="onAnchorNavActivated($event)"
+    />
   </section>
 
   <section aria-labelledby="toast-heading">

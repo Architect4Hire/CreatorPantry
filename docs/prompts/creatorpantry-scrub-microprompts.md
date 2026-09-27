@@ -1774,6 +1774,15 @@ null case (a replay). The reviewer's remaining notes were on test coverage, and 
 a step change, a tag addition, the temperature refusal, an over-long value, an inexpressible target, and accepting
 onto an archived recipe.*
 
+*Fourth, a collision worth recording. Work landing alongside this one added an ingredients patch field to the
+recipe update seam, and the `MergeAsync` extraction above moved the body that consumes its resolved unit
+dimensions out of that parameter's scope — `aspire run` failed to build on `CS0103: ingredientUnitDimensions`.
+The fix threads the map through `MergeAsync`, with the AI path passing an empty one because no proposal can name
+a unit. The larger consequence is that the premise for excluding ingredients from `AiDiffFields` has expired:
+the patch can now express them, so the exclusion is a lag rather than a limit, and the remarks on
+`AiDiffFields`, `AiChangeApplicability` and `ProposedRecipeTarget` now say so and name what restoring them
+needs. That restoration is not done here.*
+
 ```text
 SCOPE: Implement AIREC-007: accept all, accept selected, reject, and feedback through POST
 .../ai-proposals/{proposalId}/disposition. Accepted changes pass ordinary recipe domain validation and
@@ -1785,7 +1794,7 @@ BEHAVIOR: Plan selection and transaction contract, wait for approval, implement 
 partial, reject, stale, invalid, replay, rollback, and two-workspace tests; then run ai-safety-reviewer.
 ```
 
-### 8.13 AI proposal review UI
+### 8.13 AI proposal review UI *PICK UP HERE*
 
 ```text
 SCOPE: Build the AI proposal panel and operation-status UI with Requested/Running/Proposed/final states,

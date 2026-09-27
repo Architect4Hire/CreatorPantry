@@ -1,5 +1,17 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  OnInit,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   CpButtonComponent,
   CpEmptyStateComponent,
@@ -100,6 +112,8 @@ const DUPLICATE_ROLES: readonly WorkspaceRole[] = ['Contributor', 'Editor', 'Own
 export class RecipeHistoryComponent implements OnInit {
   private readonly recipeService = inject(RecipeService);
   private readonly membershipService = inject(WorkspaceMembershipService);
+  private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly workspaceSlug = input.required<string>();
   readonly recipeId = input.required<string>();
@@ -374,6 +388,7 @@ export class RecipeHistoryComponent implements OnInit {
     switch (outcome.status) {
       case 'found':
         this.comparisonStateSignal.set({ status: 'ready', comparison: outcome.comparison });
+        this.revealComparison();
         break;
       // Both mean the picker is describing versions the server does not have — the recipe changed underneath
       // it, or a number was never valid. Reloading the list is the remedy either way, so they read alike.
@@ -519,6 +534,74 @@ export class RecipeHistoryComponent implements OnInit {
    */
   authorOf(version: RecipeVersionHistoryEntry): string {
     return version.createdByName ?? 'A former member';
+  }
+
+  /**
+   * Which version a restore took its content from, named rather than left as an id.
+   *
+   * The most useful fact about a restore row and the reason someone opens this panel: "Restored" alone does
+   * not say restored *from what*. The id is resolved against the versions actually loaded, because the source
+   * can be older than the page on screen — and then it is said as what it is rather than guessed at.
+   */
+  restoredFromLabel(version: RecipeVersionHistoryEntry): string | null {
+    if (version.restoredFromVersionId === null) return null;
+
+    const source = this.versions().find((candidate) => candidate.id === version.restoredFromVersionId);
+
+    return source ? `restored from version ${source.versionNumber}` : 'restored from an earlier version';
+  }
+
+  /**
+   * The version this one follows, said only when it is not the number immediately below.
+   *
+   * On a linear history the parent is always N−1, so saying it on every row would be noise on all of them to
+   * be useful on none. It becomes news exactly when a version was written from somewhere other than the tip,
+   * which is when the history's shape stops being obvious from the numbering.
+   */
+  followsLabel(version: RecipeVersionHistoryEntry): string | null {
+    if (version.parentVersionId === null) return null;
+
+    const parent = this.versions().find((candidate) => candidate.id === version.parentVersionId);
+    if (!parent || parent.versionNumber === version.versionNumber - 1) return null;
+
+    return `follows version ${parent.versionNumber}`;
+  }
+
+  /**
+   * The pair the compare button will ask about, in words.
+   *
+   * Said beside the button rather than only in the rows, because on a long history the two chosen rows and the
+   * button that acts on them cannot be on screen together.
+   */
+  readonly selectionLabel = computed(() => {
+    const from = this.fromVersion();
+    const to = this.toVersion();
+    if (from === null || to === null) return 'Choose two versions';
+
+    return `${from} → ${to}`;
+  });
+
+  /**
+   * Moves to the comparison once it exists.
+   *
+   * On a long history the two chosen rows and the answer cannot be on screen together: a creator picks From
+   * near the top, To forty rows down, and the result lands below all of them. The live region says it arrived,
+   * which is no help to anyone who can see — and leaving focus on the button strands a keyboard user above a
+   * result they then have to hunt for.
+   *
+   * The region is focused rather than the heading inside it, because that reads the heading out first and needs
+   * nothing from `RecipeVersionComparisonComponent`, whose behaviour is not this change's business. It waits
+   * for the render that creates the region; there is nothing to move to before it.
+   */
+  private revealComparison(): void {
+    afterNextRender(
+      () => {
+        const region = this.elementRef.nativeElement.querySelector<HTMLElement>('.comparison-region');
+        region?.focus();
+        region?.scrollIntoView({ block: 'nearest' });
+      },
+      { injector: this.injector },
+    );
   }
 
   /** The accessible name for one side's radio, which must say which side as well as which version. */
