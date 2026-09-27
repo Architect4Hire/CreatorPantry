@@ -24,7 +24,7 @@ description: Add grounded CreatorPantry generation, semantic search, or structur
 7. Route scaling/conversion/arithmetic/date math to deterministic domain functions.
 8. Persist `AiGeneration` and `GenerationArtifact` provenance, status, model, prompt version, input references, usage, latency, and acceptance outcome.
 9. Support cancellation and idempotent retries.
-10. Add an evaluation set covering quality, schema failure, injection, isolation, unsafe food claims, and deterministic routing.
+10. Add an evaluation set (see **Writing an evaluation fixture** below) covering quality, schema failure, injection, isolation, unsafe food claims, and deterministic routing.
 
 ## Writing a prompt template
 
@@ -138,6 +138,40 @@ budget.
 Register the provider-specific `IAiFailureClassifier` before `AddAiModule`. The domain fallback cannot read an
 SDK's status code, so with it a rate limit and a safety block both look like generic transient faults — and a
 safety block that is retried is the failure `ai.md` specifically forbids.
+
+## Writing an evaluation fixture
+
+The versioned evaluation set step 10 asks for has a working precedent: `src/CreatorPantry.Tests/Ai/Evaluation/`
+runs a small harness of fixtures against the AI foundation's own deterministic machinery, using fakes only —
+never a network call, a provider credential, or a paid model.
+
+One JSON file per fixture, `Fixtures/<Category>/<id>-<version>.eval.json`, embedded the same way a prompt
+template is. Required fields: `id`, `version` (`major.minor.patch`, reusing `PromptTemplateVersion`),
+`category`, `kind`, `description`, `input`, `expect`. `AiEvaluationFixtureStore` loads and validates every
+fixture at test-collection time, fail-fast, the same way `EmbeddedPromptTemplateStore` does for prompts.
+
+`kind` picks which case runner the fixture's `input`/`expect` shape is written for:
+
+- `OutputValidation` — `AiOutputValidator.Validate` directly. Schema-validity and schema-failure fixtures for
+  *any* capability are new `.eval.json` files here, no new C#: supply a `payload`, `expectedSchemaVersion` and
+  `scope`, and assert the `reasonCode`/`category` a rejection carries (or that a sound answer validates).
+- `PromptEnvelope` — `PromptEnvelopeBuilder` directly. Proves untrusted text lands fenced in the user message
+  and never in the system message — structural containment only. It does not and cannot prove a model declines
+  an injected instruction; that is behaviour a fixture against a fake provider cannot demonstrate.
+- `ProposalAssembly` — `AiDiffCalculator` + `AiProposalAssembler` together, over a hand-built snapshot and
+  answer, no persistence. Stale-source and proposal-acceptance fixtures for any capability plug in here as new
+  `.eval.json` files too, since both are generic over an arbitrary `AiOutputChange` list.
+- `WorkerOperation` — the full SQLite-backed `IAiOperationWorker` pipeline, against a fake `IChatClient` when a
+  scenario needs one. Proves workspace isolation and provider-classification behaviour (e.g. a safety block is
+  recorded once and never retried). **This is the one kind with no generic fixture path today**: proving a
+  specific capability's real `IAiTaskHandler`, calling the gateway with its own real prompt-template id, needs
+  a new hand-written case modeled on `WorkerOperationCase.cs`, not just a new fixture file.
+
+**"Expected quality" has no fixture kind.** Every case above is structural/deterministic — schema shape,
+envelope fencing, diff math, workspace scoping — against fakes, and none judges whether generated prose is
+actually good, on-topic, or non-hallucinated. That is a real, open gap, not an oversight: judge quality some
+other way (a human review pass, or an LLM-judge step outside this harness) and do not assume a passing
+`.eval.json` set has covered it.
 
 ## Capability cautions
 

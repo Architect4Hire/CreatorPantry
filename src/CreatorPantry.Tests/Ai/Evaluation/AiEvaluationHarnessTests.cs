@@ -36,7 +36,7 @@ public sealed class AiEvaluationHarnessTests
     [Fact]
     public void The_fixture_store_loaded_every_known_fixture()
     {
-        Assert.Equal(9, Store().All.Count);
+        Assert.Equal(12, Store().All.Count);
     }
 
     /// <summary>Every category this task's SCOPE names has at least one fixture demonstrating it.</summary>

@@ -36,14 +36,23 @@ internal sealed class OutputValidationCase : IAiEvaluationCase
                     $"expected the answer to validate, but it was rejected: {result.Failure!.ReasonCode} "
                     + $"({result.Failure.Message})"),
 
-            "Rejected" => Rejected(result, expect),
+            "Rejected" => Rejected(fixture.Identity, result, expect),
 
             _ => throw new AiEvaluationException(fixture.Identity, $"'expect.outcome' is not recognised: '{expect.Outcome}'."),
         });
     }
 
-    private static AiEvaluationVerdict Rejected(AiOutputValidationResult result, Expect expect)
+    private static AiEvaluationVerdict Rejected(string fixtureIdentity, AiOutputValidationResult result, Expect expect)
     {
+        // A fixture-authoring mistake, not a verdict: an omitted reasonCode would let this fixture pass no
+        // matter *why* the answer was rejected, silently weakening the regression check the category exists
+        // for. Caught here rather than left to case-runner discipline.
+        if (expect.ReasonCode is null)
+        {
+            throw new AiEvaluationException(
+                fixtureIdentity, "'expect.reasonCode' is required when 'expect.outcome' is 'Rejected'.");
+        }
+
         if (result.Succeeded)
         {
             return AiEvaluationVerdict.Fail("expected the answer to be rejected, but it validated.");

@@ -28,10 +28,23 @@ internal sealed class ProposalAssemblyCase : IAiEvaluationCase
         var expect = fixture.Expect.Deserialize<Expect>(Json)
             ?? throw new AiEvaluationException(fixture.Identity, "'expect' is null.");
 
+        // A fixture-authoring mistake, not a verdict: an omitted reasonCode would let this fixture pass no
+        // matter *why* assembly was refused, silently weakening the regression check the category exists for.
+        if (expect.Outcome == "Refused" && expect.ReasonCode is null)
+        {
+            throw new AiEvaluationException(
+                fixture.Identity, "'expect.reasonCode' is required when 'expect.outcome' is 'Refused'.");
+        }
+
         var snapshot = new RecipeSnapshotDocument
         {
             SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
-            Recipe = new RecipeSnapshotHeader { Title = input.RecipeTitle, Headnote = input.Headnote },
+            Recipe = new RecipeSnapshotHeader
+            {
+                Title = input.RecipeTitle,
+                Headnote = input.Headnote,
+                YieldQuantity = input.YieldQuantity,
+            },
         };
 
         var output = new AiOutputDocument { SchemaVersion = input.SchemaVersion, Changes = input.Changes };
@@ -113,6 +126,7 @@ internal sealed class ProposalAssemblyCase : IAiEvaluationCase
         Guid? CurrentVersionId,
         string RecipeTitle,
         string? Headnote,
+        decimal? YieldQuantity,
         string SchemaVersion,
         IReadOnlyList<AiOutputChange> Changes);
 

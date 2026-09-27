@@ -1,0 +1,17 @@
+{
+  "id": "foundation.schema-validity.malformed-json",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "A truncated or otherwise non-JSON response -- the single most likely real-world failure shape -- is rejected as malformed, not partially parsed or guessed at.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"fixture.v1\", \"changes\": [",
+    "expectedSchemaVersion": "fixture.v1",
+    "scope": "WholeRecipe"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.malformed_json",
+    "category": "OutputSchemaInvalid"
+  }
+}

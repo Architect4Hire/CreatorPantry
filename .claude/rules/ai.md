@@ -42,5 +42,5 @@ Use code—not a model—for recipe scaling, unit and temperature conversion, pe
 
 ## Evaluation
 
-Each capability has a small versioned evaluation set covering expected quality, refusal/safety cases, workspace isolation, prompt injection, schema failures, and deterministic-tool routing. A prompt change that materially affects behavior updates and runs the evaluation set.
+Each capability has a small versioned evaluation set covering expected quality, refusal/safety cases, workspace isolation, prompt injection, schema failures, and deterministic-tool routing. A prompt change that materially affects behavior updates and runs the evaluation set. See the `add-ai-capability` skill for the fixture format and `src/CreatorPantry.Tests/Ai/Evaluation/` for the harness and loader.
 

@@ -1,0 +1,17 @@
+{
+  "id": "foundation.schema-validity.schema-version-mismatch",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "An answer declaring a schema version other than the one its template was rendered against is rejected before its shape is even examined -- the drift a versioned template guards against.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.v2\",\"changes\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.v1",
+    "scope": "WholeRecipe"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch",
+    "category": "OutputSchemaInvalid"
+  }
+}
