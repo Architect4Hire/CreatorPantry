@@ -32,4 +32,12 @@ public enum AiTaskType
     /// budget, and creator style. Names no recipe: the brief is the source, not a pinned version.
     /// </summary>
     RecipeConcepts = 2,
+
+    /// <summary>
+    /// AIREC-002: proposes one complete structured first draft — title, description, yield, timing,
+    /// ingredient groups, ordered instructions, equipment, notes, and unresolved questions — from a selected
+    /// concept or declared brief fields. Names no recipe: like <see cref="RecipeConcepts"/>, there is nothing
+    /// yet to pin a version against.
+    /// </summary>
+    RecipeFirstDraft = 3,
 }

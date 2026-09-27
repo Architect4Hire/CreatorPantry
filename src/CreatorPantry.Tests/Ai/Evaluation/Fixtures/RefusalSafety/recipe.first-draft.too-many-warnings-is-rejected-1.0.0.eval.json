@@ -1,0 +1,16 @@
+{
+  "id": "recipe.first-draft.too-many-warnings-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "Unlike every other list on this document, Warnings started with no count cap. A genuinely important SafetyCaution could be diluted among an unbounded number of low-value Assumption entries -- exactly the risk this fixture guards against by asserting the ceiling is enforced.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Weeknight Mapo Tofu\",\"ingredientGroups\":[{\"ingredients\":[{\"displayText\":\"Tofu\"}]}],\"instructions\":[{\"steps\":[{\"text\":\"Simmer.\"}]}],\"warnings\":[{\"kind\":\"Assumption\",\"message\":\"1\"},{\"kind\":\"Assumption\",\"message\":\"2\"},{\"kind\":\"Assumption\",\"message\":\"3\"},{\"kind\":\"Assumption\",\"message\":\"4\"},{\"kind\":\"Assumption\",\"message\":\"5\"},{\"kind\":\"Assumption\",\"message\":\"6\"},{\"kind\":\"Assumption\",\"message\":\"7\"},{\"kind\":\"Assumption\",\"message\":\"8\"},{\"kind\":\"Assumption\",\"message\":\"9\"},{\"kind\":\"Assumption\",\"message\":\"10\"},{\"kind\":\"Assumption\",\"message\":\"11\"},{\"kind\":\"Assumption\",\"message\":\"12\"},{\"kind\":\"Assumption\",\"message\":\"13\"},{\"kind\":\"Assumption\",\"message\":\"14\"},{\"kind\":\"Assumption\",\"message\":\"15\"},{\"kind\":\"Assumption\",\"message\":\"16\"},{\"kind\":\"Assumption\",\"message\":\"17\"},{\"kind\":\"Assumption\",\"message\":\"18\"},{\"kind\":\"Assumption\",\"message\":\"19\"},{\"kind\":\"Assumption\",\"message\":\"20\"},{\"kind\":\"Assumption\",\"message\":\"21\"}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.recipe_draft_too_many_items",
+    "category": "DomainInvalid"
+  }
+}

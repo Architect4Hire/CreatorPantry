@@ -1,0 +1,16 @@
+{
+  "id": "recipe.first-draft.empty-ingredient-group-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "A proposed ingredient group with no ingredients at all is meaningless and is refused, rather than stored as a heading nobody can review anything under.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Weeknight Mapo Tofu\",\"ingredientGroups\":[{\"ingredients\":[]}],\"instructions\":[{\"steps\":[{\"text\":\"Mix.\"}]}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.recipe_draft_empty_group",
+    "category": "DomainInvalid"
+  }
+}

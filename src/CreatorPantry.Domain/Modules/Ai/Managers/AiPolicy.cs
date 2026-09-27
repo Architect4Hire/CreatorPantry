@@ -96,6 +96,88 @@ public static class AiPolicy
     /// </summary>
     public const int TaskInputsJsonMaxLength = 4000;
 
+    // ---- AIREC-002: structured first-draft output (AiRecipeDraftOutputDocument) ----
+    //
+    // Sized independently of RecipePolicy's own limits, not by referencing them — AiPolicy and RecipePolicy
+    // are different modules' Managers types, and backend.md's module-boundary rule treats a Managers type the
+    // same as any other domain model that must not cross a module boundary directly. The values below are
+    // chosen to match RecipePolicy's limits in spirit, so an accepted draft that cleared this validator can
+    // never then be refused by RecipePolicy's own bounds at 9.4b's acceptance step.
+
+    /// <summary>A recipe draft's proposed title.</summary>
+    public const int RecipeDraftTitleMaxLength = 200;
+
+    /// <summary>A recipe draft's proposed description.</summary>
+    public const int RecipeDraftDescriptionMaxLength = 2000;
+
+    /// <summary>A recipe draft's proposed working notes.</summary>
+    public const int RecipeDraftNotesMaxLength = 4000;
+
+    /// <summary>The proposed yield exactly as phrased: "makes 12 muffins".</summary>
+    public const int RecipeDraftYieldTextMaxLength = 200;
+
+    /// <summary>
+    /// The yield unit as free text ("loaves", "cups") — never a <c>MeasurementUnitId</c>; see the module-level
+    /// remark on why no vocabulary identifier appears anywhere in this document.
+    /// </summary>
+    public const int RecipeDraftYieldUnitTextMaxLength = 64;
+
+    /// <summary>An ingredient-group or instruction-group heading: "For the streusel".</summary>
+    public const int RecipeDraftGroupTitleMaxLength = 200;
+
+    /// <summary>One ingredient line or equipment line, exactly as proposed.</summary>
+    public const int RecipeDraftLineTextMaxLength = 500;
+
+    /// <summary>One instruction step's text.</summary>
+    public const int RecipeDraftStepTextMaxLength = 4000;
+
+    /// <summary>A per-line preparation note, a per-step aside, or an equipment note.</summary>
+    public const int RecipeDraftNoteMaxLength = 1000;
+
+    /// <summary>The parsed ingredient-name span of a line.</summary>
+    public const int RecipeDraftIngredientNameTextMaxLength = 128;
+
+    /// <summary>The unit span of an ingredient line as proposed: "cups", "tablespoons", "large".</summary>
+    public const int RecipeDraftUnitTextMaxLength = 64;
+
+    /// <summary>One open question the model could not confidently resolve on its own.</summary>
+    public const int RecipeDraftUnresolvedQuestionMaxLength = 500;
+
+    /// <summary>The fewest ingredient groups a draft may propose. Every recipe has at least one ingredient list.</summary>
+    public const int MinIngredientGroups = 1;
+
+    /// <summary>The most ingredient groups one draft may propose, so a review stays reviewable.</summary>
+    public const int MaxIngredientGroups = 10;
+
+    /// <summary>The most ingredient lines one group may propose.</summary>
+    public const int MaxIngredientLinesPerGroup = 30;
+
+    /// <summary>The fewest instruction groups a draft may propose. Every recipe has at least one method.</summary>
+    public const int MinInstructionGroups = 1;
+
+    /// <summary>The most instruction groups one draft may propose.</summary>
+    public const int MaxInstructionGroups = 10;
+
+    /// <summary>The most instruction steps one group may propose.</summary>
+    public const int MaxInstructionStepsPerGroup = 30;
+
+    /// <summary>The most equipment items one draft may propose.</summary>
+    public const int MaxEquipmentItems = 20;
+
+    /// <summary>The most unresolved questions one draft may list.</summary>
+    public const int MaxUnresolvedQuestions = 10;
+
+    /// <summary>
+    /// The most warnings one draft may list.
+    /// </summary>
+    /// <remarks>
+    /// Without a cap, a whole-draft warning list carrying a genuinely important <c>SafetyCaution</c> could
+    /// have that caution diluted among an unbounded number of low-value <c>Assumption</c> entries — the exact
+    /// risk a review flagged. <see cref="AiConceptOutputValidator"/> has the same uncapped gap today; this
+    /// document is the one most likely to carry a real safety caution, so it is closed here first.
+    /// </remarks>
+    public const int MaxRecipeDraftWarnings = 20;
+
     /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>

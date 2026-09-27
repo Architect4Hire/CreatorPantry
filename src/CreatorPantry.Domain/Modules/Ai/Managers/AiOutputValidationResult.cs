@@ -50,6 +50,18 @@ public static class AiOutputReason
 
     /// <summary>A concept is missing its title, summary, or distinctness rationale.</summary>
     public const string ConceptFieldMissing = "ai.output.concept_field_missing";
+
+    /// <summary>A recipe draft is missing a required field, or a required list has no usable entries.</summary>
+    public const string RecipeDraftFieldMissing = "ai.output.recipe_draft_field_missing";
+
+    /// <summary>A recipe draft proposed fewer or more ingredient or instruction groups than the capability allows.</summary>
+    public const string RecipeDraftGroupCountOutOfRange = "ai.output.recipe_draft_group_count_out_of_range";
+
+    /// <summary>An ingredient or instruction group was proposed with no lines or steps at all.</summary>
+    public const string RecipeDraftEmptyGroup = "ai.output.recipe_draft_empty_group";
+
+    /// <summary>A recipe draft proposed more lines, steps, or equipment items than one group or the draft allows.</summary>
+    public const string RecipeDraftTooManyItems = "ai.output.recipe_draft_too_many_items";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

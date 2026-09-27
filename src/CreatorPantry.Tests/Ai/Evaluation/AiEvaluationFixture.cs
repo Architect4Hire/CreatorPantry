@@ -39,6 +39,13 @@ public enum AiEvaluationKind
     /// SchemaValidity fixtures cannot run through <see cref="OutputValidation"/>'s case runner.
     /// </summary>
     ConceptOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiRecipeDraftOutputValidator.Validate"/> directly,
+    /// for AIREC-002's own document and its own domain rules — the same reason <see cref="ConceptOutputValidation"/>
+    /// exists apart from <see cref="OutputValidation"/>.
+    /// </summary>
+    RecipeDraftOutputValidation,
 }
 
 /// <summary>

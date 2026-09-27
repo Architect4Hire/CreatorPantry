@@ -1,0 +1,16 @@
+{
+  "id": "recipe.first-draft.negative-quantity-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "A negative ingredient quantity is never a real measurement and is refused rather than silently kept or clamped to zero -- the same treatment RecipeDraftOutputValidatorTests exercises directly for timing and yield fields.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Weeknight Mapo Tofu\",\"ingredientGroups\":[{\"ingredients\":[{\"displayText\":\"Tofu\",\"quantity\":-2}]}],\"instructions\":[{\"steps\":[{\"text\":\"Simmer.\"}]}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.domain_invalid",
+    "category": "DomainInvalid"
+  }
+}

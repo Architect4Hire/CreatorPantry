@@ -39,4 +39,11 @@ public enum AiWarningKind
     /// explicit caution, and is never a guarantee in either direction.
     /// </summary>
     SafetyCaution = 5,
+
+    /// <summary>
+    /// A question the model has for the creator, distinct from an <see cref="Assumption"/>: an assumption is
+    /// what the model took as given; this is what it declined to guess at all. AIREC-002 is the first
+    /// capability to emit one.
+    /// </summary>
+    UnresolvedQuestion = 6,
 }

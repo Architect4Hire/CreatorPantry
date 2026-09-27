@@ -1,0 +1,16 @@
+{
+  "id": "recipe.first-draft.vocabulary-id-is-rejected-as-unknown-field",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "AiRecipeDraftOutputDocument has no measurementUnitId, ingredientId, techniqueId, or equipmentTypeId field anywhere -- the model proposes text and numbers, never an identifier it cannot know. An answer that tries to supply one anyway is rejected as an unknown field, proving the model cannot smuggle a vocabulary id through even if it tries.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Weeknight Mapo Tofu\",\"ingredientGroups\":[{\"ingredients\":[{\"displayText\":\"Tofu\",\"measurementUnitId\":\"11111111-1111-1111-1111-111111111111\"}]}],\"instructions\":[{\"steps\":[{\"text\":\"Simmer.\"}]}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

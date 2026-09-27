@@ -1,0 +1,12 @@
+{
+  "id": "recipe.first-draft.minimal-draft-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "A title, one ingredient group with one line, and one instruction group with one step is the smallest shape AIREC-002 asks for, and it validates.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Weeknight Mapo Tofu\",\"ingredientGroups\":[{\"ingredients\":[{\"displayText\":\"1 block silken tofu, cubed\"}]}],\"instructions\":[{\"steps\":[{\"text\":\"Simmer until heated through.\"}]}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

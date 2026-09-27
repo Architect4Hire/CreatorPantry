@@ -1,0 +1,16 @@
+{
+  "id": "recipe.first-draft.control-character-in-a-step-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "AiRecipeDraftInstructionStep has no structured temperature field at all -- see AiRecipeDraftOutputDocument's own remarks for why a bare number with an implied unit is exactly the safety-critical fact this capability refuses to let a model state as settled. What this fixture proves instead is the hygiene stage that guards every string field a step carries: a control character reaching an instruction's text is refused rather than stored verbatim into content a creator will read.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Weeknight Mapo Tofu\",\"ingredientGroups\":[{\"ingredients\":[{\"displayText\":\"Tofu\"}]}],\"instructions\":[{\"steps\":[{\"text\":\"Simmer.\\u0007\"}]}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

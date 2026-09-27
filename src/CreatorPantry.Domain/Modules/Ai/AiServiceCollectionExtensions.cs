@@ -126,6 +126,7 @@ public static class AiServiceCollectionExtensions
     {
         services.AddKeyedScoped<IAiTaskHandler, DiagnosticAiTaskHandler>(AiTaskType.Diagnostic);
         services.AddKeyedScoped<IAiTaskHandler, RecipeConceptsAiTaskHandler>(AiTaskType.RecipeConcepts);
+        services.AddKeyedScoped<IAiTaskHandler, RecipeFirstDraftAiTaskHandler>(AiTaskType.RecipeFirstDraft);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

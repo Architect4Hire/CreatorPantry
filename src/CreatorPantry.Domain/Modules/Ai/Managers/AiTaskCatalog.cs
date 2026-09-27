@@ -41,10 +41,14 @@ public static class AiTaskCatalog
     /// <summary>The discriminator for AIREC-001's recipe concept generation.</summary>
     public const string RecipeConcepts = "recipe.concepts";
 
+    /// <summary>The discriminator for AIREC-002's structured first-draft generation.</summary>
+    public const string RecipeFirstDraft = "recipe.first-draft";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
         [RecipeConcepts] = AiTaskType.RecipeConcepts,
+        [RecipeFirstDraft] = AiTaskType.RecipeFirstDraft,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>

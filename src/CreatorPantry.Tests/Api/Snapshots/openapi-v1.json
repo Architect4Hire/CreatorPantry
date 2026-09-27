@@ -4180,7 +4180,8 @@
         "enum": [
           "Unspecified",
           "Diagnostic",
-          "RecipeConcepts"
+          "RecipeConcepts",
+          "RecipeFirstDraft"
         ],
         "type": "string"
       },
@@ -4191,7 +4192,8 @@
           "CulinaryCaution",
           "NonScalableLanguage",
           "UnverifiedClaim",
-          "SafetyCaution"
+          "SafetyCaution",
+          "UnresolvedQuestion"
         ],
         "type": "string"
       },
