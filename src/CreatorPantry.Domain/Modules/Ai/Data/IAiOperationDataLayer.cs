@@ -106,6 +106,23 @@ internal sealed record AiDispositionWrite(
     int? RecipeVersionNumber = null,
     OperationError? Error = null);
 
+/// <summary>What accepting a first draft wrote.</summary>
+/// <param name="RecipeId">
+/// The recipe this created — or, on a replay, the one the earlier acceptance created.
+/// </param>
+/// <param name="RecipeVersionNumber">Version 1, when a recipe was created.</param>
+/// <remarks>
+/// <strong>A create's replay has to be able to name what it made</strong>, which is the one way this differs
+/// from <see cref="AiDispositionWrite"/>. A disposition can say "no version was written this time" and leave
+/// the client to re-read the recipe it already knows about; a creator retrying an acceptance does not yet know
+/// the recipe's id, and an answer that cannot give it would send them looking for a recipe they cannot find.
+/// </remarks>
+internal sealed record AiDraftAcceptanceWrite(
+    AiDispositionOutcome Outcome,
+    Guid? RecipeId = null,
+    int? RecipeVersionNumber = null,
+    OperationError? Error = null);
+
 /// <summary>Composes the persistence operations the AI worker and facade need.</summary>
 /// <remarks>
 /// <strong>No gateway dependency, deliberately.</strong> A provider call must never happen inside a database
@@ -146,6 +163,19 @@ internal interface IAiOperationDataLayer
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// One concept proposed by a concept-generation request, or null when there is no such concept here.
+    /// </summary>
+    /// <remarks>
+    /// The rows come from the repository and <see cref="AiConceptReader"/> turns them back into the concept
+    /// they describe — composing a complete read out of a query and a projection is what this layer is for,
+    /// and it keeps the flattening rule out of the repository (backend.md).
+    /// </remarks>
+    Task<AiConceptReference?> FindConceptAsync(
+        Guid conceptRequestId,
+        Guid conceptId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Records a decided disposition, applying its accepted changes in the same transaction.
     /// </summary>
     /// <param name="applyAccepted">
@@ -179,7 +209,47 @@ internal interface IAiOperationDataLayer
         AiDispositionInstruction instruction,
         Func<CancellationToken, Task<OperationResult<int?>>> applyAccepted,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records a decided first draft, creating its recipe in the same transaction.
+    /// </summary>
+    /// <param name="createRecipe">
+    /// Creates the recipe and returns its id and version number, or <c>null</c> for a rejection, which creates
+    /// nothing. Supplied by Business because it calls the recipe module's facade — the only route a module may
+    /// take into another — and passed as a delegate so the call happens inside this transaction rather than
+    /// beside it.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong>The same atomic boundary <see cref="DispositionAsync"/> owns, with one more thing inside it.</strong>
+    /// The recipe, its version 1, the per-change dispositions, the feedback row, the operation's terminal
+    /// status, the operation's new <c>RecipeId</c> and the audit entry commit together or none of them do.
+    /// They span two modules and can be one transaction for the same reason as before: both write on the same
+    /// request-scoped <c>DbContext</c>, so the recipe facade enlists here rather than committing on its own.
+    /// </para>
+    /// <para>
+    /// <strong>This is why the recipe module needed a create that is not <c>CreateAsync</c>.</strong> That one
+    /// runs inside <c>IIdempotencyDataLayer.ExecuteAsync</c>, which opens its own transaction — nesting, which
+    /// throws — and clears the change tracker, which would discard the dispositions staged here.
+    /// <c>CreateFromProposalAsync</c> is the same pipeline with that wrapper removed.
+    /// </para>
+    /// <para>
+    /// <strong>Replay is the operation's own status, not an idempotency record.</strong> An operation that has
+    /// left <c>Proposed</c> is re-read inside the transaction; if the same decision was already recorded, the
+    /// recipe it created is returned and nothing is written a second time. That is what stops a retried
+    /// acceptance producing a second recipe — and why the recipe's id is stamped onto the operation here.
+    /// </para>
+    /// </remarks>
+    Task<AiDraftAcceptanceWrite> AcceptDraftAsync(
+        Guid operationId,
+        AiDispositionInstruction instruction,
+        Func<CancellationToken, Task<OperationResult<AiCreatedRecipe?>>> createRecipe,
+        bool carriesEdits,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>The recipe an acceptance created, in the only terms the AI module needs to record.</summary>
+internal sealed record AiCreatedRecipe(Guid RecipeId, int VersionNumber);
 
 /// <inheritdoc cref="IAiOperationDataLayer"/>
 internal sealed class AiOperationDataLayer(
@@ -193,6 +263,20 @@ internal sealed class AiOperationDataLayer(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(operation);
+
+        // The bound the column used to enforce. TaskInputsJson is nvarchar(max) now -- AIREC-002's brief plus a
+        // selected concept exceeds 4000 characters at the declared field bounds, and SQL Server offers nothing
+        // in between -- so the limit has to be checked somewhere every writer passes through. Here, rather than
+        // in one Business class: a second capability writing this column would otherwise inherit no bound at
+        // all. Business refuses first, with a stable code and a message a creator can act on; this is the
+        // backstop that makes AiPolicy.TaskInputsJsonMaxLength true rather than advisory.
+        if (operation.TaskInputsJson is { } inputs && inputs.Length > AiPolicy.TaskInputsJsonMaxLength)
+        {
+            throw new ArgumentException(
+                $"Task inputs exceed {AiPolicy.TaskInputsJsonMaxLength} characters. Refuse the request in "
+                    + "Business rather than letting it reach persistence.",
+                nameof(operation));
+        }
 
         // Read first, because a replay is the common case for a retried HTTP request and losing the insert race
         // is the rare one. Both paths are covered: the unique index is what makes this correct under
@@ -360,6 +444,13 @@ internal sealed class AiOperationDataLayer(
         CancellationToken cancellationToken) =>
         await operations.GetForDispositionAsync(operationId, cancellationToken);
 
+    public async Task<AiConceptReference?> FindConceptAsync(
+        Guid conceptRequestId,
+        Guid conceptId,
+        CancellationToken cancellationToken) =>
+        AiConceptReader.Read(
+            await operations.FindConceptChangesAsync(conceptRequestId, conceptId, cancellationToken));
+
     public async Task<AiDispositionWrite> DispositionAsync(
         Guid operationId,
         AiDispositionInstruction instruction,
@@ -476,6 +567,145 @@ internal sealed class AiOperationDataLayer(
             await transaction.CommitAsync(cancellationToken);
 
             return new AiDispositionWrite(AiDispositionOutcome.Applied, versionNumber);
+        });
+    }
+
+    public async Task<AiDraftAcceptanceWrite> AcceptDraftAsync(
+        Guid operationId,
+        AiDispositionInstruction instruction,
+        Func<CancellationToken, Task<OperationResult<AiCreatedRecipe?>>> createRecipe,
+        bool carriesEdits,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(instruction);
+        ArgumentNullException.ThrowIfNull(createRecipe);
+
+        // The pattern DispositionAsync and IdempotencyDataLayer both use: a retrying execution strategy
+        // re-runs the whole unit, so each attempt has to start from a clean tracker.
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            context.ChangeTracker.Clear();
+
+            await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+            // Re-read inside the transaction. The read Business decided from was taken outside it, and
+            // between the two another request may have accepted this draft — which is exactly the replay case.
+            var loaded = await operations.GetForDispositionAsync(operationId, cancellationToken);
+
+            if (loaded?.Proposal is null)
+            {
+                return new AiDraftAcceptanceWrite(AiDispositionOutcome.NotFound);
+            }
+
+            var operation = loaded.Operation;
+            var changes = loaded.Proposal.Changes;
+
+            if (operation.Status is not AiOperationStatus.Proposed)
+            {
+                var decided = Decided(operation, changes, instruction);
+
+                if (decided.Outcome is not AiDispositionOutcome.Replayed)
+                {
+                    return new AiDraftAcceptanceWrite(decided.Outcome);
+                }
+
+                // A replay that carried rewrites cannot be proven identical to the one that was recorded:
+                // nothing stores what the creator's words were, only that some were theirs. Answering
+                // "already done" would discard the words in this request while reporting success, so the
+                // retry is refused and the creator is sent to the recipe that exists.
+                if (carriesEdits)
+                {
+                    return new AiDraftAcceptanceWrite(AiDispositionOutcome.NotAwaitingDecision);
+                }
+
+                // The recipe the earlier acceptance created, read off the operation it was stamped on. A
+                // replay that could not name it would send a creator looking for a recipe they cannot find —
+                // and version 1 is named with it, because this seam produces no other version and a null
+                // there reads, by this reply's own contract, as "nothing was created".
+                return new AiDraftAcceptanceWrite(
+                    decided.Outcome,
+                    operation.RecipeId,
+                    operation.RecipeId is null ? null : 1);
+            }
+
+            // Created first, and the order is load-bearing for the reason DispositionAsync records: the recipe
+            // data layer clears the change tracker when it refuses, so dispositions staged before this call
+            // would be discarded and the save below would commit a status change with no decisions under it.
+            //
+            // Always invoked. Whether an acceptance creates a recipe is the caller's decision and it has
+            // already made it: a rejection hands over a delegate that answers null. Checking an accepted count
+            // here would be this layer deciding what an accepted change id means.
+            OperationResult<AiCreatedRecipe?> outcome;
+
+            try
+            {
+                outcome = await createRecipe(cancellationToken);
+            }
+            catch
+            {
+                // The transaction rolls back on its own, but the tracker would be left holding a half-built
+                // recipe aggregate. Nothing commits it today, and that should not depend on the host.
+                context.ChangeTracker.Clear();
+
+                throw;
+            }
+
+            if (!outcome.Succeeded)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+
+                return new AiDraftAcceptanceWrite(AiDispositionOutcome.ApplyRefused, Error: outcome.Error);
+            }
+
+            var created = outcome.Value;
+
+            var now = clock.UtcNow;
+
+            foreach (var change in changes)
+            {
+                change.Disposition = instruction.AcceptedChangeIds.Contains(change.Id)
+                    ? AiChangeDisposition.Accepted
+                    : AiChangeDisposition.Rejected;
+
+                change.DecidedAt = now;
+                change.DecidedByMembershipId = instruction.DecidedByMembershipId;
+            }
+
+            operation.Status = instruction.Status;
+            operation.StatusChangedAt = now;
+            operation.CompletedAt = now;
+
+            // What makes the replay above answerable, and the only write this seam makes to the operation's
+            // own shape. The foreign key is composite and carries WorkspaceId, so an operation cannot end up
+            // pointing at a recipe in another workspace even if everything above it were wrong.
+            operation.RecipeId = created?.RecipeId;
+
+            if (instruction.Feedback is not null)
+            {
+                operations.AddFeedback(instruction.Feedback);
+            }
+
+            auditWriter.Record(instruction.Audit);
+
+            try
+            {
+                await operations.SaveAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Two acceptances arrived together and the operation's row version decided between them. The
+                // loser writes nothing; whether the winner made the same decision is answered by re-reading.
+                await transaction.RollbackAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+
+                return new AiDraftAcceptanceWrite(AiDispositionOutcome.NotAwaitingDecision);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return new AiDraftAcceptanceWrite(
+                AiDispositionOutcome.Applied, created?.RecipeId, created?.VersionNumber);
         });
     }
 

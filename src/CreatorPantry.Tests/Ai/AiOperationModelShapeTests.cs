@@ -167,11 +167,20 @@ public sealed class AiOperationModelShapeTests : IDisposable
     /// "Notes" or "LastError" string when something needs debugging.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <see cref="AiOperation.TaskInputsJson"/> is the one deliberate exception, not an oversight this test
     /// failed to catch: it holds a task's own declared, capability-specific fields — AIREC-001's structured
     /// brief, for instance — which are the creator's structured intake for a task with no recipe to be the
-    /// source instead, never a rendered prompt and never a model's answer. A future column that is either of
-    /// those must not widen this list to include it.
+    /// source instead, and never a rendered prompt.
+    /// </para>
+    /// <para>
+    /// It is <em>not</em> free of model-authored text, and saying so here would be false: AIREC-002's
+    /// <c>selectedConcept</c> carries a concept AIREC-001 generated, resolved server-side from the stored
+    /// proposal so that the same key naming two different concepts is a conflict rather than a replay. Those
+    /// words already live on the same workspace's <c>AiStructuredChange</c> rows, so this stores no content
+    /// the workspace did not already hold. What must never land here is this operation's <em>own</em> answer
+    /// or its rendered prompt, and a future column that is either must not widen this list.
+    /// </para>
     /// </remarks>
     [Fact]
     public void Has_no_free_text_column_a_prompt_body_or_generated_content_could_land_in()

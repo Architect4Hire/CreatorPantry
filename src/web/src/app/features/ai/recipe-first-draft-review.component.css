@@ -1,0 +1,323 @@
+/*
+ * Semantic --cp-* tokens only. A literal theme colour here would be a defect (frontend.md), and every value
+ * below already resolves differently in the two themes because the tokens do.
+ */
+
+:host {
+  display: block;
+}
+
+/*
+ * Every layout grid here declares `minmax(0, 1fr)` rather than relying on the implicit `auto` track. An auto
+ * track takes a max-content floor, so one long ingredient line would hold the whole single-column grid wider
+ * than its container and push the page sideways (DESIGN-SYSTEM.md, SC 1.4.10).
+ */
+.draft-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-5);
+  max-width: 62rem;
+}
+
+.draft-header h2 {
+  margin: 0 0 var(--cp-space-2) 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  color: var(--cp-text);
+}
+
+.draft-lede {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.draft-notice {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Missing-required is a statement of fact, not a failure: it reads as information, not as an error. */
+.draft-missing {
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-orange);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-orange-soft);
+  color: var(--cp-text);
+}
+
+.draft-missing p {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+.draft-watch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.draft-watch-note {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+/*
+ * Sticky *below* the shell's fixed topbar, not at the viewport top. The topbar is `position: fixed` at
+ * `z-index: var(--cp-z-topbar)`, so a nav at `top: 0` scrolls underneath it and becomes both invisible and
+ * unclickable — which on a document this long would lose the only in-page navigation there is.
+ */
+.draft-nav {
+  position: sticky;
+  top: var(--cp-topbar-height);
+  z-index: 1;
+  padding: var(--cp-space-2) 0;
+  background: var(--cp-bg);
+}
+
+.draft-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+}
+
+.draft-section h3 {
+  margin: 0;
+  font-size: var(--cp-font-size-lg);
+  color: var(--cp-text);
+  /* Jumped to from the nav, which is sticky under the topbar — without this the heading the nav just focused
+     lands underneath both of them. */
+  scroll-margin-top: calc(var(--cp-topbar-height) + var(--cp-space-10));
+}
+
+/*
+ * The anchor nav moves focus to a heading, so the heading must show it. Without this a keyboard user jumping
+ * between sections would lose track of where they landed — the one thing an in-page nav exists to prevent.
+ */
+.draft-section h3:focus-visible {
+  outline: 3px solid var(--cp-focus);
+  outline-offset: var(--cp-space-1);
+  border-radius: var(--cp-radius-sm);
+}
+
+.draft-section-note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.draft-group-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0 0 var(--cp-space-2) 0;
+  font-size: var(--cp-font-size-md);
+  color: var(--cp-text);
+}
+
+/* ---- Flags ---------------------------------------------------------------- */
+
+.draft-flags {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-flag {
+  display: grid;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-inline-start: 4px solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-subtle);
+}
+
+/*
+ * The label is text, always. The border colour below is a second, redundant carrier of the same fact — a
+ * caution must never be distinguishable by colour alone (WCAG 2.2 AA, 1.4.1).
+ */
+.draft-flag-label {
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--cp-text-muted);
+}
+
+.draft-flag-text {
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.draft-flag[data-kind='SafetyCaution'] {
+  border-inline-start-color: var(--cp-danger);
+  background: var(--cp-danger-soft);
+}
+
+.draft-flag[data-kind='SafetyCaution'] .draft-flag-label {
+  color: var(--cp-danger);
+}
+
+.draft-flag[data-kind='UnresolvedQuestion'] {
+  border-inline-start-color: var(--cp-blue);
+  background: var(--cp-blue-soft);
+}
+
+.draft-flag[data-kind='UnresolvedQuestion'] .draft-flag-label {
+  color: var(--cp-blue);
+}
+
+.draft-flag[data-kind='CulinaryCaution'],
+.draft-flag[data-kind='NonScalableLanguage'],
+.draft-flag[data-kind='UnverifiedClaim'] {
+  border-inline-start-color: var(--cp-orange);
+}
+
+/* ---- Fields --------------------------------------------------------------- */
+
+.draft-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  margin: 0;
+}
+
+.draft-fields-grid {
+  /* The floor is clamped: minmax()’s first argument is a hard minimum, so a bare 12rem pins a 192px track
+     inside card padding at 320px or 200% zoom and pushes the page sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+}
+
+.draft-field dt {
+  margin: 0 0 var(--cp-space-1) 0;
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  color: var(--cp-text-muted);
+}
+
+.draft-field dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  color: var(--cp-text);
+}
+
+.draft-field-required {
+  color: var(--cp-danger);
+}
+
+.draft-field-value {
+  overflow-wrap: anywhere;
+}
+
+/*
+ * An unsupplied value is muted and italic *and* says "Not suggested" in words. The styling is the redundant
+ * half: a creator reading with colour off still meets the sentence.
+ */
+.draft-field-absent {
+  color: var(--cp-text-faint);
+  font-style: italic;
+}
+
+/* ---- Lines and steps ------------------------------------------------------ */
+
+.draft-lines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding-inline-start: var(--cp-space-5);
+}
+
+.draft-line,
+.draft-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-1);
+}
+
+.draft-line-main,
+.draft-step-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.draft-line-text,
+.draft-step-text {
+  color: var(--cp-text);
+  overflow-wrap: anywhere;
+}
+
+.draft-line-note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+/* ---- Editing -------------------------------------------------------------- */
+
+.draft-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.draft-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* ---- Actions -------------------------------------------------------------- */
+
+.draft-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  justify-items: start;
+  padding-top: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
+}
+
+.draft-actions-note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+/*
+ * A sticky nav costs more than it gives on a short viewport, and at 200% zoom it can eat most of the screen.
+ */
+@media (max-height: 40rem) {
+  .draft-nav {
+    position: static;
+  }
+}

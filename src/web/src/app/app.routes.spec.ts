@@ -14,6 +14,7 @@ import { RecipeLibraryComponent } from './features/recipes/recipe-library.compon
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 import { RecipeConceptStudioComponent } from './features/ai/recipe-concept-studio.component';
+import { RecipeFirstDraftReviewComponent } from './features/ai/recipe-first-draft-review.component';
 
 describe('app routes', () => {
   it('guards the public landing route with anonymousOnlyGuard, matching only the exact empty path', () => {
@@ -95,9 +96,14 @@ describe('app routes', () => {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
 
-    // 'ai-recipe-studio' hosts the real AIREC-001 concept form/result page rather than the placeholder.
+    // 'ai-recipe-studio' is a nested grouping like 'recipes': AIREC-001's concept form at its index, and
+    // AIREC-002's first-draft review beside it, so it resolves through children rather than loadComponent.
     const aiRecipeStudioRoute = workspaceRoute.children!.find((route) => route.path === 'ai-recipe-studio')!;
-    expect(await aiRecipeStudioRoute.loadComponent!()).toBe(RecipeConceptStudioComponent);
+    const conceptStudioRoute = aiRecipeStudioRoute.children!.find((route) => route.path === '')!;
+    expect(await conceptStudioRoute.loadComponent!()).toBe(RecipeConceptStudioComponent);
+
+    const draftReviewRoute = aiRecipeStudioRoute.children!.find((route) => route.path === 'draft')!;
+    expect(await draftReviewRoute.loadComponent!()).toBe(RecipeFirstDraftReviewComponent);
 
     // 'recipes' is a nested grouping instead of a single placeholder: an index library route plus
     // 'new'/':recipeId' editor routes, so it resolves through its own children rather than loadComponent.

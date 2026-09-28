@@ -152,6 +152,53 @@ public interface IRecipeFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Creates a recipe, and its version 1, from a generated draft the creator accepted.
+    /// </summary>
+    /// <param name="aiProposalId">The proposal the creator accepted, recorded on the version.</param>
+    /// <param name="draft">The accepted draft, translated into this module's vocabulary by the caller.</param>
+    /// <returns>
+    /// The created recipe, or a failure carrying <see cref="RecipeErrorCodes.RecipeForbidden"/> or
+    /// <see cref="RecipeErrorCodes.RecipeInvalidRequest"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>The create-shaped sibling of <see cref="ApplyProposedChangesAsync"/>,</strong> and it exists
+    /// for the same reason: it is the only way a generated draft becomes a recipe, so an accepted draft is
+    /// subject to the same role check, the same validator and the same cross-module reference rules as a
+    /// recipe a creator typed. The AI module cannot reach this module's repositories, data layer or business
+    /// rules, and nothing here takes a shortcut past them.
+    /// </para>
+    /// <para>
+    /// <strong>It cannot be <see cref="CreateAsync"/>, and the reason is mechanical.</strong> That method
+    /// wraps its work in <c>IIdempotencyDataLayer.ExecuteAsync</c>, which opens a transaction of its own and
+    /// clears the change tracker. Called from inside the AI module's transaction it would nest a transaction
+    /// — which throws — and discard the per-change dispositions staged above it. So this runs the same
+    /// pipeline with the idempotency wrapper removed.
+    /// </para>
+    /// <para>
+    /// <strong>No idempotency key, and no role for one.</strong> The caller has already established, inside
+    /// its own transaction, that this proposal has not been accepted before — an operation that has left
+    /// <c>Proposed</c> is not acceptable again, and the recipe it produced is recorded on it. A second
+    /// idempotency record around that would guard a decision already guarded.
+    /// </para>
+    /// <para>
+    /// <strong>It does not save on its own terms.</strong> The write happens on the request's shared
+    /// <c>DbContext</c>, so it enlists in whatever transaction the caller has open — which is what lets the
+    /// recipe, its first version, the proposal's dispositions and the operation's terminal status commit
+    /// together or not at all.
+    /// </para>
+    /// <para>
+    /// <strong>Created as a draft, always.</strong> Nothing generated arrives Ready: a creator marks their
+    /// own work ready, and a recipe that appeared in that state because a model wrote it would be the
+    /// strongest claim this system makes about content nobody has cooked.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<CreatedRecipeServiceModel>> CreateFromProposalAsync(
+        Guid aiProposalId,
+        ProposedRecipeDraft draft,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads one page of the recipes of the workspace resolved for this scope.
     /// </summary>
     /// <returns>
@@ -561,19 +608,72 @@ internal sealed class RecipeFacade(
         string? idempotencyKey,
         CancellationToken cancellationToken)
     {
+        var prepared = await PrepareCreateAsync(model, cancellationToken);
+
+        if (prepared.Error is { } error)
+        {
+            return Refused<CreatedRecipeServiceModel>(error);
+        }
+
+        return await idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId,
+                workspace.WorkspaceId,
+                CreateOperation,
+                idempotencyKey,
+                // Two requests that would produce the same recipe replay; two that would not are reported as
+                // key reuse rather than silently returning the first one's result.
+                Fingerprint: prepared.Canonical!,
+                // Accepted, not required. api-contract.md says retryable commands "accept an idempotency key";
+                // demanding one would refuse every client that does not send one, and a create is useful
+                // without the protection. A caller who wants exactly-once semantics opts in by sending a key.
+                KeyRequired: false),
+            token => business.CreateAsync(
+                prepared.Canonical!,
+                prepared.YieldUnitDimension,
+                prepared.IngredientUnitDimensions,
+                RecipeVersionOrigin.CreatorEdit,
+                token),
+            cancellationToken);
+    }
+
+    /// <summary>What a create must satisfy before Business is reached, or the first thing that failed.</summary>
+    private sealed record PreparedCreate(
+        OperationError? Error,
+        CanonicalCreateRecipe? Canonical,
+        MeasurementDimension? YieldUnitDimension,
+        IReadOnlyDictionary<Guid, MeasurementDimension> IngredientUnitDimensions);
+
+    /// <summary>
+    /// Everything a create has to clear before Business: the role, the validator, and the cross-module
+    /// references.
+    /// </summary>
+    /// <remarks>
+    /// <strong>One copy, because two would drift.</strong> <see cref="CreateAsync"/> and
+    /// <see cref="CreateFromProposalAsync"/> differ in exactly one thing — whether the Business call is
+    /// wrapped in an idempotency record — and that is the claim <c>CreateFromProposalAsync</c>'s remarks
+    /// make: an accepted draft obeys every rule a typed recipe obeys. Two hand-copied preludes would make
+    /// that claim true only until somebody edited one of them.
+    /// </remarks>
+    private async Task<PreparedCreate> PrepareCreateAsync(
+        CreateRecipeViewModel model,
+        CancellationToken cancellationToken)
+    {
         // Authorization first, so a caller who may not do this learns that rather than which of their ids is
         // invalid. Checked here and not only at the controller policy because this boundary is also reached
         // by workers and AI plugins, which no MVC policy protects.
         if (workspace.Role < WorkspaceRole.Contributor)
         {
-            return Refused<CreatedRecipeServiceModel>(
-                RecipeErrorCodes.RecipeForbidden, "You do not have permission to add recipes to this workspace.");
+            return Rejected(new OperationError(
+                RecipeErrorCodes.RecipeForbidden,
+                "You do not have permission to add recipes to this workspace.",
+                new Dictionary<string, string[]>()));
         }
 
         var validation = await createValidator.ValidateAsync(model, cancellationToken);
         if (!validation.IsValid)
         {
-            return Refused<CreatedRecipeServiceModel>(OperationError.Validation(
+            return Rejected(OperationError.Validation(
                 RecipeErrorCodes.RecipeInvalidRequest,
                 CannotCreate,
                 validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
@@ -587,7 +687,7 @@ internal sealed class RecipeFacade(
             model.CuisineId, model.CourseId, model.PrimaryTechniqueId, model.YieldUnitId, CannotCreate, cancellationToken);
         if (references is not null)
         {
-            return Refused<CreatedRecipeServiceModel>(references);
+            return Rejected(references);
         }
 
         // One value, two uses: it is what gets hashed as the fingerprint and what Business maps the aggregate
@@ -597,32 +697,21 @@ internal sealed class RecipeFacade(
 
         if (await VerifyInstructionReferencesAsync(canonical.Instructions, CannotCreate, cancellationToken) is { } instructionError)
         {
-            return Refused<CreatedRecipeServiceModel>(instructionError);
+            return Rejected(instructionError);
         }
 
         var (ingredientError, ingredientUnitDimensions) = await VerifyIngredientReferencesAsync(
             canonical.IngredientGroups, CannotCreate, cancellationToken);
         if (ingredientError is not null)
         {
-            return Refused<CreatedRecipeServiceModel>(ingredientError);
+            return Rejected(ingredientError);
         }
 
-        return await idempotency.ExecuteAsync(
-            new IdempotentCommand(
-                userId,
-                workspace.WorkspaceId,
-                CreateOperation,
-                idempotencyKey,
-                // Two requests that would produce the same recipe replay; two that would not are reported as
-                // key reuse rather than silently returning the first one's result.
-                Fingerprint: canonical,
-                // Accepted, not required. api-contract.md says retryable commands "accept an idempotency key";
-                // demanding one would refuse every client that does not send one, and a create is useful
-                // without the protection. A caller who wants exactly-once semantics opts in by sending a key.
-                KeyRequired: false),
-            token => business.CreateAsync(canonical, yieldUnitDimension, ingredientUnitDimensions, token),
-            cancellationToken);
+        return new PreparedCreate(null, canonical, yieldUnitDimension, ingredientUnitDimensions);
     }
+
+    private static PreparedCreate Rejected(OperationError error) =>
+        new(error, null, null, EmptyIngredientUnitDimensions);
 
     public Task<OperationResult<RecipeDetailServiceModel>> GetDetailAsync(
         Guid recipeId,
@@ -980,6 +1069,101 @@ internal sealed class RecipeFacade(
         return await business.ApplyProposedChangesAsync(
             recipeId, expectedVersionId, aiProposalId, changes, cancellationToken);
     }
+
+    public async Task<OperationResult<CreatedRecipeServiceModel>> CreateFromProposalAsync(
+        Guid aiProposalId,
+        ProposedRecipeDraft draft,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+
+        // The same prelude a typed recipe clears — role, the real create validator, the cross-module
+        // reference checks — run against the real ViewModel rather than a second set of rules that would
+        // eventually disagree with it. Building the ViewModel is the point: an accepted draft is held to the
+        // bounds a creator’s own recipe is held to, including the one that matters, which is that a recipe
+        // has a title. That is what makes an untitled draft fail atomically.
+        var prepared = await PrepareCreateAsync(ToCreateModel(draft), cancellationToken);
+
+        if (prepared.Error is { } error)
+        {
+            return OperationResult<CreatedRecipeServiceModel>.Failure(error);
+        }
+
+        // Straight to Business, with no idempotency wrapper around it — see the interface remarks. That is the
+        // whole difference from CreateAsync, and it is what lets this enlist in the caller’s transaction.
+        return await business.CreateAsync(
+            prepared.Canonical!,
+            prepared.YieldUnitDimension,
+            prepared.IngredientUnitDimensions,
+            RecipeVersionOrigin.AcceptedFrom(aiProposalId),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The accepted draft as the request a creator would have typed.
+    /// </summary>
+    /// <remarks>
+    /// Built rather than bypassed so that one validator, one canonicalizer and one create path serve both. The
+    /// status is fixed to <c>Draft</c> here rather than taken from anything: see the interface remarks.
+    /// </remarks>
+    private static CreateRecipeViewModel ToCreateModel(ProposedRecipeDraft draft) => new()
+    {
+        Title = draft.Title,
+        Description = draft.Description,
+        Notes = draft.Notes,
+
+        PrepTimeMinutes = draft.PrepTimeMinutes,
+        CookTimeMinutes = draft.CookTimeMinutes,
+        RestTimeMinutes = draft.RestTimeMinutes,
+        TotalTimeMinutes = draft.TotalTimeMinutes,
+
+        YieldText = draft.YieldText,
+        YieldQuantity = draft.YieldQuantity,
+        ServingCount = draft.ServingCount,
+
+        Status = SettableRecipeStatusViewModel.Draft,
+
+        IngredientGroups =
+        [
+            .. draft.IngredientGroups.Select(group => new RecipeIngredientGroupInputViewModel
+            {
+                Title = group.Title,
+                Ingredients =
+                [
+                    .. group.Ingredients.Select(line => new RecipeIngredientInputViewModel
+                    {
+                        DisplayText = line.DisplayText,
+                        // Creator, always. See ProposedRecipeDraftIngredient's own remarks: a line the creator
+                        // read and let stand is theirs, and Composed would licence re-deriving it from spans.
+                        DisplayTextSource = IngredientDisplayTextSource.Creator,
+                        IngredientNameText = line.IngredientNameText,
+                        UnitText = line.UnitText,
+                        Quantity = line.Quantity,
+                        QuantityUpper = line.QuantityUpper,
+                        PreparationNote = line.PreparationNote,
+                        IsOptional = line.IsOptional,
+                    }),
+                ],
+            }),
+        ],
+
+        Instructions =
+        [
+            .. draft.Instructions.Select(group => new RecipeInstructionGroupInputViewModel
+            {
+                Title = group.Title,
+                Steps =
+                [
+                    .. group.Steps.Select(step => new RecipeInstructionStepInputViewModel
+                    {
+                        Text = step.Text,
+                        Note = step.Note,
+                        DurationMinutes = step.DurationMinutes,
+                    }),
+                ],
+            }),
+        ],
+    };
 
     public async Task<IdempotentOutcome<RecipeDetailServiceModel>> RestoreVersionAsync(
         string userId,

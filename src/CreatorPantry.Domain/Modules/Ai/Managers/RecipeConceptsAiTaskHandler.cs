@@ -115,17 +115,17 @@ internal sealed class RecipeConceptsAiTaskHandler(
 
         return $"""
             Brief:
-            - Audience: {Value("audience")}
-            - Course: {Value("course")}
-            - Cuisine: {Value("cuisine")}
-            - Dietary goals: {Value("dietaryGoals")}
-            - Available ingredients: {Value("availableIngredients")}
-            - Exclusions: {Value("exclusions")}
-            - Equipment: {Value("equipment")}
-            - Skill level: {Value("skill")}
-            - Season: {Value("season")}
-            - Time budget: {Value("timeBudget")}
-            - Creator style: {Value("creatorStyle")}
+            - Audience: {Value(AiBriefInputs.Audience)}
+            - Course: {Value(AiBriefInputs.Course)}
+            - Cuisine: {Value(AiBriefInputs.Cuisine)}
+            - Dietary goals: {Value(AiBriefInputs.DietaryGoals)}
+            - Available ingredients: {Value(AiBriefInputs.AvailableIngredients)}
+            - Exclusions: {Value(AiBriefInputs.Exclusions)}
+            - Equipment: {Value(AiBriefInputs.Equipment)}
+            - Skill level: {Value(AiBriefInputs.Skill)}
+            - Season: {Value(AiBriefInputs.Season)}
+            - Time budget: {Value(AiBriefInputs.TimeBudget)}
+            - Creator style: {Value(AiBriefInputs.CreatorStyle)}
             """;
     }
 
@@ -150,13 +150,13 @@ internal sealed class RecipeConceptsAiTaskHandler(
                 AiChangeKind.Add, AiChangeTargetKind.RecipeConcept, targetId,
                 FieldName: null, BeforeValue: null, concept.Title, ProposedPosition: conceptIndex, changes.Count));
 
-            AddSet(changes, targetId, "summary", concept.Summary);
-            AddSet(changes, targetId, "distinctnessRationale", concept.DistinctnessRationale);
-            AddSet(changes, targetId, "assumptions", Join(concept.Assumptions));
-            AddSet(changes, targetId, "suggestedIngredients", Join(concept.SuggestedIngredients));
-            AddSet(changes, targetId, "dietaryNotes", Join(concept.DietaryNotes));
-            AddSet(changes, targetId, "timeBudgetNote", concept.TimeBudgetNote);
-            AddSet(changes, targetId, "skillLevelFit", concept.SkillLevelFit);
+            AddSet(changes, targetId, AiConceptFields.Summary, concept.Summary);
+            AddSet(changes, targetId, AiConceptFields.DistinctnessRationale, concept.DistinctnessRationale);
+            AddSet(changes, targetId, AiConceptFields.Assumptions, Join(concept.Assumptions));
+            AddSet(changes, targetId, AiConceptFields.SuggestedIngredients, Join(concept.SuggestedIngredients));
+            AddSet(changes, targetId, AiConceptFields.DietaryNotes, Join(concept.DietaryNotes));
+            AddSet(changes, targetId, AiConceptFields.TimeBudgetNote, concept.TimeBudgetNote);
+            AddSet(changes, targetId, AiConceptFields.SkillLevelFit, concept.SkillLevelFit);
         }
 
         var warnings = document.Warnings

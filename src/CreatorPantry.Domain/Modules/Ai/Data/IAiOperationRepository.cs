@@ -8,6 +8,7 @@ namespace CreatorPantry.Domain.Modules.Ai.Data;
 /// <summary>An operation and the proposal it produced, if it has produced one yet.</summary>
 internal sealed record AiOperationWithProposal(AiOperation Operation, AiProposal? Proposal);
 
+
 /// <summary>
 /// EF Core access to the AI operation aggregate, within the resolved workspace.
 /// </summary>
@@ -37,6 +38,21 @@ internal interface IAiOperationRepository
     /// to what the creator took cannot answer that afterwards.
     /// </remarks>
     Task<AiOperationWithProposal?> GetForDispositionAsync(Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The stored change rows of one concept proposed by a concept-generation request.
+    /// </summary>
+    /// <param name="conceptRequestId">The concept request's operation id.</param>
+    /// <param name="conceptId">The server-minted id the concept's change rows share.</param>
+    /// <remarks>
+    /// An empty list covers every miss without distinguishing them: no such request, a request belonging to
+    /// another workspace, a request that ran some other task, a request with no proposal yet, and a concept id
+    /// that names nothing in it. The caller turns all of them into one <c>not_found</c>, which is what
+    /// tenancy.md asks for and what stops this read being used to probe for a neighbour's request ids.
+    /// Turning the rows back into a concept is <see cref="AiConceptReader"/>'s job, not this one's.
+    /// </remarks>
+    Task<IReadOnlyList<AiConceptChangeRow>> FindConceptChangesAsync(
+        Guid conceptRequestId, Guid conceptId, CancellationToken cancellationToken);
 
     void AddProposal(AiProposal proposal);
 
@@ -120,6 +136,45 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
             .FirstOrDefaultAsync(candidate => candidate.AiOperationId == operationId, cancellationToken);
 
         return new AiOperationWithProposal(operation, proposal);
+    }
+
+    /// <inheritdoc cref="GetAsync"/>
+    /// <remarks>
+    /// Stepped rather than joined in one go. The first read establishes that the id names a concept request in
+    /// this workspace at all — a join would happily return a concept from an operation that ran some other
+    /// task, which is not this route's resource — and only then is that request's proposal read.
+    /// </remarks>
+    public async Task<IReadOnlyList<AiConceptChangeRow>> FindConceptChangesAsync(
+        Guid conceptRequestId,
+        Guid conceptId,
+        CancellationToken cancellationToken)
+    {
+        var isConceptRequest = await context.AiOperations.AsNoTracking().AnyAsync(
+            candidate => candidate.Id == conceptRequestId
+                && candidate.TaskType == AiTaskType.RecipeConcepts,
+            cancellationToken);
+
+        if (!isConceptRequest)
+        {
+            return [];
+        }
+
+        var proposalId = await context.AiProposals.AsNoTracking()
+            .Where(candidate => candidate.AiOperationId == conceptRequestId)
+            .Select(candidate => (Guid?)candidate.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (proposalId is null)
+        {
+            return [];
+        }
+
+        return await context.AiStructuredChanges.AsNoTracking()
+            .Where(change => change.AiProposalId == proposalId
+                && change.TargetKind == AiChangeTargetKind.RecipeConcept
+                && change.TargetId == conceptId)
+            .Select(change => new AiConceptChangeRow(change.ChangeKind, change.FieldName, change.AfterValue))
+            .ToListAsync(cancellationToken);
     }
 
     public void AddProposal(AiProposal proposal) => context.AiProposals.Add(proposal);

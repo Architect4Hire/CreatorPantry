@@ -93,10 +93,20 @@ public class RecipeVersion : IWorkspaceOwned, IImmutableRecord
     /// <see cref="RecipeVersionSource.AiProposalAccepted"/>.
     /// </summary>
     /// <remarks>
-    /// No foreign key: the generation aggregate does not exist yet. When it does, the constraint must be
-    /// composite — <c>(WorkspaceId, AiProposalId)</c> against the generation's workspace-leading key, never
-    /// on the id alone — for the same reason <see cref="RecipeAssetLink.MediaAssetId"/> carries that note.
-    /// Until then the write seam validates it against the resolved workspace.
+    /// <para>
+    /// <strong>No foreign key, and the reason this remark used to give has expired.</strong> It said the
+    /// generation aggregate did not exist yet. It does: <c>AiProposal</c> ships, carrying the
+    /// workspace-leading alternate key <c>(WorkspaceId, Id)</c> that the constraint needs. Adding
+    /// <c>(WorkspaceId, AiProposalId)</c> — never the id alone, for the reason
+    /// <see cref="RecipeAssetLink.MediaAssetId"/> gives — is now possible, and is outstanding work rather
+    /// than a decision.
+    /// </para>
+    /// <para>
+    /// Until it lands this is a bare identifier that nothing validates. Both writers — an accepted patch and
+    /// an accepted first draft — pass an id read from a workspace-filtered query, so no caller can set a
+    /// foreign one today. That is a property of those two callers, not of the column, and the promise this
+    /// remark previously made that "the write seam validates it" was never implemented anywhere.
+    /// </para>
     /// </remarks>
     public Guid? AiProposalId { get; set; }
 

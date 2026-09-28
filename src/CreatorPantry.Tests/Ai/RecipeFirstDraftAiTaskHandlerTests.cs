@@ -183,6 +183,50 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
         Assert.Contains("Cuisine: not specified", userMessage, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Every key AIREC-002's request seam declares as rendered really is rendered. The request writes this
+    /// dictionary and this handler reads it back, in a different process with no shared type between them, so
+    /// a key renamed on one side alone would not fail to compile -- it would produce drafts quietly missing
+    /// that field. Each value is the key's own name, so a key that never reaches the prompt shows up as an
+    /// absence rather than as an unchanged "not specified" line.
+    /// </summary>
+    [Fact]
+    public async Task Every_declared_rendered_input_reaches_the_prompt()
+    {
+        var client = FakeChatClient.Returning(MinimalDraft);
+
+        await Run(
+            client,
+            inputs: AiFirstDraftInputs.All.ToDictionary(key => key, key => $"value-of-{key}", StringComparer.Ordinal));
+
+        var userMessage = client.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+
+        Assert.All(
+            AiFirstDraftInputs.Rendered,
+            key => Assert.Contains($"value-of-{key}", userMessage, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The concept's ids are stored for provenance and for idempotent reconciliation, and never rendered:
+    /// ai.md's rule is that the model receives no identifier, and an id in a prompt is an id a model could
+    /// repeat back into an answer.
+    /// </summary>
+    [Fact]
+    public async Task No_provenance_input_reaches_the_prompt()
+    {
+        var client = FakeChatClient.Returning(MinimalDraft);
+
+        await Run(
+            client,
+            inputs: AiFirstDraftInputs.All.ToDictionary(key => key, key => $"value-of-{key}", StringComparer.Ordinal));
+
+        var messages = string.Join('\n', client.LastMessages!.Select(message => message.Text));
+
+        Assert.All(
+            AiFirstDraftInputs.Provenance,
+            key => Assert.DoesNotContain($"value-of-{key}", messages, StringComparison.Ordinal));
+    }
+
     // ---- correction ----------------------------------------------------------------------------------------
 
     [Fact]

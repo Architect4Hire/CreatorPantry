@@ -74,7 +74,8 @@ internal sealed class AiConceptRequestBusiness(
         }
 
         return new IdempotentOutcome<AiProposalStatusServiceModel>(
-            OperationResult<AiProposalStatusServiceModel>.Success(Describe(requested.Operation!, null)),
+            OperationResult<AiProposalStatusServiceModel>.Success(
+                AiOperationDescription.Describe(requested.Operation!, null)),
             Replayed: requested.Outcome is AiOperationRequestOutcome.Replayed);
     }
 
@@ -92,7 +93,7 @@ internal sealed class AiConceptRequestBusiness(
         }
 
         return OperationResult<AiProposalStatusServiceModel>.Success(
-            Describe(operation.Operation, operation.Proposal));
+            AiOperationDescription.Describe(operation.Operation, operation.Proposal));
     }
 
     /// <summary>
@@ -111,59 +112,20 @@ internal sealed class AiConceptRequestBusiness(
             }
         }
 
-        Add("audience", model.Audience);
-        Add("course", model.Course);
-        Add("cuisine", model.Cuisine);
-        Add("dietaryGoals", model.DietaryGoals);
-        Add("availableIngredients", model.AvailableIngredients);
-        Add("exclusions", model.Exclusions);
-        Add("equipment", model.Equipment);
-        Add("skill", model.Skill);
-        Add("season", model.Season);
-        Add("timeBudget", model.TimeBudget);
-        Add("creatorStyle", model.CreatorStyle);
+        Add(AiBriefInputs.Audience, model.Audience);
+        Add(AiBriefInputs.Course, model.Course);
+        Add(AiBriefInputs.Cuisine, model.Cuisine);
+        Add(AiBriefInputs.DietaryGoals, model.DietaryGoals);
+        Add(AiBriefInputs.AvailableIngredients, model.AvailableIngredients);
+        Add(AiBriefInputs.Exclusions, model.Exclusions);
+        Add(AiBriefInputs.Equipment, model.Equipment);
+        Add(AiBriefInputs.Skill, model.Skill);
+        Add(AiBriefInputs.Season, model.Season);
+        Add(AiBriefInputs.TimeBudget, model.TimeBudget);
+        Add(AiBriefInputs.CreatorStyle, model.CreatorStyle);
 
         return JsonSerializer.Serialize(values);
     }
-
-    private static AiProposalStatusServiceModel Describe(AiOperation operation, AiProposal? proposal) =>
-        new(
-            operation.Id,
-            operation.Status,
-            operation.TaskType,
-            operation.Scope,
-            operation.RecipeVersionId,
-            operation.RequestedAt,
-            operation.StatusChangedAt,
-            operation.FailureCategory,
-            proposal is null ? null : Describe(proposal));
-
-    private static AiProposalDetailServiceModel Describe(AiProposal proposal) =>
-        new(
-            proposal.Id,
-            proposal.OutputSchemaVersion,
-            proposal.PromptTemplateId,
-            proposal.PromptTemplateVersion,
-            proposal.PromptTemplateBodyChecksum,
-            proposal.ProviderName,
-            proposal.ModelName,
-            proposal.CreatedAt,
-            [.. proposal.Changes
-                .OrderBy(change => change.SortOrder)
-                .Select(change => new AiProposedChangeServiceModel(
-                    change.Id,
-                    change.ChangeKind,
-                    change.TargetKind,
-                    change.TargetId,
-                    change.FieldName,
-                    change.BeforeValue,
-                    change.AfterValue,
-                    change.ProposedPosition,
-                    change.Disposition))],
-            [.. proposal.Warnings
-                .OrderBy(warning => warning.SortOrder)
-                .Select(warning => new AiProposalWarningServiceModel(
-                    warning.Kind, warning.Message, warning.AiStructuredChangeId))]);
 
     private static IdempotentOutcome<AiProposalStatusServiceModel> Refuse(string code, string message) =>
         new(Failure(code, message), Replayed: false);

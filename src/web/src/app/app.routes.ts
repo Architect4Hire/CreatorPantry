@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
+import { recipeFirstDraftReviewCanDeactivateGuard } from './features/ai/recipe-first-draft-review.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
 const SECTION_ROUTES: Routes = [
@@ -19,7 +20,16 @@ const SECTION_ROUTES: Routes = [
     ],
   },
   { path: 'brand', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Brand' } },
-  { path: 'ai-recipe-studio', loadComponent: () => import('./features/ai/recipe-concept-studio.component').then((m) => m.RecipeConceptStudioComponent), data: { title: 'AI Recipe Studio' } },
+  {
+    path: 'ai-recipe-studio',
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/ai/recipe-concept-studio.component').then((m) => m.RecipeConceptStudioComponent), data: { title: 'AI Recipe Studio' } },
+      // The draft under review is named by `?request=`, not by a path segment, so the page resumes after a
+      // refresh the same way the studio itself does. Nothing in the app creates such a request yet; the
+      // surface that will is separate work.
+      { path: 'draft', loadComponent: () => import('./features/ai/recipe-first-draft-review.component').then((m) => m.RecipeFirstDraftReviewComponent), canDeactivate: [recipeFirstDraftReviewCanDeactivateGuard], data: { title: 'Recipe first draft' } },
+    ],
+  },
   { path: 'image-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Image Studio' } },
   { path: 'social-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Social Studio' } },
   { path: 'dam', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'DAM' } },

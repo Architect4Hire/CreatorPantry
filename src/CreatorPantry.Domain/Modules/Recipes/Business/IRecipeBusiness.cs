@@ -50,10 +50,16 @@ public interface IRecipeBusiness
     /// verify those before calling this method</strong>, because nothing below will, and an unverified id
     /// becomes a foreign-key violation at save time — a 500 where the honest answer is a 400 naming the field.
     /// </remarks>
+    /// <param name="origin">
+    /// Where version 1 came from. Required rather than optional: a recipe can be created two ways and
+    /// <see cref="RecipeVersionSource.AiProposalAccepted"/> and the proposal's id, so the version can say
+    /// can say afterwards what produced it.
+    /// </param>
     Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
         CanonicalCreateRecipe input,
         MeasurementDimension? yieldUnitDimension,
         IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
+        RecipeVersionOrigin origin,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -540,6 +546,7 @@ internal sealed class RecipeBusiness(
         CanonicalCreateRecipe input,
         MeasurementDimension? yieldUnitDimension,
         IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
+        RecipeVersionOrigin origin,
         CancellationToken cancellationToken)
     {
         if (Validate(input, yieldUnitDimension) is { } error)
@@ -604,7 +611,7 @@ internal sealed class RecipeBusiness(
         }
 
         var version = new RecipeVersionFacts(
-            RecipeVersionSource.CreatorEdit,
+            origin.Source,
 
             // The version inherits the recipe's editorial state rather than inventing one: a recipe created
             // as Ready has a first version that is ready, and one created as a draft does not.
@@ -613,7 +620,8 @@ internal sealed class RecipeBusiness(
             // No reason. RecipeVersion.Reason is documented as optional — "a routine save has no reason" —
             // and "this is the first version" is already carried by the version number. Inventing a sentence
             // here would put user-visible English in the domain that nothing can localize.
-            Reason: null);
+            Reason: null,
+            AiProposalId: origin.AiProposalId);
 
         var created = await dataLayer.CreateAsync(recipe, version, input.Tags, cancellationToken);
 

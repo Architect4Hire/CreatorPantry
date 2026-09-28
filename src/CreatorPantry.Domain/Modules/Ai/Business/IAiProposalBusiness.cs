@@ -130,7 +130,8 @@ internal sealed class AiProposalBusiness(
         }
 
         return new IdempotentOutcome<AiProposalStatusServiceModel>(
-            OperationResult<AiProposalStatusServiceModel>.Success(Describe(requested.Operation!, null)),
+            OperationResult<AiProposalStatusServiceModel>.Success(
+                AiOperationDescription.Describe(requested.Operation!, null)),
             Replayed: requested.Outcome is AiOperationRequestOutcome.Replayed);
     }
 
@@ -149,7 +150,7 @@ internal sealed class AiProposalBusiness(
         }
 
         return OperationResult<AiProposalStatusServiceModel>.Success(
-            Describe(operation.Operation, operation.Proposal));
+            AiOperationDescription.Describe(operation.Operation, operation.Proposal));
     }
 
     public async Task<OperationResult<AiProposalDispositionServiceModel>> DispositionAsync(
@@ -492,45 +493,6 @@ internal sealed class AiProposalBusiness(
             ? Guid.ParseExact(id.ToHexString(), "N")
             : Guid.NewGuid();
     }
-
-    private static AiProposalStatusServiceModel Describe(AiOperation operation, AiProposal? proposal) =>
-        new(
-            operation.Id,
-            operation.Status,
-            operation.TaskType,
-            operation.Scope,
-            operation.RecipeVersionId,
-            operation.RequestedAt,
-            operation.StatusChangedAt,
-            operation.FailureCategory,
-            proposal is null ? null : Describe(proposal));
-
-    private static AiProposalDetailServiceModel Describe(AiProposal proposal) =>
-        new(
-            proposal.Id,
-            proposal.OutputSchemaVersion,
-            proposal.PromptTemplateId,
-            proposal.PromptTemplateVersion,
-            proposal.PromptTemplateBodyChecksum,
-            proposal.ProviderName,
-            proposal.ModelName,
-            proposal.CreatedAt,
-            [.. proposal.Changes
-                .OrderBy(change => change.SortOrder)
-                .Select(change => new AiProposedChangeServiceModel(
-                    change.Id,
-                    change.ChangeKind,
-                    change.TargetKind,
-                    change.TargetId,
-                    change.FieldName,
-                    change.BeforeValue,
-                    change.AfterValue,
-                    change.ProposedPosition,
-                    change.Disposition))],
-            [.. proposal.Warnings
-                .OrderBy(warning => warning.SortOrder)
-                .Select(warning => new AiProposalWarningServiceModel(
-                    warning.Kind, warning.Message, warning.AiStructuredChangeId))]);
 
     private static OperationResult<AiProposalStatusServiceModel> Failure(string code, string message) =>
         Failure<AiProposalStatusServiceModel>(code, message);

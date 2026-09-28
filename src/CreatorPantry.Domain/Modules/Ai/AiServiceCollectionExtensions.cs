@@ -112,6 +112,31 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-002's structured first-draft generation.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="AddAiModule"/> for the reason <see cref="AddAiConceptRequestSeam"/> is.
+    /// </para>
+    /// <para>
+    /// <strong>Unlike <see cref="AddAiConceptRequestSeam"/>, this one does carry the recipe-module
+    /// prerequisite.</strong> Requesting a draft names no recipe, but accepting one creates it —
+    /// <c>AiDraftAcceptanceBusiness</c> calls <c>IRecipeFacade</c>, so <c>AddRecipesModule</c> must be
+    /// registered already. The container validates that at startup rather than at the first acceptance.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddAiFirstDraftRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiFirstDraftRequestBusiness, AiFirstDraftRequestBusiness>();
+        services.AddScoped<IAiDraftAcceptanceBusiness, AiDraftAcceptanceBusiness>();
+        services.AddScoped<IAiFirstDraftRequestFacade, AiFirstDraftRequestFacade>();
+        services.AddScoped<IValidator<RequestRecipeFirstDraftViewModel>, RequestRecipeFirstDraftViewModelValidator>();
+        services.AddScoped<IValidator<AiDraftAcceptanceViewModel>, AiDraftAcceptanceViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>

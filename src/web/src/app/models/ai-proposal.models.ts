@@ -78,12 +78,18 @@ export function isTerminalAiStatus(status: AiOperationStatus): boolean {
 }
 
 /** Mirrors AiTaskType. */
-export type AiTaskType = 'Unspecified' | 'Diagnostic' | 'RecipeConcepts';
+export type AiTaskType =
+  | 'Unspecified'
+  | 'Diagnostic'
+  | 'RecipeConcepts'
+  /** AIREC-002's structured first draft. */
+  | 'RecipeFirstDraft';
 
 const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
   'Diagnostic',
   'RecipeConcepts',
+  'RecipeFirstDraft',
 ]);
 
 /**
@@ -104,10 +110,27 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // Concept requests have their own dedicated route (recipe-concept-requests), not this generic
   // ask-again discriminator, so there is nothing to name here.
   RecipeConcepts: null,
+  // Likewise: first drafts are asked for through recipe-draft-requests, which names the task by being that
+  // route rather than by carrying a discriminator.
+  RecipeFirstDraft: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
-export type AiOperationScope = 'Unspecified' | 'WholeRecipe' | 'Ingredients' | 'Instructions' | 'Metadata' | 'Media';
+export type AiOperationScope =
+  | 'Unspecified'
+  | 'WholeRecipe'
+  | 'Ingredients'
+  | 'Instructions'
+  | 'Metadata'
+  | 'Media'
+  /**
+   * The task is not about parts of an existing recipe at all.
+   *
+   * Every workspace-level request carries this — concepts and first drafts both — so a client that cannot
+   * decode it cannot read either of those features. `decodeEnum` returns null for an unknown member and
+   * `decodeAiProposalStatus` fails on it, so the whole status vanishes rather than one field.
+   */
+  | 'NotApplicable';
 
 const AI_OPERATION_SCOPE_VALUES: ReadonlySet<string> = new Set<AiOperationScope>([
   'Unspecified',
@@ -116,6 +139,7 @@ const AI_OPERATION_SCOPE_VALUES: ReadonlySet<string> = new Set<AiOperationScope>
   'Instructions',
   'Metadata',
   'Media',
+  'NotApplicable',
 ]);
 
 /** Mirrors AiFailureCategory. Required on the wire exactly when the status is `Failed`. */
@@ -200,6 +224,12 @@ const AI_CHANGE_DISPOSITION_VALUES: ReadonlySet<string> = new Set<AiChangeDispos
  * Assumptions and cautions are one vocabulary on purpose, so a review panel renders one uniform list and an
  * assumption cannot be shown with less weight than a caution. None of these is a safety verdict: a proposal
  * with no `SafetyCaution` has not been found safe, it has simply not been flagged (ai.md).
+ *
+ * **This union has to keep up with the server's enum, and the cost of it not doing so is total.**
+ * `decodeArray` fails the whole array on one undecodable element, so a warning kind this list has not heard
+ * of does not lose that one warning — it makes `decodeAiProposalDetail` return null and the entire proposal
+ * vanish, leaving a panel saying "Ready for review" with nothing in it. `UnresolvedQuestion` shipped
+ * server-side with AIREC-002 and was missing here, which is exactly what that looked like.
  */
 export type AiWarningKind =
   | 'Unspecified'
@@ -207,7 +237,9 @@ export type AiWarningKind =
   | 'CulinaryCaution'
   | 'NonScalableLanguage'
   | 'UnverifiedClaim'
-  | 'SafetyCaution';
+  | 'SafetyCaution'
+  /** A question the model declined to guess at, rather than an assumption it made. AIREC-002 emits these. */
+  | 'UnresolvedQuestion';
 
 const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'Unspecified',
@@ -216,6 +248,7 @@ const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'NonScalableLanguage',
   'UnverifiedClaim',
   'SafetyCaution',
+  'UnresolvedQuestion',
 ]);
 
 /** Mirrors AiDispositionDecision, less `Unspecified` — which is never a decision a client may send. */

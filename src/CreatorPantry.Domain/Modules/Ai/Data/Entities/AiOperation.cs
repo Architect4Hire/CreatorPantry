@@ -51,7 +51,14 @@ public class AiOperation : IWorkspaceOwned
 
     public AiOperationStatus Status { get; set; }
 
-    /// <summary>The recipe this is about, when it is about one.</summary>
+    /// <summary>The recipe this operation is about, when it is about one.</summary>
+    /// <remarks>
+    /// <strong>A source for most tasks, and a result for AIREC-002.</strong> A recipe-bound task names the
+    /// recipe it was asked about, set when the operation is requested. A first draft names no recipe when it
+    /// is requested — there is none — and is stamped with the one its acceptance created, which is what lets
+    /// a retried acceptance be answered with that recipe rather than making a second. Both readings are "the
+    /// recipe this operation is about"; only the moment it is set differs.
+    /// </remarks>
     public Guid? RecipeId { get; set; }
 
     /// <summary>
@@ -82,10 +89,21 @@ public class AiOperation : IWorkspaceOwned
     /// source is the pinned version rather than a brief.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This is the exception to this aggregate's own rule that it records "shape... not content" — see the
     /// type's remarks. The declared fields are the request itself, for a task with no recipe to be the source
-    /// instead; they are the creator's own structured intake, never a rendered prompt or a model's answer, so
-    /// storing them does not accumulate either of the things ai.md forbids logging by default.
+    /// instead, and they are never a rendered prompt — so storing them does not accumulate the thing ai.md
+    /// forbids logging by default.
+    /// </para>
+    /// <para>
+    /// <strong>One declared field can be a model's answer, and deliberately so.</strong> AIREC-002's
+    /// <c>selectedConcept</c> is the title and summary of a concept AIREC-001 generated, resolved from the
+    /// stored proposal at request time and composed here by the server. It is not new generated content: the
+    /// same words already sit on that workspace's own <see cref="AiStructuredChange"/> rows, and copying them
+    /// is what lets <c>AiOperationDataLayer.Reconcile</c> tell one idempotency key naming two different
+    /// concepts apart. A column holding a model's answer <em>to this operation</em> would still be a defect —
+    /// that is what the proposal aggregate is for.
+    /// </para>
     /// </remarks>
     public string? TaskInputsJson { get; set; }
 

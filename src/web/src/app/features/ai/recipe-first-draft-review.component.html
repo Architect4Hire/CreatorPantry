@@ -1,0 +1,429 @@
+@let d = draft();
+
+<section class="draft-review" aria-labelledby="cp-draft-heading">
+  <header class="draft-header">
+    <h2 id="cp-draft-heading">Recipe first draft</h2>
+    <!--
+      Said once, plainly, at the top. Every state below repeats some form of it, because a creator may read
+      only one of them — but this is the line the whole page rests on.
+    -->
+    <p class="draft-lede">
+      A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this
+      page is saved.
+    </p>
+  </header>
+
+  @if (state() === 'idle') {
+    <cp-empty-state
+      variant="first-use"
+      title="No draft to review"
+      description="Open this page from a draft request to review what came back."
+    />
+  } @else if (state() === 'discarded') {
+    <div class="draft-notice" role="status">
+      <p>
+        Draft discarded. It was cleared from this page and left to expire on its own — nothing was sent
+        anywhere, and no recipe was created.
+      </p>
+      <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)">
+        Review another draft
+      </button>
+    </div>
+  } @else if (state() === 'gone') {
+    <p class="draft-notice" role="alert">We couldn't find that draft request.</p>
+  } @else if (state() === 'forbidden') {
+    <p class="draft-notice" role="alert">This draft can't be read with your role in this workspace.</p>
+  } @else if (state() === 'loading') {
+    <p class="draft-notice" role="status">Looking for your draft…</p>
+    <!--
+      The watch controls belong here too, not only once a status has arrived. A request whose very first poll
+      never lands would otherwise sit on "Looking for your draft…" for good, with nothing to press.
+    -->
+    <ng-container *ngTemplateOutlet="watchControls" />
+  } @else if (operation(); as op) {
+    <cp-ai-operation-status
+      [status]="op.status"
+      [failureCategory]="op.failureCategory"
+      [requestedAt]="op.requestedAt"
+      [statusChangedAt]="op.statusChangedAt"
+      [connection]="connection()"
+    />
+
+    <ng-container *ngTemplateOutlet="watchControls" />
+
+    @if ((state() === 'failed' || state() === 'expired') && canAskAgain()) {
+      <p class="draft-notice" role="status">Asking again usually works. Start a new draft request to try.</p>
+    }
+
+    @if (state() === 'proposed') {
+      <cp-anchor-nav
+        class="draft-nav"
+        [items]="sections()"
+        ariaLabel="Parts of this draft"
+        [activeTargetId]="activeSection()"
+        (activated)="onSectionActivated($event)"
+      />
+
+      <!--
+        Missing required fields, stated before the draft rather than discovered at the end. AIREC-002's
+        restriction is that an unresolved value stays explicit.
+      -->
+      @if (missingRequired().length > 0) {
+        <div class="draft-missing" role="status">
+          <p>
+            <strong>Not complete enough to become a recipe yet.</strong>
+            Still missing: {{ missingRequired().join(', ') }}. You can write the missing parts in below.
+          </p>
+        </div>
+      }
+
+      @if (unresolvedQuestions().length > 0) {
+        <section class="draft-section draft-unresolved" aria-labelledby="cp-draft-unresolved">
+          <h3 id="cp-draft-unresolved" tabindex="-1">Unresolved questions</h3>
+          <p class="draft-section-note">
+            The model wouldn't guess at these. They're questions for you, not problems with the draft.
+          </p>
+          <ul class="draft-flags" role="list">
+            @for (question of unresolvedQuestions(); track $index) {
+              <li class="draft-flag" data-kind="UnresolvedQuestion">
+                <span class="draft-flag-label">Needs your answer</span>
+                <span class="draft-flag-text">{{ question.message }}</span>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      @if (warnings().length > 0) {
+        <section class="draft-section draft-warnings" aria-labelledby="cp-draft-warnings">
+          <h3 id="cp-draft-warnings" tabindex="-1">Worth checking</h3>
+          <ul class="draft-flags" role="list">
+            @for (warning of warnings(); track $index) {
+              <li class="draft-flag" [attr.data-kind]="warning.kind">
+                <span class="draft-flag-label">{{ warningLabel(warning.kind) }}</span>
+                <span class="draft-flag-text">{{ warning.message }}</span>
+              </li>
+            }
+          </ul>
+          <!--
+            Said whether or not anything is flagged: an empty flag list is not a clean bill of health, and
+            ai.md asks for uncertainty to be surfaced rather than implied away.
+          -->
+          <p class="draft-section-note">
+            Anything not flagged here simply wasn't flagged — it hasn't been checked.
+          </p>
+        </section>
+      }
+
+      <!-- Overview -->
+      <section class="draft-section" aria-labelledby="cp-draft-overview">
+        <h3 id="cp-draft-overview" tabindex="-1">Overview</h3>
+        <!-- The `*` convention, stated once for the page rather than left as an unexplained glyph. -->
+        <p class="draft-section-note">Fields marked * are needed before this can become a recipe.</p>
+        <cp-card>
+          <dl class="draft-fields">
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'title', 'Title', d.title), label: 'Title', required: true }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'description', 'Description', d.description), label: 'Description' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'notes', 'Notes', d.notes), label: 'Notes' }"
+            />
+          </dl>
+        </cp-card>
+      </section>
+
+      <!-- Yield and timing -->
+      <section class="draft-section" aria-labelledby="cp-draft-yield">
+        <h3 id="cp-draft-yield" tabindex="-1">Yield and timing</h3>
+        <cp-card>
+          <dl class="draft-fields draft-fields-grid">
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'yieldText', 'Yield', d.yield.yieldText), label: 'Yield' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'yieldQuantity', 'Yield quantity', d.yield.yieldQuantity), label: 'Yield quantity' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'yieldUnitText', 'Yield unit', d.yield.yieldUnitText), label: 'Yield unit' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'servingCount', 'Servings', d.yield.servingCount), label: 'Servings' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'servingSize', 'Serving size', d.yield.servingSize), label: 'Serving size' }"
+            />
+          </dl>
+
+          <dl class="draft-fields draft-fields-grid">
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'prepTimeMinutes', 'Prep time (minutes)', d.timing.prepTimeMinutes), label: 'Prep time (minutes)' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'cookTimeMinutes', 'Cook time (minutes)', d.timing.cookTimeMinutes), label: 'Cook time (minutes)' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'restTimeMinutes', 'Rest time (minutes)', d.timing.restTimeMinutes), label: 'Rest time (minutes)' }"
+            />
+            <ng-container
+              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'totalTimeMinutes', 'Total time (minutes)', d.timing.totalTimeMinutes), label: 'Total time (minutes)' }"
+            />
+          </dl>
+          <!--
+            Shown exactly as proposed, including where it disagrees with prep + cook + rest. recipes.md stores
+            total time independently and no write path sums it; reconciling the two is the recipe editor's job
+            at acceptance, and a number quietly corrected here would be this page inventing one.
+          -->
+          <p class="draft-section-note">
+            Total time is whatever the model proposed — it isn't added up from the others.
+          </p>
+        </cp-card>
+      </section>
+
+      <!-- Ingredients -->
+      <section class="draft-section" aria-labelledby="cp-draft-ingredients">
+        <h3 id="cp-draft-ingredients" tabindex="-1">Ingredients</h3>
+
+        @if (ingredientCount() === 0) {
+          <p class="draft-notice" role="status">The draft didn't propose any ingredients.</p>
+        } @else {
+          @for (group of d.ingredientGroups; track group.changeId; let gi = $index) {
+            <cp-card>
+              @if (groupHeading(group, gi, d.ingredientGroups.length); as heading) {
+                <h4 class="draft-group-title">
+                  {{ heading }}
+                  @if (group.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
+                </h4>
+              }
+
+              @if (group.items.length === 0) {
+                <p class="draft-section-note">No lines in this group.</p>
+              } @else {
+                <ul class="draft-lines" role="list">
+                  @for (line of group.items; track line.changeId) {
+                    <li class="draft-line">
+                      <div class="draft-line-main">
+                        <span class="draft-line-text">{{ valueOf(line.changeId + ':displayText', line.displayText) }}</span>
+                        @if (line.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
+                        @if (isEdited(line.changeId + ':displayText')) { <cp-badge tone="blue">Your wording</cp-badge> }
+                      </div>
+
+                      @if (line.preparationNote) {
+                        <p class="draft-line-note">{{ line.preparationNote }}</p>
+                      }
+
+                      <ng-container
+                        *ngTemplateOutlet="editor; context: { $implicit: editTarget(line.changeId, 'displayText', ingredientLabel(line), line.displayText) }"
+                      />
+                    </li>
+                  }
+                </ul>
+              }
+            </cp-card>
+          }
+        }
+      </section>
+
+      <!-- Method -->
+      <section class="draft-section" aria-labelledby="cp-draft-method">
+        <h3 id="cp-draft-method" tabindex="-1">Method</h3>
+
+        @if (stepCount() === 0) {
+          <p class="draft-notice" role="status">The draft didn't propose any steps.</p>
+        } @else {
+          @for (group of d.instructionGroups; track group.changeId; let gi = $index) {
+            <cp-card>
+              @if (groupHeading(group, gi, d.instructionGroups.length); as heading) {
+                <h4 class="draft-group-title">
+                  {{ heading }}
+                  @if (group.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
+                </h4>
+              }
+
+              @if (group.items.length === 0) {
+                <p class="draft-section-note">No steps in this group.</p>
+              } @else {
+                <ol class="draft-steps">
+                  @for (step of group.items; track step.changeId; let si = $index) {
+                    <li class="draft-step">
+                      <div class="draft-step-main">
+                        <span class="draft-step-text">{{ valueOf(step.changeId + ':text', step.text) }}</span>
+                        @if (isEdited(step.changeId + ':text')) { <cp-badge tone="blue">Your wording</cp-badge> }
+                      </div>
+
+                      @if (step.note) { <p class="draft-line-note">{{ step.note }}</p> }
+                      @if (step.durationMinutes) {
+                        <p class="draft-line-note">About {{ step.durationMinutes }} minutes.</p>
+                      }
+
+                      <ng-container
+                        *ngTemplateOutlet="editor; context: { $implicit: editTarget(step.changeId, 'text', stepLabel(step, si), step.text) }"
+                      />
+                    </li>
+                  }
+                </ol>
+              }
+            </cp-card>
+          }
+        }
+      </section>
+
+      <!-- Equipment -->
+      @if (d.equipment.length > 0) {
+        <section class="draft-section" aria-labelledby="cp-draft-equipment">
+          <h3 id="cp-draft-equipment" tabindex="-1">Equipment</h3>
+          <cp-card>
+            <ul class="draft-lines" role="list">
+              @for (item of d.equipment; track item.changeId) {
+                <li class="draft-line">
+                  <div class="draft-line-main">
+                    <span class="draft-line-text">{{ valueOf(item.changeId + ':displayText', item.displayText) }}</span>
+                    @if (item.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
+                    @if (isEdited(item.changeId + ':displayText')) { <cp-badge tone="blue">Your wording</cp-badge> }
+                  </div>
+                  @if (item.note) { <p class="draft-line-note">{{ item.note }}</p> }
+
+                  <ng-container
+                    *ngTemplateOutlet="editor; context: { $implicit: editTarget(item.changeId, 'displayText', equipmentLabel(item), item.displayText) }"
+                  />
+                </li>
+              }
+            </ul>
+          </cp-card>
+        </section>
+      }
+
+      <!--
+        Anything this view could not place. A field added server-side shows up as text the day it ships,
+        rather than vanishing until someone remembers to style it.
+      -->
+      @if (d.unrecognisedFields.length > 0) {
+        <section class="draft-section" aria-labelledby="cp-draft-extra">
+          <h3 id="cp-draft-extra" tabindex="-1">Also suggested</h3>
+          <cp-card>
+            <ul class="draft-lines" role="list">
+              @for (extra of d.unrecognisedFields; track extra.changeId) {
+                <li class="draft-line">
+                  <span class="draft-line-text">{{ extra.fieldName ?? extra.targetKind }}: {{ extra.afterValue }}</span>
+                </li>
+              }
+            </ul>
+          </cp-card>
+        </section>
+      }
+
+      <!-- Provenance -->
+      <section class="draft-section" aria-labelledby="cp-draft-provenance">
+        <h3 id="cp-draft-provenance" tabindex="-1">How this was made</h3>
+        @if (op.proposal; as proposal) {
+          <cp-card>
+            <dl class="draft-fields draft-fields-grid">
+              <div class="draft-field"><dt>Model</dt><dd>{{ proposal.modelName }}</dd></div>
+              <div class="draft-field"><dt>Provider</dt><dd>{{ proposal.providerName }}</dd></div>
+              <div class="draft-field"><dt>Prompt</dt><dd>{{ proposal.promptTemplateId }} {{ proposal.promptTemplateVersion }}</dd></div>
+              <div class="draft-field"><dt>Answer shape</dt><dd>{{ proposal.outputSchemaVersion }}</dd></div>
+            </dl>
+          </cp-card>
+        }
+      </section>
+
+      <div class="draft-actions">
+        <button cpButton type="button" variant="danger" (click)="discard()">Discard draft</button>
+        <p class="draft-actions-note">
+          Turning a reviewed draft into a recipe isn't built yet. Discarding clears it from this page and
+          leaves it to expire — nothing is sent anywhere.
+        </p>
+      </div>
+    }
+  }
+</section>
+
+<!--
+  Keeping watch, or being told this page has stopped. Rendered both before a status has arrived and after,
+  because the case that most needs a "Check again" is the one where nothing has arrived at all.
+-->
+<ng-template #watchControls>
+  <div class="draft-watch">
+    @if (isWatching() && state() === 'watching') {
+      <!-- "Stop checking", not "Cancel": there is no route that cancels generation. -->
+      <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
+      <span class="draft-watch-note">Your request keeps running; this page just stops asking about it.</span>
+    } @else if (canCheckAgain()) {
+      <button cpButton type="button" variant="secondary" size="sm" (click)="checkAgain()">Check again</button>
+      <span class="draft-watch-note">This page has stopped checking on its own.</span>
+    }
+  </div>
+</ng-template>
+
+<!--
+  One field row: the value as it stands, whose wording it is, and a way to rewrite it. Used for every
+  recipe-level field so that "not suggested" and an edited value read identically wherever they appear.
+-->
+<ng-template #field let-target let-label="label" let-required="required">
+  <div class="draft-field">
+    <dt>
+      {{ label }}
+      @if (required) { <span class="draft-field-required" aria-hidden="true">*</span> }
+    </dt>
+    <dd>
+      @if (valueOf(target.key, target.original.length > 0 ? target.original : null); as value) {
+        <span class="draft-field-value">{{ value }}</span>
+        @if (isEdited(target.key)) { <cp-badge tone="blue">Your wording</cp-badge> }
+      } @else {
+        <span class="draft-field-absent">{{ notSupplied }}</span>
+      }
+
+      <ng-container *ngTemplateOutlet="editor; context: { $implicit: target }" />
+    </dd>
+  </div>
+</ng-template>
+
+<!--
+  The edit affordance for one value, closed or open.
+  Editing never accepts anything: it records the creator's own words for a later step to carry.
+-->
+<ng-template #editor let-target>
+  @if (editingKey() === target.key) {
+    <div class="draft-editor">
+      <cp-field
+        [label]="'Your wording for ' + target.label"
+        [forId]="'cp-draft-edit-' + target.key"
+        [error]="editError()"
+        hint="Kept on this page only. Nothing is sent anywhere."
+      >
+        <textarea
+          [id]="'cp-draft-edit-' + target.key"
+          rows="3"
+          [ngModel]="editDraft()"
+          (ngModelChange)="editDraft.set($event)"
+        ></textarea>
+      </cp-field>
+
+      <div class="draft-editor-actions">
+        <button cpButton type="button" variant="primary" size="sm" (click)="applyEdit(target)">
+          Use my wording
+        </button>
+        <button cpButton type="button" variant="text" size="sm" (click)="cancelEdit()">Cancel</button>
+        @if (isEdited(target.key)) {
+          <button cpButton type="button" variant="text" size="sm" (click)="revertEdit(target)">
+            Back to the suggestion
+          </button>
+        }
+      </div>
+    </div>
+  } @else {
+    <button
+      cpButton
+      type="button"
+      variant="text"
+      size="sm"
+      [attr.data-edit-for]="target.key"
+      (click)="startEdit(target)"
+    >
+      <span aria-hidden="true">Edit</span>
+      <span class="cp-sr-only">Edit {{ target.label }}</span>
+    </button>
+  }
+</ng-template>

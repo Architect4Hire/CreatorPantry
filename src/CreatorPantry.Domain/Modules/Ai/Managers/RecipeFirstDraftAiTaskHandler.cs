@@ -120,10 +120,17 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
     /// more line for a selected concept's summary.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This handler does not itself define AIREC-002's request contract — that is 9.4's own prompt ("from a
     /// selected concept or declared brief fields"). Reusing AIREC-001's already-established field vocabulary
     /// here, rather than inventing a new one, is what "declared brief fields" in that SCOPE line refers back
     /// to; <c>selectedConcept</c> is the one addition for the other case that SCOPE names.
+    /// </para>
+    /// <para>
+    /// Every key is named from <see cref="AiFirstDraftInputs"/>, which is also what the request seam writes.
+    /// The two sides are in different processes with no shared type between them, so a literal here would let
+    /// a rename on one side produce drafts silently missing a field rather than a build failure.
+    /// </para>
     /// </remarks>
     private static string RenderBrief(IReadOnlyDictionary<string, string>? supplied)
     {
@@ -135,20 +142,20 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
                     : "not specified";
 
         return $"""
-            Selected concept: {Value("selectedConcept")}
+            Selected concept: {Value(AiFirstDraftInputs.SelectedConcept)}
 
             Brief:
-            - Audience: {Value("audience")}
-            - Course: {Value("course")}
-            - Cuisine: {Value("cuisine")}
-            - Dietary goals: {Value("dietaryGoals")}
-            - Available ingredients: {Value("availableIngredients")}
-            - Exclusions: {Value("exclusions")}
-            - Equipment: {Value("equipment")}
-            - Skill level: {Value("skill")}
-            - Season: {Value("season")}
-            - Time budget: {Value("timeBudget")}
-            - Creator style: {Value("creatorStyle")}
+            - Audience: {Value(AiBriefInputs.Audience)}
+            - Course: {Value(AiBriefInputs.Course)}
+            - Cuisine: {Value(AiBriefInputs.Cuisine)}
+            - Dietary goals: {Value(AiBriefInputs.DietaryGoals)}
+            - Available ingredients: {Value(AiBriefInputs.AvailableIngredients)}
+            - Exclusions: {Value(AiBriefInputs.Exclusions)}
+            - Equipment: {Value(AiBriefInputs.Equipment)}
+            - Skill level: {Value(AiBriefInputs.Skill)}
+            - Season: {Value(AiBriefInputs.Season)}
+            - Time budget: {Value(AiBriefInputs.TimeBudget)}
+            - Creator style: {Value(AiBriefInputs.CreatorStyle)}
             """;
     }
 

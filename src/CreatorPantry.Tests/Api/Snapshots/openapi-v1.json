@@ -1120,6 +1120,351 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipe-draft-requests": {
+      "post": {
+        "tags": [
+          "RecipeDraftRequests"
+        ],
+        "summary": "Asks for one structured first draft.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet, and nothing is created when it is.\n            The request is durable and the model is called by the worker afterwards, so the API does not stay open\n            around unbounded provider work (api-contract.md). The \u0060Location\u0060 header points at the status\n            resource to poll.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Generation spends a provider budget, so a repeat of the same key and the same request returns\nthe original with \u0060Idempotent-Replayed: true\u0060 rather than buying a second draft.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecipeFirstDraft"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecipeFirstDraft"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecipeFirstDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipe-draft-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "RecipeDraftRequests"
+        ],
+        "summary": "Where a requested generation has got to, and the proposed draft once there is one.",
+        "description": "Polling before the draft exists is a \u0060200\u0060 carrying a status, not a \u0060404\u0060 \u2014 the request\nresource exists from the moment it was accepted, and reporting it missing would make a normal poll look\nlike a failure.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Where a requested generation has got to, and the proposed draft once there is one.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipe-draft-requests/{requestId}/acceptance": {
+      "post": {
+        "tags": [
+          "RecipeDraftRequests"
+        ],
+        "summary": "Accepts a reviewed draft into a new recipe, or records that it was rejected.",
+        "description": "The only step that creates a recipe from a generated draft. The recipe, its version 1,\n            the per-part decisions and this request\u0027s terminal status commit together or not at all \u2014 an accepted\n            draft that the recipe rules refuse leaves nothing behind, not even the decision.\n\nNo idempotency key, and retrying is safe without one. A draft that has already been\n            decided is recognised inside that transaction and answered with the recipe that decision created, never\n            a second one. A request asking for a different decision is a \u0060409\u0060: the draft is terminal,\n            and quietly serving the earlier outcome would tell a creator their selection had been applied when a\n            different one had.\n\n\u0060200\u0060 rather than \u0060201\u0060: the reply is the decision, which names the recipe it created. A\n            \u0060Location\u0060 would point at a resource this route does not own.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Accepts a reviewed draft into a new recipe, or records that it was rejected.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The draft request being decided. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiDraftAcceptance"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiDraftAcceptance"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AiDraftAcceptance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiDraftAcceptance"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiDraftAcceptance"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiDraftAcceptance"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes": {
       "post": {
         "tags": [
@@ -3879,6 +4224,85 @@
           "RecipeConcept"
         ],
         "type": "string"
+      },
+      "AiDraftAcceptance": {
+        "required": [
+          "aiProposalRequestId",
+          "status",
+          "recipeId",
+          "recipeVersionNumber",
+          "acceptedChangeCount",
+          "rejectedChangeCount",
+          "rewrittenChangeCount",
+          "droppedChangeCount",
+          "replayed",
+          "decidedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "aiProposalRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AiOperationStatus"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "acceptedChangeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rejectedChangeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rewrittenChangeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "droppedChangeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "AiFailureCategory": {
         "enum": [
@@ -7203,6 +7627,91 @@
           }
         }
       },
+      "RequestRecipeFirstDraft": {
+        "type": "object",
+        "properties": {
+          "sourceConceptRequestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceConceptId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "course": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cuisine": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dietaryGoals": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "availableIngredients": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "exclusions": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "equipment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "skill": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "season": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeBudget": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creatorStyle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RestoreRecipeVersion": {
         "type": "object",
         "properties": {
@@ -7959,6 +8468,9 @@
     },
     {
       "name": "RecipeConceptRequests"
+    },
+    {
+      "name": "RecipeDraftRequests"
     },
     {
       "name": "Recipes"

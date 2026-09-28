@@ -47,6 +47,7 @@ public sealed class RecipeBusinessTests
             CanonicalCreateRecipe.From(input),
             yieldUnitDimension,
             ingredientUnitDimensions ?? NoIngredientUnitDimensions,
+            RecipeVersionOrigin.CreatorEdit,
             TestContext.Current.CancellationToken);
 
     // ---- Valid ----

@@ -69,6 +69,122 @@ public sealed class RecipeFacadeTests
         CreateRecipeViewModel model, WorkspaceRole role = WorkspaceRole.Contributor, string? key = null) =>
         Facade(role).CreateAsync(UserId, model, key, TestContext.Current.CancellationToken);
 
+    // ---- Creating from an accepted draft (AIREC-002) ----
+
+    private static ProposedRecipeDraft Draft(string title = "Weeknight Mapo Tofu") => new()
+    {
+        Title = title,
+        IngredientGroups =
+        [
+            new ProposedRecipeDraftIngredientGroup(
+                null,
+                [new ProposedRecipeDraftIngredient { DisplayText = "2 tbsp doubanjiang", Quantity = 2m, UnitText = "tbsp" }]),
+        ],
+        Instructions = [new ProposedRecipeDraftInstructionGroup(null, [new ProposedRecipeDraftStep("Fry it.", null, 2)])],
+    };
+
+    private Task<OperationResult<CreatedRecipeServiceModel>> CreateFromProposalAsync(
+        ProposedRecipeDraft draft, WorkspaceRole role = WorkspaceRole.Contributor) =>
+        Facade(role).CreateFromProposalAsync(Guid.NewGuid(), draft, TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task An_accepted_draft_becomes_a_recipe()
+    {
+        var result = await CreateFromProposalAsync(Draft());
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+        Assert.Equal("Weeknight Mapo Tofu", _business.Input!.Title);
+        Assert.Single(_business.Input.IngredientGroups);
+        Assert.Single(_business.Input.Instructions);
+    }
+
+    /// <summary>
+    /// The whole reason this method exists: <c>CreateAsync</c> runs inside the idempotency executor, which
+    /// opens a transaction and clears the change tracker. This one must go straight to Business so it can
+    /// enlist in the transaction the AI module already has open.
+    /// </summary>
+    [Fact]
+    public async Task Creating_from_a_proposal_does_not_go_through_the_idempotency_executor()
+    {
+        var before = _idempotency.Calls;
+
+        await CreateFromProposalAsync(Draft());
+
+        Assert.Equal(before, _idempotency.Calls);
+        Assert.Equal(1, _business.Calls);
+    }
+
+    /// <summary>Version 1 records what produced it, so an accepted draft is never mistaken for typed work.</summary>
+    [Fact]
+    public async Task Version_one_records_the_proposal_it_was_accepted_from()
+    {
+        var proposalId = Guid.NewGuid();
+
+        await Facade().CreateFromProposalAsync(proposalId, Draft(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(RecipeVersionSource.AiProposalAccepted, _business.Origin!.Source);
+        Assert.Equal(proposalId, _business.Origin.AiProposalId);
+    }
+
+    /// <summary>A recipe a creator typed is still recorded as theirs. The two must not blur.</summary>
+    [Fact]
+    public async Task A_typed_recipe_still_records_a_creator_edit()
+    {
+        await CreateAsync(new CreateRecipeViewModel { Title = "Cake" });
+
+        Assert.Equal(RecipeVersionSource.CreatorEdit, _business.Origin!.Source);
+        Assert.Null(_business.Origin.AiProposalId);
+    }
+
+    /// <summary>Nothing generated arrives Ready: a creator marks their own work ready.</summary>
+    [Fact]
+    public async Task An_accepted_draft_is_created_as_a_draft()
+    {
+        await CreateFromProposalAsync(Draft());
+
+        Assert.Equal(RecipeStatus.Draft, _business.Input!.Status);
+    }
+
+    /// <summary>
+    /// recipes.md: a line the creator read and let stand is theirs, and Composed would licence re-deriving it
+    /// from its own spans — rewriting text they approved.
+    /// </summary>
+    [Fact]
+    public async Task Every_accepted_line_is_recorded_as_the_creators_own_text()
+    {
+        await CreateFromProposalAsync(Draft());
+
+        var line = _business.Input!.IngredientGroups[0].Ingredients[0];
+        Assert.Equal(IngredientDisplayTextSource.Creator, line.DisplayTextSource);
+    }
+
+    /// <summary>The same bar as typing the recipe out by hand.</summary>
+    [Fact]
+    public async Task A_viewer_may_not_accept_a_draft_into_a_recipe()
+    {
+        var result = await CreateFromProposalAsync(Draft(), WorkspaceRole.Viewer);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeForbidden, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
+    /// <summary>
+    /// The atomic-failure case the restriction names. The real create validator runs, so a draft with no
+    /// usable title is refused before Business is reached and the caller's transaction rolls back.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task A_draft_with_no_usable_title_is_refused_before_anything_is_created(string title)
+    {
+        var result = await CreateFromProposalAsync(Draft(title));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeInvalidRequest, result.Error!.Code);
+        Assert.Equal(0, _business.Calls);
+    }
+
     // ---- Authorization ----
 
     [Theory]
@@ -2045,16 +2161,21 @@ public sealed class RecipeFacadeTests
             CreatedAt = DateTimeOffset.UnixEpoch,
         };
 
+        /// <summary>Where the last create said version 1 came from. Null means nothing was passed.</summary>
+        public RecipeVersionOrigin? Origin { get; private set; }
+
         public Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
             CanonicalCreateRecipe input,
             MeasurementDimension? yieldUnitDimension,
             IReadOnlyDictionary<Guid, MeasurementDimension> ingredientUnitDimensions,
+            RecipeVersionOrigin? origin,
             CancellationToken cancellationToken)
         {
             Calls++;
             YieldUnitDimension = yieldUnitDimension;
             IngredientUnitDimensions = ingredientUnitDimensions;
             Input = input;
+            Origin = origin;
 
             return Task.FromResult(OperationResult<CreatedRecipeServiceModel>.Success(new CreatedRecipeServiceModel(
                 Guid.NewGuid(), input.Title, input.Status, Guid.NewGuid(), 1, DateTimeOffset.UnixEpoch)));

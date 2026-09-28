@@ -131,6 +131,39 @@ describe('ai-proposal.models', () => {
       expect(decodeAiProposalStatus(statusPayload({ proposal }))).toBeNull();
     });
 
+    /**
+     * The scope every workspace-level request carries. It is not an edge case: concept requests and
+     * first-draft requests both set it, so a client that cannot decode it cannot read either feature — and
+     * the failure is the whole status returning null, not one unreadable field.
+     */
+    it('decodes the scope a request with no recipe carries', () => {
+      const status = decodeAiProposalStatus(
+        statusPayload({ scope: 'NotApplicable', taskType: 'RecipeFirstDraft' }),
+      );
+
+      expect(status).not.toBeNull();
+      expect(status!.scope).toBe('NotApplicable');
+      expect(status!.taskType).toBe('RecipeFirstDraft');
+    });
+
+    /**
+     * Which is exactly why an unrecognised warning kind is not a small problem. `UnresolvedQuestion` shipped
+     * server-side with AIREC-002 and was missing from the union here, and the result was not one lost warning
+     * — it was the entire first draft decoding to null, leaving a page that said "Ready for review" with
+     * nothing in it.
+     */
+    it('decodes the warning kind AIREC-002 emits, rather than losing the whole proposal', () => {
+      const proposal = proposalPayload({
+        warnings: [{ kind: 'UnresolvedQuestion', message: 'What chili oil brand?', changeId: null }],
+      });
+
+      const status = decodeAiProposalStatus(statusPayload({ proposal }));
+
+      expect(status).not.toBeNull();
+      expect(status!.proposal!.warnings[0].kind).toBe('UnresolvedQuestion');
+      expect(status!.proposal!.warnings[0].message).toBe('What chili oil brand?');
+    });
+
     it('keeps a zero-based proposed position exactly as the server sent it', () => {
       const proposal = proposalPayload({
         changes: [changePayload({ changeKind: 'Move', fieldName: null, proposedPosition: 0 })],

@@ -222,6 +222,9 @@ const WARNING_LABELS: Readonly<Record<AiWarningKind, string>> = {
   NonScalableLanguage: "Doesn't scale or convert",
   UnverifiedClaim: 'Not verified',
   SafetyCaution: 'Check this yourself',
+  // Phrased as a question to the creator rather than a flag on the content, because that is what it is: the
+  // model saying it would not guess. Reaches this panel only if a recipe-diff capability starts emitting one.
+  UnresolvedQuestion: 'Needs your answer',
 };
 
 /** "storageNotes" -> "Storage notes", "yieldQuantity" -> "Yield quantity". */

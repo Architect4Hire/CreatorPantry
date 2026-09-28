@@ -91,10 +91,29 @@ public static class AiPolicy
     public const int BriefListFieldMaxLength = 500;
 
     /// <summary>
-    /// The bound on an operation's stored <c>TaskInputsJson</c> column: every declared brief field, each
-    /// individually bounded above, still comfortably fits with room for JSON structure and key names.
+    /// The bound on an operation's stored <c>TaskInputsJson</c>: every declared brief field, each individually
+    /// bounded above, plus a selected concept, with room for JSON structure and key names.
     /// </summary>
-    public const int TaskInputsJsonMaxLength = 4000;
+    /// <remarks>
+    /// <strong>Enforced in code rather than by the column.</strong> AIREC-002's request may carry the eleven
+    /// brief fields <em>and</em> a selected concept's title and summary, which together exceed 4000 characters
+    /// at their declared bounds — and SQL Server has no <c>nvarchar(8000)</c>, so any increase past 4000 means
+    /// <c>nvarchar(max)</c>. The column is therefore unbounded and this constant is what a request is actually
+    /// held to, checked by <c>AiFirstDraftRequestBusiness</c> before the row is written. Keeping the number
+    /// here means the limit is still one documented value rather than whatever the storage type permits.
+    /// </remarks>
+    public const int TaskInputsJsonMaxLength = 12000;
+
+    /// <summary>
+    /// The composed <c>selectedConcept</c> line AIREC-002 carries: one concept's title and summary, joined.
+    /// </summary>
+    /// <remarks>
+    /// Title and summary only. A concept's <c>distinctnessRationale</c> is about telling it apart from the
+    /// siblings it was proposed beside, which means nothing to a draft generated from it alone, and its
+    /// <c>suggestedIngredients</c> are a pitch rather than a list — carrying them would read to the model as a
+    /// constraint the creator never stated. Both are still on the concept for a creator to read.
+    /// </remarks>
+    public const int SelectedConceptMaxLength = (ConceptFieldMaxLength * 2) + 8;
 
     // ---- AIREC-002: structured first-draft output (AiRecipeDraftOutputDocument) ----
     //

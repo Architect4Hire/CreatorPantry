@@ -96,8 +96,11 @@ internal sealed class AiOperationConfiguration : IEntityTypeConfiguration<AiOper
             .IsRequired()
             .HasMaxLength(AiPolicy.IdempotencyKeyMaxLength);
 
-        builder.Property(operation => operation.TaskInputsJson)
-            .HasMaxLength(AiPolicy.TaskInputsJsonMaxLength);
+        // Deliberately unbounded: AIREC-002's brief plus a selected concept exceeds 4000 characters at the
+        // declared field bounds, and SQL Server offers nothing between nvarchar(4000) and nvarchar(max). The
+        // limit lives in AiPolicy.TaskInputsJsonMaxLength and is checked before the write, so a request over it
+        // is refused with a stable code rather than reaching the database as a truncation error.
+        builder.Property(operation => operation.TaskInputsJson);
 
         builder.Property(operation => operation.Attempts).IsRequired();
         builder.Property(operation => operation.AvailableAt).IsRequired();

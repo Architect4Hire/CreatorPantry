@@ -7,10 +7,19 @@ namespace CreatorPantry.Tests.Ai.Evaluation;
 /// Runs a fixture through <see cref="PromptEnvelopeBuilder"/> and checks where untrusted content landed.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Covers PromptInjection — and only the structural half of it. This proves untrusted bytes arrive inside
 /// their own fenced segment of the user message and nowhere in the system message; it cannot and does not
 /// claim to prove a model declines an instruction it finds there, which is behaviour no fixture against a
 /// fake provider can demonstrate — see <c>PromptEnvelope.cs</c>'s own remarks.
+/// </para>
+/// <para>
+/// A fixture names the segment its content travels in. <c>untrustedText</c> is the default and what every
+/// fixture written before AIREC-002 used; <c>preferences</c> exists because that is where a rendered brief
+/// goes — and, since AIREC-002, a selected concept, which is a previous generation's own words re-entering a
+/// prompt. Both are content rather than instruction, and the point of naming the segment is that the same
+/// containment claim has to hold for whichever one a capability actually uses.
+/// </para>
 /// </remarks>
 internal sealed class PromptEnvelopeCase : IAiEvaluationCase
 {
@@ -23,11 +32,19 @@ internal sealed class PromptEnvelopeCase : IAiEvaluationCase
         var expect = fixture.Expect.Deserialize<Expect>(new JsonSerializerOptions(JsonSerializerDefaults.Web))
             ?? throw new AiEvaluationException(fixture.Identity, "'expect' is null.");
 
-        var envelope = new PromptEnvelopeBuilder(input.WorkspaceId)
+        var builder = new PromptEnvelopeBuilder(input.WorkspaceId)
             .WithTask(input.Task)
-            .WithOutputSchema(input.OutputSchema)
-            .WithUntrustedText(input.WorkspaceId, input.UntrustedText)
-            .Build();
+            .WithOutputSchema(input.OutputSchema);
+
+        var envelope = (input.Segment ?? UntrustedTextSegment) switch
+        {
+            UntrustedTextSegment => builder.WithUntrustedText(input.WorkspaceId, input.UntrustedText).Build(),
+            PreferencesSegment => builder.WithPreferences(input.WorkspaceId, input.UntrustedText).Build(),
+            var unknown => throw new AiEvaluationException(
+                fixture.Identity,
+                $"'{unknown}' is not a segment this case can build. "
+                    + $"Known: {UntrustedTextSegment}, {PreferencesSegment}."),
+        };
 
         var inUser = envelope.UserMessage.Contains(input.UntrustedText, StringComparison.Ordinal);
         var inSystem = envelope.SystemMessage.Contains(input.UntrustedText, StringComparison.Ordinal);
@@ -47,7 +64,17 @@ internal sealed class PromptEnvelopeCase : IAiEvaluationCase
         return Task.FromResult(AiEvaluationVerdict.Pass());
     }
 
-    private sealed record Input(Guid WorkspaceId, string Task, string OutputSchema, string UntrustedText);
+    private const string UntrustedTextSegment = "untrustedText";
+
+    private const string PreferencesSegment = "preferences";
+
+    /// <param name="UntrustedText">
+    /// The content to place, whichever segment <paramref name="Segment"/> names. Still called this because the
+    /// claim is the same either way: wherever it goes, it is content and it must not reach the system message.
+    /// </param>
+    /// <param name="Segment">Defaults to <c>untrustedText</c>, so fixtures written before this stayed valid.</param>
+    private sealed record Input(
+        Guid WorkspaceId, string Task, string OutputSchema, string UntrustedText, string? Segment = null);
 
     private sealed record Expect(bool UntrustedTextInUserMessage, bool UntrustedTextInSystemMessage);
 }
