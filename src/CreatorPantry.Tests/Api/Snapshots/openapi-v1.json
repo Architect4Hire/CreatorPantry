@@ -915,6 +915,211 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/proposal-explanation-requests": {
+      "post": {
+        "tags": [
+          "ProposalExplanationRequests"
+        ],
+        "summary": "Asks for a deterministic explanation of an already-completed proposal.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been explained yet. The request is durable and run by the\n            worker afterwards -- even though this task never calls a model, it still runs through the same\n            operation lifecycle every AI capability does (api-contract.md).",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key and the same source returns the original with\n\u0060Idempotent-Replayed: true\u0060 rather than queuing a second explanation.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestProposalExplanation"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestProposalExplanation"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestProposalExplanation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/proposal-explanation-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "ProposalExplanationRequests"
+        ],
+        "summary": "Where a requested explanation has got to, and the explanation itself once there is one.",
+        "description": "Polling before the explanation exists is a \u0060200\u0060 carrying a status, not a \u0060404\u0060 -- the request\nresource exists from the moment it was accepted, and reporting it missing would make a normal poll look\nlike a failure.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Where a requested explanation has got to, and the explanation itself once there is one.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/adaptation-requests": {
       "post": {
         "tags": [
@@ -5173,7 +5378,8 @@
           "Tag",
           "RecipeConcept",
           "IngredientSubstitution",
-          "RecipeReviewFinding"
+          "RecipeReviewFinding",
+          "ProposalExplanationItem"
         ],
         "type": "string"
       },
@@ -5562,7 +5768,8 @@
           "RecipeRevision",
           "IngredientSubstitution",
           "RecipeAdaptation",
-          "RecipeReview"
+          "RecipeReview",
+          "ProposalExplanation"
         ],
         "type": "string"
       },
@@ -8534,6 +8741,15 @@
           }
         }
       },
+      "RequestProposalExplanation": {
+        "type": "object",
+        "properties": {
+          "sourceRequestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "RequestRecipeAdaptation": {
         "type": "object",
         "properties": {
@@ -9506,6 +9722,9 @@
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "ProposalExplanationRequests"
     },
     {
       "name": "RecipeAdaptationRequests"

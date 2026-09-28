@@ -109,4 +109,20 @@ public enum AiTaskType
     /// certification and never a rewrite.
     /// </remarks>
     RecipeReview = 7,
+
+    /// <summary>
+    /// AIREC-008: a concise, creator-facing explanation of an existing, already-persisted proposal — one item
+    /// per changed target plus any verification needs, each linked back to the actual
+    /// <c>AiStructuredChange</c>/<c>AiWarning</c> rows it describes.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Reads a proposal, not a recipe, and proposes no change to either.</strong> Every earlier task
+    /// takes a recipe (or nothing) as its source; this is the first to take another operation's own stored
+    /// proposal. It runs entirely through <see cref="AiProposalExplanationAiTaskHandler"/>'s deterministic
+    /// templating — no model is called — so an explanation item can state only what the source proposal's own
+    /// rows already record, never a new fact. <see cref="AiOperationScope.Advisory"/>, and
+    /// <see cref="AiChangeTargetKind.ProposalExplanationItem"/> is absent from
+    /// <see cref="AiChangeApplicability"/>, the same guarantee <see cref="RecipeReview"/> makes.
+    /// </remarks>
+    ProposalExplanation = 8,
 }

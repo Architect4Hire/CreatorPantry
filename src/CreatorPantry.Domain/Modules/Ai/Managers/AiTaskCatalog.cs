@@ -56,6 +56,9 @@ public static class AiTaskCatalog
     /// <summary>The discriminator for AIREC-006's field-linked quality and safety review.</summary>
     public const string RecipeReview = "recipe.review";
 
+    /// <summary>The discriminator for AIREC-008's explanation of an existing proposal.</summary>
+    public const string ProposalExplanation = "recipe.proposal-explanation";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -65,6 +68,7 @@ public static class AiTaskCatalog
         [IngredientSubstitution] = AiTaskType.IngredientSubstitution,
         [RecipeAdaptation] = AiTaskType.RecipeAdaptation,
         [RecipeReview] = AiTaskType.RecipeReview,
+        [ProposalExplanation] = AiTaskType.ProposalExplanation,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -103,9 +107,16 @@ public static class AiTaskCatalog
     /// to a client that could otherwise ask for <c>WholeRecipe</c> on an operation that will never carry a
     /// change.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.ProposalExplanation"/> needs the carve-out for the first reason alone: it names no
+    /// recipe section of its own, only the request id of the proposal it explains, which travels through
+    /// <c>TaskInputsJson</c> exactly as a substitution's ingredient id does. Its scope is fixed server-side to
+    /// <see cref="AiOperationScope.Advisory"/> the same way, so this is not a second, independent reason for it.
+    /// </para>
     /// </remarks>
     public static bool RequiresTaskInputs(AiTaskType task) =>
-        task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview;
+        task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
+            or AiTaskType.ProposalExplanation;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

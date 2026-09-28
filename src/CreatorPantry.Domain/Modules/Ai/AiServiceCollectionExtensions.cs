@@ -211,6 +211,26 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-008's explanation of an existing proposal.
+    /// </summary>
+    /// <remarks>
+    /// No recipe-module prerequisite, unlike every seam above it: <c>AiProposalExplanationRequestBusiness</c>
+    /// reads its source through <see cref="Data.IAiOperationDataLayer"/>, the same seam every request business
+    /// already depends on, never through <c>IRecipeFacade</c> — the source proposal, not a recipe snapshot, is
+    /// what this capability explains.
+    /// </remarks>
+    public static IServiceCollection AddAiProposalExplanationRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiProposalExplanationRequestBusiness, AiProposalExplanationRequestBusiness>();
+        services.AddScoped<IAiProposalExplanationRequestFacade, AiProposalExplanationRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestProposalExplanationViewModel>,
+            RequestProposalExplanationViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>
@@ -231,6 +251,7 @@ public static class AiServiceCollectionExtensions
             AiTaskType.IngredientSubstitution);
         services.AddKeyedScoped<IAiTaskHandler, RecipeAdaptationAiTaskHandler>(AiTaskType.RecipeAdaptation);
         services.AddKeyedScoped<IAiTaskHandler, RecipeReviewAiTaskHandler>(AiTaskType.RecipeReview);
+        services.AddKeyedScoped<IAiTaskHandler, AiProposalExplanationAiTaskHandler>(AiTaskType.ProposalExplanation);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

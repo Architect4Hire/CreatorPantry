@@ -78,6 +78,9 @@ builder.Services.AddAiAdaptationRequestSeam();
 // AIREC-006's. Recipe-bound like the others, with no capability-specific field of its own -- see
 // AiTaskCatalog.RequiresTaskInputs for why it still needs its own route.
 builder.Services.AddAiReviewRequestSeam();
+
+// AIREC-008's. No recipe-module prerequisite -- it explains an existing proposal, not a recipe.
+builder.Services.AddAiProposalExplanationRequestSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

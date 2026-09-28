@@ -143,6 +143,7 @@ public sealed class AiChangeApplicabilityTests
     [InlineData(AiChangeTargetKind.RecipeConcept)]
     [InlineData(AiChangeTargetKind.IngredientSubstitution)]
     [InlineData(AiChangeTargetKind.RecipeReviewFinding)]
+    [InlineData(AiChangeTargetKind.ProposalExplanationItem)]
     public void An_advisory_target_is_neither_applicable_nor_expressible(AiChangeTargetKind target)
     {
         Assert.Empty(AiChangeApplicability.For(target));

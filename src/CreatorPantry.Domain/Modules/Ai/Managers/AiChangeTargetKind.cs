@@ -85,4 +85,18 @@ public enum AiChangeTargetKind
     /// </para>
     /// </remarks>
     RecipeReviewFinding = 11,
+
+    /// <summary>
+    /// One item in AIREC-008's explanation of an existing proposal — a summary of what changed on one target,
+    /// or a general note — flattened the same way as <see cref="RecipeReviewFinding"/>: one
+    /// <see cref="AiChangeKind.Add"/> row carrying its summary, followed by <see cref="AiChangeKind.Set"/> rows
+    /// naming the source proposal's own change and warning ids it describes.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Absent from <see cref="AiChangeApplicability"/> deliberately, and that absence is the
+    /// guarantee.</strong> An explanation must never become an edit to anything, including the proposal it
+    /// explains — it is a read projection of rows that already exist, and there must be no code path from a
+    /// stored explanation item to a recipe edit or a change to the source proposal.
+    /// </remarks>
+    ProposalExplanationItem = 12,
 }
