@@ -1,0 +1,18 @@
+{
+  "id": "recipe.adaptation.an-unexplained-empty-answer-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "AdaptationOutputValidation",
+  "description": "The claim AIREC-005 exists to prevent: proposing nothing and saying nothing is indistinguishable from a call that went wrong, and leaves the creator without the one thing an impossible goal owes them — why. Rejected rather than silently accepted as a no-op, so a fabricated 'nothing needed changing' can never be confused with an honest limitation.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Equipment"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.adaptation_answer_unexplained",
+    "category": "DomainInvalid"
+  }
+}

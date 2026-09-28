@@ -1,0 +1,22 @@
+{
+  "id": "recipe.adaptation.a-yield-answer-inventing-its-own-figure-is-rejected",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "AdaptationOutputValidation",
+  "description": "ai.md routes scaling through deterministic domain code, never a model. The correct doubled figure for a 100g line is 200; this answer proposes 199 instead, which is rejected — not corrected to the right number — because nothing here repairs a model's own arithmetic.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Ingredient\",\"targetId\":\"11111111-1111-1111-1111-111111111111\",\"fieldName\":\"quantity\",\"afterValue\":\"199\"}]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Yield",
+    "scalingMultiplier": 2,
+    "scalingLines": [
+      { "id": "11111111-1111-1111-1111-111111111111", "displayText": "100g flour", "quantity": 100, "fixed": false }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.yield_math_not_deterministic",
+    "category": "DomainInvalid"
+  }
+}

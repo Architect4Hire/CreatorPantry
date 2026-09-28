@@ -58,6 +58,19 @@ public enum AiEvaluationKind
     /// a model's advice is culinarily *good* is not, and no fixture here claims otherwise.
     /// </remarks>
     SubstitutionOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiAdaptationOutputValidator.Validate"/> directly,
+    /// for AIREC-005's two additional checks over the shared recipe-diff document
+    /// <see cref="OutputValidation"/> already covers.
+    /// </summary>
+    /// <remarks>
+    /// A fixture naming a yield goal may also declare deterministic scaling inputs (a multiplier and a small
+    /// set of ingredient lines), which the case runner resolves through the real
+    /// <c>RecipeScalingCalculator</c> before validating — so a fixture's expected figure is never hand-typed
+    /// arithmetic that could itself be wrong.
+    /// </remarks>
+    AdaptationOutputValidation,
 }
 
 /// <summary>

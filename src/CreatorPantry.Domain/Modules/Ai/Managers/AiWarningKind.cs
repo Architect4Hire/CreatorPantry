@@ -65,4 +65,17 @@ public enum AiWarningKind
     /// </para>
     /// </remarks>
     Rationale = 7,
+
+    /// <summary>
+    /// A declared goal that could not be met, in full or in part, and why.
+    /// </summary>
+    /// <remarks>
+    /// AIREC-005's own restriction, made checkable: an impossible or unsafe goal produces this, not a proposal
+    /// that only appears to meet it. Distinct from <see cref="CulinaryCaution"/> and <see cref="SafetyCaution"/>
+    /// on purpose — those qualify a change that was made; this says something asked for was not done, and a
+    /// review panel should not have to infer the difference from wording. An adaptation answer proposing no
+    /// change at all must carry one of these addressed to the answer as a whole; see
+    /// <see cref="AiOutputReason.AdaptationAnswerUnexplained"/>.
+    /// </remarks>
+    Limitation = 8,
 }

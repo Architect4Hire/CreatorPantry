@@ -1,0 +1,16 @@
+{
+  "id": "recipe.adaptation.a-limitation-only-answer-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "AdaptationOutputValidation",
+  "description": "Proposing nothing toward the declared goal is a complete and correct answer when the goal cannot be met, as long as a Limitation warning addressed to the answer as a whole says why. Mirrors AIREC-004's 'no alternative is valid when explained' fixture for the same reason: an honest empty answer is not a failure.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"This recipe cannot be made nut-free without losing the intended texture.\"}]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Dietary"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

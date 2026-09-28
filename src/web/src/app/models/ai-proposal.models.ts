@@ -87,7 +87,9 @@ export type AiTaskType =
   /** AIREC-003's scoped revision of an existing recipe. */
   | 'RecipeRevision'
   /** AIREC-004's substitution advice for one selected ingredient. Reads a recipe; changes nothing in it. */
-  | 'IngredientSubstitution';
+  | 'IngredientSubstitution'
+  /** AIREC-005's single-goal adaptation — dietary, equipment, yield, or skill level. */
+  | 'RecipeAdaptation';
 
 const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
@@ -96,6 +98,7 @@ const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'RecipeFirstDraft',
   'RecipeRevision',
   'IngredientSubstitution',
+  'RecipeAdaptation',
 ]);
 
 /**
@@ -126,6 +129,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And substitutions through recipe/{id}/substitution-requests. Null for a second reason as well as that
   // one: asking again means naming the ingredient, and nothing generic carries it.
   IngredientSubstitution: null,
+  // And adaptations through recipe/{id}/adaptation-requests. Null for the same reason as a revision: asking
+  // again needs the declared goal, which the generic route cannot carry.
+  RecipeAdaptation: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -266,7 +272,13 @@ export type AiWarningKind =
   /** A question the model declined to guess at, rather than an assumption it made. AIREC-002 emits these. */
   | 'UnresolvedQuestion'
   /** Why one change was proposed. Attached to that change, and carrying no caution. AIREC-003 emits these. */
-  | 'Rationale';
+  | 'Rationale'
+  /**
+   * A declared goal that could not be met, in full or in part, and why. Distinct from `CulinaryCaution` and
+   * `SafetyCaution`, which qualify a change that was made — this says something asked for was not done.
+   * AIREC-005 emits these, and requires one on any answer proposing no change at all.
+   */
+  | 'Limitation';
 
 const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'Unspecified',
@@ -277,6 +289,7 @@ const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'SafetyCaution',
   'UnresolvedQuestion',
   'Rationale',
+  'Limitation',
 ]);
 
 /** Mirrors AiDispositionDecision, less `Unspecified` — which is never a decision a client may send. */

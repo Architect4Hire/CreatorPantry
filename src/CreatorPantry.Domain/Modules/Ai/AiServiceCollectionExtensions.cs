@@ -174,6 +174,26 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-005's single-goal recipe adaptation.
+    /// </summary>
+    /// <remarks>
+    /// Carries the recipe-module prerequisite <see cref="AddAiRevisionRequestSeam"/> does, and one more
+    /// besides: a yield-goal request calls <c>IRecipeFacade.ScaleAsync</c> to pre-check its target before the
+    /// operation is even queued, the same dependency <see cref="AddAiSubstitutionRequestSeam"/> exercises on
+    /// every request for its own reason.
+    /// </remarks>
+    public static IServiceCollection AddAiAdaptationRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiAdaptationRequestBusiness, AiAdaptationRequestBusiness>();
+        services.AddScoped<IAiAdaptationRequestFacade, AiAdaptationRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestRecipeAdaptationViewModel>,
+            RequestRecipeAdaptationViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>
@@ -192,6 +212,7 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, RecipeRevisionAiTaskHandler>(AiTaskType.RecipeRevision);
         services.AddKeyedScoped<IAiTaskHandler, IngredientSubstitutionAiTaskHandler>(
             AiTaskType.IngredientSubstitution);
+        services.AddKeyedScoped<IAiTaskHandler, RecipeAdaptationAiTaskHandler>(AiTaskType.RecipeAdaptation);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

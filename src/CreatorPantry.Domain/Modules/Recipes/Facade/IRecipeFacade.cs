@@ -307,6 +307,25 @@ public interface IRecipeFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// <see cref="ScaleAsync(Guid, ScaleRecipeViewModel, CancellationToken)"/>, for a caller in another module.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ScaleRecipeViewModel"/> is this module's own ViewModel, and backend.md permits only the
+    /// facade interface, the ServiceModels it returns, and entity types across a module boundary — a ViewModel
+    /// is none of those, so another module's file may not construct one (enforced by
+    /// <c>ModuleBoundaryTests.No_module_names_another_modules_internal_manager_types</c>). AIREC-005 is the
+    /// first cross-module caller of this operation, hence this primitive-only overload rather than a second
+    /// exemption. It validates and computes exactly as the other overload does; both end at the same business
+    /// call.
+    /// </remarks>
+    Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        decimal? multiplier,
+        decimal? targetYieldQuantity,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Computes a deterministic unit-conversion preview for one recipe of the workspace resolved for this
     /// scope, in the context of one explicit version (ING-004).
     /// </summary>
@@ -317,7 +336,7 @@ public interface IRecipeFacade
     /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
     /// </returns>
     /// <remarks>
-    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync(Guid, ScaleRecipeViewModel, CancellationToken)"/>.
     /// Both units are resolved here, not in Business: they come from the request rather than the recipe, and
     /// resolving another module's data is a facade-to-facade call Business may not make (backend.md).
     /// </remarks>
@@ -337,7 +356,7 @@ public interface IRecipeFacade
     /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
     /// </returns>
     /// <remarks>
-    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync(Guid, ScaleRecipeViewModel, CancellationToken)"/>.
     /// No cross-module lookup: a temperature scale is an enum, not a reference id.
     /// </remarks>
     Task<OperationResult<RecipeTemperatureConversionResultServiceModel>> ConvertTemperatureAsync(
@@ -356,7 +375,7 @@ public interface IRecipeFacade
     /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
     /// </returns>
     /// <remarks>
-    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync(Guid, ScaleRecipeViewModel, CancellationToken)"/>.
     /// No cross-module lookup: Business resolves the dimension itself from the recipe's own stored yield unit.
     /// </remarks>
     Task<OperationResult<RecipeYieldReconciliationResultServiceModel>> RecalculateYieldAsync(
@@ -375,7 +394,7 @@ public interface IRecipeFacade
     /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, or <see cref="RecipeErrorCodes.VersionNotFound"/>.
     /// </returns>
     /// <remarks>
-    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync"/>.
+    /// <strong>Read-only, uncached, and no role gate</strong> — the same reasoning as <see cref="ScaleAsync(Guid, ScaleRecipeViewModel, CancellationToken)"/>.
     /// The unit is resolved here, not in Business, for the same reason <see cref="ConvertUnitsAsync"/> gives.
     /// </remarks>
     Task<OperationResult<RecipeQuantityDisplayResultServiceModel>> NormalizeDisplayAsync(
@@ -851,6 +870,17 @@ internal sealed class RecipeFacade(
 
         return await business.ScaleAsync(recipeId, model.SourceVersionNumber, request, cancellationToken);
     }
+
+    public Task<OperationResult<RecipeScalingResultServiceModel>> ScaleAsync(
+        Guid recipeId,
+        int sourceVersionNumber,
+        decimal? multiplier,
+        decimal? targetYieldQuantity,
+        CancellationToken cancellationToken) =>
+        ScaleAsync(
+            recipeId,
+            new ScaleRecipeViewModel(sourceVersionNumber, multiplier, targetYieldQuantity),
+            cancellationToken);
 
     public async Task<OperationResult<RecipeUnitConversionResultServiceModel>> ConvertUnitsAsync(
         Guid recipeId,

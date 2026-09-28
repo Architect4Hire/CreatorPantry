@@ -1,0 +1,20 @@
+{
+  "id": "recipe.adaptation.a-yield-answer-copying-the-computed-figure-is-valid",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "AdaptationOutputValidation",
+  "description": "A yield-goal answer that copies the exact figure RecipeScalingCalculator already computed — doubling 100 to 200 — is accepted. The fixture never hand-types the expected number itself: the case runner resolves it through the real calculator from the declared multiplier and line quantity, so the fixture cannot assert arithmetic the production code would not also produce.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Ingredient\",\"targetId\":\"11111111-1111-1111-1111-111111111111\",\"fieldName\":\"quantity\",\"afterValue\":\"200\"}]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Yield",
+    "scalingMultiplier": 2,
+    "scalingLines": [
+      { "id": "11111111-1111-1111-1111-111111111111", "displayText": "100g flour", "quantity": 100, "fixed": false }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

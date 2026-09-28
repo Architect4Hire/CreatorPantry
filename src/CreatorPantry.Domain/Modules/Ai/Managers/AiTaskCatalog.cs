@@ -50,6 +50,9 @@ public static class AiTaskCatalog
     /// <summary>The discriminator for AIREC-004's substitution advice about one selected ingredient.</summary>
     public const string IngredientSubstitution = "recipe.substitution";
 
+    /// <summary>The discriminator for AIREC-005's single-goal recipe adaptation.</summary>
+    public const string RecipeAdaptation = "recipe.adaptation";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -57,6 +60,7 @@ public static class AiTaskCatalog
         [RecipeFirstDraft] = AiTaskType.RecipeFirstDraft,
         [RecipeRevision] = AiTaskType.RecipeRevision,
         [IngredientSubstitution] = AiTaskType.IngredientSubstitution,
+        [RecipeAdaptation] = AiTaskType.RecipeAdaptation,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -80,8 +84,16 @@ public static class AiTaskCatalog
     /// instead would write a row that contradicts the design, and although the handler refuses such an
     /// operation before any provider call, the row would still be there saying something untrue about it.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.RecipeAdaptation"/> needs the same carve-out for the same first reason: a goal is
+    /// what makes it an adaptation of anything in particular, so it travels through <c>TaskInputsJson</c>
+    /// exactly as a substitution's ingredient id does. Its scope is fixed to
+    /// <see cref="AiOperationScope.WholeRecipe"/> the same way a substitution's is fixed to
+    /// <see cref="AiOperationScope.Advisory"/>.
+    /// </para>
     /// </remarks>
-    public static bool RequiresTaskInputs(AiTaskType task) => task is AiTaskType.IngredientSubstitution;
+    public static bool RequiresTaskInputs(AiTaskType task) =>
+        task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

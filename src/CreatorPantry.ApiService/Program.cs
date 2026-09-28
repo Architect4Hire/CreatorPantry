@@ -71,6 +71,9 @@ builder.Services.AddAiFirstDraftRequestSeam();
 // AIREC-003's. Recipe-bound, so it carries the recipe-module prerequisite the proposal seam does.
 builder.Services.AddAiRevisionRequestSeam();
 builder.Services.AddAiSubstitutionRequestSeam();
+
+// AIREC-005's. Recipe-bound like the two above, plus the same yield pre-check dependency AIREC-004 exercises.
+builder.Services.AddAiAdaptationRequestSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

@@ -230,6 +230,8 @@ const WARNING_LABELS: Readonly<Record<AiWarningKind, string>> = {
   UnresolvedQuestion: 'Needs your answer',
   // Not a caution: it says what the model was doing, not that the result needs checking.
   Rationale: 'Why this changed',
+  // AIREC-005: a declared goal that could not be met, in full or in part.
+  Limitation: 'Could not be done',
 };
 
 /** "storageNotes" -> "Storage notes", "yieldQuantity" -> "Yield quantity". */

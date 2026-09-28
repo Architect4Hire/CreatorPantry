@@ -258,6 +258,25 @@ public static class AiPolicy
     /// <inheritdoc cref="MaxRecipeDraftWarnings" path="/remarks"/>
     public const int MaxSubstitutionWarnings = 20;
 
+    // ---- AIREC-005: single-goal recipe adaptation (reuses AiOutputDocument; see AiAdaptationOutputValidator) ----
+
+    /// <summary>
+    /// What the declared goal means for this recipe, in the creator's own words: "gluten-free", "no stand
+    /// mixer", "a nervous first-timer".
+    /// </summary>
+    /// <remarks>
+    /// The same bound as <see cref="RevisionGoalMaxLength"/> and <see cref="SubstitutionReasonMaxLength"/>,
+    /// restated rather than aliased for the reason those two are: each field is bounded for its own capability
+    /// and may move independently. Untrusted prompt content throughout, exactly like the other two.
+    /// </remarks>
+    public const int AdaptationGoalDetailMaxLength = 500;
+
+    /// <summary>
+    /// The most warnings one adaptation answer may carry.
+    /// </summary>
+    /// <inheritdoc cref="MaxRecipeDraftWarnings" path="/remarks"/>
+    public const int MaxAdaptationWarnings = 20;
+
     /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>

@@ -65,4 +65,33 @@ public enum AiTaskType
     /// <see cref="AiOperationScope.Advisory"/>, which permits no change to reach the recipe at all.
     /// </remarks>
     IngredientSubstitution = 5,
+
+    /// <summary>
+    /// AIREC-005: adapts one pinned version of an existing recipe toward exactly one declared goal — dietary,
+    /// equipment, yield, or skill level — returning a complete cross-field proposal across ingredients, method,
+    /// timing, texture, safety, and yield implications.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Shaped like <see cref="RecipeRevision"/>, not like <see cref="IngredientSubstitution"/>.</strong>
+    /// This is a multi-field edit, so it runs in <see cref="AiOperationScope.WholeRecipe"/> — fixed server-side,
+    /// never chosen by the client — and its answer is an ordinary <see cref="AiOutputDocument"/> diffed against
+    /// the pinned snapshot by <see cref="AiDiffCalculator"/>, exactly as a revision's is. The goal is a request
+    /// field, not a fifth document shape: it is the discriminator <see cref="AiAdaptationOutputValidator"/> and
+    /// the prompt condition on, the way a revision conditions on its scope.
+    /// </para>
+    /// <para>
+    /// <strong>Its one restriction a revision does not share: deterministic yield math.</strong> When the goal
+    /// is yield, the handler computes the scaled quantities through <c>RecipeScalingCalculator</c> before the
+    /// model is ever called, and <see cref="AiAdaptationOutputValidator"/> rejects an answer whose ingredient
+    /// quantities disagree with that computation — the model may explain what a larger batch changes about the
+    /// method, but it may never do the arithmetic itself (ai.md).
+    /// </para>
+    /// <para>
+    /// An impossible or unsafe goal is answered honestly: <see cref="AiWarningKind.Limitation"/> is what an
+    /// answer proposing little or nothing toward the goal is required to carry, rather than a proposal that
+    /// only appears to meet it.
+    /// </para>
+    /// </remarks>
+    RecipeAdaptation = 6,
 }

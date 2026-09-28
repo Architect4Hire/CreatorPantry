@@ -103,6 +103,32 @@ public static class AiOutputReason
     /// indistinguishable from a call that went wrong, and leaves the creator nothing to act on.
     /// </remarks>
     public const string SubstitutionAnswerUnexplained = "ai.output.substitution_answer_unexplained";
+
+    // ---- AIREC-005: single-goal recipe adaptation ----
+
+    /// <summary>
+    /// A yield-goal answer set an ingredient quantity that disagrees with the deterministic scaling already
+    /// computed for it.
+    /// </summary>
+    /// <remarks>
+    /// Not correctable: the deterministic figure was already handed to the model as authoritative context, so
+    /// a re-ask spends an attempt asking for the same arithmetic again rather than for something a retry could
+    /// plausibly fix. <c>ai.md</c> routes scaling through deterministic domain code; this is what refuses the
+    /// answer when a model did the arithmetic itself instead of copying the figure it was given.
+    /// </remarks>
+    public const string YieldMathNotDeterministic = "ai.output.yield_math_not_deterministic";
+
+    /// <summary>
+    /// An adaptation answer proposed no change toward the declared goal and did not say why.
+    /// </summary>
+    /// <remarks>
+    /// The AIREC-005 form of <see cref="SubstitutionAnswerUnexplained"/>: "this goal cannot be met, or cannot
+    /// be met safely" is a complete and honest answer, and inventing a change to have something to show is the
+    /// fabricated success the capability's RESTRICTION forbids. What is required is specifically a
+    /// <see cref="AiWarningKind.Limitation"/> addressed to the answer as a whole, not any warning at all — a
+    /// stray assumption or caution should not by itself count as having explained an empty answer.
+    /// </remarks>
+    public const string AdaptationAnswerUnexplained = "ai.output.adaptation_answer_unexplained";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>
