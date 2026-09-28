@@ -1,4 +1,5 @@
 using Aspire.Hosting.Foundry;
+using CreatorPantry.AppHost;
 using Microsoft.Extensions.Configuration;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -44,8 +45,13 @@ var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchPro
     .WaitForCompletion(migrations)
     .WithHttpHealthCheck("/health");
 
+// The same fingerprint key the API gets, and for the same reason: the worker registers AddIdempotency, whose
+// options are ValidateOnStart, so an absent key stops this host at startup rather than at first use. It must
+// also be the *same* key, because a fingerprint hashed by one host is compared by the other.
 var worker = builder.AddProject<Projects.CreatorPantry_Worker>("worker")
+    .WithEnvironment("Idempotency__FingerprintKey", idempotencyFingerprintKey)
     .WithReference(db).WaitFor(db)
+    .WithReference(cache).WaitFor(cache)
     .WithReference(blobs).WaitFor(blobs)
     .WaitForCompletion(migrations);
 
@@ -57,6 +63,12 @@ var worker = builder.AddProject<Projects.CreatorPantry_Worker>("worker")
 // API and Worker register the unconfigured clients instead and `aspire run` still starts on a clean clone
 // with no Foundry install and no model account. Turning it on costs a one-time model download on first run,
 // which is why the dependents WaitFor the deployments rather than racing them.
+//
+// Three states, not two. A developer with no Foundry install and no model account gets the unconfigured
+// clients; one running Foundry Local gets deployments this AppHost owns; one pointing at deployments that
+// already exist — an Azure Foundry resource, a shared team endpoint — supplies their connection strings and
+// gets those. The third case exists because RunAsFoundryLocal() is a per-machine install, and requiring it
+// of somebody who already has a model account would be asking them to download a model twice.
 if (builder.Configuration.GetValue("Foundry:Enabled", false))
 {
     var foundry = builder.AddFoundry("foundry").RunAsFoundryLocal();
@@ -68,6 +80,110 @@ if (builder.Configuration.GetValue("Foundry:Enabled", false))
         .WithReference(embeddings).WaitFor(embeddings);
     worker.WithReference(chat).WaitFor(chat)
         .WithReference(embeddings).WaitFor(embeddings);
+}
+else if (builder.Configuration.GetValue("Foundry:Azure", false))
+{
+    // Typed into the dashboard rather than onto a command line. An unresolved parameter surfaces an "Enter
+    // values" form in the Aspire dashboard, with a "Save to user secret" checkbox, so the key reaches the
+    // AppHost's user-secrets without ever being pasted into a shell — where it would sit in history — or into
+    // a file somebody might commit. That is the same store `aspire secret set` writes to; this is the UI for
+    // it, not a second mechanism.
+    //
+    // The endpoint is not marked secret because it is not one: masking it would only make the value harder to
+    // check against the portal when a deployment name is wrong.
+    // Two resource kinds, two URL shapes. An AI Foundry resource serves every deployment from one /models
+    // endpoint and takes the deployment as a parameter; an Azure OpenAI resource puts the deployment in the
+    // path, so each one is a different URL. Azure.AI.Inference appends "/chat/completions" to whatever it is
+    // given either way, which is the only reason one client can talk to both.
+    var azureOpenAi = builder.Configuration.GetValue("Foundry:AzureOpenAI", false);
+
+    // Pre-filled from configuration when a developer has recorded which resource they use, so the dialog is a
+    // confirmation rather than a transcription. Trailing slash trimmed here because the Azure portal shows the
+    // endpoint with one and a path is appended below: the alternative is a double slash and a 404 that reads
+    // like a wrong deployment name.
+    var endpointDefault = builder.Configuration["Foundry:Endpoint"]?.Trim().TrimEnd('/');
+
+    var endpoint = builder.AddParameter("foundry-endpoint")
+        .WithDescription(
+            azureOpenAi
+                ? "The endpoint of your Azure OpenAI resource — `https://<resource>.openai.azure.com`, with "
+                  + "no path. The `/openai/deployments/<deployment>` part is appended for you, so a trailing "
+                  + "slash is removed if you paste one. Azure shows it under *Keys and Endpoint*."
+                : "The **Models** endpoint of your Azure AI Foundry resource, including the `/models` path — "
+                  + "`https://<resource>.services.ai.azure.com/models`. Azure shows it under *Keys and "
+                  + "Endpoint*.",
+            enableMarkdown: true)
+        .WithCustomInput(_ => new InteractionInput
+        {
+            Name = "foundry-endpoint",
+            InputType = InputType.Text,
+            Label = azureOpenAi ? "Azure OpenAI endpoint" : "Foundry Models endpoint",
+            Placeholder = azureOpenAi
+                ? "https://<resource>.openai.azure.com"
+                : "https://<resource>.services.ai.azure.com/models",
+            Value = endpointDefault,
+        });
+
+    var key = builder.AddParameter("foundry-key", secret: true)
+        .WithDescription(
+            "**Key 1** or **Key 2** from the same *Keys and Endpoint* page. Tick *Save to user secret* so it "
+            + "is not asked for again. It is never written to source control or returned by the API.",
+            enableMarkdown: true);
+
+    // Prompted too, rather than read from configuration. An Azure OpenAI deployment is named whatever it was
+    // called at creation — `gpt-4o-mini` as often as `chat` — and a wrong name does not fail at startup: the
+    // connection string is not exercised until the first generation, so it surfaces as a 404 on a creator's
+    // request. Asking beside the endpoint, with the portal open, is where that mistake is cheapest to avoid.
+    AddPromptedDeployment("chat", "Foundry:ChatModel:Deployment", "Chat deployment", "gpt-4o-mini");
+    AddPromptedDeployment("embeddings", "Foundry:EmbeddingModel:Deployment", "Embedding deployment", "text-embedding-3-small");
+
+    void AddPromptedDeployment(string connectionName, string section, string label, string placeholder)
+    {
+        var deployment = builder.AddParameter($"foundry-{connectionName}-deployment")
+            .WithDescription(
+                $"The **deployment name** for {connectionName} as it appears under *Deployments* in the Azure "
+                + "portal. This is the name given at creation, which is often the model name rather than "
+                + $"`{connectionName}`.",
+                enableMarkdown: true)
+            .WithCustomInput(_ => new InteractionInput
+            {
+                Name = $"foundry-{connectionName}-deployment",
+                InputType = InputType.Text,
+                Label = label,
+                Placeholder = placeholder,
+                Value = builder.Configuration[section]?.Trim(),
+            });
+
+        // Composed from parameters rather than from a literal, so the key is resolved by Aspire at the point
+        // it is handed to a resource. It is not read into this process's own configuration on the way past.
+        //
+        // DeploymentId is sent in both shapes. Azure OpenAI ignores it in favour of the path, but the
+        // connection-string parser requires it, and a client that reports which deployment answered is worth
+        // more than a field saved.
+        var resource = builder.AddConnectionString(
+            connectionName,
+            azureOpenAi
+                ? ReferenceExpression.Create(
+                    $"Endpoint={endpoint}/openai/deployments/{deployment};Key={key};DeploymentId={deployment}")
+                : ReferenceExpression.Create(
+                    $"Endpoint={endpoint};Key={key};DeploymentId={deployment}"));
+
+        api.WithReference(resource);
+        worker.WithReference(resource);
+    }
+}
+else
+{
+    // The deployment names stay "chat" and "embeddings" whichever way they are supplied, because that name
+    // is the configuration key CreatorPantry.AiProvider's AiModelConnections reads them back under. Each is
+    // decided on its own: chat without embeddings is a real intermediate state, and AddCreatorPantryAi
+    // already falls back per deployment rather than all-or-nothing.
+    //
+    // No secret is written here. AddConnectionString names a value the AppHost's own configuration supplies
+    // under ConnectionStrings — user-secrets locally, the deployment's secret store otherwise — so a key in
+    // an Azure Foundry connection string never reaches source control.
+    AddExternalDeployment("chat", "Foundry:ChatModel");
+    AddExternalDeployment("embeddings", "Foundry:EmbeddingModel");
 }
 
 // Production host for the Angular bundle; serves /runtime-config.json with the gateway's public URL.
@@ -134,4 +250,44 @@ IResourceBuilder<FoundryDeploymentResource> AddConfiguredDeployment(
     string Required(string key) => model[key]
         ?? throw new InvalidOperationException(
             $"'{configurationSection}:{key}' is required when Foundry:Enabled is true.");
+}
+
+// Passes a model deployment that already exists through to the API and Worker under the name they read it
+// back under. Two sources, in this order: a connection string the configuration supplies, which is an Azure
+// Foundry resource or any compatible endpoint; or, when Foundry:LocalCli is on, a local Foundry Local install
+// driven through its own CLI. Neither present, nothing is registered and both hosts fall back to their
+// unconfigured clients — the clean-clone case, so this is silent by design rather than a configuration error.
+void AddExternalDeployment(string connectionName, string modelSection)
+{
+    var configured = builder.Configuration.GetConnectionString(connectionName);
+
+    if (string.IsNullOrWhiteSpace(configured) && builder.Configuration.GetValue("Foundry:LocalCli", false))
+    {
+        var alias = builder.Configuration[$"{modelSection}:Name"];
+
+        if (!string.IsNullOrWhiteSpace(alias))
+        {
+            configured = FoundryLocalCli.TryResolveConnectionString(alias, out var diagnostic);
+
+            // To the console rather than a logger: this runs while the application model is being built,
+            // before there is a resource to attribute it to, and a developer who expected a model and got the
+            // throwing client needs to be told which of the two it was.
+            Console.WriteLine(configured is null
+                ? $"Foundry Local: '{connectionName}' unavailable — {diagnostic}."
+                : $"Foundry Local: '{connectionName}' resolved — {diagnostic}.");
+        }
+    }
+
+    if (string.IsNullOrWhiteSpace(configured))
+    {
+        return;
+    }
+
+    // Held as a literal rather than re-read from configuration: when it came from the CLI above there is no
+    // configuration entry to read it back from.
+    var resolved = configured;
+    var deployment = builder.AddConnectionString(connectionName, ReferenceExpression.Create($"{resolved}"));
+
+    api.WithReference(deployment);
+    worker.WithReference(deployment);
 }

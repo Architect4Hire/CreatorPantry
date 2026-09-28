@@ -134,16 +134,104 @@ Normalized reference data may enrich creator content, but it never destructively
 
 9. Optionally enable local models. The model provider (B-15) is off by default so the application starts
    without it; with it off, the API and Worker register model clients that throw rather than answer.
-   To turn it on, install the Foundry CLI and set the switch on the AppHost:
-   
+
+   **`Foundry:Enabled` does not currently work.** Aspire.Hosting.Foundry 13.5.4-preview's
+   `RunAsFoundryLocal()` starts the Foundry service successfully — it comes up healthy and serves requests —
+   and then marks its own resource `FailedToStart` about a second later, logging no exception. That cascades
+   to everything waiting on the deployment, so the whole application goes down rather than just the AI
+   features. Use `Foundry:LocalCli` instead, which drives the same CLI from `FoundryLocalCli.cs` and hands
+   the result over as an ordinary connection string:
+
    ```bash
-   winget install Microsoft.FoundryLocal
-   aspire secret set Foundry:Enabled true
+   winget install --id Microsoft.FoundryLocal --version 0.8.119.102   # see the version pin below
+   aspire secret set Foundry:LocalCli true
+   foundry model download phi-4-mini
    ```
-   
-   Which models run is `Foundry:ChatModel` and `Foundry:EmbeddingModel` in the AppHost's `appsettings.json`;
-   only Foundry Local models work while `RunAsFoundryLocal()` is in effect. First start downloads them.
-   No API key is needed — Foundry Local publishes its own endpoint and key to the consuming services.
+
+   Then once per boot, before `aspire run`:
+
+   ```bash
+   foundry service start
+   foundry model load phi-4-mini
+   ```
+
+   Both are optional — the resolver does them itself — but a cold load of a multi-GB model onto the GPU can
+   overrun the Aspire CLI's 120s start timeout and abort the launch. The Foundry service outlives an
+   `aspire run`, so this is a once-per-boot cost, not once-per-restart. Raise `ASPIRE_CLI_START_TIMEOUT` if
+   you would rather let the resolver do it.
+
+   Three things that will otherwise cost an afternoon:
+
+   - **Pin Foundry Local to 0.8.x.** 0.10.0 renamed `foundry service` to `foundry server`, and both the
+     Aspire integration and `FoundryLocalCli` call `service`.
+   - **"Service is already running" fails the launch** when `Foundry:Enabled` is used: the integration cannot
+     adopt a service it did not start, and any `foundry` command touching models starts one. `foundry service
+     stop` first. `Foundry:LocalCli` handles this case correctly.
+   - **Embeddings are not available on 0.8.x.** Its catalogue contains no embedding models at all. One
+     downloaded by a 0.10.x CLI stays in the cache and can be loaded by its full id, but *serving* a request
+     from it kills the Foundry service outright — reproducibly, taking chat down with it. Leave
+     `Foundry:EmbeddingModel:Name` at an alias 0.8.x cannot resolve, so the resolver skips it and embeddings
+     stay on the client that throws. Chat is all the recipe studio needs; semantic search would need a
+     genuine 0.8-era embedding model.
+
+   Which models run is `Foundry:ChatModel` and `Foundry:EmbeddingModel` in the AppHost's `appsettings.json`.
+   No API key is needed — the local service authenticates nobody.
+
+   **Azure AI Foundry, entered through the dashboard.** The least error-prone route, and the one that keeps
+   the key out of your shell history:
+
+   ```bash
+   aspire secret set Foundry:Azure true
+   aspire run
+   ```
+
+   The dashboard then shows *Unresolved parameters* with an **Enter values** form asking for the Foundry
+   endpoint and key, each with a description of where to find it in Azure. Tick **Save to user secret** and
+   you are not asked again — it writes to the same AppHost user-secrets store `aspire secret set` uses. The
+   deployments are assumed to be named `chat` and `embeddings`; override with `Foundry:ChatModel:Deployment`
+   and `Foundry:EmbeddingModel:Deployment` if yours differ.
+
+   In Azure you need one **AI Foundry resource** (`kind: AIServices`) with two deployments — a chat model that
+   supports tool calling, such as `gpt-4o-mini`, and an embedding model such as `text-embedding-3-small`. The
+   endpoint is the **Models** one, ending in `/models`.
+
+   **An Azure OpenAI resource works too**, and its URL shape is different: it puts the deployment in the path,
+   so each deployment is its own endpoint. Set `Foundry:AzureOpenAI` and supply only the base URL — the
+   `/openai/deployments/<deployment>` part is appended per deployment:
+
+   ```bash
+   aspire secret set Foundry:Azure true
+   aspire secret set Foundry:AzureOpenAI true
+   aspire secret set Foundry:Endpoint "https://<resource>.openai.azure.com"
+   ```
+
+   Everything else is asked for in the dashboard: the endpoint, the key, and both **deployment names**. Only
+   the two switches above are configuration, because which shape the connection string takes has to be decided
+   while the application model is built — before any dialog can be shown. `Foundry:Endpoint`,
+   `Foundry:ChatModel:Deployment` and `Foundry:EmbeddingModel:Deployment` are optional and only pre-fill those
+   prompts, so the dialog becomes a confirmation rather than a transcription.
+
+   Deployment names are prompted rather than assumed because a wrong one does not fail at startup — the
+   connection string is not exercised until the first generation, so it surfaces as a 404 on a creator's
+   request rather than as a startup error.
+
+   Or, if you already have model deployments and would rather set the connection strings directly, leave
+   `Foundry:Enabled` and `Foundry:Azure` off and name them. The AppHost passes them through under the same two
+   names, so nothing downstream can tell which way they arrived:
+
+   ```bash
+   aspire secret set ConnectionStrings:chat "Endpoint=https://<resource>.services.ai.azure.com/models;Key=<key>;DeploymentId=<chat-deployment>"
+   aspire secret set ConnectionStrings:embeddings "Endpoint=https://<resource>.services.ai.azure.com/models;Key=<key>;DeploymentId=<embedding-deployment>"
+   ```
+
+   Omit `Key=` to authenticate with the ambient Azure credential instead. Each deployment is decided on its
+   own: naming only `chat` leaves embeddings on the client that throws, which is a real intermediate state.
+
+10. Enable the AI tasks you want to exercise. The proposal routes ship dark — `AiTaskOptions.Enabled` starts
+    empty so no deployment can spend a provider budget merely because a route was deployed — and a request
+    for a task that is off is refused with `TaskNotEnabled` rather than queued. `src/CreatorPantry.ApiService/appsettings.Development.json`
+    opts in `diagnostic`, `recipe.concepts` and `recipe.first-draft` for local work; a deployed environment
+    opts in deliberately, through `Ai:Tasks:Enabled`.
 
 ## Installed design system
 

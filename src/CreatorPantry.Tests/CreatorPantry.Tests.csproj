@@ -85,6 +85,7 @@
     <ProjectReference Include="..\CreatorPantry.Gateway\CreatorPantry.Gateway.csproj" Aliases="Gateway" />
     <ProjectReference Include="..\CreatorPantry.Web\CreatorPantry.Web.csproj" Aliases="Web" />
     <ProjectReference Include="..\CreatorPantry.MigrationService\CreatorPantry.MigrationService.csproj" />
+    <ProjectReference Include="..\CreatorPantry.Worker\CreatorPantry.Worker.csproj" />
   </ItemGroup>
 
 </Project>
