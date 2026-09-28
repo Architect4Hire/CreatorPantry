@@ -1,0 +1,16 @@
+{
+  "id": "recipe.substitution.an-allergen-consequence-needs-its-caution",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SubstitutionOutputValidation",
+  "description": "The line between culinary plausibility and allergen safety. 'Introduces tree nuts' sitting among flavour and texture notes reads as one more impact to weigh, so an allergen consequence with no safety caution addressed to it is refused rather than shown that way.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[{\"rank\":1,\"alternative\":\"almond milk soured with lemon juice\",\"functionalRole\":\"the acid that activates the bicarbonate\",\"quantityGuidance\":\"the same volume\",\"flavorImpact\":\"faintly nutty\",\"allergenEffects\":[{\"allergen\":\"tree nuts\",\"effect\":\"Introduces\"}],\"confidence\":\"Moderate\",\"evidenceBasis\":\"ModelKnowledge\",\"testRecommendation\":\"bake one and check the crumb\"}],\"warnings\":[{\"kind\":\"CulinaryCaution\",\"message\":\"The result will be a little sweeter.\",\"substitutionIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.allergen_effect_uncautioned",
+    "category": "DomainInvalid"
+  }
+}

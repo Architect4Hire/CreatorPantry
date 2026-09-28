@@ -1,0 +1,16 @@
+{
+  "id": "recipe.substitution.unknown-evidence-cannot-carry-high-confidence",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SubstitutionOutputValidation",
+  "description": "Unknown evidence stays unknown. The guidance may be sound, but presenting it as settled while the answer itself admits nothing stands behind it asks a creator for a trust that was never earned — the same alternative at a confidence that admits the uncertainty is always available.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[{\"rank\":1,\"alternative\":\"aquafaba\",\"functionalRole\":\"the foam that carries the air in the meringue\",\"quantityGuidance\":\"three tablespoons for each egg white\",\"textureImpact\":\"a softer set that weeps sooner\",\"confidence\":\"High\",\"evidenceBasis\":\"Unknown\",\"testRecommendation\":\"whip a single portion and leave it an hour before deciding\"}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.confidence_unevidenced",
+    "category": "DomainInvalid"
+  }
+}

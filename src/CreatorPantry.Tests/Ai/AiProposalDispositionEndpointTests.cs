@@ -621,6 +621,11 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
     /// written, so this can only arrive from a row that predates the gate — and it must answer rather than throw
     /// inside the transaction.
     /// </summary>
+    /// <remarks>
+    /// Equipment and asset links are the two targets that are genuinely inexpressible: the recipe patch
+    /// contract has no field for either. Ingredients were the example here until they became applicable, which
+    /// is what <see cref="An_accepted_ingredient_change_reaches_the_recipe"/> now covers instead.
+    /// </remarks>
     [Fact]
     public async Task A_change_the_recipe_seam_cannot_express_is_refused()
     {
@@ -632,10 +637,10 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
             {
                 Id = Guid.NewGuid(),
                 ChangeKind = AiChangeKind.Set,
-                TargetKind = AiChangeTargetKind.Ingredient,
+                TargetKind = AiChangeTargetKind.Equipment,
                 TargetId = Guid.NewGuid(),
-                FieldName = "quantity",
-                AfterValue = "3",
+                FieldName = "note",
+                AfterValue = "A 23cm tin.",
             },
         ]);
 
@@ -648,6 +653,147 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
 
         await AssertNothingHappenedAsync(client, seeded);
     }
+
+    /// <summary>
+    /// An advisory operation is not this route's resource, in either direction.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// AIREC-004 gives advice about an ingredient and proposes no change to the recipe, and it has a route of
+    /// its own for reading it. Without the guard this one admitted it — substitution operations carry a
+    /// <c>RecipeId</c>, which was the only thing the filter asked. Accepting was refused per change, which is
+    /// the real guarantee holding, but <em>rejecting</em> succeeded: an advisory operation moved to
+    /// <c>Rejected</c> and an audit row was written for a decision nobody was ever offered.
+    /// </para>
+    /// <para>
+    /// Reading is refused too, because a client that could read it would be handed advisory rows to render as
+    /// a diff with accept boxes beside them.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task An_advisory_proposal_cannot_be_accepted_through_this_route()
+    {
+        using var client = await SignInAsync();
+        var seeded = await SeedAdvisoryAsync(client);
+
+        var response = await DispositionAsync(client, seeded, new
+        {
+            decision = nameof(AiDispositionDecision.AcceptAll),
+            acceptedChangeIds = seeded.ChangeIds,
+        });
+
+        await AssertRefusedAsNotFoundAsync(client, seeded, response);
+    }
+
+    /// <summary>
+    /// The half that used to succeed. Accepting was already refused per change, but rejecting went through —
+    /// moving an advisory operation to <c>Rejected</c> and writing an audit row for a decision nobody was
+    /// ever offered.
+    /// </summary>
+    [Fact]
+    public async Task An_advisory_proposal_cannot_be_rejected_through_this_route()
+    {
+        using var client = await SignInAsync();
+        var seeded = await SeedAdvisoryAsync(client);
+
+        var response = await DispositionAsync(
+            client, seeded, new { decision = nameof(AiDispositionDecision.Reject) });
+
+        await AssertRefusedAsNotFoundAsync(client, seeded, response);
+    }
+
+    private Task<SeededProposal> SeedAdvisoryAsync(GatewayClient client) =>
+        SeedAsync(client, operationScope: AiOperationScope.Advisory, changes: _ =>
+        [
+            new()
+            {
+                Id = Guid.NewGuid(),
+                ChangeKind = AiChangeKind.Add,
+                TargetKind = AiChangeTargetKind.IngredientSubstitution,
+                TargetId = Guid.NewGuid(),
+                AfterValue = "soured milk",
+                ProposedPosition = 0,
+            },
+        ]);
+
+    private async Task AssertRefusedAsNotFoundAsync(
+        GatewayClient client, SeededProposal seeded, HttpResponseMessage response)
+    {
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(
+            AiProposalErrors.RequestNotFound,
+            (await BodyOf(response)).GetProperty("code").GetString());
+
+        await AssertNothingHappenedAsync(client, seeded);
+    }
+
+    [Fact]
+    public async Task An_advisory_proposal_cannot_be_read_through_this_route()
+    {
+        using var client = await SignInAsync();
+
+        var seeded = await SeedAsync(client, operationScope: AiOperationScope.Advisory);
+
+        var response = await client.GetAsync(
+            $"/api/v1/workspaces/{_fixture.WorkspaceA.Slug}/recipes/{seeded.RecipeId}"
+                + $"/ai-proposals/{seeded.RequestId}",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// An accepted ingredient change reaches the recipe and writes a version.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The regression this test exists for. 9.5 made ingredient changes applicable — so an Ingredients-scoped
+    /// revision could be asked for and reviewed — without teaching the acceptance boundary to express one. The
+    /// result was the exact failure <c>AiChangeApplicability</c> is there to prevent, arriving one step past
+    /// where that gate can see it: a creator read a diff, chose it, confirmed it, and was told the system had
+    /// no way to apply it.
+    /// </para>
+    /// <para>
+    /// Through the endpoint rather than the translation function, because the translation was never the whole
+    /// of it — the change has to survive the recipe module's own validation and merge path too.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task An_accepted_ingredient_change_reaches_the_recipe()
+    {
+        using var client = await SignInAsync();
+
+        var seeded = await SeedAsync(client, changes: detail =>
+        [
+            new()
+            {
+                Id = Guid.NewGuid(),
+                ChangeKind = AiChangeKind.Set,
+                TargetKind = AiChangeTargetKind.Ingredient,
+                TargetId = FirstIngredientId(detail),
+                FieldName = "displayText",
+                BeforeValue = "200ml olive oil",
+                AfterValue = "200ml mild olive oil",
+            },
+        ]);
+
+        var response = await AcceptSelectedAsync(client, seeded, seeded.ChangeIds);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var detail = await BodyOf(await client.GetAsync(
+            $"{Recipes()}/{seeded.RecipeId}", TestContext.Current.CancellationToken));
+
+        var line = detail.GetProperty("ingredientGroups").EnumerateArray().First()
+            .GetProperty("ingredients").EnumerateArray().First();
+
+        Assert.Equal("200ml mild olive oil", line.GetProperty("displayText").GetString());
+    }
+
+    private static Guid FirstIngredientId(JsonElement detail) =>
+        detail.GetProperty("ingredientGroups").EnumerateArray().First()
+            .GetProperty("ingredients").EnumerateArray().First()
+            .GetProperty("id").GetGuid();
 
     /// <summary>
     /// An archived recipe accepts no content change, and a proposal is no exception. The refusal comes from the
@@ -880,7 +1026,8 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
         GatewayClient client,
         AiOperationStatus status = AiOperationStatus.Proposed,
         bool withProposal = true,
-        Func<JsonElement, AiStructuredChange[]>? changes = null)
+        Func<JsonElement, AiStructuredChange[]>? changes = null,
+        AiOperationScope operationScope = AiOperationScope.WholeRecipe)
     {
         var cancellation = TestContext.Current.CancellationToken;
 
@@ -893,6 +1040,17 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
                 instructions = new object[]
                 {
                     new { title = "Batter", steps = new object[] { new { text = "Whisk the eggs." } } },
+                },
+
+                // Ingredients are here so a test can accept a change to one. They were absent while
+                // ingredients were inapplicable, which is part of why the acceptance gap went unnoticed.
+                ingredientGroups = new object[]
+                {
+                    new
+                    {
+                        title = "Batter",
+                        ingredients = new object[] { new { displayText = "200ml olive oil" } },
+                    },
                 },
             },
             cancellation);
@@ -917,7 +1075,7 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
             Id = requestId,
             WorkspaceId = _fixture.WorkspaceA.Id,
             TaskType = AiTaskType.Diagnostic,
-            Scope = AiOperationScope.WholeRecipe,
+            Scope = operationScope,
             Status = status,
             RecipeId = recipeId,
             RecipeVersionId = versionId,

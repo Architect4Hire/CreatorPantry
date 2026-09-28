@@ -40,4 +40,27 @@ public enum AiOperationScope
     /// undeclared one, because there is no recipe for a change to address in the first place.
     /// </summary>
     NotApplicable = 6,
+
+    /// <summary>
+    /// For a task that reads a recipe but proposes no change to it, such as AIREC-004's substitution advice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Permits nothing under <see cref="AiPolicy.AllowedTargets"/>, exactly as <see cref="NotApplicable"/>
+    /// does. The distinction is not about what is allowed — both allow nothing — but about what is true: an
+    /// operation in this scope has a <c>RecipeId</c> and a pinned <c>RecipeVersionId</c>, and a later reader
+    /// asking why nothing was applied deserves "the task gives advice" rather than "the task named no recipe",
+    /// which would contradict the columns beside it.
+    /// </para>
+    /// <para>
+    /// <strong>It records the bound; it is not what enforces it.</strong> A scope is checked by
+    /// <see cref="AiOutputValidator"/>, which an advisory capability does not use — it has its own validator
+    /// over its own document, and there are no targets in that document to check. What actually stops
+    /// AIREC-004 replacing an ingredient is <see cref="AiChangeTargetKind.IngredientSubstitution"/>, which
+    /// neither <see cref="AiChangeApplicability"/> nor <see cref="AiChangeTargetPolicy"/> covers, so no stored
+    /// row can be translated into a recipe edit. This column is what a later reader — an audit, a disposition
+    /// route, a report — can ask instead of inferring the answer from the task type.
+    /// </para>
+    /// </remarks>
+    Advisory = 7,
 }

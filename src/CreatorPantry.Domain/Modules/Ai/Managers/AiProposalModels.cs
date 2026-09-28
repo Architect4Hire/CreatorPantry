@@ -132,6 +132,17 @@ public static class AiProposalErrors
     /// <summary>No such task. A different answer from <see cref="TaskNotEnabled"/>, and 400 either way.</summary>
     public const string TaskUnknown = "ai.task.unknown";
 
+    /// <summary>
+    /// A real, enabled task that this route cannot start, because it needs inputs this contract does not
+    /// carry. It has a route of its own.
+    /// </summary>
+    /// <remarks>
+    /// A third answer beside the two above, and a distinct one: the task exists and the deployment has it
+    /// switched on, so neither "no such task" nor "not enabled" would be true, and both would send a caller
+    /// looking in the wrong place. See <see cref="AiTaskCatalog.RequiresTaskInputs"/>.
+    /// </remarks>
+    public const string TaskNeedsItsOwnRoute = "ai.task.invalid_request";
+
     /// <summary>The pinned source version is not the recipe's current version.</summary>
     public const string SourceVersionInvalid = "ai.sourceVersion.invalid_request";
 

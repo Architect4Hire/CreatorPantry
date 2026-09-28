@@ -85,7 +85,9 @@ export type AiTaskType =
   /** AIREC-002's structured first draft. */
   | 'RecipeFirstDraft'
   /** AIREC-003's scoped revision of an existing recipe. */
-  | 'RecipeRevision';
+  | 'RecipeRevision'
+  /** AIREC-004's substitution advice for one selected ingredient. Reads a recipe; changes nothing in it. */
+  | 'IngredientSubstitution';
 
 const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
@@ -93,6 +95,7 @@ const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'RecipeConcepts',
   'RecipeFirstDraft',
   'RecipeRevision',
+  'IngredientSubstitution',
 ]);
 
 /**
@@ -120,6 +123,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // ask-again affordance for one: re-asking needs the creator's goal, which the panel does not hold and the
   // generic route cannot carry. The revision form is where a creator asks again.
   RecipeRevision: null,
+  // And substitutions through recipe/{id}/substitution-requests. Null for a second reason as well as that
+  // one: asking again means naming the ingredient, and nothing generic carries it.
+  IngredientSubstitution: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -137,7 +143,15 @@ export type AiOperationScope =
    * decode it cannot read either of those features. `decodeEnum` returns null for an unknown member and
    * `decodeAiProposalStatus` fails on it, so the whole status vanishes rather than one field.
    */
-  | 'NotApplicable';
+  | 'NotApplicable'
+  /**
+   * The task reads a recipe and proposes no change to it — AIREC-004's substitution advice.
+   *
+   * Distinct from `NotApplicable`, which means no recipe was named at all. Both permit nothing; this one sits
+   * beside a recipe id and a pinned version, so a reader is not told the operation named no recipe while the
+   * fields next to it say otherwise.
+   */
+  | 'Advisory';
 
 const AI_OPERATION_SCOPE_VALUES: ReadonlySet<string> = new Set<AiOperationScope>([
   'Unspecified',
@@ -147,6 +161,7 @@ const AI_OPERATION_SCOPE_VALUES: ReadonlySet<string> = new Set<AiOperationScope>
   'Metadata',
   'Media',
   'NotApplicable',
+  'Advisory',
 ]);
 
 /** Mirrors AiFailureCategory. Required on the wire exactly when the status is `Failed`. */
@@ -201,7 +216,9 @@ export type AiChangeTargetKind =
   | 'Equipment'
   | 'AssetLink'
   | 'Tag'
-  | 'RecipeConcept';
+  | 'RecipeConcept'
+  /** AIREC-004's substitution advice. Like `RecipeConcept`, nothing the recipe seam can apply. */
+  | 'IngredientSubstitution';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -214,6 +231,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'AssetLink',
   'Tag',
   'RecipeConcept',
+  'IngredientSubstitution',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

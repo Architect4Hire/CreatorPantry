@@ -171,6 +171,9 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // Never actually reaches this panel: concept-generation answers are read through the Concept
   // Studio, not this diff review panel, but the map must stay exhaustive over the wire enum.
   RecipeConcept: 'Recipe concept',
+  // Likewise. AIREC-004's advice is not a diff and has no review surface here yet; the label exists so the
+  // map stays exhaustive, and it says "suggested" because nothing about it is a change to the recipe.
+  IngredientSubstitution: 'Suggested substitution',
 };
 
 /**

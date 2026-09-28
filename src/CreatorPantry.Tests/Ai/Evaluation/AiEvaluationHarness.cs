@@ -26,8 +26,16 @@ public sealed record AiEvaluationReport(IReadOnlyList<AiEvaluationCaseResult> Re
 /// </remarks>
 public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnlyDictionary<AiEvaluationKind, IAiEvaluationCase> cases)
 {
-    public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(
-        store,
+    /// <summary>
+    /// Every case runner, keyed by the kind it handles. The one list.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AiEvaluationHarnessTests"/> dispatches through this rather than keeping a second copy. It
+    /// kept one until a new kind was added to that copy and not to this — or rather, the other way about,
+    /// which was worse: the runner was registered here and the fixtures simply threw, so the failure said
+    /// "no case runner is wired up" for a runner that plainly existed.
+    /// </remarks>
+    public static IReadOnlyDictionary<AiEvaluationKind, IAiEvaluationCase> Cases { get; } =
         new IAiEvaluationCase[]
         {
             new OutputValidationCase(),
@@ -36,7 +44,10 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new WorkerOperationCase(),
             new ConceptOutputValidationCase(),
             new RecipeDraftOutputValidationCase(),
-        }.ToDictionary(evaluationCase => evaluationCase.Kind));
+            new SubstitutionOutputValidationCase(),
+        }.ToDictionary(evaluationCase => evaluationCase.Kind);
+
+    public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(store, Cases);
 
     public async Task<AiEvaluationReport> RunAllAsync(CancellationToken cancellationToken)
     {

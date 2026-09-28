@@ -1,0 +1,12 @@
+{
+  "id": "recipe.substitution.no-alternative-is-valid-when-explained",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SubstitutionOutputValidation",
+  "description": "The no-alternative case. Some ingredients carry the structure of a dish and have no stand-in worth offering; returning none and saying why is a complete answer, and a minimum count would have made inventing one the only way to succeed.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[],\"warnings\":[{\"kind\":\"SafetyCaution\",\"message\":\"The salt in this recipe is curing the pork rather than seasoning it, so the amount is part of how the cure works and not a matter of taste. Changing it is not something to judge from here; it needs a source this cannot check.\"}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

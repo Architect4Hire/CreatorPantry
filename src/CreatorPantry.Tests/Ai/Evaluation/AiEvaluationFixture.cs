@@ -46,6 +46,18 @@ public enum AiEvaluationKind
     /// exists apart from <see cref="OutputValidation"/>.
     /// </summary>
     RecipeDraftOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiSubstitutionOutputValidator.Validate"/> directly,
+    /// for AIREC-004's own document.
+    /// </summary>
+    /// <remarks>
+    /// The domain rules this reaches are the ones that carry AIREC-004's restriction — ranked alternatives,
+    /// evidence that stays unknown, an allergen consequence that arrives with its caution, and an empty answer
+    /// that explains itself. They are deterministic, which is exactly what a fixture can demonstrate; whether
+    /// a model's advice is culinarily *good* is not, and no fixture here claims otherwise.
+    /// </remarks>
+    SubstitutionOutputValidation,
 }
 
 /// <summary>

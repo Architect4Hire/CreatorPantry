@@ -40,4 +40,25 @@ public enum AiChangeTargetKind
     /// recipe to apply to.
     /// </summary>
     RecipeConcept = 9,
+
+    /// <summary>
+    /// One proposed ingredient substitution — advice about an ingredient, not a change to it. Only ever
+    /// <see cref="AiChangeKind.Add"/> (the alternative's name) followed by <see cref="AiChangeKind.Set"/> rows
+    /// carrying its guidance, the same flattening <see cref="RecipeConcept"/> uses.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Absent from <see cref="AiChangeApplicability"/> deliberately, and that absence is the
+    /// guarantee.</strong> AIREC-004 must never replace an ingredient automatically, so there must be no code
+    /// path from a stored substitution row to a recipe edit — and there is none, because the translation at
+    /// the recipe-module boundary answers <c>null</c> for any target that enum does not cover. A creator acts
+    /// on substitution advice by editing the recipe themselves, which is the point.
+    /// </para>
+    /// <para>
+    /// Unlike <see cref="RecipeConcept"/>, an operation producing these rows <em>does</em> name a recipe and a
+    /// pinned version: the advice depends on what the ingredient is doing in that method. What it does not do
+    /// is address a change to either. See <see cref="AiOperationScope.Advisory"/>.
+    /// </para>
+    /// </remarks>
+    IngredientSubstitution = 10,
 }

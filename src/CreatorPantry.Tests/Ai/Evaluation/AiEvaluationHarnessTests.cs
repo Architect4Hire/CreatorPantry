@@ -36,7 +36,7 @@ public sealed class AiEvaluationHarnessTests
     [Fact]
     public void The_fixture_store_loaded_every_known_fixture()
     {
-        Assert.Equal(29, Store().All.Count);
+        Assert.Equal(37, Store().All.Count);
     }
 
     /// <summary>Every category this task's SCOPE names has at least one fixture demonstrating it.</summary>
@@ -55,14 +55,28 @@ public sealed class AiEvaluationHarnessTests
         static name => name.Contains(".Ai.Evaluation.Fixtures.", StringComparison.Ordinal),
         typeof(AiEvaluationHarnessTests).Assembly);
 
-    private static IAiEvaluationCase Case(AiEvaluationKind kind) => kind switch
+    /// <summary>
+    /// Dispatched through <see cref="AiEvaluationHarness.Cases"/>, not a second list beside it.
+    /// </summary>
+    /// <remarks>
+    /// This was its own switch until a kind registered in one and not the other made every fixture of that
+    /// kind fail with "no case runner is wired up" — about a runner that existed and was registered. One list
+    /// cannot disagree with itself.
+    /// </remarks>
+    private static IAiEvaluationCase Case(AiEvaluationKind kind) =>
+        AiEvaluationHarness.Cases.TryGetValue(kind, out var runner)
+            ? runner
+            : throw new NotSupportedException($"No case runner is wired up for '{kind}'.");
+
+    /// <summary>
+    /// Every kind has a runner, so adding one to the enum and forgetting the runner fails here rather than on
+    /// whichever fixture happens to declare it first.
+    /// </summary>
+    [Fact]
+    public void Every_evaluation_kind_has_a_case_runner()
     {
-        AiEvaluationKind.OutputValidation => new OutputValidationCase(),
-        AiEvaluationKind.PromptEnvelope => new PromptEnvelopeCase(),
-        AiEvaluationKind.ProposalAssembly => new ProposalAssemblyCase(),
-        AiEvaluationKind.WorkerOperation => new WorkerOperationCase(),
-        AiEvaluationKind.ConceptOutputValidation => new ConceptOutputValidationCase(),
-        AiEvaluationKind.RecipeDraftOutputValidation => new RecipeDraftOutputValidationCase(),
-        _ => throw new NotSupportedException($"No case runner is wired up for '{kind}'."),
-    };
+        Assert.Equal(
+            Enum.GetValues<AiEvaluationKind>().Order().ToArray(),
+            AiEvaluationHarness.Cases.Keys.Order().ToArray());
+    }
 }

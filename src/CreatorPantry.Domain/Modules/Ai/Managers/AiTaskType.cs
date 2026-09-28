@@ -51,4 +51,18 @@ public enum AiTaskType
     /// the proposal panel and applied through the recipe module's facade.
     /// </remarks>
     RecipeRevision = 4,
+
+    /// <summary>
+    /// AIREC-004: ranked alternatives for one ingredient the creator selected in a pinned version, with
+    /// quantity guidance, technique/flavour/texture impact, dietary and allergen consequences, confidence,
+    /// evidence, and what to test before trusting any of it.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Names a recipe and proposes no change to it</strong>, which no earlier task does.
+    /// <see cref="RecipeConcepts"/> and <see cref="RecipeFirstDraft"/> propose content with no recipe to
+    /// change; <see cref="RecipeRevision"/> proposes changes to one. This reads a recipe to understand what an
+    /// ingredient is doing in it, and answers with advice a creator acts on themselves — hence
+    /// <see cref="AiOperationScope.Advisory"/>, which permits no change to reach the recipe at all.
+    /// </remarks>
+    IngredientSubstitution = 5,
 }

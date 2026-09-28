@@ -47,16 +47,41 @@ public static class AiTaskCatalog
     /// <summary>The discriminator for AIREC-003's scoped revision of an existing recipe.</summary>
     public const string RecipeRevision = "recipe.revision";
 
+    /// <summary>The discriminator for AIREC-004's substitution advice about one selected ingredient.</summary>
+    public const string IngredientSubstitution = "recipe.substitution";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
         [RecipeConcepts] = AiTaskType.RecipeConcepts,
         [RecipeFirstDraft] = AiTaskType.RecipeFirstDraft,
         [RecipeRevision] = AiTaskType.RecipeRevision,
+        [IngredientSubstitution] = AiTaskType.IngredientSubstitution,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
     public static IReadOnlyCollection<string> Known => KnownTasks.Keys;
+
+    /// <summary>
+    /// Tasks that cannot run without capability-specific request fields, and so cannot be started through the
+    /// generic proposal route.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>RequestAiProposalViewModel</c> carries a task, a scope and a source version, and writes no
+    /// <c>TaskInputsJson</c> at all. Most tasks tolerate that — an unsupplied brief field renders as "not
+    /// specified" and the answer is simply less directed. A substitution cannot: it is advice about one named
+    /// ingredient, and without that name there is nothing to be advice about.
+    /// </para>
+    /// <para>
+    /// <strong>The scope is the other half of it.</strong> That contract lets the client choose the scope,
+    /// and this task's scope is the server's to decide — <see cref="AiOperationScope.Advisory"/> is what makes
+    /// "proposes no change to the recipe" a property of the stored row. A request naming <c>WholeRecipe</c>
+    /// instead would write a row that contradicts the design, and although the handler refuses such an
+    /// operation before any provider call, the row would still be there saying something untrue about it.
+    /// </para>
+    /// </remarks>
+    public static bool RequiresTaskInputs(AiTaskType task) => task is AiTaskType.IngredientSubstitution;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

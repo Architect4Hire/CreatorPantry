@@ -1,0 +1,16 @@
+{
+  "id": "recipe.substitution.no-quantity-multiplier-field",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SubstitutionOutputValidation",
+  "description": "Quantity guidance is prose and there is deliberately no numeric factor beside it, because ai.md routes scaling and conversion to deterministic domain code. A number the creator reads and applies themselves is a suggestion; one the system multiplies by is a calculation nothing verified. A model offering a multiplier is naming a field that does not exist, and the answer is refused rather than stored with the number quietly dropped.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[{\"rank\":1,\"alternative\":\"soured milk\",\"functionalRole\":\"the acid that activates the bicarbonate\",\"quantityGuidance\":\"the same volume\",\"quantityMultiplier\":1.0,\"confidence\":\"Moderate\",\"evidenceBasis\":\"ModelKnowledge\",\"testRecommendation\":\"bake two and check the rise\"}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

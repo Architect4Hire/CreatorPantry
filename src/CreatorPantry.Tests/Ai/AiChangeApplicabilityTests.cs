@@ -102,6 +102,54 @@ public sealed class AiChangeApplicabilityTests
     }
 
     /// <summary>
+    /// Everything applicable is expressible to the recipe module, and everything expressible is applicable.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// These two tables describe one boundary from two sides and nothing in the compiler ties them together.
+    /// They drifted once, in the direction this first assertion catches: ingredients became applicable without
+    /// becoming expressible, so an ingredient-scoped revision was something a creator could ask for, wait for,
+    /// review — and then be refused at the moment they accepted it. That is exactly the outcome
+    /// <see cref="AiChangeApplicability"/> exists to prevent, arriving one step past where it can see.
+    /// </para>
+    /// <para>
+    /// The reverse direction matters as much: a target expressible but not applicable would be a route into a
+    /// recipe that the proposal gate never examined.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Applicable_and_expressible_are_the_same_set_of_targets()
+    {
+        var applicable = AiChangeApplicability.Targets.Order().ToArray();
+
+        var expressible = Enum.GetValues<AiChangeTargetKind>()
+            .Where(target => AiChangeTargetPolicy.For(target) is not null)
+            .Order()
+            .ToArray();
+
+        Assert.Equal(applicable, expressible);
+    }
+
+    /// <summary>
+    /// A pitch and a piece of advice are not changes to a recipe, and neither can become one.
+    /// </summary>
+    /// <remarks>
+    /// Asserted rather than left implicit because it is a product guarantee, not an omission.
+    /// AIREC-004 must never replace an ingredient automatically, and the absence of an expression for
+    /// <see cref="AiChangeTargetKind.IngredientSubstitution"/> is what makes that structural: there is no code
+    /// path from a stored substitution row to a recipe edit for anyone to forget to guard.
+    /// </remarks>
+    [Theory]
+    [InlineData(AiChangeTargetKind.RecipeConcept)]
+    [InlineData(AiChangeTargetKind.IngredientSubstitution)]
+    public void An_advisory_target_is_neither_applicable_nor_expressible(AiChangeTargetKind target)
+    {
+        Assert.Empty(AiChangeApplicability.For(target));
+        Assert.DoesNotContain(target, AiChangeApplicability.Targets);
+        Assert.Null(AiChangeTargetPolicy.For(target));
+    }
+
+    /// <summary>
     /// The two tables have to agree: a target with settable fields must accept a <c>Set</c>, and one that accepts
     /// a <c>Set</c> must have a field to set. Either mismatch offers a change that goes nowhere.
     /// </summary>

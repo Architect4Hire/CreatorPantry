@@ -97,6 +97,7 @@ public sealed class AiRevisionRequestTests
     [Theory]
     [InlineData(AiOperationScope.Media)]
     [InlineData(AiOperationScope.NotApplicable)]
+    [InlineData(AiOperationScope.Advisory)]
     public void A_section_nothing_can_be_applied_in_is_refused_before_anything_is_queued(AiOperationScope scope)
     {
         var result = Validate(Request(scope));

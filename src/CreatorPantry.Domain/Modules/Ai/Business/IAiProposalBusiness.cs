@@ -85,6 +85,16 @@ internal sealed class AiProposalBusiness(
                 "That task is not enabled for this workspace's deployment.");
         }
 
+        // Real, enabled, and still not startable here: this contract carries no task inputs and lets the
+        // client pick the scope, and some tasks need the first and do not permit the second.
+        if (AiTaskCatalog.RequiresTaskInputs(task.Value))
+        {
+            return Refuse(
+                AiProposalErrors.TaskNeedsItsOwnRoute,
+                "That task cannot be started from this route, because it needs fields this request does not "
+                    + "carry. Use the route that belongs to it.");
+        }
+
         // Through the recipe module's facade, never its repositories. This is also the existence check: a
         // recipe in another workspace is invisible here, so it reports missing rather than forbidden.
         var recipe = await recipes.GetDetailAsync(recipeId, cancellationToken);
@@ -142,9 +152,12 @@ internal sealed class AiProposalBusiness(
     {
         var operation = await operations.GetWithProposalAsync(requestId, cancellationToken);
 
-        // Both conditions report the same absence: an operation in another workspace is filtered away, and one
-        // belonging to a different recipe is not this route's resource. Neither discloses that it exists.
-        if (operation is null || operation.Operation.RecipeId != recipeId)
+        // Three conditions report the same absence: an operation in another workspace is filtered away, one
+        // belonging to a different recipe is not this route's resource, and an advisory one is not this
+        // route's kind of thing at all. None discloses that the others exist.
+        if (operation is null
+            || operation.Operation.RecipeId != recipeId
+            || IsAdvisory(operation.Operation))
         {
             return Failure(AiProposalErrors.RequestNotFound, "That proposal request does not exist.");
         }
@@ -164,9 +177,9 @@ internal sealed class AiProposalBusiness(
 
         var loaded = await operations.GetForDispositionAsync(requestId, cancellationToken);
 
-        // The same absence for an operation in another workspace, one belonging to a different recipe, and one
-        // that does not exist. None of the three discloses anything about the others.
-        if (loaded is null || loaded.Operation.RecipeId != recipeId)
+        // The same absence for an operation in another workspace, one belonging to a different recipe, an
+        // advisory one, and one that does not exist. None of the four discloses anything about the others.
+        if (loaded is null || loaded.Operation.RecipeId != recipeId || IsAdvisory(loaded.Operation))
         {
             return Failure<AiProposalDispositionServiceModel>(
                 AiProposalErrors.RequestNotFound, "That proposal request does not exist.");
@@ -409,13 +422,44 @@ internal sealed class AiProposalBusiness(
     /// One stored change in the recipe module's vocabulary, or <c>null</c> when that vocabulary cannot express it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A translation rather than a shared type, because neither module may name the other's internals. The two
-    /// vocabularies are deliberately not the same size: this module can describe a change to an ingredient and
-    /// the recipe seam cannot apply one, so the narrower enum is what the boundary speaks. An inexpressible
-    /// change answers <c>null</c> rather than throwing — the caller turns it into a refusal, because a stored row
-    /// the applicability gate should have prevented is a defect to report, not an exception to raise inside a
+    /// vocabularies are deliberately not the same size: this module can describe changes the recipe seam has no
+    /// way to apply, so the narrower enum is what the boundary speaks. An inexpressible change answers
+    /// <c>null</c> rather than throwing — the caller turns it into a refusal, because a stored row the
+    /// applicability gate should have prevented is a defect to report, not an exception to raise inside a
     /// transaction.
+    /// </para>
+    /// <para>
+    /// The target half of it lives in <see cref="AiChangeTargetPolicy"/> rather than here, so that a test
+    /// can hold it against <see cref="AiChangeApplicability"/>. The two have to agree and the compiler cannot
+    /// make them: they drifted once, when ingredients became applicable without becoming expressible, which
+    /// made an ingredient-scoped revision something a creator could ask for, wait for, review, and then be
+    /// refused at the moment they accepted it.
+    /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether this operation produced advice rather than a diff, and so does not belong to this route.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Read off the scope rather than the task type</strong>, so a later advisory capability is
+    /// covered by having declared itself advisory rather than by someone remembering to add it to a list
+    /// here. <see cref="AiOperationScope.Advisory"/> means exactly "reads a recipe, proposes no change to it",
+    /// which is the whole of the question this asks.
+    /// </para>
+    /// <para>
+    /// <strong>Without it, an advisory operation reached this route.</strong> Substitution operations carry a
+    /// <c>RecipeId</c>, so the filter above admitted them: accepting one was refused per change by
+    /// <see cref="Translate"/>, which is the guarantee holding — but <em>rejecting</em> one succeeded, moving
+    /// an advisory operation to <c>Rejected</c> and writing a disposition audit row for a decision nobody was
+    /// offered. Reading one succeeded too, which would have handed the review panel a set of rows to render
+    /// as a diff with accept boxes beside them. AIREC-004 has its own route for both; this says so.
+    /// </para>
+    /// </remarks>
+    private static bool IsAdvisory(AiOperation operation) =>
+        operation.Scope is AiOperationScope.Advisory;
+
     private static ProposedRecipeChange? Translate(AiStructuredChange change)
     {
         var kind = change.ChangeKind switch
@@ -427,14 +471,7 @@ internal sealed class AiProposalBusiness(
             _ => (ProposedRecipeChangeKind?)null,
         };
 
-        var target = change.TargetKind switch
-        {
-            AiChangeTargetKind.Recipe => ProposedRecipeTarget.Recipe,
-            AiChangeTargetKind.InstructionGroup => ProposedRecipeTarget.InstructionGroup,
-            AiChangeTargetKind.InstructionStep => ProposedRecipeTarget.InstructionStep,
-            AiChangeTargetKind.Tag => ProposedRecipeTarget.Tag,
-            _ => (ProposedRecipeTarget?)null,
-        };
+        var target = AiChangeTargetPolicy.For(change.TargetKind);
 
         return kind is { } expressibleKind && target is { } expressibleTarget
             ? new ProposedRecipeChange(

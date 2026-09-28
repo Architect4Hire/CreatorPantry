@@ -62,6 +62,47 @@ public static class AiOutputReason
 
     /// <summary>A recipe draft proposed more lines, steps, or equipment items than one group or the draft allows.</summary>
     public const string RecipeDraftTooManyItems = "ai.output.recipe_draft_too_many_items";
+
+    // ---- AIREC-004: ingredient substitution advice ----
+
+    /// <summary>The proposed ranks are not exactly 1..N, so the alternatives are not ranked.</summary>
+    public const string SubstitutionRankInvalid = "ai.output.substitution_rank_invalid";
+
+    /// <summary>A substitution is missing its alternative, functional role, quantity guidance, or test recommendation.</summary>
+    public const string SubstitutionFieldMissing = "ai.output.substitution_field_missing";
+
+    /// <summary>Two proposed substitutions name the same alternative, so they are not distinct options.</summary>
+    public const string DuplicateSubstitution = "ai.output.duplicate_substitution";
+
+    /// <summary>
+    /// A substitution claims high confidence on evidence it also declares unknown.
+    /// </summary>
+    /// <remarks>
+    /// AIREC-004's own restriction, made checkable: unknown evidence stays unknown. A model that cannot say
+    /// where a claim comes from may still offer it — as a low-confidence option a creator tests — but it may
+    /// not present it as settled.
+    /// </remarks>
+    public const string ConfidenceUnevidenced = "ai.output.confidence_unevidenced";
+
+    /// <summary>
+    /// A substitution states an allergen consequence with no safety caution beside it.
+    /// </summary>
+    /// <remarks>
+    /// The line between culinary plausibility and allergen safety, enforced rather than requested. An allergen
+    /// statement presented as an ordinary impact note reads as a verdict; the caution is what keeps it a
+    /// consequence the creator has to check.
+    /// </remarks>
+    public const string AllergenEffectUncautioned = "ai.output.allergen_effect_uncautioned";
+
+    /// <summary>
+    /// The answer proposed no substitution at all and did not say why.
+    /// </summary>
+    /// <remarks>
+    /// "Nothing here I would stand behind" is a real and valuable answer — inventing an alternative to have
+    /// something to show is the failure this prevents. An unexplained empty answer is not that; it is
+    /// indistinguishable from a call that went wrong, and leaves the creator nothing to act on.
+    /// </remarks>
+    public const string SubstitutionAnswerUnexplained = "ai.output.substitution_answer_unexplained";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

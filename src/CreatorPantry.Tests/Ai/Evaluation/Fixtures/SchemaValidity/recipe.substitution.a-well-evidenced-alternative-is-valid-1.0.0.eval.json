@@ -1,0 +1,12 @@
+{
+  "id": "recipe.substitution.a-well-evidenced-alternative-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SubstitutionOutputValidation",
+  "description": "The ordinary safe case: two ranked alternatives, each naming the role it stands in for, saying how much to use in words, and saying what to test. Nothing here touches an allergen, so no caution is owed.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[{\"rank\":1,\"alternative\":\"soured milk\",\"functionalRole\":\"the acid that activates the bicarbonate, plus a little tenderising\",\"quantityGuidance\":\"the same volume, soured with a tablespoon of lemon juice and rested ten minutes\",\"flavorImpact\":\"slightly less tangy\",\"textureImpact\":\"a marginally looser crumb\",\"confidence\":\"Moderate\",\"evidenceBasis\":\"ModelKnowledge\",\"testRecommendation\":\"bake two and check the rise before committing the batch\"},{\"rank\":2,\"alternative\":\"plain yoghurt let down with water\",\"functionalRole\":\"the same acid, carried in something thicker\",\"quantityGuidance\":\"three parts yoghurt to one part water, to the same total volume\",\"textureImpact\":\"a denser crumb\",\"confidence\":\"Low\",\"evidenceBasis\":\"Unknown\",\"testRecommendation\":\"make a quarter batch first; this one changes the hydration\"}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

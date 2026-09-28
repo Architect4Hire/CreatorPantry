@@ -207,6 +207,57 @@ public static class AiPolicy
     /// </remarks>
     public const int MaxRecipeDraftWarnings = 20;
 
+    // ---- AIREC-004: ingredient substitution advice (AiSubstitutionOutputDocument) ----
+
+    /// <summary>
+    /// What the creator wants out of a substitution, in their own words: "I am out of buttermilk".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same bound as <see cref="RevisionGoalMaxLength"/>, and restated rather than aliased because the two
+    /// fields are bounded for different reasons and one may move without the other. A goal is scoped work; a
+    /// substitution reason is context.
+    /// </para>
+    /// <para>
+    /// <strong>This is the field a creator types an allergy into</strong>, which is exactly why it travels as
+    /// untrusted preference text and never as part of the task's instructions. A reason that names a person's
+    /// allergy is not a permission to declare anything safe for them.
+    /// </para>
+    /// </remarks>
+    public const int SubstitutionReasonMaxLength = 500;
+
+    /// <summary>One substitution's alternative name, functional role, or any single impact note.</summary>
+    public const int SubstitutionFieldMaxLength = 1000;
+
+    /// <summary>One dietary note or allergen name listed on a substitution.</summary>
+    public const int SubstitutionListItemMaxLength = 300;
+
+    /// <summary>
+    /// The most dietary notes or allergen effects one substitution may list.
+    /// </summary>
+    /// <remarks>
+    /// Bounded for the reason <see cref="ConceptListMaxItems"/> is — the joined string a list becomes in one
+    /// <c>AiStructuredChange.AfterValue</c> must stay inside <see cref="ChangeValueMaxLength"/> — and for the
+    /// reason <see cref="MaxRecipeDraftWarnings"/> is: an allergen consequence that matters must not be
+    /// diluted among a dozen that do not.
+    /// </remarks>
+    public const int SubstitutionListMaxItems = 10;
+
+    /// <summary>
+    /// The most alternatives one answer may propose.
+    /// </summary>
+    /// <remarks>
+    /// There is no minimum, and that is deliberate. "No alternative I would stand behind" is a correct answer
+    /// for an ingredient carrying the structure of a dish, and a floor here would make inventing one the only
+    /// way to return successfully. <see cref="AiOutputReason.SubstitutionAnswerUnexplained"/> is what keeps an
+    /// empty answer honest instead.
+    /// </remarks>
+    public const int MaxSubstitutionCount = 5;
+
+    /// <summary>The most warnings one substitution answer may carry.</summary>
+    /// <inheritdoc cref="MaxRecipeDraftWarnings" path="/remarks"/>
+    public const int MaxSubstitutionWarnings = 20;
+
     /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>

@@ -1,0 +1,16 @@
+{
+  "id": "recipe.substitution.a-dietary-consequence-needs-its-caution",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SubstitutionOutputValidation",
+  "description": "Dietary consequences were prose first, and that was a hole rather than a shortcut: the rule requiring a safety caution keyed off the structured allergen list, so a model could state a dietary — or even an allergen — conclusion in a free-text note, leave the list empty, and owe no caution at all. Dietary effects are now structured like allergen effects, run one way like them, and carry the same obligation. This is the answer that used to walk through.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[{\"rank\":1,\"alternative\":\"oat milk soured with lemon juice\",\"functionalRole\":\"the acid that activates the bicarbonate\",\"quantityGuidance\":\"the same volume\",\"dietaryEffects\":[{\"diet\":\"vegan\",\"effect\":\"MayConflict\"}],\"confidence\":\"Moderate\",\"evidenceBasis\":\"ModelKnowledge\",\"testRecommendation\":\"bake one and check the crumb\"}],\"warnings\":[{\"kind\":\"CulinaryCaution\",\"message\":\"The crumb will be a shade tighter.\",\"substitutionIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.allergen_effect_uncautioned",
+    "category": "DomainInvalid"
+  }
+}

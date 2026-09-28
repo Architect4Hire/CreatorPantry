@@ -1,0 +1,16 @@
+{
+  "id": "recipe.substitution.an-allergen-cannot-be-declared-removed",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SubstitutionOutputValidation",
+  "description": "The claim AIREC-004 exists to prevent. Allergen absence cannot be established from an ingredient's name — it depends on the brand, the facility and the rest of the recipe — so AiAllergenEffectKind has no 'Removes' member and an answer asserting one does not deserialize. Rejected rather than dropped: a validator that discarded the value would show the creator an answer the model did not give.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.substitution.v1\",\"substitutions\":[{\"rank\":1,\"alternative\":\"oat milk soured with lemon juice\",\"functionalRole\":\"the acid that activates the bicarbonate\",\"quantityGuidance\":\"the same volume\",\"allergenEffects\":[{\"allergen\":\"milk\",\"effect\":\"Removes\"}],\"confidence\":\"Moderate\",\"evidenceBasis\":\"ModelKnowledge\",\"testRecommendation\":\"bake one and check the crumb\"}],\"warnings\":[{\"kind\":\"SafetyCaution\",\"message\":\"Check the label.\",\"substitutionIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.substitution.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

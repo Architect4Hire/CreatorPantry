@@ -154,6 +154,26 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-004's ingredient substitution advice.
+    /// </summary>
+    /// <remarks>
+    /// Carries the recipe-module prerequisite <see cref="AddAiRevisionRequestSeam"/> does, and one more
+    /// besides: <c>AiSubstitutionRequestBusiness</c> reads the pinned version's snapshot through
+    /// <c>IRecipeFacade</c> to check that the selected ingredient is actually in it, so the dependency is
+    /// exercised on every request rather than only on acceptance.
+    /// </remarks>
+    public static IServiceCollection AddAiSubstitutionRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiSubstitutionRequestBusiness, AiSubstitutionRequestBusiness>();
+        services.AddScoped<IAiSubstitutionRequestFacade, AiSubstitutionRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestIngredientSubstitutionViewModel>,
+            RequestIngredientSubstitutionViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>
@@ -170,6 +190,8 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, RecipeConceptsAiTaskHandler>(AiTaskType.RecipeConcepts);
         services.AddKeyedScoped<IAiTaskHandler, RecipeFirstDraftAiTaskHandler>(AiTaskType.RecipeFirstDraft);
         services.AddKeyedScoped<IAiTaskHandler, RecipeRevisionAiTaskHandler>(AiTaskType.RecipeRevision);
+        services.AddKeyedScoped<IAiTaskHandler, IngredientSubstitutionAiTaskHandler>(
+            AiTaskType.IngredientSubstitution);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;
