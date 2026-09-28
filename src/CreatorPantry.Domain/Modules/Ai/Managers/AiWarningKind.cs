@@ -46,4 +46,23 @@ public enum AiWarningKind
     /// capability to emit one.
     /// </summary>
     UnresolvedQuestion = 6,
+
+    /// <summary>
+    /// Why one change was proposed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not a warning, and it lives here anyway.</strong> A rationale belongs to a single change and is
+    /// shown beside it, which is exactly what this table already does — <c>AiWarning</c> carries an
+    /// <c>AiStructuredChangeId</c> and the review panel already renders a labelled note against a row. A
+    /// <c>Rationale</c> column on <c>AiStructuredChange</c> would be a second mechanism for the same job, and
+    /// a migration for it.
+    /// </para>
+    /// <para>
+    /// A revision states why it changed something (AIREC-003), which is how a creator judges whether the goal
+    /// they asked for is what they got. It carries no caution: a rationale says what the model was doing, not
+    /// that anything about the result needs checking.
+    /// </para>
+    /// </remarks>
+    Rationale = 7,
 }

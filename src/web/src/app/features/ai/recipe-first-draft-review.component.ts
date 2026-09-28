@@ -717,4 +717,6 @@ const WARNING_LABELS: Readonly<Record<AiWarningKind, string>> = {
   UnverifiedClaim: 'Not verified',
   SafetyCaution: 'Check this yourself',
   UnresolvedQuestion: 'Needs your answer',
+  // Not a caution: it says what the model was doing, not that the result needs checking.
+  Rationale: 'Why this changed',
 };

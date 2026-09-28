@@ -40,4 +40,15 @@ public enum AiTaskType
     /// yet to pin a version against.
     /// </summary>
     RecipeFirstDraft = 3,
+
+    /// <summary>
+    /// AIREC-003: proposes scoped changes to one pinned version of an existing recipe, in the sections the
+    /// creator selected and towards the goal they stated, with a rationale for each.
+    /// </summary>
+    /// <remarks>
+    /// The first task to <em>revise</em> rather than originate: it names a recipe and a version, so it is the
+    /// recipe-bound lifecycle's own shape — a server-computed diff against the pinned source, reviewed through
+    /// the proposal panel and applied through the recipe module's facade.
+    /// </remarks>
+    RecipeRevision = 4,
 }

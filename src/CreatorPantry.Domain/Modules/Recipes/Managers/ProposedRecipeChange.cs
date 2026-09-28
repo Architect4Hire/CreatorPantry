@@ -26,13 +26,13 @@ public enum ProposedRecipeChangeKind
 /// <para>
 /// Shorter than the AI module's target list on purpose: these are the parts an accepted change can reach
 /// through ordinary recipe validation. Equipment and asset links are absent because
-/// <see cref="UpdateRecipeViewModel"/> has no field for them.
+/// <see cref="UpdateRecipeViewModel"/> has no field for them, and remain genuinely unexpressible.
 /// </para>
 /// <para>
-/// Ingredients are absent for a reason that has since expired: this list was written when the patch had no
-/// ingredients field, and <see cref="UpdateRecipeViewModel.IngredientGroups"/> now exists. Adding an
-/// <c>Ingredient</c> and an <c>IngredientGroup</c> member here is part of the outstanding work described on
-/// <c>AiChangeApplicability</c>, not a rule to preserve.
+/// Ingredients were absent for a reason that has since expired — the patch had no ingredients field when this
+/// list was written — and <see cref="UpdateRecipeViewModel.IngredientGroups"/> closed it. They are here now,
+/// which is what lets <c>AiOperationScope.Ingredients</c> be a scope a revision can actually work in rather
+/// than one where every change it proposed would be refused.
 /// </para>
 /// </remarks>
 public enum ProposedRecipeTarget
@@ -46,6 +46,12 @@ public enum ProposedRecipeTarget
 
     /// <summary>A tag, named by its <c>WorkspaceTag</c> id on a removal and by its text on an addition.</summary>
     Tag = 4,
+
+    /// <summary>An ingredient group: its heading, its place among the others, or its removal.</summary>
+    IngredientGroup = 5,
+
+    /// <summary>One ingredient line.</summary>
+    Ingredient = 6,
 }
 
 /// <summary>

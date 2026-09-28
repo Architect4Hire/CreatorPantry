@@ -83,13 +83,16 @@ export type AiTaskType =
   | 'Diagnostic'
   | 'RecipeConcepts'
   /** AIREC-002's structured first draft. */
-  | 'RecipeFirstDraft';
+  | 'RecipeFirstDraft'
+  /** AIREC-003's scoped revision of an existing recipe. */
+  | 'RecipeRevision';
 
 const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
   'Diagnostic',
   'RecipeConcepts',
   'RecipeFirstDraft',
+  'RecipeRevision',
 ]);
 
 /**
@@ -113,6 +116,10 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // Likewise: first drafts are asked for through recipe-draft-requests, which names the task by being that
   // route rather than by carrying a discriminator.
   RecipeFirstDraft: null,
+  // And revisions through recipe/{id}/revision-requests. Null here deliberately suppresses the panel's own
+  // ask-again affordance for one: re-asking needs the creator's goal, which the panel does not hold and the
+  // generic route cannot carry. The revision form is where a creator asks again.
+  RecipeRevision: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -239,7 +246,9 @@ export type AiWarningKind =
   | 'UnverifiedClaim'
   | 'SafetyCaution'
   /** A question the model declined to guess at, rather than an assumption it made. AIREC-002 emits these. */
-  | 'UnresolvedQuestion';
+  | 'UnresolvedQuestion'
+  /** Why one change was proposed. Attached to that change, and carrying no caution. AIREC-003 emits these. */
+  | 'Rationale';
 
 const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'Unspecified',
@@ -249,6 +258,7 @@ const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'UnverifiedClaim',
   'SafetyCaution',
   'UnresolvedQuestion',
+  'Rationale',
 ]);
 
 /** Mirrors AiDispositionDecision, less `Unspecified` — which is never a decision a client may send. */

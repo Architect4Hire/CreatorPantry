@@ -67,6 +67,9 @@ builder.Services.AddAiConceptRequestSeam();
 
 // AIREC-002's, likewise: a first-draft request names no recipe, and accepting one is a separate step.
 builder.Services.AddAiFirstDraftRequestSeam();
+
+// AIREC-003's. Recipe-bound, so it carries the recipe-module prerequisite the proposal seam does.
+builder.Services.AddAiRevisionRequestSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

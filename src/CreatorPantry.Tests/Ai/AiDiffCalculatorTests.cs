@@ -166,9 +166,8 @@ public sealed class AiDiffCalculatorTests
     /// be told the system has no way to apply it.
     /// </summary>
     [Theory]
-    [InlineData(AiChangeKind.Set, AiChangeTargetKind.Ingredient)]
-    [InlineData(AiChangeKind.Remove, AiChangeTargetKind.Ingredient)]
-    [InlineData(AiChangeKind.Set, AiChangeTargetKind.IngredientGroup)]
+    [InlineData(AiChangeKind.Add, AiChangeTargetKind.Ingredient)]
+    [InlineData(AiChangeKind.Add, AiChangeTargetKind.InstructionStep)]
     [InlineData(AiChangeKind.Remove, AiChangeTargetKind.Equipment)]
     [InlineData(AiChangeKind.Move, AiChangeTargetKind.AssetLink)]
     public void A_change_the_recipe_seam_cannot_apply_is_refused(

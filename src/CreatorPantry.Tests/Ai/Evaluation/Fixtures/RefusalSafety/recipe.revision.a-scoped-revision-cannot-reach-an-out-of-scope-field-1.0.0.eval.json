@@ -1,0 +1,17 @@
+{
+  "id": "recipe.revision.a-scoped-revision-cannot-reach-an-out-of-scope-field",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "OutputValidation",
+  "description": "The half a target check cannot catch. Metadata permits the Recipe target, and a set on the recipe reaches its storage notes — the creator’s own record of how the dish keeps, which is not the framing they scoped the revision to. Refused on the field, which is why the scope bounds fields and not only targets.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"recipe.revision.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"storageNotes\",\"afterValue\":\"Keeps for a month at room temperature.\"}],\"warnings\":[]}",
+    "expectedSchemaVersion": "recipe.revision.v1",
+    "scope": "Metadata"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.outside_scope",
+    "category": "DomainInvalid"
+  }
+}

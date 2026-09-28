@@ -1,0 +1,84 @@
+<section class="revision" aria-labelledby="cp-revision-heading">
+  <header class="revision-header">
+    <h2 id="cp-revision-heading">Revise this recipe</h2>
+    <p class="revision-lede">
+      Choose one part of the recipe and say what you want. Suggestions come back for you to review — nothing
+      changes until you accept them.
+    </p>
+  </header>
+
+  @if (state() === 'forbidden') {
+    <p class="revision-notice" role="alert">Your role in this workspace cannot ask for a revision.</p>
+  } @else if (state() === 'watching') {
+    <!--
+      The proposal panel reviews, edits and decides. A revision produces an ordinary diff against the pinned
+      version, so a second review surface here would be a second opinion about what a creator is approving.
+    -->
+    <cp-ai-proposal-panel
+      [workspaceSlug]="workspaceSlug()"
+      [recipeId]="recipeId()"
+      [requestId]="requestId()"
+      (decided)="onDecided($event)"
+    />
+
+    <div class="revision-actions">
+      <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()">
+        Ask for another revision
+      </button>
+    </div>
+  } @else {
+    <fieldset class="revision-sections">
+      <legend>Which part may change?</legend>
+      <!--
+        The bound, set before anything is generated. There is no field picker below it on purpose: which
+        fields a section covers is the server's answer, and a request that could name them could widen the
+        bound it was just asked to respect.
+      -->
+      <p class="revision-hint">Anything outside the part you choose is left alone.</p>
+
+      <ul class="revision-section-list" role="list">
+        @for (section of sections; track section.scope) {
+          <li>
+            <label class="revision-section" [class.is-chosen]="isChosen(section)">
+              <input
+                type="radio"
+                name="cp-revision-scope"
+                [value]="section.scope"
+                [checked]="isChosen(section)"
+                (change)="choose(section)"
+              />
+              <span class="revision-section-label">{{ section.label }}</span>
+              <span class="revision-section-detail">{{ section.detail }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    </fieldset>
+
+    <cp-field
+      label="What do you want out of this revision?"
+      forId="cp-revision-goal"
+      hint="Optional. Leave it blank to be told what would be worth changing."
+      [error]="errorFor('Goal')"
+    >
+      <textarea
+        id="cp-revision-goal"
+        rows="3"
+        [maxlength]="goalMaxLength"
+        [ngModel]="goal()"
+        (ngModelChange)="goal.set($event)"
+      ></textarea>
+    </cp-field>
+
+    @if (refusal(); as message) {
+      <p class="revision-notice" role="alert">{{ message }}</p>
+    }
+
+    <div class="revision-actions">
+      <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+        {{ state() === 'submitting' ? 'Asking…' : 'Ask for suggestions' }}
+      </button>
+      <span class="revision-hint">Nothing is changed until you review and accept what comes back.</span>
+    </div>
+  }
+</section>

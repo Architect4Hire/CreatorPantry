@@ -225,6 +225,8 @@ const WARNING_LABELS: Readonly<Record<AiWarningKind, string>> = {
   // Phrased as a question to the creator rather than a flag on the content, because that is what it is: the
   // model saying it would not guess. Reaches this panel only if a recipe-diff capability starts emitting one.
   UnresolvedQuestion: 'Needs your answer',
+  // Not a caution: it says what the model was doing, not that the result needs checking.
+  Rationale: 'Why this changed',
 };
 
 /** "storageNotes" -> "Storage notes", "yieldQuantity" -> "Yield quantity". */

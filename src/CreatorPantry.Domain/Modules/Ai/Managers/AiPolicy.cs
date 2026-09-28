@@ -105,6 +105,16 @@ public static class AiPolicy
     public const int TaskInputsJsonMaxLength = 12000;
 
     /// <summary>
+    /// What a creator asks a revision to achieve, in their own words.
+    /// </summary>
+    /// <remarks>
+    /// A sentence or two, not a brief. A goal long enough to be a specification is one the creator should be
+    /// scoping into several revisions they can review separately — and the field is untrusted prompt content,
+    /// so a generous limit here is an invitation rather than a convenience.
+    /// </remarks>
+    public const int RevisionGoalMaxLength = 500;
+
+    /// <summary>
     /// The composed <c>selectedConcept</c> line AIREC-002 carries: one concept's title and summary, joined.
     /// </summary>
     /// <remarks>
@@ -233,6 +243,60 @@ public static class AiPolicy
         AiOperationScope.Media => MediaTargets,
         _ => NoTargets,
     };
+
+    /// <summary>
+    /// Which fields each scope permits on one target kind.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The target check is not enough, and <see cref="AiOperationScope.Metadata"/> is why.</strong>
+    /// That scope describes itself as "the recipe's framing, not its method" — title, description, headnote,
+    /// times, yield — but it permits the <see cref="AiChangeTargetKind.Recipe"/> target, and a <c>Set</c> on
+    /// the recipe reaches <c>notes</c>, <c>storageNotes</c> and <c>attributionText</c> as well. A creator who
+    /// scoped a revision to metadata and had their storage notes rewritten got exactly what
+    /// <see cref="AiOperationScope"/> promises cannot happen.
+    /// </para>
+    /// <para>
+    /// So a scope bounds fields as well as targets. A field outside its scope is rejected rather than
+    /// dropped, for the reason the target rule gives: the creator asked for a bounded change, and quietly
+    /// narrowing the answer is as wrong as quietly widening it — they would be reviewing a diff that is not
+    /// the one the model proposed.
+    /// </para>
+    /// <para>
+    /// <see cref="AiOperationScope.WholeRecipe"/> defers to <see cref="AiDiffFields"/> entirely: it is the
+    /// scope that means "anything", so restating the field list here would be a second allow-list to keep in
+    /// step with the first.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlySet<string> AllowedFields(AiOperationScope scope, AiChangeTargetKind target)
+    {
+        if (!AllowedTargets(scope).Contains(target))
+        {
+            return NoFields;
+        }
+
+        return scope is AiOperationScope.Metadata && target is AiChangeTargetKind.Recipe
+            ? MetadataRecipeFields
+            : AiDiffFields.For(target).ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The recipe's framing, as <see cref="AiOperationScope.Metadata"/> describes itself.
+    /// </summary>
+    /// <remarks>
+    /// <c>notes</c>, <c>storageNotes</c> and <c>attributionText</c> are deliberately absent. Working notes and
+    /// storage guidance are the creator's own record of how the dish behaves, and an attribution says where a
+    /// recipe came from — none of the three is framing a revision of the title and times was asked to touch.
+    /// They remain reachable under <see cref="AiOperationScope.WholeRecipe"/>, which is the scope that says so.
+    /// </remarks>
+    private static readonly IReadOnlySet<string> MetadataRecipeFields = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "title", "description", "headnote",
+        "prepTimeMinutes", "cookTimeMinutes", "restTimeMinutes", "totalTimeMinutes",
+        "yieldText", "yieldQuantity", "servingCount", "servingSize",
+    };
+
+    private static readonly IReadOnlySet<string> NoFields = new HashSet<string>(StringComparer.Ordinal);
 
     private static readonly IReadOnlySet<AiChangeTargetKind> AllTargets =
         Enum.GetValues<AiChangeTargetKind>().Where(kind => kind is not AiChangeTargetKind.Unspecified).ToHashSet();

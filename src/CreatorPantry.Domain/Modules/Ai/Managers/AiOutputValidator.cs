@@ -264,6 +264,19 @@ public static class AiOutputValidator
                     correctable: false);
             }
 
+            // The field half of the same bound. A scope permitting a target does not permit every field of it
+            // — see AiPolicy.AllowedFields, and the Metadata scope that prompted it. Not correctable, for the
+            // reason the target refusal is not: a corrective re-ask spends a creator's budget arriving at the
+            // same answer, and a model that reached outside a stated bound has already been told the bound.
+            if (change.FieldName is { } field && !AiPolicy.AllowedFields(scope, change.TargetKind).Contains(field))
+            {
+                return Reject(
+                    AiOutputReason.OutsideScope,
+                    $"A change sets '{field}' on {change.TargetKind}, which is outside the operation's "
+                        + $"{scope} scope.",
+                    correctable: false);
+            }
+
             var setsAField = change.ChangeKind is AiChangeKind.Set;
 
             if (setsAField != (change.FieldName is not null))

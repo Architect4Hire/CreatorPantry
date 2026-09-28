@@ -19,17 +19,16 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// proposal may therefore not add a step until a change can carry a child payload.
 /// </para>
 /// <para>
-/// <strong>Ingredients, equipment and asset links are absent throughout</strong>, matching
-/// <see cref="AiDiffFields"/>: when this table was written the recipe patch contract had no field for any of
-/// them, so no change to one had a path through ordinary recipe validation.
+/// <strong>Equipment and asset links are absent throughout</strong>, matching <see cref="AiDiffFields"/>: the
+/// recipe patch contract has no field for either, so no change to one has a path through ordinary recipe
+/// validation, and they remain genuinely unexpressible.
 /// </para>
 /// <para>
-/// <strong>Ingredients are no longer in that position.</strong> <c>UpdateRecipeViewModel.IngredientGroups</c>
-/// now exists, so <c>Set</c>, <c>Remove</c> and <c>Move</c> on an ingredient or an ingredient group could be
-/// added here — together with the fields listed in <see cref="AiDiffFields"/> and an ingredient draft list in
-/// <c>RecipeProposalApplication</c>. That work is outstanding, and until it is done this table is the thing
-/// keeping a proposal from offering an ingredient change it cannot apply. Equipment and asset links remain
-/// genuinely unexpressible.
+/// <strong>Ingredients were absent for that reason and no longer are.</strong>
+/// <c>UpdateRecipeViewModel.IngredientGroups</c> closed the gap on the recipe side, and
+/// <c>RecipeProposalApplication</c> now carries an ingredient draft list beside the instruction one — so an
+/// accepted ingredient change travels the same merge path a hand-typed one does. Without those entries
+/// <c>AiOperationScope.Ingredients</c> was a scope in which every proposed change would be refused.
 /// </para>
 /// </remarks>
 public static class AiChangeApplicability
@@ -44,6 +43,11 @@ public static class AiChangeApplicability
         [AiChangeTargetKind.Recipe] = [AiChangeKind.Set],
         [AiChangeTargetKind.InstructionGroup] = [AiChangeKind.Set, AiChangeKind.Remove, AiChangeKind.Move],
         [AiChangeTargetKind.InstructionStep] = [AiChangeKind.Set, AiChangeKind.Remove, AiChangeKind.Move],
+
+        // Add is absent here for the reason the remarks give, not because ingredients are special: a single
+        // AfterValue cannot carry a whole line's quantity, unit, name and note.
+        [AiChangeTargetKind.IngredientGroup] = [AiChangeKind.Set, AiChangeKind.Remove, AiChangeKind.Move],
+        [AiChangeTargetKind.Ingredient] = [AiChangeKind.Set, AiChangeKind.Remove, AiChangeKind.Move],
 
         // A tag is a name. Adding one is submitting that name, removing one is dropping it, and there is no
         // field on it to set and no order to move it within — a recipe's tags are a set.

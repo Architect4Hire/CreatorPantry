@@ -55,6 +55,12 @@ public static class RecipeProposalApplication
         var tags = CurrentTags(recipe, loaded.Tags);
         var tagsTouched = false;
 
+        // Materialized for the same reason the instruction list is, and replaced wholesale for the same
+        // reason: the patch contract submits an ingredient list entire, so changing one line means re-emitting
+        // every line — from the live aggregate, never from the model's answer.
+        var ingredientGroups = CurrentIngredients(recipe);
+        var ingredientsTouched = false;
+
         foreach (var change in changes)
         {
             // The bound the edge validator would have applied to a hand-typed edit. There is no ViewModel here,
@@ -101,6 +107,16 @@ public static class RecipeProposalApplication
                     tagsTouched = true;
                     break;
 
+                case ProposedRecipeTarget.IngredientGroup:
+                case ProposedRecipeTarget.Ingredient:
+                    if (ApplyToIngredients(ingredientGroups, change) is { } ingredientError)
+                    {
+                        return Refuse(ingredientError);
+                    }
+
+                    ingredientsTouched = true;
+                    break;
+
                 default:
                     return Refuse(
                         $"A {change.Kind} on a {change.Target} is not a change this recipe seam can apply.");
@@ -114,7 +130,8 @@ public static class RecipeProposalApplication
                 // caller, because that is what the creator reviewed the diff against.
                 RecipeConcurrencyToken.From(recipe.RowVersion),
                 instructionsTouched ? Canonicalize(groups) : null,
-                tagsTouched ? Canonicalize(tags) : null),
+                tagsTouched ? Canonicalize(tags) : null,
+                ingredientsTouched ? Canonicalize(ingredientGroups) : null),
             null);
     }
 
@@ -170,7 +187,8 @@ public static class RecipeProposalApplication
         public CanonicalRecipePatch Build(
             string expectedConcurrencyToken,
             IReadOnlyList<CanonicalInstructionGroup>? instructions,
-            IReadOnlyList<RecipeTagName>? tags) => new()
+            IReadOnlyList<RecipeTagName>? tags,
+            IReadOnlyList<CanonicalIngredientGroup>? ingredientGroups) => new()
             {
                 ExpectedConcurrencyToken = expectedConcurrencyToken,
 
@@ -202,6 +220,10 @@ public static class RecipeProposalApplication
                 Tags = tags is null
                     ? PatchField<IReadOnlyList<RecipeTagName>>.Absent
                     : PatchField<IReadOnlyList<RecipeTagName>>.Submitted(tags),
+
+                IngredientGroups = ingredientGroups is null
+                    ? PatchField<IReadOnlyList<CanonicalIngredientGroup>>.Absent
+                    : PatchField<IReadOnlyList<CanonicalIngredientGroup>>.Submitted(ingredientGroups),
 
                 // Every reference id and the status stay absent, and not for want of a line here: no proposal
                 // can name one. AiDiffFields lists no identifier field and no status, because a model choosing
@@ -503,6 +525,271 @@ public static class RecipeProposalApplication
                 TemperatureValue = step.TemperatureValue,
                 TemperatureUnitId = step.TemperatureUnitId,
                 Note = step.Note,
+            })],
+        })];
+
+    // ---- ingredients --------------------------------------------------------------------------------------
+
+    /// <inheritdoc cref="DraftGroup"/>
+    private sealed class DraftIngredientGroup(Guid id, string? title)
+    {
+        public Guid Id { get; } = id;
+
+        public string? Title { get; set; } = title;
+
+        public List<DraftIngredient> Ingredients { get; } = [];
+    }
+
+    /// <summary>
+    /// One ingredient line being edited in place.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The vocabulary references are read-only here, exactly as the step's temperature unit is.</strong>
+    /// <c>AiDiffFields</c> names no identifier field, so no proposal can choose a
+    /// <see cref="RecipeIngredient.MeasurementUnitId"/> or an <see cref="RecipeIngredient.IngredientId"/> — a
+    /// model naming a <c>Guid</c> is a model inventing one. They therefore travel through unchanged: the line
+    /// keeps whatever the matching seam resolved for it.
+    /// </para>
+    /// <para>
+    /// <strong><see cref="DisplayTextSource"/> is carried, not recomputed.</strong> recipes.md is explicit
+    /// that whether a line was written or assembled is recorded rather than inferred, and that a line reading
+    /// exactly like its own spans may still be one the creator typed. An accepted change to
+    /// <c>displayText</c> is the creator's approval of that wording, so the line stays whatever it already was
+    /// — this seam is not the place that decides a line has become composed.
+    /// </para>
+    /// </remarks>
+    private sealed class DraftIngredient(RecipeIngredient line)
+    {
+        public Guid Id { get; } = line.Id;
+
+        public string DisplayText { get; set; } = line.DisplayText;
+
+        public IngredientDisplayTextSource DisplayTextSource { get; } = line.DisplayTextSource;
+
+        public string? IngredientNameText { get; set; } = line.IngredientNameText;
+
+        public string? UnitText { get; set; } = line.UnitText;
+
+        public decimal? Quantity { get; set; } = line.Quantity;
+
+        public decimal? QuantityUpper { get; set; } = line.QuantityUpper;
+
+        public Guid? MeasurementUnitId { get; } = line.MeasurementUnitId;
+
+        public Guid? IngredientId { get; } = line.IngredientId;
+
+        public string? PreparationNote { get; set; } = line.PreparationNote;
+
+        public bool IsOptional { get; set; } = line.IsOptional;
+
+        public IngredientScaling ScalingBehavior { get; } = line.ScalingBehavior;
+    }
+
+    private static List<DraftIngredientGroup> CurrentIngredients(Recipe recipe)
+    {
+        var groups = new List<DraftIngredientGroup>();
+
+        foreach (var group in recipe.IngredientGroups.OrderBy(group => group.SortOrder))
+        {
+            var draft = new DraftIngredientGroup(group.Id, group.Title);
+
+            foreach (var line in group.Ingredients.OrderBy(line => line.SortOrder))
+            {
+                draft.Ingredients.Add(new DraftIngredient(line));
+            }
+
+            groups.Add(draft);
+        }
+
+        return groups;
+    }
+
+    private static string? ApplyToIngredients(List<DraftIngredientGroup> groups, ProposedRecipeChange change)
+    {
+        if (change.TargetId is not { } targetId)
+        {
+            return $"A change to a {change.Target} does not say which one.";
+        }
+
+        return change.Target is ProposedRecipeTarget.IngredientGroup
+            ? ApplyToIngredientGroup(groups, change, targetId)
+            : ApplyToIngredientLine(groups, change, targetId);
+    }
+
+    private static string? ApplyToIngredientGroup(
+        List<DraftIngredientGroup> groups, ProposedRecipeChange change, Guid targetId)
+    {
+        var index = groups.FindIndex(group => group.Id == targetId);
+
+        if (index < 0)
+        {
+            return "The ingredient group the change addresses is no longer part of the recipe.";
+        }
+
+        switch (change.Kind)
+        {
+            case ProposedRecipeChangeKind.Set when change.FieldName == "title":
+                groups[index].Title = Trimmed(change.Value);
+
+                return null;
+
+            case ProposedRecipeChangeKind.Remove:
+                groups.RemoveAt(index);
+
+                return null;
+
+            case ProposedRecipeChangeKind.Move:
+                Move(groups, index, change.Position);
+
+                return null;
+
+            default:
+                return change.Kind is ProposedRecipeChangeKind.Set
+                    ? $"'{change.FieldName}' is not a field of an ingredient group that a change can set."
+                    : $"A {change.Kind} on an ingredient group is not a change this recipe seam can apply.";
+        }
+    }
+
+    private static string? ApplyToIngredientLine(
+        List<DraftIngredientGroup> groups, ProposedRecipeChange change, Guid targetId)
+    {
+        var group = groups.FirstOrDefault(candidate => candidate.Ingredients.Any(line => line.Id == targetId));
+
+        if (group is null)
+        {
+            return "The ingredient the change addresses is no longer part of the recipe.";
+        }
+
+        var index = group.Ingredients.FindIndex(line => line.Id == targetId);
+
+        switch (change.Kind)
+        {
+            case ProposedRecipeChangeKind.Set:
+                return SetIngredientField(group.Ingredients[index], change);
+
+            case ProposedRecipeChangeKind.Remove:
+                group.Ingredients.RemoveAt(index);
+
+                return null;
+
+            case ProposedRecipeChangeKind.Move:
+                Move(group.Ingredients, index, change.Position);
+
+                return null;
+
+            default:
+                return $"A {change.Kind} on an ingredient is not a change this recipe seam can apply.";
+        }
+    }
+
+    private static string? SetIngredientField(DraftIngredient line, ProposedRecipeChange change)
+    {
+        switch (change.FieldName)
+        {
+            case "displayText":
+                // Never cleared, for the reason a step's text is not: recipes.md makes the line's own wording
+                // canonical, and a line with none is not a line. Refusing here names the change that asked.
+                var displayText = Trimmed(change.Value);
+
+                if (displayText is null)
+                {
+                    return "An ingredient cannot be left with no text.";
+                }
+
+                line.DisplayText = displayText;
+
+                return null;
+
+            case "ingredientNameText":
+                line.IngredientNameText = Trimmed(change.Value);
+
+                return null;
+
+            case "unitText":
+                line.UnitText = Trimmed(change.Value);
+
+                return null;
+
+            case "preparationNote":
+                line.PreparationNote = Trimmed(change.Value);
+
+                return null;
+
+            case "quantity":
+                return Quantity(change.Value, quantity => line.Quantity = quantity);
+
+            case "quantityUpper":
+                return Quantity(change.Value, quantity => line.QuantityUpper = quantity);
+
+            case "isOptional":
+                if (!bool.TryParse(change.Value, out var optional))
+                {
+                    return $"'{change.Value}' is not a yes or no.";
+                }
+
+                line.IsOptional = optional;
+
+                return null;
+
+            default:
+                return $"'{change.FieldName}' is not a field of an ingredient that a change can set.";
+        }
+    }
+
+    /// <summary>
+    /// A quantity, or its removal.
+    /// </summary>
+    /// <remarks>
+    /// Parsed rather than stored as text: scaling and conversion depend on it being a number, and recipes.md
+    /// says non-scalable language is flagged rather than smuggled into a numeric field. "About two" belongs in
+    /// the line's own wording with a warning beside it.
+    /// </remarks>
+    private static string? Quantity(string? value, Action<decimal?> assign)
+    {
+        if (value is null)
+        {
+            assign(null);
+
+            return null;
+        }
+
+        if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return $"'{value}' is not a number.";
+        }
+
+        if (parsed <= 0)
+        {
+            return "A quantity must be greater than zero.";
+        }
+
+        assign(parsed);
+
+        return null;
+    }
+
+    private static IReadOnlyList<CanonicalIngredientGroup> Canonicalize(List<DraftIngredientGroup> groups) =>
+        [.. groups.Select(group => new CanonicalIngredientGroup
+        {
+            // Always the existing id, for the reason the instruction canonicalizer gives: nothing here creates
+            // a group or a line, and the reconciler reads a familiar id as an update in place.
+            Id = group.Id,
+            Title = group.Title,
+            Ingredients = [.. group.Ingredients.Select(line => new CanonicalIngredientLine
+            {
+                Id = line.Id,
+                DisplayText = line.DisplayText,
+                DisplayTextSource = line.DisplayTextSource,
+                IngredientNameText = line.IngredientNameText,
+                UnitText = line.UnitText,
+                Quantity = line.Quantity,
+                QuantityUpper = line.QuantityUpper,
+                MeasurementUnitId = line.MeasurementUnitId,
+                IngredientId = line.IngredientId,
+                PreparationNote = line.PreparationNote,
+                IsOptional = line.IsOptional,
+                ScalingBehavior = line.ScalingBehavior,
             })],
         })];
 

@@ -77,7 +77,13 @@ public static class ProposedRecipeValues
         "attributionText" => RecipePolicy.AttributionMaxLength,
         "text" => RecipePolicy.StepTextMaxLength,
         "note" => RecipePolicy.NoteMaxLength,
-        "displayText" or "ingredientNameText" => RecipePolicy.LineTextMaxLength,
+        "displayText" => RecipePolicy.LineTextMaxLength,
+
+        // Named separately rather than sharing displayText's bound, which is what they did when only the line
+        // itself was settable: each column has its own limit, and the loosest of them is not the safe default
+        // for a field whose column is narrower.
+        "ingredientNameText" => RecipePolicy.IngredientNameTextMaxLength,
+        "unitText" => RecipePolicy.UnitTextMaxLength,
         "preparationNote" => RecipePolicy.NoteMaxLength,
 
         // An unrecognised field. Unreachable through either caller, because a field absent from the settable

@@ -1,0 +1,17 @@
+{
+  "id": "recipe.revision.a-scoped-revision-cannot-reach-another-section",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "OutputValidation",
+  "description": "The bound AIREC-003 exists to keep: a revision scoped to the recipe’s framing proposing a change to the method. Refused on the target, and refused for the whole answer rather than trimmed — a trimmed diff is one the creator would review without knowing what was removed from it.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"recipe.revision.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"InstructionStep\",\"targetId\":\"11111111-1111-1111-1111-111111111111\",\"fieldName\":\"text\",\"afterValue\":\"Simmer for an hour instead.\"}],\"warnings\":[]}",
+    "expectedSchemaVersion": "recipe.revision.v1",
+    "scope": "Metadata"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.outside_scope",
+    "category": "DomainInvalid"
+  }
+}

@@ -28,6 +28,12 @@ public sealed class AiChangeApplicabilityTests
         (AiChangeKind.Move, AiChangeTargetKind.InstructionStep),
         (AiChangeKind.Add, AiChangeTargetKind.Tag),
         (AiChangeKind.Remove, AiChangeTargetKind.Tag),
+        (AiChangeKind.Set, AiChangeTargetKind.IngredientGroup),
+        (AiChangeKind.Remove, AiChangeTargetKind.IngredientGroup),
+        (AiChangeKind.Move, AiChangeTargetKind.IngredientGroup),
+        (AiChangeKind.Set, AiChangeTargetKind.Ingredient),
+        (AiChangeKind.Remove, AiChangeTargetKind.Ingredient),
+        (AiChangeKind.Move, AiChangeTargetKind.Ingredient),
     ];
 
     [Fact]
@@ -59,13 +65,12 @@ public sealed class AiChangeApplicabilityTests
     }
 
     /// <summary>
-    /// Ingredients are the gap this pair of prompts found, and it is a capability gap rather than a rule:
-    /// <c>UpdateRecipeViewModel</c> has no ingredients field, so an accepted ingredient change has no path
-    /// through ordinary recipe validation. Equipment and asset links are absent for the same reason.
+    /// Equipment and asset links have no field in the recipe patch contract, so an accepted change to either
+    /// has no path through ordinary recipe validation. Ingredients were in this list until
+    /// <c>UpdateRecipeViewModel.IngredientGroups</c> and an ingredient draft list in
+    /// <c>RecipeProposalApplication</c> gave them one.
     /// </summary>
     [Theory]
-    [InlineData(AiChangeTargetKind.Ingredient)]
-    [InlineData(AiChangeTargetKind.IngredientGroup)]
     [InlineData(AiChangeTargetKind.Equipment)]
     [InlineData(AiChangeTargetKind.AssetLink)]
     public void A_target_the_recipe_patch_cannot_express_takes_no_change(AiChangeTargetKind target)

@@ -1,0 +1,15 @@
+{
+  "id": "recipe.revision.a-revision-that-changes-nothing-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "\"I looked and there is nothing to change\" is a complete answer to a revision, and the one a model should give rather than inventing a change to have something to show. An empty change list validates; reporting it as a failure would tell the creator something untrue about their recipe.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"recipe.revision.v1\",\"changes\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "recipe.revision.v1",
+    "scope": "Metadata"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

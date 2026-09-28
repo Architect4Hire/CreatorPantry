@@ -106,6 +106,16 @@ Everything through Phase 7 must run against seeded local data with no paid AI or
 | EASE-004 | Show progress, provenance, cost, warnings, and next action without exposing infrastructure jargon. |
 | EASE-005 | Preview generated or destructive changes and provide confirmation, version history, or undo paths. |
 | EASE-006 | Meet WCAG 2.2 AA with non-drag alternatives and responsive daily/weekly workflows. |
+| USAGE-001 | Record every AI provider attempt against the Identity account that requested it, independently of the workspace the work was done in. |
+| USAGE-002 | Keep account usage in a platform-scoped, counts-only ledger that carries no creator content and therefore needs no workspace query filter. |
+| USAGE-003 | Maintain a per-account AI allowance with an explicit unit, period length, anchor, time zone, carry-over rule, and suspension flag, defaulting to platform configuration when no account quota is set. |
+| USAGE-004 | Reserve allowance before a provider call and settle it against actual reported usage afterwards, releasing abandoned reservations. |
+| USAGE-005 | Attribute usage to the account even when the provider reports no token counts, recording "not reported" rather than zero. |
+| USAGE-006 | Refuse an over-quota or suspended account's AI request at admission, before the operation runs and before any provider call. |
+| USAGE-007 | Tell a refused caller what is exhausted, what remains, and when the period resets, without disclosing another account or workspace. |
+| USAGE-008 | Let a creator see their own current-period consumption, remaining allowance, reset time, and per-workspace and per-task breakdown across all their workspaces. |
+| USAGE-009 | Let a platform administrator read any account's usage, set or clear a quota, suspend or restore AI access, and list top consumers, with an audit event for every change. |
+| USAGE-010 | Present allowance in plain creator language with progress, warning, and exhausted states that never silently discard a filled-in request. |
 
 ## Checkpoints
 
@@ -121,6 +131,7 @@ Everything through Phase 7 must run against seeded local data with no paid AI or
 | **7.12** | Parsing, scaling, conversion, normalization, and yield previews are deterministic and never overwrite a recipe silently |
 | **8.12** | An AI proposal can be generated, reviewed, partially accepted, rejected, retried, and audited without bypassing domain rules |
 | **9.10** | Recipe ideation, drafting, revision, substitution, adaptation, review, and explanation run through the shared proposal lifecycle |
+| **9A.11** | One account's AI consumption and remaining allowance are visible and enforced across every workspace they belong to, and an exhausted account is refused before any provider call |
 | **10.8** | Test runs and readiness gates take a recipe from Draft to Approved with an auditable history |
 | **11.10** | An approved recipe produces editorial, SEO, JSON-LD, Markdown, and PDF outputs tied to an exact version |
 | **11A.24a** | A creator can upload writing/image examples, generate an editable brand guide, approve a version, and see it shape writing and image prompts |
@@ -2038,6 +2049,194 @@ UTILIZATION: ai-safety-reviewer, workspace-isolation-auditor, api-contract-check
 test-gap-analyzer, and skills-evals.
 BEHAVIOR: Produce one deduplicated severity report, wait for approval, fix blockers, rerun evaluation
 sets and all recipe/AI tests, and record prompt-template versions.
+```
+
+## Phase 9A — Account AI usage accounting and quota
+
+> Usage is measured **per account**, not per workspace. One person who belongs to five workspaces has one
+> balance, and it is spent from whichever workspace they happen to be working in. The existing AI tables cannot
+> answer that question: `AiExecutionMetadata` is `IWorkspaceOwned` and globally filtered, and `AiOperation`
+> records `RequestedByMembershipId` — a workspace-scoped identity — so summing one person's tokens across
+> workspaces from those rows would mean `IgnoreQueryFilters()`, which `tenancy.md` prohibits. This phase adds a
+> platform-scoped ledger keyed by the Identity account instead, and the reason that ledger is safe to read with
+> no workspace filter is that it holds **counts and never content**.
+
+### 9A.1 Account usage module and ledger entity
+
+```text
+SCOPE: Add a platform-scoped Modules/AiUsage bounded context owning AccountAiUsageEntry: identity account id,
+occurred-at UTC, the attributed AiOperation and attempt number, task type, provider, model, deployment, input
+tokens, output tokens, total tokens, estimated cost, billable flag, usage-reported flag, outcome, and the
+WorkspaceId the work was done in as a reporting dimension only.
+CONSTRAINT: USAGE-001/002; .claude/rules/tenancy.md, ai.md, and backend.md; add-workspace-entity skill for the
+configuration conventions only.
+RESTRICTION: The entry is NOT IWorkspaceOwned and carries no global query filter — that is the whole point, and
+it is defensible only because the row holds no recipe title, prompt body, proposal text, or any other creator
+content, and no column may ever be added that does. The account id comes from Identity, never from a request
+field, an unsigned header, or a model. Provider-reported token counts stay nullable: null is "not reported",
+never zero.
+BEHAVIOR: Show the entity, the counts-only column list, the account/period and account/workspace indexes, and
+why this is deliberately not a filtered entity, wait for approval, implement entity and configuration only.
+```
+
+### 9A.2 Account quota policy and period model
+
+```text
+SCOPE: Add platform-scoped AccountAiQuota and AccountAiQuotaPeriod: the account, the quota unit, the allowance,
+the period length and anchor, the account's time zone, the current period's consumed and reserved totals, the
+carry-over rule, a suspension flag, effective-from/to, and the actor who last changed it.
+CONSTRAINT: USAGE-003/004; .claude/rules/tenancy.md and auth.md.
+RESTRICTION: A quota belongs to an account, never to a workspace and never to a membership — a creator does not
+earn a fresh allowance by joining another workspace. Periods roll forward deterministically in the account's
+stored zone and are never recomputed from "now". No default allowance is invented in domain code: an account
+with no explicit quota resolves to the configured platform default.
+BEHAVIOR: Show the period roll rule, the unit decision (raw tokens versus an internal credit), what happens to
+an in-flight reservation at a period boundary, and the uniqueness indexes, wait for approval, implement
+entities and configuration only.
+```
+
+### 9A.3 Account usage and quota migration
+
+```text
+SCOPE: Generate the migration for the usage ledger, quota, and period tables with account-leading indexes and
+the uniqueness constraint that makes one attempt post at most one ledger entry.
+CONSTRAINT: .claude/rules/backend.md and tenancy.md.
+RESTRICTION: Do NOT apply before review. No cascade from workspace or membership deletion that erases an
+account's usage history — the WorkspaceId on a ledger entry is a reporting dimension, not an owner, and
+deleting a workspace does not unspend the tokens. Account deletion follows the documented erasure path and is
+decided here rather than improvised later.
+BEHAVIOR: Show the migration, the cascade decisions, and the retention implication, wait for approval, apply
+through MigrationService, restart `aspire run`, and confirm pending model changes are clean.
+```
+
+### 9A.4 Usage recording at the execution boundary
+
+```text
+SCOPE: Post one ledger entry per provider attempt from the same code path that writes AiExecutionMetadata,
+resolving the account id from the operation's membership server-side and recording tokens, cost estimate,
+outcome, and the originating WorkspaceId.
+CONSTRAINT: USAGE-001/005; AI-004 through AI-007; add-ai-capability skill; .claude/rules/ai.md.
+RESTRICTION: Cross-module traffic is facade to facade: the Ai module calls the AiUsage facade and never its
+repositories, and AiUsage never reads an AI or recipe table. The ledger write commits with the attempt record —
+a settled attempt that posts no usage is a defect, and a duplicate delivery posts once. A failed, blocked,
+cancelled, or usage-unreported attempt still posts an entry carrying its outcome, because "we do not know what
+this cost" must be visible rather than absent.
+BEHAVIOR: Show the attribution path from membership to account and the transaction boundary, wait for approval,
+implement with success, retry, timeout, safety-blocked, unreported-usage, duplicate-delivery, and
+two-workspaces-one-account tests.
+```
+
+### 9A.5 Admission check, reservation, and settlement
+
+```text
+SCOPE: Implement deterministic quota admission before any provider call: resolve the account's current period,
+reserve an estimated amount, then settle that reservation against actual reported usage after the attempt,
+releasing it on failure or lease expiry.
+CONSTRAINT: USAGE-004/006; NFR-004/005; add-background-job and add-ai-capability skills.
+RESTRICTION: A model never participates in this decision and never sees a balance. Reservation and settlement
+are each one concurrency-safe transaction; two workers claiming work for the same account must not both be
+admitted past the last of the allowance. An abandoned reservation expires with the operation lease rather than
+stranding an account's balance. Settlement is idempotent: a replay settles once. No provider call inside a
+database transaction.
+BEHAVIOR: Show the reserve/settle/release state table and the estimation rule for a task whose tokens are not
+yet known, wait for approval, implement with competing-worker, over-reserve, under-reserve, unreported-usage,
+lease-expiry, replay, and period-boundary tests.
+```
+
+### 9A.6 Quota enforcement in the AI request seam
+
+```text
+SCOPE: Refuse an over-quota AI operation at request admission through the existing generic lifecycle, returning
+ProblemDetails with a stable code, the period reset time, and the remaining allowance.
+CONSTRAINT: USAGE-006/007; API-004/005; add-endpoint and add-ai-capability skills.
+RESTRICTION: Refusal happens before the operation reaches Running and before a provider is called; a refused
+request leaves no orphan operation and consumes no allowance. The refusal states what is exhausted and when it
+resets, and never discloses another account's usage or another workspace's existence. A suspended account and
+an exhausted period are distinguishable error codes. Workspace role grants no exemption — a Workspace Owner is
+not a platform administrator.
+BEHAVIOR: Plan the status code, error codes, and response fields, wait for approval, implement with at-limit,
+over-limit, suspended, reset-boundary, replay-of-a-refused-request, and two-workspace isolation tests, then
+regenerate the OpenAPI snapshot and read the diff.
+```
+
+### 9A.7 Backfill and reconciliation
+
+```text
+SCOPE: Add a one-time reconciliation that posts ledger entries for AiExecutionMetadata rows written before this
+phase, plus a repeatable check reporting attempts with no matching entry.
+CONSTRAINT: USAGE-002; .claude/rules/tenancy.md.
+RESTRICTION: This is the one path here permitted to read execution metadata across workspaces, so it is a
+documented `IgnoreQueryFilters()` carve-out: it selects identifiers, token counts, and outcome only — never a
+title, snapshot, or any creator content — and its file is listed by path in
+`BulkOperationBoundaryTests.Exemptions`. Reconciliation is idempotent, resumable, and never double-posts. It
+reports drift; it does not silently rewrite a settled period's totals.
+BEHAVIOR: Show the query, the exemption line, and the restart behaviour, wait for approval, implement with
+partial-run, re-run, and drift-detection tests, then run workspace-isolation-auditor.
+```
+
+### 9A.8 Account usage read seam
+
+```text
+SCOPE: Add GET /api/v1/me/ai-usage and .../ai-usage/history returning the signed-in account's current period,
+consumed and reserved totals, remaining allowance, reset time, and a breakdown by task type and by workspace
+across every workspace the account belongs to.
+CONSTRAINT: USAGE-008; API-001 through API-003; add-endpoint skill; .claude/rules/api-contract.md and auth.md.
+RESTRICTION: This route is account-scoped and must not live under /api/v1/workspaces/{workspaceSlug} —
+deliberately, because the answer spans workspaces. It returns the caller's own account only; an account id is
+never accepted from route, body, query, or header. The per-workspace breakdown names only workspaces the
+account currently holds active membership in, and carries counts, never recipe titles or operation detail. A
+revoked membership leaves the historical total intact and withholds the workspace name.
+BEHAVIOR: Plan the contract and the withheld-name rule, wait for approval, implement with
+one-account-many-workspaces, revoked-membership, another-account's-id, and unauthenticated tests, then
+regenerate the OpenAPI snapshot and run api-contract-checker.
+```
+
+### 9A.9 Platform quota administration
+
+```text
+SCOPE: Add PlatformAdmin-only ops routes to read any account's usage, set or clear an account quota, suspend or
+restore an account's AI access, and list the highest-consuming accounts for a period.
+CONSTRAINT: USAGE-009; baseline B-13/B-14; .claude/rules/auth.md and api-contract.md.
+RESTRICTION: These are explicit `ops` routes behind the platform-admin policy and hashed rotatable API keys;
+they are never proxied from a browser session, and PlatformAdmin never implies workspace membership. Every
+quota change, suspension, and restoration writes an audit event naming actor, before and after values, and a
+reason. An administrator sees numbers, accounts, and workspace identifiers — never a recipe, a prompt, a
+proposal, or any workspace content.
+BEHAVIOR: Plan routes, policy, and audit shape, wait for approval, implement with non-admin-forbidden,
+workspace-owner-forbidden, audit-written, suspend-then-request-refused, and clear-quota-falls-back-to-default
+tests.
+```
+
+### 9A.10 Usage and quota UI
+
+```text
+SCOPE: Build the account AI-usage surface — remaining allowance with reset date, consumed-versus-allowance
+progress, per-workspace and per-task breakdown, an at-limit state — plus an in-context warning on AI request
+screens when the allowance is nearly or fully spent.
+CONSTRAINT: USAGE-008/010; EASE-004; creatorpantry-design-system and new-component skills.
+RESTRICTION: Plain language and no infrastructure jargon: a creator reads AI credits, a reset date, and what
+they can still do — not a raw token count as the headline figure, and never a provider, deployment, or model
+name. Status is never conveyed by color alone. An exhausted allowance disables the request action with a stated
+reason and a next step; it never silently fails a submit or discards a filled-in request. The screen shows only
+the signed-in account's own figures.
+BEHAVIOR: Plan states — loading, healthy, nearly spent, exhausted, suspended, degraded, error — wait for
+approval, implement with component, contract, at-limit, reset-boundary, and accessibility tests.
+```
+
+### 9A.11 Account usage audit
+
+```text
+SCOPE: Verify that every provider attempt posts exactly one ledger entry, that account totals reconcile across
+workspaces, that no cross-workspace read returns creator content, that quota is enforced before the provider
+call, and that no account can read or spend another account's allowance.
+CONSTRAINT: USAGE-001 through USAGE-010.
+RESTRICTION: Report first. Do not resolve a finding by making the ledger workspace-owned, by widening the
+`IgnoreQueryFilters()` exemption list, or by adding a content-bearing column to a table read without a
+workspace filter.
+UTILIZATION: workspace-isolation-auditor, ai-safety-reviewer, api-contract-checker, architecture-reviewer,
+design-review, and test-gap-analyzer.
+BEHAVIOR: Produce one deduplicated severity report, wait for approval, fix blockers, rerun the AI and tenancy
+suites, and record the resulting per-account accounting guarantees.
 ```
 
 ## Phase 10 — Test kitchen and recipe readiness
@@ -4388,6 +4587,7 @@ for approval before any fix.
 | ING-001 through ING-006 and CALC-001 through CALC-006 | Phase 7 |
 | AIREC lifecycle and AIREC-GR-001 through 008 | Phase 8 |
 | AIREC-001 through AIREC-008 | Phase 9 |
+| USAGE-001 through USAGE-010 | Phase 9A |
 | TESTRUN-001 through TESTRUN-005 | Phase 10 |
 | RCPUB-001 through RCPUB-004 | Phase 11 |
 | BRAND-001 through BRAND-010 | Phase 11A |
@@ -4429,6 +4629,7 @@ A prompt is complete only when:
 - a multi-step workflow proves autosave, exit, resume, Back, failure recovery, and one recommended next action;
 - user-facing copy avoids prompt/model/storage jargon and keeps advanced options progressively disclosed;
 - personal WorkTask status remains independent from linked workflow, recipe, editorial, and publishing state;
+- every provider attempt posts exactly one account usage entry and spends the requesting account's allowance, not the workspace's;
 - the named reviewer findings are resolved or explicitly recorded;
 - documentation/traceability is updated when a contract or decision changed;
 - the final report names files changed, commands/tests run, and remaining limitations.
@@ -4443,6 +4644,7 @@ A prompt is complete only when:
 - Workflow screens orchestrate existing capabilities; they do not create a second domain model.
 - My Day/My Week plan the creator's work; the Content Board tracks editorial content state.
 - Calculation, authorization, readiness, and state transitions stay deterministic.
+- AI cost is an account fact and a workspace dimension: one person has one balance across every workspace they belong to, and the ledger that proves it holds counts, never content.
 - A two-workspace test is mandatory evidence, not optional ceremony.
 - The design system is a dependency of product UI, not a screenshot to approximate.
 - If a prompt starts adding a schema, backend stack, provider, UI, and end-to-end suite at once, split it.

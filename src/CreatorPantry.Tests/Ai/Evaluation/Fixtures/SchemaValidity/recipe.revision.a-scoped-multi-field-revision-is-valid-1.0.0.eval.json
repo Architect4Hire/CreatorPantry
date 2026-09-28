@@ -1,0 +1,15 @@
+{
+  "id": "recipe.revision.a-scoped-multi-field-revision-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "OutputValidation",
+  "description": "Several fields of one section changed together is the ordinary shape of a revision, not an edge case: a goal like \"make the framing punchier\" reaches the title, the description and the headnote at once. All three are inside the Metadata scope, so the answer validates and the creator reviews three rows.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"recipe.revision.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"title\",\"afterValue\":\"Weeknight Mapo Tofu\"},{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"description\",\"afterValue\":\"Twenty minutes, one pan.\"},{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"headnote\",\"afterValue\":\"The version I actually cook.\"}],\"warnings\":[]}",
+    "expectedSchemaVersion": "recipe.revision.v1",
+    "scope": "Metadata"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

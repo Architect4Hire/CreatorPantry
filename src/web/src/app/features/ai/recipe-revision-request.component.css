@@ -1,0 +1,122 @@
+/* Semantic --cp-* tokens only; a literal theme colour here would be a defect (frontend.md). */
+
+:host {
+  display: block;
+}
+
+.revision {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  max-width: 48rem;
+}
+
+.revision-header h2 {
+  margin: 0 0 var(--cp-space-2) 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  color: var(--cp-text);
+}
+
+.revision-lede,
+.revision-hint {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.revision-hint {
+  font-size: var(--cp-font-size-xs);
+}
+
+.revision-notice {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-danger);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-danger-soft);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.revision-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.revision-sections legend {
+  padding: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text);
+}
+
+.revision-section-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * A real radio, styled but never replaced: it stays focusable, stays announced, and stays operable by arrow
+ * key, which a div with a click handler would not. 40px minimum target (DESIGN-SYSTEM.md).
+ */
+.revision-section {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--cp-space-1) var(--cp-space-3);
+  min-height: 2.5rem;
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  cursor: pointer;
+}
+
+.revision-section:hover {
+  border-color: var(--cp-border-strong);
+}
+
+/* The chosen section is named by the radio's own checked state; this is the visual half of that fact. */
+.revision-section.is-chosen {
+  border-color: var(--cp-primary);
+  background: var(--cp-primary-soft);
+}
+
+.revision-section:has(input:focus-visible) {
+  outline: 3px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.revision-section input {
+  grid-row: span 2;
+  margin: 0;
+  accent-color: var(--cp-primary);
+}
+
+.revision-section-label {
+  color: var(--cp-text);
+  font-weight: 600;
+}
+
+.revision-section-detail {
+  grid-column: 2;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.revision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}

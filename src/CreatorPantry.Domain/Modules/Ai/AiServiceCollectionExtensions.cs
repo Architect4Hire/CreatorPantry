@@ -137,6 +137,23 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-003’s scoped recipe revision.
+    /// </summary>
+    /// <remarks>
+    /// Carries the recipe-module prerequisite that <see cref="AddAiProposalSeam"/> does: a revision names a
+    /// recipe and the exact version it revises, and <c>AiRevisionRequestBusiness</c> checks both through
+    /// <c>IRecipeFacade</c> before anything is queued.
+    /// </remarks>
+    public static IServiceCollection AddAiRevisionRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiRevisionRequestBusiness, AiRevisionRequestBusiness>();
+        services.AddScoped<IAiRevisionRequestFacade, AiRevisionRequestFacade>();
+        services.AddScoped<IValidator<RequestRecipeRevisionViewModel>, RequestRecipeRevisionViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>
@@ -152,6 +169,7 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, DiagnosticAiTaskHandler>(AiTaskType.Diagnostic);
         services.AddKeyedScoped<IAiTaskHandler, RecipeConceptsAiTaskHandler>(AiTaskType.RecipeConcepts);
         services.AddKeyedScoped<IAiTaskHandler, RecipeFirstDraftAiTaskHandler>(AiTaskType.RecipeFirstDraft);
+        services.AddKeyedScoped<IAiTaskHandler, RecipeRevisionAiTaskHandler>(AiTaskType.RecipeRevision);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

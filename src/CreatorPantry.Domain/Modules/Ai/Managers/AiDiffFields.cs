@@ -21,21 +21,14 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// numbers; the server resolves references.
 /// </para>
 /// <para>
-/// <strong>Ingredients are absent for a different reason, and it is a capability gap rather than a rule.</strong>
-/// When this list was narrowed, the recipe update seam had patch fields for header content, tags, status and
-/// instructions and none for ingredients, so an accepted ingredient change had no path through ordinary recipe
-/// validation — and offering one would have meant a creator reviewing a change, accepting it, and being told no
-/// at the last moment.
-/// </para>
-/// <para>
-/// <strong>That premise has since changed and this list has not caught up.</strong>
-/// <c>UpdateRecipeViewModel.IngredientGroups</c> now exists, so the gap is closed on the recipe side and the
-/// entries can come back: <c>displayText</c>, <c>ingredientNameText</c>, <c>quantity</c>, <c>quantityUpper</c>,
-/// <c>preparationNote</c>, <c>isOptional</c>, and a group's <c>title</c>. Restoring them is outstanding work
-/// rather than an oversight — it needs matching entries in <see cref="AiChangeApplicability"/>, an ingredient
-/// draft list in <c>RecipeProposalApplication</c> alongside the instruction one, and tests — and until it is
-/// done a proposal still may not touch an ingredient. <c>measurementUnitId</c> and <c>ingredientId</c> stay out
-/// permanently, for the reason the paragraph above gives.
+/// <strong>Ingredients were absent for a different reason, and it was a capability gap rather than a rule.</strong>
+/// When this list was narrowed the recipe update seam had no patch field for them, so an accepted ingredient
+/// change had no path through ordinary recipe validation — offering one would have meant a creator reviewing a
+/// change, accepting it, and being told no at the last moment.
+/// <c>UpdateRecipeViewModel.IngredientGroups</c> closed that, and the entries are back:
+/// <c>displayText</c>, <c>ingredientNameText</c>, <c>unitText</c>, <c>quantity</c>, <c>quantityUpper</c>,
+/// <c>preparationNote</c>, <c>isOptional</c>, and a group's <c>title</c>. <c>measurementUnitId</c> and
+/// <c>ingredientId</c> stay out permanently, for the reason the paragraph above gives.
 /// </para>
 /// <para>
 /// <strong><c>sourceUrl</c> is absent, and it was here until an audit pointed out what that meant.</strong> A
@@ -51,8 +44,8 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// conflict and rethrows — a 500 where the honest answer is a refusal, and the creator's decision lost with it.
 /// </para>
 /// <para>
-/// One consequence to know: <c>AiOperationScope.Ingredients</c> therefore permits no settable field at all, so
-/// a proposal requested in that scope can currently only add, remove or reorder.
+/// <c>AiOperationScope.Ingredients</c> is therefore a scope a revision can actually work in: a line’s wording,
+/// its quantity span and its optionality are all reachable, and the vocabulary ids behind it are not.
 /// </para>
 /// </remarks>
 public static class AiDiffFields
@@ -85,6 +78,30 @@ public static class AiDiffFields
 
     private static readonly Dictionary<string, Read> InstructionGroupFields = Fields<RecipeSnapshotInstructionGroup>(
         ("title", group => group.Title));
+
+    private static readonly Dictionary<string, Read> IngredientGroupFields = Fields<RecipeSnapshotIngredientGroup>(
+        ("title", group => group.Title));
+
+    /// <remarks>
+    /// <para>
+    /// <c>displayText</c> is here and is the one that matters: recipes.md makes the line's own wording
+    /// canonical, so a revision that could change a quantity but not the sentence a reader sees would leave
+    /// the two saying different things.
+    /// </para>
+    /// <para>
+    /// <c>measurementUnitId</c> and <c>ingredientId</c> are absent permanently — a model naming a
+    /// <c>Guid</c> is a model inventing one — and so is <c>scalingBehavior</c>, which decides whether
+    /// deterministic scaling touches the line at all and is the creator's to set.
+    /// </para>
+    /// </remarks>
+    private static readonly Dictionary<string, Read> IngredientFields = Fields<RecipeSnapshotIngredient>(
+        ("displayText", line => line.DisplayText),
+        ("ingredientNameText", line => line.IngredientNameText),
+        ("unitText", line => line.UnitText),
+        ("quantity", line => Format(line.Quantity)),
+        ("quantityUpper", line => Format(line.QuantityUpper)),
+        ("preparationNote", line => line.PreparationNote),
+        ("isOptional", line => Format(line.IsOptional)));
 
     private static readonly Dictionary<string, Read> InstructionStepFields = Fields<RecipeSnapshotInstructionStep>(
         ("text", step => step.Text),
@@ -128,6 +145,8 @@ public static class AiDiffFields
         AiChangeTargetKind.Recipe => RecipeFields,
         AiChangeTargetKind.InstructionGroup => InstructionGroupFields,
         AiChangeTargetKind.InstructionStep => InstructionStepFields,
+        AiChangeTargetKind.IngredientGroup => IngredientGroupFields,
+        AiChangeTargetKind.Ingredient => IngredientFields,
 
         // Equipment, asset links and tags are attached and detached rather than edited in place. A kind with
         // no settable fields is a real answer here, not a gap.
