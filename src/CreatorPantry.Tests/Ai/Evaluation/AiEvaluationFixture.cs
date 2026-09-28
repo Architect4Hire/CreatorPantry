@@ -71,6 +71,19 @@ public enum AiEvaluationKind
     /// arithmetic that could itself be wrong.
     /// </remarks>
     AdaptationOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiRecipeReviewOutputValidator.Validate"/> directly,
+    /// for AIREC-006's own document.
+    /// </summary>
+    /// <remarks>
+    /// The domain rules this reaches carry AIREC-006's restriction — an unsupported claim that says what is
+    /// unknown, a reference-check flag that cannot be skipped on an allergen, dietary, or critical finding, an
+    /// allergen or dietary finding that arrives with its caution and its severity floor, and an empty answer
+    /// that explains itself. They are deterministic, which is exactly what a fixture can demonstrate; whether a
+    /// model's review is culinarily thorough is not, and no fixture here claims otherwise.
+    /// </remarks>
+    RecipeReviewOutputValidation,
 }
 
 /// <summary>

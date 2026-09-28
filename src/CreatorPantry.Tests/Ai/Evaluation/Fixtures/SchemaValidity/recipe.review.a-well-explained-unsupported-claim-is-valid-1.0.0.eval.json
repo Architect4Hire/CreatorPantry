@@ -1,0 +1,12 @@
+{
+  "id": "recipe.review.a-well-explained-unsupported-claim-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The positive case for an unsupported-claim finding: it names the specific facts this system cannot verify, which is what AIREC-006's restriction actually requires rather than merely labelling the claim as unverified.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"Headnote\"},\"category\":\"UnsupportedClaim\",\"severity\":\"Minor\",\"summary\":\"The headnote claims this is 'grandma's award-winning recipe,' which nothing here can verify.\",\"evidenceBasis\":\"Unknown\",\"confidence\":\"Low\",\"requiresReferenceCheck\":false,\"unknownFactors\":[\"Whether the recipe actually won an award\",\"Whose recipe this originally was\"]}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

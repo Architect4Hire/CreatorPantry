@@ -32,12 +32,13 @@ public static class AiChangeTargetPolicy
     /// What the recipe module calls this target, or <c>null</c> when its vocabulary cannot express it.
     /// </summary>
     /// <remarks>
-    /// <see cref="AiChangeTargetKind.RecipeConcept"/> and
-    /// <see cref="AiChangeTargetKind.IngredientSubstitution"/> answer <c>null</c> deliberately and permanently.
-    /// Neither describes a change to a recipe — one pitches a recipe that does not exist yet, the other gives
-    /// advice about an ingredient — and both are absent from <see cref="AiChangeApplicability"/> to match. For
-    /// AIREC-004 that absence is the guarantee: with no expression there is no code path from a stored
-    /// substitution row to a recipe edit, which is what "no automatic replacement" has to mean.
+    /// <see cref="AiChangeTargetKind.RecipeConcept"/>, <see cref="AiChangeTargetKind.IngredientSubstitution"/>
+    /// and <see cref="AiChangeTargetKind.RecipeReviewFinding"/> answer <c>null</c> deliberately and
+    /// permanently. None describes a change to a recipe — one pitches a recipe that does not exist yet, one
+    /// gives advice about an ingredient, one reports a review finding — and all three are absent from
+    /// <see cref="AiChangeApplicability"/> to match. For AIREC-004 and AIREC-006 that absence is the guarantee:
+    /// with no expression there is no code path from a stored row to a recipe edit, which is what "no automatic
+    /// replacement" and "a finding is a review signal, not a certification" both have to mean.
     /// </remarks>
     public static ProposedRecipeTarget? For(AiChangeTargetKind target) => target switch
     {

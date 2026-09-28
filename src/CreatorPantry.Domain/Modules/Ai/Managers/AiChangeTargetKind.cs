@@ -61,4 +61,28 @@ public enum AiChangeTargetKind
     /// </para>
     /// </remarks>
     IngredientSubstitution = 10,
+
+    /// <summary>
+    /// One field-linked review finding — a completeness, consistency, timing, temperature, ambiguous-step,
+    /// unused-ingredient, likely-failure, allergen, dietary, or unsupported-claim observation about the recipe
+    /// as a whole or about one of its lines, steps, or equipment items. Advice about the recipe, not a change
+    /// to it. Only ever <see cref="AiChangeKind.Add"/> (the finding's summary) followed by
+    /// <see cref="AiChangeKind.Set"/> rows carrying its category, severity, field reference, evidence and
+    /// confidence — the same flattening <see cref="IngredientSubstitution"/> uses.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Absent from <see cref="AiChangeApplicability"/> deliberately, and that absence is the
+    /// guarantee.</strong> AIREC-006 must never rewrite the recipe it reviews — a finding is a review signal,
+    /// not a certification, and never an edit — so there must be no code path from a stored finding row to a
+    /// recipe edit. The translation at the recipe-module boundary answers <c>null</c> for any target that enum
+    /// does not cover, exactly as it does for <see cref="IngredientSubstitution"/>.
+    /// </para>
+    /// <para>
+    /// Like <see cref="IngredientSubstitution"/>, an operation producing these rows names a recipe and a pinned
+    /// version — the review depends on what the recipe actually says — but addresses no change to either. See
+    /// <see cref="AiOperationScope.Advisory"/>.
+    /// </para>
+    /// </remarks>
+    RecipeReviewFinding = 11,
 }

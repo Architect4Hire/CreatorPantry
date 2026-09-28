@@ -74,6 +74,10 @@ builder.Services.AddAiSubstitutionRequestSeam();
 
 // AIREC-005's. Recipe-bound like the two above, plus the same yield pre-check dependency AIREC-004 exercises.
 builder.Services.AddAiAdaptationRequestSeam();
+
+// AIREC-006's. Recipe-bound like the others, with no capability-specific field of its own -- see
+// AiTaskCatalog.RequiresTaskInputs for why it still needs its own route.
+builder.Services.AddAiReviewRequestSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

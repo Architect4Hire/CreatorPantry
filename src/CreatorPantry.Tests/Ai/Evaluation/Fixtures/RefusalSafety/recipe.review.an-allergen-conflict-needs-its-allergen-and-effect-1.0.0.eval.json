@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.an-allergen-conflict-needs-its-allergen-and-effect",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The other half of the structural fix: a finding categorised AllergenConflict must actually carry the allergen name and a declared AiAllergenEffectKind, not leave the consequence to the free-text summary alone. One that names the category but not the structured consequence has not said the thing its category claims to say.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"IngredientLine\",\"entityId\":\"77777777-7777-7777-7777-777777777777\"},\"category\":\"AllergenConflict\",\"severity\":\"Major\",\"summary\":\"This ingredient is a tree-nut allergen.\",\"evidenceBasis\":\"CreatorSource\",\"confidence\":\"High\",\"requiresReferenceCheck\":true}],\"warnings\":[{\"kind\":\"SafetyCaution\",\"message\":\"Check the label.\",\"findingIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.safety_effect_misplaced",
+    "category": "DomainInvalid"
+  }
+}

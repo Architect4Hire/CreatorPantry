@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.a-medical-diet-conflict-cannot-be-reported-as-minor",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "AIREC-006's severity floor: a dietary conflict relevant to a medically or religiously kept diet must be reported at least major, never as a small polish item. The headnote names this recipe for a low-sodium diet, and the recipe calls for cured bacon, which conflicts with it — that is not a minor finding, whatever the model's own sense of its importance.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"IngredientLine\",\"entityId\":\"55555555-5555-5555-5555-555555555555\"},\"category\":\"DietaryConflict\",\"severity\":\"Minor\",\"summary\":\"The headnote says this recipe is for a low-sodium diet, but cured bacon is high in sodium.\",\"evidenceBasis\":\"CreatorSource\",\"confidence\":\"High\",\"diet\":\"low-sodium\",\"dietaryEffect\":\"Conflicts\",\"requiresReferenceCheck\":true}],\"warnings\":[{\"kind\":\"SafetyCaution\",\"message\":\"Whether this fits a low-sodium diet is a decision for the creator and whoever advises them, not a certification here.\",\"findingIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.safety_finding_severity_too_low",
+    "category": "DomainInvalid"
+  }
+}

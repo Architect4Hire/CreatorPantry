@@ -129,6 +129,76 @@ public static class AiOutputReason
     /// stray assumption or caution should not by itself count as having explained an empty answer.
     /// </remarks>
     public const string AdaptationAnswerUnexplained = "ai.output.adaptation_answer_unexplained";
+
+    // ---- AIREC-006: recipe quality and safety review ----
+
+    /// <summary>A finding is missing its summary, or its field reference names no field kind.</summary>
+    public const string FindingFieldMissing = "ai.output.finding_field_missing";
+
+    /// <summary>
+    /// A finding's field reference names an entity id where its field kind has no child to name, or names none
+    /// where its field kind requires one.
+    /// </summary>
+    /// <remarks>
+    /// Shape only — whether the id actually belongs to a line, step or equipment item in the pinned version is
+    /// checked afterward, against the snapshot, where <see cref="AiOutputReason.TargetNotInSource"/> already
+    /// covers a diff's target row for the same reason.
+    /// </remarks>
+    public const string FindingFieldRefInvalid = "ai.output.finding_field_ref_invalid";
+
+    /// <summary>
+    /// A finding named an allergen or a diet where its category does not call for one, or omitted one where
+    /// its category does.
+    /// </summary>
+    /// <remarks>
+    /// The structural half of AIREC-006's own version of AIREC-004's "no guaranteed removal or suitability"
+    /// rule: <c>AllergenConflict</c> requires <c>Allergen</c> and <c>AllergenEffect</c>, <c>DietaryConflict</c>
+    /// requires <c>Diet</c> and <c>DietaryEffect</c>, and every other category requires none of the four. A
+    /// finding that mismatches this has not named its consequence in the one place the schema can check it.
+    /// </remarks>
+    public const string SafetyEffectMisplaced = "ai.output.safety_effect_misplaced";
+
+    /// <summary>
+    /// A finding categorised <c>UnsupportedClaim</c> did not say what is unknown.
+    /// </summary>
+    /// <remarks>
+    /// AIREC-006's own restriction, made checkable: flagging a claim as unsupported is not itself the answer —
+    /// the RESTRICTION requires saying what is unknown, and a finding that names the category without naming
+    /// the gap has not done that.
+    /// </remarks>
+    public const string UnsupportedClaimUnexplained = "ai.output.unsupported_claim_unexplained";
+
+    /// <summary>
+    /// A finding that needs a reference check by AIREC-006's own floor — every allergen or dietary conflict,
+    /// and every major or critical finding of any category — declared that it does not.
+    /// </summary>
+    public const string ReferenceCheckRequired = "ai.output.reference_check_required";
+
+    /// <summary>
+    /// A finding whose <c>RequiresReferenceCheck</c> is <c>true</c> carries no safety caution beside it.
+    /// </summary>
+    /// <remarks>
+    /// Not limited to <c>AllergenConflict</c> or <c>DietaryConflict</c>: <see cref="AiWarningKind.SafetyCaution"/>
+    /// is documented to cover "preservation, temperature, allergens, or dietary suitability" together, so a
+    /// critical finding about an undercooked step or an unsafe preservation method owes the same caution an
+    /// allergen conflict does — the reference-check flag and the caution travel together, whatever the
+    /// category.
+    /// </remarks>
+    public const string SafetyFindingUncautioned = "ai.output.safety_finding_uncautioned";
+
+    /// <summary>An allergen or dietary conflict was reported below the severity floor that category requires.</summary>
+    public const string SafetyFindingSeverityTooLow = "ai.output.safety_finding_severity_too_low";
+
+    /// <summary>
+    /// The answer proposed no finding at all and did not say why.
+    /// </summary>
+    /// <remarks>
+    /// The AIREC-006 form of <see cref="SubstitutionAnswerUnexplained"/>: "this recipe reads as complete and
+    /// consistent" is a real and useful answer, and inventing a finding to have something to show is the
+    /// fabricated result the capability's RESTRICTION forbids. What is required is a warning addressed to the
+    /// answer as a whole, not any finding.
+    /// </remarks>
+    public const string ReviewAnswerUnexplained = "ai.output.review_answer_unexplained";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

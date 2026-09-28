@@ -46,6 +46,7 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new RecipeDraftOutputValidationCase(),
             new SubstitutionOutputValidationCase(),
             new AdaptationOutputValidationCase(),
+            new RecipeReviewOutputValidationCase(),
         }.ToDictionary(evaluationCase => evaluationCase.Kind);
 
     public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(store, Cases);

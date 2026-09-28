@@ -1,0 +1,12 @@
+{
+  "id": "recipe.review.an-ordinary-recipe-gets-low-severity-findings",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The ordinary safe case: two findings on an otherwise unremarkable recipe, neither touching an allergen, a diet, or a critical failure, so neither owes a safety caution or a reference-check flag set to true.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"IngredientLine\",\"entityId\":\"11111111-1111-1111-1111-111111111111\"},\"category\":\"UnusedIngredient\",\"severity\":\"Minor\",\"summary\":\"The chopped chives are listed but no step calls for them.\",\"evidenceBasis\":\"CreatorSource\",\"confidence\":\"High\",\"requiresReferenceCheck\":false},{\"fieldRef\":{\"fieldKind\":\"Yield\"},\"category\":\"Completeness\",\"severity\":\"Moderate\",\"summary\":\"No serving count is recorded, only a yield in loaves.\",\"evidenceBasis\":\"CreatorSource\",\"confidence\":\"High\",\"requiresReferenceCheck\":false}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

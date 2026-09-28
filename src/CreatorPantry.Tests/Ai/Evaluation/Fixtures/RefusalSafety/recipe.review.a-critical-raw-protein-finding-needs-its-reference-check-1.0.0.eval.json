@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.a-critical-raw-protein-finding-needs-its-reference-check",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "AIREC-006's restriction that a high-risk method requires an approved reference check, made checkable: a critical finding about an undercooked chicken step must declare that it needs checking against a source this system does not have. One that skips the flag is rejected rather than stored as a critical warning nobody is told to verify further.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"Step\",\"entityId\":\"22222222-2222-2222-2222-222222222222\"},\"category\":\"Temperature\",\"severity\":\"Critical\",\"summary\":\"The chicken thighs are roasted for 12 minutes at 350F, which is unlikely to reach a safe internal temperature.\",\"evidenceBasis\":\"ModelKnowledge\",\"confidence\":\"Moderate\",\"requiresReferenceCheck\":false}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.reference_check_required",
+    "category": "DomainInvalid"
+  }
+}

@@ -194,6 +194,23 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for AIREC-006's recipe quality and safety review.
+    /// </summary>
+    /// <remarks>
+    /// Carries the recipe-module prerequisite <see cref="AddAiSubstitutionRequestSeam"/> does, for the same
+    /// reason: <c>AiReviewRequestBusiness</c> checks the recipe and its current version through
+    /// <c>IRecipeFacade</c> before anything is queued.
+    /// </remarks>
+    public static IServiceCollection AddAiReviewRequestSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiReviewRequestBusiness, AiReviewRequestBusiness>();
+        services.AddScoped<IAiReviewRequestFacade, AiReviewRequestFacade>();
+        services.AddScoped<IValidator<RequestRecipeReviewViewModel>, RequestRecipeReviewViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers <see cref="IAiOperationWorker"/> and the task handlers it dispatches to, keyed by
     /// <see cref="AiTaskType"/>.
     /// </summary>
@@ -213,6 +230,7 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, IngredientSubstitutionAiTaskHandler>(
             AiTaskType.IngredientSubstitution);
         services.AddKeyedScoped<IAiTaskHandler, RecipeAdaptationAiTaskHandler>(AiTaskType.RecipeAdaptation);
+        services.AddKeyedScoped<IAiTaskHandler, RecipeReviewAiTaskHandler>(AiTaskType.RecipeReview);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

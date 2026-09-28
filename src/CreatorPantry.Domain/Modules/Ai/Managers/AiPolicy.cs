@@ -277,6 +277,43 @@ public static class AiPolicy
     /// <inheritdoc cref="MaxRecipeDraftWarnings" path="/remarks"/>
     public const int MaxAdaptationWarnings = 20;
 
+    // ---- AIREC-006: recipe quality and safety review (AiRecipeReviewOutputDocument) ----
+
+    /// <summary>One finding's summary, or its evidence note.</summary>
+    public const int FindingFieldMaxLength = 1000;
+
+    /// <summary>The allergen or diet name on an <c>AllergenConflict</c> or <c>DietaryConflict</c> finding.</summary>
+    /// <remarks>
+    /// The same bound as <see cref="SubstitutionListItemMaxLength"/>, restated rather than aliased for the
+    /// reason <see cref="SubstitutionReasonMaxLength"/>'s own remark gives: each capability's field is bounded
+    /// for its own reason and may move independently.
+    /// </remarks>
+    public const int FindingSafetyNameMaxLength = 300;
+
+    /// <summary>One thing a finding names as unknown, when its category is <c>UnsupportedClaim</c>.</summary>
+    public const int FindingUnknownFactorMaxLength = 300;
+
+    /// <summary>
+    /// The most unknown factors one finding may list.
+    /// </summary>
+    /// <inheritdoc cref="SubstitutionListMaxItems" path="/remarks"/>
+    public const int MaxUnknownFactorsPerFinding = 10;
+
+    /// <summary>
+    /// The most findings one review may return.
+    /// </summary>
+    /// <remarks>
+    /// There is no minimum. "This recipe reads as complete and consistent" is a correct and valuable answer for
+    /// an ordinary recipe, and a floor here would make inventing a finding the only way to return successfully
+    /// — exactly the fabricated-issue failure AIREC-006's RESTRICTION forbids. The cap exists for the reason
+    /// <see cref="MaxSubstitutionCount"/>'s does: a review panel a creator can actually work through.
+    /// </remarks>
+    public const int MaxFindingCount = 30;
+
+    /// <summary>The most warnings one review answer may carry.</summary>
+    /// <inheritdoc cref="MaxRecipeDraftWarnings" path="/remarks"/>
+    public const int MaxReviewWarnings = 20;
+
     /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>

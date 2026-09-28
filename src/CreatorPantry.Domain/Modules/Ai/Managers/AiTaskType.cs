@@ -94,4 +94,19 @@ public enum AiTaskType
     /// </para>
     /// </remarks>
     RecipeAdaptation = 6,
+
+    /// <summary>
+    /// AIREC-006: field-linked findings about one pinned version of an existing recipe — completeness,
+    /// consistency, timing, temperature, ambiguous steps, unused ingredients, likely failures, allergen and
+    /// dietary conflicts, and unsupported claims — each with a severity, an evidence basis, and whether it
+    /// needs checking against a reference the system does not have.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Reads a recipe and proposes no change to it</strong>, the same shape
+    /// <see cref="IngredientSubstitution"/> has: <see cref="AiOperationScope.Advisory"/>, and
+    /// <see cref="AiChangeTargetKind.RecipeReviewFinding"/> is absent from <see cref="AiChangeApplicability"/>
+    /// so no stored finding can become an edit. A finding is a review signal a creator judges, never a
+    /// certification and never a rewrite.
+    /// </remarks>
+    RecipeReview = 7,
 }

@@ -1,0 +1,12 @@
+{
+  "id": "recipe.review.no-findings-is-valid-when-explained",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "Returning no finding at all is a complete and correct answer for a recipe that reads as complete and consistent, provided the answer says so in a warning addressed to the review as a whole.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[],\"warnings\":[{\"kind\":\"Assumption\",\"message\":\"Reviewed the full recipe; it reads as complete, consistent, and reasonably safe as written.\",\"findingIndex\":null}]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

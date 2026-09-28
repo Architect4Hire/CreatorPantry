@@ -17,8 +17,10 @@ namespace CreatorPantry.Tests.Ai.Evaluation;
 /// A fixture names the segment its content travels in. <c>untrustedText</c> is the default and what every
 /// fixture written before AIREC-002 used; <c>preferences</c> exists because that is where a rendered brief
 /// goes — and, since AIREC-002, a selected concept, which is a previous generation's own words re-entering a
-/// prompt. Both are content rather than instruction, and the point of naming the segment is that the same
-/// containment claim has to hold for whichever one a capability actually uses.
+/// prompt. <c>source</c> exists for AIREC-006, whose only creator-supplied content is the recipe snapshot
+/// itself — a headnote or a step can carry an injection as easily as a typed reason can. All are content
+/// rather than instruction, and the point of naming the segment is that the same containment claim has to
+/// hold for whichever one a capability actually uses.
 /// </para>
 /// </remarks>
 internal sealed class PromptEnvelopeCase : IAiEvaluationCase
@@ -40,10 +42,11 @@ internal sealed class PromptEnvelopeCase : IAiEvaluationCase
         {
             UntrustedTextSegment => builder.WithUntrustedText(input.WorkspaceId, input.UntrustedText).Build(),
             PreferencesSegment => builder.WithPreferences(input.WorkspaceId, input.UntrustedText).Build(),
+            SourceSegment => builder.WithSource(input.WorkspaceId, input.UntrustedText).Build(),
             var unknown => throw new AiEvaluationException(
                 fixture.Identity,
                 $"'{unknown}' is not a segment this case can build. "
-                    + $"Known: {UntrustedTextSegment}, {PreferencesSegment}."),
+                    + $"Known: {UntrustedTextSegment}, {PreferencesSegment}, {SourceSegment}."),
         };
 
         var inUser = envelope.UserMessage.Contains(input.UntrustedText, StringComparison.Ordinal);
@@ -67,6 +70,8 @@ internal sealed class PromptEnvelopeCase : IAiEvaluationCase
     private const string UntrustedTextSegment = "untrustedText";
 
     private const string PreferencesSegment = "preferences";
+
+    private const string SourceSegment = "source";
 
     /// <param name="UntrustedText">
     /// The content to place, whichever segment <paramref name="Segment"/> names. Still called this because the

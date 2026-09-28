@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.an-unexplained-empty-answer-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The AIREC-006 form of AIREC-004's 'unexplained empty answer' refusal: a creator cannot tell a silent empty review from a call that went wrong, so an answer proposing no finding must say why in a warning addressed to the review as a whole. One with no findings and no such warning is rejected rather than shown as an unexplained blank.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.review_answer_unexplained",
+    "category": "DomainInvalid"
+  }
+}

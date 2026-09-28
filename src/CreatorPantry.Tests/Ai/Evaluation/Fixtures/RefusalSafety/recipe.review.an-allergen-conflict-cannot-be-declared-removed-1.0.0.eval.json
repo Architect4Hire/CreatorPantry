@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.an-allergen-conflict-cannot-be-declared-removed",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The claim AIREC-006 exists to prevent, structurally rather than by prose discipline alone. An allergen conflict finding names the allergen and how it runs through AiAllergenEffectKind, the same closed enum AIREC-004 uses, and that enum has no 'Removes' member for the reason its own remarks give: allergen absence cannot be established from an ingredient's name. An answer asserting one does not deserialize, and is rejected rather than silently dropped.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"IngredientLine\",\"entityId\":\"66666666-6666-6666-6666-666666666666\"},\"category\":\"AllergenConflict\",\"severity\":\"Major\",\"summary\":\"Using oat milk instead of dairy milk removes the milk allergen from this recipe.\",\"evidenceBasis\":\"ModelKnowledge\",\"confidence\":\"Moderate\",\"allergen\":\"milk\",\"allergenEffect\":\"Removes\",\"requiresReferenceCheck\":true}],\"warnings\":[{\"kind\":\"SafetyCaution\",\"message\":\"Check the label.\",\"findingIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

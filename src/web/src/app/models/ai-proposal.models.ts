@@ -89,7 +89,9 @@ export type AiTaskType =
   /** AIREC-004's substitution advice for one selected ingredient. Reads a recipe; changes nothing in it. */
   | 'IngredientSubstitution'
   /** AIREC-005's single-goal adaptation — dietary, equipment, yield, or skill level. */
-  | 'RecipeAdaptation';
+  | 'RecipeAdaptation'
+  /** AIREC-006's field-linked review findings. Reads a recipe; changes nothing in it. */
+  | 'RecipeReview';
 
 const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
@@ -99,6 +101,7 @@ const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'RecipeRevision',
   'IngredientSubstitution',
   'RecipeAdaptation',
+  'RecipeReview',
 ]);
 
 /**
@@ -132,6 +135,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And adaptations through recipe/{id}/adaptation-requests. Null for the same reason as a revision: asking
   // again needs the declared goal, which the generic route cannot carry.
   RecipeAdaptation: null,
+  // And reviews through recipe/{id}/review-requests. Null for the same reason a substitution's and an
+  // adaptation's are: this generic route cannot fix the Advisory scope a review's own route fixes server-side.
+  RecipeReview: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -224,7 +230,9 @@ export type AiChangeTargetKind =
   | 'Tag'
   | 'RecipeConcept'
   /** AIREC-004's substitution advice. Like `RecipeConcept`, nothing the recipe seam can apply. */
-  | 'IngredientSubstitution';
+  | 'IngredientSubstitution'
+  /** AIREC-006's review findings. Like `IngredientSubstitution`, advice a creator judges, never an edit. */
+  | 'RecipeReviewFinding';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -238,6 +246,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'Tag',
   'RecipeConcept',
   'IngredientSubstitution',
+  'RecipeReviewFinding',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

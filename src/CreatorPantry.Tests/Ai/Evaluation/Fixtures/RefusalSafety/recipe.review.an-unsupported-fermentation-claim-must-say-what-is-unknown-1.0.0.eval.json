@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.an-unsupported-fermentation-claim-must-say-what-is-unknown",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "AIREC-006's restriction that an unsupported claim must say what is unknown, not merely be labelled unverified. The headnote claims a ferment is 'shelf-stable at room temperature for a month' with nothing behind it; flagging the category alone, with an empty unknownFactors list, is not the complete answer the restriction requires.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"Headnote\"},\"category\":\"UnsupportedClaim\",\"severity\":\"Moderate\",\"summary\":\"The headnote claims this ferment is shelf-stable at room temperature for a month, which nothing here can verify.\",\"evidenceBasis\":\"Unknown\",\"confidence\":\"Low\",\"requiresReferenceCheck\":true,\"unknownFactors\":[]}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unsupported_claim_unexplained",
+    "category": "DomainInvalid"
+  }
+}

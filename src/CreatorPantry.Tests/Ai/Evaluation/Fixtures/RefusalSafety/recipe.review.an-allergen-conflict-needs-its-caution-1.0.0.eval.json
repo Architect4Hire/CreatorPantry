@@ -1,0 +1,16 @@
+{
+  "id": "recipe.review.an-allergen-conflict-needs-its-caution",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The line AIREC-006 draws between an ordinary observation and an allergen consequence, enforced the same way AIREC-004 enforces it for a substitution: an allergen-conflict finding presented with no safety caution beside it reads as one more note among the others, and the caution is what marks it as the thing a creator has to check against a label and against who is eating.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"IngredientLine\",\"entityId\":\"44444444-4444-4444-4444-444444444444\"},\"category\":\"AllergenConflict\",\"severity\":\"Major\",\"summary\":\"The recipe calls for almond flour, which introduces a tree-nut allergen not named anywhere else in the recipe.\",\"evidenceBasis\":\"CreatorSource\",\"confidence\":\"High\",\"allergen\":\"tree nuts\",\"allergenEffect\":\"Introduces\",\"requiresReferenceCheck\":true}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.safety_finding_uncautioned",
+    "category": "DomainInvalid"
+  }
+}

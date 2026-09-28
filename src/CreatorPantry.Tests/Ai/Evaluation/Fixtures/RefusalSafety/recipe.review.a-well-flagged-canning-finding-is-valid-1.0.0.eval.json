@@ -1,0 +1,12 @@
+{
+  "id": "recipe.review.a-well-flagged-canning-finding-is-valid",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "RecipeReviewOutputValidation",
+  "description": "The other side of the reference-check floor: a critical finding about a water-bath-canned low-acid vegetable that does declare it needs checking against a source validates. The flag records the need for a creator to verify; it does not perform the verification, so a well-formed critical finding is still a correct answer rather than one this validator can complete on its own.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.review.v1\",\"findings\":[{\"fieldRef\":{\"fieldKind\":\"Step\",\"entityId\":\"33333333-3333-3333-3333-333333333333\"},\"category\":\"LikelyFailure\",\"severity\":\"Critical\",\"summary\":\"This recipe processes green beans in a water-bath canner, which is not a validated method for a low-acid vegetable and risks botulism.\",\"evidenceBasis\":\"ModelKnowledge\",\"evidenceNote\":\"General knowledge that water-bath canning is validated for high-acid foods only, not a specific reference.\",\"confidence\":\"Moderate\",\"requiresReferenceCheck\":true}],\"warnings\":[{\"kind\":\"SafetyCaution\",\"message\":\"Check this method against a current, tested preservation reference before publishing or following it.\",\"findingIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.review.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}
