@@ -217,6 +217,7 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddScoped<IAiOperationWorker, AiOperationWorker>()

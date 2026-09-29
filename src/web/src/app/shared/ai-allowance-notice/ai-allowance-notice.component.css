@@ -1,0 +1,54 @@
+:host {
+  display: block;
+}
+
+/* The tint is the quieter half of what the pill beside it already says in words and a glyph; removing all
+   colour from this block would lose nothing a creator needs (WCAG 2.2 AA, 1.4.1). */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.notice[data-kind='nearly-spent'] {
+  border-color: var(--cp-orange);
+  background: var(--cp-orange-soft);
+}
+
+.notice[data-kind='exhausted'],
+.notice[data-kind='suspended'] {
+  border-color: var(--cp-danger);
+  background: var(--cp-danger-soft);
+}
+
+/* The pill's own tone background is the same soft token this panel is tinted with, so on here it would
+   dissolve into the panel and stop reading as a chip. The surface colour gives it its edge back; the tone
+   still carries in the text and the glyph, which is where the meaning lives anyway. */
+.notice cp-status-pill {
+  background: var(--cp-surface);
+  white-space: nowrap;
+}
+
+/* Free to shrink, so the measure caps the reading width rather than becoming the block's floor. */
+.body {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  max-width: var(--cp-measure-prose);
+}
+
+.body strong {
+  font-size: var(--cp-font-size-md);
+}
+
+.body p {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}

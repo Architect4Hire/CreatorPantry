@@ -6,6 +6,7 @@ import { MyWorkspaceMembership, WorkspaceRole } from '../../models/auth.models';
 import { AiProposalStatus } from '../../models/ai-proposal.models';
 import { RequestRecipeReviewRequest } from '../../models/recipe-review.models';
 import { RecipeReviewService, RequestReviewOutcome, WatchReviewOutcome } from '../../services/recipe-review.service';
+import { AiAllowanceState, AiUsageService, AllowanceFigures } from '../../services/ai-usage.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { RecipeReviewRequestComponent } from './recipe-review-request.component';
 
@@ -67,14 +68,45 @@ class StubReviewService {
   }
 }
 
+/** Stands in for the real allowance read so a screen's at-limit behaviour is driven, not mocked out. */
+class StubUsageService {
+  readonly allowance = signal<AiAllowanceState>({ kind: 'unknown' });
+  refreshes = 0;
+
+  refresh(): Promise<void> {
+    this.refreshes += 1;
+    return Promise.resolve();
+  }
+
+  ensureLoaded(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+function figures(remaining: number): AllowanceFigures {
+  return {
+    unit: 'Credits',
+    allowance: 1000,
+    remaining,
+    consumed: 1000 - remaining,
+    carriedOver: 0,
+    periodLength: 'Monthly',
+    resetsAt: '2026-04-01T00:00:00+01:00',
+    timeZoneId: 'Europe/London',
+    usedPercent: Math.round(((1000 - remaining) / 1000) * 100),
+  };
+}
+
 describe('RecipeReviewRequestComponent', () => {
   let service: StubReviewService;
   let memberships: StubMembershipService;
+  let usage: StubUsageService;
   let fixture: ComponentFixture<RecipeReviewRequestComponent>;
 
   beforeEach(() => {
     service = new StubReviewService();
     memberships = new StubMembershipService();
+    usage = new StubUsageService();
   });
 
   function render(role: WorkspaceRole = 'Contributor'): HTMLElement {
@@ -84,6 +116,7 @@ describe('RecipeReviewRequestComponent', () => {
       providers: [
         { provide: RecipeReviewService, useValue: service },
         { provide: WorkspaceMembershipService, useValue: memberships },
+        { provide: AiUsageService, useValue: usage },
       ],
     });
 
@@ -246,5 +279,105 @@ describe('RecipeReviewRequestComponent', () => {
     expect(caveat).not.toBeNull();
     expect(caveat?.textContent).toContain("Unsaved edits aren't included");
     expect(caveat?.querySelector('cp-status-pill')).not.toBeNull();
+  }));
+
+  // ---- the allowance ------------------------------------------------------------------------------------
+
+  it('warns before the limit without taking the action away', fakeAsync(() => {
+    usage.allowance.set({ kind: 'nearly-spent', period: figures(120) });
+    render();
+
+    expect(element().querySelector('cp-ai-allowance-notice')?.textContent).toContain('nearly spent');
+    expect(buttonWith('Review this recipe').disabled).toBe(false);
+  }));
+
+  /**
+   * At the limit: the action goes, and the reason goes with it. A disabled button on its own tells a creator
+   * nothing about why or what to do next.
+   */
+  it('withdraws the action when the allowance is spent, and says why', fakeAsync(() => {
+    usage.allowance.set({ kind: 'exhausted', period: figures(0) });
+    render();
+
+    const notice = element().querySelector('cp-ai-allowance-notice');
+    expect(buttonWith('Review this recipe').disabled).toBe(true);
+    expect(notice?.textContent).toContain('spent');
+    expect(notice?.textContent).toContain('April');
+  }));
+
+  it('withdraws the action for a suspended account, and promises no reset', fakeAsync(() => {
+    usage.allowance.set({ kind: 'suspended', period: figures(900) });
+    render();
+
+    const notice = element().querySelector('cp-ai-allowance-notice');
+    expect(buttonWith('Review this recipe').disabled).toBe(true);
+    expect(notice?.textContent).toContain('switched off');
+    expect(notice?.textContent).not.toContain('April');
+  }));
+
+  /**
+   * <strong>Never disabled on ignorance.</strong> A first read still in flight, or figures we are no longer
+   * sure of, must not lock a creator out of AI — the server is the authority and refuses properly on its own.
+   */
+  it('leaves the action available when the allowance is unknown or stale', fakeAsync(() => {
+    usage.allowance.set({ kind: 'unknown' });
+    render();
+    expect(buttonWith('Review this recipe').disabled).toBe(false);
+    expect(element().querySelector('cp-ai-allowance-notice')?.textContent?.trim()).toBe('');
+
+    usage.allowance.set({ kind: 'degraded', period: figures(0) });
+    settle();
+    expect(buttonWith('Review this recipe').disabled).toBe(false);
+  }));
+
+  /**
+   * The failure this prompt exists to end: before now the outcome fell through the switch, the button
+   * re-enabled, and the creator was told nothing at all.
+   */
+  it('states a refusal rather than failing the submit in silence', fakeAsync(() => {
+    service.outcome = {
+      status: 'quota_exhausted',
+      unit: 'Credits',
+      allowance: 1000,
+      remaining: 5,
+      required: 20,
+      resetsAt: '2026-04-01T00:00:00+01:00',
+    };
+    render();
+
+    buttonWith('Review this recipe').click();
+    settle();
+
+    const notice = element().querySelector('cp-ai-allowance-notice');
+    expect(notice?.textContent).toContain('20 AI credits');
+    expect(notice?.querySelector('[role="alert"]')).not.toBeNull();
+
+    // And the balance is re-read, because a refusal is the most current thing anyone has said about it.
+    expect(usage.refreshes).toBe(1);
+  }));
+
+  it('states a refusal for a suspended account in its own words', fakeAsync(() => {
+    service.outcome = { status: 'account_suspended', unit: 'Credits' };
+    render();
+
+    buttonWith('Review this recipe').click();
+    settle();
+
+    expect(element().querySelector('cp-ai-allowance-notice')?.textContent).toContain('switched off');
+  }));
+
+  /** A refused request leaves the screen exactly as it was, so nothing has to be set up again. */
+  it('keeps the request intact after a refusal', fakeAsync(() => {
+    service.outcome = { status: 'account_suspended', unit: 'Credits' };
+    render();
+
+    buttonWith('Review this recipe').click();
+    settle();
+
+    // The control is still there, still asking the same thing, with no results claimed.
+    expect(buttonWith('Review this recipe')).not.toBeNull();
+    expect(element().querySelector('cp-ai-advisory-results')).toBeNull();
+    expect(service.calls.length).toBe(1);
+    expect(service.calls[0].request.sourceVersionId).toBe(VERSION_ID);
   }));
 });

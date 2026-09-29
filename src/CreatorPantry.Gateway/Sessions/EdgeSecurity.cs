@@ -138,8 +138,8 @@ public static partial class EdgeSecurity
         app.UseRateLimiter();
         app.UseAuthentication();
 
-        // Internal API routes (gateway service identity only) and development tooling are never reachable
-        // from a browser.
+        // Internal API routes (gateway service identity only), ops routes (machine API keys only, baseline
+        // B-14) and development tooling are never reachable from a browser.
         app.Use(async (context, next) =>
         {
             if (BlockedApiPath().IsMatch(context.Request.Path.Value ?? string.Empty))
@@ -210,6 +210,18 @@ public static partial class EdgeSecurity
         return Task.CompletedTask;
     }
 
-    [GeneratedRegex(@"^/+api/+([^/]+/+internal|dev)(/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    /// <remarks>
+    /// <para>
+    /// <c>ops</c> joins <c>internal</c> here because an ops route authenticates a machine, not a person: a
+    /// browser session reaching one would be a creator's cookie standing in for a platform credential. The
+    /// proxy strips <c>Authorization</c> on every hop anyway, so an ops key could not survive the journey —
+    /// the 404 states the intent rather than relying on that side effect, and hides the routes' existence.
+    /// </para>
+    /// <para>
+    /// The leading <c>/+</c> groups and the case-insensitive flag are not decoration: <c>//api//v1//ops</c>
+    /// and <c>/API/V1/OPS</c> are the same request to the API and must be the same answer here.
+    /// </para>
+    /// </remarks>
+    [GeneratedRegex(@"^/+api/+([^/]+/+(internal|ops)|dev)(/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BlockedApiPath();
 }

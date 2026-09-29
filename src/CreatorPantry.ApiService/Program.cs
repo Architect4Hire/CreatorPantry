@@ -25,6 +25,7 @@ using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.ServiceDefaults;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,8 +62,12 @@ builder.AddAiResilience(static exception => exception is AiTransientFailureExcep
 builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
 
 // Required by the AI module, not optional beside it: every path that settles a provider attempt stages a
-// per-account usage entry through this facade in the same transaction (USAGE-001).
-builder.Services.AddAiUsageModule();
+// per-account usage entry and its allowance settlement through these facades in the same transaction
+// (USAGE-001, USAGE-004).
+builder.Services.AddAiUsageModule(builder.Configuration);
+
+// The ops-only administration seam (USAGE-009). Registered here and not in the worker, which has no ops route.
+builder.Services.AddAiUsageAdministration();
 
 // The request seam, which the worker does not register: it needs the recipe module, already added above.
 builder.Services.AddAiProposalSeam();
@@ -90,6 +95,12 @@ builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);
 builder.Services.AddInternalTokenAuthentication(builder.Configuration);
+
+// The ops API key scheme (baseline B-14), registered beside the gateway's token rather than as the default:
+// it is evaluated only where the Ops policy names it, which is what confines a machine key to /api/v1/ops/*.
+builder.Services.AddAuthentication()
+    .AddScheme<AuthenticationSchemeOptions, OpsApiKeyAuthenticationHandler>(OpsApiKeyPolicy.Scheme, _ => { });
+
 builder.Services.AddCreatorPantryAuthorization();
 
 // Account messages carry reset tokens. Only local development may use the in-memory sink; anywhere else a

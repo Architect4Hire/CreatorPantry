@@ -52,6 +52,7 @@ public sealed class RecipeDraftRequestsController(IAiFirstDraftRequestFacade req
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
     public async Task<IActionResult> Request(
         string workspaceSlug,
         RequestRecipeFirstDraftViewModel model,

@@ -45,6 +45,11 @@ public sealed class AccountAiUsageRecordingTests : IDisposable
             .AddTenancy()
             .AddAudit()
             .AddAiUsageModule()
+
+            // The quota seam the module now also registers reads an account's own calendar, so the module
+            // needs the shared kernel's zone converter as well as its clock. Both come from the host in
+            // production; here the clock is replaced afterwards so a test can move it.
+            .AddApplicationTime()
             .AddSingleton<IClock>(_clock)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
@@ -331,6 +336,7 @@ public sealed class AccountAiUsageRecordingTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>().StoreProposalAsync(
                 requested, claim!.LeaseToken, Proposal(WorkspaceA, requested), [Attempt()],
+                null,
                 TestContext.Current.CancellationToken));
 
         Assert.Empty(await LedgerAsync());
@@ -358,6 +364,7 @@ public sealed class AccountAiUsageRecordingTests : IDisposable
                 settled.LeaseToken,
                 Proposal(workspaceId, settled.OperationId),
                 [attempt],
+                null,
                 TestContext.Current.CancellationToken);
 
         Assert.Equal(AiOperationWriteOutcome.Applied, outcome);
@@ -380,6 +387,7 @@ public sealed class AccountAiUsageRecordingTests : IDisposable
                 category,
                 "sanitized",
                 [attempt],
+                null,
                 TestContext.Current.CancellationToken);
 
         Assert.Equal(AiOperationWriteOutcome.Applied, outcome);

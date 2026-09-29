@@ -46,7 +46,7 @@ import { CpButtonComponent, CpCardComponent } from '@creator-pantry/ui';
 - `CpCardComponent`: standard, interactive, and flush surfaces
 - `CpBadgeComponent`: semantic status and category tones
 - `CpFieldComponent`: form label, hint, required and error treatment. The projected control is wired up after each render — `aria-describedby` to the hint and the error, `aria-required` when required — because a template binding cannot reach projected content, and a `*` nobody hears is decoration. A consumer's own `aria-describedby` is merged, not replaced
-- `CpProgressComponent`: bounded accessible progress indicator
+- `CpProgressComponent`: bounded accessible progress indicator. `valueText` replaces the percentage figure and is announced as `aria-valuetext`, for a meter whose reading is an amount rather than a fraction; `tone` (`default | success | warning | error`) colours the fill and carries no meaning of its own — pair it with a `CpStatusPillComponent` so the state is never in colour alone
 - `CpDialogComponent`: modal shell with backdrop dismissal and focus target
 - `CpQuickActionComponent`: branded creator-tool action card
 - `CpStatusPillComponent`: semantic status pill (`neutral | progress | success | warning | error | stale`) with a distinct glyph per tone plus required text — meaning never relies on color alone

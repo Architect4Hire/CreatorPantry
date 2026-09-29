@@ -9,8 +9,12 @@ import {
   RECIPE_ADAPTATION_GOALS,
   RecipeAdaptationGoalOption,
 } from '../../models/recipe-adaptation.models';
+import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import { RecipeAdaptationService, RequestAdaptationOutcome } from '../../services/recipe-adaptation.service';
+import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
+import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiProposalPanelComponent } from './ai-proposal-panel.component';
 
 /** Asking for an adaptation writes an operation, so it carries the same bar as editing the recipe by hand. */
@@ -43,7 +47,14 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
 @Component({
   selector: 'cp-recipe-adaptation-request',
   standalone: true,
-  imports: [FormsModule, AiProposalPanelComponent, CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
+  imports: [
+    FormsModule,
+    AiAllowanceNoticeComponent,
+    AiProposalPanelComponent,
+    CpButtonComponent,
+    CpFieldComponent,
+    CpStatusPillComponent,
+  ],
   templateUrl: './recipe-adaptation-request.component.html',
   styleUrl: './recipe-adaptation-request.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -72,6 +83,7 @@ export class RecipeAdaptationRequestComponent {
 
   private readonly adaptations = inject(RecipeAdaptationService);
   private readonly memberships = inject(WorkspaceMembershipService);
+  private readonly usage = inject(AiUsageService);
 
   readonly goals = RECIPE_ADAPTATION_GOALS;
   readonly goalDetailMaxLength = ADAPTATION_GOAL_DETAIL_MAX_LENGTH;
@@ -137,8 +149,15 @@ export class RecipeAdaptationRequestComponent {
    * A goal must be chosen, and it must be able to say what it means: free-text detail for three of the four
    * goals, a positive number for yield.
    */
+  /** The account's allowance, so a spent one is said before it is hit rather than only after. */
+  readonly allowance = this.usage.allowance;
+
+  /** The server's refusal, once there has been one. Worded by the allowance notice. */
+  private readonly quotaRefusalSignal = signal<AiQuotaRefusal | null>(null);
+  readonly quotaRefusal = this.quotaRefusalSignal.asReadonly();
+
   readonly canSubmit = computed(() => {
-    if (this.submitting() || !this.canRequest()) return false;
+    if (this.submitting() || !this.canRequest() || allowanceBlocksNewRequests(this.allowance())) return false;
 
     const option = this.selectedOption();
     if (option === null) return false;
@@ -170,6 +189,7 @@ export class RecipeAdaptationRequestComponent {
 
     this.submitting.set(true);
     this.refusalSignal.set(null);
+    this.quotaRefusalSignal.set(null);
     this.fieldErrorsSignal.set({});
 
     // One key per attempt, reused only if this same attempt has to be re-sent after a transport failure —
@@ -203,6 +223,19 @@ export class RecipeAdaptationRequestComponent {
       case 'accepted':
         this.pendingRequestKey = null;
         this.requestIdSignal.set(outcome.operation.aiProposalRequestId);
+
+        // The run has been paid for, so the balance on screen is already out of date.
+        void this.usage.refresh();
+        return;
+
+      // The account cannot pay for this. Handed to the allowance notice, which is the one place that words a
+      // spent allowance and a switched-off account differently. The key is released because this attempt
+      // reached the server and was answered: a retry is a new request, not a re-send.
+      case 'quota_exhausted':
+      case 'account_suspended':
+        this.pendingRequestKey = null;
+        this.quotaRefusalSignal.set(outcome);
+        void this.usage.refresh();
         return;
 
       case 'validation_failed':

@@ -28,6 +28,7 @@ internal interface IAiConceptRequestBusiness
 /// </summary>
 internal sealed class AiConceptRequestBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiConceptRequestBusiness
@@ -44,6 +45,14 @@ internal sealed class AiConceptRequestBusiness(
             return Refuse(
                 AiConceptRequestErrors.TaskNotEnabled,
                 "Recipe concept generation is not enabled for this workspace's deployment.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006). After the task check above, which is free and
+        // answers a question about the request rather than about the account.
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeConcepts, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         var now = clock.UtcNow;

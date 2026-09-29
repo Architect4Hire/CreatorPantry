@@ -2,8 +2,9 @@ import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, signal
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import { CpButtonComponent, CpThemeService } from '@creator-pantry/ui';
+import { CpButtonComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeService } from '@creator-pantry/ui';
 
+import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
@@ -32,7 +33,14 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
 @Component({
   selector: 'cp-app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CpButtonComponent, WorkspaceSwitcherComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    CpButtonComponent,
+    CpStatusPillComponent,
+    WorkspaceSwitcherComponent,
+  ],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,6 +50,7 @@ export class AppShellComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   private readonly membershipService = inject(WorkspaceMembershipService);
+  private readonly usage = inject(AiUsageService);
   readonly theme = inject(CpThemeService);
 
   readonly navItems = NAV_ITEMS;
@@ -65,8 +74,39 @@ export class AppShellComponent {
   readonly currentSection = () => this.routeState().section;
   readonly currentPageTitle = () => this.routeState().title;
 
+  /**
+   * The allowance, shown in the topbar beside the account rather than in the sidebar.
+   *
+   * The sidebar is workspace-scoped — every item there is a section of the workspace in the URL — and an
+   * allowance belongs to the person, spanning all of them. The topbar is where the account already lives.
+   */
+  readonly allowance = this.usage.allowance;
+
+  /** Only says something when there is something worth saying; a healthy balance needs no chrome. */
+  readonly allowanceNeedsAttention = computed(
+    () => this.allowance().kind === 'nearly-spent' || this.allowance().kind === 'exhausted' || this.allowance().kind === 'suspended',
+  );
+
+  readonly allowanceLabel = computed(() => {
+    switch (this.allowance().kind) {
+      case 'nearly-spent':
+        return 'AI nearly spent';
+      case 'exhausted':
+        return 'AI allowance spent';
+      case 'suspended':
+        return 'AI switched off';
+      default:
+        return 'AI allowance';
+    }
+  });
+
+  readonly allowanceTone = computed<CpStatusPillTone>(() =>
+    this.allowance().kind === 'nearly-spent' ? 'warning' : 'error',
+  );
+
   constructor() {
     void this.membershipService.ensureLoaded();
+    void this.usage.ensureLoaded();
   }
 
   async signOut(): Promise<void> {

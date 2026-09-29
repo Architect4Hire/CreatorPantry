@@ -1,0 +1,128 @@
+<div class="usage">
+  <!--
+    One region, always in the DOM, so a state arriving later is announced rather than being the content a
+    newly-created live region was born with. Polite throughout: nothing here has failed a request.
+  -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  <!-- No heading of its own: the shell renders the route's title as the page's h1, and a second one here
+       would show the same thing twice and give the page two top-level headings. -->
+  <p class="intro">What you have left for AI help across every workspace you work in, and when it comes back.</p>
+
+  @switch (summaryState()) {
+    @case ('loading') {
+      <cp-card>
+        <p class="loading">Loading your allowance…</p>
+      </cp-card>
+    }
+
+    @case ('error') {
+      <cp-card>
+        <div class="failed">
+          <cp-status-pill tone="error">Couldn’t load</cp-status-pill>
+          <p>{{ errorMessage }}</p>
+          <!--
+            aria-disabled rather than disabled: a disabled button drops focus to the body the moment it is
+            pressed, and the person who pressed it is the one who most needs to hear what happened next.
+          -->
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [attr.aria-disabled]="retrying() ? 'true' : null"
+            [attr.aria-busy]="retrying() ? 'true' : null"
+            (click)="retry()"
+          >
+            {{ retrying() ? 'Trying…' : 'Try again' }}
+          </button>
+        </div>
+      </cp-card>
+    }
+
+    @default {
+      <cp-card>
+        <div class="summary">
+          <div class="summary-head">
+            <!-- The state in words with a glyph beside it. The meter's colour repeats this; it never carries it alone. -->
+            <cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill>
+          </div>
+
+          <!-- The headline is what is left, not a percentage and not a token count. -->
+          <p class="headline">{{ headline() }}</p>
+
+          @if (figures(); as period) {
+            <cp-progress
+              class="meter"
+              label="Allowance used this period"
+              [value]="period.usedPercent"
+              [valueText]="meterText()"
+              [tone]="meterTone()"
+            />
+          }
+
+          <p class="explanation">{{ explanation() }}</p>
+
+          @if (carriedOverLine(); as carried) {
+            <p class="explanation">{{ carried }}</p>
+          }
+
+          @if (state().status === 'degraded') {
+            <button
+              cpButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [attr.aria-disabled]="retrying() ? 'true' : null"
+              [attr.aria-busy]="retrying() ? 'true' : null"
+              (click)="retry()"
+            >
+              {{ retrying() ? 'Checking…' : 'Check again' }}
+            </button>
+          }
+        </div>
+      </cp-card>
+
+      <div class="breakdowns">
+        <cp-list-shell
+          heading="What you’ve used it on"
+          [state]="taskListState()"
+          [errorMessage]="errorMessage"
+          [emptyMessage]="'Nothing used yet ' + periodWord() + '.'"
+        >
+          <!-- A real list, so a screen reader hears where each row starts and how many there are, rather
+               than one run-on sentence inside the shell's scroll region. -->
+          <ul class="rows" role="list">
+            @for (row of byTask(); track row.taskType) {
+              <li class="row">
+                <span class="row-label">{{ row.label }}</span>
+                <span class="row-amount">{{ row.amountText }}</span>
+                <!--
+                  The request count travels beside the amount because work done before allowances existed was
+                  never charged against one, and would otherwise read as no usage at all.
+                -->
+                <span class="row-count">{{ row.requests }} {{ row.requests === 1 ? 'request' : 'requests' }}</span>
+              </li>
+            }
+          </ul>
+        </cp-list-shell>
+
+        <cp-list-shell
+          heading="Where you used it"
+          [state]="workspaceListState()"
+          [errorMessage]="errorMessage"
+          [emptyMessage]="'Nothing used yet ' + periodWord() + '.'"
+        >
+          <ul class="rows" role="list">
+            @for (row of byWorkspace(); track row.workspaceId) {
+              <li class="row">
+                <span class="row-label">{{ row.label }}</span>
+                <span class="row-amount">{{ row.amountText }}</span>
+                <span class="row-count">{{ row.requests }} {{ row.requests === 1 ? 'request' : 'requests' }}</span>
+              </li>
+            }
+          </ul>
+        </cp-list-shell>
+      </div>
+    }
+  }
+</div>

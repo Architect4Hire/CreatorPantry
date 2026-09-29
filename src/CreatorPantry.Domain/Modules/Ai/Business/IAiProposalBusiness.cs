@@ -56,6 +56,7 @@ internal interface IAiProposalBusiness
 /// </remarks>
 internal sealed class AiProposalBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
@@ -93,6 +94,14 @@ internal sealed class AiProposalBusiness(
                 AiProposalErrors.TaskNeedsItsOwnRoute,
                 "That task cannot be started from this route, because it needs fields this request does not "
                     + "carry. Use the route that belongs to it.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006). The task is resolved by now, which this route
+        // needs and the fixed-task routes do not: what a run costs depends on which capability it is.
+        if (await quota.RefuseIfUnaffordableAsync(task.Value, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         // Through the recipe module's facade, never its repositories. This is also the existence check: a

@@ -1,0 +1,111 @@
+:host {
+  display: block;
+}
+
+/* minmax(0, 1fr) rather than the implicit auto: an auto track sizes to its content's max-width, which would
+   turn the reading measures below into the column's floor instead of its ceiling. */
+.usage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+.intro {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  line-height: var(--cp-leading-normal);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+}
+
+.summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* Bold sans, not the display face: DESIGN-SYSTEM.md assigns metrics to sans bold, and this is a figure to
+   read rather than an editorial moment. */
+.headline {
+  margin: 0;
+  font-size: var(--cp-font-size-xl);
+  font-weight: 700;
+  line-height: var(--cp-leading-tight);
+}
+
+/* The measure caps the reading width on a wrapper free to shrink, rather than on the track itself, where a
+   max-width would become the meter's floor. */
+.meter,
+.explanation {
+  max-width: var(--cp-measure-prose);
+}
+
+.explanation {
+  margin: 0;
+  color: var(--cp-text-muted);
+  line-height: var(--cp-leading-normal);
+}
+
+.loading,
+.failed p {
+  margin: 0;
+  color: var(--cp-text-muted);
+}
+
+.failed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: var(--cp-space-3);
+  max-width: var(--cp-measure-prose);
+}
+
+/* As many as fit: one column when the page is narrow, two when there is room. The min() keeps the first
+   argument from becoming a hard floor that overflows a phone. This is why the page needs no container
+   query — the track count answers to the width it is given. */
+.breakdowns {
+  display: grid;
+  gap: var(--cp-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  padding: var(--cp-space-3) 0;
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row-label {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.row-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-count {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}

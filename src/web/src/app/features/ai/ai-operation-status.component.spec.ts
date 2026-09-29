@@ -73,6 +73,7 @@ describe('AiOperationStatusComponent', () => {
       'SafetyBlocked',
       'Cancelled',
       'LeaseAbandoned',
+      'AccountSuspended',
     ];
 
     for (const category of categories) {
@@ -121,6 +122,10 @@ describe('AiOperationStatusComponent', () => {
         'Validation',
         'Quota',
         'TemplateUnavailable',
+
+        // A suspension does not lift itself, so offering another attempt would send a creator round a loop
+        // that cannot end differently.
+        'AccountSuspended',
       ] as const) {
         expect(isRetryableAiOutcome('Failed', category)).toBeFalse();
       }

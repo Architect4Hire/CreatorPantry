@@ -44,7 +44,9 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
+            .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()
             .AddScoped<IAiConceptRequestBusiness, AiConceptRequestBusiness>()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -79,6 +81,7 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = new AiConceptRequestBusiness(
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
+            scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             tasks,
             scope.ServiceProvider.GetRequiredService<IClock>());

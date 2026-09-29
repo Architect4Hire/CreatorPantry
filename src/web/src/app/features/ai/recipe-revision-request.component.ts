@@ -9,8 +9,12 @@ import {
   REVISION_GOAL_MAX_LENGTH,
   RecipeRevisionSection,
 } from '../../models/recipe-revision.models';
+import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import { RecipeRevisionService, RequestRevisionOutcome } from '../../services/recipe-revision.service';
+import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
+import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiProposalPanelComponent } from './ai-proposal-panel.component';
 
 /** Asking for a revision writes an operation, so it carries the same bar as editing the recipe by hand. */
@@ -41,7 +45,14 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
 @Component({
   selector: 'cp-recipe-revision-request',
   standalone: true,
-  imports: [FormsModule, AiProposalPanelComponent, CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
+  imports: [
+    FormsModule,
+    AiAllowanceNoticeComponent,
+    AiProposalPanelComponent,
+    CpButtonComponent,
+    CpFieldComponent,
+    CpStatusPillComponent,
+  ],
   templateUrl: './recipe-revision-request.component.html',
   styleUrl: './recipe-revision-request.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -71,6 +82,7 @@ export class RecipeRevisionRequestComponent {
 
   private readonly revisions = inject(RecipeRevisionService);
   private readonly memberships = inject(WorkspaceMembershipService);
+  private readonly usage = inject(AiUsageService);
 
   readonly sections = RECIPE_REVISION_SECTIONS;
   readonly goalMaxLength = REVISION_GOAL_MAX_LENGTH;
@@ -111,8 +123,21 @@ export class RecipeRevisionRequestComponent {
     return this.requestIdSignal() === null ? 'choosing' : 'watching';
   });
 
+  /** The account's allowance, so a spent one is said before it is hit rather than only after. */
+  readonly allowance = this.usage.allowance;
+
+  /** The server's refusal, once there has been one. Worded by the allowance notice. */
+  private readonly quotaRefusalSignal = signal<AiQuotaRefusal | null>(null);
+  readonly quotaRefusal = this.quotaRefusalSignal.asReadonly();
+
   /** A section must be chosen: there is no sensible default, and the widest one is the wrong guess. */
-  readonly canSubmit = computed(() => this.scope() !== null && !this.submitting() && this.canRequest());
+  readonly canSubmit = computed(
+    () =>
+      this.scope() !== null &&
+      !this.submitting() &&
+      this.canRequest() &&
+      !allowanceBlocksNewRequests(this.allowance()),
+  );
 
   isChosen(section: RecipeRevisionSection): boolean {
     return this.scope() === section.scope;
@@ -129,10 +154,11 @@ export class RecipeRevisionRequestComponent {
 
   async submit(): Promise<void> {
     const scope = this.scope();
-    if (scope === null || this.submitting() || !this.canRequest()) return;
+    if (scope === null || !this.canSubmit()) return;
 
     this.submitting.set(true);
     this.refusalSignal.set(null);
+    this.quotaRefusalSignal.set(null);
     this.fieldErrorsSignal.set({});
 
     // One key per attempt, reused only if this same attempt has to be re-sent after a transport failure —
@@ -158,6 +184,19 @@ export class RecipeRevisionRequestComponent {
       case 'accepted':
         this.pendingRequestKey = null;
         this.requestIdSignal.set(outcome.operation.aiProposalRequestId);
+
+        // The run has been paid for, so the balance on screen is already out of date.
+        void this.usage.refresh();
+        return;
+
+      // The account cannot pay for this. Handed to the allowance notice, which is the one place that words a
+      // spent allowance and a switched-off account differently. The key is released because this attempt
+      // reached the server and was answered: a retry is a new request, not a re-send.
+      case 'quota_exhausted':
+      case 'account_suspended':
+        this.pendingRequestKey = null;
+        this.quotaRefusalSignal.set(outcome);
+        void this.usage.refresh();
         return;
 
       case 'validation_failed':

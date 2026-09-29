@@ -73,6 +73,9 @@
       <p class="substitution-problem" role="alert">{{ message }}</p>
     }
 
+    <!-- Above the action, so a disabled button is never a bare disabled button. -->
+    <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
     <div class="substitution-actions">
       <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
         {{ state() === 'submitting' ? 'Asking…' : 'Find alternatives' }}

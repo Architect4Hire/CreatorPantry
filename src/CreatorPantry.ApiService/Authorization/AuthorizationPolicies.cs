@@ -20,6 +20,25 @@ public static class AuthorizationPolicies
     /// <summary>The gateway's own service identity; used only by the internal session routes.</summary>
     public const string GatewayService = "GatewayService";
 
+    /// <summary>
+    /// A machine client holding an ops API key with the AI-usage administration scope (baseline B-14).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Built from its own builder, not <see cref="UserPolicy"/>.</strong> Every other policy here
+    /// demands <c>token_use=user</c>, a claim only the gateway mints — so an ops key could never satisfy one,
+    /// and <see cref="PlatformAdmin"/> in particular cannot be reused for machine access however much the two
+    /// sound alike.
+    /// </para>
+    /// <para>
+    /// <strong>It names its authentication scheme.</strong> That is what keeps the two credentials apart in
+    /// both directions: the JWT scheme never runs on an ops route, so a gateway-minted user token — even one
+    /// carrying the <c>PlatformAdmin</c> role — is refused there; and an ops key is never evaluated anywhere
+    /// else, so it cannot reach a product route.
+    /// </para>
+    /// </remarks>
+    public const string Ops = "Ops";
+
     /// <summary>The caller's role in the resolved workspace is at least <see cref="WorkspaceRole.Viewer"/>.</summary>
     public const string WorkspaceViewer = "WorkspaceViewer";
 
@@ -42,6 +61,10 @@ public static class AuthorizationPolicies
                 .RequireAuthenticatedUser()
                 .RequireClaim(InternalTokenDefaults.TokenUseClaim, InternalTokenDefaults.ServiceTokenUse)
                 .RequireClaim("sub", InternalTokenDefaults.GatewayServiceSubject))
+            .AddPolicy(Ops, policy => policy
+                .AddAuthenticationSchemes(OpsApiKeyPolicy.Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(OpsClaims.Scope, OpsScopes.AiUsageAdmin))
             .AddPolicy(WorkspaceViewer, WorkspaceRolePolicy(WorkspaceRole.Viewer))
             .AddPolicy(WorkspaceContributor, WorkspaceRolePolicy(WorkspaceRole.Contributor))
             .AddPolicy(WorkspaceEditor, WorkspaceRolePolicy(WorkspaceRole.Editor))

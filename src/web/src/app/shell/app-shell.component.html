@@ -31,6 +31,18 @@
     ><span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☀' : '☾' }}</span></button>
     @if (session(); as currentSession) {
       @if (currentSession.status === 'authenticated') {
+        <!--
+          The allowance lives beside the account, not in the sidebar: every sidebar item is a section of the
+          workspace in the URL, and an allowance belongs to the person across all of them. It draws attention
+          to itself only when there is something to say, and says it in words rather than by changing colour.
+        -->
+        <a class="allowance-link" routerLink="/app/ai-usage" routerLinkActive="active">
+          @if (allowanceNeedsAttention()) {
+            <cp-status-pill [tone]="allowanceTone()">{{ allowanceLabel() }}</cp-status-pill>
+          } @else {
+            <span>{{ allowanceLabel() }}</span>
+          }
+        </a>
         <span class="display-name">{{ currentSession.displayName }}</span>
         <button cpButton variant="ghost" size="sm" (click)="signOut()">Sign out</button>
       }

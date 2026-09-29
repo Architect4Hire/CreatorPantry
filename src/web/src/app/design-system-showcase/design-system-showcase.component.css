@@ -118,6 +118,12 @@ code {
   gap: var(--cp-space-5);
 }
 
+.progress-toned {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-2);
+}
+
 .quick-action-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));

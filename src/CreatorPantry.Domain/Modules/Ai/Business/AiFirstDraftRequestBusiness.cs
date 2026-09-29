@@ -42,6 +42,7 @@ internal interface IAiFirstDraftRequestBusiness
 /// </remarks>
 internal sealed class AiFirstDraftRequestBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiFirstDraftRequestBusiness
@@ -58,6 +59,13 @@ internal sealed class AiFirstDraftRequestBusiness(
             return Refuse(
                 AiFirstDraftRequestErrors.TaskNotEnabled,
                 "Recipe first-draft generation is not enabled for this workspace's deployment.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006).
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeFirstDraft, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         // The shape rules restated as domain invariants, because they decide whether a provider budget is

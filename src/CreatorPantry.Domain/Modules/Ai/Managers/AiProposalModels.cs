@@ -181,4 +181,33 @@ public static class AiProposalErrors
     /// change. Nothing is written — an invalid selection must not apply the part of itself that was valid.
     /// </summary>
     public const string SelectionInvalid = "ai.selection.invalid_request";
+
+    /// <summary>
+    /// The requesting account's AI allowance for this period will not cover the request (USAGE-006).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>429, from the <c>.exhausted</c> suffix.</strong> The remedy is to wait rather than to be granted
+    /// anything, the wait has a known end, and a client that already backs off on 429 is doing the right thing.
+    /// The refusal carries what is exhausted, what remains, what this request needed and when it resets, plus a
+    /// <c>Retry-After</c> — all of it the caller's own account, naming no workspace (USAGE-007).
+    /// </para>
+    /// <para>
+    /// The edge's own rate limiter answers <c>rate_limited</c> with the same status. The two are told apart by
+    /// this code, which is why every refusal carries one — and they mean different things: one says slow down,
+    /// this one says the month is spent.
+    /// </para>
+    /// </remarks>
+    public const string QuotaExhausted = "ai.quota.exhausted";
+
+    /// <summary>
+    /// AI access is switched off for the requesting account, whatever allowance remains.
+    /// </summary>
+    /// <remarks>
+    /// A distinct code from <see cref="QuotaExhausted"/> and a distinct status — 403, from the
+    /// <c>.suspended</c> suffix — because there is no reset to offer and no amount of waiting that changes the
+    /// answer. It carries no balance for the same reason: a remaining figure for an account that cannot spend
+    /// it would read as an invitation to try again.
+    /// </remarks>
+    public const string QuotaSuspended = "ai.quota.suspended";
 }

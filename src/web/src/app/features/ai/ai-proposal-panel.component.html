@@ -77,6 +77,13 @@
         </div>
       }
 
+      <!--
+        Why "Ask again" is not on offer, and what happens to a second ask that was refused. Outside the block
+        above on purpose: that block disappears the moment the allowance withdraws the button, and the reason
+        must not disappear with it.
+      -->
+      <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
       @if (outcomeSummary(); as summary) {
         <!-- Focused after a decision, so a keyboard user lands on the answer rather than on whatever followed
              the buttons that have just gone. -->

@@ -216,6 +216,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -915,6 +925,112 @@
         ]
       }
     },
+    "/api/v1/me/ai-usage": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "The signed-in account\u0027s AI allowance for the running period, and what it has gone on (USAGE-008).",
+        "description": "The totals are the period\u0027s own unit; both breakdowns are in it too and both sum to \u0060consumed\u0060.\nRequest counts travel beside the amounts because work done before allowances existed was never charged\nagainst one, and would otherwise read as no usage at all.\n\nA workspace the account no longer holds active membership in keeps its totals and is returned with a\nnull name. The spend is the creator\u0027s own history; the name is not theirs to have any more.\n\nTakes no parameters, and there is deliberately nowhere to put an account id \u2014 not a route segment, a\nbody, a query value or a header. The account comes from the validated session.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAiUsage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAiUsage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAiUsage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/ai-usage/history": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "The signed-in account\u0027s closed AI allowance periods, newest first.",
+        "description": "The running period is not included: \u0060GET /api/v1/me/ai-usage\u0060 is what answers about it, and\nreturning it here as well would show the same period twice with two totals a moment apart.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AiUsageHistoryLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountAiUsagePeriod"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountAiUsagePeriod"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountAiUsagePeriod"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/proposal-explanation-requests": {
       "post": {
         "tags": [
@@ -1007,6 +1123,16 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -1240,6 +1366,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -1455,6 +1591,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -1662,6 +1808,16 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -2025,6 +2181,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -2252,6 +2418,16 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -4331,6 +4507,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -5337,6 +5523,178 @@
   },
   "components": {
     "schemas": {
+      "AccountAiUsage": {
+        "required": [
+          "period",
+          "isSuspended",
+          "byTask",
+          "byWorkspace"
+        ],
+        "type": "object",
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/AccountAiUsagePeriod"
+          },
+          "isSuspended": {
+            "type": "boolean"
+          },
+          "byTask": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountAiUsageTaskTotal"
+            }
+          },
+          "byWorkspace": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountAiUsageWorkspaceTotal"
+            }
+          }
+        }
+      },
+      "AccountAiUsagePeriod": {
+        "required": [
+          "unit",
+          "allowance",
+          "carriedOver",
+          "consumed",
+          "reserved",
+          "remaining",
+          "periodLength",
+          "timeZoneId",
+          "startsAt",
+          "resetsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/components/schemas/AiQuotaUnit"
+          },
+          "allowance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "carriedOver": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "consumed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "reserved": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "periodLength": {
+            "$ref": "#/components/schemas/AiQuotaPeriodLength"
+          },
+          "timeZoneId": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AccountAiUsageTaskTotal": {
+        "required": [
+          "taskType",
+          "amount",
+          "requests"
+        ],
+        "type": "object",
+        "properties": {
+          "taskType": {
+            "$ref": "#/components/schemas/AiTaskType"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "requests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AccountAiUsageWorkspaceTotal": {
+        "required": [
+          "workspaceId",
+          "workspaceName",
+          "amount",
+          "requests"
+        ],
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workspaceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "requests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "AiAdaptationGoal": {
         "enum": [
           "Unspecified",
@@ -5475,7 +5833,8 @@
           "DomainInvalid",
           "SafetyBlocked",
           "Cancelled",
-          "LeaseAbandoned"
+          "LeaseAbandoned",
+          "AccountSuspended"
         ],
         "type": "string"
       },
@@ -5758,6 +6117,23 @@
             "$ref": "#/components/schemas/AiChangeDisposition"
           }
         }
+      },
+      "AiQuotaPeriodLength": {
+        "enum": [
+          "Unspecified",
+          "Daily",
+          "Weekly",
+          "Monthly"
+        ],
+        "type": "string"
+      },
+      "AiQuotaUnit": {
+        "enum": [
+          "Unspecified",
+          "Credits",
+          "Tokens"
+        ],
+        "type": "string"
       },
       "AiTaskType": {
         "enum": [
@@ -9673,6 +10049,18 @@
           "type": "integer",
           "format": "int32",
           "default": 25
+        }
+      },
+      "AiUsageHistoryLimit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Most periods to return. Not a page size: this collection has no cursor and no further pages, because a closed allowance period never changes and a monthly one yields twelve rows a year. Values outside 1-60 are clamped to the nearest bound, not rejected.",
+        "schema": {
+          "maximum": 60,
+          "minimum": 1,
+          "type": "integer",
+          "format": "int32",
+          "default": 12
         }
       }
     },

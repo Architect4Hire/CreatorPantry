@@ -40,6 +40,7 @@ internal interface IAiRevisionRequestBusiness
 /// </remarks>
 internal sealed class AiRevisionRequestBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
@@ -58,6 +59,14 @@ internal sealed class AiRevisionRequestBusiness(
             return Refuse(
                 AiRevisionRequestErrors.TaskNotEnabled,
                 "Recipe revision is not enabled for this workspace's deployment.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006). Before the recipe lookup too: an account that
+        // cannot spend is refused whatever it named, which is also one fewer read for a request going nowhere.
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeRevision, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         // Through the recipe module's facade, never its repositories. This is also the existence check: a

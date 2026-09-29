@@ -27,25 +27,32 @@ public static class MigrationDatabaseExtensions
         // The sample ingredient set cites a development seed source and is not reference material, so it stops
         // at the Production boundary. The unit and vocabulary catalogue crosses it: those are definitional
         // rather than licensed, and a database without measurement units cannot resolve a recipe line at all.
-        builder.Services.AddCreatorPantrySchema(includeDevelopmentSampleData: !builder.Environment.IsProduction());
+        builder.Services.AddCreatorPantrySchema(
+            includeDevelopmentSampleData: !builder.Environment.IsProduction(),
+            configuration: builder.Configuration);
 
         return builder;
     }
 
     /// <summary>
-    /// Applies CreatorPantry migrations, then idempotent seed data: the PlatformAdmin role and the global
-    /// reference catalogue.
+    /// Applies CreatorPantry migrations, then idempotent seed data: the PlatformAdmin role, any configured ops
+    /// API clients, and the global reference catalogue.
     /// </summary>
     /// <param name="includeDevelopmentSampleData">
     /// Whether the reference seeder also writes the sample ingredient set. Defaults to <c>false</c> so a caller
     /// that has not thought about it gets the production-safe tier.
     /// </param>
+    /// <param name="configuration">
+    /// Read for <c>Ops:Clients</c> (baseline B-14). Optional, and with it omitted no ops client is provisioned
+    /// at all — which is the right default: a deployment gets an operator credential only by asking for one.
+    /// </param>
     public static IServiceCollection AddCreatorPantrySchema(
         this IServiceCollection services,
-        bool includeDevelopmentSampleData = false)
+        bool includeDevelopmentSampleData = false,
+        IConfiguration? configuration = null)
     {
         services.AddDbContextMigration<CreatorPantryDbContext>();
-        services.AddPlatformRoleSeeding();
+        services.AddPlatformRoleSeeding(configuration);
         services.AddReferenceSeeding(includeDevelopmentSampleData);
 
         return services;

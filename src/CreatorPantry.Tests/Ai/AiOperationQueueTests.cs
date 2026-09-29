@@ -46,6 +46,7 @@ public sealed class AiOperationQueueTests : IDisposable
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddDbContext<CreatorPantryDbContext>(options => options
@@ -286,6 +287,7 @@ public sealed class AiOperationQueueTests : IDisposable
             stale.LeaseToken,
             Proposal(stale.OperationId),
             [Attempt()],
+            null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(AiOperationWriteOutcome.LeaseLost, outcome);
@@ -305,6 +307,7 @@ public sealed class AiOperationQueueTests : IDisposable
             claim.LeaseToken,
             Proposal(claim.OperationId),
             [Attempt(), Attempt()],
+            null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(AiOperationWriteOutcome.Applied, outcome);
@@ -337,6 +340,7 @@ public sealed class AiOperationQueueTests : IDisposable
                 AiFailureCategory.Provider,
                 "unreachable",
                 [Attempt()],
+                null,
                 TestContext.Current.CancellationToken);
         }
 
@@ -358,6 +362,7 @@ public sealed class AiOperationQueueTests : IDisposable
                 second.LeaseToken,
                 Proposal(second.OperationId),
                 [Attempt()],
+                null,
                 TestContext.Current.CancellationToken);
         }
 
@@ -383,6 +388,7 @@ public sealed class AiOperationQueueTests : IDisposable
             AiFailureCategory.SafetyBlocked,
             "refused by the safety filter",
             [Attempt()],
+            null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(AiOperationWriteOutcome.Applied, outcome);
@@ -416,6 +422,7 @@ public sealed class AiOperationQueueTests : IDisposable
         {
             await DataLayer(scope, WorkspaceA).StoreProposalAsync(
                 claim!.OperationId, claim.LeaseToken, Proposal(claim.OperationId), [Attempt()],
+                null,
                 TestContext.Current.CancellationToken);
         }
 
@@ -466,6 +473,7 @@ public sealed class AiOperationQueueTests : IDisposable
             claim.LeaseToken,
             Proposal(claim.OperationId),
             [Attempt()],
+            null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(AiOperationWriteOutcome.NotFound, outcome);

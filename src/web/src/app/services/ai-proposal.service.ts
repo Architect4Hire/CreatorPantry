@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
+import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
 import {
   AiProposalDispositionRequest,
   AiProposalDispositionResult,
@@ -31,6 +32,8 @@ export type RequestAiProposalOutcome =
   /** Unknown recipe, or one belonging to another workspace — deliberately indistinguishable. */
   | { readonly status: 'not_found' }
   | { readonly status: 'conflict' }
+  /** The account cannot pay for this request: its allowance is spent, or AI is switched off for it. */
+  | AiQuotaRefusal
   | { readonly status: 'unavailable' };
 
 export type AiProposalStatusOutcome =
@@ -191,6 +194,12 @@ export class AiProposalService {
       // The key was reused for a different payload. Not a field-validation failure: the caller needs a fresh
       // key, not a corrected form.
       if (code === 422) return { status: 'idempotency_key_conflict' };
+
+      // Before the 403 and 429 fallbacks below: a suspension arrives as a 403 like a role refusal, and a
+      // spent allowance as a 429 like the edge's own rate limiter, so only the code tells them apart.
+      const refusal = decodeAiQuotaRefusal(error);
+      if (refusal) return refusal;
+
       if (code === 403) return { status: 'forbidden' };
       if (code === 404) return { status: 'not_found' };
       if (code === 409) return { status: 'conflict' };

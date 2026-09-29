@@ -42,6 +42,12 @@
       <p class="review-problem" role="alert">{{ message }}</p>
     }
 
+    <!--
+      Above the action, so a disabled button is never a bare disabled button: the reason it is unavailable,
+      and what happens next, are stated right where a creator is about to press it.
+    -->
+    <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
     <div class="review-actions">
       <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
         {{ state() === 'submitting' ? 'Reviewing…' : 'Review this recipe' }}

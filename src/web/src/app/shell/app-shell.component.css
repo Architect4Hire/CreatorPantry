@@ -29,6 +29,14 @@ nav a.active { background: var(--cp-primary-soft); color: var(--cp-primary); }
 .spacer { flex: 1; }
 .display-name { color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); font-weight: 600; }
 
+/* 40px tall so it is a real target on a touch screen, and underlined on hover rather than only recoloured. */
+/* nowrap on both: the pill is a full-radius chip, and a wrapped label inside one breaks the shape in a bar
+   that has no room to grow. */
+.allowance-link { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 var(--cp-space-2); border-radius: var(--cp-radius-md); color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.allowance-link cp-status-pill { white-space: nowrap; }
+.allowance-link:hover { background: var(--cp-surface-subtle); text-decoration: underline; }
+.allowance-link.active { color: var(--cp-primary); background: var(--cp-surface-subtle); }
+
 .icon-btn { border: 0; background: transparent; color: var(--cp-text); cursor: pointer; width: 2.5rem; height: 2.5rem; border-radius: var(--cp-radius-md); }
 .icon-btn:hover { background: var(--cp-surface-subtle); }
 .mobile { display: none; }
@@ -42,4 +50,10 @@ main { margin-left: var(--cp-sidebar-width); padding-top: var(--cp-topbar-height
   .topbar { left: 0; }
   .mobile { display: block; }
   main { margin-left: 0; }
+
+  /* The bar is fixed-height and cannot grow — main's top padding is the same token — so it cannot wrap its
+     way out of trouble. The name is the one thing here a creator already knows, so it is what gives way to
+     keep the allowance and Sign out on the line. The same rule answers 200% zoom, which shrinks the
+     available CSS-px inline size exactly as a narrow window does. */
+  .display-name { display: none; }
 }

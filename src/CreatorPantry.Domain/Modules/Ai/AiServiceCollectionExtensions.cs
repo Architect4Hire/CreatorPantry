@@ -85,6 +85,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiProposalSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiProposalBusiness, AiProposalBusiness>();
         services.AddScoped<IAiProposalFacade, AiProposalFacade>();
         services.AddScoped<IValidator<RequestAiProposalViewModel>, RequestAiProposalViewModelValidator>();
@@ -104,6 +105,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiConceptRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiConceptRequestBusiness, AiConceptRequestBusiness>();
         services.AddScoped<IAiConceptRequestFacade, AiConceptRequestFacade>();
         services.AddScoped<IValidator<RequestRecipeConceptsViewModel>, RequestRecipeConceptsViewModelValidator>();
@@ -127,6 +129,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiFirstDraftRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiFirstDraftRequestBusiness, AiFirstDraftRequestBusiness>();
         services.AddScoped<IAiDraftAcceptanceBusiness, AiDraftAcceptanceBusiness>();
         services.AddScoped<IAiFirstDraftRequestFacade, AiFirstDraftRequestFacade>();
@@ -146,6 +149,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiRevisionRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiRevisionRequestBusiness, AiRevisionRequestBusiness>();
         services.AddScoped<IAiRevisionRequestFacade, AiRevisionRequestFacade>();
         services.AddScoped<IValidator<RequestRecipeRevisionViewModel>, RequestRecipeRevisionViewModelValidator>();
@@ -164,6 +168,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiSubstitutionRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiSubstitutionRequestBusiness, AiSubstitutionRequestBusiness>();
         services.AddScoped<IAiSubstitutionRequestFacade, AiSubstitutionRequestFacade>();
         services.AddScoped<
@@ -184,6 +189,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiAdaptationRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiAdaptationRequestBusiness, AiAdaptationRequestBusiness>();
         services.AddScoped<IAiAdaptationRequestFacade, AiAdaptationRequestFacade>();
         services.AddScoped<
@@ -203,6 +209,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiReviewRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiReviewRequestBusiness, AiReviewRequestBusiness>();
         services.AddScoped<IAiReviewRequestFacade, AiReviewRequestFacade>();
         services.AddScoped<IValidator<RequestRecipeReviewViewModel>, RequestRecipeReviewViewModelValidator>();
@@ -221,6 +228,7 @@ public static class AiServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddAiProposalExplanationRequestSeam(this IServiceCollection services)
     {
+        AddRequestQuotaGate(services);
         services.AddScoped<IAiProposalExplanationRequestBusiness, AiProposalExplanationRequestBusiness>();
         services.AddScoped<IAiProposalExplanationRequestFacade, AiProposalExplanationRequestFacade>();
         services.AddScoped<
@@ -256,4 +264,53 @@ public static class AiServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers the account-usage reconciliation (USAGE-002): the one-time backfill and the repeatable drift
+    /// check.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its own call rather than part of <see cref="AddAiOperationWorker"/>, because it is a different
+    /// deployment decision: a host may run AI operations without running a sweep over every workspace's
+    /// execution metadata, and the one place that does should say so out loud.
+    /// </para>
+    /// <para>
+    /// Requires <c>AddAiUsageModule</c>: the ledger write goes through that module's facade, which is what
+    /// makes the pass unable to double-post.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddAiUsageReconciliation(
+        this IServiceCollection services, IConfiguration? configuration = null)
+    {
+        services.AddScoped<AiUsageReconciliationRepository>();
+        services.AddScoped<IAiUsageReconciler, AiUsageReconciler>();
+
+        var options = services.AddOptions<AiUsageReconciliationOptions>();
+
+        if (configuration is not null)
+        {
+            options.Bind(configuration.GetSection(AiUsageReconciliationOptions.SectionName));
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the quota gate every request seam refuses through (USAGE-006).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Called by each <c>AddAi*Seam</c> rather than by <see cref="AddAiModule"/>, so a host that registers one
+    /// route gets it and a host that registers none does not carry it. <c>TryAdd</c> because the seams are
+    /// independent and most hosts register several — the repeat is expected, not a mistake.
+    /// </para>
+    /// <para>
+    /// It depends on the AiUsage module's quota facade, so a host registering any request seam must also call
+    /// <c>AddAiUsageModule</c>. That is not a new prerequisite: the same host already needed it for the usage
+    /// ledger every settled attempt posts to.
+    /// </para>
+    /// </remarks>
+    private static void AddRequestQuotaGate(IServiceCollection services) =>
+        services.TryAddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>();
 }

@@ -1,11 +1,23 @@
 namespace CreatorPantry.Domain.Managers.Audit;
 
-/// <summary>Field limits for <see cref="CreatorPantry.Domain.Managers.Audit.AuditLog"/>, shared by EF configuration and callers.</summary>
+/// <summary>
+/// Field limits for <see cref="CreatorPantry.Domain.Managers.Audit.AuditLog"/> and
+/// <see cref="CreatorPantry.Domain.Managers.Audit.PlatformAuditLog"/>, shared by EF configuration and callers.
+/// </summary>
 public static class AuditPolicy
 {
     public const int ActionMaxLength = 200;
     public const int ResourceTypeMaxLength = 100;
     public const int ResourceIdMaxLength = 100;
+
+    /// <summary>
+    /// An actor or subject identifier: an Identity user id, an ops client id, or an account id. 450 to match
+    /// Identity's key width, the same figure <c>AuditLog.ActorUserId</c> and <c>AiUsagePolicy</c> use.
+    /// </summary>
+    public const int ActorIdMaxLength = 450;
+
+    /// <summary>The acting client's or account's display name, recorded so a revoked key is still legible.</summary>
+    public const int ActorNameMaxLength = 200;
 
     /// <summary>
     /// A human-readable, safe-to-display summary — never a secret, token, prompt body, recipe body, or

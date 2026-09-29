@@ -96,5 +96,13 @@ internal sealed class AiExecutionMetadataConfiguration : IEntityTypeConfiguratio
         // Following one request across gateway, API and worker.
         builder.HasIndex(metadata => new { metadata.WorkspaceId, metadata.CorrelationId })
             .HasDatabaseName("IX_AiExecutionMetadata_Workspace_Correlation");
+
+        // The reconciliation sweep (9A.7): which attempts has the account ledger no entry for? Deliberately
+        // does not lead with the workspace, for the reason AiOperation's claim index and the quota sweep
+        // indexes do not lead with theirs -- a sweep is looking for work before it knows whose it is, and a
+        // question about the platform-scoped ledger is one no single workspace can answer. Both ranges it
+        // reads, the backfill's and the drift window's, are seeks on this.
+        builder.HasIndex(metadata => metadata.CompletedAt)
+            .HasDatabaseName("IX_AiExecutionMetadata_CompletedAt");
     }
 }

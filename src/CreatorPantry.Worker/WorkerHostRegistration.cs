@@ -67,8 +67,8 @@ public static class WorkerHostRegistration
 
         // Required by the AI module, not optional beside it: this host is where attempts actually settle, so
         // without it every StoreProposalAsync/FailAsync fails to resolve its dependencies at startup rather
-        // than quietly recording no usage (USAGE-001).
-        builder.Services.AddAiUsageModule();
+        // than quietly recording no usage (USAGE-001) or admitting a run against nothing (USAGE-004).
+        builder.Services.AddAiUsageModule(builder.Configuration);
 
         // Registered deliberately, for the AI operation worker: it loads the exact recipe/version an operation
         // names through the recipe module's own facade, never its repositories, and that facade needs the whole
@@ -83,10 +83,17 @@ public static class WorkerHostRegistration
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddAiOperationWorker();
 
+        // The one host that sweeps every workspace's execution metadata looking for attempts the account
+        // ledger never received (USAGE-002). Registered here rather than in the API for the same reason the
+        // queue is: it is background work, and it belongs where background work runs.
+        builder.Services.AddAiUsageReconciliation(builder.Configuration);
+
         builder.Services.AddOutbox();
         builder.Services.AddHostedService<OutboxDispatcherHostedService>();
         builder.Services.AddHostedService<AiOperationWorkerHostedService>();
         builder.Services.AddHostedService<AiOperationMaintenanceHostedService>();
+        builder.Services.AddHostedService<AiQuotaMaintenanceHostedService>();
+        builder.Services.AddHostedService<AiUsageReconciliationHostedService>();
 
         return builder;
     }

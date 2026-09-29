@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
+import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
 import {
   AiProposalStatus,
   decodeAiProposalStatus,
@@ -19,6 +20,8 @@ export type RequestConceptsOutcome =
   | { readonly status: 'idempotency_key_conflict' }
   /** Requesting needs the Contributor role. */
   | { readonly status: 'forbidden' }
+  /** The account cannot pay for this request: its allowance is spent, or AI is switched off for it. */
+  | AiQuotaRefusal
   | { readonly status: 'unavailable' };
 
 export type WatchConceptsOutcome =
@@ -113,6 +116,12 @@ export class RecipeConceptService {
       }
 
       if (code === 422) return { status: 'idempotency_key_conflict' };
+
+      // Before the 403 and 429 fallbacks below: a suspension arrives as a 403 like a role refusal, and a
+      // spent allowance as a 429 like the edge's own rate limiter, so only the code tells them apart.
+      const refusal = decodeAiQuotaRefusal(error);
+      if (refusal) return refusal;
+
       if (code === 403) return { status: 'forbidden' };
       return { status: 'unavailable' };
     }

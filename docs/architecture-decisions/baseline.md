@@ -36,7 +36,7 @@ later documents may reference them.
 | B-11 | Brand profile and context | DEC-010 | Decided | Versioned workspace brand guide; generation pinned to an exact `BrandContextPackage`. |
 | B-12 | Unmapped DEC items | TBD | **DECIDE** | See [Open items](#open-items). |
 | B-13 | Gateway-to-API trust (no OIDC server) | TBD | Decided | Direct BFF: the gateway owns the session and forwards a short-lived gateway-signed internal token; no OAuth/OIDC authorization server. |
-| B-14 | Machine operations access | TBD | Decided | Hashed, rotatable per-client API keys limited to explicit `ops` routes; never a creator identity. |
+| B-14 | Machine operations access | TBD | Decided | Hashed, rotatable per-client API keys limited to explicit `ops` routes; never a creator identity. Implemented in 9A.9. |
 | B-15 | Model provider | TBD | Decided | Microsoft Foundry: Foundry Local in development, Azure Foundry deployments when deployed; separate `chat` and `embeddings` deployments behind `IChatClient` and `IEmbeddingGenerator`. |
 | B-16 | Prompt templates | TBD | Decided | Embedded `.prompt.md` files with JSON front matter and a declared body checksum; validated at startup; many versions of an id coexist. |
 | B-17 | AI proposal boundaries | TBD | Decided | Proposal is write-once; per-change disposition on the change row; one execution row per provider attempt, owned by the operation; structured change targets, not path strings. |
@@ -44,6 +44,7 @@ later documents may reference them.
 | B-19 | Prompt context envelope | TBD | Decided | Instructions in the system role, data in the user role; nonce-fenced segments; trust fixed by segment kind; every non-instruction segment stamped with its workspace and checked. |
 | B-20 | Model execution wrapper | TBD | Decided | Resilience pipeline in ServiceDefaults with the transience predicate supplied by the host; classification behind a provider-implemented interface; one attempt record per call; exactly one corrective re-ask for a schema failure. |
 | B-21 | Proposal disposition and atomic acceptance | TBD | Decided | A proposal may only offer a change the recipe patch can apply; accepted changes travel the recipe module's own merge path; the confirmation names the accepted change ids; one explicit transaction in the AI data layer spans both modules; replay compares the decision rather than a key. |
+| B-22 | Platform audit trail | TBD | Decided | Actions taken outside any workspace go to a separate unfiltered, immutable `PlatformAuditLog` with a required reason; `AuditLog` stays workspace-owned and filtered. |
 
 ## Decisions
 
@@ -237,10 +238,44 @@ server). The OpenIddict-ready note in prompt 1.5 no longer applies.
   stored only as a hash, rotatable, and audited on use.
 - Keys are accepted only on explicit `/api/v1/ops/*` routes under an `ops` authorization policy. An ops
   key never acts as a creator and never grants workspace access.
-- Implementation is deferred until the first ops route exists.
+- ~~Implementation is deferred until the first ops route exists.~~ **Implemented 2026-09-29 by microprompt
+  9A.9**, the first ops route (`/api/v1/ops/ai-usage/**`, USAGE-009).
+
+**As implemented:**
+
+- The credential is `cpops_<prefix>.<secret>`: a public prefix that identifies the client, and 32 random
+  bytes that prove it. `OpsApiClient` stores a per-client salt and `SHA256(salt || secret)` and never the
+  key. SHA-256 rather than a password hash on purpose — the secret is 256 bits of entropy rather than a
+  memorised password, so there is no dictionary to slow down, and this runs on every ops request.
+  Comparison is constant-time.
+- **Provisioning and rotation go through the secret store only.** `OpsApiClientSeeder` reads `Ops:Clients`
+  (the AppHost supplies `ops-api-key` as a secret parameter to the migration service alone) and inserts or
+  rotates. There is deliberately **no route that creates, lists, returns or rotates a key** — an API that
+  could mint one would be a second, weaker path to the same privilege. The salt is derived from the key's
+  own prefix, so re-seeding an unchanged key is a no-op and a changed key rotates, invalidating the previous
+  one immediately. With the parameter empty — the default — nothing is provisioned and every ops route
+  answers 401.
+- **Scopes, not a single "is an ops key" flag.** `OpsScopes.AiUsageAdmin` (`ai-usage.admin`) is the first;
+  the `Ops` policy requires it. An automation issued a narrower grant cannot widen it by holding a key.
+- **The `Ops` policy names its own authentication scheme** (`OpsApiKey`), registered beside the JWT scheme
+  rather than as the default. That keeps the two credentials apart in both directions: a gateway-minted user
+  token — *including one carrying `PlatformAdmin`* — is refused on an ops route because the JWT scheme never
+  runs there, and an ops key opens no product route because every other policy demands `token_use=user`,
+  which an ops principal never carries.
+- **The gateway returns 404 for `/api/*/ops/**`**, alongside `internal` and `dev`, so ops routes are never
+  browser-reachable and their existence is not disclosed. (The proxy already strips `Authorization` on every
+  hop, so a key could not survive the journey regardless; the 404 states the intent.)
+- Ops routes carry `[ApiExplorerSettings(IgnoreApi = true)]`, so the reviewed v1 OpenAPI document — the
+  browser-facing contract — does not advertise an API-key scheme the SPA must never hold.
+- **Audited on use** is `OpsApiClient.LastUsedAt`; *what the key did* is recorded separately in
+  `PlatformAuditLog` (see below), which names the acting client, the subject, a required reason, and compact
+  before/after state pointers.
 
 **Options considered:** OAuth `client_credentials` (no authorization server under B-13) and gateway-minted
 service tokens were rejected.
+**Consequences:** a second ops capability adds a scope rather than a credential type. A human-facing admin
+surface would be a new decision: it would need a browser-reachable route, which this design deliberately has
+none of.
 **Rules:** `auth.md`, `external.md` (credential handling).
 
 ### B-15 Model provider
@@ -569,6 +604,29 @@ apply, and that is the correct state to be in — but it is now a lag rather tha
 `ingredientId` stay excluded permanently regardless, because a model naming a `Guid` is a model inventing one.
 Adding an instruction step remains blocked on `AiStructuredChange` being able to carry a child payload.
 **Rules:** `ai.md`, `recipes.md`, `backend.md`, `api-contract.md`.
+
+### B-22 Platform audit trail
+
+*Recorded 2026-09-29 by microprompt 9A.9, which had to audit an action taken outside any workspace.*
+
+- `AuditLog` is `IWorkspaceOwned`: its `WorkspaceId` is required, carries a **cascading** foreign key to
+  `Workspace`, leads both of its indexes, and is stamped by `WorkspaceOwnershipInterceptor` from the resolved
+  request scope. An ops route resolves no workspace, so there is nothing to stamp — and a sentinel workspace
+  id would leave the operator's audit trail one workspace deletion away from being erased.
+- Platform-level actions therefore go to a separate **`PlatformAuditLog`**: no `WorkspaceId`, no query
+  filter, `IImmutableRecord`, and no foreign key to `Workspace`, `ApplicationUser` or `OpsApiClient` — an
+  audit row must outlive the credential that acted and the account it acted on.
+- It carries `ActorType`/`ActorId`/`ActorName`, an action code, `SubjectType`/`SubjectId`, a **required**
+  `Reason`, `BeforeReference`/`AfterReference` as compact state pointers, a correlation id and a timestamp.
+- Reading it with no workspace filter is safe for the same reason `AccountAiUsageEntry` is: the row holds
+  identifiers, action codes, an operator's own words and state pointers, and **never creator content**.
+  `PlatformAuditLogModelShapeTests` pins that, so adding a free-text column has to argue with a test first.
+- `IPlatformAuditWriter` stages onto the ambient `DbContext` exactly as `IAuditWriter` does, so the audit row
+  and the change it records commit in one `SaveChangesAsync` or neither does.
+
+**Options considered:** making `AuditLog.WorkspaceId` nullable was rejected — it would turn a filtered table
+partly unfiltered and change the meaning of every existing audit query.
+**Rules:** `auth.md`, `tenancy.md`.
 
 ## Open items
 

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
+import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
 import { AiProposalStatus, decodeAiProposalStatus } from '../models/ai-proposal.models';
 import {
   RequestRecipeRevisionRequest,
@@ -26,6 +27,8 @@ export type RequestRevisionOutcome =
   | { readonly status: 'forbidden' }
   /** Unknown recipe, or one belonging to another workspace — deliberately indistinguishable. */
   | { readonly status: 'not_found' }
+  /** The account cannot pay for this request: its allowance is spent, or AI is switched off for it. */
+  | AiQuotaRefusal
   | { readonly status: 'unavailable' };
 
 function statusCodeOf(error: unknown): number | null {
@@ -120,6 +123,12 @@ export class RecipeRevisionService {
       }
 
       if (code === 422) return { status: 'idempotency_key_conflict' };
+
+      // Before the 403 and 429 fallbacks below: a suspension arrives as a 403 like a role refusal, and a
+      // spent allowance as a 429 like the edge's own rate limiter, so only the code tells them apart.
+      const refusal = decodeAiQuotaRefusal(error);
+      if (refusal) return refusal;
+
       if (code === 403) return { status: 'forbidden' };
       if (code === 404) return { status: 'not_found' };
       return { status: 'unavailable' };

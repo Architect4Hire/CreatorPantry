@@ -63,7 +63,9 @@ public sealed class AiAdaptationRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
+            .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()
             .AddScoped<IAiAdaptationRequestBusiness, AiAdaptationRequestBusiness>()
             .AddIdempotency(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build())
             .AddDbContext<CreatorPantryDbContext>(options => options
@@ -99,6 +101,7 @@ public sealed class AiAdaptationRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = new AiAdaptationRequestBusiness(
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
+            scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IRecipeFacade>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             new AiTaskOptions(),

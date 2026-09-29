@@ -41,6 +41,7 @@ public sealed class AiProposalExplanationAiTaskHandlerTests : IAsyncDisposable
             .AddSingleton<IClock>(new StoppedClock())
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)

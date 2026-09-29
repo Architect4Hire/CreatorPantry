@@ -88,6 +88,51 @@ describe('RecipeConceptService', () => {
       expect((await pending).status).toBe('task_not_enabled');
     });
 
+    it('maps a spent allowance to its own outcome, with the figures a creator needs', async () => {
+      const pending = service.requestConcepts('cozy-fall', BRIEF, 'key-1');
+
+      http.expectOne(BASE).flush(
+        {
+          ...problem('ai.quota.exhausted', 'Your AI allowance for this period is spent.'),
+          unit: 'Credits',
+          allowance: 1000,
+          remaining: 5,
+          required: 20,
+          resetsAt: '2026-10-01T00:00:00+00:00',
+        },
+        { status: 429, statusText: 'Too Many Requests' },
+      );
+
+      const outcome = await pending;
+
+      expect(outcome.status).toBe('quota_exhausted');
+      expect(outcome.status === 'quota_exhausted' && outcome.remaining).toBe(5);
+      expect(outcome.status === 'quota_exhausted' && outcome.resetsAt).toBe('2026-10-01T00:00:00+00:00');
+    });
+
+    /**
+     * A suspension arrives as a 403, the same status a role refusal uses. Decoded before the generic 403
+     * fallback, so it does not read as "you need the Contributor role" — which would send a creator to an
+     * administrator who cannot help.
+     */
+    it('tells a suspended account apart from a role refusal', async () => {
+      const suspended = service.requestConcepts('cozy-fall', BRIEF, 'key-1');
+
+      http.expectOne(BASE).flush(
+        { ...problem('ai.quota.suspended', 'Switched off.'), unit: 'Credits' },
+        { status: 403, statusText: 'Forbidden' },
+      );
+
+      expect((await suspended).status).toBe('account_suspended');
+
+      const forbidden = service.requestConcepts('cozy-fall', BRIEF, 'key-2');
+
+      http.expectOne(BASE).flush(
+        problem('ai.request.forbidden'), { status: 403, statusText: 'Forbidden' });
+
+      expect((await forbidden).status).toBe('forbidden');
+    });
+
     it('maps a different 400 to a field validation outcome', async () => {
       const pending = service.requestConcepts('cozy-fall', BRIEF, 'key-1');
 

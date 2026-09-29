@@ -95,7 +95,8 @@ export type AiTaskType =
   /** AIREC-008's explanation of an existing proposal. Reads a proposal; changes nothing in it. */
   | 'ProposalExplanation';
 
-const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
+/** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
+export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
   'Diagnostic',
   'RecipeConcepts',
@@ -195,7 +196,8 @@ export type AiFailureCategory =
   | 'DomainInvalid'
   | 'SafetyBlocked'
   | 'Cancelled'
-  | 'LeaseAbandoned';
+  | 'LeaseAbandoned'
+  | 'AccountSuspended';
 
 const AI_FAILURE_CATEGORY_VALUES: ReadonlySet<string> = new Set<AiFailureCategory>([
   'Unspecified',
@@ -210,6 +212,7 @@ const AI_FAILURE_CATEGORY_VALUES: ReadonlySet<string> = new Set<AiFailureCategor
   'SafetyBlocked',
   'Cancelled',
   'LeaseAbandoned',
+  'AccountSuspended',
 ]);
 
 /** Mirrors AiChangeKind. */

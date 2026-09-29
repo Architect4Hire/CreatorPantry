@@ -83,15 +83,16 @@ public sealed class PlatformRoleSeedingTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Schema_registration_adds_one_migration_target_and_both_seeders()
+    public void Schema_registration_adds_one_migration_target_and_every_seeder()
     {
         var services = new ServiceCollection().AddCreatorPantrySchema();
 
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IMigrationTarget));
 
-        // The role seeder and the reference-catalogue seeder. MigrationWorker resolves every IDataSeeder, so a
-        // seeder that is registered but never run would show up here as a count mismatch.
-        Assert.Equal(2, services.Count(descriptor => descriptor.ServiceType == typeof(IDataSeeder)));
+        // The role seeder, the ops API client seeder (baseline B-14), and the reference-catalogue seeder.
+        // MigrationWorker resolves every IDataSeeder, so a seeder that is registered but never run would show
+        // up here as a count mismatch.
+        Assert.Equal(3, services.Count(descriptor => descriptor.ServiceType == typeof(IDataSeeder)));
     }
 
     private async Task<MigrationOutcome> RunMigrationHostAsync()

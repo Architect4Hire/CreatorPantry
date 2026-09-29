@@ -50,6 +50,20 @@ public static class AiUsagePolicy
     public const int AllowanceScale = 4;
 
     /// <summary>
+    /// The most closed periods one read of an account's history returns.
+    /// </summary>
+    /// <remarks>
+    /// Sixty, which is five years of monthly periods and two months of daily ones. A ceiling rather than a
+    /// cursor: api-contract.md reserves cursors for large or changing datasets, and a closed period never
+    /// changes. If daily periods become common this is the number that has to be revisited, and the contract
+    /// is additive either way — a cursor can be introduced beside the limit without breaking a caller.
+    /// </remarks>
+    public const int HistoryMaxPeriods = 60;
+
+    /// <summary>How many closed periods a history read returns when the caller does not say.</summary>
+    public const int HistoryDefaultPeriods = 12;
+
+    /// <summary>
     /// The highest day of the month a monthly period may anchor to.
     /// </summary>
     /// <remarks>

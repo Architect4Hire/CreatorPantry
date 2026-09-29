@@ -34,6 +34,7 @@ internal interface IAiProposalExplanationRequestBusiness
 /// </remarks>
 internal sealed class AiProposalExplanationRequestBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiProposalExplanationRequestBusiness
@@ -50,6 +51,14 @@ internal sealed class AiProposalExplanationRequestBusiness(
             return Refuse(
                 AiProposalExplanationRequestErrors.TaskNotEnabled,
                 "Proposal explanation is not enabled for this workspace's deployment.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006).
+        if (await quota.RefuseIfUnaffordableAsync(
+            AiTaskType.ProposalExplanation, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         var source = await operations.GetWithProposalAsync(model.SourceRequestId, cancellationToken);

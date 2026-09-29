@@ -80,6 +80,73 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Managers.Audit.PlatformAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ActorType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AfterReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("BeforeReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("IX_PlatformAuditLogs_OccurredAt");
+
+                    b.HasIndex("SubjectType", "SubjectId", "OccurredAt")
+                        .HasDatabaseName("IX_PlatformAuditLogs_Subject_OccurredAt");
+
+                    b.ToTable("PlatformAuditLogs", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlatformAuditLogs_ActorType", "[ActorType] <> 0");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Managers.Idempotency.IdempotencyRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -258,6 +325,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CompletedAt")
+                        .HasDatabaseName("IX_AiExecutionMetadata_CompletedAt");
 
                     b.HasIndex("WorkspaceId", "CorrelationId")
                         .HasDatabaseName("IX_AiExecutionMetadata_Workspace_Correlation");
@@ -644,6 +714,7 @@ namespace CreatorPantry.Domain.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("EffectiveTo")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetimeoffset");
 
                     b.Property<bool>("IsSuspended")
@@ -771,6 +842,101 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Totals_NotNegative", "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Unit_Declared", "Unit <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuotaReservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("AiOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("HeldAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("LeaseToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PerAttemptEstimate")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("PeriodId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("PostedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ReleasedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("ReservedAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("SettledAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTimeOffset?>("SettledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaskType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Unit")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("UsageReported")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("IX_AccountAiQuotaReservations_Outstanding")
+                        .HasFilter("ReleasedAt IS NULL");
+
+                    b.HasIndex("PeriodId");
+
+                    b.HasIndex("SettledAt")
+                        .HasDatabaseName("IX_AccountAiQuotaReservations_Unposted")
+                        .HasFilter("PostedAt IS NULL");
+
+                    b.HasIndex("AiOperationId", "LeaseToken")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiQuotaReservations_Operation_Lease");
+
+                    b.HasIndex("PostedAt", "AccountId")
+                        .HasDatabaseName("IX_AccountAiQuotaReservations_Posted_Account")
+                        .HasFilter("PostedAt IS NOT NULL");
+
+                    b.ToTable("AccountAiQuotaReservations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Amounts_NotNegative", "ReservedAmount > 0 AND PerAttemptEstimate > 0 AND (SettledAmount IS NULL OR SettledAmount >= 0)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Outcome_Matches_Status", "(Status IN (1, 4) AND SettledAt IS NULL AND SettledAmount IS NULL) OR (Status IN (2, 3) AND SettledAt IS NOT NULL AND SettledAmount IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Posted_Requires_Settlement", "PostedAt IS NULL OR SettledAmount IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Status_Declared", "Status <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Timestamps_Match_Status", "(Status <> 1 OR (ReleasedAt IS NULL AND PostedAt IS NULL)) AND (Status <> 4 OR ReleasedAt IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Unit_Declared", "Unit <> 0");
                         });
                 });
 
@@ -940,6 +1106,62 @@ namespace CreatorPantry.Domain.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.OpsApiClient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varbinary(32)");
+
+                    b.Property<string>("KeyPrefix")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<byte[]>("KeySalt")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varbinary(16)");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("RotatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KeyPrefix")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OpsApiClients_KeyPrefix");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OpsApiClients_Name");
+
+                    b.ToTable("OpsApiClients", (string)null);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", b =>
@@ -2591,6 +2813,17 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("WorkspaceId", "AiStructuredChangeId")
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuotaReservation", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuotaPeriod", "Period")
+                        .WithMany()
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Period");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", b =>

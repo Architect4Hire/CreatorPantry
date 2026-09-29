@@ -21,8 +21,12 @@ import {
   conceptsFromProposal,
   generalConceptWarnings,
 } from '../../models/recipe-concept.models';
+import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import { RecipeConceptService, WatchConceptsOutcome } from '../../services/recipe-concept.service';
+import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
+import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
 
 /** Requesting concepts writes an operation, so it carries the same bar as the recipe-diff proposal panel. */
@@ -78,6 +82,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
   standalone: true,
   imports: [
     FormsModule,
+    AiAllowanceNoticeComponent,
     AiOperationStatusComponent,
     CpButtonComponent,
     CpCardComponent,
@@ -93,6 +98,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
 export class RecipeConceptStudioComponent {
   private readonly concepts = inject(RecipeConceptService);
   private readonly memberships = inject(WorkspaceMembershipService);
+  private readonly usage = inject(AiUsageService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -274,6 +280,18 @@ export class RecipeConceptStudioComponent {
     return role !== undefined && REQUEST_ROLES.includes(role);
   });
 
+  /** The account's allowance, so a spent one is said before it is hit rather than only after. */
+  readonly allowance = this.usage.allowance;
+
+  /** The server's refusal, once there has been one. Worded by the allowance notice. */
+  private readonly quotaRefusalSignal = signal<AiQuotaRefusal | null>(null);
+  readonly quotaRefusal = this.quotaRefusalSignal.asReadonly();
+
+  /** Everything `canRequest` asks, plus an allowance that is known to be spent. */
+  readonly canSubmit = computed(
+    () => !this.submitting() && this.canRequest() && !allowanceBlocksNewRequests(this.allowance()),
+  );
+
   readonly conceptCards = computed<readonly RecipeConcept[]>(() =>
     conceptsFromProposal(this.operation()?.proposal ?? null),
   );
@@ -342,11 +360,12 @@ export class RecipeConceptStudioComponent {
   }
 
   async submit(): Promise<void> {
-    if (this.submitting() || !this.canRequest()) return;
+    if (!this.canSubmit()) return;
 
     this.submitting.set(true);
     this.fieldErrorsSignal.set({});
     this.refusalSignal.set(null);
+    this.quotaRefusalSignal.set(null);
 
     // One key per attempt, reused only if this same attempt has to be re-sent after a transport failure.
     this.pendingRequestKey ??= crypto.randomUUID();
@@ -362,6 +381,19 @@ export class RecipeConceptStudioComponent {
         this.operationSignal.set(outcome.operation);
         this.requestIdSignal.set(outcome.operation.aiProposalRequestId);
         this.writeUrl();
+
+        // The run has been paid for, so the balance on screen is already out of date.
+        void this.usage.refresh();
+        return;
+
+      // The account cannot pay for this. Handed to the allowance notice, which is the one place that words a
+      // spent allowance and a switched-off account differently. Nothing the creator typed is touched: the
+      // brief is still on screen, ready to be sent again when the allowance comes back.
+      case 'quota_exhausted':
+      case 'account_suspended':
+        this.pendingRequestKey = null;
+        this.quotaRefusalSignal.set(outcome);
+        void this.usage.refresh();
         return;
 
       case 'validation_failed':

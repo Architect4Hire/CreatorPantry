@@ -46,7 +46,9 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
+            .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()
             .AddScoped<IAiFirstDraftRequestBusiness, AiFirstDraftRequestBusiness>()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -79,6 +81,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = new AiFirstDraftRequestBusiness(
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
+            scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             new AiTaskOptions(), // Empty: nothing enabled.
             scope.ServiceProvider.GetRequiredService<IClock>());

@@ -67,6 +67,7 @@ public sealed class AiDraftAcceptanceTests : IAsyncDisposable
             .AddSingleton(new AiTaskOptions())
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiDraftAcceptanceBusiness, AiDraftAcceptanceBusiness>()
             .AddIdempotency(configuration)

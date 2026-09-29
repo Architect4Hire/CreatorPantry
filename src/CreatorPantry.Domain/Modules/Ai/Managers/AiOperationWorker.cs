@@ -3,6 +3,9 @@ using System.Text.Json;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -146,9 +149,52 @@ internal sealed class AiOperationWorker(
                 AiFailureCategory.TemplateUnavailable,
                 $"No handler is registered for task type '{operation.TaskType}'.",
                 [],
+                null,
                 cancellationToken);
             return ClaimOutcome.Failed;
         }
+
+        // Before the handler, because the handler is what calls a provider (USAGE-006). This is the
+        // authoritative check even though 9A.6 refuses at request time too: an account can be suspended, or
+        // spend the last of its allowance on another run, in the time a request waits in the queue.
+        var quota = scoped.GetRequiredService<IAiQuotaAdmissionFacade>();
+        var admission = await AdmitAsync(scoped, quota, claim, operation, cancellationToken);
+
+        if (admission.Outcome is AiQuotaAdmissionOutcome.Busy)
+        {
+            // Nothing is known about the balance -- competing writers simply kept the period moving. Failing
+            // the run would report an exhausted allowance that was never measured, so the lease is left to
+            // lapse and maintenance requeues it with backoff, bounded like any other requeue.
+            logger.LogInformation(
+                "AI operation {OperationId} could not be admitted against a contended quota period; its lease "
+                    + "will expire and be recovered.",
+                claim.OperationId);
+
+            return ClaimOutcome.Skipped;
+        }
+
+        if (admission.Outcome is AiQuotaAdmissionOutcome.Exhausted or AiQuotaAdmissionOutcome.Suspended)
+        {
+            // Terminal, not requeued. A requeue would burn the attempt bound and then report LeaseAbandoned,
+            // which names the wrong reason -- and would re-ask a question whose answer does not change until
+            // the period resets. No provider was called, so there are no attempts and nothing to bill.
+            var refusal = await operations.FailAsync(
+                claim.OperationId,
+                claim.LeaseToken,
+                admission.Outcome is AiQuotaAdmissionOutcome.Suspended
+                    ? AiFailureCategory.AccountSuspended
+                    : AiFailureCategory.Quota,
+                admission.Outcome is AiQuotaAdmissionOutcome.Suspended
+                    ? "AI access is switched off for this account."
+                    : "This account's AI allowance for the current period is spent.",
+                [],
+                null,
+                cancellationToken);
+
+            return refusal == AiOperationWriteOutcome.Applied ? ClaimOutcome.Failed : ClaimOutcome.Skipped;
+        }
+
+        var reservationId = admission.ReservationId;
 
         var context = new AiTaskExecutionContext(
             claim.OperationId,
@@ -158,30 +204,128 @@ internal sealed class AiOperationWorker(
             operation.RecipeId,
             operation.RecipeVersionId,
             CorrelationId(),
-            ct => operations.RenewLeaseAsync(claim.OperationId, claim.LeaseToken, ct),
+            ct => RenewAsync(operations, quota, claim, reservationId, ct),
             DeserializeInputs(operation.TaskInputsJson));
 
         var outcome = await handler.HandleAsync(context, cancellationToken);
 
+        AiOperationWriteOutcome write;
+
         if (outcome.Succeeded)
         {
-            var write = await operations.StoreProposalAsync(
-                claim.OperationId, claim.LeaseToken, outcome.Proposal!, outcome.Attempts, cancellationToken);
-
-            // LeaseLost means another worker's recovery pass already reclaimed this while the handler ran --
-            // that worker's own outcome is authoritative, so this one is dropped rather than retried.
-            return write == AiOperationWriteOutcome.Applied ? ClaimOutcome.Proposed : ClaimOutcome.Skipped;
+            write = await operations.StoreProposalAsync(
+                claim.OperationId,
+                claim.LeaseToken,
+                outcome.Proposal!,
+                outcome.Attempts,
+                reservationId,
+                cancellationToken);
+        }
+        else
+        {
+            write = await operations.FailAsync(
+                claim.OperationId,
+                claim.LeaseToken,
+                outcome.FailureCategory ?? AiFailureCategory.Provider,
+                outcome.FailureSummary,
+                outcome.Attempts,
+                reservationId,
+                cancellationToken);
         }
 
-        var failWrite = await operations.FailAsync(
-            claim.OperationId,
-            claim.LeaseToken,
-            outcome.FailureCategory ?? AiFailureCategory.Provider,
-            outcome.FailureSummary,
-            outcome.Attempts,
-            cancellationToken);
+        // LeaseLost means another worker's recovery pass already reclaimed this while the handler ran -- that
+        // worker's own outcome is authoritative, so this one is dropped rather than retried. The settlement
+        // went with it: nothing was written at all, and the hold lapses with the lease that lost it.
+        if (write != AiOperationWriteOutcome.Applied)
+        {
+            return ClaimOutcome.Skipped;
+        }
 
-        return failWrite == AiOperationWriteOutcome.Applied ? ClaimOutcome.Failed : ClaimOutcome.Skipped;
+        // The settlement has committed; this is what moves it onto the period. Deliberately after the commit
+        // and outside its transaction -- see AccountAiQuotaReservation for why -- and deliberately not fatal:
+        // the maintenance sweep finds anything this does not.
+        if (reservationId is { } held)
+        {
+            await PostAsync(quota, held, claim.OperationId, cancellationToken);
+        }
+
+        return outcome.Succeeded ? ClaimOutcome.Proposed : ClaimOutcome.Failed;
+    }
+
+    /// <summary>
+    /// Admits the run against its account's allowance, or says why not.
+    /// </summary>
+    /// <remarks>
+    /// The account comes from the resolved workspace context, which the worker resolved from this operation's
+    /// own requesting membership — never from the operation row, a request field, or anything a model supplied
+    /// (USAGE-001). <c>IsMeterable</c> is decided here because this module is the one that knows a diagnostic
+    /// task never reaches a provider; the quota module is told, and does not infer.
+    /// </remarks>
+    private async Task<AiQuotaAdmissionServiceModel> AdmitAsync(
+        IServiceProvider scoped,
+        IAiQuotaAdmissionFacade quota,
+        AiOperationClaim claim,
+        AiOperation operation,
+        CancellationToken cancellationToken)
+    {
+        var accountId = scoped.GetRequiredService<IWorkspaceContext>().AccountId;
+
+        return await quota.AdmitAsync(
+            new AiQuotaAdmissionRequestServiceModel(
+                accountId,
+                claim.OperationId,
+                claim.LeaseToken,
+                operation.TaskType,
+                operation.TaskType is not AiTaskType.Diagnostic,
+                operation.LeaseExpiresAt ?? clock.UtcNow + AiPolicy.LeaseDuration),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Extends the lease and the hold together, so the run cannot outlive the allowance it is spending.
+    /// </summary>
+    /// <remarks>
+    /// The hold is extended only once the lease actually was: renewing it against a lease this worker has
+    /// already lost would keep allowance held for a run whose writes will all be refused.
+    /// </remarks>
+    private async Task RenewAsync(
+        IAiOperationDataLayer operations,
+        IAiQuotaAdmissionFacade quota,
+        AiOperationClaim claim,
+        Guid? reservationId,
+        CancellationToken cancellationToken)
+    {
+        var renewed = await operations.RenewLeaseAsync(claim.OperationId, claim.LeaseToken, cancellationToken);
+
+        if (renewed is AiOperationWriteOutcome.Applied && reservationId is { } held)
+        {
+            await quota.RenewAsync(held, clock.UtcNow + AiPolicy.LeaseDuration, cancellationToken);
+        }
+    }
+
+    /// <remarks>
+    /// Logged and swallowed rather than thrown. The charge is already durably recorded on the reservation, so
+    /// failing the run here would report a settled attempt as a worker crash and requeue work that has already
+    /// been done and paid for. <c>IAiQuotaMaintenanceFacade</c> applies what this could not.
+    /// </remarks>
+    private async Task PostAsync(
+        IAiQuotaAdmissionFacade quota,
+        Guid reservationId,
+        Guid operationId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await quota.PostAsync(reservationId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                ex,
+                "AI operation {OperationId} settled but its allowance was not applied to the period; the "
+                    + "maintenance sweep will apply it.",
+                operationId);
+        }
     }
 
     public async Task<AiOperationMaintenanceSummary> RunMaintenanceAsync(CancellationToken cancellationToken)

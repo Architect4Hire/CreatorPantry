@@ -66,6 +66,14 @@ internal sealed class AccountAiQuotaConfiguration : IEntityTypeConfiguration<Acc
         builder.Property(quota => quota.EffectiveFrom).IsRequired();
         builder.Property(quota => quota.LastChangedAt).IsRequired();
 
+        // A concurrency token, so closing a row carries `WHERE EffectiveTo IS NULL` and a second writer that
+        // already closed it is told rather than silently agreed with. The filtered unique index below catches
+        // two writers that both *insert*; it cannot catch a clear racing a set, because a clear inserts
+        // nothing — both would close the same row, neither would collide, and the audit trail would then
+        // record a state the account was never in. No schema change: the column already exists and is already
+        // nullable; this only changes the predicate EF puts on the UPDATE.
+        builder.Property(quota => quota.EffectiveTo).IsConcurrencyToken();
+
         builder.Property(quota => quota.TimeZoneId)
             .IsRequired()
             .HasMaxLength(AiUsagePolicy.TimeZoneIdMaxLength);

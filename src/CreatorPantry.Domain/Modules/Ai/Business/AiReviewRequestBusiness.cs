@@ -41,6 +41,7 @@ internal interface IAiReviewRequestBusiness
 /// </remarks>
 internal sealed class AiReviewRequestBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
@@ -59,6 +60,13 @@ internal sealed class AiReviewRequestBusiness(
             return Refuse(
                 AiRecipeReviewRequestErrors.TaskNotEnabled,
                 "Recipe review is not enabled for this workspace's deployment.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006).
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeReview, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         // Through the recipe module's facade, never its repositories. This is also the existence check: a

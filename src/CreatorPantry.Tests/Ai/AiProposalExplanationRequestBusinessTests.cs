@@ -45,7 +45,9 @@ public sealed class AiProposalExplanationRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
+            .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()
             .AddScoped<IAiProposalExplanationRequestBusiness, AiProposalExplanationRequestBusiness>()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -81,6 +83,7 @@ public sealed class AiProposalExplanationRequestBusinessTests : IAsyncDisposable
         var source = SeedSourceProposal(scope, WorkspaceA);
         var business = new AiProposalExplanationRequestBusiness(
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
+            scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             tasks,
             scope.ServiceProvider.GetRequiredService<IClock>());

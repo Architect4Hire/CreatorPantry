@@ -80,6 +80,10 @@ export const routes: Routes = [
     loadComponent: () => import('./shell/app-shell.component').then((m) => m.AppShellComponent),
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./shell/workspace-gate.component').then((m) => m.WorkspaceGateComponent), data: { title: 'Workspaces' } },
+      // Account-scoped, and deliberately not one of the workspace sections: an allowance belongs to the
+      // person, and the answer spans every workspace they work in. A route under ':workspaceSlug' could only
+      // narrow it to one or answer about workspaces it does not name.
+      { path: 'ai-usage', loadComponent: () => import('./features/ai-usage/ai-usage.component').then((m) => m.AiUsageComponent), data: { title: 'AI allowance' } },
     ],
   },
   // Must come after every literal top-level path (sign-in, app, design-system, ...): ':workspaceSlug'

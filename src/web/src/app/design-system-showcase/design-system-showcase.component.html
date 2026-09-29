@@ -107,6 +107,33 @@
       <cp-progress label="Complete" [value]="100" />
       <cp-progress label="Overloaded input (140)" [value]="140" />
     </div>
+
+    <p class="section-note">
+      <code>valueText</code> replaces the percentage figure and is announced as <code>aria-valuetext</code>,
+      for a meter whose reading is an amount rather than a fraction — how much is left, not how far through.
+    </p>
+    <div class="progress-grid">
+      <cp-progress label="Allowance used this period" [value]="36" valueText="640 credits left of 1,000" />
+    </div>
+
+    <p class="section-note">
+      <code>tone</code> colours the fill and does nothing else. It carries no meaning of its own: a bar that
+      only changed colour would be status by colour alone, so each one here is paired with the pill that says
+      the same thing in a word and a glyph. Remove the colour and nothing is lost.
+    </p>
+    <div class="progress-grid">
+      @for (sample of progressTones; track sample.tone) {
+        <div class="progress-toned">
+          <cp-status-pill [tone]="sample.pill">{{ sample.label }}</cp-status-pill>
+          <cp-progress
+            [label]="sample.label"
+            [value]="sample.value"
+            [valueText]="sample.valueText"
+            [tone]="sample.tone"
+          />
+        </div>
+      }
+    </div>
   </section>
 
   <section aria-labelledby="quick-action-heading">

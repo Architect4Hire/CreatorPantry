@@ -64,11 +64,15 @@ const STATUS_DETAIL: Readonly<Record<AiOperationStatus, string>> = {
  *
  * `Unspecified` has a line because a stored row can carry it even though the check constraint refuses it — and
  * a panel that rendered nothing for an unrecognised category would silently drop the only explanation there is.
+ *
+ * `Quota` and `AccountSuspended` say different things because they are different situations: an allowance
+ * comes back on its own and a suspension does not, so offering "it'll be available again later" for both would
+ * leave a suspended creator waiting for something that is never going to happen.
  */
 const FAILURE_DETAIL: Readonly<Record<AiFailureCategory, string>> = {
   Unspecified: 'No reason was recorded for this one.',
   Validation: 'This request could not be run as asked.',
-  Quota: "This workspace has used up its allowance for now. It'll be available again later.",
+  Quota: "You've used up your AI allowance for now. It'll be available again when the period resets.",
   TemplateUnavailable: 'A piece of setup this request needs is missing, so nothing was sent.',
   Provider: 'Something on our side did not respond. Asking again usually works.',
   RateLimited: 'Too many requests at once. Waiting a moment and asking again usually works.',
@@ -78,6 +82,7 @@ const FAILURE_DETAIL: Readonly<Record<AiFailureCategory, string>> = {
   SafetyBlocked: 'This request was stopped on safety grounds and will not be retried automatically.',
   Cancelled: 'This one was cancelled.',
   LeaseAbandoned: 'Something on our side kept dropping this request. Asking again usually works.',
+  AccountSuspended: 'AI assistance is switched off for your account. Get in touch and we can look into it.',
 };
 
 /**

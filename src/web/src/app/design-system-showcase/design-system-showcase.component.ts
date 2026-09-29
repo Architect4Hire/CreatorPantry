@@ -20,6 +20,7 @@ import {
   CpListShellComponent,
   CpListShellState,
   CpProgressComponent,
+  CpProgressTone,
   CpQuickActionComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
@@ -72,6 +73,19 @@ export class DesignSystemShowcaseComponent {
   readonly badgeTones: CpTone[] = ['neutral', 'success', 'pink', 'orange', 'purple', 'blue'];
   readonly quickActionTones: QuickActionTone[] = ['success', 'pink', 'orange', 'purple', 'blue'];
   readonly statusPillTones: CpStatusPillTone[] = ['neutral', 'progress', 'success', 'warning', 'error', 'stale'];
+
+  /** Each toned meter travels with the pill that says the same thing in words, never colour alone. */
+  readonly progressTones: {
+    tone: CpProgressTone;
+    pill: CpStatusPillTone;
+    label: string;
+    value: number;
+    valueText: string;
+  }[] = [
+    { tone: 'success', pill: 'success', label: 'Plenty left', value: 36, valueText: '640 credits left' },
+    { tone: 'warning', pill: 'warning', label: 'Nearly spent', value: 88, valueText: '120 credits left' },
+    { tone: 'error', pill: 'error', label: 'Spent', value: 100, valueText: 'No credits left' },
+  ];
 
   readonly dialogOpen = signal<'short' | 'long' | null>(null);
   readonly activationLog = signal<string[]>([]);

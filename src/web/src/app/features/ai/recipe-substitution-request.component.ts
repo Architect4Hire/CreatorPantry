@@ -23,7 +23,11 @@ import {
   RequestSubstitutionOutcome,
   WatchSubstitutionOutcome,
 } from '../../services/recipe-substitution.service';
+import { AiQuotaRefusal } from '../../models/ai-quota.models';
+import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
+import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiAdvisoryResultsComponent } from './ai-advisory-results.component';
 import { AiStatusConnection } from './ai-operation-status.component';
 
@@ -59,6 +63,7 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
   imports: [
     FormsModule,
     AiAdvisoryResultsComponent,
+    AiAllowanceNoticeComponent,
     CpButtonComponent,
     CpComboboxComponent,
     CpFieldComponent,
@@ -85,6 +90,7 @@ export class RecipeSubstitutionRequestComponent {
 
   private readonly substitutions = inject(RecipeSubstitutionService);
   private readonly memberships = inject(WorkspaceMembershipService);
+  private readonly usage = inject(AiUsageService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly fieldLabels = SUBSTITUTION_FIELD_LABELS;
@@ -151,8 +157,19 @@ export class RecipeSubstitutionRequestComponent {
     return this.requestIdSignal() === null ? 'choosing' : 'watching';
   });
 
+  /** The account's allowance, so a spent one is said before it is hit rather than only after. */
+  readonly allowance = this.usage.allowance;
+
+  /** The server's refusal, once there has been one. Worded by the allowance notice. */
+  private readonly quotaRefusalSignal = signal<AiQuotaRefusal | null>(null);
+  readonly quotaRefusal = this.quotaRefusalSignal.asReadonly();
+
   readonly canSubmit = computed(
-    () => this.selectedIngredient() !== null && !this.submitting() && this.canRequest(),
+    () =>
+      this.selectedIngredient() !== null &&
+      !this.submitting() &&
+      this.canRequest() &&
+      !allowanceBlocksNewRequests(this.allowance()),
   );
 
   errorFor(field: string): string {
@@ -165,6 +182,7 @@ export class RecipeSubstitutionRequestComponent {
 
     this.submitting.set(true);
     this.refusalSignal.set(null);
+    this.quotaRefusalSignal.set(null);
     this.fieldErrorsSignal.set({});
 
     this.pendingRequestKey ??= crypto.randomUUID();
@@ -193,6 +211,19 @@ export class RecipeSubstitutionRequestComponent {
         this.pendingRequestKey = null;
         this.operationSignal.set(outcome.operation);
         this.requestIdSignal.set(outcome.operation.aiProposalRequestId);
+
+        // The run has been paid for, so the balance on screen is already out of date.
+        void this.usage.refresh();
+        return;
+
+      // The account cannot pay for this. Handed to the allowance notice, which is the one place that words a
+      // spent allowance and a switched-off account differently. The key is released because this attempt
+      // reached the server and was answered: a retry is a new request, not a re-send.
+      case 'quota_exhausted':
+      case 'account_suspended':
+        this.pendingRequestKey = null;
+        this.quotaRefusalSignal.set(outcome);
+        void this.usage.refresh();
         return;
 
       case 'validation_failed':

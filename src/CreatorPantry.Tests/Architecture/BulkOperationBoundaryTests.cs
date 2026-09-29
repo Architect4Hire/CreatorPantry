@@ -60,10 +60,30 @@ public sealed class BulkOperationBoundaryTests
     /// deliberately the smallest one that could carry it: the workspace-scoped repository beside it gets no
     /// exemption.
     /// </para>
+    /// <para>
+    /// The account-usage reconciliation is the second (9A.7), and it claims a <em>different</em> one of
+    /// tenancy.md's four categories: <strong>platform maintenance</strong>, not the background queue claim.
+    /// That distinction is load-bearing. A queue claim carries the extra condition that the worker resolve and
+    /// validate the workspace through the ordinary tenancy path before reading anything else, and this pass
+    /// deliberately never resolves one at all — it compares two tables against each other and writes to a
+    /// third that has no filter by design. Saying which category is claimed is the point of an explicit list.
+    /// </para>
+    /// <para>
+    /// "Which provider attempts did the ledger never receive?" is a question no single workspace can answer:
+    /// the ledger it compares against is platform-scoped (USAGE-002), so a pass run per workspace would have to
+    /// enumerate every workspace to answer a question about none of them. The identifiers-only constraint still
+    /// applies and is held by
+    /// <c>AiUsageReconciliationTests.The_reconciliation_carries_no_creator_content</c>: what crosses the
+    /// boundary is identifiers, counts, instants and enums, with nowhere to put a title, a snapshot, a prompt
+    /// or even the failure summary the row it reads does carry. Two further guarantees are enforced in code
+    /// rather than asserted here — the membership join is paired on workspace as well as id, and the pass
+    /// refuses to run in a scope that has a workspace resolved.
+    /// </para>
     /// </remarks>
     private static readonly string[] Exemptions =
     [
         "Modules/Ai/Data/AiOperationClaimRepository.cs",
+        "Modules/Ai/Data/AiUsageReconciliationRepository.cs",
     ];
 
     [Fact]

@@ -48,6 +48,7 @@ internal interface IAiAdaptationRequestBusiness
 /// </remarks>
 internal sealed class AiAdaptationRequestBusiness(
     IAiOperationDataLayer operations,
+    IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
@@ -66,6 +67,13 @@ internal sealed class AiAdaptationRequestBusiness(
             return Refuse(
                 AiAdaptationRequestErrors.TaskNotEnabled,
                 "Recipe adaptation is not enabled for this workspace's deployment.");
+        }
+
+        // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
+        // allowance to say the allowance is spent (USAGE-006).
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeAdaptation, cancellationToken) is { } spent)
+        {
+            return spent;
         }
 
         // Through the recipe module's facade, never its repositories. This is also the existence check: a

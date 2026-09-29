@@ -5,8 +5,10 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Auth.Data;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Auth.Gateways;
+using CreatorPantry.Domain.Modules.Auth.Managers;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
@@ -86,6 +88,52 @@ internal sealed class SqliteApiHost : IAsyncDisposable
         var result = await users.CreateAsync(user, password);
         Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Code)));
         return user.Id;
+    }
+
+    /// <summary>Provisions an ops API client the way the migration service would, and returns its key.</summary>
+    /// <param name="scopes">Granted <see cref="OpsScopes"/> values. Defaults to AI-usage administration.</param>
+    /// <remarks>
+    /// Goes through <c>IOpsApiClientDataLayer.UpsertAsync</c> and <c>OpsApiKeyHasher</c> rather than writing a
+    /// row by hand, so a test authenticates against the same hash the seeder would have stored. The key is
+    /// generated here and returned once; nothing reads it back out of the database afterwards, because nothing
+    /// can.
+    /// </remarks>
+    public async Task<string> CreateOpsClientAsync(string name = "tests", params string[] scopes)
+    {
+        var (key, prefix, salt, hash) = OpsApiKeyHasher.Issue();
+
+        await using var scope = Factory.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<IOpsApiClientDataLayer>().UpsertAsync(
+            name,
+            prefix,
+            salt,
+            hash,
+            string.Join(',', scopes.Length == 0 ? [OpsScopes.AiUsageAdmin] : scopes),
+            TestContext.Current.CancellationToken);
+
+        return key;
+    }
+
+    /// <summary>Switches an ops client off, the way an operator revoking a credential would.</summary>
+    public async Task RevokeOpsClientAsync(string name)
+    {
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var client = await context.OpsApiClients.SingleAsync(
+            row => row.Name == name, TestContext.Current.CancellationToken);
+
+        client.RevokedAt = DateTimeOffset.UtcNow;
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>A client carrying an ops key on every request.</summary>
+    public HttpClient CreateOpsClient(string key)
+    {
+        var client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(OpsApiKeyPolicy.Scheme, key);
+
+        return client;
     }
 
     public async Task ChangePasswordAsync(string userId, string current, string next)

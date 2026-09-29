@@ -40,7 +40,7 @@ public class DbContextRegistrationTests
     }
 
     [Fact]
-    public void MigrationService_resolves_the_dbcontext_with_one_migration_target_and_both_seeders()
+    public void MigrationService_resolves_the_dbcontext_with_one_migration_target_and_every_seeder()
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration[$"ConnectionStrings:{CreatorPantryDbContext.ConnectionName}"] = TestDatabase.ConnectionString;
@@ -52,9 +52,10 @@ public class DbContextRegistrationTests
         Assert.True(scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().Database.IsSqlServer());
         Assert.Equal(nameof(CreatorPantryDbContext), Assert.Single(scope.ServiceProvider.GetServices<IMigrationTarget>()).Name);
 
-        // The PlatformAdmin role seeder and the reference-catalogue seeder, in that registration order.
+        // The PlatformAdmin role seeder, the ops API client seeder (baseline B-14), and the reference
+        // catalogue, in that registration order.
         Assert.Equal(
-            ["Platform roles", "Reference catalogue"],
+            ["Platform roles", "Ops API clients", "Reference catalogue"],
             scope.ServiceProvider.GetServices<Domain.Managers.Persistence.IDataSeeder>().Select(seeder => seeder.Name));
 
         // Host.CreateApplicationBuilder defaults to Production, so this host is the production tier.

@@ -5,6 +5,7 @@ using Asp.Versioning;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
@@ -29,6 +30,18 @@ public static class OpenApiDocumentation
     public const string IdempotencyKeyParameter = "IdempotencyKey";
     public const string CursorParameter = "Cursor";
     public const string LimitParameter = "Limit";
+
+    /// <summary>
+    /// The cap on a bounded, un-paged collection — distinct from <see cref="LimitParameter"/>, which is a page
+    /// size.
+    /// </summary>
+    /// <remarks>
+    /// Two components because they are two contracts with two sets of bounds, and one component matched on the
+    /// parameter's <em>name</em> would publish whichever it saw first as the truth for both. That is not a
+    /// stale comment but a wrong document: a client told the maximum is 100 and silently given 60 has no way
+    /// to discover it.
+    /// </remarks>
+    public const string AiUsageHistoryLimitParameter = "AiUsageHistoryLimit";
     public const string FileUploadRequestBody = "FileUpload";
     public const string AntiforgeryParameter = "AntiforgeryToken";
 
@@ -260,6 +273,26 @@ public static class OpenApiDocumentation
                 Default = JsonValue.Create(ReferencePolicy.DefaultPageSize),
             },
         };
+        components.Parameters[AiUsageHistoryLimitParameter] = new OpenApiParameter
+        {
+            Name = "limit",
+            In = ParameterLocation.Query,
+
+            // Bounds from AiUsagePolicy, on the same reasoning the page size reads ReferencePolicy: a document
+            // that states a number nobody enforces is worse than one that states none.
+            Description = "Most periods to return. Not a page size: this collection has no cursor and no "
+                + "further pages, because a closed allowance period never changes and a monthly one yields "
+                + $"twelve rows a year. Values outside 1-{AiUsagePolicy.HistoryMaxPeriods} are clamped to the "
+                + "nearest bound, not rejected.",
+            Schema = new OpenApiSchema
+            {
+                Type = JsonSchemaType.Integer,
+                Format = "int32",
+                Minimum = "1",
+                Maximum = AiUsagePolicy.HistoryMaxPeriods.ToString(CultureInfo.InvariantCulture),
+                Default = JsonValue.Create(AiUsagePolicy.HistoryDefaultPeriods),
+            },
+        };
 
         components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>();
         components.RequestBodies[FileUploadRequestBody] = new OpenApiRequestBody
@@ -328,10 +361,19 @@ public static class OpenApiDocumentation
     /// instead of the shapes the generator inferred from the ViewModel.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The inferred shapes are wrong in a way that matters to a client: a nullable <c>int</c> bound from a
     /// query string is generated as <c>["integer", "string"]</c> with a regex, and it carries none of the
     /// bounds. The components say what the contract actually is — int32, 1 to 100, default 25 — and every
     /// paginated route now says it the same way, because it says it in one place.
+    /// </para>
+    /// <para>
+    /// <strong><c>limit</c> is matched on more than its name</strong>, because more than one contract uses
+    /// that name. A page size belongs to a cursor-paged collection and is recognised by the <c>cursor</c>
+    /// parameter beside it; a cap on a bounded, un-paged list is a different component with different bounds.
+    /// Matching on the name alone published the first one's numbers for both, which told a client the maximum
+    /// was 100 on a route that silently gives 60.
+    /// </para>
     /// </remarks>
     private static void UseSharedPagingParameters(
         OpenApiOperation operation, OpenApiOperationTransformerContext context)
@@ -340,6 +382,20 @@ public static class OpenApiDocumentation
         {
             return;
         }
+
+        // A page size only means anything beside a cursor. Without one, a `limit` is a cap on a complete list,
+        // and saying "maximum items per page" about it would invent a second page that does not exist.
+        var paged = operation.Parameters.Any(parameter =>
+            parameter.In == ParameterLocation.Query
+            && parameter.Name is "cursor" or "Cursor");
+
+        // Which bounded list this is, because the bounds are the route's and no generic rule can know them. A
+        // route not named here keeps the generator's shape: an unhelpful type is survivable, and a confidently
+        // wrong maximum is not.
+        var boundedLimit = context.Description.RelativePath?.EndsWith(
+            "me/ai-usage/history", StringComparison.OrdinalIgnoreCase) is true
+            ? AiUsageHistoryLimitParameter
+            : null;
 
         for (var index = 0; index < operation.Parameters.Count; index++)
         {
@@ -354,8 +410,11 @@ public static class OpenApiDocumentation
                 case "cursor" or "Cursor":
                     operation.Parameters[index] = new OpenApiParameterReference(CursorParameter, context.Document);
                     break;
-                case "limit" or "Limit":
+                case "limit" or "Limit" when paged:
                     operation.Parameters[index] = new OpenApiParameterReference(LimitParameter, context.Document);
+                    break;
+                case "limit" or "Limit" when boundedLimit is not null:
+                    operation.Parameters[index] = new OpenApiParameterReference(boundedLimit, context.Document);
                     break;
                 case "from" or "to":
                     // A version number, bound from the query as a nullable int and generated with the same

@@ -190,8 +190,15 @@
         </cp-form-section>
       </div>
 
+      <!--
+        Above the action, so a disabled button is never a bare disabled button: the reason it is unavailable,
+        and what happens next, are stated right where a creator is about to press it. Inside the form, so
+        neither the brief above it nor anything typed into it is disturbed by the notice appearing.
+      -->
+      <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
       <div class="studio-submit">
-        <button cpButton type="submit" variant="primary" [disabled]="state() === 'submitting' || !canRequest()">
+        <button cpButton type="submit" variant="primary" [disabled]="!canSubmit()">
           @if (state() === 'submitting') {
             Asking…
           } @else {

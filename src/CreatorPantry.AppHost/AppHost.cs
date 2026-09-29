@@ -14,6 +14,12 @@ var internalTokenPublicKey = builder.AddParameter("internal-token-public-key");
 // Keys the HMAC of idempotent request fingerprints, so stored hashes cannot be tested against guessed payloads.
 var idempotencyFingerprintKey = builder.AddParameter("idempotency-fingerprint-key", secret: true);
 
+// The platform operator's machine credential (baseline B-14): a hashed, rotatable key accepted only on
+// /api/v1/ops/*. Only the migration service sees it, and only to store its hash — the API verifies against
+// that hash and never holds the key itself. Optional, so a clean clone starts with no ops credential; supply
+// it with `dotnet user-secrets set Parameters:ops-api-key "cpops_<prefix>.<secret>"` to enable the routes.
+var opsApiKey = builder.AddParameter("ops-api-key", secret: true, value: string.Empty);
+
 // SQL Server 2025 is required for the native VECTOR type; the tag is pinned deliberately.
 var sql = builder.AddSqlServer("sql", sqlPassword)
     .WithImageTag("2025-CU9-ubuntu-22.04")
@@ -34,6 +40,13 @@ var blobs = storage.AddBlobs("blobs");
 // One-shot: applies EF migrations, then exits. Dependents use WaitForCompletion(migrations).
 var migrations = builder.AddProject<Projects.CreatorPantry_MigrationService>("migrations")
     .WithReference(db)
+
+    // Provisioning the ops client is a seed step, so it belongs to the one host that seeds. Rotation is
+    // changing this parameter and letting the migration service run again; the previous key stops working the
+    // moment the new hash commits.
+    .WithEnvironment("Ops__Clients__0__Name", "platform-operator")
+    .WithEnvironment("Ops__Clients__0__Key", opsApiKey)
+    .WithEnvironment("Ops__Clients__0__Scopes__0", "ai-usage.admin")
     .WaitFor(db);
 
 var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchProfileName: "https")

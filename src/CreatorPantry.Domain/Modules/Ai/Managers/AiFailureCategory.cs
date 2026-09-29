@@ -60,4 +60,12 @@ public enum AiFailureCategory
     /// would tell an operator their workers are crashlooping read as "the provider is flaky".
     /// </remarks>
     LeaseAbandoned = 11,
+
+    /// <summary>AI access is switched off for the requesting account, whatever allowance remains.</summary>
+    /// <remarks>
+    /// Separate from <see cref="Quota"/>, which means an allowance was spent. USAGE-007 requires a refusal to
+    /// say what is exhausted and when it resets, and a suspension has no reset time to offer — so the two need
+    /// distinguishable error codes at the HTTP boundary, and a single category here could not produce them.
+    /// </remarks>
+    AccountSuspended = 12,
 }

@@ -57,6 +57,7 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             .AddSingleton<IAiCompletionGateway>(BuildGateway(chatClient))
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddScoped<IAiOperationWorker, AiOperationWorker>()

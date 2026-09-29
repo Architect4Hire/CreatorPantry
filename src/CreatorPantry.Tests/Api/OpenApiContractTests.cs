@@ -1,6 +1,9 @@
 extern alias ApiService;
 
+using CreatorPantry.Domain.Managers.Paging;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
+
 
 using System.Net;
 using System.Runtime.CompilerServices;
@@ -40,6 +43,7 @@ public sealed class OpenApiContractTests : IDisposable
     [InlineData("RecipeComparisonSection", "Ingredients")]
     [InlineData("RecipeComparisonField", "IngredientPreparationNote")]
     [InlineData("RecipeItemPresence", "Retained")]
+    [InlineData("AiQuotaUnit", "Credits")]
     public async Task Enum_schemas_publish_their_member_names(string schema, string member)
     {
         var document = JsonNode.Parse(await GetDocumentTextAsync())!;
@@ -234,6 +238,66 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Equal("cursor", components["parameters"]!["Cursor"]!["name"]!.GetValue<string>());
         Assert.Equal("limit", components["parameters"]!["Limit"]!["name"]!.GetValue<string>());
         Assert.NotNull(components["requestBodies"]!["FileUpload"]!["content"]!["multipart/form-data"]);
+    }
+
+    /// <summary>
+    /// Every published bound is the one the code enforces.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The components claim to read their numbers from policy so the contract and the implementation cannot
+    /// drift — which is only true if something checks. It was not, and a second route using the name
+    /// <c>limit</c> with different bounds published the page size's numbers as its own: a client told the
+    /// maximum was 100 on a route that silently gives 60, with no way to discover it.
+    /// </para>
+    /// <para>
+    /// A page size and a cap on a complete list are two contracts, so they are two components. A new bounded
+    /// list adds a case here.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Limit", ReferencePolicy.MinPageSize, ReferencePolicy.MaxPageSize, ReferencePolicy.DefaultPageSize)]
+    [InlineData("AiUsageHistoryLimit", 1, AiUsagePolicy.HistoryMaxPeriods, AiUsagePolicy.HistoryDefaultPeriods)]
+    public async Task Each_published_limit_states_the_bounds_its_route_enforces(
+        string component, int minimum, int maximum, int @default)
+    {
+        var parameter = (await GetDocumentAsync())["components"]!["parameters"]![component]
+            ?? throw new InvalidOperationException($"No {component} parameter in the document.");
+
+        var schema = parameter["schema"]!;
+
+        Assert.Equal("limit", parameter["name"]!.GetValue<string>());
+        Assert.Equal(minimum, schema["minimum"]!.GetValue<int>());
+        Assert.Equal(maximum, schema["maximum"]!.GetValue<int>());
+        Assert.Equal(@default, schema["default"]!.GetValue<int>());
+
+        // The described bounds and the schema's bounds are the same numbers. A description is what a human
+        // reads and a schema is what a generator reads; the two disagreeing is how this went wrong before.
+        Assert.Contains(
+            $"{minimum}-{maximum}",
+            parameter["description"]!.GetValue<string>(),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The un-paged collection says so: no cursor beside its limit, and no page-size vocabulary describing it.
+    /// A client that inferred pages from the word "page" would go looking for a cursor that does not exist.
+    /// </summary>
+    [Fact]
+    public async Task The_usage_history_route_is_a_bounded_list_rather_than_a_page()
+    {
+        var document = await GetDocumentAsync();
+        var parameters = document["paths"]!["/api/v1/me/ai-usage/history"]!["get"]!["parameters"]!.AsArray();
+
+        Assert.DoesNotContain(
+            parameters,
+            parameter => parameter!["$ref"]!.GetValue<string>().EndsWith("/Cursor", StringComparison.Ordinal));
+
+        var description = document["components"]!["parameters"]!["AiUsageHistoryLimit"]!["description"]!
+            .GetValue<string>();
+
+        Assert.DoesNotContain("per page", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no cursor", description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

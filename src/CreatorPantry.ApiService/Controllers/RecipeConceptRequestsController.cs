@@ -40,6 +40,7 @@ public sealed class RecipeConceptRequestsController(IAiConceptRequestFacade requ
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
     public async Task<IActionResult> Request(
         string workspaceSlug,
         RequestRecipeConceptsViewModel model,

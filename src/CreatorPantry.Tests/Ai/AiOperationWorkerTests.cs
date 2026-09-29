@@ -3,6 +3,8 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
@@ -37,6 +39,15 @@ public sealed class AiOperationWorkerTests : IDisposable
     private static readonly Guid MembershipA = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static readonly Guid MembershipB = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
+    /// <summary>The same person as <see cref="MembershipA"/>, in the other workspace.</summary>
+    private static readonly Guid MembershipAInB = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+
+    /// <summary>
+    /// The Identity account behind <see cref="MembershipA"/> and <see cref="MembershipAInB"/> — which the
+    /// worker resolves from the operation's own membership, never from the ambient context a test set up.
+    /// </summary>
+    private const string AccountA = "user-a";
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly ServiceProvider _provider;
     private readonly MovableClock _clock = new(new DateTimeOffset(2026, 9, 25, 12, 0, 0, TimeSpan.Zero));
@@ -53,10 +64,23 @@ public sealed class AiOperationWorkerTests : IDisposable
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+            .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddScoped<IAiOperationWorker, AiOperationWorker>()
             .AddKeyedSingleton<IAiTaskHandler>(AiTaskType.Diagnostic, _handler)
+
+            // The same scripted handler under a second task type, because Diagnostic is the one task the
+            // worker declares unmeterable -- so every quota branch below would be unreachable through it.
+            .AddKeyedSingleton<IAiTaskHandler>(AiTaskType.RecipeConcepts, _handler)
+            .Configure<AiQuotaOptions>(options =>
+            {
+                // Ten credits a call, two calls a run, one credit an input token: an admitted run holds twenty
+                // and a settled charge is readable at a glance.
+                options.DefaultTaskEstimate = 10m;
+                options.EstimatedCallsPerRun = 2;
+                options.ModelRates["test-model"] = new AiQuotaModelRate(1_000_000m, 2_000_000m);
+            })
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
                 .ReplaceService<IModelCustomizer, SqliteModelCustomizer>())
@@ -98,6 +122,15 @@ public sealed class AiOperationWorkerTests : IDisposable
             new WorkspaceMembership
             {
                 Id = MembershipB, WorkspaceId = WorkspaceB, UserId = "user-b",
+                Role = WorkspaceRole.Contributor, Status = WorkspaceMembershipStatus.Active, JoinedAt = _clock.UtcNow,
+            },
+
+            // user-a in the second workspace as well. Membership is the workspace-scoped identity, so one
+            // person is two ids here and one account -- which is the only way to exercise USAGE-001's claim
+            // that an allowance follows the person rather than the workspace.
+            new WorkspaceMembership
+            {
+                Id = MembershipAInB, WorkspaceId = WorkspaceB, UserId = "user-a",
                 Role = WorkspaceRole.Contributor, Status = WorkspaceMembershipStatus.Active, JoinedAt = _clock.UtcNow,
             });
         db.SaveChanges();
@@ -197,7 +230,7 @@ public sealed class AiOperationWorkerTests : IDisposable
             Resolve(scope, WorkspaceA);
             var operations = scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>();
             await operations.FailAsync(
-                operationId, context.LeaseToken, AiFailureCategory.LeaseAbandoned, "reclaimed", [], ct);
+                operationId, context.LeaseToken, AiFailureCategory.LeaseAbandoned, "reclaimed", [], null, ct);
 
             return Success(operationId, WorkspaceA);
         };
@@ -364,6 +397,7 @@ public sealed class AiOperationWorkerTests : IDisposable
         .AddAudit()
         .AddScoped<IAiOperationRepository, AiOperationRepository>()
         .AddAiUsageModule()
+        .AddApplicationTime()
         .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
         .AddScoped<AiOperationClaimRepository>()
         .AddScoped<IAiOperationWorker, AiOperationWorker>()
@@ -427,6 +461,157 @@ public sealed class AiOperationWorkerTests : IDisposable
         Assert.Equal("test-model", proposal.ModelName);
         Assert.Equal(1, await CountExecutionRowsAsync(WorkspaceA));
         Assert.Equal(AiOperationStatus.Proposed, (await LoadAsync(operationId)).Status);
+    }
+
+    // ---- quota admission -----------------------------------------------------------------------------------
+
+    /// <summary>
+    /// USAGE-006: admission happens before the handler, which is the thing that calls a provider. The
+    /// assertion is made <em>inside</em> the handler rather than after the pass, because a hold taken
+    /// afterwards would be a report rather than a control and would look identical from outside.
+    /// </summary>
+    [Fact]
+    public async Task A_meterable_run_holds_its_allowance_before_the_handler_is_called()
+    {
+        var operationId = await RequestAsync(WorkspaceA, MembershipA, "key-1", AiTaskType.RecipeConcepts);
+
+        AccountAiQuotaReservation? whenTheHandlerRan = null;
+
+        _handler.Behavior = async (_, _) =>
+        {
+            whenTheHandlerRan = (await ReservationsAsync()).SingleOrDefault();
+            return Success(operationId, WorkspaceA);
+        };
+
+        var summary = await RunPendingAsync();
+
+        Assert.Equal(1, summary.Proposed);
+        Assert.NotNull(whenTheHandlerRan);
+        Assert.Equal(AiQuotaReservationStatus.Held, whenTheHandlerRan.Status);
+        Assert.Equal(20m, whenTheHandlerRan.ReservedAmount);
+
+        // And by the time the pass returns it has settled and been applied: this run reached no provider, so
+        // the whole hold goes back.
+        var settled = Assert.Single(await ReservationsAsync());
+        Assert.Equal(AiQuotaReservationStatus.Released, settled.Status);
+        Assert.NotNull(settled.PostedAt);
+
+        var period = Assert.Single(await PeriodsAsync());
+        Assert.Equal(0m, period.Reserved);
+        Assert.Equal(0m, period.Consumed);
+    }
+
+    /// <summary>
+    /// The whole round trip through the worker: admitted, run, charged what the provider reported, and applied
+    /// to the period — with the ledger entry that describes the same attempt written in the same transaction.
+    /// </summary>
+    [Fact]
+    public async Task A_run_that_reached_a_provider_is_charged_and_the_period_is_updated()
+    {
+        var operationId = await RequestAsync(WorkspaceA, MembershipA, "key-1", AiTaskType.RecipeConcepts);
+
+        _handler.Behavior = (_, _) => Task.FromResult(
+            AiTaskHandlerOutcome.ForProposal(
+                Success(operationId, WorkspaceA).Proposal!, [Attempt(inputTokens: 12)]));
+
+        Assert.Equal(1, (await RunPendingAsync()).Proposed);
+
+        var reservation = Assert.Single(await ReservationsAsync());
+        Assert.Equal(AiQuotaReservationStatus.Settled, reservation.Status);
+        Assert.True(reservation.UsageReported);
+        Assert.Equal(12m, reservation.SettledAmount);
+        Assert.NotNull(reservation.PostedAt);
+
+        var period = Assert.Single(await PeriodsAsync());
+        Assert.Equal(0m, period.Reserved);
+        Assert.Equal(12m, period.Consumed);
+
+        Assert.Equal(1, await CountLedgerEntriesAsync());
+    }
+
+    /// <summary>
+    /// The refusal USAGE-006 asks for: before the operation runs and before any provider call. Terminal rather
+    /// than requeued — a requeue would burn the attempt bound and then report <c>LeaseAbandoned</c>, which
+    /// names the wrong reason, and would re-ask a question whose answer cannot change until the period resets.
+    /// </summary>
+    [Fact]
+    public async Task An_over_quota_run_fails_before_the_handler_is_ever_called()
+    {
+        await GiveQuotaAsync(allowance: 5m);
+        var operationId = await RequestAsync(WorkspaceA, MembershipA, "key-1", AiTaskType.RecipeConcepts);
+
+        var summary = await RunPendingAsync();
+
+        Assert.Equal(1, summary.Failed);
+        Assert.Equal(0, _handler.Calls);
+
+        var stored = await LoadAsync(operationId);
+        Assert.Equal(AiOperationStatus.Failed, stored.Status);
+        Assert.Equal(AiFailureCategory.Quota, stored.FailureCategory);
+
+        // A refusal spends nothing and bills nothing: no hold, no attempt row, no ledger entry.
+        Assert.Empty(await ReservationsAsync());
+        Assert.Equal(0, await CountExecutionRowsAsync(WorkspaceA));
+        Assert.Equal(0, await CountLedgerEntriesAsync());
+    }
+
+    /// <summary>
+    /// A suspension is its own category, because it has no reset time to offer and asking again cannot change
+    /// the answer (USAGE-007). No period is even opened for it.
+    /// </summary>
+    [Fact]
+    public async Task A_suspended_account_fails_the_run_under_its_own_category()
+    {
+        await GiveQuotaAsync(allowance: 1000m, suspended: true);
+        var operationId = await RequestAsync(WorkspaceA, MembershipA, "key-1", AiTaskType.RecipeConcepts);
+
+        Assert.Equal(1, (await RunPendingAsync()).Failed);
+        Assert.Equal(0, _handler.Calls);
+
+        Assert.Equal(AiFailureCategory.AccountSuspended, (await LoadAsync(operationId)).FailureCategory);
+        Assert.Empty(await PeriodsAsync());
+    }
+
+    /// <summary>
+    /// A diagnostic run never reaches a provider, so it holds nothing and no period is opened for it. Making
+    /// it queue behind an allowance would be a refusal nothing earned.
+    /// </summary>
+    [Fact]
+    public async Task A_diagnostic_run_holds_no_allowance_at_all()
+    {
+        var operationId = await RequestAsync(WorkspaceA, MembershipA, "key-1");
+        _handler.Behavior = (_, _) => Task.FromResult(Success(operationId, WorkspaceA));
+
+        Assert.Equal(1, (await RunPendingAsync()).Proposed);
+
+        Assert.Empty(await ReservationsAsync());
+        Assert.Empty(await PeriodsAsync());
+    }
+
+    /// <summary>
+    /// One person, two workspaces, one allowance. Both runs spend the same period — which is the property
+    /// USAGE-001 asks for and the one the workspace-scoped AI tables structurally cannot express.
+    /// </summary>
+    [Fact]
+    public async Task Two_workspaces_one_account_spend_one_allowance()
+    {
+        await RequestAsync(WorkspaceA, MembershipA, "key-a", AiTaskType.RecipeConcepts);
+        await RequestAsync(WorkspaceB, MembershipAInB, "key-b", AiTaskType.RecipeConcepts);
+
+        _handler.Behavior = (context, _) => Task.FromResult(
+            AiTaskHandlerOutcome.ForProposal(
+                Success(context.OperationId, context.WorkspaceId).Proposal!, [Attempt(inputTokens: 5)]));
+
+        Assert.Equal(2, (await RunPendingAsync()).Proposed);
+
+        // Two memberships, two workspaces, one period — because the quota is keyed by the account behind both.
+        var period = Assert.Single(await PeriodsAsync());
+        Assert.Equal(AccountA, period.AccountId);
+        Assert.Equal(10m, period.Consumed);
+
+        var reservations = await ReservationsAsync();
+        Assert.Equal(2, reservations.Count);
+        Assert.All(reservations, reservation => Assert.Equal(AccountA, reservation.AccountId));
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------
@@ -575,6 +760,76 @@ public sealed class AiOperationWorkerTests : IDisposable
 
         return await db.AiExecutionMetadata.CountAsync(TestContext.Current.CancellationToken);
     }
+
+    /// <summary>
+    /// The quota tables read without a resolved workspace and without <c>IgnoreQueryFilters</c>: nothing in the
+    /// AiUsage module is workspace-owned, so there is no filter to opt out of. That is the property, not a
+    /// convenience of this fixture.
+    /// </summary>
+    private async Task<List<AccountAiQuotaReservation>> ReservationsAsync()
+    {
+        using var scope = _provider.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .AccountAiQuotaReservations.AsNoTracking().ToListAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <inheritdoc cref="ReservationsAsync"/>
+    private async Task<List<AccountAiQuotaPeriod>> PeriodsAsync()
+    {
+        using var scope = _provider.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .AccountAiQuotaPeriods.AsNoTracking().ToListAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <inheritdoc cref="ReservationsAsync"/>
+    private async Task<int> CountLedgerEntriesAsync()
+    {
+        using var scope = _provider.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .AccountAiUsageEntries.CountAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>The terms this fixture's one account is spending under, for the tests that need them set.</summary>
+    private async Task GiveQuotaAsync(decimal allowance, bool suspended = false)
+    {
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.AccountAiQuotas.Add(new AccountAiQuota
+        {
+            Id = Guid.NewGuid(),
+            AccountId = AccountA,
+            Unit = AiQuotaUnit.Credits,
+            Allowance = allowance,
+            PeriodLength = AiQuotaPeriodLength.Monthly,
+            PeriodAnchor = 1,
+            TimeZoneId = "Etc/UTC",
+            CarryOver = AiQuotaCarryOver.None,
+            IsSuspended = suspended,
+            EffectiveFrom = _clock.UtcNow.AddDays(-30),
+            LastChangedAt = _clock.UtcNow.AddDays(-30),
+        });
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>One provider attempt, in the terms a handler hands back.</summary>
+    private AiAttemptRecord Attempt(int inputTokens) => new()
+    {
+        AttemptNumber = 1,
+        ProviderName = "test-provider",
+        ModelName = "test-model",
+        PromptTemplateId = "fixture.worker",
+        PromptTemplateVersion = "1.0.0",
+        StartedAt = _clock.UtcNow,
+        CompletedAt = _clock.UtcNow,
+        LatencyMilliseconds = 10,
+        InputTokens = inputTokens,
+        CorrelationId = Guid.NewGuid(),
+    };
 
     private sealed class MovableClock(DateTimeOffset start) : IClock
     {

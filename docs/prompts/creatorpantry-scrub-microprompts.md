@@ -2126,7 +2126,7 @@ implement with success, retry, timeout, safety-blocked, unreported-usage, duplic
 two-workspaces-one-account tests.
 ```
 
-### 9A.5 Admission check, reservation, and settlement *PICK UP HERE*
+### 9A.5 Admission check, reservation, and settlement
 
 ```text
 SCOPE: Implement deterministic quota admission before any provider call: resolve the account's current period,
@@ -2160,7 +2160,6 @@ regenerate the OpenAPI snapshot and read the diff.
 ```
 
 ### 9A.7 Backfill and reconciliation
-
 ```text
 SCOPE: Add a one-time reconciliation that posts ledger entries for AiExecutionMetadata rows written before this
 phase, plus a repeatable check reporting attempts with no matching entry.
@@ -2223,7 +2222,7 @@ BEHAVIOR: Plan states — loading, healthy, nearly spent, exhausted, suspended, 
 approval, implement with component, contract, at-limit, reset-boundary, and accessibility tests.
 ```
 
-### 9A.11 Account usage audit
+### 9A.11 Account usage audit *PICK UP HERE*
 
 ```text
 SCOPE: Verify that every provider attempt posts exactly one ledger entry, that account totals reconcile across

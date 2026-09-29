@@ -1,0 +1,29 @@
+@if (notice(); as shown) {
+  <!--
+    Two blocks rather than one with a bound role, and that is the whole point: a refusal must be a *newly
+    inserted* alert. A screen reader announces an alert when it appears; changing an existing element's role
+    from status to alert is not reliably honoured — which is exactly the path a creator takes when they were
+    already being warned that the allowance was nearly spent and pressed the button anyway.
+
+    A pre-flight warning is a status: nothing has failed, and interrupting for it would be out of proportion.
+  -->
+  @if (shown.refused) {
+    <div class="notice" [attr.data-kind]="shown.kind" role="alert">
+      <cp-status-pill [tone]="tone()">{{ pillLabel() }}</cp-status-pill>
+
+      <div class="body">
+        <strong>{{ shown.heading }}</strong>
+        <p>{{ shown.detail }}</p>
+      </div>
+    </div>
+  } @else {
+    <div class="notice" [attr.data-kind]="shown.kind" role="status">
+      <cp-status-pill [tone]="tone()">{{ pillLabel() }}</cp-status-pill>
+
+      <div class="body">
+        <strong>{{ shown.heading }}</strong>
+        <p>{{ shown.detail }}</p>
+      </div>
+    </div>
+  }
+}

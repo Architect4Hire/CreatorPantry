@@ -29,6 +29,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
 
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
+    /// <remarks>
+    /// Platform-scoped machine credentials (baseline B-14). Not workspace-owned: an ops client never acts as
+    /// a creator and never holds workspace access, so there is no workspace to own it.
+    /// </remarks>
+    public DbSet<OpsApiClient> OpsApiClients => Set<OpsApiClient>();
+
     public DbSet<Workspace> Workspaces => Set<Workspace>();
 
     /// <remarks>
@@ -39,6 +45,14 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<WorkspaceMembership> WorkspaceMemberships => Set<WorkspaceMembership>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    /// <remarks>
+    /// Platform-scoped and deliberately unfiltered: an action taken outside any workspace has no
+    /// <c>WorkspaceId</c> to filter by. Safe to read that way because the row carries actor identifiers, an
+    /// action code, a reason and compact state pointers, and never creator content — the same argument
+    /// <see cref="CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiUsageEntry"/> makes.
+    /// </remarks>
+    public DbSet<PlatformAuditLog> PlatformAuditLogs => Set<PlatformAuditLog>();
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
@@ -238,6 +252,14 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// been spending against, and stores its boundaries rather than recomputing them from "now".
     /// </remarks>
     public DbSet<AccountAiQuotaPeriod> AccountAiQuotaPeriods => Set<AccountAiQuotaPeriod>();
+
+    /// <remarks>
+    /// One admitted run's hold on an account's allowance (USAGE-004), from admission through to the charge
+    /// landing on its period. The row <see cref="AccountAiQuotaPeriod.Reserved"/> needs to be correct: a
+    /// balance cannot be released once, settled once, or reconciled without something carrying its own
+    /// identity. Counts only and platform-scoped, like the two above it.
+    /// </remarks>
+    public DbSet<AccountAiQuotaReservation> AccountAiQuotaReservations => Set<AccountAiQuotaReservation>();
 
     Guid? IWorkspaceIdSource.CurrentWorkspaceIdOrNull => workspaceContext is { IsResolved: true } context ? context.WorkspaceId : null;
 

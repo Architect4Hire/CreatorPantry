@@ -34,6 +34,14 @@ A browser close, refresh or full navigation cannot be confirmed this way — the
 
 Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color alone. Touch targets should be at least 40px. Dialogs require a title and close action. Form errors remain adjacent to their field and use `role="alert"`. `global.css` honors `prefers-reduced-motion: reduce` for every animation/transition; do not add motion that bypasses it.
 
+## Meters and figures
+
+A meter reads as an amount when the question is "how much have I got" and as a percentage when it is "how far through is this". `CpProgressComponent` does both: `valueText` replaces the percentage figure and is announced as `aria-valuetext`, so a screen reader hears the same words a sighted reader sees rather than a fraction nobody asked for.
+
+Its `tone` colours the fill and does nothing else — it adds no glyph, changes no text and changes no ARIA. That is deliberate: a bar that only changed colour would be status by colour alone. Pair a toned meter with a `CpStatusPillComponent` naming the state in a word, and the meter's colour becomes the quieter half of something already said.
+
+A figure is bold `--cp-font-sans`, not the display face: metrics are read, not declaimed. Put the reading measure on a wrapper free to shrink rather than on the track, where a `max-width` becomes the meter's floor instead of its ceiling.
+
 Toolbar arrow-key navigation (`CpToolbarComponent`) yields the arrow, `Home` and `End` keys to a focused text input, `<select>`, `<textarea>` or contenteditable, so a control in its search slot keeps its own caret and value behavior.
 
 Its "More actions" disclosure appears only when the consumer projects something into `[cpToolbarOverflow]`. A control that opens onto an empty popover is a dead end for every user and a mislabeled target for a screen reader, so an empty slot hides the disclosure entirely — which also drops it out of the roving-tabindex sweep.
