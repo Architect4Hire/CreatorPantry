@@ -4,22 +4,22 @@
   display: block;
 }
 
+/*
+ * No cap on the pane itself: it fills whatever frame it was mounted in, exactly as the recipe calculators
+ * beside it do, and the reading measure is capped per block below instead. A cap here would have made the
+ * advice column visibly narrower than the tool panes sharing its tablist.
+ *
+ * The section heading lives on the `cp-list-shell` frame now, which is why no rule here draws one.
+ */
 .advisory {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-4);
-  max-width: 48rem;
-}
-
-.advisory-heading {
-  margin: 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-lg);
-  color: var(--cp-text);
 }
 
 .advisory-notice {
   margin: 0;
+  max-width: var(--cp-measure-prose);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
 }

@@ -4,23 +4,28 @@
   display: block;
 }
 
+/*
+ * No cap on the pane itself: it fills the tab panel it was mounted in, like the recipe calculators sharing
+ * this tablist, and the reading measure is capped per block below instead.
+ */
 .revision {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-4);
-  max-width: 48rem;
 }
 
+/* The heading treatment every tool pane in the editor uses. Stated in full because an h2 with no declared
+   weight renders at the browser's bold and shouts next to the calculators beside it. */
 .revision-header h2 {
   margin: 0 0 var(--cp-space-2) 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-lg);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
 }
 
 .revision-lede,
 .revision-hint {
   margin: 0;
+  max-width: var(--cp-measure-prose);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
 }
@@ -29,14 +34,37 @@
   font-size: var(--cp-font-size-xs);
 }
 
-.revision-notice {
+/* The reading measure, on the field wrapper rather than the control inside it — see the recipe editor's own
+   note for why capping the control instead widens the field and overflows a narrow pane. */
+.revision cp-field {
+  max-width: var(--cp-measure-field);
+}
+
+/* Something this pane cannot do for you is not something going wrong; only a failure takes the danger tone. */
+.revision-blocked {
   margin: 0;
-  padding: var(--cp-space-3) var(--cp-space-4);
-  border: 1px solid var(--cp-danger);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-danger-soft);
-  color: var(--cp-text);
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
+}
+
+.revision-problem {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Worded and toned exactly as the scaling preview's caveat, because it states the same fact. */
+.revision-caveat {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  color: var(--cp-text);
 }
 
 .revision-sections {
@@ -62,6 +90,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  /* The choices are a control, not prose: capped like a field rather than like a paragraph. */
+  max-width: var(--cp-measure-field);
 }
 
 /*

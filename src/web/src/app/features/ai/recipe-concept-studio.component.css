@@ -1,7 +1,18 @@
 /* Semantic --cp-* tokens only. */
 
+/*
+ * The page frame every other routed section in the shell carries. `<main>` pads only its own page title, so a
+ * routed component with no padding of its own sat flush against the sidebar and the window edge while the
+ * title above it was indented. 90rem is the recipe editor's cap, for the same reason: use a desktop's width,
+ * but do not stretch a line of prose across it — the measure is capped per block below.
+ *
+ * container-type, not a viewport media query, so the layout answers to the space this page actually has and
+ * responds identically to a narrowed window and to 200% zoom.
+ */
 :host {
   display: block;
+  padding: var(--cp-space-8);
+  max-width: 90rem;
   container: cp-recipe-concept-studio / inline-size;
 }
 
@@ -9,60 +20,66 @@
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-5);
-  max-width: 56rem;
-}
-
-.studio-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-2);
-}
-
-.studio-header h2 {
-  margin: 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-xl);
-  color: var(--cp-text);
 }
 
 .studio-intro {
   margin: 0;
-  max-width: 42rem;
+  max-width: var(--cp-measure-prose);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
   line-height: var(--cp-leading-normal);
 }
 
-.studio-notice {
+/*
+ * Three kinds of thing that used to share one bordered box, now told apart the way the recipe calculators tell
+ * them apart: what this page cannot do for you is muted, what it is busy doing is muted, and only a failure
+ * takes the danger tone.
+ */
+.studio-blocked,
+.studio-status {
   margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border-inline-start: 4px solid var(--cp-border-strong);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
-  color: var(--cp-text);
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
 }
 
-.studio-refusal {
+.studio-problem {
   margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border-inline-start: 4px solid var(--cp-danger);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-danger-soft);
-  color: var(--cp-text);
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-danger);
   font-size: var(--cp-font-size-sm);
 }
 
-.studio-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-4);
+/*
+ * The brief is a form, and it is laid out the way every form in this app is laid out: one card, a legend, and
+ * named sections a sentence apart. The rules for a section — heading, intro, server sentence, stacked fields,
+ * reading measure — belong to cp-form-section, and the rules for a row of short fields to cp-field-row, so
+ * nothing here restates them.
+ */
+.brief-card {
+  padding: var(--cp-space-6);
 }
 
-.studio-grid {
+.brief {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--cp-space-3) var(--cp-space-4);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-5);
+  min-width: 0;
+}
+
+.brief-legend {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* space-8 between sections, as in the recipe editor: less than that and two sections read as one. */
+.brief-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
 }
 
 .studio-submit {
@@ -70,11 +87,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-2) var(--cp-space-3);
-}
-
-.studio-submit-note {
-  font-size: var(--cp-font-size-xs);
-  color: var(--cp-text-muted);
 }
 
 .studio-watch,
@@ -99,10 +111,14 @@
   font-size: var(--cp-font-size-sm);
 }
 
+/* Separated from the concepts above it the way the advisory surface separates its own general warnings, so
+   the two AI result surfaces read as one system. */
 .warnings {
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-2);
+  padding-top: var(--cp-space-2);
+  border-top: 1px solid var(--cp-border);
 }
 
 .warnings-title {
@@ -130,9 +146,11 @@
   color: var(--cp-danger);
 }
 
+/* Same `min(...)` floor as the brief's field rows, and for the same reason: a fixed 18rem floor could not
+   shrink, so one card held the grid wider than a narrow page. */
 .concept-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
   gap: var(--cp-space-4);
   margin: 0;
   padding: 0;
@@ -141,8 +159,7 @@
 
 .concept-title {
   margin: 0 0 var(--cp-space-2);
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-lg);
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
 }
 
@@ -173,9 +190,12 @@
   margin-top: var(--cp-space-2);
 }
 
+/*
+ * `minmax(0, 1fr)`, never a bare `1fr`: an `auto` floor is the content's max-content width, so one long
+ * unbroken string in a concept would have held this single column wider than the page (DESIGN-SYSTEM.md).
+ */
 @container cp-recipe-concept-studio (max-width: 30rem) {
-  .studio-grid,
   .concept-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

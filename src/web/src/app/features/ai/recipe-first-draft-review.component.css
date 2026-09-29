@@ -3,8 +3,14 @@
  * below already resolves differently in the two themes because the tokens do.
  */
 
+/*
+ * The page frame every other routed section in the shell carries. `<main>` pads only its own page title,
+ * so a routed component with no padding of its own sat flush against the sidebar and the window edge while
+ * the title above it was indented.
+ */
 :host {
   display: block;
+  padding: var(--cp-space-8);
 }
 
 /*
@@ -19,15 +25,10 @@
   max-width: 62rem;
 }
 
-.draft-header h2 {
-  margin: 0 0 var(--cp-space-2) 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-xl);
-  color: var(--cp-text);
-}
-
+/* The shell's page title is this page's heading; nothing here draws a second one. */
 .draft-lede {
   margin: 0;
+  max-width: var(--cp-measure-prose);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
 }

@@ -44,6 +44,38 @@ A `cp-tabs` may be nested inside another's `cp-tab-panel`; the editor's Tools ar
 
 `CpFieldComponent` sets `box-sizing: border-box` on the control projected into it. The control is `width: 100%` and carries its own padding and a 1px border, so under the default `content-box` every field rendered about 28px wider than the column holding it. That stayed invisible for as long as forms sat in a roomy fixed-width column and surfaced as a horizontal scrollbar the moment one did not.
 
+### The shape of a form
+
+Every form in the app is built the same way, and `RecipeEditorComponent` is the reference because it is where
+the shape was worked out. A form is a **card**, a **legend**, and **named sections** stacked `--cp-space-8`
+apart. Nothing about that lives in a feature's stylesheet any more: a section is a
+**`CpFormSectionComponent`**, and a line of short fields inside one is a **`CpFieldRowComponent`**.
+
+A section carries four things and a consumer supplies them as inputs, never as markup: a `heading`, an
+optional `intro` of one sentence, an optional `problem` — the server's word on the whole part when it refused
+— and the fields projected into it. The section names itself from its own heading, and while a problem is
+showing it is described by it, so a form that moves focus to a refused section reads the heading and then the
+reason. `sectionId` gives the `<section>` an id for a form that scrolls or focuses it; it is already
+`tabindex="-1"`, and never in the tab order.
+
+**Fields stack, one per line, each capped at `--cp-measure-field`.** That is the default and it is most of
+what a form is: a single column of controls at a readable width, with the rest of the card left empty beside
+them. Empty space to the right of a field is the layout working, not a gap to fill — a control stretched to a
+card's full width is harder to scan and no easier to fill in.
+
+A `cp-field-row` is the exception, not the tool for tidying a long form. It is for values that are short *and*
+read as one set: three durations, a quantity and its unit. Prose, lists and anything with a `textarea` stay
+stacked, however many of them there are — `Description` and `Headnote` sit one above the other in the recipe
+editor for that reason, and four comma-separated list fields belong in a column too. Widen `minColumn` when a
+row's fields need more room than the 14rem floor.
+
+A field projected straight into a section is capped at the measure; a field inside a *component* projected
+there is that component's business and is left alone, which is why the measure rule stops at a direct child.
+
+Optionality is stated once, in a legend above the sections, never field by field: marking one optional field
+among a dozen unmarked ones makes the rest read as required. Which way round the legend runs depends on the
+form — the recipe editor marks its three required fields, the AI brief says every field is optional.
+
 ### Fitting a form into the width it has
 
 Two CSS traps cost real time here, both worth recognising rather than rediscovering.

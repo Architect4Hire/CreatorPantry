@@ -193,9 +193,7 @@
             <!-- Three sections rather than three more tabs: each is short, and they are read together when
                  a creator is setting a recipe up. -->
             <div class="tab-sections">
-      <section id="section-details" class="editor-section" aria-labelledby="heading-details" tabindex="-1">
-        <h2 id="heading-details" class="section-heading">Details</h2>
-        <p class="section-intro">The essentials creators see first.</p>
+      <cp-form-section sectionId="section-details" heading="Details" intro="The essentials creators see first.">
 
         <cp-field label="Title" forId="recipe-title" [required]="true" [error]="fieldError('title')">
           <input
@@ -291,13 +289,13 @@
             <button cpButton variant="secondary" type="button" (click)="addTag()">Add tag</button>
           </div>
         </cp-field>
-      </section>
+      </cp-form-section>
 
-      <section id="section-notes" class="editor-section" aria-labelledby="heading-notes" tabindex="-1">
-        <h2 id="heading-notes" class="section-heading">Notes</h2>
-        <p class="section-intro">Extra context for future you, and for other creators in this workspace.</p>
-        <div class="field-row">
-
+      <cp-form-section
+        sectionId="section-notes"
+        heading="Notes"
+        intro="Extra context for future you, and for other creators in this workspace."
+      >
         <cp-field label="Notes" forId="recipe-notes" [error]="fieldError('notes')">
           <textarea
             id="recipe-notes"
@@ -317,18 +315,19 @@
             name="storageNotes"
           ></textarea>
         </cp-field>
-        </div>
-      </section>
+      </cp-form-section>
 
-      <section id="section-timing" class="editor-section" aria-labelledby="heading-timing" tabindex="-1">
-        <h2 id="heading-timing" class="section-heading">Timing</h2>
-        <p class="section-intro">How long it takes. The total is added up from the three parts.</p>
+      <cp-form-section
+        sectionId="section-timing"
+        heading="Timing"
+        intro="How long it takes. The total is added up from the three parts."
+      >
 
         @if (totalTimeReplacementNote(); as note) {
           <p class="total-time-replacement">{{ note }}</p>
         }
 
-        <div class="field-row">
+        <cp-field-row>
 
         <cp-field label="Prep time (minutes)" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
           <input
@@ -394,20 +393,19 @@
           </output>
         </cp-field>
 
-        </div>
-      </section>
+        </cp-field-row>
+      </cp-form-section>
 
       <!-- Its own section rather than four more cells in the timing grid. Two things were wrong with that:
            yield fields interleaved with time fields in one auto-fitting row, and — the substantive one — the
            only structured amount a recipe could record was a measured batch, so a creator had no way at all to
            say how many people it feeds. "Serves" is that field, and it is first here because it is the yield
            most recipes state. -->
-      <section id="section-yield" class="editor-section" aria-labelledby="heading-yield" tabindex="-1">
-        <h2 id="heading-yield" class="section-heading">Yield</h2>
-        <p class="section-intro">
-          What the recipe makes. Your own wording is the yield; the numbers beneath it are additional, and only
-          needed for scaling.
-        </p>
+      <cp-form-section
+        sectionId="section-yield"
+        heading="Yield"
+        intro="What the recipe makes. Your own wording is the yield; the numbers beneath it are additional, and only needed for scaling."
+      >
 
         <cp-field
           label="Yield, in your own words"
@@ -426,7 +424,7 @@
           />
         </cp-field>
 
-        <div class="field-row">
+        <cp-field-row>
 
         <cp-field
           label="Serves"
@@ -517,32 +515,21 @@
             name="servingSize"
           />
         </cp-field>
-        </div>
-      </section>
+        </cp-field-row>
+      </cp-form-section>
             </div>
           </cp-tab-panel>
 
           <cp-tab-panel id="ingredients">
-      <!-- aria-describedby as well as role="alert": the section is what `revealFirstFieldError` focuses, so the
-           problem has to be part of what is read on arrival, and the alert is what announces it to a creator
-           already looking at this tab. The same pairing CpFieldComponent uses for an ordinary field. -->
-      <section
-        id="section-ingredients"
-        class="editor-section"
-        aria-labelledby="heading-ingredients"
-        [attr.aria-describedby]="sectionProblem('ingredientGroups') ? 'problem-ingredients' : null"
-        tabindex="-1"
+      <!-- The problem goes to the section rather than being drawn here: cp-form-section announces it and
+           describes the section by it, so the section revealFirstFieldError focuses reads its heading and then
+           the reason on arrival. The same pairing CpFieldComponent uses for an ordinary field. -->
+      <cp-form-section
+        sectionId="section-ingredients"
+        heading="Ingredients"
+        [problem]="sectionProblem('ingredientGroups') ?? ''"
+        intro="Paste ingredient lines to get a parsed proposal, or add and edit them directly. Ingredient edits save together with the rest of the recipe when you select Save."
       >
-        <h2 id="heading-ingredients" class="section-heading">Ingredients</h2>
-
-        @if (sectionProblem('ingredientGroups'); as problem) {
-          <p id="problem-ingredients" class="section-problem" role="alert">{{ problem }}</p>
-        }
-
-        <p class="section-intro">
-          Paste ingredient lines to get a parsed proposal, or add and edit them directly. Ingredient edits save
-          together with the rest of the recipe when you select Save.
-        </p>
         <cp-recipe-ingredient-editor
           [workspaceSlug]="workspaceSlug"
           [initialGroups]="ingredientGroups()"
@@ -550,24 +537,20 @@
           [groupErrors]="ingredientGroupErrors()"
           (groupsChanged)="onIngredientGroupsChanged($event)"
         />
-      </section>
+      </cp-form-section>
           </cp-tab-panel>
 
           <cp-tab-panel id="instructions">
-      <!-- The same pairing as the Ingredients section above, for the method's own one sentence. -->
-      <section
-        id="section-instructions"
-        class="editor-section"
-        aria-labelledby="heading-instructions"
-        [attr.aria-describedby]="sectionProblem('instructions') ? 'problem-instructions' : null"
-        tabindex="-1"
+      <!-- The same pairing as the Ingredients section above, for the method's own one sentence. The class is
+           what the container query below hangs off: the id belongs to the inner section this component draws,
+           which this stylesheet cannot reach. -->
+      <cp-form-section
+        class="instructions-section"
+        sectionId="section-instructions"
+        heading="Instructions"
+        [problem]="sectionProblem('instructions') ?? ''"
+        intro="The method, step by step."
       >
-        <h2 id="heading-instructions" class="section-heading">Instructions</h2>
-
-        @if (sectionProblem('instructions'); as problem) {
-          <p id="problem-instructions" class="section-problem" role="alert">{{ problem }}</p>
-        }
-        <p class="section-intro">The method, step by step.</p>
 
         @if (instructionGroups().length === 0) {
           <p class="muted">No instructions yet. Add the first step, and give the method phases only if it has them.</p>
@@ -748,7 +731,7 @@
         </div>
 
         <button cpButton type="button" (click)="addInstructionGroup()">Add instruction group</button>
-      </section>
+      </cp-form-section>
           </cp-tab-panel>
         </cp-tabs>
       </cp-tab-panel>
@@ -832,6 +815,7 @@
               [workspaceSlug]="workspaceSlug"
               [recipeId]="recipeIdOrEmpty"
               [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
             />
           }
         </cp-tab-panel>
@@ -844,6 +828,7 @@
               [workspaceSlug]="workspaceSlug"
               [recipeId]="recipeIdOrEmpty"
               [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
             />
           }
         </cp-tab-panel>
@@ -856,6 +841,7 @@
               [workspaceSlug]="workspaceSlug"
               [recipeId]="recipeIdOrEmpty"
               [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
               [ingredientGroups]="ingredientGroups()"
             />
           }
@@ -868,6 +854,7 @@
               [workspaceSlug]="workspaceSlug"
               [recipeId]="recipeIdOrEmpty"
               [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
             />
           }
         </cp-tab-panel>

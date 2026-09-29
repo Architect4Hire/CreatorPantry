@@ -1,17 +1,19 @@
 @let d = draft();
 
-<section class="draft-review" aria-labelledby="cp-draft-heading">
-  <header class="draft-header">
-    <h2 id="cp-draft-heading">Recipe first draft</h2>
-    <!--
-      Said once, plainly, at the top. Every state below repeats some form of it, because a creator may read
-      only one of them — but this is the line the whole page rests on.
-    -->
-    <p class="draft-lede">
-      A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this
-      page is saved.
-    </p>
-  </header>
+<!--
+  No heading of its own. The shell renders the page's `h1` from this route's `data.title` ("Recipe first
+  draft"), and a second heading repeating it word for word gave the page two names — the recipe library's
+  pattern, which lets the shell own the title, is the one followed here.
+-->
+<div class="draft-review">
+  <!--
+    Said once, plainly, at the top. Every state below repeats some form of it, because a creator may read
+    only one of them — but this is the line the whole page rests on.
+  -->
+  <p class="draft-lede">
+    A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this
+    page is saved.
+  </p>
 
   @if (state() === 'idle') {
     <cp-empty-state
@@ -338,7 +340,7 @@
       </div>
     }
   }
-</section>
+</div>
 
 <!--
   Keeping watch, or being told this page has stopped. Rendered both before a status has arrived and after,

@@ -153,7 +153,7 @@
 }
 
 .recipe-warning {
-  max-width: 68ch;
+  max-width: var(--cp-measure-prose);
 }
 
 /* The same orange the warning status pill uses, so one caution does not read as two different kinds. */
@@ -219,7 +219,7 @@
 /* The apply that is not offered, and why. Text rather than an absent control. */
 .apply-unavailable {
   margin: var(--cp-space-3) 0 0;
-  max-width: 68ch;
+  max-width: var(--cp-measure-prose);
   font-size: var(--cp-font-size-xs);
   color: var(--cp-text-muted);
 }

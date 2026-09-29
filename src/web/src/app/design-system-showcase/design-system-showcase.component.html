@@ -405,6 +405,56 @@
       <button cpButton variant="danger" size="sm" (click)="pushToast('error')">Push error</button>
     </div>
   </section>
+
+  <section aria-labelledby="form-section-heading">
+    <h2 id="form-section-heading">Form section</h2>
+    <p class="section-note">
+      One named part of a form: a heading, a sentence under it, the server's word on the whole part when it
+      refuses, and the fields themselves. Every form in the app is built from these, stacked a
+      <code>--cp-space-8</code> apart, so a long form reads as named parts rather than a wall of boxes.
+    </p>
+    <p class="section-note">
+      The section names itself from its own heading and, while a problem is showing, is described by it — so a
+      form that moves focus here on a refusal reads the heading and then the reason. Fields projected straight
+      into it are capped at <code>--cp-measure-field</code>; a field inside a component projected here is left
+      to that component. Short fields share a line by going into a <code>cp-field-row</code>.
+    </p>
+
+    <div class="showcase-form">
+      <cp-form-section heading="Details" intro="The essentials creators see first.">
+        <cp-field label="Title" forId="showcase-section-title" [required]="true">
+          <input id="showcase-section-title" placeholder="Creamy roasted tomato soup" />
+        </cp-field>
+        <cp-field label="Description" forId="showcase-section-description">
+          <textarea id="showcase-section-description" placeholder="What this recipe is, in a line or two"></textarea>
+        </cp-field>
+      </cp-form-section>
+
+      <cp-form-section heading="Timing" intro="How long it takes. The total is added up from the three parts.">
+        <cp-field-row>
+          <cp-field label="Prep time (minutes)" forId="showcase-section-prep">
+            <input id="showcase-section-prep" type="number" min="0" value="15" />
+          </cp-field>
+          <cp-field label="Cook time (minutes)" forId="showcase-section-cook">
+            <input id="showcase-section-cook" type="number" min="0" value="40" />
+          </cp-field>
+          <cp-field label="Rest time (minutes)" forId="showcase-section-rest">
+            <input id="showcase-section-rest" type="number" min="0" value="0" />
+          </cp-field>
+        </cp-field-row>
+      </cp-form-section>
+
+      <cp-form-section
+        heading="Ingredients"
+        intro="What the recipe is made of."
+        problem="Line 3 has no quantity, so it could not be saved."
+      >
+        <cp-field label="First line" forId="showcase-section-ingredient">
+          <input id="showcase-section-ingredient" value="2 cups plum tomatoes" />
+        </cp-field>
+      </cp-form-section>
+    </div>
+  </section>
 </main>
 
 <cp-toast-region [toasts]="toasts()" (dismissed)="onToastDismissed($event)" />

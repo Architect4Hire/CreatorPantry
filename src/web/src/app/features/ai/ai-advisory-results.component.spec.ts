@@ -196,4 +196,49 @@ describe('AiAdvisoryResultsComponent', () => {
     const headingId = section.getAttribute('aria-labelledby')!;
     expect(document.getElementById(headingId)?.textContent).toContain('Substitution advice');
   });
+
+  // ---- the results frame -----------------------------------------------------------------------------
+
+  it('reads its results through the shared list frame, which owns the heading', () => {
+    const root = render(operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'oat milk' })]));
+
+    const shell = root.querySelector('cp-list-shell');
+    expect(shell).not.toBeNull();
+    expect(shell?.querySelector('h2')?.textContent).toContain('Substitution advice');
+    expect(fixture.componentInstance.listState()).toBe('ready');
+  });
+
+  it('is still loading while the operation is running, rather than empty', () => {
+    render({
+      aiProposalRequestId: 'op1',
+      status: 'Running',
+      taskType: 'IngredientSubstitution',
+      scope: 'Advisory',
+      sourceVersionId: 'v1',
+      requestedAt: '2026-09-28T14:00:00Z',
+      statusChangedAt: '2026-09-28T14:01:00Z',
+      failureCategory: null,
+      proposal: null,
+    });
+
+    expect(fixture.componentInstance.listState()).toBe('loading');
+  });
+
+  it('reports a request that did not finish as an error, never as "nothing to say"', () => {
+    const root = render({
+      aiProposalRequestId: 'op1',
+      status: 'Failed',
+      taskType: 'IngredientSubstitution',
+      scope: 'Advisory',
+      sourceVersionId: 'v1',
+      requestedAt: '2026-09-28T14:00:00Z',
+      statusChangedAt: '2026-09-28T14:01:00Z',
+      failureCategory: 'Provider',
+      proposal: null,
+    });
+
+    expect(fixture.componentInstance.listState()).toBe('error');
+    expect(root.querySelector('cp-list-shell')?.textContent).toContain("didn't finish");
+    expect(root.querySelector('cp-empty-state')).toBeNull();
+  });
 });

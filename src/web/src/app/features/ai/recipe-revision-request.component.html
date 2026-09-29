@@ -7,8 +7,19 @@
     </p>
   </header>
 
+  <!-- The same fact the calculators in this tablist state: the request is pinned to the last saved version, so
+       edits still sitting in the editor are not what the model reads. -->
+  @if (editorIsDirty()) {
+    <p class="revision-caveat">
+      <cp-status-pill tone="warning" role="status">Unsaved edits aren't included</cp-status-pill>
+      <span>
+        This works from the recipe as last saved. Save your edits and ask again to have them taken into account.
+      </span>
+    </p>
+  }
+
   @if (state() === 'forbidden') {
-    <p class="revision-notice" role="alert">Your role in this workspace cannot ask for a revision.</p>
+    <p class="revision-blocked" role="status">Your role in this workspace cannot ask for a revision.</p>
   } @else if (state() === 'watching') {
     <!--
       The proposal panel reviews, edits and decides. A revision produces an ordinary diff against the pinned
@@ -71,7 +82,7 @@
     </cp-field>
 
     @if (refusal(); as message) {
-      <p class="revision-notice" role="alert">{{ message }}</p>
+      <p class="revision-problem" role="alert">{{ message }}</p>
     }
 
     <div class="revision-actions">

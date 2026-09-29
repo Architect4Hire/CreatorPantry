@@ -15,6 +15,10 @@
   --cp-font-size-2xl: clamp(2.125rem, 4vw, 3.5rem);
   --cp-leading-tight: 1.1;
   --cp-leading-normal: 1.5;
+  /* Reading measures. A form control is read in short bursts and may hold a number; a paragraph is read as
+     prose. Both are ch-based, so they follow the font rather than fighting it. */
+  --cp-measure-field: 60ch;
+  --cp-measure-prose: 68ch;
   --cp-space-1: .25rem;
   --cp-space-2: .5rem;
   --cp-space-3: .75rem;

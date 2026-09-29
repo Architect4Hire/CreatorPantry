@@ -7,8 +7,19 @@
     </p>
   </header>
 
+  <!-- The same fact the calculators in this tablist state, and for the same reason: the request is pinned to
+       the last saved version, so edits still sitting in the editor are not what the model reads. -->
+  @if (editorIsDirty()) {
+    <p class="substitution-caveat">
+      <cp-status-pill tone="warning" role="status">Unsaved edits aren't included</cp-status-pill>
+      <span>
+        This asks about the recipe as last saved. Save your edits and ask again to have them taken into account.
+      </span>
+    </p>
+  }
+
   @if (state() === 'forbidden') {
-    <p class="substitution-notice" role="alert">Your role in this workspace cannot ask for substitution advice.</p>
+    <p class="substitution-blocked" role="status">Your role in this workspace cannot ask for substitution advice.</p>
   } @else if (state() === 'watching') {
     <cp-ai-advisory-results
       [operation]="operation()"
@@ -59,7 +70,7 @@
     </cp-field>
 
     @if (refusal(); as message) {
-      <p class="substitution-notice" role="alert">{{ message }}</p>
+      <p class="substitution-problem" role="alert">{{ message }}</p>
     }
 
     <div class="substitution-actions">

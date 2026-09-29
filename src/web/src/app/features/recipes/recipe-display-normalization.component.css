@@ -7,7 +7,7 @@
 
 .calculation-heading {
   margin: 0 0 var(--cp-space-2);
-  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
 }
 
@@ -90,7 +90,7 @@
 
 .canonical-value,
 .display-value {
-  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
   font-variant-numeric: tabular-nums;
 }
 
@@ -138,7 +138,7 @@
   grid-template-columns: auto 1fr;
   gap: var(--cp-space-2);
   margin: 0 0 var(--cp-space-3);
-  max-width: 68ch;
+  max-width: var(--cp-measure-prose);
   font-size: var(--cp-font-size-sm);
   color: var(--cp-text);
 }
@@ -157,7 +157,7 @@
 /* The apply that is not offered, and why. Text rather than an absent control. */
 .apply-unavailable {
   margin: var(--cp-space-3) 0 0;
-  max-width: 68ch;
+  max-width: var(--cp-measure-prose);
   font-size: var(--cp-font-size-xs);
   color: var(--cp-text-muted);
 }

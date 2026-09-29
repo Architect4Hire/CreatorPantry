@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CpButtonComponent, CpCardComponent, CpFieldComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpFieldComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiOperationScope } from '../../models/ai-proposal.models';
@@ -41,7 +41,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
 @Component({
   selector: 'cp-recipe-revision-request',
   standalone: true,
-  imports: [FormsModule, AiProposalPanelComponent, CpButtonComponent, CpCardComponent, CpFieldComponent],
+  imports: [FormsModule, AiProposalPanelComponent, CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
   templateUrl: './recipe-revision-request.component.html',
   styleUrl: './recipe-revision-request.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -58,6 +58,13 @@ export class RecipeRevisionRequestComponent {
    * moved past — the server refuses that, but late and after a wait.
    */
   readonly currentVersionId = input.required<string>();
+
+  /**
+   * Whether the editor hosting this pane has unsaved changes. The request is pinned to `currentVersionId`, so
+   * anything still unsaved is not what the model reads — and a creator is told so rather than left to work it
+   * out. The same input, and the same caveat, the recipe calculators in this tablist already carry.
+   */
+  readonly editorIsDirty = input(false);
 
   /** A revision was decided. Carries the server's reply, including the version it wrote. */
   readonly decided = output<unknown>();

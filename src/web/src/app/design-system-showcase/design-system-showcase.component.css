@@ -160,3 +160,11 @@ code {
   padding: var(--cp-space-2) var(--cp-space-3);
   border-bottom: 1px solid var(--cp-border);
 }
+
+/* The form-section sample: sections a space-8 apart, exactly as a real form stacks them. */
+.showcase-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
+}

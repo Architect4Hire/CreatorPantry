@@ -1,5 +1,5 @@
 <section class="calculation" [attr.aria-labelledby]="headingId">
-  <h3 class="calculation-heading" [id]="headingId">Yield and portions</h3>
+  <h2 class="calculation-heading" [id]="headingId">Yield and portions</h2>
   <p class="calculation-intro">
     A preview only — nothing here is saved, and your recipe is unchanged by having its yield reconciled.
   </p>
@@ -175,7 +175,7 @@
       </dl>
 
       @if (hasPan()) {
-        <h4 class="result-subheading">Pan comparison</h4>
+        <h3 class="result-subheading">Pan comparison</h3>
 
         @if (panComparable()) {
           <dl class="result-detail">
@@ -210,7 +210,7 @@
       <!-- Writes exactly one field through the ordinary update seam, after an explicit confirmation. -->
       <div class="apply">
         @if (applyDiff(); as diff) {
-          <h4 class="result-subheading">What would change</h4>
+          <h3 class="result-subheading">What would change</h3>
           <dl class="apply-diff">
             <dt>Recipe yield quantity</dt>
             <dd>

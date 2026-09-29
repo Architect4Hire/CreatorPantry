@@ -1,6 +1,4 @@
-<section class="advisory" [attr.aria-labelledby]="headingId">
-  <h2 [id]="headingId" class="advisory-heading">{{ heading() }}</h2>
-
+<div class="advisory">
   @if (operation(); as op) {
     <cp-ai-operation-status
       [status]="op.status"
@@ -14,44 +12,56 @@
       <p class="advisory-notice" role="status">
         This is advice for you to judge — nothing here changes the recipe. Nothing is applied automatically.
       </p>
+    }
 
-      @if (items().length === 0) {
+    <!-- The frame every other read-only result surface in this app reads through, so loading, error, empty and
+         ready are the shell's states rather than four hand-rolled branches (frontend.md). It also owns the
+         section's heading and accessible name, which is why nothing here declares either. -->
+    <cp-list-shell
+      [heading]="heading()"
+      [state]="listState()"
+      [errorMessage]="errorMessage()"
+      [emptyMessage]="'No ' + itemNounPlural() + ' this time.'"
+    >
+      <div cpListShellEmpty>
         <cp-empty-state
           [title]="'No ' + itemNounPlural() + ' this time'"
           description="Nothing needed saying. See the note below for why."
           icon="○"
           variant="no-results"
         />
-      } @else {
-        <ul class="advisory-items" role="list">
-          @for (item of items(); track item.targetId) {
-            <li class="advisory-item" [class.has-caution]="item.hasSafetyCaution">
-              <h3 class="advisory-item-summary">{{ item.summary }}</h3>
+      </div>
 
-              @if (item.fields.length > 0) {
-                <dl class="advisory-item-fields">
-                  @for (field of item.fields; track field.key) {
-                    <dt>{{ field.label }}</dt>
-                    <dd>{{ field.value }}</dd>
-                  }
-                </dl>
-              }
+      <ul class="advisory-items" role="list">
+        @for (item of items(); track item.targetId) {
+          <li class="advisory-item" [class.has-caution]="item.hasSafetyCaution">
+            <h3 class="advisory-item-summary">{{ item.summary }}</h3>
 
-              @if (item.warnings.length > 0) {
-                <ul class="advisory-item-warnings" role="list">
-                  @for (warning of item.warnings; track $index) {
-                    <li [class.is-caution]="warning.kind === 'SafetyCaution'">
-                      <span class="advisory-warning-kind">{{ warningLabel(warning.kind) }}:</span>
-                      {{ warning.message }}
-                    </li>
-                  }
-                </ul>
-              }
-            </li>
-          }
-        </ul>
-      }
+            @if (item.fields.length > 0) {
+              <dl class="advisory-item-fields">
+                @for (field of item.fields; track field.key) {
+                  <dt>{{ field.label }}</dt>
+                  <dd>{{ field.value }}</dd>
+                }
+              </dl>
+            }
 
+            @if (item.warnings.length > 0) {
+              <ul class="advisory-item-warnings" role="list">
+                @for (warning of item.warnings; track $index) {
+                  <li [class.is-caution]="warning.kind === 'SafetyCaution'">
+                    <span class="advisory-warning-kind">{{ warningLabel(warning.kind) }}:</span>
+                    {{ warning.message }}
+                  </li>
+                }
+              </ul>
+            }
+          </li>
+        }
+      </ul>
+    </cp-list-shell>
+
+    @if (hasProposal()) {
       @if (generalWarnings().length > 0) {
         <div class="advisory-general-warnings">
           <h3 class="advisory-general-heading">About this {{ itemNoun() }} request</h3>
@@ -87,4 +97,4 @@
       }
     }
   }
-</section>
+</div>

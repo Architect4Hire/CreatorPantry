@@ -224,7 +224,27 @@ describe('RecipeReviewRequestComponent', () => {
     render('Viewer');
 
     expect(fixture.componentInstance.state()).toBe('forbidden');
-    expect(element().querySelector('[role="alert"]')?.textContent).toContain('cannot ask for a review');
+    expect(element().querySelector('.review-blocked[role="status"]')?.textContent).toContain('cannot ask for a review');
     expect(service.calls.length).toBe(0);
+  }));
+
+  // ---- the version this reads ------------------------------------------------------------------------
+
+  it('says nothing about unsaved edits when the editor has none', fakeAsync(() => {
+    render();
+
+    expect(element().querySelector('.review-caveat')).toBeNull();
+  }));
+
+  it('says the request works from the last saved version while the editor is dirty', fakeAsync(() => {
+    render();
+
+    fixture.componentRef.setInput('editorIsDirty', true);
+    settle();
+
+    const caveat = element().querySelector('.review-caveat');
+    expect(caveat).not.toBeNull();
+    expect(caveat?.textContent).toContain("Unsaved edits aren't included");
+    expect(caveat?.querySelector('cp-status-pill')).not.toBeNull();
   }));
 });

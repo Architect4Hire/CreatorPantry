@@ -21,6 +21,7 @@ import {
   CpDiffLegendComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
+  CpStatusPillComponent,
   cpDiffGlyph,
   cpDiffLabel,
 } from '@creator-pantry/ui';
@@ -284,6 +285,7 @@ let nextInstance = 0;
     CpDiffLegendComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
+    CpStatusPillComponent,
   ],
   templateUrl: './ai-proposal-panel.component.html',
   styleUrl: './ai-proposal-panel.component.css',

@@ -2,7 +2,13 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
-import { CpButtonComponent, CpComboboxComponent, CpComboboxOption, CpFieldComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpComboboxComponent,
+  CpComboboxOption,
+  CpFieldComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiProposalStatus, isTerminalAiStatus } from '../../models/ai-proposal.models';
@@ -50,7 +56,14 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
 @Component({
   selector: 'cp-recipe-substitution-request',
   standalone: true,
-  imports: [FormsModule, AiAdvisoryResultsComponent, CpButtonComponent, CpComboboxComponent, CpFieldComponent],
+  imports: [
+    FormsModule,
+    AiAdvisoryResultsComponent,
+    CpButtonComponent,
+    CpComboboxComponent,
+    CpFieldComponent,
+    CpStatusPillComponent,
+  ],
   templateUrl: './recipe-substitution-request.component.html',
   styleUrl: './recipe-substitution-request.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,6 +73,13 @@ export class RecipeSubstitutionRequestComponent {
   readonly recipeId = input.required<string>();
   readonly currentVersionId = input.required<string>();
   readonly ingredientGroups = input.required<readonly RecipeIngredientGroup[]>();
+
+  /**
+   * Whether the editor hosting this pane has unsaved changes. The request is pinned to `currentVersionId`, so
+   * anything still unsaved is not what the model reads — and a creator is told so rather than left to work it
+   * out. The same input, and the same caveat, the recipe calculators in this tablist already carry.
+   */
+  readonly editorIsDirty = input(false);
 
   readonly decided = output<void>();
 

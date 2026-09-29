@@ -9,7 +9,7 @@
            showing and undecided" rather than from a list of states, so a proposal that expires while waiting —
            which keeps its suggestions — cannot lose the chip. -->
       @if (proposal() !== null && state() !== 'decided') {
-        <p class="panel-unsaved">Not saved to your recipe yet.</p>
+        <cp-status-pill class="panel-unsaved" tone="warning" role="status">Not saved to your recipe yet</cp-status-pill>
       }
     </header>
 

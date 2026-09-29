@@ -7,7 +7,7 @@
 
 .calculation-heading {
   margin: 0 0 var(--cp-space-2);
-  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
 }
 
@@ -136,7 +136,7 @@
   grid-template-columns: auto 1fr;
   gap: var(--cp-space-2);
   margin: 0 0 var(--cp-space-3);
-  max-width: 68ch;
+  max-width: var(--cp-measure-prose);
   font-size: var(--cp-font-size-sm);
   color: var(--cp-text);
 }
@@ -193,7 +193,7 @@
 
 .apply-blocked {
   margin: 0;
-  max-width: 68ch;
+  max-width: var(--cp-measure-prose);
   font-size: var(--cp-font-size-xs);
   color: var(--cp-text-muted);
 }

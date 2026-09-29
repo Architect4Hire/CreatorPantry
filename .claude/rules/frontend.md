@@ -25,6 +25,13 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
 - The browser calls relative BFF routes with credentials; no direct internal API URLs.
 - Every data surface has loading, empty, degraded, error, and success states.
 - Preserve unsaved creator edits through recoverable errors and navigation warnings.
+- A form is a card, a legend, and named sections a `--cp-space-8` apart, built from `CpFormSectionComponent`.
+  A feature stylesheet that redraws a form heading, a section intro, a section-level server error or a field
+  row is a defect. Optionality is stated once in the legend, never field by field.
+- Fields stack one per line at `--cp-measure-field`, and the space left beside them is the layout working.
+  `CpFieldRowComponent` is the exception, for values that are short *and* read as one set — three durations, a
+  quantity and its unit. Prose, lists and anything with a `textarea` stay stacked however many there are.
+  `RecipeEditorComponent` is the reference; `src/web/DESIGN-SYSTEM.md` has the rules.
 - A form that one Save writes keeps dirty state and validation per form, never per panel: an edit in a tab that
   is not showing still counts and still submits, and a field error selects the tab holding it before scrolling
   to and focusing the field. A panel that mounts lazily must not be able to swallow either.

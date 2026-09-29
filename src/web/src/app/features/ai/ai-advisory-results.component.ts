@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CpEmptyStateComponent } from '@creator-pantry/ui';
+import { CpEmptyStateComponent, CpListShellComponent, CpListShellState } from '@creator-pantry/ui';
 
 import { AiProposalStatus, AiProposalWarning, AiWarningKind } from '../../models/ai-proposal.models';
 import { AiOperationStatusComponent, AiStatusConnection } from './ai-operation-status.component';
@@ -57,19 +57,16 @@ export interface AiAdvisoryItem {
 @Component({
   selector: 'cp-ai-advisory-results',
   standalone: true,
-  imports: [AiOperationStatusComponent, CpEmptyStateComponent],
+  imports: [AiOperationStatusComponent, CpEmptyStateComponent, CpListShellComponent],
   templateUrl: './ai-advisory-results.component.html',
   styleUrl: './ai-advisory-results.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiAdvisoryResultsComponent {
-  private static nextInstance = 0;
-  readonly headingId = `cp-ai-advisory-heading-${AiAdvisoryResultsComponent.nextInstance++}`;
-
   readonly operation = input<AiProposalStatus | null>(null);
   readonly connection = input<AiStatusConnection>('live');
 
-  /** The section's own accessible name — "Substitution advice", "Review findings". */
+  /** The results frame's heading, and through it the section's accessible name — "Substitution advice". */
   readonly heading = input.required<string>();
 
   /** What one item is called in this capability's own words — "substitution", "finding". */
@@ -147,4 +144,25 @@ export class AiAdvisoryResultsComponent {
 
   /** Whether there is a proposal to read at all — `Proposed` or later, never earlier. */
   readonly hasProposal = computed(() => this.operation()?.proposal != null);
+
+  /**
+   * The results frame's state, so loading, error, empty and ready are structural rather than four hand-rolled
+   * branches (frontend.md). `Failed` and `Expired` are errors here even though `cp-ai-operation-status` above
+   * already names them: the frame is a data surface in its own right, and a shell left on "loading" for an
+   * operation that has stopped would be saying something untrue about it.
+   */
+  readonly listState = computed<CpListShellState>(() => {
+    const operation = this.operation();
+    if (operation === null) return 'loading';
+    if (operation.status === 'Failed' || operation.status === 'Expired') return 'error';
+    if (!this.hasProposal()) return 'loading';
+    return this.items().length === 0 ? 'empty' : 'ready';
+  });
+
+  /** Short and factual; the status component above carries the detail and the failure category. */
+  readonly errorMessage = computed(() =>
+    this.operation()?.status === 'Expired'
+      ? 'This request expired before an answer came back. Nothing was changed.'
+      : "This request didn't finish, so there is nothing to read. Nothing was changed.",
+  );
 }

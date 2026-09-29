@@ -230,7 +230,7 @@ describe('RecipeConceptStudioComponent', () => {
   it('disables the form and explains why for a Viewer', fakeAsync(() => {
     render('Viewer');
 
-    expect(element().querySelector('[role="alert"]')?.textContent).toContain('does not permit');
+    expect(element().querySelector('.studio-blocked[role="status"]')?.textContent).toContain('does not permit');
     expect(buttonWith('Get concepts').disabled).toBeTrue();
   }));
 
@@ -274,7 +274,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     click('Get concepts');
 
-    expect(element().querySelector('.studio-refusal')?.textContent).toContain('switched off');
+    expect(element().querySelector('.studio-problem')?.textContent).toContain('switched off');
   }));
 
   it('reports an unreachable server without losing what was typed', fakeAsync(() => {
@@ -284,7 +284,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     click('Get concepts');
 
-    expect(element().querySelector('.studio-refusal')?.textContent).toContain("Couldn't reach the server");
+    expect(element().querySelector('.studio-problem')?.textContent).toContain("Couldn't reach the server");
     expect(input('concept-audience').value).toBe('Weeknight home cooks');
   }));
 
@@ -425,5 +425,71 @@ describe('RecipeConceptStudioComponent', () => {
     const alert = element().querySelector('p.cp-sr-only[role="alert"]');
     expect(alert?.textContent).toContain("Didn't finish");
     expect(element().querySelector('p.cp-sr-only[role="status"]')?.textContent?.trim()).toBe('');
+  }));
+
+  // ---- Page frame and results frame ----
+
+  it('leaves the page title to the shell instead of repeating it', fakeAsync(() => {
+    render();
+
+    // The shell renders the h1 from the route's data.title. The h2s on this page name the brief's own parts;
+    // none of them repeats the page's name.
+    expect(element().querySelector('h1')).toBeNull();
+    expect(element().textContent).not.toContain('AI Recipe Studio');
+
+    const headings = Array.from(element().querySelectorAll('h2')).map((h) => h.textContent?.trim());
+    expect(headings).toEqual(["The dish", "Who it's for", 'Ingredients and limits', 'Your voice']);
+  }));
+
+  it('reads its concepts through the shared list frame, which owns the results heading', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+
+    click('Get concepts');
+
+    const shell = element().querySelector('cp-list-shell');
+    expect(shell).not.toBeNull();
+    expect(shell?.querySelector('h2')?.textContent).toContain('Recipe concepts');
+    expect(fixture.componentInstance.conceptsListState()).toBe('ready');
+  }));
+
+  it('shows an empty results frame, not a bare sentence, when the brief returned nothing', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal([]) })];
+
+    click('Get concepts');
+
+    expect(fixture.componentInstance.conceptsListState()).toBe('empty');
+    expect(element().querySelector('cp-empty-state')).not.toBeNull();
+    expect(element().querySelector('.concept-list')).toBeNull();
+  }));
+
+  it('reports a request that did not finish as an error in the results frame', fakeAsync(() => {
+    render();
+    service.statuses = [{ status: 'found', operation: operation({ status: 'Failed', failureCategory: 'Provider' }) }];
+
+    click('Get concepts');
+
+    expect(fixture.componentInstance.conceptsListState()).toBe('error');
+    expect(element().querySelector('cp-list-shell')?.textContent).toContain("didn't finish");
+  }));
+  it('reads as a form: one card, a legend, and named sections of stacked fields', fakeAsync(() => {
+    render();
+
+    const card = element().querySelector('cp-card')!;
+    expect(card).not.toBeNull();
+    expect(card.querySelector('.brief-legend')?.textContent).toContain('Every field is optional');
+
+    const sections = Array.from(card.querySelectorAll('cp-form-section'));
+    expect(sections.length).toBe(4);
+
+    // Stacked, never tidied into rows: prose and list fields read as a column at the reading measure, which is
+    // the shape the recipe editor sets (DESIGN-SYSTEM.md, "The shape of a form").
+    expect(card.querySelector('cp-field-row')).toBeNull();
+
+    // Every field the brief submits sits inside one of those sections, not loose beside them.
+    const fields = Array.from(card.querySelectorAll('cp-field'));
+    expect(fields.length).toBe(11);
+    expect(fields.every((field) => field.closest('cp-form-section') !== null)).toBeTrue();
   }));
 });

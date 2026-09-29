@@ -973,22 +973,25 @@ describe('RecipeEditorComponent', () => {
         const section = harness.routeNativeElement!.querySelector<HTMLElement>('#section-ingredients')!;
         expect(section.closest('cp-tab-panel')!.hasAttribute('hidden')).withContext('the panel is showing').toBeFalse();
 
-        // The server's own sentence, under the heading of the list it is about.
-        const problem = harness.routeNativeElement!.querySelector('#problem-ingredients');
+        // The server's own sentence, under the heading of the list it is about. cp-form-section mints the id,
+        // so the wiring is what is asserted here rather than a spelling.
+        const problem = section.querySelector('.problem');
         expect(problem?.textContent).toContain(QUANTITY_PROBLEM);
         expect(problem?.getAttribute('role')).toBe('alert');
 
         // Focused, and described by the problem — so arriving there reads the heading and then the reason.
         expect(document.activeElement).toBe(section);
-        expect(section.getAttribute('aria-describedby')).toBe('problem-ingredients');
+        expect(section.getAttribute('aria-describedby')).toBe(problem!.id);
       });
 
       it('does the same for the method', async () => {
         const { harness, component } = await refusedWith({ instructions: [STEP_PROBLEM] });
 
         expect(component.selectedEditTabId()).toBe('instructions');
-        expect(harness.routeNativeElement!.querySelector('#problem-instructions')?.textContent).toContain(STEP_PROBLEM);
-        expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#section-instructions'));
+
+        const section = harness.routeNativeElement!.querySelector<HTMLElement>('#section-instructions')!;
+        expect(section.querySelector('.problem')?.textContent).toContain(STEP_PROBLEM);
+        expect(document.activeElement).toBe(section);
       });
 
       /**
@@ -1047,7 +1050,7 @@ describe('RecipeEditorComponent', () => {
         expect(banner?.textContent).toContain('Check your recipe details and try again.');
         expect(tabLabels(harness)).toEqual(['General', 'Ingredients', 'Instructions']);
         expect(component.selectedEditTabId()).withContext('nowhere to reveal').toBe('general');
-        expect(harness.routeNativeElement!.querySelector('#problem-ingredients')).toBeNull();
+        expect(harness.routeNativeElement!.querySelector('#section-ingredients .problem')).toBeNull();
       });
 
       it('clears the marks and the sentence once the next save succeeds', async () => {
@@ -1058,14 +1061,14 @@ describe('RecipeEditorComponent', () => {
 
         await component.save();
         harness.detectChanges();
-        expect(harness.routeNativeElement!.querySelector('#problem-ingredients')).toBeTruthy();
+        expect(harness.routeNativeElement!.querySelector('#section-ingredients .problem')).toBeTruthy();
 
         recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...RECIPE_DETAIL, concurrencyToken: 'AAAAAAAAB9I=' } });
         component.title.set('Weeknight Chili');
         await component.save();
         harness.detectChanges();
 
-        expect(harness.routeNativeElement!.querySelector('#problem-ingredients')).toBeNull();
+        expect(harness.routeNativeElement!.querySelector('#section-ingredients .problem')).toBeNull();
         expect(tabLabels(harness)).toEqual(['General', 'Ingredients', 'Instructions']);
       });
     });

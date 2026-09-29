@@ -111,9 +111,10 @@ cp-tab-panel:not([hidden]) {
 
 /* The sections stacked inside one form tab. minmax(0, 1fr), not the default `auto` track: an `auto` track's
    floor is its content's max-content contribution, and for a full-width control that contribution is its own
-   max-width (the 60ch reading measure below). So an auto track would hold the controls at 60ch and push the
-   page sideways at phone widths, exactly where the measure cap is not the binding constraint. Capping the
-   track at the space available lets the controls shrink, with 60ch still capping them when there is room. */
+   max-width — the --cp-measure-field cap cp-form-section applies. So an auto track would hold the controls at
+   that measure and push the page sideways at phone widths, exactly where the cap is not the binding
+   constraint. Capping the track at the space available lets the controls shrink, with the measure still
+   capping them when there is room. */
 .tab-sections {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -121,45 +122,13 @@ cp-tab-panel:not([hidden]) {
   min-width: 0;
 }
 
-.editor-section {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--cp-space-4);
-  min-width: 0;
-  /* The tabindex="-1" in the template is a scroll/focus target of last resort; the ring belongs to the field
-     revealFirstFieldError() focuses, never to a section that merely scrolled. */
-  scroll-margin-top: var(--cp-space-6);
-}
-
-.editor-section:focus {
-  outline: none;
-}
-
-/* Short fields share a row instead of each taking one. Six numeric inputs stacked one-per-row in a narrow
-   column was the worst use of space in the old layout. Same min() floor, for the same reason. */
-.field-row {
-  display: grid;
-  gap: var(--cp-space-4);
-  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
-  align-items: start;
-}
-
-/* Reading measure. On the cp-field wrapper, deliberately not on the control inside it: cp-field is itself a
-   single-column grid whose track floor is the control's max-content contribution, and a max-width on the
-   control *is* that contribution — so capping the control at 60ch widens the field to 60ch and the control
-   fills it, overflowing a narrower page. Capping the wrapper instead leaves it free to shrink, since the
-   control is only ever width:100% of whatever the wrapper ended up being.
-
-   View encapsulation keeps this to fields in this template: the ingredient editor's own fields are its
-   business, not something a descendant selector here should reach into. */
-.editor-section cp-field {
-  max-width: 60ch;
-}
-
 /* The instruction groups and the nav beside them. Its own container, like the ingredient editor's: the
    layout answers to the space this section actually has, which is a tab panel inside a capped card, and
-   responds identically to a narrowed window and to 200% zoom. */
-#section-instructions {
+   responds identically to a narrowed window and to 200% zoom.
+
+   On the cp-form-section host, not on #section-instructions: that id is on the section the component draws,
+   which this stylesheet's encapsulation cannot reach. The host is in this template, so it can. */
+.instructions-section {
   container: cp-instructions / inline-size;
 }
 
@@ -191,18 +160,6 @@ cp-tab-panel:not([hidden]) {
     top: var(--cp-space-4);
     --cp-anchor-nav-direction: column;
   }
-}
-
-.section-heading {
-  margin: 0;
-  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
-  color: var(--cp-text);
-}
-
-.section-intro {
-  margin: calc(var(--cp-space-1) * -1) 0 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
 }
 
 .muted {
@@ -415,7 +372,7 @@ cp-tab-panel:not([hidden]) {
 }
 
 /* Said across the whole row rather than in a field's hint, because it is about what Save will do to the saved
-   recipe rather than about the field it sits under. Toned and glyphed both, like .section-problem, so it does
+   recipe rather than about the field it sits under. Toned and glyphed both, like a section problem, so it does
    not depend on telling two hues apart. */
 .total-time-replacement {
   display: flex;
@@ -437,24 +394,3 @@ cp-tab-panel:not([hidden]) {
   color: var(--cp-orange);
 }
 
-/* The server's one sentence about a whole list, under the heading of the section it is about. Danger-toned like
-   cp-field's own error, and a glyph as well as a hue so it does not depend on telling two colours apart. */
-.section-problem {
-  display: flex;
-  align-items: baseline;
-  gap: var(--cp-space-2);
-  margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border: 1px solid var(--cp-danger);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-danger-soft);
-  color: var(--cp-text);
-  font-size: var(--cp-font-size-sm);
-}
-
-.section-problem::before {
-  content: '!';
-  flex: none;
-  font-weight: 700;
-  color: var(--cp-danger);
-}

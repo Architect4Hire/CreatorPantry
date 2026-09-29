@@ -3,7 +3,15 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
-import { CpButtonComponent, CpCardComponent, CpEmptyStateComponent, CpFieldComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCardComponent,
+  CpEmptyStateComponent,
+  CpFieldComponent,
+  CpFormSectionComponent,
+  CpListShellComponent,
+  CpListShellState,
+} from '@creator-pantry/ui';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiProposalStatus, isTerminalAiStatus } from '../../models/ai-proposal.models';
@@ -68,7 +76,16 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
 @Component({
   selector: 'cp-recipe-concept-studio',
   standalone: true,
-  imports: [FormsModule, AiOperationStatusComponent, CpButtonComponent, CpCardComponent, CpEmptyStateComponent, CpFieldComponent],
+  imports: [
+    FormsModule,
+    AiOperationStatusComponent,
+    CpButtonComponent,
+    CpCardComponent,
+    CpEmptyStateComponent,
+    CpFieldComponent,
+    CpFormSectionComponent,
+    CpListShellComponent,
+  ],
   templateUrl: './recipe-concept-studio.component.html',
   styleUrl: './recipe-concept-studio.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -262,6 +279,31 @@ export class RecipeConceptStudioComponent {
   );
 
   readonly generalWarnings = computed(() => generalConceptWarnings(this.operation()?.proposal ?? null));
+
+  /**
+   * The concepts frame's state, so loading, error, empty and ready are the shell's rather than four hand-rolled
+   * branches (frontend.md). `failed` and `expired` are errors here even though `cp-ai-operation-status` above
+   * already names them: the frame is a data surface in its own right, and a shell left on "loading" for a
+   * request that has stopped would be saying something untrue about it.
+   */
+  readonly conceptsListState = computed<CpListShellState>(() => {
+    switch (this.state()) {
+      case 'failed':
+      case 'expired':
+        return 'error';
+      case 'proposed':
+        return this.conceptCards().length === 0 ? 'empty' : 'ready';
+      default:
+        return 'loading';
+    }
+  });
+
+  /** Short and factual; the status component above carries the detail and the failure category. */
+  readonly conceptsErrorMessage = computed(() =>
+    this.state() === 'expired'
+      ? 'This request expired before any concepts came back. Nothing was changed.'
+      : "This request didn't finish, so there are no concepts to read. Nothing was changed.",
+  );
 
   readonly canAskAgain = computed(() => {
     const operation = this.operationSignal();

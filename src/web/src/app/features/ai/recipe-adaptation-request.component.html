@@ -7,8 +7,19 @@
     </p>
   </header>
 
+  <!-- The same fact the calculators in this tablist state: the request is pinned to the last saved version, so
+       edits still sitting in the editor are not what the model reads. -->
+  @if (editorIsDirty()) {
+    <p class="adaptation-caveat">
+      <cp-status-pill tone="warning" role="status">Unsaved edits aren't included</cp-status-pill>
+      <span>
+        This works from the recipe as last saved. Save your edits and ask again to have them taken into account.
+      </span>
+    </p>
+  }
+
   @if (state() === 'forbidden') {
-    <p class="adaptation-notice" role="alert">Your role in this workspace cannot ask for an adaptation.</p>
+    <p class="adaptation-blocked" role="status">Your role in this workspace cannot ask for an adaptation.</p>
   } @else if (state() === 'watching') {
     <!--
       The proposal panel reviews, edits and decides. An adaptation produces an ordinary diff against the
@@ -52,7 +63,7 @@
     </fieldset>
 
     @if (errorFor('Goal'); as goalError) {
-      <p class="adaptation-notice" role="alert">{{ goalError }}</p>
+      <p class="adaptation-problem" role="alert">{{ goalError }}</p>
     }
 
     @if (selectedOption(); as option) {
@@ -129,7 +140,7 @@
     }
 
     @if (refusal(); as message) {
-      <p class="adaptation-notice" role="alert">{{ message }}</p>
+      <p class="adaptation-problem" role="alert">{{ message }}</p>
     }
 
     <div class="adaptation-actions">

@@ -27,25 +27,18 @@
   gap: var(--cp-space-2) var(--cp-space-3);
 }
 
+/* The sub-heading treatment the recipe editor's own section headings use. The weight is stated because an
+   h3 left to the browser renders at 700 and reads louder than the pane heading above it. */
 .panel-title {
   margin: 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-lg);
-  line-height: var(--cp-leading-tight);
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
 }
 
-/* Purple, the tool colour, rather than a warning colour: this is a standing fact about what the panel holds,
-   not a problem. The words carry it either way. */
+/* The chip itself is a `cp-status-pill`, which owns its tone, its glyph and its shape; this only keeps it
+   from being stretched by the header's flex row. */
 .panel-unsaved {
-  margin: 0;
-  padding: 0.15rem 0.55rem;
-  border: 1px solid var(--cp-purple);
-  border-radius: var(--cp-radius-full);
-  background: var(--cp-purple-soft);
-  color: var(--cp-purple);
-  font-size: var(--cp-font-size-xs);
-  font-weight: 700;
+  flex: none;
 }
 
 .panel-notice,
@@ -64,13 +57,12 @@
   font-size: var(--cp-font-size-xs);
 }
 
+/* A failure reads as the recipe calculators' failures read: danger-toned text in the flow, not a filled
+   panel. A box here made an ordinary refusal look heavier than the diff it was refusing. */
 .panel-refusal {
   margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border-inline-start: 4px solid var(--cp-danger);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-danger-soft);
-  color: var(--cp-text);
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-danger);
   font-size: var(--cp-font-size-sm);
 }
 

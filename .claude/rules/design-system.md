@@ -48,6 +48,8 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpComboboxComponent`: type-ahead over a supplied list — WAI-ARIA combobox keyboard, `aria-activedescendant`, announced result count, `restricted`/`free-text` modes, `filterLocally` for server-filtered lists. No fetching, no domain vocabulary; composes inside `cp-field`
 - `CpCheckboxComponent`: labelled checkbox with a drawn control — glyph for checked, 40px label target, token-driven in both themes; the native input stays focusable and announced. Use it rather than a bare `input[type=checkbox]`, which the theme's `color-scheme` paints as a dark filled box in dark mode
 - `CpAnchorNavComponent`: in-page destination nav (label + optional detail); tabbable links, not a tablist; emits the activated item and leaves scrolling and focus to the consumer; renders nothing when empty
+- `CpFormSectionComponent`: one named part of a form — heading, optional intro, optional server `problem` about the whole part, projected fields. Names its own region, describes the section by the problem while one shows, `tabindex="-1"` for a form that reveals it, and caps directly projected fields at `--cp-measure-field`
+- `CpFieldRowComponent`: a line of short fields sharing the width, wrapping to as many columns as fit; `minColumn` widens the floor
 
 Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are defects.
 

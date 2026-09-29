@@ -941,4 +941,15 @@ describe('RecipeFirstDraftReviewComponent', () => {
 
     expect(text()).toContain('Optional');
   }));
+
+  it('leaves the page title to the shell instead of repeating it', fakeAsync(() => {
+    service.statuses = [ready()];
+    render();
+
+    // The shell renders the h1 from the route's data.title ("Recipe first draft"); a second heading saying
+    // the same words gave the page two names.
+    expect(element().querySelector('h1')).toBeNull();
+    expect(element().querySelector('h2')).toBeNull();
+    expect(element().querySelector('.draft-lede')?.textContent).toContain('nothing on this page is saved');
+  }));
 });

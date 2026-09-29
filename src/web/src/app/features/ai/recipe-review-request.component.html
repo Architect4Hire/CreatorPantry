@@ -7,8 +7,19 @@
     </p>
   </header>
 
+  <!-- The same fact the calculators in this tablist state: the review is pinned to the last saved version, so
+       edits still sitting in the editor are not what was read. -->
+  @if (editorIsDirty()) {
+    <p class="review-caveat">
+      <cp-status-pill tone="warning" role="status">Unsaved edits aren't included</cp-status-pill>
+      <span>
+        This reviews the recipe as last saved. Save your edits and review again to have them taken into account.
+      </span>
+    </p>
+  }
+
   @if (state() === 'forbidden') {
-    <p class="review-notice" role="alert">Your role in this workspace cannot ask for a review.</p>
+    <p class="review-blocked" role="status">Your role in this workspace cannot ask for a review.</p>
   } @else if (state() === 'watching') {
     <cp-ai-advisory-results
       [operation]="operation()"
@@ -28,7 +39,7 @@
     </div>
   } @else {
     @if (refusal(); as message) {
-      <p class="review-notice" role="alert">{{ message }}</p>
+      <p class="review-problem" role="alert">{{ message }}</p>
     }
 
     <div class="review-actions">

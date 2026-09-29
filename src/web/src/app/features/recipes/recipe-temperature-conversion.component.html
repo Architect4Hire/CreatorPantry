@@ -1,5 +1,5 @@
 <section class="conversion" [attr.aria-labelledby]="headingId">
-  <h3 class="conversion-heading" [id]="headingId">Convert a temperature</h3>
+  <h2 class="conversion-heading" [id]="headingId">Convert a temperature</h2>
   <p class="conversion-intro">
     A preview only — nothing here is saved, and your recipe is unchanged by having a temperature converted.
   </p>
@@ -176,7 +176,7 @@
         }
       </p>
 
-      <h4 class="result-subheading">How it was worked out</h4>
+      <h3 class="result-subheading">How it was worked out</h3>
       <dl class="result-detail">
         <dt>Formula</dt>
         <dd>
@@ -196,7 +196,7 @@
       </dl>
 
       @if (hasCarriedContext()) {
-        <h4 class="result-subheading">Carried through unchanged</h4>
+        <h3 class="result-subheading">Carried through unchanged</h3>
         <dl class="result-detail">
           @if (converted.result.ovenModeContext; as ovenMode) {
             <dt>Oven mode</dt>
@@ -227,7 +227,7 @@
            through the ordinary update seam after an explicit confirmation. -->
       <div class="apply">
         @if (applyDiff(); as diff) {
-          <h4 class="result-subheading">What would change</h4>
+          <h3 class="result-subheading">What would change</h3>
           <dl class="apply-diff">
             <dt>{{ diff.label }}</dt>
             <dd>
