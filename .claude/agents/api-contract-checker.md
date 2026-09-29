@@ -2,6 +2,7 @@
 name: api-contract-checker
 description: Read-only API versioning, shape, compatibility, and frontend-model drift review.
 tools: Read, Glob, Grep, Bash
+model: haiku
 ---
 
 # API Contract Checker

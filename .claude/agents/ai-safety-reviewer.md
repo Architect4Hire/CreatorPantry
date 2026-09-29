@@ -2,6 +2,7 @@
 name: ai-safety-reviewer
 description: Read-only audit of AI boundaries, grounding, structured outputs, food-domain safety, and evaluations.
 tools: Read, Glob, Grep, Bash
+model: sonnet
 ---
 
 # AI Safety Reviewer

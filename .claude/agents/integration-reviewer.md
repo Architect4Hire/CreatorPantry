@@ -2,6 +2,7 @@
 name: integration-reviewer
 description: Read-only audit of publishing, import, analytics, webhook, and other provider adapters.
 tools: Read, Glob, Grep, Bash
+model: haiku
 ---
 
 # Integration Reviewer

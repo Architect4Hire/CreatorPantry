@@ -2,6 +2,7 @@
 name: test-gap-analyzer
 description: Read-only analysis of behavior and risk not covered by tests.
 tools: Read, Glob, Grep, Bash
+model: haiku
 ---
 
 # Test Gap Analyzer

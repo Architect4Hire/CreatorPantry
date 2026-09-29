@@ -2,6 +2,7 @@
 name: workspace-isolation-auditor
 description: Read-only audit for cross-workspace data, cache, AI, job, and authorization leaks.
 tools: Read, Glob, Grep, Bash
+model: sonnet
 ---
 
 # Workspace Isolation Auditor

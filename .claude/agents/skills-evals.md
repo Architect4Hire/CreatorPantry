@@ -2,6 +2,7 @@
 name: skills-evals
 description: Read-only audit that toolkit skills remain specific, executable, and aligned with current architecture.
 tools: Read, Glob, Grep, Bash
+model: haiku
 ---
 
 # Skills and Evaluations Reviewer

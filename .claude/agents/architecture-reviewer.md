@@ -2,6 +2,7 @@
 name: architecture-reviewer
 description: Read-only review of CreatorPantry layer boundaries and domain ownership.
 tools: Read, Glob, Grep, Bash
+model: haiku
 ---
 
 # Architecture Reviewer

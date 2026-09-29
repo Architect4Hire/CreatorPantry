@@ -2,6 +2,7 @@
 name: design-review
 description: Read-only review of the installed CreatorPantry Angular design system and consuming features.
 tools: Read, Glob, Grep, Bash
+model: haiku
 ---
 
 # Design Review
