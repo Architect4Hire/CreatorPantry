@@ -1,0 +1,72 @@
+<section class="substitution" aria-labelledby="cp-substitution-heading">
+  <header class="substitution-header">
+    <h2 id="cp-substitution-heading">Find alternatives for an ingredient</h2>
+    <p class="substitution-lede">
+      Choose one ingredient line and say why if you like. This changes nothing in the recipe — you read the
+      alternatives and edit the recipe yourself.
+    </p>
+  </header>
+
+  @if (state() === 'forbidden') {
+    <p class="substitution-notice" role="alert">Your role in this workspace cannot ask for substitution advice.</p>
+  } @else if (state() === 'watching') {
+    <cp-ai-advisory-results
+      [operation]="operation()"
+      [connection]="connection()"
+      heading="Substitution advice"
+      itemNoun="substitution"
+      itemNounPlural="substitutions"
+      [fieldLabels]="fieldLabels"
+      [enumValueFields]="enumValueFields"
+    />
+
+    <div class="substitution-actions">
+      <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()">
+        Ask about another ingredient
+      </button>
+    </div>
+  } @else {
+    <cp-field
+      label="Which ingredient?"
+      forId="cp-substitution-ingredient"
+      [error]="errorFor('IngredientId')"
+    >
+      <cp-combobox
+        inputId="cp-substitution-ingredient"
+        [options]="ingredientOptions()"
+        mode="restricted"
+        placeholder="Start typing an ingredient…"
+        [value]="ingredientText()"
+        (valueChange)="ingredientText.set($event)"
+        [selected]="selectedIngredient()"
+        (selectedChange)="selectedIngredient.set($event)"
+      />
+    </cp-field>
+
+    <cp-field
+      label="Why are you asking? (optional)"
+      forId="cp-substitution-reason"
+      hint="Your own words — an allergy, a preference, something you don't have on hand."
+      [error]="errorFor('Reason')"
+    >
+      <textarea
+        id="cp-substitution-reason"
+        rows="2"
+        [maxlength]="reasonMaxLength"
+        [ngModel]="reason()"
+        (ngModelChange)="reason.set($event)"
+      ></textarea>
+    </cp-field>
+
+    @if (refusal(); as message) {
+      <p class="substitution-notice" role="alert">{{ message }}</p>
+    }
+
+    <div class="substitution-actions">
+      <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+        {{ state() === 'submitting' ? 'Asking…' : 'Find alternatives' }}
+      </button>
+      <span class="substitution-hint">Nothing about the recipe changes because of this.</span>
+    </div>
+  }
+</section>

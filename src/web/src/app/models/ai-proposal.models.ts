@@ -91,7 +91,9 @@ export type AiTaskType =
   /** AIREC-005's single-goal adaptation — dietary, equipment, yield, or skill level. */
   | 'RecipeAdaptation'
   /** AIREC-006's field-linked review findings. Reads a recipe; changes nothing in it. */
-  | 'RecipeReview';
+  | 'RecipeReview'
+  /** AIREC-008's explanation of an existing proposal. Reads a proposal; changes nothing in it. */
+  | 'ProposalExplanation';
 
 const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'Unspecified',
@@ -102,6 +104,7 @@ const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'IngredientSubstitution',
   'RecipeAdaptation',
   'RecipeReview',
+  'ProposalExplanation',
 ]);
 
 /**
@@ -138,6 +141,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And reviews through recipe/{id}/review-requests. Null for the same reason a substitution's and an
   // adaptation's are: this generic route cannot fix the Advisory scope a review's own route fixes server-side.
   RecipeReview: null,
+  // And explanations through proposal-explanation-requests, which names the source proposal it explains
+  // rather than a recipe at all — this generic route is nested under a recipe and has nowhere to put that.
+  ProposalExplanation: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -232,7 +238,9 @@ export type AiChangeTargetKind =
   /** AIREC-004's substitution advice. Like `RecipeConcept`, nothing the recipe seam can apply. */
   | 'IngredientSubstitution'
   /** AIREC-006's review findings. Like `IngredientSubstitution`, advice a creator judges, never an edit. */
-  | 'RecipeReviewFinding';
+  | 'RecipeReviewFinding'
+  /** AIREC-008's explanation items. Like `RecipeReviewFinding`, never an edit — not even to the proposal it explains. */
+  | 'ProposalExplanationItem';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -247,6 +255,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'RecipeConcept',
   'IngredientSubstitution',
   'RecipeReviewFinding',
+  'ProposalExplanationItem',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

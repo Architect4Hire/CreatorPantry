@@ -139,16 +139,33 @@ public sealed class AiSubstitutionRequestTests
     }
 
     /// <summary>
-    /// And every other task still can, so the guard did not quietly narrow a shipped route.
+    /// And the one task with no dedicated route of its own — the inert lifecycle exerciser — still can, so the
+    /// guard did not quietly narrow a shipped route.
     /// </summary>
+    [Fact]
+    public void The_task_with_no_dedicated_route_is_unaffected()
+    {
+        Assert.False(AiTaskCatalog.RequiresTaskInputs(AiTaskType.Diagnostic));
+    }
+
+    /// <summary>
+    /// Concepts, first draft, and revision each shipped their own route later, and the generic one still
+    /// answered to their discriminator until it was closed off here — this pins the closed state so it cannot
+    /// regress silently.
+    /// </summary>
+    /// <remarks>
+    /// A concept or a first draft names no recipe by design (their handlers assert
+    /// <see cref="AiTaskExecutionContext.RecipeId"/> is null), but this route is nested under
+    /// <c>/recipes/{recipeId}/ai-proposals</c> and would stamp one anyway. A revision's optional goal has
+    /// nowhere to travel on this contract at all.
+    /// </remarks>
     [Theory]
-    [InlineData(AiTaskType.Diagnostic)]
     [InlineData(AiTaskType.RecipeConcepts)]
     [InlineData(AiTaskType.RecipeFirstDraft)]
     [InlineData(AiTaskType.RecipeRevision)]
-    public void Tasks_that_tolerate_an_absent_brief_are_unaffected(AiTaskType task)
+    public void Tasks_with_their_own_route_cannot_start_from_the_generic_one(AiTaskType task)
     {
-        Assert.False(AiTaskCatalog.RequiresTaskInputs(task));
+        Assert.True(AiTaskCatalog.RequiresTaskInputs(task));
     }
 
     /// <summary>

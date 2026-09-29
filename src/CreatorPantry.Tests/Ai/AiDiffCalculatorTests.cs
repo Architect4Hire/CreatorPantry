@@ -17,6 +17,7 @@ public sealed class AiDiffCalculatorTests
 {
     private static readonly Guid GroupId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid IngredientId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid SecondIngredientId = Guid.Parse("77777777-7777-7777-7777-777777777777");
     private static readonly Guid StepGroupId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid StepId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly Guid SecondStepId = Guid.Parse("55555555-5555-5555-5555-555555555555");
@@ -403,6 +404,35 @@ public sealed class AiDiffCalculatorTests
         Assert.Equal(2, result.Changes!.Count);
     }
 
+    /// <summary>
+    /// The guarantee ai.md asks for ("route scaling... to deterministic domain functions") when a revision
+    /// touches more than one ingredient's quantity: nothing here ever collapses several lines into one
+    /// unreviewable rescale operation. Each line's quantity is its own <see cref="AiChangeTargetKind.Ingredient"/>
+    /// row, computed from its own before value, with its own id — a creator can accept one line and reject the
+    /// other, which a single batch "scale by 2x" action could never offer. This is the structural half of the
+    /// restriction <c>AiDiffFields.cs</c>'s own remarks describe as "a reviewed change, not a silent one": the
+    /// model may propose an arithmetically wrong number on one row, but it can never propose one action that
+    /// changes several rows at once and must be accepted or rejected as a unit.
+    /// </summary>
+    [Fact]
+    public void Quantity_changes_on_two_different_ingredients_resolve_to_two_independent_rows()
+    {
+        var result = Calculate(
+            Set(AiChangeTargetKind.Ingredient, IngredientId, "quantity", "4"),
+            Set(AiChangeTargetKind.Ingredient, SecondIngredientId, "quantity", "2"));
+
+        Assert.True(result.Succeeded, result.Failure?.Message);
+        Assert.Equal(2, result.Changes!.Count);
+
+        var first = result.Changes.Single(change => change.TargetId == IngredientId);
+        var second = result.Changes.Single(change => change.TargetId == SecondIngredientId);
+
+        Assert.Equal("2", first.BeforeValue);
+        Assert.Equal("4", first.AfterValue);
+        Assert.Equal("1", second.BeforeValue);
+        Assert.Equal("2", second.AfterValue);
+    }
+
     // ---- empty ----------------------------------------------------------------------------------------
 
     /// <summary>"Nothing needs changing" survives the diff as an empty diff, not as a failure.</summary>
@@ -489,6 +519,13 @@ public sealed class AiDiffCalculatorTests
                         Id = IngredientId,
                         DisplayText = "2 cups flour",
                         Quantity = 2,
+                        IsOptional = false,
+                    },
+                    new RecipeSnapshotIngredient
+                    {
+                        Id = SecondIngredientId,
+                        DisplayText = "1 cup water",
+                        Quantity = 1,
                         IsOptional = false,
                     },
                 ],

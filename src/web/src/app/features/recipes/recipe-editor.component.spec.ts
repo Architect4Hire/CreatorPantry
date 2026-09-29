@@ -720,6 +720,35 @@ describe('RecipeEditorComponent', () => {
       expect(root.querySelector('cp-recipe-unit-conversion')).toBeTruthy();
       expect(root.querySelector('cp-recipe-yield-reconciliation')).toBeNull();
     });
+
+    it('reaches the AI revision request from the Tools tab once the recipe has a current version', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          currentVersion: {
+            id: 'v1',
+            versionNumber: 1,
+            source: 'CreatorEdit',
+            readiness: 'Draft',
+            reason: null,
+            createdAt: '2026-03-01T00:00:00Z',
+          },
+        },
+      });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      tabButton(root, 'Tools')!.click();
+      harness.detectChanges();
+      expect(root.querySelector('cp-recipe-revision-request')).toBeNull();
+
+      tabButton(root, 'Revise with AI')!.click();
+      harness.detectChanges();
+
+      expect(root.querySelector('cp-recipe-revision-request')).toBeTruthy();
+    });
   });
 
   describe('field-level validation errors', () => {

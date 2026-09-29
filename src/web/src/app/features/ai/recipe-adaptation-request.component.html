@@ -1,0 +1,142 @@
+<section class="adaptation" aria-labelledby="cp-adaptation-heading">
+  <header class="adaptation-header">
+    <h2 id="cp-adaptation-heading">Adapt this recipe</h2>
+    <p class="adaptation-lede">
+      Choose one goal and say what it means for this recipe. A complete proposal comes back for you to review
+      — nothing changes until you accept it.
+    </p>
+  </header>
+
+  @if (state() === 'forbidden') {
+    <p class="adaptation-notice" role="alert">Your role in this workspace cannot ask for an adaptation.</p>
+  } @else if (state() === 'watching') {
+    <!--
+      The proposal panel reviews, edits and decides. An adaptation produces an ordinary diff against the
+      pinned version, so a second review surface here would be a second opinion about what a creator is
+      approving.
+    -->
+    <cp-ai-proposal-panel
+      [workspaceSlug]="workspaceSlug()"
+      [recipeId]="recipeId()"
+      [requestId]="requestId()"
+      (decided)="onDecided($event)"
+    />
+
+    <div class="adaptation-actions">
+      <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()">
+        Ask for another adaptation
+      </button>
+    </div>
+  } @else {
+    <fieldset class="adaptation-goals">
+      <legend>What is this adaptation for?</legend>
+      <p class="adaptation-hint">Exactly one goal per request. A complete proposal touches whatever it needs to.</p>
+
+      <ul class="adaptation-goal-list" role="list">
+        @for (option of goals; track option.goal) {
+          <li>
+            <label class="adaptation-goal" [class.is-chosen]="isChosen(option)">
+              <input
+                type="radio"
+                name="cp-adaptation-goal"
+                [value]="option.goal"
+                [checked]="isChosen(option)"
+                (change)="choose(option)"
+              />
+              <span class="adaptation-goal-label">{{ option.label }}</span>
+              <span class="adaptation-goal-detail">{{ option.detail }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    </fieldset>
+
+    @if (errorFor('Goal'); as goalError) {
+      <p class="adaptation-notice" role="alert">{{ goalError }}</p>
+    }
+
+    @if (selectedOption(); as option) {
+      @if (option.takesDetail) {
+        <cp-field
+          label="What does that mean for this recipe?"
+          forId="cp-adaptation-goal-detail"
+          [error]="errorFor('GoalDetail')"
+        >
+          <textarea
+            id="cp-adaptation-goal-detail"
+            rows="3"
+            [maxlength]="goalDetailMaxLength"
+            [ngModel]="goalDetail()"
+            (ngModelChange)="goalDetail.set($event)"
+          ></textarea>
+        </cp-field>
+      } @else {
+        <fieldset class="adaptation-yield">
+          <legend>Scale toward</legend>
+
+          <div class="adaptation-yield-mode" role="radiogroup" aria-label="Scale by">
+            <label class="adaptation-yield-option">
+              <input
+                type="radio"
+                name="cp-adaptation-yield-mode"
+                [checked]="yieldMode() === 'multiplier'"
+                (change)="yieldMode.set('multiplier')"
+              />
+              A factor
+            </label>
+            <label class="adaptation-yield-option">
+              <input
+                type="radio"
+                name="cp-adaptation-yield-mode"
+                [checked]="yieldMode() === 'targetYield'"
+                (change)="yieldMode.set('targetYield')"
+              />
+              A target yield
+            </label>
+          </div>
+
+          <cp-field
+            [label]="yieldMode() === 'multiplier' ? 'Multiply the yield by' : 'Target yield'"
+            forId="cp-adaptation-yield-value"
+            [hint]="yieldMode() === 'multiplier' ? 'For example, 2 for double the batch.' : 'The number, in the recipe\'s own yield unit.'"
+            [error]="errorFor('TargetMultiplier')"
+          >
+            <input
+              id="cp-adaptation-yield-value"
+              type="number"
+              min="0"
+              step="any"
+              [ngModel]="yieldValue()"
+              (ngModelChange)="yieldValue.set($event)"
+            />
+          </cp-field>
+
+          <cp-field
+            label="Anything else to say about it? (optional)"
+            forId="cp-adaptation-goal-detail"
+            [error]="errorFor('GoalDetail')"
+          >
+            <textarea
+              id="cp-adaptation-goal-detail"
+              rows="2"
+              [maxlength]="goalDetailMaxLength"
+              [ngModel]="goalDetail()"
+              (ngModelChange)="goalDetail.set($event)"
+            ></textarea>
+          </cp-field>
+        </fieldset>
+      }
+    }
+
+    @if (refusal(); as message) {
+      <p class="adaptation-notice" role="alert">{{ message }}</p>
+    }
+
+    <div class="adaptation-actions">
+      <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+        {{ state() === 'submitting' ? 'Asking…' : 'Ask for an adaptation' }}
+      </button>
+      <span class="adaptation-hint">Nothing is changed until you review and accept what comes back.</span>
+    </div>
+  }
+</section>

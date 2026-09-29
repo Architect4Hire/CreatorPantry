@@ -174,6 +174,12 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // Likewise. AIREC-004's advice is not a diff and has no review surface here yet; the label exists so the
   // map stays exhaustive, and it says "suggested" because nothing about it is a change to the recipe.
   IngredientSubstitution: 'Suggested substitution',
+  // Likewise. AIREC-006's findings are not a diff and have no review surface here yet; the label exists so
+  // the map stays exhaustive.
+  RecipeReviewFinding: 'Review finding',
+  // Likewise. AIREC-008's explanation items are not a diff and have no review surface here yet; the label
+  // exists so the map stays exhaustive.
+  ProposalExplanationItem: 'Explanation',
 };
 
 /**

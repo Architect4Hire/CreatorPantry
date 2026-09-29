@@ -47,6 +47,18 @@ public sealed class AiSubstitutionOutputValidatorTests
         Assert.True(result.Failure.IsCorrectableByReprompt);
     }
 
+    /// <summary>
+    /// Stage 3 (shape), proven for this document specifically rather than assumed from the doc comment that
+    /// says this validator mirrors <see cref="AiOutputValidator"/>'s stages.
+    /// </summary>
+    [Fact]
+    public void Malformed_json_is_rejected()
+    {
+        var result = AiSubstitutionOutputValidator.Validate("not json at all", Schema);
+
+        Assert.Equal(AiOutputReason.MalformedJson, result.Failure!.ReasonCode);
+    }
+
     // ---- claims the type system refuses to carry ---------------------------------------------------------
 
     /// <summary>

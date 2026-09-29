@@ -113,10 +113,27 @@ public static class AiTaskCatalog
     /// <c>TaskInputsJson</c> exactly as a substitution's ingredient id does. Its scope is fixed server-side to
     /// <see cref="AiOperationScope.Advisory"/> the same way, so this is not a second, independent reason for it.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.RecipeConcepts"/> and <see cref="AiTaskType.RecipeFirstDraft"/> need the carve-out
+    /// for a third reason this route cannot satisfy at all: this controller is nested under
+    /// <c>/recipes/{recipeId}/ai-proposals</c> and stamps that route segment onto
+    /// <see cref="Data.Entities.AiOperation.RecipeId"/> unconditionally, but both tasks name no recipe by design
+    /// — their own handlers assert <see cref="AiTaskExecutionContext.RecipeId"/> is null, because a concept or a
+    /// first draft is not a change to anything that exists yet. Reaching either through this route would write a
+    /// row that contradicts that invariant for as long as the row exists, not just refuse a request that briefly
+    /// looked wrong.
+    /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.RecipeRevision"/> needs the carve-out for the first reason: a revision's goal is
+    /// optional but, when supplied, is what makes it a revision toward anything in particular, and travels
+    /// through <c>TaskInputsJson</c> exactly as an adaptation's goal does. Its own route exists so that field has
+    /// somewhere to go; this route has nowhere to put it.
+    /// </para>
     /// </remarks>
     public static bool RequiresTaskInputs(AiTaskType task) =>
         task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
-            or AiTaskType.ProposalExplanation;
+            or AiTaskType.ProposalExplanation or AiTaskType.RecipeConcepts or AiTaskType.RecipeFirstDraft
+            or AiTaskType.RecipeRevision;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

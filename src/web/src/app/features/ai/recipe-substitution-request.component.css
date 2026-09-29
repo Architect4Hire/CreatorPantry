@@ -1,0 +1,47 @@
+/* Semantic --cp-* tokens only; a literal theme colour here would be a defect (frontend.md). */
+
+:host {
+  display: block;
+}
+
+.substitution {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  max-width: 48rem;
+}
+
+.substitution-header h2 {
+  margin: 0 0 var(--cp-space-2) 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  color: var(--cp-text);
+}
+
+.substitution-lede,
+.substitution-hint {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.substitution-hint {
+  font-size: var(--cp-font-size-xs);
+}
+
+.substitution-notice {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-danger);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-danger-soft);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.substitution-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}

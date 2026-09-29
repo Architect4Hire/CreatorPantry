@@ -66,6 +66,10 @@ import { RecipeScalingPreviewComponent } from './recipe-scaling-preview.componen
 import { RecipeTemperatureConversionComponent, TemperatureApplication } from './recipe-temperature-conversion.component';
 import { RecipeUnitConversionComponent, UnitConversionApplication } from './recipe-unit-conversion.component';
 import { RecipeYieldReconciliationComponent, YieldApplication } from './recipe-yield-reconciliation.component';
+import { RecipeRevisionRequestComponent } from '../ai/recipe-revision-request.component';
+import { RecipeAdaptationRequestComponent } from '../ai/recipe-adaptation-request.component';
+import { RecipeSubstitutionRequestComponent } from '../ai/recipe-substitution-request.component';
+import { RecipeReviewRequestComponent } from '../ai/recipe-review-request.component';
 
 /**
  * The editor's own working copy of one instruction step — a `key` stable across reorders for
@@ -324,6 +328,10 @@ type RecipeEditorSaveState =
     RecipeTemperatureConversionComponent,
     RecipeUnitConversionComponent,
     RecipeYieldReconciliationComponent,
+    RecipeRevisionRequestComponent,
+    RecipeAdaptationRequestComponent,
+    RecipeSubstitutionRequestComponent,
+    RecipeReviewRequestComponent,
   ],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
@@ -386,6 +394,10 @@ export class RecipeEditorComponent {
     { id: 'scaling', label: 'Scale' },
     { id: 'converting', label: 'Convert' },
     { id: 'yield-display', label: 'Yield & display' },
+    { id: 'ai-revision', label: 'Revise with AI' },
+    { id: 'ai-adaptation', label: 'Adapt with AI' },
+    { id: 'ai-substitution', label: 'Substitute an ingredient' },
+    { id: 'ai-review', label: 'Review with AI' },
   ];
   readonly selectedToolId = signal('scaling');
 
@@ -491,6 +503,13 @@ export class RecipeEditorComponent {
    */
   private readonly currentVersionNumberSignal = signal<number | null>(null);
   readonly currentVersionNumber = this.currentVersionNumberSignal.asReadonly();
+
+  /**
+   * The recipe's current version **id**, alongside {@link currentVersionNumber}: an AI revision request pins
+   * against the version itself, not its display number, and refreshes on the same schedule.
+   */
+  private readonly currentVersionIdSignal = signal<string | null>(null);
+  readonly currentVersionId = this.currentVersionIdSignal.asReadonly();
 
   /**
    * The recipe's yield **as saved**, held apart from the `yieldText`/`yieldQuantity` form fields above.
@@ -1764,6 +1783,7 @@ export class RecipeEditorComponent {
     }
     this.concurrencyTokenSignal.set(detail.concurrencyToken);
     this.currentVersionNumberSignal.set(detail.currentVersion?.versionNumber ?? null);
+    this.currentVersionIdSignal.set(detail.currentVersion?.id ?? null);
     this.savedYieldQuantitySignal.set(detail.yieldQuantity);
     this.savedYieldTextSignal.set(detail.yieldText);
     this.savedYieldUnitIdSignal.set(detail.yieldUnitId);

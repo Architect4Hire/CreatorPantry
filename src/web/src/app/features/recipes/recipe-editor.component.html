@@ -822,6 +822,55 @@
             [savedIngredientGroups]="ingredientGroups()"
           />
         </cp-tab-panel>
+
+        <cp-tab-panel id="ai-revision">
+          <!-- Mounted lazily by the tab. Unlike the read-only calculators above, this one writes: it queues an
+               AI operation and reviews the resulting diff through the same panel every other diff-producing
+               capability uses, so it needs the current version's id, not only its display number. -->
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-revision-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+            />
+          }
+        </cp-tab-panel>
+
+        <cp-tab-panel id="ai-adaptation">
+          <!-- Mounted lazily by the tab, same reasoning as ai-revision: this one writes and needs the current
+               version's id. -->
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-adaptation-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+            />
+          }
+        </cp-tab-panel>
+
+        <cp-tab-panel id="ai-substitution">
+          <!-- Mounted lazily by the tab, same reasoning as ai-revision, and additionally needs the recipe's
+               own ingredient lines to offer as choices. -->
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-substitution-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+              [ingredientGroups]="ingredientGroups()"
+            />
+          }
+        </cp-tab-panel>
+
+        <cp-tab-panel id="ai-review">
+          <!-- Mounted lazily by the tab, same reasoning as ai-revision. -->
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-review-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+            />
+          }
+        </cp-tab-panel>
           </cp-tabs>
         </cp-tab-panel>
 

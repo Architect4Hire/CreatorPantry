@@ -1,0 +1,41 @@
+<section class="review" aria-labelledby="cp-review-heading">
+  <header class="review-header">
+    <h2 id="cp-review-heading">Review this recipe</h2>
+    <p class="review-lede">
+      A pass over the whole recipe for completeness, consistency, timing, and anything worth a second look.
+      This changes nothing — findings are yours to judge.
+    </p>
+  </header>
+
+  @if (state() === 'forbidden') {
+    <p class="review-notice" role="alert">Your role in this workspace cannot ask for a review.</p>
+  } @else if (state() === 'watching') {
+    <cp-ai-advisory-results
+      [operation]="operation()"
+      [connection]="connection()"
+      heading="Review findings"
+      itemNoun="review"
+      itemNounPlural="findings"
+      [fieldLabels]="fieldLabels"
+      [enumValueFields]="enumValueFields"
+      [hiddenFields]="hiddenFields"
+    />
+
+    <div class="review-actions">
+      <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()">
+        Review again
+      </button>
+    </div>
+  } @else {
+    @if (refusal(); as message) {
+      <p class="review-notice" role="alert">{{ message }}</p>
+    }
+
+    <div class="review-actions">
+      <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+        {{ state() === 'submitting' ? 'Reviewing…' : 'Review this recipe' }}
+      </button>
+      <span class="review-hint">Nothing about the recipe changes because of this.</span>
+    </div>
+  }
+</section>
