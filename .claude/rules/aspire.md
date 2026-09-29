@@ -31,3 +31,51 @@
 
 Run `aspire run`, inspect the dashboard, and verify health, logs, traces, dependencies, and clean startup from an empty data volume. A project that works only when services are started manually is incomplete.
 
+## First run on a new machine
+
+`sql-password`, `redis-password`, `idempotency-fingerprint-key`, and `internal-token-signing-key` need nothing
+from you: each generates once (the signing key as a matched ECDSA P-256 pair; see `EcdsaP256PrivateKeyDefault`)
+and persists to that machine's user secrets on first `aspire run`. You will not be prompted for any of them, and
+if the dashboard ever does prompt for one, something upstream reset that machine's parameter store — it is not
+the normal first-run experience.
+
+The Foundry-Azure parameters (`foundry-endpoint`, `foundry-key`, `foundry-chat-deployment`,
+`foundry-embeddings-deployment`) are different: they are real Azure values, so nothing can generate them for
+you, and each developer supplies their own. They only exist as parameters — and so only get created at all —
+when `Foundry:Azure` is `true`, and that flag itself **cannot** be set through the dashboard: it decides which
+resources exist before the app model (and therefore the dashboard) is built, so there is no way to prompt for
+it. It is the one required non-interactive step, once per machine, for a developer pointing at a real Azure
+resource rather than Foundry Local:
+
+```
+dotnet user-secrets set "Foundry:Azure" "true" --project src/CreatorPantry.AppHost
+
+# Only if the resource is Azure OpenAI rather than Azure AI Foundry — changes the endpoint's URL shape:
+dotnet user-secrets set "Foundry:AzureOpenAI" "true" --project src/CreatorPantry.AppHost
+```
+
+With that flag set, `aspire run` creates the four parameters for real, and the normal dashboard flow works as
+intended: it prompts for endpoint, key, and both deployment names, and checking *Save to user secret* on each
+writes it to that developer's own machine — no further setup, and the developer never has to hand their key to
+anyone else or paste it into a shared script.
+
+That prompt does have a reproduced failure mode worth knowing about: its login URL carries a single-use token
+(`Login to the dashboard at https://localhost:.../login?t=...`), and a browser reload after that token is spent
+can permanently drop a pending prompt — the server still has the request queued (a fresh dashboard connection
+replays whatever is pending), but the browser never gets back into a state that shows it, so the affected
+resource just sits in `Waiting`/`ValueMissing` with nothing further in the console or the UI. There is no
+in-session recovery once that happens: stop `aspire run` and start it again rather than reloading the tab. If
+it keeps happening, the fallback is setting the value directly, which reaches the same store:
+
+```
+dotnet user-secrets set "Parameters:foundry-endpoint" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:foundry-key" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:foundry-chat-deployment" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:foundry-embeddings-deployment" "<value>" --project src/CreatorPantry.AppHost
+```
+
+The dashboard prompt — for any parameter, generated or not — also requires an interactive session in the first
+place: it does not appear under `aspire run --non-interactive`, in most CI runners, or in any launch context
+without a real TTY, because the underlying `IInteractionService` is unavailable there. `ops-api-key` stays unset
+by default (a clean clone has no ops credential) and is the one parameter meant to stay empty rather than be set.
+

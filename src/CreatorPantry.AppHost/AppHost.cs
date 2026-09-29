@@ -1,18 +1,28 @@
+using System.Security.Cryptography;
 using Aspire.Hosting.Foundry;
 using CreatorPantry.AppHost;
 using Microsoft.Extensions.Configuration;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var sqlPassword = builder.AddParameter("sql-password", secret: true);
-var redisPassword = builder.AddParameter("redis-password", secret: true);
+// Generated and persisted to this machine's user secrets on first run — not prompted for. The Aspire
+// dashboard's own "unresolved parameter" prompt exists for this, but it has a reproduced failure mode: its
+// login URL carries a single-use token, and a browser reload after that token is spent can permanently drop a
+// pending prompt with no way back to it short of restarting with a clean parameter store. None of these three
+// values need a human to choose them anyway, so they skip that prompt entirely.
+var sqlPassword = builder.AddParameter("sql-password", new GenerateParameterDefault(), secret: true, persist: true);
+var redisPassword = builder.AddParameter("redis-password", new GenerateParameterDefault(), secret: true, persist: true);
 
-// Gateway-to-API trust (baseline B-13): the gateway signs with the private key; the API holds the public key.
-var internalTokenSigningKey = builder.AddParameter("internal-token-signing-key", secret: true);
-var internalTokenPublicKey = builder.AddParameter("internal-token-public-key");
+// Gateway-to-API trust (baseline B-13): the gateway signs with the private key; the API verifies with the
+// public key derived from it below. Generated as a matched ECDSA P-256 pair and persisted to this machine's
+// user secrets on first run — nobody types an EC key into a dashboard field, and generating both halves
+// independently could produce a mismatched pair (see EcdsaP256PrivateKeyDefault).
+var internalTokenSigningKey = builder.AddParameter(
+    "internal-token-signing-key", new EcdsaP256PrivateKeyDefault(), secret: true, persist: true);
 
 // Keys the HMAC of idempotent request fingerprints, so stored hashes cannot be tested against guessed payloads.
-var idempotencyFingerprintKey = builder.AddParameter("idempotency-fingerprint-key", secret: true);
+var idempotencyFingerprintKey = builder.AddParameter(
+    "idempotency-fingerprint-key", new GenerateParameterDefault(), secret: true, persist: true);
 
 // The platform operator's machine credential (baseline B-14): a hashed, rotatable key accepted only on
 // /api/v1/ops/*. Only the migration service sees it, and only to store its hash — the API verifies against
@@ -50,7 +60,12 @@ var migrations = builder.AddProject<Projects.CreatorPantry_MigrationService>("mi
     .WaitFor(db);
 
 var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchProfileName: "https")
-    .WithEnvironment("InternalToken__PublicKeyPem", internalTokenPublicKey)
+    .WithEnvironment(async context =>
+    {
+        var privateKeyPem = await internalTokenSigningKey.Resource.GetValueAsync(context.CancellationToken)
+            ?? throw new InvalidOperationException("internal-token-signing-key did not resolve to a value.");
+        context.EnvironmentVariables["InternalToken__PublicKeyPem"] = DerivePublicKeyPem(privateKeyPem);
+    })
     .WithEnvironment("Idempotency__FingerprintKey", idempotencyFingerprintKey)
     .WithReference(db).WaitFor(db)
     .WithReference(cache).WaitFor(cache)
@@ -96,11 +111,17 @@ if (builder.Configuration.GetValue("Foundry:Enabled", false))
 }
 else if (builder.Configuration.GetValue("Foundry:Azure", false))
 {
-    // Typed into the dashboard rather than onto a command line. An unresolved parameter surfaces an "Enter
-    // values" form in the Aspire dashboard, with a "Save to user secret" checkbox, so the key reaches the
-    // AppHost's user-secrets without ever being pasted into a shell — where it would sit in history — or into
-    // a file somebody might commit. That is the same store `aspire secret set` writes to; this is the UI for
-    // it, not a second mechanism.
+    // These four are real Azure values — an endpoint, a key, two deployment names — so unlike the generated
+    // secrets above, a human has to supply them; there is nothing to auto-generate. The Aspire dashboard offers
+    // an "Enter values" form for unresolved parameters with a "Save to user secret" checkbox, and
+    // WithCustomInput below labels that form for each of these. Treat it as a convenience, not the primary
+    // path: it has a reproduced failure mode where a browser reload after its single-use login token is spent
+    // permanently drops a pending prompt with no way back to it. The reliable path is setting the value
+    // directly, which reaches the exact same store:
+    //   dotnet user-secrets set "Parameters:foundry-endpoint" "<value>" --project src/CreatorPantry.AppHost
+    //   dotnet user-secrets set "Parameters:foundry-key" "<value>" --project src/CreatorPantry.AppHost
+    //   dotnet user-secrets set "Parameters:foundry-chat-deployment" "<value>" --project src/CreatorPantry.AppHost
+    //   dotnet user-secrets set "Parameters:foundry-embeddings-deployment" "<value>" --project src/CreatorPantry.AppHost
     //
     // The endpoint is not marked secret because it is not one: masking it would only make the value harder to
     // check against the portal when a deployment name is wrong.
@@ -242,6 +263,15 @@ if (builder.ExecutionContext.IsRunMode)
 }
 
 builder.Build().Run();
+
+// The API only ever needs the public half; deriving it here from the resolved private key — instead of
+// resolving a second, independently-stored parameter — is what keeps the pair from drifting apart.
+static string DerivePublicKeyPem(string privateKeyPem)
+{
+    using var ecdsa = ECDsa.Create();
+    ecdsa.ImportFromPem(privateKeyPem);
+    return ecdsa.ExportSubjectPublicKeyInfoPem();
+}
 
 // Which model a deployment runs is configuration, not a literal here: a Foundry Local model id in
 // development, an Azure deployment name when deployed, and neither belongs in the application model's
