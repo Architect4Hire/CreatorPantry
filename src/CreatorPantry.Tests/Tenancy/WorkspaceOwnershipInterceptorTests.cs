@@ -37,7 +37,7 @@ public sealed class WorkspaceOwnershipInterceptorTests : IDisposable
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         // Feature code never assigns WorkspaceId (tenancy.md): left unset here, exactly as Business/DataLayer
         // code would construct it.
@@ -68,7 +68,7 @@ public sealed class WorkspaceOwnershipInterceptorTests : IDisposable
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspaceA.Id, workspaceA.Slug, Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspaceA.Id, workspaceA.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         // Scope is resolved to workspace A, but the entity arrives already stamped for workspace B.
         db.WorkspaceMemberships.Add(new WorkspaceMembership

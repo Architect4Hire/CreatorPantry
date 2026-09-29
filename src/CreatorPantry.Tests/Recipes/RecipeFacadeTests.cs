@@ -2506,5 +2506,7 @@ public sealed class RecipeFacadeTests
         public Guid MembershipId { get; } = membershipId ?? Guid.NewGuid();
 
         public WorkspaceRole Role { get; } = role;
+
+        public string AccountId => "account-a";
     }
 }

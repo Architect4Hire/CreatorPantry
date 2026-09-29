@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Ingredients;
@@ -65,6 +66,7 @@ public sealed class AiDraftAcceptanceTests : IAsyncDisposable
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(new AiTaskOptions())
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiDraftAcceptanceBusiness, AiDraftAcceptanceBusiness>()
             .AddIdempotency(configuration)
@@ -1124,7 +1126,8 @@ public sealed class AiDraftAcceptanceTests : IAsyncDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
-            role);
+            role,
+            "test-account");
 
     private sealed class StoppedClock : IClock
     {

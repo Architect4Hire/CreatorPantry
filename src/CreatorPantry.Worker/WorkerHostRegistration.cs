@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
@@ -63,6 +64,11 @@ public static class WorkerHostRegistration
         builder.Services.AddSingleton<IAiFailureClassifier, AzureInferenceFailureClassifier>();
         builder.AddAiResilience(static exception => exception is AiTransientFailureException);
         builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
+
+        // Required by the AI module, not optional beside it: this host is where attempts actually settle, so
+        // without it every StoreProposalAsync/FailAsync fails to resolve its dependencies at startup rather
+        // than quietly recording no usage (USAGE-001).
+        builder.Services.AddAiUsageModule();
 
         // Registered deliberately, for the AI operation worker: it loads the exact recipe/version an operation
         // names through the recipe module's own facade, never its repositories, and that facade needs the whole

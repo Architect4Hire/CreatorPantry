@@ -21,7 +21,7 @@ public class WorkspaceBusinessTests
     {
         _dataLayer.Lookup = new WorkspaceMembershipLookup(
             new WorkspaceSummary(WorkspaceId, Slug),
-            new MembershipSummary(MembershipId, WorkspaceRole.Editor, WorkspaceMembershipStatus.Active));
+            new MembershipSummary(MembershipId, WorkspaceRole.Editor, WorkspaceMembershipStatus.Active, "test-account"));
 
         var result = await CreateBusiness().ResolveAsync(UserId, new ResolveWorkspaceViewModel(Slug), TestContext.Current.CancellationToken);
 
@@ -49,7 +49,7 @@ public class WorkspaceBusinessTests
     {
         _dataLayer.Lookup = new WorkspaceMembershipLookup(
             new WorkspaceSummary(WorkspaceId, Slug),
-            new MembershipSummary(MembershipId, WorkspaceRole.Owner, status));
+            new MembershipSummary(MembershipId, WorkspaceRole.Owner, status, UserId));
 
         var result = await CreateBusiness().ResolveAsync(UserId, new ResolveWorkspaceViewModel(Slug), TestContext.Current.CancellationToken);
 
@@ -78,7 +78,7 @@ public class WorkspaceBusinessTests
         var nonmember = await business.ResolveAsync(UserId, new ResolveWorkspaceViewModel(Slug), TestContext.Current.CancellationToken);
 
         _dataLayer.Lookup = new WorkspaceMembershipLookup(
-            new WorkspaceSummary(WorkspaceId, Slug), new MembershipSummary(MembershipId, WorkspaceRole.Viewer, WorkspaceMembershipStatus.Removed));
+            new WorkspaceSummary(WorkspaceId, Slug), new MembershipSummary(MembershipId, WorkspaceRole.Viewer, WorkspaceMembershipStatus.Removed, "test-account"));
         var inactive = await business.ResolveAsync(UserId, new ResolveWorkspaceViewModel(Slug), TestContext.Current.CancellationToken);
 
         Assert.Equal(unknown.Error!.Code, nonmember.Error!.Code);
@@ -95,7 +95,7 @@ public class WorkspaceBusinessTests
     {
         _dataLayer.LookupByMembership = new WorkspaceMembershipLookup(
             new WorkspaceSummary(WorkspaceId, Slug),
-            new MembershipSummary(MembershipId, WorkspaceRole.Contributor, status));
+            new MembershipSummary(MembershipId, WorkspaceRole.Contributor, status, UserId));
 
         var result = await CreateBusiness().ResolveForOperationAsync(
             WorkspaceId, MembershipId, TestContext.Current.CancellationToken);
@@ -242,7 +242,7 @@ public class WorkspaceBusinessTests
     private static WorkspaceContext ResolvedContext()
     {
         var context = new WorkspaceContext();
-        context.Resolve(WorkspaceId, Slug, MembershipId, WorkspaceRole.Editor);
+        context.Resolve(WorkspaceId, Slug, MembershipId, WorkspaceRole.Editor, "test-account");
         return context;
     }
 

@@ -32,7 +32,8 @@ public class WorkspaceResolutionFacadeTests
     public async Task Well_formed_slug_delegates_to_business()
     {
         var expected = OperationResult<ResolvedWorkspaceServiceModel>.Success(
-            new ResolvedWorkspaceServiceModel(Guid.NewGuid(), "sams-kitchen", Guid.NewGuid(), WorkspaceRole.Owner));
+            new ResolvedWorkspaceServiceModel(
+                Guid.NewGuid(), "sams-kitchen", Guid.NewGuid(), WorkspaceRole.Owner, "test-account"));
         _business.Result = expected;
 
         var result = await CreateFacade().ResolveAsync(UserId, new ResolveWorkspaceViewModel("sams-kitchen"), TestContext.Current.CancellationToken);
@@ -55,7 +56,7 @@ public class WorkspaceResolutionFacadeTests
         var workspaceId = Guid.NewGuid();
         var membershipId = Guid.NewGuid();
         var expected = OperationResult<ResolvedWorkspaceServiceModel>.Success(
-            new ResolvedWorkspaceServiceModel(workspaceId, "sams-kitchen", membershipId, WorkspaceRole.Viewer));
+            new ResolvedWorkspaceServiceModel(workspaceId, "sams-kitchen", membershipId, WorkspaceRole.Viewer, "test-account"));
         _business.OperationResult = expected;
 
         var result = await CreateFacade().ResolveForOperationAsync(
@@ -76,7 +77,7 @@ public class WorkspaceResolutionFacadeTests
         var workspaceId = Guid.NewGuid();
         var membershipId = Guid.NewGuid();
         _business.OperationResult = OperationResult<ResolvedWorkspaceServiceModel>.Success(
-            new ResolvedWorkspaceServiceModel(workspaceId, "sams-kitchen", membershipId, WorkspaceRole.Contributor));
+            new ResolvedWorkspaceServiceModel(workspaceId, "sams-kitchen", membershipId, WorkspaceRole.Contributor, "test-account"));
 
         var context = new WorkspaceContext();
         await CreateFacade(context).ResolveForOperationAsync(

@@ -164,7 +164,7 @@ public sealed class ModuleBoundaryTests
 
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
         Assert.InRange(files.Count, 150, 600);
-        Assert.Equal(7, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        Assert.Equal(8, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.
@@ -317,6 +317,10 @@ public sealed class ModuleBoundaryTests
     /// <see cref="No_module_is_still_listed_as_under_construction_once_it_has_a_facade"/> is what makes this
     /// safe rather than a permanent hole: the moment the module grows a Facade area, that test fails and the
     /// name has to come out of this list.
+    /// </para>
+    /// <para>
+    /// <c>AiUsage</c> is here for the same reason: 9A.1 lands the account usage ledger's entity and
+    /// configuration, and its facade arrives in 9A.4 with the recording seam that the AI module calls.
     /// </para>
     /// </remarks>
     private static readonly string[] ModulesUnderConstruction = [];

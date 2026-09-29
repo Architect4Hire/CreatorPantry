@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
@@ -205,6 +206,38 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// failed attempt produces no proposal. Holds no prompt body, response, or provider payload.
     /// </remarks>
     public DbSet<AiExecutionMetadata> AiExecutionMetadata => Set<AiExecutionMetadata>();
+
+    /// <remarks>
+    /// <para>
+    /// The per-account AI usage ledger (USAGE-001/002). Deliberately <em>not</em>
+    /// <see cref="CreatorPantry.Domain.Managers.Persistence.IWorkspaceOwned"/> and carrying no query filter,
+    /// because usage is measured per account and one person's spend has to be summable across every workspace
+    /// they belong to — which a filtered entity could only answer through the <c>IgnoreQueryFilters()</c>
+    /// tenancy.md prohibits. Like the platform reference sets above, it is readable before a workspace is
+    /// resolved; unlike them, it is per-account data rather than shared vocabulary.
+    /// </para>
+    /// <para>
+    /// That is safe for exactly one reason, and <see cref="AccountAiUsageEntry"/>'s remarks state it: the row
+    /// holds counts and never content, and has no free-text column at all. A content-bearing column added here
+    /// would make the missing filter indefensible.
+    /// </para>
+    /// </remarks>
+    public DbSet<AccountAiUsageEntry> AccountAiUsageEntries => Set<AccountAiUsageEntry>();
+
+    /// <remarks>
+    /// The AI allowance terms in force for one account (USAGE-003), effective-dated and platform-scoped for
+    /// the same reason the ledger is: a quota belongs to an account, never to a workspace and never to a
+    /// membership, so a creator does not earn a fresh allowance by joining another workspace. Holds terms, not
+    /// balances.
+    /// </remarks>
+    public DbSet<AccountAiQuota> AccountAiQuotas => Set<AccountAiQuota>();
+
+    /// <remarks>
+    /// One account's allowance window and what it has spent inside it. Freezes the terms it opened under, so
+    /// changing a quota takes effect at the next roll rather than re-pricing a period the creator has already
+    /// been spending against, and stores its boundaries rather than recomputing them from "now".
+    /// </remarks>
+    public DbSet<AccountAiQuotaPeriod> AccountAiQuotaPeriods => Set<AccountAiQuotaPeriod>();
 
     Guid? IWorkspaceIdSource.CurrentWorkspaceIdOrNull => workspaceContext is { IsResolved: true } context ? context.WorkspaceId : null;
 

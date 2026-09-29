@@ -21,7 +21,10 @@ internal sealed class WorkspaceContext : IWorkspaceContext, IWorkspaceContextRes
 
     public WorkspaceRole Role => Require().Role;
 
-    public void Resolve(Guid workspaceId, string workspaceSlug, Guid membershipId, WorkspaceRole role)
+    public string AccountId => Require().AccountId;
+
+    public void Resolve(
+        Guid workspaceId, string workspaceSlug, Guid membershipId, WorkspaceRole role, string accountId)
     {
         if (workspaceId == Guid.Empty)
         {
@@ -38,16 +41,25 @@ internal sealed class WorkspaceContext : IWorkspaceContext, IWorkspaceContextRes
             throw new ArgumentException("A resolved membership id must not be empty.", nameof(membershipId));
         }
 
+        // Checked like the ids above rather than left to fail later: an empty account id would resolve
+        // successfully and then attribute every AI attempt in the scope to nobody, which the usage ledger
+        // would store as a real row (USAGE-001).
+        if (string.IsNullOrWhiteSpace(accountId))
+        {
+            throw new ArgumentException("A resolved account id must not be empty.", nameof(accountId));
+        }
+
         if (_resolved is not null)
         {
             throw new InvalidOperationException("This workspace context was already resolved.");
         }
 
-        _resolved = new ResolvedWorkspace(workspaceId, workspaceSlug, membershipId, role);
+        _resolved = new ResolvedWorkspace(workspaceId, workspaceSlug, membershipId, role, accountId);
     }
 
     private ResolvedWorkspace Require() =>
         _resolved ?? throw new InvalidOperationException("Workspace context has not been resolved.");
 
-    private sealed record ResolvedWorkspace(Guid WorkspaceId, string WorkspaceSlug, Guid MembershipId, WorkspaceRole Role);
+    private sealed record ResolvedWorkspace(
+        Guid WorkspaceId, string WorkspaceSlug, Guid MembershipId, WorkspaceRole Role, string AccountId);
 }

@@ -41,7 +41,7 @@ public class WorkspaceContextTests
     {
         var context = new WorkspaceContextUnderTest();
 
-        context.Resolver.Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Editor);
+        context.Resolver.Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Editor, "test-account");
 
         IWorkspaceContext resolved = context;
         Assert.True(resolved.IsResolved);
@@ -49,16 +49,17 @@ public class WorkspaceContextTests
         Assert.Equal(WorkspaceSlug, resolved.WorkspaceSlug);
         Assert.Equal(MembershipId, resolved.MembershipId);
         Assert.Equal(WorkspaceRole.Editor, resolved.Role);
+        Assert.Equal("test-account", resolved.AccountId);
     }
 
     [Fact]
     public void A_second_resolution_throws_even_with_identical_values()
     {
         var context = new WorkspaceContextUnderTest();
-        context.Resolver.Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Owner);
+        context.Resolver.Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Owner, "test-account");
 
         Assert.Throws<InvalidOperationException>(
-            () => context.Resolver.Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Owner));
+            () => context.Resolver.Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Owner, "test-account"));
     }
 
     [Theory]
@@ -71,7 +72,24 @@ public class WorkspaceContextTests
         var context = new WorkspaceContextUnderTest();
 
         Assert.Throws<ArgumentException>(() => context.Resolver.Resolve(
-            Guid.Parse(workspaceId), workspaceSlug, Guid.Parse(membershipId), WorkspaceRole.Viewer));
+            Guid.Parse(workspaceId), workspaceSlug, Guid.Parse(membershipId), WorkspaceRole.Viewer, "test-account"));
+        Assert.False(((IWorkspaceContext)context).IsResolved);
+    }
+
+    /// <summary>
+    /// Checked like every other resolved value, and worth its own case: a blank account id would resolve
+    /// successfully and then attribute every AI attempt in the scope to nobody, which the usage ledger would
+    /// store as a real row (USAGE-001).
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Resolve_rejects_a_blank_account_id(string accountId)
+    {
+        var context = new WorkspaceContextUnderTest();
+
+        Assert.Throws<ArgumentException>(() => context.Resolver.Resolve(
+            WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Viewer, accountId));
         Assert.False(((IWorkspaceContext)context).IsResolved);
     }
 
@@ -84,7 +102,7 @@ public class WorkspaceContextTests
         using var scopeB = services.CreateScope();
 
         scopeA.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Owner);
+            .Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Owner, "test-account");
 
         Assert.True(scopeA.ServiceProvider.GetRequiredService<IWorkspaceContext>().IsResolved);
         Assert.False(scopeB.ServiceProvider.GetRequiredService<IWorkspaceContext>().IsResolved);
@@ -97,7 +115,7 @@ public class WorkspaceContextTests
         using var scope = services.CreateScope();
 
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Contributor);
+            .Resolve(WorkspaceId, WorkspaceSlug, MembershipId, WorkspaceRole.Contributor, "test-account");
 
         var read = scope.ServiceProvider.GetRequiredService<IWorkspaceContext>();
         Assert.True(read.IsResolved);
@@ -115,6 +133,7 @@ public class WorkspaceContextTests
         context => context.WorkspaceSlug,
         context => context.MembershipId,
         context => context.Role,
+        context => context.AccountId,
     };
 
     /// <summary>
@@ -138,6 +157,7 @@ public class WorkspaceContextTests
         public Guid WorkspaceId => _read.WorkspaceId;
         public string WorkspaceSlug => _read.WorkspaceSlug;
         public Guid MembershipId => _read.MembershipId;
+        public string AccountId => _read.AccountId;
         public WorkspaceRole Role => _read.Role;
     }
 }

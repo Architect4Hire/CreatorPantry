@@ -59,7 +59,14 @@ public static partial class WorkspaceResolutionMiddleware
 
             var resolved = result.Value!;
             context.RequestServices.GetRequiredService<IWorkspaceContextResolver>()
-                .Resolve(resolved.WorkspaceId, resolved.WorkspaceSlug, resolved.MembershipId, resolved.Role);
+                .Resolve(
+                    resolved.WorkspaceId,
+                    resolved.WorkspaceSlug,
+                    resolved.MembershipId,
+                    resolved.Role,
+                    // The membership row's own UserId, not the token's subject that produced `userId` above.
+                    // They agree today; taking it from the verified row keeps them unable to disagree.
+                    resolved.AccountId);
 
             await next(context);
         });

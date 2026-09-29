@@ -40,7 +40,12 @@ internal sealed class WorkspaceResolutionFacade(
         if (result.Succeeded)
         {
             var resolved = result.Value!;
-            contextResolver.Resolve(resolved.WorkspaceId, resolved.WorkspaceSlug, resolved.MembershipId, resolved.Role);
+            contextResolver.Resolve(
+                resolved.WorkspaceId,
+                resolved.WorkspaceSlug,
+                resolved.MembershipId,
+                resolved.Role,
+                resolved.AccountId);
         }
 
         return result;

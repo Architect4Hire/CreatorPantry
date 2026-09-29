@@ -92,7 +92,7 @@
           "AiProposals"
         ],
         "summary": "Asks for an AI proposal against one version of a recipe.",
-        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet. The request is durable and the model\n            is called by the worker afterwards, so the API does not stay open around unbounded provider work\n            (api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet. The request is durable and the model\nis called by the worker afterwards, so the API does not stay open around unbounded provider work\n(api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -337,7 +337,7 @@
           "AiProposals"
         ],
         "summary": "Records what the creator decided about a proposal, and applies what they accepted.",
-        "description": "\u0060200\u0060 rather than \u0060202\u0060: unlike requesting a proposal, this finishes before it returns. There is\n            no provider call \u2014 the answer was generated long ago \u2014 and the recipe version, the per-change decisions,\n            the feedback and the operation\u0027s terminal status all commit in one transaction before the reply is written.\n\n\u0060Contributor\u0060 at the edge, because accepting changes writes a recipe version. A \u0060Viewer\u0060 cannot\n            reject either, which is the deliberate cost of one policy per route: rejecting decides the fate of a\n            workspace\u0027s content, and the role that may not change a recipe should not be the role that closes a\n            proposal against it.\n\nRetrying is safe and needs no \u0060Idempotency-Key\u0060. A proposal can be decided once; a repeat of the same\ndecision is recognised and answered without writing anything, and a repeat asking for a\ndifferent decision is a \u0060409\u0060 rather than a second version of the recipe.",
+        "description": "\u0060200\u0060 rather than \u0060202\u0060: unlike requesting a proposal, this finishes before it returns. There is\nno provider call \u2014 the answer was generated long ago \u2014 and the recipe version, the per-change decisions,\nthe feedback and the operation\u0027s terminal status all commit in one transaction before the reply is written.\n\n\u0060Contributor\u0060 at the edge, because accepting changes writes a recipe version. A \u0060Viewer\u0060 cannot\nreject either, which is the deliberate cost of one policy per route: rejecting decides the fate of a\nworkspace\u0027s content, and the role that may not change a recipe should not be the role that closes a\nproposal against it.\n\nRetrying is safe and needs no \u0060Idempotency-Key\u0060. A proposal can be decided once; a repeat of the same\ndecision is recognised and answered without writing anything, and a repeat asking for a\ndifferent decision is a \u0060409\u0060 rather than a second version of the recipe.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -921,7 +921,7 @@
           "ProposalExplanationRequests"
         ],
         "summary": "Asks for a deterministic explanation of an already-completed proposal.",
-        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been explained yet. The request is durable and run by the\n            worker afterwards -- even though this task never calls a model, it still runs through the same\n            operation lifecycle every AI capability does (api-contract.md).",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been explained yet. The request is durable and run by the\nworker afterwards -- even though this task never calls a model, it still runs through the same\noperation lifecycle every AI capability does (api-contract.md).",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1126,7 +1126,7 @@
           "RecipeAdaptationRequests"
         ],
         "summary": "Asks for a single-goal adaptation of one exact version of a recipe.",
-        "description": "\u0060202\u0060: nothing has been generated yet and nothing is changed when it is. The request is durable\n            and the model is called by the worker afterwards, so the API does not stay open around unbounded\n            provider work (api-contract.md).",
+        "description": "\u0060202\u0060: nothing has been generated yet and nothing is changed when it is. The request is durable\nand the model is called by the worker afterwards, so the API does not stay open around unbounded\nprovider work (api-contract.md).",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1361,7 +1361,7 @@
           "RecipeConceptRequests"
         ],
         "summary": "Asks for two to five distinct recipe concepts from a structured brief.",
-        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet. The request is durable and the model\n            is called by the worker afterwards, so the API does not stay open around unbounded provider work\n            (api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet. The request is durable and the model\nis called by the worker afterwards, so the API does not stay open around unbounded provider work\n(api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1566,7 +1566,7 @@
           "RecipeDraftRequests"
         ],
         "summary": "Asks for one structured first draft.",
-        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet, and nothing is created when it is.\n            The request is durable and the model is called by the worker afterwards, so the API does not stay open\n            around unbounded provider work (api-contract.md). The \u0060Location\u0060 header points at the status\n            resource to poll.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been generated yet, and nothing is created when it is.\nThe request is durable and the model is called by the worker afterwards, so the API does not stay open\naround unbounded provider work (api-contract.md). The \u0060Location\u0060 header points at the status\nresource to poll.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1781,7 +1781,7 @@
           "RecipeDraftRequests"
         ],
         "summary": "Accepts a reviewed draft into a new recipe, or records that it was rejected.",
-        "description": "The only step that creates a recipe from a generated draft. The recipe, its version 1,\n            the per-part decisions and this request\u0027s terminal status commit together or not at all \u2014 an accepted\n            draft that the recipe rules refuse leaves nothing behind, not even the decision.\n\nNo idempotency key, and retrying is safe without one. A draft that has already been\n            decided is recognised inside that transaction and answered with the recipe that decision created, never\n            a second one. A request asking for a different decision is a \u0060409\u0060: the draft is terminal,\n            and quietly serving the earlier outcome would tell a creator their selection had been applied when a\n            different one had.\n\n\u0060200\u0060 rather than \u0060201\u0060: the reply is the decision, which names the recipe it created. A\n            \u0060Location\u0060 would point at a resource this route does not own.",
+        "description": "The only step that creates a recipe from a generated draft. The recipe, its version 1,\nthe per-part decisions and this request\u0027s terminal status commit together or not at all \u2014 an accepted\ndraft that the recipe rules refuse leaves nothing behind, not even the decision.\n\nNo idempotency key, and retrying is safe without one. A draft that has already been\ndecided is recognised inside that transaction and answered with the recipe that decision created, never\na second one. A request asking for a different decision is a \u0060409\u0060: the draft is terminal,\nand quietly serving the earlier outcome would tell a creator their selection had been applied when a\ndifferent one had.\n\n\u0060200\u0060 rather than \u0060201\u0060: the reply is the decision, which names the recipe it created. A\n\u0060Location\u0060 would point at a resource this route does not own.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1911,7 +1911,7 @@
           "RecipeReviewRequests"
         ],
         "summary": "Asks for a review of one exact version of a recipe.",
-        "description": "\u0060202\u0060: nothing has been generated yet, and nothing about the recipe changes when it has. The\n            request is durable and the model is called by the worker afterwards, so the API does not stay open\n            around unbounded provider work (api-contract.md).",
+        "description": "\u0060202\u0060: nothing has been generated yet, and nothing about the recipe changes when it has. The\nrequest is durable and the model is called by the worker afterwards, so the API does not stay open\naround unbounded provider work (api-contract.md).",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -2146,7 +2146,7 @@
           "RecipeRevisionRequests"
         ],
         "summary": "Asks for a scoped revision of one exact version of a recipe.",
-        "description": "\u0060202\u0060: nothing has been generated yet and nothing is changed when it is. The request is durable\n            and the model is called by the worker afterwards, so the API does not stay open around unbounded\n            provider work (api-contract.md).",
+        "description": "\u0060202\u0060: nothing has been generated yet and nothing is changed when it is. The request is durable\nand the model is called by the worker afterwards, so the API does not stay open around unbounded\nprovider work (api-contract.md).",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -4217,7 +4217,7 @@
           "RecipeSubstitutionRequests"
         ],
         "summary": "Asks for alternatives to one ingredient in one exact version of a recipe.",
-        "description": "\u0060202\u0060: nothing has been generated yet, and nothing about the recipe changes when it has. The\n            request is durable and the model is called by the worker afterwards, so the API does not stay open\n            around unbounded provider work (api-contract.md).",
+        "description": "\u0060202\u0060: nothing has been generated yet, and nothing about the recipe changes when it has. The\nrequest is durable and the model is called by the worker afterwards, so the API does not stay open\naround unbounded provider work (api-contract.md).",
         "parameters": [
           {
             "name": "workspaceSlug",

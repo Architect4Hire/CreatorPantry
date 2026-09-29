@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
@@ -44,6 +45,7 @@ public sealed class AiOperationQueueTests : IDisposable
             // registering the real writer would only hide whether the entry is staged on the same context.
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddDbContext<CreatorPantryDbContext>(options => options
@@ -583,7 +585,7 @@ public sealed class AiOperationQueueTests : IDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "a" : "b",
             Membership,
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
     private async Task<AiOperation> LoadAsync(Guid operationId)
     {

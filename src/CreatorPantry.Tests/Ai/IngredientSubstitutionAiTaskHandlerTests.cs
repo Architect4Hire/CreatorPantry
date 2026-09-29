@@ -631,7 +631,7 @@ public sealed class IngredientSubstitutionAiTaskHandlerTests : IAsyncDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
     private sealed class StoppedClock : IClock
     {

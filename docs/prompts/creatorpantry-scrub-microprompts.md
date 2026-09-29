@@ -2126,7 +2126,7 @@ implement with success, retry, timeout, safety-blocked, unreported-usage, duplic
 two-workspaces-one-account tests.
 ```
 
-### 9A.5 Admission check, reservation, and settlement
+### 9A.5 Admission check, reservation, and settlement *PICK UP HERE*
 
 ```text
 SCOPE: Implement deterministic quota admission before any provider call: resolve the account's current period,

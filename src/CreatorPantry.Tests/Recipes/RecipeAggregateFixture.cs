@@ -240,7 +240,7 @@ internal sealed class RecipeAggregateFixture : IDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
         return scope;
     }

@@ -6,7 +6,13 @@ namespace CreatorPantry.Domain.Modules.Tenancy.Managers;
 public sealed record WorkspaceSummary(Guid Id, string Slug);
 
 /// <summary>One caller's membership in a workspace, independent of whether it is active.</summary>
-public sealed record MembershipSummary(Guid Id, WorkspaceRole Role, WorkspaceMembershipStatus Status);
+/// <param name="UserId">
+/// The Identity account behind this membership. Carried so that resolving a workspace also resolves who the
+/// caller is platform-wide, which per-account AI usage accounting needs (USAGE-001) and a workspace-scoped
+/// <paramref name="Id"/> cannot answer. It costs nothing: the row it comes from is already being read.
+/// </param>
+public sealed record MembershipSummary(
+    Guid Id, WorkspaceRole Role, WorkspaceMembershipStatus Status, string UserId);
 
 /// <summary>
 /// The raw outcome of a slug + membership lookup, before disclosure policy collapses it. <see cref="Workspace"/>

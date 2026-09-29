@@ -5,6 +5,8 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.Domain.Modules.Ai.Data;
@@ -256,7 +258,9 @@ internal sealed class AiOperationDataLayer(
     CreatorPantryDbContext context,
     IAiOperationRepository operations,
     IAuditWriter auditWriter,
-    IClock clock) : IAiOperationDataLayer
+    IClock clock,
+    IWorkspaceContext workspaceContext,
+    IAiUsageRecordingFacade usage) : IAiOperationDataLayer
 {
     public async Task<AiOperationRequest> RequestAsync(
         AiOperation operation,
@@ -366,12 +370,12 @@ internal sealed class AiOperationDataLayer(
         operation.LeaseExpiresAt = null;
 
         operations.AddProposal(proposal);
-        operations.AddExecutionRecords(await MapAttemptsAsync(operationId, attempts, cancellationToken));
+        await RecordAttemptsAsync(operation, attempts, cancellationToken);
 
         // One SaveChanges over every pending entity on one context is already one transaction — the reasoning
         // IRecipeDataLayer records, including why an explicit BeginTransactionAsync would be worse under the
-        // retrying execution strategy. The proposal, its changes, its warnings, the execution rows and the
-        // status change commit together or not at all.
+        // retrying execution strategy. The proposal, its changes, its warnings, the execution rows, the
+        // account usage entries and the status change commit together or not at all.
         await operations.SaveAsync(cancellationToken);
 
         return AiOperationWriteOutcome.Applied;
@@ -408,7 +412,7 @@ internal sealed class AiOperationDataLayer(
         operation.LeasedBy = null;
         operation.LeaseExpiresAt = null;
 
-        operations.AddExecutionRecords(await MapAttemptsAsync(operationId, attempts, cancellationToken));
+        await RecordAttemptsAsync(operation, attempts, cancellationToken);
 
         await operations.SaveAsync(cancellationToken);
 
@@ -745,6 +749,129 @@ internal sealed class AiOperationDataLayer(
     /// </summary>
     private static bool HoldsLease(AiOperation operation, Guid leaseToken) =>
         operation.Status is AiOperationStatus.Running && operation.LeasedBy == leaseToken;
+
+    /// <summary>
+    /// Stages this operation's execution records and the matching per-account usage entries, on one unit of
+    /// work, for every write path that settles an attempt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One helper rather than two call sites, on purpose.</strong> USAGE-001 makes a settled attempt
+    /// that posts no usage a defect; with the two writes in separate places, that defect is one forgotten line
+    /// away, and only in the failure path — the one nobody demonstrates. Here it is not reachable without
+    /// deleting something.
+    /// </para>
+    /// <para>
+    /// Both halves stage and neither saves, so the caller's <c>SaveAsync</c> commits the diagnostic record and
+    /// the account's ledger together or neither. See <see cref="IAiUsageRecordingFacade.StageAttemptsAsync"/>.
+    /// </para>
+    /// </remarks>
+    private async Task RecordAttemptsAsync(
+        AiOperation operation,
+        IReadOnlyCollection<AiAttemptRecord> attempts,
+        CancellationToken cancellationToken)
+    {
+        var records = await MapAttemptsAsync(operation.Id, attempts, cancellationToken);
+
+        operations.AddExecutionRecords(records);
+
+        if (records.Count == 0)
+        {
+            return;
+        }
+
+        // The invariant, not a branch: this scope was resolved from the operation's own requester
+        // (IWorkspaceResolutionFacade.ResolveForOperationAsync, called by the worker with
+        // claim.RequestedByMembershipId), so the two always agree today. It throws rather than charging
+        // whoever happens to hold the scope, because a usage entry billed to the wrong account is worse than
+        // a failed write: the write is retried, the mis-attribution is not noticed.
+        if (workspaceContext.MembershipId != operation.RequestedByMembershipId)
+        {
+            throw new InvalidOperationException(
+                $"AI operation {operation.Id} was requested by a different membership than the one holding "
+                    + "this scope; its usage cannot be attributed.");
+        }
+
+        var attribution = new AiUsageAttributionServiceModel(
+            workspaceContext.AccountId,
+            operation.WorkspaceId,
+            operation.Id,
+            operation.TaskType);
+
+        await usage.StageAttemptsAsync(
+            attribution,
+            [.. records.Select(record => ToUsageAttempt(record, operation.TaskType))],
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The counts-and-outcome view of an attempt the ledger takes, built from the execution record so the two
+    /// cannot disagree about what happened.
+    /// </summary>
+    private static AiUsageAttemptServiceModel ToUsageAttempt(AiExecutionMetadata record, AiTaskType taskType) =>
+        new()
+        {
+            AttemptNumber = record.AttemptNumber,
+
+            // The attempt's own end, not the moment this row is written: it is what a quota period is assigned
+            // from, and a batch settled together would otherwise all land on one instant.
+            OccurredAt = record.CompletedAt,
+            ProviderName = record.ProviderName,
+            ModelName = record.ModelName,
+            ModelDeployment = record.ModelDeployment,
+            InputTokens = record.InputTokens,
+            OutputTokens = record.OutputTokens,
+
+            // Null until a gateway reports a provider total. Never input + output: providers report totals
+            // that legitimately are not the sum, and a computed one would be indistinguishable from a
+            // reported one. See AccountAiUsageEntry.TotalTokens.
+            TotalTokens = null,
+            EstimatedCost = record.EstimatedCost,
+            Outcome = OutcomeOf(record),
+            IsBillable = IsBillable(record, taskType),
+        };
+
+    /// <summary>
+    /// How the attempt ended, in the ledger's smaller vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// A blocked attempt is reported as blocked whichever way it was detected — <c>SafetyBlocked</c> is set by
+    /// the provider flagging the response, and the failure category by a check refusing it — because a
+    /// creator-facing "this was blocked" should not depend on which of the two noticed.
+    /// </remarks>
+    private static AiUsageOutcome OutcomeOf(AiExecutionMetadata record) =>
+        record.SafetyBlocked || record.FailureCategory is AiFailureCategory.SafetyBlocked
+            ? AiUsageOutcome.SafetyBlocked
+            : record.FailureCategory switch
+            {
+                null => AiUsageOutcome.Succeeded,
+                AiFailureCategory.Timeout => AiUsageOutcome.TimedOut,
+                AiFailureCategory.Cancelled => AiUsageOutcome.Cancelled,
+                _ => AiUsageOutcome.Failed,
+            };
+
+    /// <summary>
+    /// Whether this attempt counts against the account's allowance.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// False only when the attempt was <em>structurally incapable</em> of costing anything: a
+    /// <see cref="AiTaskType.Diagnostic"/> task never calls a model, and the four categories below all fail
+    /// before a provider is reached.
+    /// </para>
+    /// <para>
+    /// Everything else is billable, including <see cref="AiFailureCategory.Timeout"/> and
+    /// <see cref="AiFailureCategory.RateLimited"/>. That is deliberate and it is the conservative reading: a
+    /// call that timed out may well have been served and charged for, and treating an unknown cost as free is
+    /// exactly the silent under-attribution USAGE-005 exists to prevent.
+    /// </para>
+    /// </remarks>
+    private static bool IsBillable(AiExecutionMetadata record, AiTaskType taskType) =>
+        taskType is not AiTaskType.Diagnostic
+        && record.FailureCategory is not (AiFailureCategory.Validation
+            or AiFailureCategory.Quota
+            or AiFailureCategory.TemplateUnavailable
+            or AiFailureCategory.LeaseAbandoned);
 
     /// <summary>
     /// Numbers the execution rows continuing from whatever the operation already has, so a requeued operation's

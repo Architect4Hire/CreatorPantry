@@ -25,7 +25,8 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
         }
 
         return OperationResult<ResolvedWorkspaceServiceModel>.Success(
-            new ResolvedWorkspaceServiceModel(workspace.Id, workspace.Slug, membership.Id, membership.Role));
+            new ResolvedWorkspaceServiceModel(
+                workspace.Id, workspace.Slug, membership.Id, membership.Role, membership.UserId));
     }
 
     public async Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForOperationAsync(
@@ -40,7 +41,8 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
         }
 
         return OperationResult<ResolvedWorkspaceServiceModel>.Success(
-            new ResolvedWorkspaceServiceModel(workspace.Id, workspace.Slug, membership.Id, membership.Role));
+            new ResolvedWorkspaceServiceModel(
+                workspace.Id, workspace.Slug, membership.Id, membership.Role, membership.UserId));
     }
 
     public async Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(

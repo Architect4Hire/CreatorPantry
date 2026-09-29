@@ -98,7 +98,7 @@ public sealed class WorkspaceAuthorizationPolicyTests : IDisposable
 
     private static void Resolve(IServiceScope scope, WorkspaceRole role) =>
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(Guid.NewGuid(), "sams-kitchen", Guid.NewGuid(), role);
+            .Resolve(Guid.NewGuid(), "sams-kitchen", Guid.NewGuid(), role, "test-account");
 
     private static ClaimsPrincipal User() => UserWithTokenUse(InternalTokenDefaults.UserTokenUse);
 

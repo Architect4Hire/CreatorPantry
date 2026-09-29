@@ -311,7 +311,7 @@ public sealed class RecipeDetailEndpointTests : IAsyncLifetime
         await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
 
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
-            workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner);
+            workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
         var recipe = SeededRecipe(title);

@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -44,6 +45,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiFirstDraftRequestBusiness, AiFirstDraftRequestBusiness>()
             .AddDbContext<CreatorPantryDbContext>(options => options
@@ -703,7 +705,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             membershipId,
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
         return membershipId;
     }

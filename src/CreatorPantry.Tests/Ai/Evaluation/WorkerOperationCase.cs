@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
@@ -215,6 +216,7 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
             .AddSingleton(clock)
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddScoped<IAiOperationWorker, AiOperationWorker>()
@@ -327,7 +329,7 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
                 workspaceId,
                 workspaceId == WorkspaceA ? "a" : "b",
                 workspaceId == WorkspaceA ? MembershipA : MembershipB,
-                WorkspaceRole.Owner);
+                WorkspaceRole.Owner, "test-account");
 
         public async ValueTask DisposeAsync()
         {

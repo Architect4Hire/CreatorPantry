@@ -122,5 +122,6 @@ internal sealed class WorkspaceRepository(CreatorPantryDbContext context) : IWor
 
     private static WorkspaceSummary ToSummary(Workspace workspace) => new(workspace.Id, workspace.Slug);
 
-    private static MembershipSummary ToSummary(WorkspaceMembership membership) => new(membership.Id, membership.Role, membership.Status);
+    private static MembershipSummary ToSummary(WorkspaceMembership membership) =>
+        new(membership.Id, membership.Role, membership.Status, membership.UserId);
 }

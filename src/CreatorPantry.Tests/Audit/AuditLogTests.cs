@@ -122,7 +122,7 @@ public sealed class AuditLogTests : IDisposable
 
         await using var scope = _services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspaceA, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspaceA, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         var visible = await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
             .AuditLogs.AsNoTracking().ToListAsync(TestContext.Current.CancellationToken);
@@ -148,7 +148,7 @@ public sealed class AuditLogTests : IDisposable
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
         return workspace.Id;
     }
 }

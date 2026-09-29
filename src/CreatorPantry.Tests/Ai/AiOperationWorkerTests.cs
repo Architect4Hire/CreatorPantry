@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
@@ -51,6 +52,7 @@ public sealed class AiOperationWorkerTests : IDisposable
             .AddSingleton<IClock>(_clock)
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddScoped<IAiOperationWorker, AiOperationWorker>()
@@ -361,6 +363,7 @@ public sealed class AiOperationWorkerTests : IDisposable
         .AddSingleton<IClock>(_clock)
         .AddAudit()
         .AddScoped<IAiOperationRepository, AiOperationRepository>()
+        .AddAiUsageModule()
         .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
         .AddScoped<AiOperationClaimRepository>()
         .AddScoped<IAiOperationWorker, AiOperationWorker>()
@@ -517,7 +520,7 @@ public sealed class AiOperationWorkerTests : IDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "a" : "b",
             workspaceId == WorkspaceA ? MembershipA : MembershipB,
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
     private AiTaskHandlerOutcome Success(Guid operationId, Guid workspaceId) => AiTaskHandlerOutcome.ForProposal(
         new AiProposal

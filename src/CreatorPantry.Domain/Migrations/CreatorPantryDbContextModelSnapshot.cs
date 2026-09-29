@@ -618,6 +618,252 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuota", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal?>("Allowance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("CarryOver")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("CarryOverCap")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("EffectiveTo")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsSuspended")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("LastChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LastChangedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("PeriodAnchor")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PeriodLength")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Unit")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiQuotas_Account_Current")
+                        .HasFilter("EffectiveTo IS NULL");
+
+                    b.HasIndex("AccountId", "EffectiveFrom")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiQuotas_Account_EffectiveFrom");
+
+                    b.ToTable("AccountAiQuotas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountAiQuotas_Allowance_NotNegative", "Allowance IS NULL OR Allowance >= 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotas_Anchor_Matches_Length", "(PeriodLength = 1 AND PeriodAnchor = 0) OR (PeriodLength = 2 AND PeriodAnchor BETWEEN 0 AND 6) OR (PeriodLength = 3 AND PeriodAnchor BETWEEN 1 AND 28)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotas_CarryOverCap_Matches_Rule", "(CarryOver = 2 AND CarryOverCap IS NOT NULL AND CarryOverCap >= 0) OR (CarryOver = 1 AND CarryOverCap IS NULL)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotas_CarryOver_Declared", "CarryOver <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotas_Effective_Range", "EffectiveTo IS NULL OR EffectiveTo > EffectiveFrom");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotas_PeriodLength_Declared", "PeriodLength <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotas_Unit_Declared", "Unit <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuotaPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("Allowance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CarriedOver")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Consumed")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTimeOffset>("EndsAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateOnly>("LocalStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Reserved")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset?>("SettledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Unit")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EndsAt")
+                        .HasDatabaseName("IX_AccountAiQuotaPeriods_Unsettled")
+                        .HasFilter("SettledAt IS NULL");
+
+                    b.HasIndex("AccountId", "StartsAt")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiQuotaPeriods_Account_StartsAt");
+
+                    b.ToTable("AccountAiQuotaPeriods", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Ends_After_Starts", "EndsAt > StartsAt");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Settled_After_End", "SettledAt IS NULL OR SettledAt >= EndsAt");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Totals_NotNegative", "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Unit_Declared", "Unit <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiUsageEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("AiOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("EstimatedCost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsBillable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModelDeployment")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProviderName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("TaskType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TotalTokens")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("UsageReported")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId", "OccurredAt")
+                        .HasDatabaseName("IX_AccountAiUsageEntries_Account_OccurredAt");
+
+                    b.HasIndex("AiOperationId", "AttemptNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiUsageEntries_Operation_Attempt");
+
+                    b.HasIndex("AccountId", "WorkspaceId", "OccurredAt")
+                        .HasDatabaseName("IX_AccountAiUsageEntries_Account_Workspace_OccurredAt");
+
+                    b.ToTable("AccountAiUsageEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_Attempt_Positive", "AttemptNumber >= 1");
+
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_Cost_NotNegative", "EstimatedCost IS NULL OR EstimatedCost >= 0");
+
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_Outcome_Declared", "Outcome <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_TaskType_Declared", "TaskType <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_Tokens_NotNegative", "(InputTokens IS NULL OR InputTokens >= 0) AND (OutputTokens IS NULL OR OutputTokens >= 0) AND (TotalTokens IS NULL OR TotalTokens >= 0)");
+
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_UsageReported_Matches_Tokens", "(UsageReported = 0 AND InputTokens IS NULL AND OutputTokens IS NULL AND TotalTokens IS NULL) OR (UsageReported = 1 AND (InputTokens IS NOT NULL OR OutputTokens IS NOT NULL OR TotalTokens IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Auth.Data.Entities.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")

@@ -71,7 +71,7 @@ public sealed class WorkspaceOwnershipConventionAppliesToNewEntitiesTests : IAsy
 
         using var scope = _services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspaceA, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspaceA, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         var visible = await scope.ServiceProvider.GetRequiredService<NewlyDiscoveredEntityDbContext>()
             .Widgets.ToListAsync(TestContext.Current.CancellationToken);
@@ -100,9 +100,9 @@ public sealed class WorkspaceOwnershipConventionAppliesToNewEntitiesTests : IAsy
         using var scopeA = _services.CreateScope();
         using var scopeB = _services.CreateScope();
         scopeA.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspaceA, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspaceA, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
         scopeB.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspaceB, "workspace-b", Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspaceB, "workspace-b", Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         var dbA = scopeA.ServiceProvider.GetRequiredService<NewlyDiscoveredEntityDbContext>();
         var dbB = scopeB.ServiceProvider.GetRequiredService<NewlyDiscoveredEntityDbContext>();

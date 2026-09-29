@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
@@ -55,6 +56,7 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             .AddSingleton<IPromptTemplateStore>(EmbeddedPromptTemplateStore.Load(typeof(AiPolicy).Assembly))
             .AddSingleton<IAiCompletionGateway>(BuildGateway(chatClient))
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
             .AddScoped<IAiOperationWorker, AiOperationWorker>()
@@ -175,7 +177,7 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             workspaceId == WorkspaceA ? MembershipA : MembershipB,
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
     private static AiCompletionGateway BuildGateway(IChatClient client)
     {

@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
@@ -61,6 +62,7 @@ public sealed class AiSubstitutionRequestBusinessTests : IAsyncDisposable
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiSubstitutionRequestBusiness, AiSubstitutionRequestBusiness>()
             .AddIdempotency(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build())
@@ -469,7 +471,7 @@ public sealed class AiSubstitutionRequestBusinessTests : IAsyncDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
     private sealed class StoppedClock : IClock
     {

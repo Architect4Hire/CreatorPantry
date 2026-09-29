@@ -3527,6 +3527,8 @@ public sealed class RecipeBusinessTests
         public Guid MembershipId { get; } = membershipId;
 
         public WorkspaceRole Role => WorkspaceRole.Owner;
+
+        public string AccountId => "account-a";
     }
 
     private sealed class StubClock(DateTimeOffset now) : IClock

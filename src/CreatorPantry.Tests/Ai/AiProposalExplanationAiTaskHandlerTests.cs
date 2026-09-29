@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -39,6 +40,7 @@ public sealed class AiProposalExplanationAiTaskHandlerTests : IAsyncDisposable
             .AddAudit()
             .AddSingleton<IClock>(new StoppedClock())
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -298,7 +300,7 @@ public sealed class AiProposalExplanationAiTaskHandlerTests : IAsyncDisposable
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
-            WorkspaceRole.Owner);
+            WorkspaceRole.Owner, "test-account");
 
     private static string? Field(AiProposal proposal, Guid targetId, string field) =>
         proposal.Changes

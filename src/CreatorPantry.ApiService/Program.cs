@@ -19,6 +19,7 @@ using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Modules.Ai;
+using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -58,6 +59,10 @@ builder.Services.AddRecipesModule();
 builder.Services.AddSingleton<IAiFailureClassifier, AzureInferenceFailureClassifier>();
 builder.AddAiResilience(static exception => exception is AiTransientFailureException);
 builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
+
+// Required by the AI module, not optional beside it: every path that settles a provider attempt stages a
+// per-account usage entry through this facade in the same transaction (USAGE-001).
+builder.Services.AddAiUsageModule();
 
 // The request seam, which the worker does not register: it needs the recipe module, already added above.
 builder.Services.AddAiProposalSeam();

@@ -14,9 +14,15 @@ public interface IWorkspaceContextResolver
     /// verified <c>Workspace</c>/<c>WorkspaceMembership</c> lookup, not from a request body, query
     /// string, header, or AI tool argument.
     /// </summary>
+    /// <param name="accountId">
+    /// The <c>WorkspaceMembership.UserId</c> behind <paramref name="membershipId"/> — read from the same
+    /// verified row, never taken from a token claim, a header, or anything the caller supplied separately.
+    /// </param>
     /// <exception cref="ArgumentException"><paramref name="workspaceId"/> or <paramref name="membershipId"/>
-    /// is <see cref="Guid.Empty"/>, or <paramref name="workspaceSlug"/> is null or whitespace.</exception>
+    /// is <see cref="Guid.Empty"/>, or <paramref name="workspaceSlug"/> or <paramref name="accountId"/> is
+    /// null or whitespace.</exception>
     /// <exception cref="InvalidOperationException">This scope was already resolved. A request never
     /// switches workspace mid-flight.</exception>
-    void Resolve(Guid workspaceId, string workspaceSlug, Guid membershipId, WorkspaceRole role);
+    void Resolve(
+        Guid workspaceId, string workspaceSlug, Guid membershipId, WorkspaceRole role, string accountId);
 }

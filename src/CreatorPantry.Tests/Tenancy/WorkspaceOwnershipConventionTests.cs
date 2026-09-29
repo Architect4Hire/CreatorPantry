@@ -57,7 +57,7 @@ public sealed class WorkspaceOwnershipConventionTests : IDisposable
         Assert.Equal(2, beforeResolution.Count);
 
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
-            .Resolve(workspaceA.Id, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner);
+            .Resolve(workspaceA.Id, "workspace-a", Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         // Once a workspace is resolved, WorkspaceMembership is scoped exactly like every other
         // workspace-owned entity — the exception applies only pre-resolution.
