@@ -47,6 +47,7 @@ public static class AiUsageServiceCollectionExtensions
         // because every host that serves /api/v1/me already has tenancy for the memberships route beside it.
         services.AddScoped<IAiUsageReadFacade, AiUsageReadFacade>();
         services.AddScoped<IAiUsageReadBusiness, AiUsageReadBusiness>();
+        services.AddScoped<IAiUsageReadDataLayer, AiUsageReadDataLayer>();
         services.AddScoped<IAiUsageReadRepository, AiUsageReadRepository>();
 
         var quota = services.AddOptions<AiQuotaOptions>();

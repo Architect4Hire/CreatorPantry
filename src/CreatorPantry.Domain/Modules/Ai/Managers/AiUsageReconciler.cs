@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
@@ -65,6 +66,12 @@ internal sealed class AiUsageReconciler(
 {
     private readonly AiUsageReconciliationOptions _options = options.Value;
 
+    /// <summary>
+    /// How many times a batch restages after losing <c>UX_AccountAiUsageEntries_Operation_Attempt</c> to a
+    /// concurrent pass before this pass gives up and leaves the batch for the next one.
+    /// </summary>
+    private const int ContendedWriteAttempts = 3;
+
     public async Task<AiUsageReconciliationSummary> RunPassAsync(CancellationToken cancellationToken)
     {
         // Turns "there is no IWorkspaceContext here" from a claim in the remarks into something the code
@@ -122,8 +129,8 @@ internal sealed class AiUsageReconciler(
                 [.. batch.Select(attempt => attempt.AiOperationId).Distinct()], cancellationToken))
             .ToDictionary(attribution => attribution.AiOperationId);
 
-        var posted = 0;
         var unattributable = 0;
+        var attributed = new List<(AiUsageAttributionServiceModel Attribution, List<UnpostedAiAttempt> Attempts)>();
 
         foreach (var operation in batch.GroupBy(attempt => attempt.AiOperationId))
         {
@@ -137,20 +144,16 @@ internal sealed class AiUsageReconciler(
                 continue;
             }
 
-            posted += await usage.StageAttemptsAsync(
+            attributed.Add((
                 new AiUsageAttributionServiceModel(
                     attribution.AccountId,
                     attribution.WorkspaceId,
                     attribution.AiOperationId,
                     attribution.TaskType),
-                [.. operation.Select(attempt => ToLedgerAttempt(attempt, attribution.TaskType))],
-                cancellationToken);
+                [.. operation]));
         }
 
-        // One save for the batch. The facade stages rather than saving, exactly as it does on the live path --
-        // and a batch that fails here is simply found again by the next pass, because the query is its own
-        // bookmark and nothing was recorded to say this batch had been attempted.
-        await context.SaveChangesAsync(cancellationToken);
+        var posted = await StageAndSaveAsync(attributed, cancellationToken);
 
         // Remaining means "this pass made progress and filled its batch", not "the batch was full". The
         // difference matters when a whole batch is unattributable: the query is the bookmark, so the next pass
@@ -159,6 +162,61 @@ internal sealed class AiUsageReconciler(
         // sees a pass that posted nothing and counted something it could not attribute, which is the truth.
         return new AiUsageReconciliationSummary(
             posted, unattributable, drift, Remaining: posted > 0 && batch.Count == _options.BatchSize);
+    }
+
+    /// <summary>
+    /// Stages every attributed operation's attempts and saves the batch in one transaction, restaging against
+    /// a fresh read when a concurrent pass wins the unique index first.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IAiUsageRecordingFacade.StageAttemptsAsync"/> only skips an attempt number its own read
+    /// already saw posted, so two passes reading the same "not yet posted" answer for the same row before
+    /// either saves is a genuine race, not a defect -- nothing here holds a lock across that read, on purpose,
+    /// because the live path does not either. One of the two then loses
+    /// <c>UX_AccountAiUsageEntries_Operation_Attempt</c> at <c>SaveChangesAsync</c>, and the batch's insert is
+    /// one transaction, so an uncaught exception here would rewind every other, uncontested row the loser
+    /// staged along with it. Forgetting what was staged and restaging is what turns that into "this pass posts
+    /// the batch minus the row the winner already committed" instead of failing the whole batch on a race the
+    /// design already expects.
+    /// </remarks>
+    private async Task<int> StageAndSaveAsync(
+        IReadOnlyList<(AiUsageAttributionServiceModel Attribution, List<UnpostedAiAttempt> Attempts)> attributed,
+        CancellationToken cancellationToken)
+    {
+        if (attributed.Count == 0)
+        {
+            return 0;
+        }
+
+        for (var attempt = 0; attempt < ContendedWriteAttempts; attempt++)
+        {
+            var posted = 0;
+
+            foreach (var (attribution, attempts) in attributed)
+            {
+                posted += await usage.StageAttemptsAsync(
+                    attribution,
+                    [.. attempts.Select(entry => ToLedgerAttempt(entry, attribution.TaskType))],
+                    cancellationToken);
+            }
+
+            try
+            {
+                await context.SaveChangesAsync(cancellationToken);
+
+                return posted;
+            }
+            catch (DbUpdateException)
+            {
+                // Forget first. The staged entries ride the shared scoped DbContext, and leaving them tracked
+                // would let a later SaveChangesAsync in the same request commit rows this attempt just lost.
+                context.ChangeTracker.Clear();
+            }
+        }
+
+        // Every attempt lost the race. Posting nothing here is not a loss: the query that built this batch is
+        // its own bookmark, and the next scheduled pass reads the same unposted rows and tries again.
+        return 0;
     }
 
     /// <summary>

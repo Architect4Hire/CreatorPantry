@@ -18,7 +18,7 @@ internal interface IAiUsageReadBusiness
 
 /// <inheritdoc cref="IAiUsageReadBusiness"/>
 internal sealed class AiUsageReadBusiness(
-    IAiUsageReadRepository usage,
+    IAiUsageReadDataLayer usage,
     IAiQuotaPeriodResolver periods,
     IWorkspaceFacade workspaces,
     IClock clock) : IAiUsageReadBusiness

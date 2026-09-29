@@ -109,6 +109,11 @@ describe('RecipeAdaptationRequestComponent', () => {
     return match as HTMLButtonElement;
   }
 
+  // aria-disabled rather than the native attribute, so a disabled button never drops focus mid-press.
+  function isDisabled(label: string): boolean {
+    return buttonWith(label).getAttribute('aria-disabled') === 'true';
+  }
+
   function chooseGoal(label: string): void {
     const radios = Array.from(
       element().querySelectorAll<HTMLInputElement>('input[type="radio"][name="cp-adaptation-goal"]'),
@@ -152,11 +157,11 @@ describe('RecipeAdaptationRequestComponent', () => {
     render();
     chooseGoal('A diet or restriction');
 
-    expect(buttonWith('Ask for an adaptation').disabled).toBe(true);
+    expect(isDisabled('Ask for an adaptation')).toBe(true);
 
     setTextarea('cp-adaptation-goal-detail', 'gluten-free');
 
-    expect(buttonWith('Ask for an adaptation').disabled).toBe(false);
+    expect(isDisabled('Ask for an adaptation')).toBe(false);
   }));
 
   it('sends the chosen goal, the pinned version and the detail', fakeAsync(() => {
@@ -181,7 +186,7 @@ describe('RecipeAdaptationRequestComponent', () => {
     render();
     chooseGoal('A different batch size');
 
-    expect(buttonWith('Ask for an adaptation').disabled).toBe(true);
+    expect(isDisabled('Ask for an adaptation')).toBe(true);
     expect(element().querySelector('#cp-adaptation-yield-value')).not.toBeNull();
   }));
 
@@ -233,7 +238,7 @@ describe('RecipeAdaptationRequestComponent', () => {
     input.dispatchEvent(new Event('input'));
     settle();
 
-    expect(buttonWith('Ask for an adaptation').disabled).toBe(true);
+    expect(isDisabled('Ask for an adaptation')).toBe(true);
   }));
 
   // ---- handing over to the panel ---------------------------------------------------------------------

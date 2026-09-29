@@ -218,6 +218,11 @@ describe('RecipeConceptStudioComponent', () => {
     return match;
   }
 
+  // aria-disabled rather than the native attribute, so a disabled button never drops focus mid-press.
+  function isDisabled(text: string): boolean {
+    return buttonWith(text).getAttribute('aria-disabled') === 'true';
+  }
+
   /** Click, then settle twice — once for the async handler's own promise, once for whatever it schedules next. */
   function click(text: string): void {
     buttonWith(text).click();
@@ -231,14 +236,14 @@ describe('RecipeConceptStudioComponent', () => {
     render('Viewer');
 
     expect(element().querySelector('.studio-blocked[role="status"]')?.textContent).toContain('does not permit');
-    expect(buttonWith('Get concepts').disabled).toBeTrue();
+    expect(isDisabled('Get concepts')).toBeTrue();
   }));
 
   it('leaves the form enabled for a Contributor', fakeAsync(() => {
     render('Contributor');
 
     expect(element().querySelector('[role="alert"]')).toBeNull();
-    expect(buttonWith('Get concepts').disabled).toBeFalse();
+    expect(isDisabled('Get concepts')).toBeFalse();
   }));
 
   // ---- Errors ----

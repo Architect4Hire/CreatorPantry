@@ -109,6 +109,11 @@ describe('RecipeRevisionRequestComponent', () => {
     return match as HTMLButtonElement;
   }
 
+  // aria-disabled rather than the native attribute, so a disabled button never drops focus mid-press.
+  function isDisabled(label: string): boolean {
+    return buttonWith(label).getAttribute('aria-disabled') === 'true';
+  }
+
   function chooseSection(label: string): void {
     const radios = Array.from(element().querySelectorAll<HTMLInputElement>('input[type="radio"]'));
     const index = RECIPE_REVISION_SECTIONS.findIndex((section) => section.label === label);
@@ -153,11 +158,11 @@ describe('RecipeRevisionRequestComponent', () => {
   it('cannot be submitted until a section is chosen', fakeAsync(() => {
     render();
 
-    expect(buttonWith('Ask for suggestions').disabled).toBe(true);
+    expect(isDisabled('Ask for suggestions')).toBe(true);
 
     chooseSection('Method');
 
-    expect(buttonWith('Ask for suggestions').disabled).toBe(false);
+    expect(isDisabled('Ask for suggestions')).toBe(false);
   }));
 
   it('sends the chosen section, the pinned version and the goal', fakeAsync(() => {

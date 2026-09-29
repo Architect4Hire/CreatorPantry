@@ -147,13 +147,18 @@ describe('RecipeReviewRequestComponent', () => {
     return match as HTMLButtonElement;
   }
 
+  // aria-disabled rather than the native attribute, so a disabled button never drops focus mid-press.
+  function isDisabled(label: string): boolean {
+    return buttonWith(label).getAttribute('aria-disabled') === 'true';
+  }
+
   // ---- the one control ---------------------------------------------------------------------------------
 
   it('offers nothing to choose — one control, and it asks', fakeAsync(() => {
     render();
 
     expect(element().querySelectorAll('input, select, textarea').length).toBe(0);
-    expect(buttonWith('Review this recipe').disabled).toBe(false);
+    expect(isDisabled('Review this recipe')).toBe(false);
   }));
 
   it('never says anything has been changed', fakeAsync(() => {
@@ -288,7 +293,7 @@ describe('RecipeReviewRequestComponent', () => {
     render();
 
     expect(element().querySelector('cp-ai-allowance-notice')?.textContent).toContain('nearly spent');
-    expect(buttonWith('Review this recipe').disabled).toBe(false);
+    expect(isDisabled('Review this recipe')).toBe(false);
   }));
 
   /**
@@ -300,7 +305,7 @@ describe('RecipeReviewRequestComponent', () => {
     render();
 
     const notice = element().querySelector('cp-ai-allowance-notice');
-    expect(buttonWith('Review this recipe').disabled).toBe(true);
+    expect(isDisabled('Review this recipe')).toBe(true);
     expect(notice?.textContent).toContain('spent');
     expect(notice?.textContent).toContain('April');
   }));
@@ -310,7 +315,7 @@ describe('RecipeReviewRequestComponent', () => {
     render();
 
     const notice = element().querySelector('cp-ai-allowance-notice');
-    expect(buttonWith('Review this recipe').disabled).toBe(true);
+    expect(isDisabled('Review this recipe')).toBe(true);
     expect(notice?.textContent).toContain('switched off');
     expect(notice?.textContent).not.toContain('April');
   }));
@@ -322,12 +327,12 @@ describe('RecipeReviewRequestComponent', () => {
   it('leaves the action available when the allowance is unknown or stale', fakeAsync(() => {
     usage.allowance.set({ kind: 'unknown' });
     render();
-    expect(buttonWith('Review this recipe').disabled).toBe(false);
+    expect(isDisabled('Review this recipe')).toBe(false);
     expect(element().querySelector('cp-ai-allowance-notice')?.textContent?.trim()).toBe('');
 
     usage.allowance.set({ kind: 'degraded', period: figures(0) });
     settle();
-    expect(buttonWith('Review this recipe').disabled).toBe(false);
+    expect(isDisabled('Review this recipe')).toBe(false);
   }));
 
   /**

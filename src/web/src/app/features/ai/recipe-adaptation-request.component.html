@@ -147,7 +147,18 @@
     <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
     <div class="adaptation-actions">
-      <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+      <!--
+        aria-disabled rather than disabled: a disabled button drops focus to the body the moment it is
+        pressed, and the person who pressed it is the one who most needs to hear what happened next.
+      -->
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        [attr.aria-disabled]="!canSubmit() ? 'true' : null"
+        [attr.aria-busy]="state() === 'submitting' ? 'true' : null"
+        (click)="submit()"
+      >
         {{ state() === 'submitting' ? 'Asking…' : 'Ask for an adaptation' }}
       </button>
       <span class="adaptation-hint">Nothing is changed until you review and accept what comes back.</span>

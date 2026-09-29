@@ -77,7 +77,18 @@
     <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
     <div class="substitution-actions">
-      <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+      <!--
+        aria-disabled rather than disabled: a disabled button drops focus to the body the moment it is
+        pressed, and the person who pressed it is the one who most needs to hear what happened next.
+      -->
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        [attr.aria-disabled]="!canSubmit() ? 'true' : null"
+        [attr.aria-busy]="state() === 'submitting' ? 'true' : null"
+        (click)="submit()"
+      >
         {{ state() === 'submitting' ? 'Asking…' : 'Find alternatives' }}
       </button>
       <span class="substitution-hint">Nothing about the recipe changes because of this.</span>

@@ -139,6 +139,11 @@ describe('RecipeSubstitutionRequestComponent', () => {
     return match as HTMLButtonElement;
   }
 
+  // aria-disabled rather than the native attribute, so a disabled button never drops focus mid-press.
+  function isDisabled(label: string): boolean {
+    return buttonWith(label).getAttribute('aria-disabled') === 'true';
+  }
+
   function pickIngredient(): void {
     fixture.componentInstance.selectedIngredient.set({ id: 'ing-1', label: '2 cups flour' });
     settle();
@@ -163,11 +168,11 @@ describe('RecipeSubstitutionRequestComponent', () => {
   it('cannot be submitted until an ingredient is chosen', fakeAsync(() => {
     render();
 
-    expect(buttonWith('Find alternatives').disabled).toBe(true);
+    expect(isDisabled('Find alternatives')).toBe(true);
 
     pickIngredient();
 
-    expect(buttonWith('Find alternatives').disabled).toBe(false);
+    expect(isDisabled('Find alternatives')).toBe(false);
   }));
 
   it('sends the chosen ingredient, the pinned version and the reason', fakeAsync(() => {

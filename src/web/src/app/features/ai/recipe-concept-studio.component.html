@@ -198,7 +198,17 @@
       <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
       <div class="studio-submit">
-        <button cpButton type="submit" variant="primary" [disabled]="!canSubmit()">
+        <!--
+          aria-disabled rather than disabled: a disabled button drops focus to the body the moment it is
+          pressed, and the person who pressed it is the one who most needs to hear what happened next.
+        -->
+        <button
+          cpButton
+          type="submit"
+          variant="primary"
+          [attr.aria-disabled]="!canSubmit() ? 'true' : null"
+          [attr.aria-busy]="state() === 'submitting' ? 'true' : null"
+        >
           @if (state() === 'submitting') {
             Asking…
           } @else {
