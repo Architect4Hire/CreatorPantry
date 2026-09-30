@@ -1,0 +1,14 @@
+{
+  "id": "content.seo-package.an-over-long-title-is-cut-at-a-hyphen",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "A slug past the limit is cut at a hyphen boundary, never mid-word, with no trailing hyphen.",
+  "input": {
+    "title": "The Very Best Easy Weeknight Buttermilk Soda Bread With Extra Crispy Crust",
+    "maxLength": 40
+  },
+  "expect": {
+    "slug": "the-very-best-easy-weeknight-buttermilk"
+  }
+}

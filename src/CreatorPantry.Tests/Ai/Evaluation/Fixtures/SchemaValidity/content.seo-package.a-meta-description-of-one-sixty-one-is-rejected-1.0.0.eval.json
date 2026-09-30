@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-meta-description-of-one-sixty-one-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "One character over the configured maximum.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_length_out_of_range"
+  }
+}

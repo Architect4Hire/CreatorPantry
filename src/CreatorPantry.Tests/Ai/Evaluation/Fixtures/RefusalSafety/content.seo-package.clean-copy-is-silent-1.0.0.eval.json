@@ -1,0 +1,23 @@
+{
+  "id": "content.seo-package.clean-copy-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Ordinary copy that matches the recipe's own figures is not reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A dense, tangy loaf you can bake at 220 degrees in 25 minutes, with a soft crumb.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": []
+  }
+}

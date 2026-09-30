@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.fullwidth-digits-do-not-hide-a-figure",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A figure written in fullwidth digits is read as the number it is and reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Keeps \\uff15 days.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Use 3 eggs. Bake for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

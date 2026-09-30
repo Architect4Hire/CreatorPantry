@@ -1,0 +1,26 @@
+{
+  "id": "content.editorial-package.an-invented-provenance-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "An origin or number of test bakes the recipe never records is reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"My grandmother made this every autumn and I tested it five times.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25",
+        "12"
+      ],
+      "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
+      "storageNotes": "Keeps two days in a tin."
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_provenance"
+    ]
+  }
+}

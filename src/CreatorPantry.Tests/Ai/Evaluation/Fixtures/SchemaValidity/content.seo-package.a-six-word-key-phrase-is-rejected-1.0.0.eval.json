@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-six-word-key-phrase-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A phrase is at most five words.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"keyPhrases\":[{\"phrase\":\"soda bread\"},{\"phrase\":\"quick bread\"},{\"phrase\":\"one two three four five six\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_key_phrase_invalid"
+  }
+}

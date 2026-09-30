@@ -1,0 +1,25 @@
+{
+  "id": "content.seo-package.a-competitor-claim-becomes-a-warning",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Competitor data is never available and never invented.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"Beat competitors with this tangy soda bread you can mix and bake quickly at home.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.unsupported_metric"
+    ]
+  }
+}

@@ -31,4 +31,18 @@ public interface IWorkspaceResolutionFacade
     /// </remarks>
     Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForOperationAsync(
         Guid workspaceId, Guid membershipId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves a workspace for durable background work that outlives whoever caused it, running as
+    /// <see cref="WorkspaceServiceIdentity"/> rather than as a member. Populates the caller's ambient
+    /// <see cref="IWorkspaceContext"/>, like <see cref="ResolveForOperationAsync"/>, and is callable once per scope.
+    /// </summary>
+    /// <remarks>
+    /// Prefer <see cref="ResolveForOperationAsync"/> when work completes something a named creator queued. Use
+    /// this when nothing should depend on a person still belonging to the workspace — a recipe-change reaction
+    /// must run even if the editor who made the change has left. The one failure is not-found: the workspace no
+    /// longer exists.
+    /// </remarks>
+    Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForServiceAsync(
+        Guid workspaceId, CancellationToken cancellationToken);
 }

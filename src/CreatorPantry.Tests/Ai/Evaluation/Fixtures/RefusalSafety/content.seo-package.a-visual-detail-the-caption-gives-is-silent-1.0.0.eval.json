@@ -1,0 +1,32 @@
+{
+  "id": "content.seo-package.a-visual-detail-the-caption-gives-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A detail the creator's own caption states is the creator's, not the model's.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Golden sliced soda bread\",\"basis\":\"Caption\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    },
+    "assets": [
+      {
+        "id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "caption": "Golden sliced soda bread on a board"
+      }
+    ],
+    "recipeTitle": "Buttermilk Soda Bread"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.alt_text_not_checked_against_image"
+    ]
+  }
+}

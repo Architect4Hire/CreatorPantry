@@ -21,6 +21,10 @@ internal sealed class BrandProfileRevisionConfiguration : IEntityTypeConfigurati
         // a tracked parent's collection as an existing row and issues an UPDATE that matches nothing.
         builder.Property(revision => revision.Id).ValueGeneratedNever();
 
+        // Target of a content revision's brand pin, so a pin cannot name another workspace's profile revision.
+        builder.HasAlternateKey(revision => new { revision.WorkspaceId, revision.Id })
+            .HasName("AK_BrandProfileRevisions_Workspace_Id");
+
         builder.Property(revision => revision.Revision).IsRequired();
         builder.Property(revision => revision.SchemaVersion).IsRequired();
         builder.Property(revision => revision.Document).IsRequired();

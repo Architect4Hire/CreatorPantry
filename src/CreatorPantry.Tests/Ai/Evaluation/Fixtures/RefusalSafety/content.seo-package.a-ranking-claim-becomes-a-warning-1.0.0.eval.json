@@ -1,0 +1,25 @@
+{
+  "id": "content.seo-package.a-ranking-claim-becomes-a-warning",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A ranking claim is reported; recommendation is not measurement.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"The top ranking soda bread recipe\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.unsupported_metric"
+    ]
+  }
+}

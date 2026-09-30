@@ -1,0 +1,24 @@
+{
+  "id": "content.editorial-package.an-honest-no-storage-answer-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Saying there is no storage guidance, exactly as the template instructs, is the correct answer and is not reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"storageReheating\":{\"text\":\"No storage guidance supplied.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25",
+        "12"
+      ],
+      "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": []
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-step-does-not-license-storage-advice",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A step that freezes the dough does not license advice to freeze the finished bread.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"Freeze leftovers.\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Freeze the dough for 1 hour.",
+      "storageNotes": "Keeps in a tin."
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_storage_guidance"
+    ]
+  }
+}

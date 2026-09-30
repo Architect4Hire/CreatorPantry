@@ -226,6 +226,19 @@ public interface IRecipeFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// The resolved workspace's approved recipes, other than <paramref name="excludingRecipeId"/>, as link
+    /// candidates: id and title only, at most <paramref name="limit"/>.
+    /// </summary>
+    /// <remarks>
+    /// Exists so another module can ask for link targets without building this module's search view model,
+    /// which is not a type that crosses a boundary (backend.md). The workspace is the resolved context's and
+    /// nothing the caller passes can change it. A failed read is an empty list: a caller that wanted links
+    /// offers none, and never invents a target.
+    /// </remarks>
+    Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListApprovedLinkCandidatesAsync(
+        Guid excludingRecipeId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads one page of one recipe's history, newest first, in the workspace resolved for this scope.
     /// </summary>
     /// <param name="recipeId">The recipe whose history to read, resolved from the route.</param>
@@ -586,6 +599,23 @@ internal sealed class RecipeFacade(
     private const string CannotArchive = "That recipe cannot be archived as described.";
 
     private const string CannotUnarchive = "That recipe cannot be brought back as described.";
+
+    public async Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListApprovedLinkCandidatesAsync(
+        Guid excludingRecipeId, int limit, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+        // One extra, so excluding the recipe itself still leaves a full list when the workspace has more.
+        var page = await SearchAsync(
+            new RecipeSearchViewModel(Status: nameof(RecipeStatus.Approved), Limit: limit + 1), cancellationToken);
+
+        return page.Succeeded
+            ? [.. page.Value!.Items
+                .Where(item => item.Id != excludingRecipeId && item.Status is RecipeStatus.Approved)
+                .Take(limit)
+                .Select(item => new RecipeLinkCandidateServiceModel(item.Id, item.Title))]
+            : [];
+    }
 
     public async Task<OperationResult<RecipeSearchPageServiceModel>> SearchAsync(
         RecipeSearchViewModel model,

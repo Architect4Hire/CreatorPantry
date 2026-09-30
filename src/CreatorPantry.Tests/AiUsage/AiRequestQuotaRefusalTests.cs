@@ -338,7 +338,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
 
     /// <summary>
     /// The structural guard the seven-plus call sites need, because the compiler cannot provide one: every
-    /// request seam takes the gate. A ninth capability that forgets would queue work an account has no
+    /// request seam takes the gate. An eleventh capability that forgets would queue work an account has no
     /// allowance for and only discover it at the worker, as a failed operation, twenty minutes later.
     /// </summary>
     [Fact]
@@ -355,7 +355,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         seams.Add(typeof(IAiProposalBusiness).Assembly.GetTypes()
             .Single(type => type.Name == "AiProposalBusiness"));
 
-        Assert.Equal(8, seams.Count);
+        Assert.Equal(10, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()

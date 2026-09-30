@@ -185,6 +185,9 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // Likewise. AIREC-008's explanation items are not a diff and have no review surface here yet; the label
   // exists so the map stays exhaustive.
   ProposalExplanationItem: 'Explanation',
+  // Likewise. RCPUB-001's editorial sections are content a creator accepts separately, not a diff to the
+  // recipe, and have no review surface here yet; the label exists so the map stays exhaustive.
+  ContentSection: 'Editorial section',
 };
 
 /**

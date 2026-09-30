@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-zero-width-character-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "An invisible character in prose can only be there to get something past a reader or a phrase list.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"gluten\\u200Bfree\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

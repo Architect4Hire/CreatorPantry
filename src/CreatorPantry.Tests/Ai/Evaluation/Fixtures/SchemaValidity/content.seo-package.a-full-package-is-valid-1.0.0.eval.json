@@ -1,0 +1,14 @@
+{
+  "id": "content.seo-package.a-full-package-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "All five model-written sections, inside every configured limit, validate.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Easy Buttermilk Soda Bread Recipe\"},\"metaDescription\":{\"text\":\"A dense, tangy soda bread you can mix and bake in under an hour, with a crisp crust and a soft crumb.\"},\"keyPhrases\":[{\"phrase\":\"soda bread\"},{\"phrase\":\"buttermilk bread\"},{\"phrase\":\"no yeast loaf\"}],\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Sliced soda bread on a board\",\"basis\":\"Caption\"},{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000002\",\"text\":\"Buttermilk soda bread\",\"basis\":\"RecipeTitle\"}],\"internalLinks\":[{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000001\",\"anchorText\":\"Irish brown bread\",\"reason\":\"Both are quick breads.\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

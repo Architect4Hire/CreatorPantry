@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.too-many-link-ideas-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "More than the configured number of link ideas is rejected as a whole.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"internalLinks\":[{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000100\",\"anchorText\":\"A\",\"reason\":\"R.\"},{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000101\",\"anchorText\":\"A\",\"reason\":\"R.\"},{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000102\",\"anchorText\":\"A\",\"reason\":\"R.\"},{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000103\",\"anchorText\":\"A\",\"reason\":\"R.\"},{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000104\",\"anchorText\":\"A\",\"reason\":\"R.\"},{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000105\",\"anchorText\":\"A\",\"reason\":\"R.\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.value_too_long"
+  }
+}

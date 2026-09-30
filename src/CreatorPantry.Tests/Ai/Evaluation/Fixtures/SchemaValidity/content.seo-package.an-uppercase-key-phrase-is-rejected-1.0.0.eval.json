@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.an-uppercase-key-phrase-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A phrase is lowercase words; it is not lowercased for the model.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"keyPhrases\":[{\"phrase\":\"soda bread\"},{\"phrase\":\"quick bread\"},{\"phrase\":\"Irish Bread\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_key_phrase_invalid"
+  }
+}

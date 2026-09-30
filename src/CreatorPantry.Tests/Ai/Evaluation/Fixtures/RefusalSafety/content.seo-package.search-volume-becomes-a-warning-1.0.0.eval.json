@@ -1,0 +1,25 @@
+{
+  "id": "content.seo-package.search-volume-becomes-a-warning",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A search-volume claim has no connected source; it validates and is reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A tangy soda bread with high search volume that beginners love to make.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.unsupported_metric"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "content.seo-package.ordinary-search-copy-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Plain, accurate copy with no metric in it is not reported, bounding false positives.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A dense, tangy loaf with a soft crumb that you can mix and bake in 25 minutes at home.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": []
+  }
+}

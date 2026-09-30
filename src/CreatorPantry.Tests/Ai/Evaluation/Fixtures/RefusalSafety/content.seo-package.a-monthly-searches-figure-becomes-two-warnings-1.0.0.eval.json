@@ -1,0 +1,26 @@
+{
+  "id": "content.seo-package.a-monthly-searches-figure-becomes-two-warnings",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A figure of monthly searches is both an unsupported number and a metric claim.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A tangy soda bread loaf that draws 10,000 monthly searches from home bakers.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number",
+      "seo.unsupported_metric"
+    ]
+  }
+}

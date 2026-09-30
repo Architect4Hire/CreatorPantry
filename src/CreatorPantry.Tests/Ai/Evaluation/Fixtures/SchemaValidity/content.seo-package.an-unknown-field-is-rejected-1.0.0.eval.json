@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.an-unknown-field-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A field outside the contract is rejected, not ignored.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{},\"surprise\":true}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

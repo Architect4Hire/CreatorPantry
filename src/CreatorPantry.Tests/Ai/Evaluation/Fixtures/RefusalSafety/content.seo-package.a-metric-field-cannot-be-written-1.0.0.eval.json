@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-metric-field-cannot-be-written",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "The shape has no place for a metric, so a searchVolume field is an unknown field.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Easy soda bread recipe\",\"searchVolume\":1000}}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

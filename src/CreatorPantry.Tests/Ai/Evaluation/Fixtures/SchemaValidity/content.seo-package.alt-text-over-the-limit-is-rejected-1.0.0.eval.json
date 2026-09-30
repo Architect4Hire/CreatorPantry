@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.alt-text-over-the-limit-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Accessibility: alt text past the configured length is rejected, never cut.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"basis\":\"RecipeTitle\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_alt_text_invalid"
+  }
+}

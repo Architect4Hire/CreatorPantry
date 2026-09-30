@@ -314,6 +314,39 @@ public static class AiPolicy
     /// <inheritdoc cref="MaxRecipeDraftWarnings" path="/remarks"/>
     public const int MaxReviewWarnings = 20;
 
+    // ---- RCPUB-001: editorial package (AiEditorialPackageOutputDocument) ----
+
+    /// <summary>A headnote, introduction, storage note or call to action. Under <see cref="ChangeValueMaxLength"/>.</summary>
+    public const int EditorialTextMaxLength = 2000;
+
+    public const int EditorialItemMaxLength = 600;
+
+    public const int MaxEditorialTips = 5;
+
+    public const int MaxEditorialSubstitutions = 5;
+
+    public const int MaxEditorialFaqItems = 6;
+
+    public const int MaxEditorialWarnings = 20;
+
+    /// <summary>
+    /// Stored at the front of every warning a model wrote, so a reader can tell it from a server finding
+    /// (<c>[code]</c>) by a positive label on each rather than by the absence of one. The validators refuse the
+    /// label in model text and leave room for it under <see cref="MessageMaxLength"/>.
+    /// </summary>
+    public const string ModelWarningLabel = "[model] ";
+
+    // ---- RCPUB-002: SEO package (AiSeoPackageOutputDocument). The length rules themselves are configuration: see SeoRules. ----
+
+    public const int MaxSeoAltTexts = 20;
+
+    public const int MaxSeoWarnings = 20;
+
+    public const int SeoReasonMaxLength = 300;
+
+    /// <summary>How many of a workspace's own recipes are offered to the model as internal-link candidates.</summary>
+    public const int MaxSeoLinkCandidates = 40;
+
     /// <summary>
     /// The one free-text field a provider's own words may land in: a sanitized failure summary.
     /// </summary>

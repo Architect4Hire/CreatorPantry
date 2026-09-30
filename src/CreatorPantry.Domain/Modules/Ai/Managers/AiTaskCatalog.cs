@@ -59,6 +59,12 @@ public static class AiTaskCatalog
     /// <summary>The discriminator for AIREC-008's explanation of an existing proposal.</summary>
     public const string ProposalExplanation = "recipe.proposal-explanation";
 
+    /// <summary>RCPUB-001: the editorial package for one approved recipe version.</summary>
+    public const string EditorialPackage = "content.editorial-package";
+
+    /// <summary>RCPUB-002: the SEO package for one approved recipe version.</summary>
+    public const string SeoPackage = "content.seo-package";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -69,6 +75,8 @@ public static class AiTaskCatalog
         [RecipeAdaptation] = AiTaskType.RecipeAdaptation,
         [RecipeReview] = AiTaskType.RecipeReview,
         [ProposalExplanation] = AiTaskType.ProposalExplanation,
+        [EditorialPackage] = AiTaskType.EditorialPackage,
+        [SeoPackage] = AiTaskType.SeoPackage,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -133,7 +141,8 @@ public static class AiTaskCatalog
     public static bool RequiresTaskInputs(AiTaskType task) =>
         task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
             or AiTaskType.ProposalExplanation or AiTaskType.RecipeConcepts or AiTaskType.RecipeFirstDraft
-            or AiTaskType.RecipeRevision;
+            or AiTaskType.RecipeRevision or AiTaskType.EditorialPackage
+            or AiTaskType.SeoPackage;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

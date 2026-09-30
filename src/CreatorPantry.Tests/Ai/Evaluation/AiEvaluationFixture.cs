@@ -84,6 +84,33 @@ public enum AiEvaluationKind
     /// model's review is culinarily thorough is not, and no fixture here claims otherwise.
     /// </remarks>
     RecipeReviewOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiEditorialPackageOutputValidator.Validate"/> and then
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiEditorialClaimScanner"/> directly, for RCPUB-001's own
+    /// document.
+    /// </summary>
+    /// <remarks>
+    /// A fixture may declare the recipe's facts (the numbers it states, what its creator wrote, its storage
+    /// notes) and the codes the scanner must report, so "an invented quantity becomes a warning" is demonstrated
+    /// against the real scanner rather than asserted in prose. Deterministic only: whether the prose is good is
+    /// not something a fixture can show.
+    /// </remarks>
+    EditorialPackageOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiSeoPackageOutputValidator.Validate"/> under the default
+    /// <c>SeoRules</c> and then <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiSeoClaimScanner"/>, for
+    /// RCPUB-002's own document. A fixture may declare the recipe's facts, the assets' captions, and the codes the
+    /// scanner must report, so "an invented metric becomes a warning" is shown against the real scanner.
+    /// </summary>
+    SeoPackageOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Managers.Reference.SeoSlug.FromTitle"/> directly: the deterministic slug a
+    /// title becomes, and that the model is never the source of one.
+    /// </summary>
+    SeoSlugDerivation,
 }
 
 /// <summary>

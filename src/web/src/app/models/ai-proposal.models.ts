@@ -93,7 +93,11 @@ export type AiTaskType =
   /** AIREC-006's field-linked review findings. Reads a recipe; changes nothing in it. */
   | 'RecipeReview'
   /** AIREC-008's explanation of an existing proposal. Reads a proposal; changes nothing in it. */
-  | 'ProposalExplanation';
+  | 'ProposalExplanation'
+  /** RCPUB-001's editorial package for one approved recipe version. Reads a recipe; changes nothing in it. */
+  | 'EditorialPackage'
+  /** RCPUB-002's SEO package for one approved recipe version. Reads a recipe; changes nothing in it. */
+  | 'SeoPackage';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -106,6 +110,8 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'RecipeAdaptation',
   'RecipeReview',
   'ProposalExplanation',
+  'EditorialPackage',
+  'SeoPackage',
 ]);
 
 /**
@@ -145,6 +151,12 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And explanations through proposal-explanation-requests, which names the source proposal it explains
   // rather than a recipe at all — this generic route is nested under a recipe and has nowhere to put that.
   ProposalExplanation: null,
+  // And editorial packages through recipe/{id}/editorial-package-requests. Null because the route fixes the
+  // Advisory scope server-side and asking again needs the requested sections, which this generic route cannot carry.
+  EditorialPackage: null,
+  // And SEO packages through recipe/{id}/seo-package-requests, for the same reason: the route fixes the Advisory
+  // scope, and asking again needs the requested sections, which this generic route cannot carry.
+  SeoPackage: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -243,7 +255,9 @@ export type AiChangeTargetKind =
   /** AIREC-006's review findings. Like `IngredientSubstitution`, advice a creator judges, never an edit. */
   | 'RecipeReviewFinding'
   /** AIREC-008's explanation items. Like `RecipeReviewFinding`, never an edit — not even to the proposal it explains. */
-  | 'ProposalExplanationItem';
+  | 'ProposalExplanationItem'
+  /** RCPUB-001's editorial package sections. Never an edit to the recipe: content a creator accepts separately. */
+  | 'ContentSection';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -259,6 +273,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'IngredientSubstitution',
   'RecipeReviewFinding',
   'ProposalExplanationItem',
+  'ContentSection',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

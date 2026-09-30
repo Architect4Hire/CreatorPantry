@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-schema-version-mismatch-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "An answer declaring another schema version fails before its body is examined.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{}}",
+    "expectedSchemaVersion": "content.seo-package.v0"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch"
+  }
+}

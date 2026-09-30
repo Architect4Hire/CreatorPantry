@@ -24,6 +24,14 @@ public interface IWorkspaceBusiness
     Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForOperationAsync(
         Guid workspaceId, Guid membershipId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Resolves a workspace for background work that must not depend on any person still being a member: the
+    /// workspace has to exist, and the work runs as <see cref="WorkspaceServiceIdentity"/>. Not found is the one
+    /// failure, and means the workspace is gone.
+    /// </summary>
+    Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForServiceAsync(
+        Guid workspaceId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(string userId, CancellationToken cancellationToken);
 
     /// <summary>Creates a workspace and makes the caller its Owner atomically. The slug is derived from the name.</summary>

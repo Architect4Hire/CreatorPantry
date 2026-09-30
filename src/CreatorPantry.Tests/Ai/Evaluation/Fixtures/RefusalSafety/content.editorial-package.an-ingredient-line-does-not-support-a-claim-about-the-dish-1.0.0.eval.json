@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.an-ingredient-line-does-not-support-a-claim-about-the-dish",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "The creator's own prose says nothing about the loaf being gluten-free, so the claim is reported even though an ingredient is.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"A gluten-free loaf.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "A dense loaf.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

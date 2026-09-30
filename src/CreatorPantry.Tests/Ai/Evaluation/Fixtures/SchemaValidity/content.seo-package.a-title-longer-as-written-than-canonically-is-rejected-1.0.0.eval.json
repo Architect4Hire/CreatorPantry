@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-title-longer-as-written-than-canonically-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Length is measured on the string that is stored, so text that reads shorter after normalisation is still over the limit.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa half an hour\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_length_out_of_range"
+  }
+}

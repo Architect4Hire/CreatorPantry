@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.an-unknown-field-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A field outside the contract is rejected, not ignored, so a model cannot widen what it returns.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"A loaf.\"}},\"surprise\":true}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

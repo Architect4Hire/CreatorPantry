@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-negation-does-not-support-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A creator writing 'not vegan' has not said the recipe is vegan.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"A vegan loaf.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "This one is not vegan.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

@@ -50,4 +50,19 @@ internal sealed class WorkspaceResolutionFacade(
 
         return result;
     }
+
+    public async Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForServiceAsync(
+        Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var result = await business.ResolveForServiceAsync(workspaceId, cancellationToken);
+
+        if (result.Succeeded)
+        {
+            var resolved = result.Value!;
+            contextResolver.Resolve(
+                resolved.WorkspaceId, resolved.WorkspaceSlug, resolved.MembershipId, resolved.Role, resolved.AccountId);
+        }
+
+        return result;
+    }
 }

@@ -146,6 +146,33 @@ public static class AiOutputReason
     /// </remarks>
     public const string FindingFieldRefInvalid = "ai.output.finding_field_ref_invalid";
 
+    /// <summary>An editorial section, or an item in one, has no text; or a substitution or FAQ item lacks a field.</summary>
+    public const string EditorialFieldMissing = "ai.output.editorial_field_missing";
+
+    /// <summary>The same tip, question or ingredient line appears twice in one section.</summary>
+    public const string EditorialDuplicateItem = "ai.output.editorial_duplicate_item";
+
+    /// <summary>The answer carries a section the request did not ask for. Checked against the request, after the shape.</summary>
+    public const string EditorialSectionNotRequested = "ai.output.editorial_section_not_requested";
+
+    /// <summary>A substitution names an ingredient line that is not in the version the package was written against.</summary>
+    public const string EditorialLineNotInSource = "ai.output.editorial_line_not_in_source";
+
+    /// <summary>An SEO title or meta description is outside the configured length limits.</summary>
+    public const string SeoLengthOutOfRange = "ai.output.seo_length_out_of_range";
+
+    /// <summary>A key phrase breaks the configured format rules, or the list breaks its count rules.</summary>
+    public const string SeoKeyPhraseInvalid = "ai.output.seo_key_phrase_invalid";
+
+    /// <summary>Alt text breaks an accessibility rule: empty, over-long, a redundant "image of" prefix, or a repeat.</summary>
+    public const string SeoAltTextInvalid = "ai.output.seo_alt_text_invalid";
+
+    /// <summary>An internal-link idea is malformed: no anchor, no reason, a repeat, or a link to nothing.</summary>
+    public const string SeoLinkInvalid = "ai.output.seo_link_invalid";
+
+    /// <summary>An alt text or link names an asset or recipe that was not among those the request supplied.</summary>
+    public const string SeoItemNotInSource = "ai.output.seo_item_not_in_source";
+
     /// <summary>
     /// A finding named an allergen or a diet where its category does not call for one, or omitted one where
     /// its category does.

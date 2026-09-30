@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.storage-guidance-stapled-to-the-disclaimer-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "The no-guidance sentence must stand alone; storage advice with the sentence appended is still advice.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"storageReheating\":{\"text\":\"Keeps well. No storage guidance supplied.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Use 3 eggs. Bake for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_storage_guidance"
+    ]
+  }
+}

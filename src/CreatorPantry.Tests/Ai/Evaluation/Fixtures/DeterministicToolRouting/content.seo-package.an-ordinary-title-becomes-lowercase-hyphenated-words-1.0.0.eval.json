@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.an-ordinary-title-becomes-lowercase-hyphenated-words",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "The slug is worked out by rule from the title; the model is never asked for one.",
+  "input": {
+    "title": "Buttermilk Soda Bread"
+  },
+  "expect": {
+    "slug": "buttermilk-soda-bread"
+  }
+}

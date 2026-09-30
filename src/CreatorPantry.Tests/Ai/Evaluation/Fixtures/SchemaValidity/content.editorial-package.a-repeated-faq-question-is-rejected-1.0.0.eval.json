@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-repeated-faq-question-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "The same question twice in one FAQ is not two items.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"faq\":[{\"question\":\"Can I halve it?\",\"answer\":\"The recipe does not say.\"},{\"question\":\"can i halve it?\",\"answer\":\"Still does not say.\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.editorial_duplicate_item"
+  }
+}

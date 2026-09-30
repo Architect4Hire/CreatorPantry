@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.too-many-tips-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "More than five tips is rejected as a whole.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"Tip 0\"},{\"text\":\"Tip 1\"},{\"text\":\"Tip 2\"},{\"text\":\"Tip 3\"},{\"text\":\"Tip 4\"},{\"text\":\"Tip 5\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.value_too_long"
+  }
+}

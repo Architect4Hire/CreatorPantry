@@ -1,0 +1,14 @@
+{
+  "id": "content.editorial-package.an-empty-package-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Writing nothing is a complete answer when the recipe does not support a section; an honest empty package is not a failure.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-non-breaking-hyphen-does-not-hide-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A claim written with a non-breaking hyphen is read as the claim it is and reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"A gluten\\u2011free loaf.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Use 3 eggs. Bake for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

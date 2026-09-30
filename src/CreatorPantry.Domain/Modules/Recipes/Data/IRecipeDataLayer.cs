@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Outbox.Events;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -434,7 +436,8 @@ internal sealed class RecipeDataLayer(
     IRecipeStatusTransitionRepository transitions,
     IWorkspaceTagRepository workspaceTags,
     IRecipeSearchRepository search,
-    IAuditWriter auditWriter) : IRecipeDataLayer
+    IAuditWriter auditWriter,
+    IOutboxWriter outbox) : IRecipeDataLayer
 {
     public async Task<(IReadOnlyList<RecipeSummaryRecord> Rows, bool HasMore, int? Total)> SearchAsync(
         RecipeSearchCriteria criteria,
@@ -613,6 +616,7 @@ internal sealed class RecipeDataLayer(
             // keep them together — the thing this method exists to avoid.
             captured = BuildVersion(loaded.Recipe, version, recipe.UpdatedByMembershipId, recipe.UpdatedAt);
             versions.Add(captured);
+            StageVersionChanged(recipe, captured, RecipeVersionChangeCause.Approval);
 
             transition.CreatedVersionId = captured.Id;
         }
@@ -712,6 +716,10 @@ internal sealed class RecipeDataLayer(
 
         var next = BuildVersion(loaded.Recipe, version, recipe.UpdatedByMembershipId, recipe.UpdatedAt);
         versions.Add(next);
+        StageVersionChanged(
+            recipe,
+            next,
+            next.Source == RecipeVersionSource.Restore ? RecipeVersionChangeCause.Restore : RecipeVersionChangeCause.Edit);
 
         try
         {
@@ -903,6 +911,35 @@ internal sealed class RecipeDataLayer(
     /// the unit that commits, or a version could describe content that never landed.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Stages the event that tells derivative-holding modules a recipe gained a version, in the same batch as
+    /// the version itself (NFR-005).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Every path that adds a version after the first must call this,</strong> and
+    /// <c>RecipeVersionEventStagingTests</c> scans for one that does not: a version committed without its
+    /// event would leave an accepted derivative looking current for as long as nothing else noticed. Version 1
+    /// is exempt — nothing can be derived from a recipe that did not exist a moment ago.
+    /// </para>
+    /// <para>
+    /// Staged, not saved, so the row commits with the recipe and the version or not at all, and the
+    /// conflict paths' <c>ChangeTracker.Clear()</c> drops it with them: a refused edit announces nothing. The
+    /// version's id is the correlation id, which ties the delivery to the exact version that caused it.
+    /// </para>
+    /// </remarks>
+    private void StageVersionChanged(Recipe recipe, RecipeVersion version, RecipeVersionChangeCause cause) =>
+        outbox.Enqueue(
+            RecipeVersionChangedEvent.MessageType,
+            new RecipeVersionChangedEvent(
+                recipe.WorkspaceId,
+                recipe.Id,
+                version.Id,
+                version.VersionNumber,
+                cause,
+                version.CreatedByMembershipId).Serialize(),
+            version.Id);
+
     private static RecipeVersion BuildVersion(
         CompleteRecipe loaded,
         RecipeVersionFacts facts,

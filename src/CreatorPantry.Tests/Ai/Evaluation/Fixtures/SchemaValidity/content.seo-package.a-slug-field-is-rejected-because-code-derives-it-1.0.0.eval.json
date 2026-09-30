@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-slug-field-is-rejected-because-code-derives-it",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "The model is never the source of a slug, so a slug field is an unknown field.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{},\"slug\":\"my-own-slug\"}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

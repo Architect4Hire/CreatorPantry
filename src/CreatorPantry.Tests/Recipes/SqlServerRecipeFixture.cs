@@ -1,7 +1,9 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Managers;
@@ -146,6 +148,15 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
             // depends on CreatorPantryDbContext — Program.cs wires them the same way.
             .AddApplicationTime()
             .AddAudit()
+
+            // The recipe DataLayer stages a recipe-version-changed event on every version it writes, and the
+            // content module is the consumer that event fans out to.
+            .AddOutbox()
+            .AddContentModule()
+
+            // The recipe-change handler logs a warning for a workspace that no longer exists. Every real host
+            // registers logging; this container is the only one that has to say so.
+            .AddLogging()
             .AddDbContext<CreatorPantryDbContext>(options =>
             {
                 options.UseSqlServer(_container.GetConnectionString());

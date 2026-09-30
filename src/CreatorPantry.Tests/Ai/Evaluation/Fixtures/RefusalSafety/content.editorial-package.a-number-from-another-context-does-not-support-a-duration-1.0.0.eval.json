@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-number-from-another-context-does-not-support-a-duration",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "3 eggs in the recipe does not support 3 minutes of baking.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"Bake it for 3 minutes.\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Use 3 eggs.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

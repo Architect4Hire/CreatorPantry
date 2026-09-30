@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.a-title-with-nothing-usable-yields-no-slug",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "The function never invents a slug; the caller chooses the fallback.",
+  "input": {
+    "title": "!!! ???"
+  },
+  "expect": {
+    "slug": ""
+  }
+}

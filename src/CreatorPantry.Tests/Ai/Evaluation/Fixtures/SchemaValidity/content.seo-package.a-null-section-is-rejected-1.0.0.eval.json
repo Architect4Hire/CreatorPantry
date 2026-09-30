@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-null-section-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A JSON null where the schema requires an object is a shape failure, not an exception.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":null}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

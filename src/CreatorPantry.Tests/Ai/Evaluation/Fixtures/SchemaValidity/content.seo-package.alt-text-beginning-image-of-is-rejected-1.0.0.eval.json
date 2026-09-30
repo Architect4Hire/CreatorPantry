@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.alt-text-beginning-image-of-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Accessibility: a screen reader already says it is an image, so the prefix is noise.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Image of sliced soda bread\",\"basis\":\"Caption\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_alt_text_invalid"
+  }
+}

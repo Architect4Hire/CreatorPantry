@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-link-in-prose-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A link is an unverified claim about somewhere else and is refused.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"cta\":{\"text\":\"Read more at https://example.com/loaf\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-null-list-item-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A null item in a list section is a shape failure, not an exception.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[null]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

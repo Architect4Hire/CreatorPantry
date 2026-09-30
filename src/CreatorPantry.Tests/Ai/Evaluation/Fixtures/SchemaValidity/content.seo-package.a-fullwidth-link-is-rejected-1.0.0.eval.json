@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-fullwidth-link-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A link written in fullwidth characters is read as the link it is.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"Visit \\uff48\\uff54\\uff54\\uff50\\uff53\\uff1a\\uff0f\\uff0f\\uff45\\uff58\\uff41\\uff4d\\uff50\\uff4c\\uff45\\uff0e\\uff43\\uff4f\\uff4d for the tangy soda bread you can mix and bake in an hour\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

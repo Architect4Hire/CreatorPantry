@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.an-enum-written-as-a-number-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A numeric enum value is a shape failure, never a pass of the declared-kind checks.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Loaf\",\"basis\":99}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

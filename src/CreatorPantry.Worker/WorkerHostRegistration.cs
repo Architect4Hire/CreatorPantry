@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Recipes;
@@ -79,6 +80,10 @@ public static class WorkerHostRegistration
         builder.Services.AddVocabularyModule();
         builder.Services.AddIngredientModule();
         builder.Services.AddRecipesModule(builder.Configuration);
+
+        // The consumer of the recipe-version-changed event the Recipes handler fans out to. Worker-only: the
+        // dispatcher that delivers the event runs here, so nothing in the API reacts to a recipe change.
+        builder.Services.AddContentModule();
         builder.Services.AddAudit();
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddAiOperationWorker();

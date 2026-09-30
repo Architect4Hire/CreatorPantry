@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.accents-are-folded-not-dropped",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "An accented letter becomes its base letter.",
+  "input": {
+    "title": "Cr\u00e8me Br\u00fbl\u00e9e"
+  },
+  "expect": {
+    "slug": "creme-brulee"
+  }
+}

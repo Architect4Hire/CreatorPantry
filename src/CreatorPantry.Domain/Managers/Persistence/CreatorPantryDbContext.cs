@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -352,6 +353,23 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <inheritdoc cref="BrandChannelDefaults"/>
     /// <remarks>Its <c>MediaAssetId</c> has no foreign key until the media aggregate lands.</remarks>
     public DbSet<BrandAssetLink> BrandAssetLinks => Set<BrandAssetLink>();
+
+    /// <remarks>
+    /// One derivative package per recipe and kind, and where it stands in review. The mutable root of the
+    /// content module; its content lives on the immutable revisions below.
+    /// </remarks>
+    public DbSet<ContentProposal> ContentProposals => Set<ContentProposal>();
+
+    /// <inheritdoc cref="ContentProposals"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. Each holds its
+    /// words and the exact sources it was written against; accepted ones are retained.
+    /// </remarks>
+    public DbSet<ContentRevision> ContentRevisions => Set<ContentRevision>();
+
+    /// <inheritdoc cref="ContentRevisions"/>
+    /// <remarks>Write-once record of every move a proposal made.</remarks>
+    public DbSet<ContentProposalTransition> ContentProposalTransitions => Set<ContentProposalTransition>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.two-link-ideas-to-one-recipe-are-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "One recipe is linked once.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"internalLinks\":[{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000001\",\"anchorText\":\"Brown bread\",\"reason\":\"Quick.\"},{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000001\",\"anchorText\":\"Irish bread\",\"reason\":\"Quick.\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_link_invalid"
+  }
+}

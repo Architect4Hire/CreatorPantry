@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.an-apostrophe-joins",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "An apostrophe joins a word rather than splitting it.",
+  "input": {
+    "title": "Don't Panic Pancakes"
+  },
+  "expect": {
+    "slug": "dont-panic-pancakes"
+  }
+}

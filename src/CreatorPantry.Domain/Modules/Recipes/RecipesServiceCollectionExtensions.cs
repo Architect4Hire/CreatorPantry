@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Outbox.Events;
 using CreatorPantry.Domain.Modules.Recipes.Business;
 using CreatorPantry.Domain.Modules.Recipes.Data;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
@@ -23,6 +25,8 @@ public static class RecipesServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration? configuration = null)
     {
+        services.AddKeyedScoped<IOutboxMessageHandler, RecipeVersionChangedOutboxHandler>(
+            RecipeVersionChangedEvent.MessageType);
         services.AddScoped<IRecipeRepository, RecipeRepository>();
         services.AddScoped<IRecipeSearchRepository, RecipeSearchRepository>();
         services.AddScoped<IRecipeVersionRepository, RecipeVersionRepository>();

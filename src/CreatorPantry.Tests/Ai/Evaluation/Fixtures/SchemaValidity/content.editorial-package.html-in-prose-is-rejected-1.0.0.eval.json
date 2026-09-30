@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.html-in-prose-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Markup is refused: channel formatting belongs in channel profiles, not in generated prose.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"A <b>warm</b> loaf.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

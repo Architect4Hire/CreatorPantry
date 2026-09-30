@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.too-few-key-phrases-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Key phrases are a set; two is not one.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"keyPhrases\":[{\"phrase\":\"soda bread\"},{\"phrase\":\"quick bread\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_key_phrase_invalid"
+  }
+}

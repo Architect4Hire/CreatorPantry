@@ -102,6 +102,37 @@ public class WorkspaceResolutionFacadeTests
         Assert.False(context.IsResolved);
     }
 
+    [Fact]
+    public async Task ResolveForService_populates_the_context_as_the_service_identity()
+    {
+        var workspaceId = Guid.NewGuid();
+        _business.ServiceResult = OperationResult<ResolvedWorkspaceServiceModel>.Success(
+            new ResolvedWorkspaceServiceModel(
+                workspaceId, "sams-kitchen", WorkspaceServiceIdentity.MembershipId, WorkspaceServiceIdentity.Role, WorkspaceServiceIdentity.AccountId));
+
+        var context = new WorkspaceContext();
+        var result = await CreateFacade(context).ResolveForServiceAsync(workspaceId, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.True(context.IsResolved);
+        Assert.Equal(workspaceId, context.WorkspaceId);
+        Assert.Equal(WorkspaceServiceIdentity.MembershipId, context.MembershipId);
+        Assert.Equal(WorkspaceRole.Viewer, context.Role);
+    }
+
+    [Fact]
+    public async Task ResolveForService_leaves_the_context_unresolved_when_the_workspace_is_gone()
+    {
+        _business.ServiceResult = OperationResult<ResolvedWorkspaceServiceModel>.Failure(
+            new OperationError(TenancyErrorCodes.WorkspaceNotFound, "not found", new Dictionary<string, string[]>()));
+
+        var context = new WorkspaceContext();
+        var result = await CreateFacade(context).ResolveForServiceAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.False(context.IsResolved);
+    }
+
     private WorkspaceResolutionFacade CreateFacade(WorkspaceContext? contextResolver = null) =>
         new(new ResolveWorkspaceViewModelValidator(), _business, contextResolver ?? new WorkspaceContext());
 
@@ -133,6 +164,13 @@ public class WorkspaceResolutionFacadeTests
             LastOperationArgs = (workspaceId, membershipId);
             return Task.FromResult(OperationResult);
         }
+
+        public OperationResult<ResolvedWorkspaceServiceModel> ServiceResult { get; set; } =
+            OperationResult<ResolvedWorkspaceServiceModel>.Failure(new OperationError("unused", "unused", new Dictionary<string, string[]>()));
+
+        public Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForServiceAsync(
+            Guid workspaceId, CancellationToken cancellationToken) =>
+            Task.FromResult(ServiceResult);
 
         public Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(string userId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Not exercised by WorkspaceResolutionFacadeTests.");

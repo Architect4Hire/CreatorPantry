@@ -1,0 +1,36 @@
+{
+  "id": "content.seo-package.an-alt-text-always-says-it-was-not-checked-against-the-image",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Nothing has analysed a pixel, so every alt text carries that finding.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Sliced soda bread on a board\",\"basis\":\"Caption\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    },
+    "assets": [
+      {
+        "id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "caption": "Sliced soda bread on a board"
+      },
+      {
+        "id": "aaaaaaaa-0000-0000-0000-000000000002",
+        "caption": null
+      }
+    ],
+    "recipeTitle": "Buttermilk Soda Bread"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.alt_text_not_checked_against_image"
+    ]
+  }
+}

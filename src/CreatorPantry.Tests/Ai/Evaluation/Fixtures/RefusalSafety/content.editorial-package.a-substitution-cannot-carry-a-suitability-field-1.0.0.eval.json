@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-substitution-cannot-carry-a-suitability-field",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "The substitution shape has nowhere to put an allergen or diet claim, so one is an unknown field, not a finding.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"substitutions\":[{\"lineId\":\"55555555-5555-5555-5555-555555555555\",\"suggestion\":\"Use almond flour.\",\"culinaryNote\":\"Nuttier.\",\"allergenFree\":true}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

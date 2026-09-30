@@ -1,0 +1,33 @@
+{
+  "id": "content.seo-package.a-title-adjective-does-not-license-a-visual-word",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A recipe titled Golden Milk says nothing about how its photograph looks, so a visual word in its alt text is still reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Golden milk in a mug\",\"basis\":\"RecipeTitle\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    },
+    "assets": [
+      {
+        "id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "caption": null
+      }
+    ],
+    "recipeTitle": "Golden Milk"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.alt_text_not_checked_against_image",
+      "seo.unsupported_visual_detail"
+    ]
+  }
+}

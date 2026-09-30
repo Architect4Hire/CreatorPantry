@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-schema-version-mismatch-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "An answer declaring another schema version fails before its body is examined.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{}}",
+    "expectedSchemaVersion": "content.editorial-package.v0"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch"
+  }
+}

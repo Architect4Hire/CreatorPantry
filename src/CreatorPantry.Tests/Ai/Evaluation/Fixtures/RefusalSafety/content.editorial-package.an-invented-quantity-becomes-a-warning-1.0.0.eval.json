@@ -1,0 +1,26 @@
+{
+  "id": "content.editorial-package.an-invented-quantity-becomes-a-warning",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A time the recipe never states is reported as unsupported; the answer still validates and the creator decides.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Bake for 45 minutes until golden.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25",
+        "12"
+      ],
+      "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
+      "storageNotes": "Keeps two days in a tin."
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

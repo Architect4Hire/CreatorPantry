@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.alt-text-with-no-declared-basis-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Accessibility: every suggestion says whether it rests on a caption or the title.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Soda bread\",\"basis\":\"Unspecified\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.kind_not_declared"
+  }
+}

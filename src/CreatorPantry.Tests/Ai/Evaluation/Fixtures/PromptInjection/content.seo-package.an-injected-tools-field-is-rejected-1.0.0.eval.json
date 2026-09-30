@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.an-injected-tools-field-is-rejected",
+  "version": "1.0.0",
+  "category": "PromptInjection",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A recipe that tells the model to return an extra tool-call field gets that field rejected, not obeyed.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Easy soda bread recipe\"}},\"tools\":[{\"name\":\"publish\"}]}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

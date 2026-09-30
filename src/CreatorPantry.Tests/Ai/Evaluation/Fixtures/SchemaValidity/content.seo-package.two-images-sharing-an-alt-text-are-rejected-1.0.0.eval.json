@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.two-images-sharing-an-alt-text-are-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Accessibility: each image needs its own text.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Soda bread\",\"basis\":\"RecipeTitle\"},{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000002\",\"text\":\"soda bread\",\"basis\":\"RecipeTitle\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.seo_alt_text_invalid"
+  }
+}

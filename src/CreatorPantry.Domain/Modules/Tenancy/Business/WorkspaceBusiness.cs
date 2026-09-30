@@ -45,6 +45,25 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
                 workspace.Id, workspace.Slug, membership.Id, membership.Role, membership.UserId));
     }
 
+    public async Task<OperationResult<ResolvedWorkspaceServiceModel>> ResolveForServiceAsync(
+        Guid workspaceId, CancellationToken cancellationToken)
+    {
+        var workspace = await dataLayer.FindByIdAsync(workspaceId, cancellationToken);
+
+        if (workspace is null)
+        {
+            return NotFound();
+        }
+
+        return OperationResult<ResolvedWorkspaceServiceModel>.Success(
+            new ResolvedWorkspaceServiceModel(
+                workspace.Id,
+                workspace.Slug,
+                WorkspaceServiceIdentity.MembershipId,
+                WorkspaceServiceIdentity.Role,
+                WorkspaceServiceIdentity.AccountId));
+    }
+
     public async Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(
         string userId, CancellationToken cancellationToken)
     {

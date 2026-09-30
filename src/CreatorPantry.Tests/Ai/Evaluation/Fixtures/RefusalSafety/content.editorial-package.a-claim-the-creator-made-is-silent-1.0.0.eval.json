@@ -1,0 +1,20 @@
+{
+  "id": "content.editorial-package.a-claim-the-creator-made-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Repeating a claim the recipe's own text makes is the creator's, not the model's.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Made with gluten-free flour.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Use gluten-free flour.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": []
+  }
+}

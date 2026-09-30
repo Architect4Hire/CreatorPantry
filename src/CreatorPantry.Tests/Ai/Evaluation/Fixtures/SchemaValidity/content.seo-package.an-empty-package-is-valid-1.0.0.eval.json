@@ -1,0 +1,14 @@
+{
+  "id": "content.seo-package.an-empty-package-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "Writing nothing is a complete answer when the recipe does not support a section.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

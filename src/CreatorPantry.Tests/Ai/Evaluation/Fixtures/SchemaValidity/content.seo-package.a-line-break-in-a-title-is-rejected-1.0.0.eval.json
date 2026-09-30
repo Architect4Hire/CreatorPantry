@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-line-break-in-a-title-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "One line, single spaces: text that could measure differently from how it is stored is refused.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Easy soda bread\\nrecipe\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

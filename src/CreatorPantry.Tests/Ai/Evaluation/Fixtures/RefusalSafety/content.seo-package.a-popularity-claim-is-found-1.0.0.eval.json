@@ -1,0 +1,25 @@
+{
+  "id": "content.seo-package.a-popularity-claim-is-found",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A search metric phrased in a way a thin pattern would miss is still reported: recommendation, never measurement.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A tangy soda bread that is popular on Google every autumn among bakers who like quick loaves.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.unsupported_metric"
+    ]
+  }
+}

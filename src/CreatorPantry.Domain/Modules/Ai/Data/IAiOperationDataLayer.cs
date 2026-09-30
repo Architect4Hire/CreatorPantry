@@ -344,7 +344,8 @@ internal sealed class AiOperationDataLayer(
         && existing.Scope == requested.Scope
         && existing.RecipeId == requested.RecipeId
         && existing.RecipeVersionId == requested.RecipeVersionId
-        && existing.TaskInputsJson == requested.TaskInputsJson
+        && AiTaskInputsIdentity.Of(existing.TaskType, existing.TaskInputsJson)
+            == AiTaskInputsIdentity.Of(requested.TaskType, requested.TaskInputsJson)
             ? new AiOperationRequest(AiOperationRequestOutcome.Replayed, existing)
             : new AiOperationRequest(AiOperationRequestOutcome.KeyReusedForDifferentRequest, null);
 

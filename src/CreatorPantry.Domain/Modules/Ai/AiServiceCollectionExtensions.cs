@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
@@ -58,6 +59,9 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<AiOperationClaimRepository>();
 
         services.AddSingleton(AiTaskCatalog.Bind(configuration));
+
+        // The SEO length and format rules: configuration over conventional defaults, refused at startup if unmeetable.
+        services.AddSingleton(SeoRules.Bind(configuration));
         services.AddPromptTemplates();
 
         return services;
@@ -218,6 +222,38 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for RCPUB-001's editorial package.
+    /// </summary>
+    /// <remarks>
+    /// Carries the prerequisites <see cref="AddAiReviewRequestSeam"/> does, plus the brand module:
+    /// <c>AiEditorialPackageRequestBusiness</c> reads the workspace's brand profile through
+    /// <c>IBrandProfileFacade</c> to pin its facts into the operation.
+    /// </remarks>
+    public static IServiceCollection AddAiEditorialPackageRequestSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiEditorialPackageRequestBusiness, AiEditorialPackageRequestBusiness>();
+        services.AddScoped<IAiEditorialPackageRequestFacade, AiEditorialPackageRequestFacade>();
+        services.AddScoped<IValidator<RequestEditorialPackageViewModel>, RequestEditorialPackageViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the request seam for RCPUB-002's SEO package. Same prerequisites as
+    /// <see cref="AddAiEditorialPackageRequestSeam"/>; the length rules are bound by <see cref="AddAiModule"/>.
+    /// </summary>
+    public static IServiceCollection AddAiSeoPackageRequestSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiSeoPackageRequestBusiness, AiSeoPackageRequestBusiness>();
+        services.AddScoped<IAiSeoPackageRequestFacade, AiSeoPackageRequestFacade>();
+        services.AddScoped<IValidator<RequestSeoPackageViewModel>, RequestSeoPackageViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers the request seam for AIREC-008's explanation of an existing proposal.
     /// </summary>
     /// <remarks>
@@ -260,6 +296,8 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, RecipeAdaptationAiTaskHandler>(AiTaskType.RecipeAdaptation);
         services.AddKeyedScoped<IAiTaskHandler, RecipeReviewAiTaskHandler>(AiTaskType.RecipeReview);
         services.AddKeyedScoped<IAiTaskHandler, AiProposalExplanationAiTaskHandler>(AiTaskType.ProposalExplanation);
+        services.AddKeyedScoped<IAiTaskHandler, EditorialPackageAiTaskHandler>(AiTaskType.EditorialPackage);
+        services.AddKeyedScoped<IAiTaskHandler, SeoPackageAiTaskHandler>(AiTaskType.SeoPackage);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

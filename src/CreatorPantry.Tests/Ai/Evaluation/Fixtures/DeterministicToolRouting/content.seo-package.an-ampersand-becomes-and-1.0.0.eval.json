@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.an-ampersand-becomes-and",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "An ampersand is a word, not a separator.",
+  "input": {
+    "title": "Mac & Cheese"
+  },
+  "expect": {
+    "slug": "mac-and-cheese"
+  }
+}

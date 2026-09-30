@@ -1,0 +1,15 @@
+{
+  "id": "content.editorial-package.a-null-section-object-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "A JSON null where the schema requires an object is a shape failure, not an exception.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":null}",
+    "expectedSchemaVersion": "content.editorial-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "content.seo-package.a-url-in-an-anchor-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A link idea is an idea: no page exists, so no address is written.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"internalLinks\":[{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000001\",\"anchorText\":\"See https://example.com/bread\",\"reason\":\"Quick.\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

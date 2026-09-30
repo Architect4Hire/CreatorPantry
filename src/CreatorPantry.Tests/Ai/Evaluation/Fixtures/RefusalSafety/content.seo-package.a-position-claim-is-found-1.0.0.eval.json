@@ -1,0 +1,26 @@
+{
+  "id": "content.seo-package.a-position-claim-is-found",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "A position claim is reported as a metric, and the figure in it is reported as a number the recipe never states.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A tangy soda bread you can mix and bake quickly that sits on page 1 for buttermilk recipes.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25"
+      ],
+      "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number",
+      "seo.unsupported_metric"
+    ]
+  }
+}

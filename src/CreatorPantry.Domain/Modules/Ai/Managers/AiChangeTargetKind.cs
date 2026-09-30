@@ -99,4 +99,12 @@ public enum AiChangeTargetKind
     /// stored explanation item to a recipe edit or a change to the source proposal.
     /// </remarks>
     ProposalExplanationItem = 12,
+
+    /// <summary>
+    /// One section, or one item of a list section, of a generated editorial package (RCPUB-001): flattened the
+    /// same way as <see cref="RecipeReviewFinding"/>. Absent from <see cref="AiChangeApplicability"/> and
+    /// answering <c>null</c> in <see cref="AiChangeTargetPolicy"/> deliberately — there is no code path from a
+    /// stored row to a recipe edit. It becomes content only when a creator accepts a <c>ContentRevision</c>.
+    /// </summary>
+    ContentSection = 13,
 }

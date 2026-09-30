@@ -125,4 +125,21 @@ public enum AiTaskType
     /// <see cref="AiChangeApplicability"/>, the same guarantee <see cref="RecipeReview"/> makes.
     /// </remarks>
     ProposalExplanation = 8,
+
+    /// <summary>
+    /// RCPUB-001: headnote, introduction, tips, substitutions, storage/reheating, FAQ and call to action for one
+    /// approved recipe version. Originates prose and proposes no change to the recipe, so it runs at
+    /// <see cref="AiOperationScope.Advisory"/> and <see cref="AiChangeTargetKind.ContentSection"/> is absent from
+    /// <see cref="AiChangeApplicability"/> — the same guarantee <see cref="RecipeReview"/> makes. A derivative
+    /// is a <c>ContentRevision</c> the creator accepts, never a recipe edit.
+    /// </summary>
+    EditorialPackage = 9,
+
+    /// <summary>
+    /// RCPUB-002: search title, slug, meta description, key phrases, alt-text suggestions and internal-link ideas
+    /// for one approved recipe version. Advisory for the same reason <see cref="EditorialPackage"/> is: it
+    /// originates copy and proposes no change to the recipe, and it reuses
+    /// <see cref="AiChangeTargetKind.ContentSection"/>, which has no path to a recipe edit.
+    /// </summary>
+    SeoPackage = 10,
 }

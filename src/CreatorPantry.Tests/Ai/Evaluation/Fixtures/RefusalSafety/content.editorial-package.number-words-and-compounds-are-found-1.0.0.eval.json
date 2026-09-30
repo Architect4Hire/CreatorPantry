@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.number-words-and-compounds-are-found",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Numbers spelled out beyond twelve, in compounds, or hyphenated to a unit are found like digits.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Ready in thirty minutes after a two-hour rest.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Use 3 eggs. Bake for 25 minutes.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

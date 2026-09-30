@@ -1,0 +1,27 @@
+{
+  "id": "content.editorial-package.an-invented-storage-duration-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Storage guidance with no storage notes behind it is reported, along with the figure it invents.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"storageReheating\":{\"text\":\"Keeps in the fridge for 5 days.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "220",
+        "25",
+        "12"
+      ],
+      "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number",
+      "editorial.unsupported_storage_guidance"
+    ]
+  }
+}
