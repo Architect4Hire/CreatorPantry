@@ -20,6 +20,9 @@ public interface IControlledVocabularyRepository
     /// <summary>Whether the id names an active row in the given catalogue.</summary>
     Task<bool> IsUsableAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
 
+    /// <summary>The display name of one row, retired or not, or <c>null</c> for an id in no such row.</summary>
+    Task<string?> GetDisplayNameAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListCuisinesAsync(
         ReferenceQuery query, CancellationToken cancellationToken);
 
@@ -48,6 +51,22 @@ internal sealed class ControlledVocabularyRepository(CreatorPantryDbContext cont
                 context.CookingTechniques.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
             // Exhaustive on purpose: a new catalogue must be answered here rather than silently reported
             // unusable, which would reject every id in it with no clue why.
+            _ => throw new ArgumentOutOfRangeException(nameof(catalog), catalog, "Unknown vocabulary catalogue."),
+        };
+
+    public Task<string?> GetDisplayNameAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        catalog switch
+        {
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Cuisine =>
+                context.Cuisines.AsNoTracking().Where(row => row.Id == id)
+                    .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Course =>
+                context.Courses.AsNoTracking().Where(row => row.Id == id)
+                    .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.CookingTechnique =>
+                context.CookingTechniques.AsNoTracking().Where(row => row.Id == id)
+                    .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalog), catalog, "Unknown vocabulary catalogue."),
         };
 

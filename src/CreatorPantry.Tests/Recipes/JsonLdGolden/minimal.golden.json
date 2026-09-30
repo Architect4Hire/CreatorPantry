@@ -1,0 +1,22 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Soda Bread",
+  "image": [
+    "https://cdn.example.com/soda-bread.jpg"
+  ],
+  "recipeIngredient": [
+    "500 g flour",
+    "1 tsp salt"
+  ],
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "text": "Mix."
+    },
+    {
+      "@type": "HowToStep",
+      "text": "Bake."
+    }
+  ]
+}

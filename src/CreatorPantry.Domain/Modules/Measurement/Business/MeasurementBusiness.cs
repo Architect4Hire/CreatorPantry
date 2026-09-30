@@ -32,6 +32,16 @@ internal sealed class MeasurementBusiness(IMeasurementDataLayer dataLayer) : IMe
             row.Dimension, row.System, row.BaseUnitFactor, row.DisplayPrecision)).ToList();
     }
 
+    public async Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
+        IReadOnlyCollection<string> codes, CancellationToken cancellationToken)
+    {
+        var rows = await dataLayer.FindUnitsByCodesAsync(codes, cancellationToken);
+
+        return rows.Select(row => new MeasurementUnitServiceModel(
+            row.Id, row.Code, row.DisplayName, row.PluralName, row.Abbreviation,
+            row.Dimension, row.System, row.BaseUnitFactor, row.DisplayPrecision)).ToList();
+    }
+
     public Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
         dataLayer.LoadMatchIndexAsync(cancellationToken);
 

@@ -1,0 +1,55 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Soda Bread",
+  "description": "A dense, tangy loaf.",
+  "image": [
+    "https://cdn.example.com/soda-bread.jpg"
+  ],
+  "author": {
+    "@type": "Person",
+    "name": "Maeve Byrne"
+  },
+  "prepTime": "PT15M",
+  "cookTime": "PT45M",
+  "totalTime": "PT1H30M",
+  "recipeYield": "Makes 2 loaves",
+  "recipeCategory": "Bread",
+  "recipeCuisine": "Irish",
+  "keywords": "soda bread, no yeast",
+  "tool": [
+    {
+      "@type": "HowToTool",
+      "name": "Dutch oven"
+    }
+  ],
+  "recipeIngredient": [
+    "500 g plain flour"
+  ],
+  "recipeInstructions": [
+    {
+      "@type": "HowToSection",
+      "name": "Dough",
+      "itemListElement": [
+        {
+          "@type": "HowToStep",
+          "text": "Mix the dry ingredients."
+        },
+        {
+          "@type": "HowToStep",
+          "text": "Add the buttermilk."
+        }
+      ]
+    },
+    {
+      "@type": "HowToSection",
+      "name": "Bake",
+      "itemListElement": [
+        {
+          "@type": "HowToStep",
+          "text": "Bake until hollow-sounding."
+        }
+      ]
+    }
+  ]
+}

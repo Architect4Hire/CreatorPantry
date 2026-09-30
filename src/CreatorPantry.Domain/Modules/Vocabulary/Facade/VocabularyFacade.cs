@@ -15,6 +15,9 @@ internal sealed class VocabularyFacade(
     public Task<bool> IsUsableAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
         business.IsUsableAsync(catalog, id, cancellationToken);
 
+    public Task<string?> GetDisplayNameAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        business.GetDisplayNameAsync(catalog, id, cancellationToken);
+
     public Task<OperationResult<CursorPageServiceModel<ReferenceEntryServiceModel>>> ListFoodCategoriesAsync(
         ReferenceQueryViewModel model, CancellationToken cancellationToken) =>
         ReadAsync(model, "food-categories", business.ListFoodCategoriesAsync, cancellationToken);

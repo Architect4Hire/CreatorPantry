@@ -23,6 +23,10 @@ public interface IMeasurementBusiness
     Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
         IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken);
 
+    /// <summary>The active units whose code is among those given, in no particular order. Fewer than asked for is a normal answer.</summary>
+    Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
+        IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
+
     /// <summary>Loads the flattened match index the facade caches and passes back into <see cref="ResolveCandidates"/>.</summary>
     Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
 

@@ -19,6 +19,16 @@ public interface IVocabularyFacade
     /// </remarks>
     Task<bool> IsUsableAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The display name of one entry, for a caller rendering a reference it already stores.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="IsUsableAsync"/>, a retired entry still answers: an existing recipe keeps resolving
+    /// what it was saved with. An unknown id answers <c>null</c>, which a caller must treat as unresolved
+    /// rather than guess a name for.
+    /// </remarks>
+    Task<string?> GetDisplayNameAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
+
     Task<OperationResult<CursorPageServiceModel<ReferenceEntryServiceModel>>> ListFoodCategoriesAsync(
         ReferenceQueryViewModel model, CancellationToken cancellationToken);
 

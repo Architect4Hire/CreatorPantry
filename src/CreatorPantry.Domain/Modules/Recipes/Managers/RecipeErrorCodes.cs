@@ -259,4 +259,16 @@ public static class RecipeErrorCodes
     /// why the database refuses the delete when the resolution is loaded.
     /// </remarks>
     public const string TestIssueResolvedRemovalConflict = "recipes.testIssue.removal.conflict";
+
+    public const string JsonLdExportInvalidRequest = "recipes.jsonLdExport.invalid_request";
+
+    public const string JsonLdExportNotApprovedConflict = "recipes.jsonLdExport.notApproved.conflict";
+
+    public const string JsonLdExportIncompleteUnprocessable = "recipes.jsonLdExport.incomplete.unprocessable";
+
+    public const string MarkdownExportInvalidRequest = "recipes.markdownExport.invalid_request";
+
+    public const string MarkdownExportNotApprovedConflict = "recipes.markdownExport.notApproved.conflict";
+
+    public const string MarkdownExportIncompleteUnprocessable = "recipes.markdownExport.incomplete.unprocessable";
 }

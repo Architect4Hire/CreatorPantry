@@ -149,6 +149,19 @@ internal sealed class GatewayClient(HttpClient http, string antiforgeryToken) : 
     public Task<HttpResponseMessage> GetAsync(string path, CancellationToken cancellationToken = default) =>
         http.GetAsync(path, cancellationToken);
 
+    /// <summary>Gets with extra request headers, for conditional requests.</summary>
+    public Task<HttpResponseMessage> GetAsync(
+        string path, IReadOnlyDictionary<string, string> headers, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        foreach (var (name, value) in headers)
+        {
+            request.Headers.TryAddWithoutValidation(name, value);
+        }
+
+        return http.SendAsync(request, cancellationToken);
+    }
+
     public Task<HttpResponseMessage> PostAsJsonAsync(string path, object body, CancellationToken cancellationToken = default) =>
         SendAsync(HttpMethod.Post, path, body, idempotencyKey: null, cancellationToken);
 

@@ -35,9 +35,11 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeTestRunRepository, RecipeTestRunRepository>();
         services.AddScoped<IRecipeTestRunHistoryRepository, RecipeTestRunHistoryRepository>();
         services.AddScoped<IRecipeReadinessRepository, RecipeReadinessRepository>();
+        services.AddScoped<IRecipeExportDataLayer, RecipeExportDataLayer>();
         services.AddScoped<IRecipeDataLayer, RecipeDataLayer>();
         services.AddScoped<IRecipeTestRunDataLayer, RecipeTestRunDataLayer>();
         services.AddScoped<IRecipeReadinessDataLayer, RecipeReadinessDataLayer>();
+        services.AddScoped<IRecipeExportBusiness, RecipeExportBusiness>();
         services.AddScoped<IRecipeBusiness, RecipeBusiness>();
         services.AddScoped<IRecipeTestRunBusiness, RecipeTestRunBusiness>();
         services.AddScoped<IRecipeReadinessBusiness, RecipeReadinessBusiness>();
@@ -64,6 +66,8 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IValidator<RestoreRecipeVersionViewModel>, RestoreRecipeVersionViewModelValidator>();
         services.AddScoped<IValidator<DuplicateRecipeViewModel>, DuplicateRecipeViewModelValidator>();
         services.AddScoped<IValidator<RecipeLifecycleViewModel>, RecipeLifecycleViewModelValidator>();
+        services.AddScoped<IValidator<RecipeJsonLdExportViewModel>, RecipeJsonLdExportViewModelValidator>();
+        services.AddScoped<IValidator<RecipeMarkdownExportViewModel>, RecipeMarkdownExportViewModelValidator>();
 
         // Bound when a host supplies configuration, and left at the catalogue's defaults when it does not — the
         // same shape AddAiUsageModule uses for its quota options. A readiness rule set that failed to register
@@ -106,6 +110,23 @@ public static class RecipesServiceCollectionExtensions
         // The archive and restore routes are not affected either way — they reach the same Business method
         // through IRecipeFacade, which AddRecipesModule has always registered.
         services.AddScoped<IRecipeStatusTransitionFacade, RecipeStatusTransitionFacade>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the recipe exports' application boundary (RCPUB-002 onward).
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddRecipesModule"/> because its prerequisite is another module, the same reason
+    /// <see cref="AddRecipeReadinessSeam"/> is: the facade reads the accepted SEO revision through
+    /// <c>IContentSeoFacade</c>, so a host registering it must also call <c>AddContentModule</c>, and it reads cuisine and course names and conversion units through <c>IVocabularyFacade</c> and <c>IMeasurementFacade</c>, so <c>AddVocabularyModule</c> and <c>AddMeasurementModule</c> as well. The Business
+    /// and data layer it runs over need nothing from another module and are in <see cref="AddRecipesModule"/>.
+    /// Startup validation catches a host that forgets the prerequisite.
+    /// </remarks>
+    public static IServiceCollection AddRecipeExportSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IRecipeExportFacade, RecipeExportFacade>();
 
         return services;
     }

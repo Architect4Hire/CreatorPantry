@@ -166,6 +166,55 @@ public sealed class ReferenceRetirementTests : IAsyncLifetime
         Assert.False(await context.Cuisines.AnyAsync(row => row.Code == "thai" && row.IsActive, Token));
     }
 
+    // ---- Display names keep resolving after retirement ----
+
+    [Fact]
+    public async Task A_retired_cuisine_is_not_usable_but_its_name_still_resolves()
+    {
+        Guid id;
+        await using (var context = _catalog.CreateContext())
+        {
+            id = (await context.Cuisines.SingleAsync(row => row.Code == "thai", Token)).Id;
+        }
+
+        await RetireAsync(context => context.Cuisines, "thai");
+
+        var repository = Vocabularies();
+        Assert.False(await repository.IsUsableAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Cuisine, id, Token));
+
+        // An existing recipe keeps showing what it was saved with; only new input is refused.
+        Assert.Equal(
+            "Thai",
+            await repository.GetDisplayNameAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Cuisine, id, Token));
+    }
+
+    [Theory]
+    [InlineData(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Cuisine)]
+    [InlineData(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Course)]
+    [InlineData(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.CookingTechnique)]
+    public async Task An_unknown_id_has_no_display_name_in_any_catalogue(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalogue)
+    {
+        Assert.Null(await Vocabularies().GetDisplayNameAsync(catalogue, Guid.NewGuid(), Token));
+    }
+
+    [Fact]
+    public async Task A_course_and_a_technique_resolve_to_their_display_names()
+    {
+        await using var context = _catalog.CreateContext();
+        var course = await context.Courses.AsNoTracking().FirstAsync(Token);
+        var technique = await context.CookingTechniques.AsNoTracking().FirstAsync(Token);
+
+        var repository = Vocabularies();
+
+        Assert.Equal(
+            course.DisplayName,
+            await repository.GetDisplayNameAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Course, course.Id, Token));
+        Assert.Equal(
+            technique.DisplayName,
+            await repository.GetDisplayNameAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.CookingTechnique, technique.Id, Token));
+    }
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     private static ReferenceQuery Query(ReferenceSearch? search = null) =>

@@ -306,6 +306,21 @@ public sealed class ReferenceRepositoryTests : IAsyncLifetime
 
     private IMeasurementUnitRepository Units() => new MeasurementUnitRepository(_catalog.CreateContext());
 
+    // --- Units by code ---------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Units_are_found_by_their_catalogue_codes_and_unknown_codes_are_simply_absent()
+    {
+        var units = new MeasurementUnitRepository(_catalog.CreateContext());
+
+        var found = await units.FindByCodesAsync(["g", "ml", "oz", "cup-us", "no-such-unit"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(["cup-us", "g", "ml", "oz"], found.Select(unit => unit.Code).Order());
+        Assert.Equal(MeasurementSystem.Metric, found.Single(unit => unit.Code == "g").System);
+        Assert.Equal(MeasurementSystem.UsCustomary, found.Single(unit => unit.Code == "oz").System);
+        Assert.Empty(await units.FindByCodesAsync([], TestContext.Current.CancellationToken));
+    }
+
     private IControlledVocabularyRepository Vocabularies() => new ControlledVocabularyRepository(_catalog.CreateContext());
 
     private IReferenceCatalogRepository Catalog() => new ReferenceCatalogRepository(_catalog.CreateContext());

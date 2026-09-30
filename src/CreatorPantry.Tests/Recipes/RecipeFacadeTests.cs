@@ -2381,6 +2381,9 @@ public sealed class RecipeFacadeTests
             return Task.FromResult(UsableVocabulary);
         }
 
+        public Task<string?> GetDisplayNameAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
+
         public Task<MeasurementDimension?> FindUsableUnitDimensionAsync(Guid unitId, CancellationToken cancellationToken)
         {
             UnitLookups++;
@@ -2405,6 +2408,10 @@ public sealed class RecipeFacadeTests
 
             return Task.FromResult(found);
         }
+
+        public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
+            IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<OperationResult<IReadOnlyList<Domain.Modules.Measurement.Managers.UnitMatchResult>>> ResolveCandidatesAsync(
             IReadOnlyList<string> candidateTexts, CancellationToken cancellationToken) =>

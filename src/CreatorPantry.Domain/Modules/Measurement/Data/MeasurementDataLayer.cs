@@ -19,6 +19,10 @@ internal sealed class MeasurementDataLayer(IMeasurementUnitRepository units) : I
         IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken) =>
         units.FindByIdsAsync(unitIds, cancellationToken);
 
+    public Task<IReadOnlyList<MeasurementUnitRecord>> FindUnitsByCodesAsync(
+        IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
+        units.FindByCodesAsync(codes, cancellationToken);
+
     public Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>
         units.ListMatchIndexAsync(cancellationToken);
 }

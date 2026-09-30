@@ -13,6 +13,10 @@ internal sealed class VocabularyDataLayer(
         CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog vocabulary, Guid id, CancellationToken cancellationToken) =>
         vocabularies.IsUsableAsync(vocabulary, id, cancellationToken);
 
+    public Task<string?> GetDisplayNameAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog vocabulary, Guid id, CancellationToken cancellationToken) =>
+        vocabularies.GetDisplayNameAsync(vocabulary, id, cancellationToken);
+
     public Task<(IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore)> ListFoodCategoriesAsync(
         ReferenceQuery query, CancellationToken cancellationToken) =>
         catalog.ListFoodCategoriesAsync(query, cancellationToken);

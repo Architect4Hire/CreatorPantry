@@ -21,6 +21,13 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IContentStalenessFacade, ContentStalenessFacade>();
         services.AddScoped<IRecipeChangeConsumer>(provider => provider.GetRequiredService<IContentStalenessFacade>());
 
+        services.AddScoped<IContentSeoRepository, ContentSeoRepository>();
+        services.AddScoped<IContentSeoDataLayer, ContentSeoDataLayer>();
+        services.AddScoped<IContentSeoBusiness, ContentSeoBusiness>();
+        services.AddScoped<IContentSeoFacade, ContentSeoFacade>();
+        services.AddScoped<IContentEditorialBusiness, ContentEditorialBusiness>();
+        services.AddScoped<IContentEditorialFacade, ContentEditorialFacade>();
+
         return services;
     }
 }

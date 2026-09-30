@@ -1,0 +1,18 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Cr\u00E8me br\u00FBl\u00E9e \u0022Classic\u0022 \u003C/script\u003E",
+  "image": [
+    "https://cdn.example.com/soda-bread.jpg"
+  ],
+  "recipeIngredient": [
+    "2 \u00D7 \u0153ufs \u0026 1 cup \u003Ccream\u003E",
+    "\u00BD tsp vanilla"
+  ],
+  "recipeInstructions": [
+    {
+      "@type": "HowToStep",
+      "text": "Whisk.\nThen chill \u2014 overnight."
+    }
+  ]
+}

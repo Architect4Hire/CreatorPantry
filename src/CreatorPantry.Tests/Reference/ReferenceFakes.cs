@@ -74,6 +74,10 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
+    public Task<string?> GetDisplayNameAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     // The Ingredients module's own version of the same check, used by the recipe facade for a submitted
     // ingredient reference. Uncounted for the same reason the vocabulary one is.
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
@@ -102,6 +106,10 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
     // cached list endpoints, and a batch unit lookup used elsewhere would make Calls mean two different things.
     public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByIdsAsync(
         IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<MeasurementUnitServiceModel>>([]);
+
+    public Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
+        IReadOnlyCollection<string> codes, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MeasurementUnitServiceModel>>([]);
 
     public Task<IReadOnlyList<IngredientMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken) =>

@@ -21,6 +21,9 @@ public interface IMeasurementDataLayer
     Task<IReadOnlyList<MeasurementUnitRecord>> FindUnitsByIdsAsync(
         IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<MeasurementUnitRecord>> FindUnitsByCodesAsync(
+        IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<UnitMatchIndexEntry>> LoadMatchIndexAsync(CancellationToken cancellationToken);
 }
 

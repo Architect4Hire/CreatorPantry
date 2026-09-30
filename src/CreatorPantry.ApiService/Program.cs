@@ -16,6 +16,7 @@ using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Brand;
+using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
@@ -77,6 +78,11 @@ builder.Services.AddAiProposalSeam();
 // The readiness evaluation, which needs the proposal seam above plus the ingredient module for the four rules
 // that read another module. The worker has no readiness route and deliberately does not register it.
 builder.Services.AddRecipeReadinessSeam();
+
+// The recipe exports (RCPUB-002). They read the accepted SEO revision through the content module, which the API
+// did not carry before: its staleness consumer is the worker's concern, but its read facades are needed here.
+builder.Services.AddContentModule();
+builder.Services.AddRecipeExportSeam();
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

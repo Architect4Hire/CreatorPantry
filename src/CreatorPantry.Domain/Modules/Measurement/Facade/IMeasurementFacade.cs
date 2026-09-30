@@ -36,6 +36,14 @@ public interface IMeasurementFacade
         IReadOnlyCollection<Guid> unitIds, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The active units whose catalogue code is among those given, for a caller that names units by the stable
+    /// codes the catalogue publishes (an export's fixed target units) rather than by id. Fewer than asked for
+    /// is a normal answer, and a caller must treat a missing one as unavailable rather than guess.
+    /// </summary>
+    Task<IReadOnlyList<MeasurementUnitServiceModel>> FindUnitsByCodesAsync(
+        IReadOnlyCollection<string> codes, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Matches each candidate string against the unit catalogue by exact/alias normalization, ranked by
     /// precedence with unresolved ambiguity called out rather than guessed (ING-001, AIREC-GR-003).
     /// </summary>

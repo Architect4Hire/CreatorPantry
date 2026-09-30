@@ -12,6 +12,10 @@ internal sealed class VocabularyBusiness(IVocabularyDataLayer dataLayer) : IVoca
         CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
         dataLayer.IsUsableAsync(catalog, id, cancellationToken);
 
+    public Task<string?> GetDisplayNameAsync(
+        CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
+        dataLayer.GetDisplayNameAsync(catalog, id, cancellationToken);
+
     public async Task<CursorPageServiceModel<ReferenceEntryServiceModel>> ListFoodCategoriesAsync(
         ReferenceQuery query, CancellationToken cancellationToken) =>
         Entries(await dataLayer.ListFoodCategoriesAsync(query, cancellationToken), query.Scope);

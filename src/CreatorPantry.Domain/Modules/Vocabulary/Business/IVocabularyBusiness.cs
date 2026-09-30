@@ -11,6 +11,8 @@ public interface IVocabularyBusiness
 {
     Task<bool> IsUsableAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
 
+    Task<string?> GetDisplayNameAsync(CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken);
+
     Task<CursorPageServiceModel<ReferenceEntryServiceModel>> ListFoodCategoriesAsync(ReferenceQuery query, CancellationToken cancellationToken);
 
     Task<CursorPageServiceModel<ReferenceEntryServiceModel>> ListCuisinesAsync(ReferenceQuery query, CancellationToken cancellationToken);

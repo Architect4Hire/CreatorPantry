@@ -2633,6 +2633,274 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/exports/json-ld": {
+      "get": {
+        "tags": [
+          "RecipeExports"
+        ],
+        "summary": "Generates schema.org Recipe JSON-LD for one approved version of a recipe.",
+        "description": "Read-only (RCPUB-002): a projection of the creator\u0027s own stored fields, never a stored document, and\nnothing in it is inferred \u2014 no nutrition, rating, dietary claim or time the creator did not record. The\nbody is the JSON-LD and nothing else, with \u0060Content-Type: application/ld\u002Bjson\u0060, so it can be embedded\nas it is. Omitting \u0060versionNumber\u0060 exports the recipe\u0027s current version; it is never replaced by an\nolder approved one. Only an approved version, or one marked ready, is exported: any other answers\n\u0060409 recipes.jsonLdExport.notApproved.conflict\u0060. There is no draft override.\nThe description and keywords come from the accepted SEO revision only when it was accepted for this\nexact version and has not since been marked for review; otherwise they are left out and the warning\n\u0060recipe_json_ld_editorial_not_current\u0060 is listed in the \u0060Cp-Export-Warnings\u0060 header, a comma-separated\nlist of stable codes that is absent when there is nothing to report. A \u0060seoRevision\u0060 that is not the\naccepted revision answers \u0060404 content.revision.not_found\u0060; a \u0060versionNumber\u0060 the recipe lacks answers\n\u0060404 recipes.version.not_found\u0060, naming the parameter.\nStructured data needs an image, and no authorized image URL is available until media is built, so until\nthen this answers \u0060422 recipes.jsonLdExport.incomplete.unprocessable\u0060 whose \u0060missingRequired\u0060 lists\neach fact the document cannot be published without \u2014 it never invents one. The response is private\nand must be revalidated: \u0060ETag\u0060 and \u0060If-None-Match\u0060 are supported and a match answers 304.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to export. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "query",
+            "description": "Optional. The version number to export, as the history lists it. Omitted means the recipe\u0027s current version.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "seoRevision",
+            "in": "query",
+            "description": "Optional. The accepted SEO revision to draw the description and keywords from. Omitted means the accepted one, if it is current for the version.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/ld\u002Bjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/exports/markdown": {
+      "get": {
+        "tags": [
+          "RecipeExports"
+        ],
+        "summary": "Renders one approved version of a recipe as a Markdown file.",
+        "description": "Read-only (RCPUB-003): a projection of the creator\u0027s own stored fields, never a stored document, with\nevery creator string escaped so none can become Markdown structure, HTML or a link. The body is the\nMarkdown and nothing else, with \u0060Content-Type: text/markdown; charset=utf-8\u0060, and is offered as a\ndownload: \u0060Content-Disposition: attachment\u0060 with a deterministic ASCII name, the recipe\u0027s title as a\nslug plus \u0060-v{version}.md\u0060, that carries no id, workspace or path. Omitting \u0060versionNumber\u0060 exports the\nrecipe\u0027s current version; it is never replaced by an older approved one. Only an approved version, or\none marked ready, is exported: any other answers \u0060409 recipes.markdownExport.notApproved.conflict\u0060.\n\u0060units\u0060 appends a converted quantity to a line \u2014 \u0060(\u2248 237 ml)\u0060 \u2014 computed by the canonical conversion\ncode and never replacing the creator\u0027s words; a line that cannot be converted stays as written and is\nlisted in \u0060Cp-Export-Warnings\u0060, a comma-separated list of stable codes that is absent when there is\nnothing to report. The standard template includes the accepted editorial revision only when it was\naccepted for this exact version and has not since been marked for review; the compact one includes no\neditorial copy and ignores \u0060editorialRevision\u0060. An \u0060editorialRevision\u0060 that is not the accepted\nrevision answers \u0060404 content.revision.not_found\u0060; a \u0060versionNumber\u0060 the recipe lacks answers\n\u0060404 recipes.version.not_found\u0060, naming the parameter. A missing title, ingredient or instruction\nanswers \u0060422 recipes.markdownExport.incomplete.unprocessable\u0060 whose \u0060missingRequired\u0060 lists each one.\nThe response is private and must be revalidated: \u0060ETag\u0060 and \u0060If-None-Match\u0060 are supported and a match\nanswers 304.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to export. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "query",
+            "description": "Optional. The version number to export, as the history lists it. Omitted means the recipe\u0027s current version.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "template",
+            "in": "query",
+            "description": "Optional. The layout: standard (the default) or compact. Compact leaves out the description, equipment and editorial sections.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "units",
+            "in": "query",
+            "description": "Optional. How quantities are shown: asWritten (the default), metric or usCustomary. A converted quantity is appended to the creator\u0027s own line, which is never replaced.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "editorialRevision",
+            "in": "query",
+            "description": "Optional. The accepted editorial revision to include. Omitted means the accepted one, if it is current for the version. Ignored by the compact template.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/readiness": {
       "get": {
         "tags": [
@@ -13497,6 +13765,9 @@
     },
     {
       "name": "RecipeDraftRequests"
+    },
+    {
+      "name": "RecipeExports"
     },
     {
       "name": "RecipeReadiness"
