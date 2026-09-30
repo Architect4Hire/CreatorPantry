@@ -66,13 +66,54 @@ public interface IRecipeTestRunDataLayer
     /// <summary>Writes one resolution, refusing it if the issue has been resolved in the meantime.</summary>
     Task<TestIssueResolutionOutcome> ResolveAsync(
         TestIssueResolution resolution, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One page of a recipe's test history, and the counts beside it when the caller asked for them.
+    /// </summary>
+    /// <returns>
+    /// Null when the recipe is not visible in the resolved workspace — an unknown recipe and another workspace's
+    /// recipe are deliberately indistinguishable here, exactly as on <see cref="FindTargetAsync"/> (tenancy.md).
+    /// Otherwise the page, whether another follows, and the counts or null.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Visibility is settled first, and on every page rather than only the first.</strong> A cursor proves
+    /// where a previous page ended, not that the recipe is still visible — and a caller removed from a workspace
+    /// between two pages must be told the same thing they would be told about any recipe they may not see. The
+    /// same reasoning, and the same shape, as <c>RecipeDataLayer.ListVersionsAsync</c>.
+    /// </para>
+    /// <para>
+    /// <strong>An empty page is not the same answer as a missing recipe.</strong> A recipe nobody has tested
+    /// exists and has no tests; that is a page of nothing, not a 404. Only this null means "you may not see it".
+    /// </para>
+    /// </remarks>
+    Task<TestRunHistoryPage?> ListAsync(TestRunHistoryCriteria criteria, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// What one read of a recipe's test history produced: the rows, whether another page follows, and the counts when
+/// they were asked for.
+/// </summary>
+/// <remarks>
+/// A named record rather than a tuple, unlike the recipe search's equivalent, because three members of which one
+/// is optional is where a positional tuple stops reading as anything: <c>(rows, hasMore, counts)</c> at a call
+/// site says nothing about which null means "not asked for".
+/// </remarks>
+/// <param name="Counts">
+/// Null when <see cref="TestRunHistoryCriteria.IncludeSummary"/> was false. Never null to mean "nothing to
+/// count" — an empty filtered set counts to zero.
+/// </param>
+public sealed record TestRunHistoryPage(
+    IReadOnlyList<TestRunHistoryRecord> Rows,
+    bool HasMore,
+    TestRunHistoryCounts? Counts);
 
 internal sealed class RecipeTestRunDataLayer(
     CreatorPantryDbContext context,
     IRecipeRepository recipes,
     IRecipeVersionRepository versions,
-    IRecipeTestRunRepository testRuns) : IRecipeTestRunDataLayer
+    IRecipeTestRunRepository testRuns,
+    IRecipeTestRunHistoryRepository history) : IRecipeTestRunDataLayer
 {
     public async Task<TestRunTarget?> FindTargetAsync(
         Guid recipeId,
@@ -189,6 +230,29 @@ internal sealed class RecipeTestRunDataLayer(
         }
 
         return TestIssueResolutionOutcome.Applied(resolution);
+    }
+
+    public async Task<TestRunHistoryPage?> ListAsync(
+        TestRunHistoryCriteria criteria,
+        CancellationToken cancellationToken)
+    {
+        // First, and on every page. See the interface's remarks: a cursor says where the last page ended, not that
+        // the recipe is still readable.
+        if (!await recipes.ExistsAsync(criteria.RecipeId, cancellationToken))
+        {
+            return null;
+        }
+
+        // The page first, so a caller that asked for the counts still gets their rows from the cheaper statement if
+        // a count is what fails. Skipped entirely when unwanted: two unasked-for aggregates are two queries nobody
+        // reads. The same ordering, for the same reason, as RecipeDataLayer.SearchAsync.
+        var (rows, hasMore) = await history.ListAsync(criteria, cancellationToken);
+
+        var counts = criteria.IncludeSummary
+            ? await history.CountAsync(criteria, cancellationToken)
+            : null;
+
+        return new TestRunHistoryPage(rows, hasMore, counts);
     }
 }
 

@@ -43,6 +43,24 @@ internal interface IAiProposalBusiness
         Guid requestId,
         AiProposalDispositionViewModel model,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What AI work about one recipe the creator has still not responded to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// No rule to apply, so this passes straight through — and it is on this interface anyway rather than being
+    /// reached from the facade directly, because a facade that queried its own DataLayer would be the defect
+    /// backend.md names first.
+    /// </para>
+    /// <para>
+    /// <strong>It does not check that the recipe exists</strong>, and must not: asking the Recipes module would
+    /// invert the call this module already makes into it, and the caller of this read is that module. Zeros for a
+    /// recipe nobody can see is the right answer here; a 404 about it belongs to whoever owns the recipe.
+    /// </para>
+    /// </remarks>
+    Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
+        Guid recipeId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -153,6 +171,10 @@ internal sealed class AiProposalBusiness(
                 AiOperationDescription.Describe(requested.Operation!, null)),
             Replayed: requested.Outcome is AiOperationRequestOutcome.Replayed);
     }
+
+    public Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
+        Guid recipeId, CancellationToken cancellationToken) =>
+        operations.SummarizeOutstandingAsync(recipeId, cancellationToken);
 
     public async Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(
         Guid recipeId,

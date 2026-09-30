@@ -33,7 +33,7 @@ function found(searchPage: RecipeSearchPage): Observable<RecipeSearchOutcome> {
 }
 
 const TWO_RECIPES = page([
-  summary('r1', 'Weeknight Chili', { status: 'Ready', latestVersionNumber: 3, latestVersionReadiness: 'Ready' }),
+  summary('r1', 'Weeknight Chili', { status: 'Approved', latestVersionNumber: 3, latestVersionReadiness: 'Ready' }),
   summary('r2', 'Sheet-Pan Gnocchi'),
 ]);
 
@@ -133,7 +133,7 @@ describe('RecipeLibraryComponent', () => {
     const rows = root().querySelectorAll('.recipe-link');
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('Weeknight Chili');
-    expect(rows[0].textContent).toContain('Ready');
+    expect(rows[0].textContent).toContain('Approved');
     expect(rows[0].textContent).toContain('v3');
     expect(rows[0].textContent).toContain('Updated');
     expect(rows[0].getAttribute('href')).toContain('/r1');
@@ -209,7 +209,7 @@ describe('RecipeLibraryComponent', () => {
 
   it('shows a no-results empty state with a clear action once filters are active', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(page([])));
-    await create('?status=Ready');
+    await create('?status=Approved');
 
     expect(text()).toContain('No recipes match these filters');
     expect(text()).toContain('Clear filters');
@@ -228,11 +228,11 @@ describe('RecipeLibraryComponent', () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
     await create();
 
-    chip('Ready').click();
+    chip('Approved').click();
     await settle();
 
-    expect(lastQuery().statuses).toEqual(['Ready']);
-    expect(chip('Ready').getAttribute('aria-pressed')).toBe('true');
+    expect(lastQuery().statuses).toEqual(['Approved']);
+    expect(chip('Approved').getAttribute('aria-pressed')).toBe('true');
 
     // The server answered with both recipes, so both must still be rendered. Re-filtering here would hide
     // matches that live on pages this screen has not fetched.
@@ -288,7 +288,7 @@ describe('RecipeLibraryComponent', () => {
     await create();
 
     searchSpy.and.returnValue(found(TWO_RECIPES));
-    chip('Ready').click();
+    chip('Approved').click();
     await settle();
 
     expect(root().querySelectorAll('.recipe-link').length).toBe(2);
@@ -303,7 +303,7 @@ describe('RecipeLibraryComponent', () => {
 
   it('clears every filter and restarts the search', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
-    await create('?search=olive&status=Ready&mine=true');
+    await create('?search=olive&status=Approved&mine=true');
 
     expect(lastQuery().search).toBe('olive');
 
@@ -321,44 +321,44 @@ describe('RecipeLibraryComponent', () => {
 
   it('restores search, statuses, mine and sort from the query string', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
-    await create('?search=olive&status=Draft,Ready&mine=true&sort=Title');
+    await create('?search=olive&status=Draft,Approved&mine=true&sort=Title');
 
     const query = queries()[0];
     expect(query.search).toBe('olive');
-    expect(query.statuses).toEqual(['Draft', 'Ready']);
+    expect(query.statuses).toEqual(['Draft', 'Approved']);
     expect(query.mine).toBeTrue();
     expect(query.sort).toBe('Title');
   });
 
   it('reflects restored filters in the controls, not just in the request', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
-    await create('?search=olive&status=Ready');
+    await create('?search=olive&status=Approved');
 
     expect((root().querySelector('input[type="search"]') as HTMLInputElement).value).toBe('olive');
-    expect(chip('Ready').getAttribute('aria-pressed')).toBe('true');
+    expect(chip('Approved').getAttribute('aria-pressed')).toBe('true');
     expect(chip('Draft').getAttribute('aria-pressed')).toBe('false');
   });
 
   it('ignores a status in the URL that this client does not understand', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
-    await create('?status=Published,Ready');
+    await create('?status=Published,Approved');
 
-    expect(queries()[0].statuses).toEqual(['Ready']);
+    expect(queries()[0].statuses).toEqual(['Approved']);
   });
 
   it('writes the active filters back to the query string', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
     await create();
 
-    chip('Ready').click();
+    chip('Approved').click();
     await settle();
 
-    expect(TestBed.inject(Router).url).toContain('status=Ready');
+    expect(TestBed.inject(Router).url).toContain('status=Approved');
   });
 
   it('removes a filter from the query string once it is cleared', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
-    await create('?status=Ready');
+    await create('?status=Approved');
 
     button('Clear filters').click();
     await settle();

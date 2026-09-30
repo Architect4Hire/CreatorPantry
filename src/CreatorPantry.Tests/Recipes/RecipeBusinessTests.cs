@@ -99,23 +99,28 @@ public sealed class RecipeBusinessTests
         Assert.Null(_dataLayer.Version.Reason);
     }
 
+    /// <summary>
+    /// The requested status still maps onto the domain state it names — the two are separate types and the
+    /// mapping has to land — but the version it captures is a draft whichever state that is.
+    /// </summary>
+    /// <remarks>
+    /// Version one used to inherit the recipe's state, which was right while a create could ask for Ready.
+    /// Since TESTRUN-005 the approval transition is the only write that mints a ready version, so every state
+    /// here produces a draft one. Approved and Archived are exercised although the create validator refuses
+    /// both, because Business is reached by more than one route and none of them may make a version ready.
+    /// </remarks>
     [Theory]
-    [InlineData(SettableRecipeStatusViewModel.Draft, RecipeStatus.Draft, RecipeVersionReadiness.Draft)]
-    [InlineData(SettableRecipeStatusViewModel.Ready, RecipeStatus.Ready, RecipeVersionReadiness.Ready)]
-    [InlineData(SettableRecipeStatusViewModel.Archived, RecipeStatus.Archived, RecipeVersionReadiness.Draft)]
-    public async Task Version_one_inherits_the_recipes_editorial_state(
+    [InlineData(SettableRecipeStatusViewModel.Draft, RecipeStatus.Draft)]
+    [InlineData(SettableRecipeStatusViewModel.Approved, RecipeStatus.Approved)]
+    [InlineData(SettableRecipeStatusViewModel.Archived, RecipeStatus.Archived)]
+    public async Task Version_one_is_a_draft_whatever_state_the_recipe_starts_in(
         SettableRecipeStatusViewModel requested,
-        RecipeStatus expectedStatus,
-        RecipeVersionReadiness expectedReadiness)
+        RecipeStatus expectedStatus)
     {
         await CreateAsync(new CreateRecipeViewModel { Title = "Cake", Status = requested });
 
-        // Both halves, because the requested status and the state stored are now two types: the mapping has to
-        // land on the right domain state, and the version has to inherit it. Archived is included even though
-        // the create validator refuses it — Business is reached by more than one route, and only Ready makes a
-        // version ready.
         Assert.Equal(expectedStatus, _dataLayer.Recipe!.Status);
-        Assert.Equal(expectedReadiness, _dataLayer.Version!.Readiness);
+        Assert.Equal(RecipeVersionReadiness.Draft, _dataLayer.Version!.Readiness);
     }
 
     // ---- Invalid time ----
@@ -851,22 +856,131 @@ public sealed class RecipeBusinessTests
         Assert.Equal("Brighter.", _dataLayer.Version.Reason);
     }
 
-    [Theory]
-    [InlineData(SettableRecipeStatusViewModel.Ready, RecipeVersionReadiness.Ready)]
-    [InlineData(SettableRecipeStatusViewModel.Draft, RecipeVersionReadiness.Draft)]
-    [InlineData(SettableRecipeStatusViewModel.Archived, RecipeVersionReadiness.Draft)]
-    public async Task The_version_inherits_the_editorial_state_the_edit_leaves_behind(
-        SettableRecipeStatusViewModel status, RecipeVersionReadiness expected)
+    /// <summary>
+    /// An edit captures a draft version, and submitting the state the recipe is already in does not change
+    /// that.
+    /// </summary>
+    /// <remarks>
+    /// The version used to inherit the state the edit left behind. Since TESTRUN-005 only the approval
+    /// transition mints a ready version, and an edit is never one — see
+    /// <c>An_edit_to_an_approved_recipe_reopens_it</c> for what an edit does to an approved recipe instead.
+    /// </remarks>
+    [Fact]
+    public async Task An_edit_captures_a_draft_version()
     {
         var recipe = Stored();
 
-        // A title change rides along so that every case is a real edit — submitting the status a recipe is
-        // already in is a no-op, which is a different test.
         await UpdateAsync(
             recipe,
-            Edit() with { Title = Set<string?>("Lemon cake"), Status = Set<SettableRecipeStatusViewModel?>(status) });
+            Edit() with
+            {
+                Title = Set<string?>("Lemon cake"),
+                Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Draft),
+            });
 
-        Assert.Equal(expected, _dataLayer.Version!.Readiness);
+        Assert.Equal(RecipeVersionReadiness.Draft, _dataLayer.Version!.Readiness);
+    }
+
+    /// <summary>
+    /// Editing an approved recipe reopens it, in the edit's own save (TESTRUN-005). An approval is a claim
+    /// that somebody cleared these words, and the words just changed.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_to_an_approved_recipe_reopens_it()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Approved);
+
+        var result = await UpdateAsync(recipe, Edit() with { Title = Set<string?>("Lemon cake") });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(RecipeStatusTransitions.ReopenTarget, recipe.Status);
+
+        // Handed to the data layer rather than saved separately, which is what puts it in the edit's
+        // transaction: a recipe edited and left reading as approved, even for an instant, is the state this
+        // rule exists to make unreachable.
+        var reopen = _dataLayer.Reopen;
+        Assert.NotNull(reopen);
+        Assert.Equal(RecipeStatus.Approved, reopen.FromStatus);
+        Assert.Equal(RecipeStatusTransitions.ReopenTarget, reopen.ToStatus);
+        Assert.Equal(RecipeStatusTransitions.EditReopenReason, reopen.Reason);
+    }
+
+    /// <summary>
+    /// The reopen shares the edit's instant and actor, so the two rows cannot disagree about when it happened
+    /// or who caused it.
+    /// </summary>
+    [Fact]
+    public async Task The_reopen_shares_the_edits_instant_and_actor()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Approved);
+
+        await UpdateAsync(recipe, Edit() with { Title = Set<string?>("Lemon cake") });
+
+        Assert.Equal(recipe.UpdatedAt, _dataLayer.Reopen!.OccurredAt);
+        Assert.Equal(recipe.UpdatedByMembershipId, _dataLayer.Reopen.ActorMembershipId);
+        Assert.Equal(ActorMembershipId, _dataLayer.Reopen.ActorMembershipId);
+    }
+
+    /// <summary>
+    /// Only an approved recipe is reopened. The earlier states assert that work is underway rather than that
+    /// content was cleared, and editing a recipe while testing it is how a test kitchen runs.
+    /// </summary>
+    [Theory]
+    [InlineData(RecipeStatus.Draft)]
+    [InlineData(RecipeStatus.InDevelopment)]
+    [InlineData(RecipeStatus.Testing)]
+    [InlineData(RecipeStatus.ReadyForReview)]
+    public async Task An_edit_in_any_other_state_moves_nothing(RecipeStatus status)
+    {
+        var recipe = Stored(stored => stored.Status = status);
+
+        await UpdateAsync(recipe, Edit() with { Title = Set<string?>("Lemon cake") });
+
+        Assert.Equal(status, recipe.Status);
+        Assert.Null(_dataLayer.Reopen);
+    }
+
+    /// <summary>
+    /// An edit that changes nothing reopens nothing either. The no-op answer comes first, so a resubmission
+    /// of the content an approved recipe already has does not quietly withdraw its approval.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_that_changes_nothing_leaves_an_approved_recipe_approved()
+    {
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Approved);
+
+        var result = await UpdateAsync(recipe, Edit() with { Title = Set<string?>(recipe.Title) });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(RecipeStatus.Approved, recipe.Status);
+        Assert.Equal(0, _dataLayer.Calls);
+        Assert.Null(_dataLayer.Reopen);
+    }
+
+    /// <summary>
+    /// An edit that asks for a different editorial state is refused, naming the field: state moves through
+    /// the transition seam and an edit is not one of its moves (TESTRUN-005).
+    /// </summary>
+    [Theory]
+    [InlineData(SettableRecipeStatusViewModel.Approved)]
+    [InlineData(SettableRecipeStatusViewModel.Archived)]
+    public async Task An_edit_may_not_change_the_editorial_state(SettableRecipeStatusViewModel status)
+    {
+        var recipe = Stored();
+
+        var result = await UpdateAsync(
+            recipe,
+            Edit() with
+            {
+                Title = Set<string?>("Lemon cake"),
+                Status = Set<SettableRecipeStatusViewModel?>(status),
+            });
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeInvalidRequest, result.Error!.Code);
+        // camelCase, because OperationError.Validation lowercases the field name a validator names.
+        Assert.Contains("status", result.Error.FieldErrors.Keys);
+        Assert.Equal(0, _dataLayer.Calls);
     }
 
     [Fact]
@@ -876,7 +990,7 @@ public sealed class RecipeBusinessTests
         // edit before the body is examined, which would mask the thing under test. Ready shows it just as
         // well — SettableRecipeStatus.ToDomain(null) is Draft, so a submitted null read as a value rather
         // than as a mistake would quietly un-ready the recipe.
-        var recipe = Stored(stored => stored.Status = RecipeStatus.Ready);
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Approved);
 
         var result = await UpdateAsync(recipe, Edit() with { Status = Set<SettableRecipeStatusViewModel?>(null) });
 
@@ -886,7 +1000,7 @@ public sealed class RecipeBusinessTests
         Assert.False(result.Succeeded);
         Assert.Equal(RecipeErrorCodes.RecipeInvalidRequest, result.Error!.Code);
         Assert.Contains("status", result.Error.FieldErrors.Keys);
-        Assert.Equal(RecipeStatus.Ready, recipe.Status);
+        Assert.Equal(RecipeStatus.Approved, recipe.Status);
         Assert.Equal(0, _dataLayer.Calls);
     }
 
@@ -1690,20 +1804,28 @@ public sealed class RecipeBusinessTests
     }
 
     /// <summary>
-    /// Readiness follows the status the restore just put back, by the same rule an edit follows. Restoring a
-    /// version that was Ready produces a ready version, because the recipe now says what that version said.
+    /// A restore leaves the editorial state where it is and captures a draft version, whatever state the
+    /// snapshot recorded.
     /// </summary>
+    /// <remarks>
+    /// It used to put the status back and derive the version's readiness from it. Since TESTRUN-005 that
+    /// would move a recipe to Approved with no transition recorded, no role checked and no readiness
+    /// evaluation — the unaudited jump the machine exists to make impossible. The snapshot still carries the
+    /// status; nothing reads it back.
+    /// </remarks>
     [Theory]
-    [InlineData(RecipeStatus.Ready, RecipeVersionReadiness.Ready)]
-    [InlineData(RecipeStatus.Draft, RecipeVersionReadiness.Draft)]
-    public async Task Readiness_follows_the_restored_status(RecipeStatus status, RecipeVersionReadiness readiness)
+    [InlineData(RecipeStatus.Approved)]
+    [InlineData(RecipeStatus.Draft)]
+    [InlineData(RecipeStatus.ReadyForReview)]
+    public async Task A_restore_leaves_the_status_alone_and_captures_a_draft_version(RecipeStatus archivedStatus)
     {
         var recipe = Stored();
+        var before = recipe.Status;
 
-        await RestoreAsync(recipe, Archived(recipe, archived => archived.Status = status));
+        await RestoreAsync(recipe, Archived(recipe, archived => archived.Status = archivedStatus));
 
-        Assert.Equal(status, recipe.Status);
-        Assert.Equal(readiness, _dataLayer.Version!.Readiness);
+        Assert.Equal(before, recipe.Status);
+        Assert.Equal(RecipeVersionReadiness.Draft, _dataLayer.Version!.Readiness);
     }
 
     /// <summary>
@@ -1895,7 +2017,7 @@ public sealed class RecipeBusinessTests
     [Fact]
     public async Task Archiving_moves_the_recipe_and_records_the_move()
     {
-        var recipe = Stored(stored => stored.Status = RecipeStatus.Ready);
+        var recipe = Stored(stored => stored.Status = RecipeStatus.Approved);
 
         var result = await ArchiveAsync(recipe);
 
@@ -1909,8 +2031,10 @@ public sealed class RecipeBusinessTests
         Assert.Equal(recipe.Id.ToString("D"), audit.ResourceId);
         Assert.Equal(ActorUserId, audit.ActorUserId);
 
-        // State names, not content: the audit log requires its references to stay safe to display.
-        Assert.Equal("Ready", audit.BeforeReference);
+        // State names, not content: the audit log requires its references to stay safe to display. Approved
+        // because that is the state this recipe was seeded in — Business is fed the aggregate directly, so
+        // unlike the endpoint tests it can still exercise a state no route reaches yet.
+        Assert.Equal("Approved", audit.BeforeReference);
         Assert.Equal("Archived", audit.AfterReference);
         Assert.NotEqual(Guid.Empty, audit.CorrelationId);
     }
@@ -1954,7 +2078,7 @@ public sealed class RecipeBusinessTests
 
         await UnarchiveAsync(recipe);
 
-        Assert.NotEqual(RecipeStatus.Ready, recipe.Status);
+        Assert.NotEqual(RecipeStatus.Approved, recipe.Status);
     }
 
     /// <summary>
@@ -2105,7 +2229,7 @@ public sealed class RecipeBusinessTests
     private static Recipe Source()
     {
         var recipe = RecipeAggregateFixture.FullyPopulatedRecipe();
-        recipe.Status = RecipeStatus.Ready;
+        recipe.Status = RecipeStatus.Approved;
 
         return recipe;
     }
@@ -2137,7 +2261,7 @@ public sealed class RecipeBusinessTests
     /// archived recipe must not produce an archived copy the creator then has to go and find.
     /// </summary>
     [Theory]
-    [InlineData(RecipeStatus.Ready)]
+    [InlineData(RecipeStatus.Approved)]
     [InlineData(RecipeStatus.Archived)]
     [InlineData(RecipeStatus.Draft)]
     public async Task A_copy_is_always_a_draft(RecipeStatus sourceStatus)
@@ -3207,7 +3331,7 @@ public sealed class RecipeBusinessTests
         new(Guid.NewGuid(),
             "Olive oil cake",
             "A cake.",
-            RecipeStatus.Ready,
+            RecipeStatus.Approved,
             CuisineId: Guid.NewGuid(),
             CourseId: null,
             CreatedByMembershipId: ActorMembershipId,
@@ -3320,15 +3444,20 @@ public sealed class RecipeBusinessTests
             return Task.FromResult(Detail);
         }
 
+        /// <summary>The reopen an edit staged, when the recipe was approved before it.</summary>
+        public RecipeStatusTransition? Reopen { get; private set; }
+
         public Task<RecipeUpdateOutcome> UpdateAsync(
             TaggedRecipe loaded,
             RecipeVersionFacts version,
             IReadOnlyCollection<RecipeTagName>? tags,
+            RecipeStatusTransition? reopen,
             CancellationToken cancellationToken)
         {
             Calls++;
             (Recipe, Version, Tags) = (loaded.Recipe.Recipe, version, tags);
             Updated = loaded;
+            Reopen = reopen;
 
             return Task.FromResult(Conflict
                 ? RecipeUpdateOutcome.Conflict()
@@ -3407,8 +3536,16 @@ public sealed class RecipeBusinessTests
         /// <summary>The status the recipe carried when the last lifecycle command reached the write.</summary>
         public RecipeStatus? WrittenStatus { get; private set; }
 
-        public Task<bool> TrySetStatusAsync(
+        /// <summary>The transition row the command wrote, and the version facts it asked for with it.</summary>
+        public RecipeStatusTransition? Transition { get; private set; }
+
+        /// <inheritdoc cref="Transition"/>
+        public RecipeVersionFacts? TransitionVersion { get; private set; }
+
+        public Task<bool> TryTransitionAsync(
             TaggedRecipe loaded,
+            RecipeStatusTransition transition,
+            RecipeVersionFacts? version,
             AuditEntry audit,
             CancellationToken cancellationToken)
         {
@@ -3417,6 +3554,8 @@ public sealed class RecipeBusinessTests
             Updated = loaded;
             Audit = audit;
             WrittenStatus = loaded.Recipe.Recipe.Status;
+            Transition = transition;
+            TransitionVersion = version;
 
             return Task.FromResult(!StatusConflict);
         }

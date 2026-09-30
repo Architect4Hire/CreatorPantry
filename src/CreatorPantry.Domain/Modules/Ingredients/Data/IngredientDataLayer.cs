@@ -15,4 +15,8 @@ internal sealed class IngredientDataLayer(IIngredientRepository ingredients) : I
 
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
         ingredients.IsUsableAsync(ingredientId, cancellationToken);
+
+    public Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        ingredients.CountAllergenTraitsAsync(ingredientIds, cancellationToken);
 }

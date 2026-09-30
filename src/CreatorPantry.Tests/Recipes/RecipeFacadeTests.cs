@@ -2244,6 +2244,27 @@ public sealed class RecipeFacadeTests
             CancellationToken cancellationToken) =>
             LifecycleAsync("unarchive", recipeId, actorUserId, expectedConcurrencyToken);
 
+        /// <summary>The transition the caller asked for, and what it carried.</summary>
+        public (RecipeStatus Target, string? Reason, RecipeReadinessServiceModel? Readiness)? Transition
+        {
+            get;
+            private set;
+        }
+
+        public Task<OperationResult<RecipeDetailServiceModel>> TransitionAsync(
+            Guid recipeId,
+            RecipeStatus target,
+            string? reason,
+            RecipeReadinessServiceModel? readiness,
+            string actorUserId,
+            string? expectedConcurrencyToken,
+            CancellationToken cancellationToken)
+        {
+            Transition = (target, reason, readiness);
+
+            return LifecycleAsync("transition", recipeId, actorUserId, expectedConcurrencyToken);
+        }
+
         private Task<OperationResult<RecipeDetailServiceModel>> LifecycleAsync(
             string command, Guid recipeId, string actorUserId, string? expectedConcurrencyToken)
         {
@@ -2430,6 +2451,11 @@ public sealed class RecipeFacadeTests
             Lookups++;
             return Task.FromResult(UsableIngredient);
         }
+
+        // Not exercised by the facade under test: the readiness seam is what asks this.
+        public Task<IReadOnlyList<Domain.Modules.Ingredients.Managers.IngredientAllergenReviewServiceModel>>
+            FindAllergenReviewGapsAsync(IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Domain.Modules.Ingredients.Managers.IngredientAllergenReviewServiceModel>>([]);
 
         // Not exercised by the facade under test.
         public Task<OperationResult<Domain.Managers.Paging.CursorPageServiceModel<Domain.Modules.Ingredients.Managers.IngredientServiceModel>>> ListIngredientsAsync(

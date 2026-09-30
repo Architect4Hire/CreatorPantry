@@ -63,7 +63,15 @@ public sealed class RecipeArchiveEndpointTests : IAsyncLifetime
             {
                 title,
                 headnote = "The one my grandmother made.",
-                status = "Ready",
+
+                // No status. A create may only ask for Draft since TESTRUN-005, and every other state is
+                // reached through a readiness transition — which has no route until 10.7a. So these tests
+                // archive a draft, and the assertions below say Draft where they used to say Ready.
+                //
+                // Two of them are weaker for it and should be strengthened when that route lands:
+                // Unarchiving_brings_it_back_as_a_draft no longer shows that the earlier state is dropped
+                // rather than remembered, and Unarchiving_a_recipe_that_is_not_archived no longer shows that
+                // a no-op cannot downgrade one.
                 tags = new[] { "weeknight" },
                 instructions = new object[]
                 {
@@ -129,8 +137,9 @@ public sealed class RecipeArchiveEndpointTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // Draft, not the Ready it was before it was shelved: nothing records the earlier state, and calling
-        // it finished again is the creator's to do.
+        // Draft is RecipePolicy.UnarchivedStatus: nothing records the state a recipe held before it was
+        // shelved, and declaring it finished again is the creator's to do. Seeded as a draft, so this shows
+        // the target rather than the drop -- see SeedAsync.
         Assert.Equal("Draft", (await BodyOf(response)).GetProperty("status").GetString());
     }
 
@@ -174,8 +183,9 @@ public sealed class RecipeArchiveEndpointTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // Untouched — including its Ready status, which unarchiving must not quietly downgrade.
-        Assert.Equal("Ready", body.GetProperty("status").GetString());
+        // Untouched. Seeded as a draft, so this no longer shows that a no-op cannot downgrade a finished
+        // recipe; what it still shows is that nothing was written at all — see SeedAsync.
+        Assert.Equal("Draft", body.GetProperty("status").GetString());
         Assert.Equal(created.GetProperty("updatedAt").GetString(), body.GetProperty("updatedAt").GetString());
         Assert.Equal(0, await AuditCountAsync(RecipeAuditActions.Unarchived, recipeId));
     }
@@ -201,7 +211,7 @@ public sealed class RecipeArchiveEndpointTests : IAsyncLifetime
         Assert.Equal(RecipeAuditActions.ResourceType, entry.ResourceType);
         Assert.Equal(_fixture.WorkspaceA.Id, entry.WorkspaceId);
         Assert.False(string.IsNullOrWhiteSpace(entry.ActorUserId));
-        Assert.Equal("Ready", entry.BeforeReference);
+        Assert.Equal("Draft", entry.BeforeReference);
         Assert.Equal("Archived", entry.AfterReference);
         Assert.NotEqual(Guid.Empty, entry.CorrelationId);
 
@@ -230,7 +240,7 @@ public sealed class RecipeArchiveEndpointTests : IAsyncLifetime
         Assert.Equal(0, await AuditCountAsync(RecipeAuditActions.Archived, recipeId));
 
         var reread = await BodyOf(await client.GetAsync(RecipeIn(_fixture.WorkspaceA, recipeId), cancellation));
-        Assert.Equal("Ready", reread.GetProperty("status").GetString());
+        Assert.Equal("Draft", reread.GetProperty("status").GetString());
     }
 
     // ---- Archive is not a delete ----
@@ -585,7 +595,7 @@ public sealed class RecipeArchiveEndpointTests : IAsyncLifetime
 
         // A's recipe is untouched and no audit entry was written for either attempt.
         var reread = await BodyOf(await inA.GetAsync(RecipeIn(_fixture.WorkspaceA, recipeId), cancellation));
-        Assert.Equal("Ready", reread.GetProperty("status").GetString());
+        Assert.Equal("Draft", reread.GetProperty("status").GetString());
         Assert.Equal(0, await AuditCountAsync(RecipeAuditActions.Archived, recipeId));
     }
 

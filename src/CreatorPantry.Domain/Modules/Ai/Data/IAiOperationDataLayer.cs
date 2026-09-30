@@ -185,6 +185,14 @@ internal interface IAiOperationDataLayer
         Guid conceptId,
         CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IAiOperationRepository.SummarizeOutstandingAsync"/>
+    /// <remarks>
+    /// Composed here rather than published as two reads, because the count and the warnings only mean anything
+    /// together: "three changes undecided, and one of them carries a safety caution" is one answer.
+    /// </remarks>
+    Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
+        Guid recipeId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Records a decided disposition, applying its accepted changes in the same transaction.
     /// </summary>
@@ -458,6 +466,19 @@ internal sealed class AiOperationDataLayer(
         Guid operationId,
         CancellationToken cancellationToken) =>
         await operations.GetForDispositionAsync(operationId, cancellationToken);
+
+    public async Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
+        Guid recipeId,
+        CancellationToken cancellationToken)
+    {
+        var (pendingChangeCount, proposalIds, warnings) =
+            await operations.SummarizeOutstandingAsync(recipeId, cancellationToken);
+
+        return new AiOutstandingSummaryServiceModel(
+            pendingChangeCount,
+            proposalIds,
+            [.. warnings.Select(row => new AiOutstandingWarningServiceModel(row.Kind, row.Message, row.AiProposalId))]);
+    }
 
     public async Task<AiConceptReference?> FindConceptAsync(
         Guid conceptRequestId,

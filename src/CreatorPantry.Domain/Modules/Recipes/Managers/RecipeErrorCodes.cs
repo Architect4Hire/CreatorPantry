@@ -65,6 +65,39 @@ public static class RecipeErrorCodes
     public const string RecipeArchivedConflict = "recipes.archived.conflict";
 
     /// <summary>
+    /// The transition asked for is not a move the machine has, or it is missing something the move requires
+    /// (TESTRUN-005).
+    /// </summary>
+    /// <remarks>
+    /// Covers an invalid jump — <c>Draft → Approved</c>, or a move to the state the recipe is already in —
+    /// and a reopen with no reason. Both are things a caller asked for and is told about, which is why they
+    /// are one code: the difference between them is a sentence in the response, not a branch a client takes.
+    /// </remarks>
+    public const string TransitionInvalidRequest = "recipes.transition.invalid_request";
+
+    /// <summary>
+    /// The move exists and the caller's role is below its bar (TESTRUN-005).
+    /// </summary>
+    /// <remarks>
+    /// 403 and not 409: the request is well formed and the recipe is in the right state, and it is the caller
+    /// who cannot make this move — a Contributor asking for an approval. Distinct from
+    /// <see cref="TransitionInvalidRequest"/> so that a client can tell "nobody may do this from here" from
+    /// "you may not do this".
+    /// </remarks>
+    public const string TransitionForbidden = "recipes.transition.forbidden";
+
+    /// <summary>
+    /// An approval was asked for over a readiness evaluation that still has blockers (TESTRUN-004).
+    /// </summary>
+    /// <remarks>
+    /// 409: the request is well formed and permitted, and would be accepted once the blockers are cleared,
+    /// which is what a conflict means — the same reading <see cref="RecipeArchivedConflict"/> takes. The
+    /// blocking rule ids travel in the response so a client can say which ones rather than send the caller
+    /// back to the readiness screen to guess.
+    /// </remarks>
+    public const string TransitionBlockedConflict = "recipes.transition.blocked.conflict";
+
+    /// <summary>
     /// A version number the recipe has none of. The recipe itself was found and is readable.
     /// </summary>
     /// <remarks>

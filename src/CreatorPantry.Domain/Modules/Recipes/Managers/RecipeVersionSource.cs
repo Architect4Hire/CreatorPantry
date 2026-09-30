@@ -41,4 +41,22 @@ public enum RecipeVersionSource
     /// row. Provenance that only survives in a second table is not provenance.
     /// </remarks>
     Duplicate = 4,
+
+    /// <summary>
+    /// The recipe was approved, and this is the version that approval names (TESTRUN-005).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one version in a recipe's history whose content nobody changed: an approval captures the words as
+    /// they already stood so that the approval has something immutable to refer to. It is
+    /// <see cref="RecipeVersionReadiness.Ready"/> — the only write that mints one — and the transition that
+    /// wrote it is named by <c>RecipeStatusTransition.CreatedVersionId</c>.
+    /// </para>
+    /// <para>
+    /// Its own member for the reason <see cref="Duplicate"/> is: a reader scanning a history has to be able
+    /// to see which version was the approved one without joining to the transition table, and calling it a
+    /// creator edit would hide the one version in the list that carries a decision.
+    /// </para>
+    /// </remarks>
+    ReadinessApproval = 5,
 }

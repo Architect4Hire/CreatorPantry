@@ -107,9 +107,10 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
         Reference(model => model.PrimaryTechniqueId, nameof(UpdateRecipeViewModel.PrimaryTechniqueId));
         Reference(model => model.YieldUnitId, nameof(UpdateRecipeViewModel.YieldUnitId));
 
-        // Changeable, never clearable — a recipe is always somewhere in the creator's workflow. Archived is
-        // accepted here, unlike on a create: archiving is a state a recipe is moved to, and this is the
-        // route that moves it.
+        // Never clearable — a recipe is always somewhere in the creator's workflow — and, since TESTRUN-005,
+        // effectively no longer changeable either: the rule below accepts only Draft. The field stays because
+        // sending the state a draft is already in is a request an edit can honour, and because a client that
+        // sends anything else deserves a field error rather than a silent no-op.
         RuleFor(model => model.Status)
             .Cascade(CascadeMode.Stop)
             .Must(field => field.Value is not null)
@@ -122,17 +123,18 @@ public sealed class UpdateRecipeViewModelValidator : AbstractValidator<UpdateRec
             .When(model => model.Status.IsSubmitted)
             .OverridePropertyName(nameof(UpdateRecipeViewModel.Status));
 
-        // Archiving is its own audited command at its own role bar (REC-006), so an ordinary edit may no
-        // longer reach that state — two ways to archive would mean one of them skips the audit entry and the
-        // Editor check, and the one that skips them is the one a client would find first.
+        // Every editorial move is its own audited command at its own role bar — archiving since REC-006, and
+        // the rest since TESTRUN-005 — so an ordinary edit may reach none of them. Two ways to change state
+        // would mean one of them skips the transition record, the role check and, for an approval, the
+        // readiness gate; and the one that skips them is the one a client would find first.
         //
         // Refused here rather than removed from SettableRecipeStatusViewModel, for the reason that type
-        // records: leaving it out of the enum would turn this clear field error into a generic
+        // records: leaving a value out of the enum would turn this clear field error into a generic
         // unreadable-body 400, and narrowing a published enum is the breaking change api-contract.md names.
-        // CreateRecipeViewModelValidator refuses the same value for the neighbouring reason.
+        // CreateRecipeViewModelValidator refuses the same values for the neighbouring reason.
         RuleFor(model => model.Status)
-            .Must(field => field.Value != SettableRecipeStatusViewModel.Archived)
-                .WithMessage("Archive a recipe with the archive command, not by editing its status.")
+            .Must(field => field.Value == SettableRecipeStatusViewModel.Draft)
+                .WithMessage("Move a recipe between editorial states with a readiness transition, not by editing its status.")
             .When(model => model.Status.IsSubmitted
                 && model.Status.Value is { } status
                 && Enum.IsDefined(status))

@@ -149,8 +149,13 @@ public class Recipe : IWorkspaceOwned
 
     /// <summary>
     /// The creator's editorial state. Never a statement about external delivery — content.md keeps provider
-    /// outcomes on publication records, and nothing may read <see cref="RecipeStatus.Ready"/> as published.
+    /// outcomes on publication records, and nothing may read <see cref="RecipeStatus.Approved"/> as published.
     /// </summary>
+    /// <remarks>
+    /// Moved only by the transition seam (TESTRUN-005), which records every move in a
+    /// <see cref="RecipeStatusTransition"/>. A write that set this directly would leave the recipe in a state
+    /// its own history cannot account for.
+    /// </remarks>
     public RecipeStatus Status { get; set; } = RecipeStatus.Draft;
 
     /// <summary>

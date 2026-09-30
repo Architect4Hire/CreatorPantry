@@ -249,23 +249,8 @@
           />
         </cp-field>
 
-        <cp-field label="Status" forId="recipe-status" [error]="fieldError('status')">
-          <!-- Disabled while archived: the options are Draft and Ready, and an archived recipe is neither.
-               Archiving and bringing back are commands beside the recipe, never a value in this field. -->
-          <select
-            id="recipe-status"
-            [attr.aria-invalid]="fieldError('status') ? 'true' : null"
-            [disabled]="isArchived()"
-            [attr.aria-describedby]="isArchived() ? 'recipe-archived-banner' : null"
-            [ngModel]="status()"
-            (ngModelChange)="status.set($event)"
-            name="status"
-          >
-            @for (option of statusOptions(); track option) {
-              <option [value]="option">{{ option }}</option>
-            }
-          </select>
-        </cp-field>
+        <!-- No status field. Editorial state is a machine (TESTRUN-005) and an edit is not one of its moves;
+             the component's own remarks say what went and why. -->
 
         <cp-field label="Tags" forId="recipe-new-tag" [error]="fieldError('tags')">
           <div class="tags">

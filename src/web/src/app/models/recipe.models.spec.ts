@@ -15,7 +15,7 @@ import {
 const VALID_CREATED_RECIPE: CreatedRecipe = {
   recipeId: 'r1',
   title: 'Chili',
-  status: 'Ready',
+  status: 'Approved',
   versionId: 'v1',
   versionNumber: 1,
   createdAt: '2026-01-01T00:00:00Z',
@@ -203,7 +203,7 @@ describe('encodeCreateRecipeRequest', () => {
   });
 
   it('passes status through as its wire PascalCase name, unconverted', () => {
-    expect(encodeCreateRecipeRequest({ title: 'Chili', status: 'Ready' })).toEqual({ title: 'Chili', status: 'Ready' });
+    expect(encodeCreateRecipeRequest({ title: 'Chili', status: 'Approved' })).toEqual({ title: 'Chili', status: 'Approved' });
   });
 
   it('passes instructions through unchanged, with no id on any group or step', () => {

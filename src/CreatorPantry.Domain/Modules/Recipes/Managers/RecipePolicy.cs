@@ -66,11 +66,19 @@ public static class RecipePolicy
     /// The state a recipe returns to when it comes back from the archive.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <see cref="RecipeStatus.Draft"/>, and not the state it held before, because nothing records what that
     /// was — storing it would be a column whose only reader is this one line. Draft is also the honest
-    /// answer: <see cref="RecipeStatus.Ready"/> is a claim the creator makes about a recipe they consider
-    /// finished, and one coming back off the shelf is being picked up again. Saying it is ready is theirs to
-    /// do, in one more edit.
+    /// answer: <see cref="RecipeStatus.Approved"/> is a claim somebody made about a recipe they cleared, and
+    /// one coming back off the shelf has not been cleared again. Saying it is approved is theirs to do, by
+    /// taking it back through the machine.
+    /// </para>
+    /// <para>
+    /// Still a constant here rather than a member of <see cref="RecipeStatusTransitions"/>, because the
+    /// machine's restore rule reads it: TESTRUN-005 folded archive and restore into the transitions without
+    /// changing where this particular answer lives, so REC-006's decision stays in the one place that has
+    /// always documented it.
+    /// </para>
     /// </remarks>
     public const RecipeStatus UnarchivedStatus = RecipeStatus.Draft;
 
@@ -105,6 +113,17 @@ public static class RecipePolicy
 
     /// <summary>"Adapted from my grandmother's card", in the creator's own words.</summary>
     public const int AttributionMaxLength = 500;
+
+    /// <summary>
+    /// Why a recipe was moved between editorial states, in the words of whoever moved it (TESTRUN-005).
+    /// </summary>
+    /// <remarks>
+    /// Bounded like a test issue's resolution notes rather than like a version's reason, because it answers
+    /// the same kind of question: not what changed, which the transition's two states already say, but why
+    /// somebody decided it should. Required on a reopen; see
+    /// <see cref="RecipeStatusTransitionRule.RequiresReason"/>.
+    /// </remarks>
+    public const int TransitionReasonMaxLength = 1000;
 
     public const int UrlMaxLength = 2048;
 

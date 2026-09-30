@@ -72,7 +72,9 @@ public sealed class RecipeDuplicateEndpointTests : IAsyncLifetime
                 attributionText = "Adapted from my grandmother's card.",
                 prepTimeMinutes = 20,
                 yieldText = "makes 12 muffins",
-                status = "Ready",
+
+                // No status. A create may only ask for Draft since TESTRUN-005, and every other state is
+                // reached through a readiness transition, which has no route until 10.7a.
                 tags = new[] { "weeknight" },
                 instructions = new object[]
                 {
@@ -146,9 +148,15 @@ public sealed class RecipeDuplicateEndpointTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Whatever the source said — here a <c>Ready</c> recipe. A copy exists to be taken somewhere else, so it
-    /// starts as a draft.
+    /// Whatever the source said. A copy exists to be taken somewhere else, so it starts as a draft.
     /// </summary>
+    /// <remarks>
+    /// The source used to be seeded as <c>Ready</c>, which made this the interesting case. Since TESTRUN-005 a
+    /// create can only ask for Draft and no route reaches the other states yet, so what this now shows is the
+    /// route's own behaviour with a draft source. The case that matters — a copy of an approved or archived
+    /// recipe — is <c>RecipeBusinessTests.A_copy_is_always_a_draft</c>, which sets the source's state directly.
+    /// Worth restoring here when 10.7a gives the transition a route.
+    /// </remarks>
     [Fact]
     public async Task A_copy_is_a_draft_even_when_its_source_was_ready()
     {
@@ -156,7 +164,7 @@ public sealed class RecipeDuplicateEndpointTests : IAsyncLifetime
         using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: cancellation);
         var (recipeId, _, source) = await SeedAsync(client, _fixture.WorkspaceA);
 
-        Assert.Equal("Ready", source.GetProperty("status").GetString());
+        Assert.Equal("Draft", source.GetProperty("status").GetString());
 
         var created = await BodyOf(await client.PostAsJsonAsync(
             DuplicateIn(_fixture.WorkspaceA, recipeId), new { title = "A copy" }, cancellation));
@@ -522,7 +530,7 @@ public sealed class RecipeDuplicateEndpointTests : IAsyncLifetime
 
         var response = await client.PostAsJsonAsync(
             DuplicateIn(_fixture.WorkspaceA, recipeId),
-            new { title = "A copy", expectedConcurrencyToken = "CAcGBQQDAgE=", status = "Ready" },
+            new { title = "A copy", expectedConcurrencyToken = "CAcGBQQDAgE=", status = "Approved" },
             cancellation);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);

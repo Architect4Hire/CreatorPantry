@@ -23,10 +23,67 @@ public interface IIngredientRepository
 
     /// <summary>Whether the id names an active ingredient — the same "usable" a recipe line may reference.</summary>
     Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many current allergen traits each of the named ingredients has, and how many of those are unreviewed
+    /// or still uncertain.
+    /// </summary>
+    /// <returns>
+    /// One row per id that names an active ingredient, in no particular order. An id naming nothing — or an
+    /// inactive ingredient — is simply absent, which the caller is free to treat as nothing known.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// Counts rather than trait rows, for the reason <see cref="IngredientAllergenTraitCounts"/> gives: the caller
+    /// wants one answer per ingredient, and fetching every trait of forty ingredients to reduce them to three
+    /// numbers each would read rows nobody looks at.
+    /// </para>
+    /// <para>
+    /// <strong><c>EffectiveFrom</c> is deliberately not consulted.</strong> A future-dated trait is still a
+    /// recorded claim, and this read answers whether anybody has finished checking rather than what is true on a
+    /// given day — so bringing a clock into a completeness count would add a dependency without changing an
+    /// answer. A surface that states presence must consider it; this one does not state presence.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
 }
 
 internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIngredientRepository
 {
+    public async Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        CancellationToken cancellationToken)
+    {
+        if (ingredientIds.Count == 0)
+        {
+            // No query at all rather than one with an empty IN list. The caller asking about no ingredients is
+            // ordinary — a recipe whose every line is unmatched has none to ask about.
+            return [];
+        }
+
+        // Three correlated counts over IngredientAllergenTraits, which is global reference data: no workspace
+        // filter applies to any of this, and none should be written by hand.
+        return await context.Ingredients.AsNoTracking()
+            .Where(ingredient => ingredientIds.Contains(ingredient.Id) && ingredient.IsActive)
+            .Select(ingredient => new IngredientAllergenTraitCounts(
+                ingredient.Id,
+                ingredient.CanonicalName,
+                context.IngredientAllergenTraits.Count(trait =>
+                    trait.IngredientId == ingredient.Id
+                    && (trait.ReviewStatus == TraitReviewStatus.Approved
+                        || trait.ReviewStatus == TraitReviewStatus.Unreviewed)),
+                context.IngredientAllergenTraits.Count(trait =>
+                    trait.IngredientId == ingredient.Id
+                    && trait.ReviewStatus == TraitReviewStatus.Unreviewed),
+                context.IngredientAllergenTraits.Count(trait =>
+                    trait.IngredientId == ingredient.Id
+                    && trait.ReviewStatus == TraitReviewStatus.Approved
+                    && (trait.Presence == AllergenPresence.Unknown
+                        || trait.Presence == AllergenPresence.PossiblePresence))))
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
         context.Ingredients.AsNoTracking().AnyAsync(ingredient => ingredient.Id == ingredientId && ingredient.IsActive, cancellationToken);
 

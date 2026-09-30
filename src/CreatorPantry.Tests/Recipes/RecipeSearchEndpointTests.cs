@@ -112,15 +112,17 @@ public sealed class RecipeSearchEndpointTests : IAsyncLifetime
         using var client = await SignInAsync(_fixture.WorkspaceA);
 
         await CreateAsync(client, _fixture.WorkspaceA, "A draft");
-        await CreateAsync(client, _fixture.WorkspaceA, "A ready one", status: "Ready");
+        await CreateAsync(client, _fixture.WorkspaceA, "Another draft");
 
-        // Two states, not three: a create refuses Archived deliberately, and archiving is its own command that
-        // does not exist yet. The repository tests cover all three against real SQL.
-        var titles = await TitlesAsync(client, _fixture.WorkspaceA, "?status=Draft,Ready");
+        // Both drafts, because a create can only ask for Draft since TESTRUN-005 and no route reaches the
+        // other states yet. So what this asserts through the gateway is the comma-separated split and the
+        // narrowing — a list naming a state nothing is in returns nothing — rather than two populated states.
+        // The repository tests cover every state against real SQL, where the rows can be seeded directly.
+        var titles = await TitlesAsync(client, _fixture.WorkspaceA, "?status=Draft,Approved");
 
-        Assert.Equal(["A draft", "A ready one"], titles.Order(StringComparer.Ordinal));
+        Assert.Equal(["A draft", "Another draft"], titles.Order(StringComparer.Ordinal));
 
-        Assert.Equal(["A ready one"], await TitlesAsync(client, _fixture.WorkspaceA, "?status=Ready"));
+        Assert.Empty(await TitlesAsync(client, _fixture.WorkspaceA, "?status=Approved"));
     }
 
     [Fact]

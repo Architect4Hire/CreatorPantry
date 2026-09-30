@@ -159,7 +159,11 @@ public sealed class RecipeSnapshotReconcilerTests
         recipe.YieldQuantity = null;
         recipe.YieldUnitId = null;
         recipe.YieldUnitDimension = null;
-        recipe.Status = RecipeStatus.Archived;
+
+        // Status is deliberately not ruined. It used to be, while a restore put it back; since TESTRUN-005 a
+        // restore leaves editorial state alone (see Status_is_not_restored), so it is no longer something a
+        // restore "has to be able to undo" and changing it here would make the round-trip below assert a
+        // contract the reconciler no longer has.
 
         var ingredientGroup = recipe.IngredientGroups.Single();
         ingredientGroup.Title = "Renamed group";
@@ -265,25 +269,44 @@ public sealed class RecipeSnapshotReconcilerTests
     }
 
     /// <summary>
-    /// The one editorial field in the header, restored like any other — a version captured while the recipe
-    /// was Ready puts Ready back.
+    /// The one editorial field in the header is <strong>not</strong> restored, although the archive carries
+    /// it.
     /// </summary>
+    /// <remarks>
+    /// It was, until TESTRUN-005 made editorial state a machine. Putting the status back would move a recipe
+    /// to Approved with no transition recorded, no role checked and no readiness evaluation — the unaudited
+    /// jump <c>RecipeStatusTransitions</c> exists to make impossible. A restore restores what a recipe
+    /// <em>said</em>; where it sits in its workflow is not something it said.
+    /// </remarks>
     [Fact]
-    public void Status_is_restored()
+    public void Status_is_not_restored()
     {
         var (live, archived) = Archive();
-        live.Status = RecipeStatus.Draft;
+
+        // A real content change alongside it, so the restore has something to do: what is under test is that
+        // it restores the title and leaves the status where it found it, not that it declines to run.
+        live.Title = "Something else entirely";
+        live.Status = RecipeStatus.Testing;
 
         Assert.True(Apply(live, archived));
-        Assert.Equal(RecipeStatus.Ready, live.Status);
+        Assert.Equal(RecipeStatus.Testing, live.Status);
+        Assert.NotEqual("Something else entirely", live.Title);
     }
 
     /// <summary>
-    /// Restoring cannot move a recipe into the archive, because no snapshot can carry that state — archiving
-    /// writes no version and an archived recipe accepts no edits, so nothing ever captures one. That claim is
-    /// about the write seams rather than about this method, so it is asserted where it becomes true:
-    /// <c>RecipeArchiveEndpointTests</c> checks that archiving leaves the history untouched.
+    /// A difference in the status alone is not a change, because the status is not applied. Worth its own
+    /// test: leaving the field in the comparison while dropping it from the assignment would report an edit
+    /// that then wrote nothing, and a version would be captured for it.
     /// </summary>
+    [Fact]
+    public void A_status_that_differs_is_not_on_its_own_a_change()
+    {
+        var (live, archived) = Archive();
+        live.Status = RecipeStatus.Testing;
+
+        Assert.False(Apply(live, archived));
+        Assert.Equal(RecipeStatus.Testing, live.Status);
+    }
 
     /// <summary>
     /// The unit and its dimension are one composite foreign key, so they are restored together. Taking one

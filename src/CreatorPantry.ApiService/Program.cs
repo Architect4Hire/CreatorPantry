@@ -53,7 +53,7 @@ builder.Services.AddTenancy();
 builder.Services.AddMeasurementModule();
 builder.Services.AddVocabularyModule();
 builder.Services.AddIngredientModule();
-builder.Services.AddRecipesModule();
+builder.Services.AddRecipesModule(builder.Configuration);
 // The provider-specific failure classifier goes in before AddAiModule, whose TryAdd fallback is deliberately
 // weaker: it cannot read a provider SDK's status code, so it cannot tell a rate limit or a safety block from a
 // generic transient fault.
@@ -71,6 +71,10 @@ builder.Services.AddAiUsageAdministration();
 
 // The request seam, which the worker does not register: it needs the recipe module, already added above.
 builder.Services.AddAiProposalSeam();
+
+// The readiness evaluation, which needs the proposal seam above plus the ingredient module for the four rules
+// that read another module. The worker has no readiness route and deliberately does not register it.
+builder.Services.AddRecipeReadinessSeam();
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

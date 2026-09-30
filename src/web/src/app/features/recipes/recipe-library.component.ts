@@ -29,9 +29,35 @@ type LibraryState =
   | { readonly status: 'error'; readonly message: string }
   | { readonly status: 'ready'; readonly page: RecipeSearchPage };
 
-const STATUS_TONE: Record<RecipeStatus, CpStatusPillTone> = { Draft: 'neutral', Ready: 'success', Archived: 'stale' };
+/**
+ * A tone per editorial state. Exhaustive by type, so a state added to the machine has to be given one here
+ * rather than falling through to a default that would render it as a neutral chip nobody chose.
+ *
+ * The three middle states are `progress` because they are all "somebody is working on this" — the distinction
+ * between them is the label, which the pill always shows beside the glyph.
+ */
+const STATUS_TONE: Record<RecipeStatus, CpStatusPillTone> = {
+  Draft: 'neutral',
+  InDevelopment: 'progress',
+  Testing: 'progress',
+  ReadyForReview: 'progress',
+  Approved: 'success',
+  Archived: 'stale',
+};
 
-export const FILTERABLE_STATUSES: readonly RecipeStatus[] = ['Draft', 'Ready', 'Archived'];
+/**
+ * Every state, in workflow order, so the library can filter on the whole machine (TESTRUN-005).
+ *
+ * Order is the workflow rather than the enum's numbering, because this is a row of chips a creator reads.
+ */
+export const FILTERABLE_STATUSES: readonly RecipeStatus[] = [
+  'Draft',
+  'InDevelopment',
+  'Testing',
+  'ReadyForReview',
+  'Approved',
+  'Archived',
+];
 
 /** Long enough that a typed word is one request, short enough that the list still feels live. */
 const SEARCH_DEBOUNCE_MS = 300;

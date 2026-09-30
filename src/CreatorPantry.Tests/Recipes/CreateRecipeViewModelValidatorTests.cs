@@ -45,7 +45,7 @@ public sealed class CreateRecipeViewModelValidatorTests
             YieldQuantity = 12m,
             YieldUnitId = Guid.NewGuid(),
             Tags = ["Weeknight", "Freezer friendly"],
-            Status = SettableRecipeStatusViewModel.Ready,
+            Status = SettableRecipeStatusViewModel.Draft,
         };
 
         Assert.True(_validator.Validate(model).IsValid);
@@ -234,16 +234,30 @@ public sealed class CreateRecipeViewModelValidatorTests
 
     // ---- Status ----
 
-    [Theory]
-    [InlineData(SettableRecipeStatusViewModel.Draft)]
-    [InlineData(SettableRecipeStatusViewModel.Ready)]
-    public void A_recipe_may_start_as_draft_or_ready(SettableRecipeStatusViewModel status) =>
-        Assert.True(_validator.Validate(new CreateRecipeViewModel { Title = "Cake", Status = status }).IsValid);
-
+    /// <summary>
+    /// Draft is the only state a recipe may be created into (TESTRUN-005). It used to be able to start out
+    /// Ready; a create that reached the terminal state would now be an approval with no readiness evaluation
+    /// behind it and no transition recorded.
+    /// </summary>
     [Fact]
-    public void A_recipe_cannot_start_out_archived() =>
-        Assert.False(_validator.Validate(
-            new CreateRecipeViewModel { Title = "Cake", Status = SettableRecipeStatusViewModel.Archived }).IsValid);
+    public void A_recipe_may_start_as_a_draft() =>
+        Assert.True(_validator.Validate(
+            new CreateRecipeViewModel { Title = "Cake", Status = SettableRecipeStatusViewModel.Draft }).IsValid);
+
+    /// <summary>
+    /// Both other states are refused, and refused by the validator rather than left out of the enum — so the
+    /// answer names the field and says what to do instead, which an unreadable-body 400 could not.
+    /// </summary>
+    [Theory]
+    [InlineData(SettableRecipeStatusViewModel.Approved)]
+    [InlineData(SettableRecipeStatusViewModel.Archived)]
+    public void A_recipe_may_not_start_in_any_other_state(SettableRecipeStatusViewModel status)
+    {
+        var result = _validator.Validate(new CreateRecipeViewModel { Title = "Cake", Status = status });
+
+        Assert.False(result.IsValid);
+        Assert.Equal(nameof(CreateRecipeViewModel.Status), result.Errors[0].PropertyName);
+    }
 
     [Fact]
     public void An_undeclared_status_value_is_invalid() =>

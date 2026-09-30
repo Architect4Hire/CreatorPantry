@@ -43,7 +43,7 @@ public sealed record RecipeSearchViewModel(
     [property: Description("Free text matched as a substring of the title or the description. Terms shorter than two characters are ignored. Not matched against ingredient lines or instructions.")]
     string? Search = null,
     [property: FromQuery(Name = "status")]
-    [property: Description("Comma-separated editorial states: Draft, Ready, Archived. Omit for every state, archived recipes included.")]
+    [property: Description("Comma-separated editorial states: Draft, InDevelopment, Testing, ReadyForReview, Approved, Archived. Omit for every state, archived recipes included.")]
     string? Status = null,
     [property: FromQuery(Name = "tag")]
     [property: Description("Comma-separated workspace tag ids. A recipe matches if it carries any one of them.")]

@@ -34,13 +34,13 @@ public static class RecipeSearchQueryFactory
 
         var errors = new List<(string Field, string Error)>();
 
-        var statuses = ParseEnums<RecipeStatus>(model.Status, "status", errors);
-        var tagIds = ParseIds(model.Tag, "tag", errors);
-        var cuisineIds = ParseIds(model.Cuisine, "cuisine", errors);
-        var courseIds = ParseIds(model.Course, "course", errors);
-        var readiness = ParseEnum<RecipeVersionReadiness>(model.Readiness, "readiness", errors);
-        var review = ParseEnum<RecipeIngredientReviewFilter>(model.IngredientReview, "ingredientReview", errors);
-        var sort = ParseEnum<RecipeSearchSort>(model.Sort, "sort", errors) ?? RecipeSearchSort.RecentlyUpdated;
+        var statuses = QueryFilterParser.ParseEnums<RecipeStatus>(model.Status, "status", errors);
+        var tagIds = QueryFilterParser.ParseIds(model.Tag, "tag", errors);
+        var cuisineIds = QueryFilterParser.ParseIds(model.Cuisine, "cuisine", errors);
+        var courseIds = QueryFilterParser.ParseIds(model.Course, "course", errors);
+        var readiness = QueryFilterParser.ParseEnum<RecipeVersionReadiness>(model.Readiness, "readiness", errors);
+        var review = QueryFilterParser.ParseEnum<RecipeIngredientReviewFilter>(model.IngredientReview, "ingredientReview", errors);
+        var sort = QueryFilterParser.ParseEnum<RecipeSearchSort>(model.Sort, "sort", errors) ?? RecipeSearchSort.RecentlyUpdated;
 
         if (errors.Count > 0)
         {
@@ -110,116 +110,4 @@ public static class RecipeSearchQueryFactory
             RecipeErrorCodes.CursorInvalidRequest,
             "This cursor was issued for a different workspace, ordering or set of filters. Start again without one.",
             [("cursor", "Start the list again without a cursor.")]);
-
-    /// <summary>Splits a comma-separated list, or <c>null</c> when the caller did not send a value.</summary>
-    /// <remarks>
-    /// An empty value is treated as absent rather than as a filter matching nothing, because <c>?status=</c> is
-    /// what a client sends when it has cleared a filter — refusing it would make clearing one an error. That
-    /// includes a value that is nothing but separators: <c>?status=,,</c> names no status, so it is the same
-    /// request as naming none at all, and returning an empty list would have made it a filter that matches
-    /// nothing.
-    /// </remarks>
-    private static string[]? Split(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        var entries = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-        return entries.Length == 0 ? null : entries;
-    }
-
-    private static IReadOnlyList<Guid>? ParseIds(string? raw, string field, List<(string, string)> errors)
-    {
-        if (Split(raw) is not { } entries)
-        {
-            return null;
-        }
-
-        var ids = new List<Guid>(entries.Length);
-
-        foreach (var entry in entries)
-        {
-            if (Guid.TryParseExact(entry, "D", out var id))
-            {
-                ids.Add(id);
-            }
-            else
-            {
-                errors.Add((field, $"'{entry}' is not an id."));
-            }
-        }
-
-        return ids;
-    }
-
-    private static IReadOnlyList<TEnum>? ParseEnums<TEnum>(string? raw, string field, List<(string, string)> errors)
-        where TEnum : struct, Enum
-    {
-        if (Split(raw) is not { } entries)
-        {
-            return null;
-        }
-
-        var values = new List<TEnum>(entries.Length);
-
-        foreach (var entry in entries)
-        {
-            if (TryParseDefined<TEnum>(entry, out var value))
-            {
-                values.Add(value);
-            }
-            else
-            {
-                errors.Add((field, Accepted<TEnum>(entry)));
-            }
-        }
-
-        return values;
-    }
-
-    private static TEnum? ParseEnum<TEnum>(string? raw, string field, List<(string, string)> errors)
-        where TEnum : struct, Enum
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        if (TryParseDefined<TEnum>(raw.Trim(), out var value))
-        {
-            return value;
-        }
-
-        errors.Add((field, Accepted<TEnum>(raw.Trim())));
-
-        return null;
-    }
-
-    /// <summary>
-    /// Parses a name, case-insensitively, and only a name.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Enum.TryParse{TEnum}(string, bool, out TEnum)"/> also accepts numbers, so <c>readiness=7</c>
-    /// would otherwise succeed and produce a value no member has — a filter that compiles into a comparison
-    /// against nothing. The digit check refuses a numeric form outright rather than letting
-    /// <see cref="Enum.IsDefined{TEnum}(TEnum)"/> accept one that happens to land on a member, because the
-    /// numbers are an implementation detail of the enum and never part of the published contract.
-    /// </remarks>
-    private static bool TryParseDefined<TEnum>(string entry, out TEnum value)
-        where TEnum : struct, Enum
-    {
-        value = default;
-
-        return !char.IsAsciiDigit(entry[0])
-            && entry[0] != '-'
-            && Enum.TryParse(entry, ignoreCase: true, out value)
-            && Enum.IsDefined(value);
-    }
-
-    private static string Accepted<TEnum>(string entry)
-        where TEnum : struct, Enum =>
-        $"'{entry}' is not one of: {string.Join(", ", Enum.GetNames<TEnum>())}.";
 }

@@ -61,7 +61,7 @@ public sealed class UpdateRecipeViewModelValidatorTests
             YieldQuantity = Set<decimal?>(12m),
             YieldUnitId = Set<Guid?>(Guid.NewGuid()),
             Tags = Set<IReadOnlyList<string?>?>(["Weeknight", "Freezer friendly"]),
-            Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Ready),
+            Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Draft),
         };
 
         Assert.True(_validator.Validate(model).IsValid);
@@ -252,16 +252,17 @@ public sealed class UpdateRecipeViewModelValidatorTests
         Assert.Single(ErrorsFor(Empty() with { Status = Set<SettableRecipeStatusViewModel?>((SettableRecipeStatusViewModel)99) }, "Status"));
 
     /// <summary>
-    /// Archiving is its own audited command at its own role bar (REC-006), so an edit may not reach that
-    /// state — two ways to archive would mean the easier one skips the audit entry and the Editor check.
+    /// Every editorial move is its own audited command at its own role bar — archiving since REC-006, the
+    /// rest since TESTRUN-005 — so an edit may reach none of them. Two ways to change state would mean the
+    /// easier one skips the transition record, the role check and, for an approval, the readiness gate.
     /// </summary>
-    [Fact]
-    public void A_recipe_cannot_be_archived_by_editing_its_status() =>
+    [Theory]
+    [InlineData(SettableRecipeStatusViewModel.Archived)]
+    [InlineData(SettableRecipeStatusViewModel.Approved)]
+    public void A_recipe_cannot_be_moved_by_editing_its_status(SettableRecipeStatusViewModel status) =>
         Assert.Equal(
-            ["Archive a recipe with the archive command, not by editing its status."],
-            ErrorsFor(
-                Empty() with { Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Archived) },
-                "Status"));
+            ["Move a recipe between editorial states with a readiness transition, not by editing its status."],
+            ErrorsFor(Empty() with { Status = Set<SettableRecipeStatusViewModel?>(status) }, "Status"));
 
     /// <summary>
     /// Refused by the validator rather than removed from the enum, so the refusal names the field and says
@@ -272,11 +273,19 @@ public sealed class UpdateRecipeViewModelValidatorTests
     public void Archived_remains_a_value_the_wire_can_carry() =>
         Assert.Contains(SettableRecipeStatusViewModel.Archived, Enum.GetValues<SettableRecipeStatusViewModel>());
 
-    [Theory]
-    [InlineData(SettableRecipeStatusViewModel.Draft)]
-    [InlineData(SettableRecipeStatusViewModel.Ready)]
-    public void The_other_states_may_still_be_set(SettableRecipeStatusViewModel status) =>
-        Assert.True(_validator.Validate(Empty() with { Status = Set<SettableRecipeStatusViewModel?>(status) }).IsValid);
+    /// <summary>
+    /// Draft is the only state an edit may carry (TESTRUN-005). Ready — now Approved — used to be settable
+    /// here; every editorial move runs through the transition seam instead, so this field can only ever
+    /// re-state where a draft already is.
+    /// </summary>
+    [Fact]
+    public void Draft_may_still_be_set() =>
+        Assert.True(_validator.Validate(
+            Empty() with { Status = Set<SettableRecipeStatusViewModel?>(SettableRecipeStatusViewModel.Draft) })
+            .IsValid);
+
+    // Approved and Archived are refused by A_recipe_cannot_be_moved_by_editing_its_status above, which also
+    // asserts the sentence the refusal carries.
 
     // ---- Tags ----
 

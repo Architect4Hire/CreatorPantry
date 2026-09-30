@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Measurement.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Business;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using FluentValidation;
 
 namespace CreatorPantry.Domain.Modules.Recipes.Facade;
@@ -89,15 +90,47 @@ public interface IRecipeTestRunFacade
         ResolveTestIssueViewModel model,
         string? idempotencyKey,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists one recipe's recorded tests, most recently cooked first, filtered and paged.
+    /// </summary>
+    /// <param name="recipeId">The recipe whose history to read, from the route.</param>
+    /// <param name="model">
+    /// The filters, cursor and page size. Carries no workspace and no recipe — see
+    /// <see cref="TestRunHistoryViewModel"/>.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The page with its counts, or a refusal: <c>recipes.testRun.invalid_request</c> for a filter that cannot be
+    /// read, <c>recipes.cursor.invalid_request</c> for a cursor issued for a different workspace, recipe or set of
+    /// filters, and <c>recipes.recipe.not_found</c> for a recipe the caller may not see.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// A read, so there is no idempotency key and nothing to replay. The lowest role there is — every member of a
+    /// workspace may read what its testers recorded; deciding an issue is closed is what needs an Editor.
+    /// </para>
+    /// <para>
+    /// <strong>The names are resolved here and nowhere below.</strong> Business hands back the tester memberships
+    /// it could not spend, and this is the only layer that may exchange them for people — facade to facade is the
+    /// only way into Tenancy.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<TestRunHistoryPageServiceModel>> ListAsync(
+        Guid recipeId,
+        TestRunHistoryViewModel model,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class RecipeTestRunFacade(
     IValidator<CreateRecipeTestRunViewModel> createValidator,
     IValidator<UpdateRecipeTestRunViewModel> updateValidator,
     IValidator<ResolveTestIssueViewModel> resolveValidator,
+    IValidator<TestRunHistoryViewModel> historyValidator,
     IRecipeTestRunBusiness business,
     IWorkspaceContext workspace,
     IMeasurementFacade measurement,
+    IWorkspaceFacade workspaces,
     IIdempotentCommandExecutor idempotency) : IRecipeTestRunFacade
 {
     /// <summary>Stable operation names for the idempotency scope. Changing one orphans in-flight keys.</summary>
@@ -112,6 +145,8 @@ internal sealed class RecipeTestRunFacade(
     private const string CannotUpdate = "That test could not be changed as described.";
 
     private const string CannotResolve = "That issue could not be resolved as described.";
+
+    private const string CannotListHistory = "That test history cannot be read as described.";
 
     public async Task<IdempotentOutcome<CreatedRecipeTestRunServiceModel>> CreateAsync(
         string userId,
@@ -280,6 +315,93 @@ internal sealed class RecipeTestRunFacade(
                 KeyRequired: false),
             token => business.ResolveIssueAsync(recipeId, testRunId, issueId, canonical, token),
             cancellationToken);
+    }
+
+    public async Task<OperationResult<TestRunHistoryPageServiceModel>> ListAsync(
+        Guid recipeId,
+        TestRunHistoryViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var validation = await historyValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            // The cursor's own code when that is what failed, so a paging client knows to start again rather than
+            // retrying a cursor that will never be accepted. The property names come from the validator's
+            // OverridePropertyName, which is what keeps this matching the query parameter a caller sent.
+            var code = validation.Errors.Any(failure =>
+                failure.PropertyName.Equals("cursor", StringComparison.Ordinal))
+                ? RecipeErrorCodes.CursorInvalidRequest
+                : RecipeErrorCodes.TestRunInvalidRequest;
+
+            return OperationResult<TestRunHistoryPageServiceModel>.Failure(OperationError.Validation(
+                code,
+                CannotListHistory,
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        // The workspace comes from the resolved context and the recipe from the route; the model has a field for
+        // neither. Both are bound into the cursor's scope, so a cursor cannot be replayed across recipes any more
+        // than across workspaces.
+        if (!TestRunHistoryQueryFactory.TryCreate(
+            model, workspace.WorkspaceId, recipeId, out var criteria, out var error))
+        {
+            return OperationResult<TestRunHistoryPageServiceModel>.Failure(error!);
+        }
+
+        var result = await business.ListAsync(criteria!, cancellationToken);
+
+        return result.Succeeded
+            ? OperationResult<TestRunHistoryPageServiceModel>.Success(
+                await WithTestersAsync(result.Value!, cancellationToken))
+            : OperationResult<TestRunHistoryPageServiceModel>.Failure(result.Error!);
+    }
+
+    /// <summary>
+    /// Exchanges each row's tester membership for the display name of the person behind it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same enrichment, in the same place and for the same reasons, as the version history's authorship: the
+    /// ids are not knowable until the page has been read, and Business cannot spend them because naming a
+    /// membership means reading Tenancy's rows and Auth's beyond them. Facade to facade is the only way across.
+    /// </para>
+    /// <para>
+    /// <strong>One lookup per page, not per row.</strong> The distinct testers of a page of history are usually one
+    /// or two people, so this is a single read whatever the page size.
+    /// </para>
+    /// <para>
+    /// <strong>An unresolved membership leaves the name null rather than failing the read.</strong> A test outlives
+    /// the membership that cooked it by design — authorship is recorded precisely so it survives someone leaving —
+    /// so a history that refused to load because a tester had gone would punish the creator for a collaborator's
+    /// departure. The id stays either way, so the filter still works on a tester nobody can name.
+    /// </para>
+    /// </remarks>
+    private async Task<TestRunHistoryPageServiceModel> WithTestersAsync(
+        TestRunHistoryPageResult result,
+        CancellationToken cancellationToken)
+    {
+        if (result.Page.Items.Count == 0)
+        {
+            return result.Page;
+        }
+
+        var names = await workspaces.FindMemberDisplayNamesAsync(
+            [.. result.TesterMembershipByTestRunId.Values.Distinct()], cancellationToken);
+
+        return result.Page with
+        {
+            Items =
+            [
+                .. result.Page.Items.Select(row => row with
+                {
+                    TestedByName =
+                        result.TesterMembershipByTestRunId.TryGetValue(row.Id, out var membershipId)
+                        && names.TryGetValue(membershipId, out var name)
+                            ? name
+                            : null,
+                }),
+            ],
+        };
     }
 
     private static IdempotentOutcome<T> Refused<T>(string code, string message) =>

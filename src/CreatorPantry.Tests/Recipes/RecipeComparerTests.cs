@@ -345,7 +345,7 @@ public sealed class RecipeComparerTests
         recipe.CookTimeMinutes = 30;
         recipe.YieldText = "makes one 9-inch cake";
         recipe.StorageNotes = "Keeps three days under a cloth.";
-        recipe.Status = RecipeStatus.Ready;
+        recipe.Status = RecipeStatus.Approved;
 
         var comparison = RecipeComparer.Compare(before, Capture(recipe));
 
@@ -356,7 +356,7 @@ public sealed class RecipeComparerTests
 
         var status = Assert.Single(comparison[RecipeComparisonSection.Publication].FieldChanges);
         Assert.Equal("Draft", status.From);
-        Assert.Equal("Ready", status.To);
+        Assert.Equal("Approved", status.To);
     }
 
     [Fact]

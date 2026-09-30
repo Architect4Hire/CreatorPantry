@@ -14,5 +14,9 @@ public interface IIngredientDataLayer
 
     /// <inheritdoc cref="IIngredientRepository.IsUsableAsync"/>
     Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IIngredientRepository.CountAllergenTraitsAsync"/>
+    Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
 }
 

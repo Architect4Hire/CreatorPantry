@@ -188,7 +188,7 @@ internal sealed class RecipeAggregateFixture : IDisposable
         recipe.YieldUnitDimension = MeasurementDimension.Count;
         recipe.ServingCount = 12m;
         recipe.ServingSize = 1m;
-        recipe.Status = RecipeStatus.Ready;
+        recipe.Status = RecipeStatus.Approved;
 
         // Set so the detail read is proven to publish it. Not persisted by any test that uses this recipe, so
         // it needs no real version row behind it; the duplicate seam's own tests exercise the foreign key.

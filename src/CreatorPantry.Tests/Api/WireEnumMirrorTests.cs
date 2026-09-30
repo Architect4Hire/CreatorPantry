@@ -88,7 +88,10 @@ public sealed class WireEnumMirrorTests
     public void Every_union_in_the_models_file_is_covered_by_a_case()
     {
         var declared = Regex
-            .Matches(ReadModels(), @"^const (AI_[A-Z_]+)_VALUES\b", RegexOptions.Multiline)
+            // `export` is optional: a value set a feature imports directly is exported, one only this file's
+            // decoders consult is not, and the discovery has to see both or the guard silently stops covering
+            // whichever kind it cannot match.
+            .Matches(ReadModels(), @"^(?:export )?const (AI_[A-Z_]+)_VALUES\b", RegexOptions.Multiline)
             .Select(match => match.Groups[1].Value)
             .Order(StringComparer.Ordinal)
             .ToArray();

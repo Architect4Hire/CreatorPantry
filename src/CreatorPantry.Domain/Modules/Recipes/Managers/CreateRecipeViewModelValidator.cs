@@ -93,11 +93,17 @@ public sealed class CreateRecipeViewModelValidator : AbstractValidator<CreateRec
             .WithMessage("That is not a recipe status.")
             .When(model => model.Status.HasValue);
 
-        // Archived is a state a recipe is moved to, never one it begins in. Cheap to state here, and it keeps
-        // a recipe from being created into a state no interface would show it in.
+        // Draft is the only state a recipe may be created into. Archived never was allowed — it is a state a
+        // recipe is moved to, never one it begins in — and since TESTRUN-005 made editorial state a machine,
+        // Approved is not either: a create that reached it would be an approval with no readiness evaluation
+        // behind it and no transition recorded, which is the whole thing the machine prevents.
+        //
+        // Refused here rather than removed from SettableRecipeStatusViewModel, for the reason that type
+        // records: leaving a value out of the enum turns this clear field error into a generic
+        // unreadable-body 400.
         RuleFor(model => model.Status)
-            .Must(status => status != SettableRecipeStatusViewModel.Archived)
-            .WithMessage("A new recipe cannot start out archived.")
+            .Must(status => status == SettableRecipeStatusViewModel.Draft)
+            .WithMessage("A new recipe starts out as a draft; move it on with a readiness transition.")
             .When(model => model.Status.HasValue && Enum.IsDefined(model.Status!.Value));
 
         RuleFor(model => model.Tags!)

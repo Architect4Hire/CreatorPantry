@@ -79,6 +79,11 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
+    // Not exercised by the reference tests: the recipe readiness seam is what asks this.
+    public Task<IReadOnlyList<CreatorPantry.Domain.Modules.Ingredients.Managers.IngredientAllergenReviewServiceModel>>
+        FindAllergenReviewGapsAsync(IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<CreatorPantry.Domain.Modules.Ingredients.Managers.IngredientAllergenReviewServiceModel>>([]);
+
     public Task<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?> FindUsableUnitDimensionAsync(
         Guid unitId, CancellationToken cancellationToken) =>
         Task.FromResult<CreatorPantry.Domain.Managers.Reference.MeasurementDimension?>(

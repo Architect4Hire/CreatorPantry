@@ -2029,6 +2029,66 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeStatusTransition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("FromStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MachineVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ReadinessEvaluatedVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReadinessRuleSetVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "CreatedVersionId");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "ReadinessEvaluatedVersionId");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "OccurredAt", "Id")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_RecipeStatusTransitions_Workspace_Recipe_OccurredAt");
+
+                    b.ToTable("RecipeStatusTransitions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_RecipeStatusTransitions_Approval_Columns", "(ToStatus = 1 AND ReadinessRuleSetVersion IS NOT NULL AND ReadinessEvaluatedVersionId IS NOT NULL AND CreatedVersionId IS NOT NULL) OR (ToStatus <> 1 AND ReadinessRuleSetVersion IS NULL AND ReadinessEvaluatedVersionId IS NULL AND CreatedVersionId IS NULL)");
+
+                            t.HasCheckConstraint("CK_RecipeStatusTransitions_States_Differ", "FromStatus <> ToStatus");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeTag", b =>
                 {
                     b.Property<Guid>("WorkspaceId")
@@ -2051,7 +2111,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeTestRun", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("ActualCookTimeMinutes")
@@ -2268,7 +2327,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.TestAttachmentLink", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Caption")
@@ -2310,7 +2368,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.TestIssue", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Description")
@@ -2369,7 +2426,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.TestIssueResolution", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Kind")
@@ -2422,7 +2478,6 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.TestObservation", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Kind")
@@ -3368,6 +3423,34 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeStatusTransition", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "CreatedVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "ReadinessEvaluatedVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeTag", b =>

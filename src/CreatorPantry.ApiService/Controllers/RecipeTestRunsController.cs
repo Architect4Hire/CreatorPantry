@@ -15,6 +15,51 @@ namespace CreatorPantry.ApiService.Controllers;
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/recipes/{recipeId:guid}/test-runs")]
 public sealed class RecipeTestRunsController(IRecipeTestRunFacade testRunFacade) : ControllerBase
 {
+    /// <summary>Lists one recipe's recorded tests, most recently cooked first.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">
+    /// The recipe whose tests to read. Constrained to a Guid, so a malformed id never reaches this action —
+    /// routing answers 404, the same status as an unknown recipe and as one belonging to another workspace.
+    /// </param>
+    /// <param name="query">The filters, cursor and page size. Carries no workspace and no recipe.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Summaries, never the tests themselves: a row carries counts where the test has observations and issues, and
+    /// **no attachment byte, asset id or recipe snapshot is read** — `attachmentCount` is the most this route can
+    /// say about photographs it cannot yet authorize. `summaryNotes` is the one prose field a row carries;
+    /// `environmentNotes` and `equipmentNotes` are not. Cursor-paged: follow `nextCursor` until it is null rather
+    /// than comparing counts against a page size the server may have clamped. A cursor is bound to the workspace,
+    /// recipe and filters it was issued for, so changing any of them means starting again without one —
+    /// `recipes.cursor.invalid_request` says so explicitly. `limit` is clamped rather than refused. `summary`
+    /// counts every match across all pages, breaks the verdicts down with every outcome named even at zero, and is
+    /// present unless `includeSummary=false`; it describes the **filtered** set, so narrowing the filters narrows
+    /// it, and it is **never a readiness verdict** — that is a separate deterministic evaluation. Multi-valued
+    /// filters are comma-separated. `version` names version numbers, as the recipe's history lists them, because a
+    /// test is always evidence about one exact version. `testedBy` takes the membership ids this route publishes.
+    /// There is no `sort`: most recently *cooked* first is the contract, and a test recorded a week late still
+    /// belongs to the day it was cooked. An unknown recipe and another workspace's recipe both answer
+    /// `404 recipes.recipe.not_found`; a recipe nobody has tested answers an empty page, which a client must
+    /// render rather than read `items[0]` unguarded. Every member including a Viewer may read this.
+    /// </remarks>
+    [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<TestRunHistoryPageServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> List(
+        string workspaceSlug,
+        Guid recipeId,
+        [FromQuery] TestRunHistoryViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await testRunFacade.ListAsync(recipeId, query, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Records one cook of one exact version of a recipe.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
@@ -69,9 +114,10 @@ public sealed class RecipeTestRunsController(IRecipeTestRunFacade testRunFacade)
         // No mapping beyond choosing the response: the facade already returns the ServiceModel, and the
         // location is the only thing this layer contributes, because only it knows the route shape.
         //
-        // The location names the run's own resource even though no GET serves that path yet — the read seam
-        // arrives with the test history. A created resource has an address whether or not it can currently be
-        // fetched from it, and adding the header later would be a visible change to a shipped contract.
+        // The location names the run's own resource even though no GET serves that exact path: the test history
+        // above lists the collection, and reading one run on its own is still unbuilt. A created resource has an
+        // address whether or not it can currently be fetched from it, and adding the header later would have been
+        // a visible change to a shipped contract.
         return this.IdempotentResult(outcome, created =>
             Created(
                 $"/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{created.TestRunId}",

@@ -109,10 +109,16 @@ public interface IRecipeDataLayer
     /// <see cref="IImmutableRecord"/>, so even a mistake here would be refused at <c>SaveChanges</c>.
     /// </para>
     /// </remarks>
+    /// <param name="reopen">
+    /// The transition an edit to an approved recipe triggers, or <c>null</c> for an edit that moves nothing.
+    /// Staged in this same save, so a recipe cannot be edited and left reading as approved even for an
+    /// instant; see <c>RecipeStatusTransitions.EditReopens</c>.
+    /// </param>
     Task<RecipeUpdateOutcome> UpdateAsync(
         TaggedRecipe loaded,
         RecipeVersionFacts version,
         IReadOnlyCollection<RecipeTagName>? tags,
+        RecipeStatusTransition? reopen,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -359,6 +365,14 @@ public interface IRecipeDataLayer
     /// The unit <see cref="GetForUpdateAsync"/> returned, with <c>Status</c> already set to its new value by
     /// Business. The recipe's <c>RowVersion</c> still holds the value that read returned.
     /// </param>
+    /// <param name="transition">
+    /// The immutable record of the move, with everything but <c>CreatedVersionId</c> already set by Business.
+    /// Staged on this same context, so a recipe never ends up in a state its own history cannot account for.
+    /// </param>
+    /// <param name="version">
+    /// The version this move captures, or <c>null</c> for a move that captures none. Supplied only for an
+    /// approval; see the remarks.
+    /// </param>
     /// <param name="audit">
     /// The entry describing the transition. Staged on this same context, so the audit row and the status
     /// change commit together or neither does — which is the whole reason an audited command cannot write
@@ -370,30 +384,40 @@ public interface IRecipeDataLayer
     /// </returns>
     /// <remarks>
     /// <para>
-    /// <strong>No version is written, deliberately.</strong> A <c>RecipeVersion</c> is a snapshot of what a
-    /// recipe <em>said</em>, and archiving changes nothing it says — its ingredients, steps, equipment, media
-    /// links and tags are all exactly where they were, which is what "archive is not a delete" means in
-    /// practice. The lifecycle move is recorded in the audit log, which is where REC-006 puts it.
+    /// <strong>Three rows, or four, in one batch.</strong> The recipe's <c>UPDATE</c>, the transition's
+    /// <c>INSERT</c>, the audit entry, and — on an approval — the version and its snapshot. All of it commits
+    /// or none of it does, which is what makes the transition atomic in the sense TESTRUN-005 asks for: there
+    /// is no interleaving in which a recipe reads as approved with no version behind the approval, or carries
+    /// a transition row for a move that was refused.
     /// </para>
     /// <para>
-    /// That omission also closes a hole worth naming: because no version is ever written while a recipe is
-    /// archived, and archiving itself writes none, <strong>no snapshot can carry
-    /// <c>RecipeStatus.Archived</c></strong>. A later version restore therefore cannot archive a recipe
-    /// behind the audit log's back, even though it does restore the status a snapshot holds.
+    /// <strong>Most moves write no version, deliberately.</strong> A <c>RecipeVersion</c> is a snapshot of
+    /// what a recipe <em>said</em>, and archiving or advancing it changes nothing it says — its ingredients,
+    /// steps, equipment, media links and tags are all exactly where they were, which is what "archive is not
+    /// a delete" means in practice. The approval is the exception because an approval has to name content
+    /// that cannot then change underneath it.
     /// </para>
     /// <para>
-    /// <strong>A no-op never reaches here.</strong> Business answers a command that asks for the state the
-    /// recipe is already in without calling this, so there is no audit entry claiming a transition that did
-    /// not happen, and no stamped <c>UpdatedAt</c> invalidating tokens for nothing.
+    /// <strong>A restore cannot move the status behind this method's back.</strong> It once could have, in
+    /// principle: a snapshot carries the status, and the reconciler used to put it back. Since TESTRUN-005 it
+    /// does not — see <c>RecipeSnapshotReconciler</c> — so this is the only path by which
+    /// <c>Recipe.Status</c> ever changes.
     /// </para>
     /// <para>
-    /// Conflicts are detected the same way <see cref="UpdateAsync"/> detects them, minus the second guard:
-    /// nothing inserts a version here, so the unique index on <c>(WorkspaceId, RecipeId, VersionNumber)</c>
-    /// cannot fire first and the row version is the only race in play.
+    /// <strong>A no-op never reaches here.</strong> Business refuses a move the machine does not have,
+    /// including a move to the state the recipe is already in, so there is no audit entry claiming a
+    /// transition that did not happen and no stamped <c>UpdatedAt</c> invalidating tokens for nothing.
+    /// </para>
+    /// <para>
+    /// Conflicts are detected exactly the way <see cref="UpdateAsync"/> detects them, and for the same two
+    /// reasons once a version is in play: the row version is the intended guard, and on an approval the unique
+    /// index on <c>(WorkspaceId, RecipeId, VersionNumber)</c> may refuse the batch first.
     /// </para>
     /// </remarks>
-    Task<bool> TrySetStatusAsync(
+    Task<bool> TryTransitionAsync(
         TaggedRecipe loaded,
+        RecipeStatusTransition transition,
+        RecipeVersionFacts? version,
         AuditEntry audit,
         CancellationToken cancellationToken);
 }
@@ -402,6 +426,7 @@ internal sealed class RecipeDataLayer(
     CreatorPantryDbContext context,
     IRecipeRepository recipes,
     IRecipeVersionRepository versions,
+    IRecipeStatusTransitionRepository transitions,
     IWorkspaceTagRepository workspaceTags,
     IRecipeSearchRepository search,
     IAuditWriter auditWriter) : IRecipeDataLayer
@@ -560,8 +585,10 @@ internal sealed class RecipeDataLayer(
         return (true, await versions.FindSnapshotByIdAsync(recipeId, versionId, cancellationToken));
     }
 
-    public async Task<bool> TrySetStatusAsync(
+    public async Task<bool> TryTransitionAsync(
         TaggedRecipe loaded,
+        RecipeStatusTransition transition,
+        RecipeVersionFacts? version,
         AuditEntry audit,
         CancellationToken cancellationToken)
     {
@@ -570,6 +597,20 @@ internal sealed class RecipeDataLayer(
         // Captured before the save, because a successful save replaces it with the token the server just
         // generated — and this is the value the losing writer needs to recognise that it lost.
         var readWith = recipe.RowVersion;
+
+        if (version is not null)
+        {
+            // Built before the transition is staged, because the transition has to name it: RecipeVersion.Id
+            // is assigned in code rather than by the store, so the id is knowable now and both rows can go in
+            // one batch. Reading it back after the save would mean two saves and an explicit transaction to
+            // keep them together — the thing this method exists to avoid.
+            var captured = BuildVersion(loaded.Recipe, version, recipe.UpdatedByMembershipId, recipe.UpdatedAt);
+            versions.Add(captured);
+
+            transition.CreatedVersionId = captured.Id;
+        }
+
+        transitions.Add(transition);
 
         // Staged, not saved: the audit row joins the recipe's UPDATE in one batch. IAuditWriter exists to be
         // used exactly this way.
@@ -582,17 +623,24 @@ internal sealed class RecipeDataLayer(
             // left off.
             await context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateException exception)
         {
-            // One guard rather than UpdateAsync's two: no version is inserted here, so the unique index on
-            // version numbers cannot refuse the batch first and this exception is the only way to lose.
-            //
-            // Nothing was written, and nothing may be left staged either — the recipe is still Modified and
-            // the audit row still Added, so the next SaveChanges on this scope would commit a transition the
-            // caller was told had been refused.
-            context.ChangeTracker.Clear();
+            // Two guards on one race, and either may fire first — the reasoning CommitAsync sets out, which
+            // applies here from the moment an approval started inserting a version. Without one, only the row
+            // version can lose; with one, the unique index on (WorkspaceId, RecipeId, VersionNumber) may
+            // refuse the batch before EF gets to the recipe's UPDATE.
+            if (exception is DbUpdateConcurrencyException
+                || await HasMovedOnAsync(recipe.Id, readWith, cancellationToken))
+            {
+                // Nothing was written, and nothing may be left staged either — the recipe is still Modified
+                // and the transition, version and audit rows still Added, so the next SaveChanges on this
+                // scope would commit a transition the caller was told had been refused.
+                context.ChangeTracker.Clear();
 
-            return false;
+                return false;
+            }
+
+            throw;
         }
 
         return true;
@@ -611,6 +659,7 @@ internal sealed class RecipeDataLayer(
         TaggedRecipe loaded,
         RecipeVersionFacts version,
         IReadOnlyCollection<RecipeTagName>? tags,
+        RecipeStatusTransition? reopen,
         CancellationToken cancellationToken)
     {
         var recipe = loaded.Recipe.Recipe;
@@ -620,6 +669,14 @@ internal sealed class RecipeDataLayer(
         var vocabulary = tags is null
             ? loaded.Tags
             : await ReplaceTagsAsync(recipe, tags, recipe.UpdatedAt, cancellationToken);
+
+        if (reopen is not null)
+        {
+            // Staged before the commit below, so the reopen rides the edit's own save: the recipe's UPDATE
+            // already carries the new status, and this row goes in the same batch behind it. Business set the
+            // column; this is the record of it. No audit entry, for the reason Business's StageReopen gives.
+            transitions.Add(reopen);
+        }
 
         return await CommitAsync(loaded, version, vocabulary, cancellationToken);
     }

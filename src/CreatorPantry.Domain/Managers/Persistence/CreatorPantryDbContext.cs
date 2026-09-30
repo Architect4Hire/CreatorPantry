@@ -174,6 +174,16 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<RecipeVersionSnapshot> RecipeVersionSnapshots => Set<RecipeVersionSnapshot>();
 
     /// <remarks>
+    /// How a recipe reached the editorial state it is in (TESTRUN-005). Write-once —
+    /// <see cref="ImmutableRecordInterceptor"/> refuses every update and delete of a row here, because a
+    /// transition is a thing that happened at a moment. A root of its own, by the same argument
+    /// <see cref="RecipeVersions"/> is one: it outlives every edit made after it and is read as a history
+    /// rather than loaded with the recipe, so it restricts rather than cascades from
+    /// <see cref="Recipes"/>.
+    /// </remarks>
+    public DbSet<RecipeStatusTransition> RecipeStatusTransitions => Set<RecipeStatusTransition>();
+
+    /// <remarks>
     /// The creator's own tag vocabulary — workspace-owned and defined entirely by them, unlike the shared
     /// <see cref="Cuisines"/> and <see cref="Courses"/> catalogues. A third aggregate root in the recipes
     /// module: tags are listed, renamed and retired on their own.

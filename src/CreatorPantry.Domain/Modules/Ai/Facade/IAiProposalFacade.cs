@@ -64,6 +64,34 @@ public interface IAiProposalFacade
         Guid requestId,
         AiProposalDispositionViewModel model,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What AI work about one recipe the creator has still not responded to: how many proposed changes are
+    /// undecided, and the warnings on the proposals holding them.
+    /// </summary>
+    /// <param name="recipeId">The recipe to ask about. Answered with zeros when nobody in this workspace owns it.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// <para>
+    /// The cross-module entry point another module uses to ask what is still open here — added for the recipe
+    /// readiness evaluation, which must be able to say "a safety caution is still unanswered" without reading this
+    /// module's tables.
+    /// </para>
+    /// <para>
+    /// <strong>No role check and no idempotency:</strong> it is a read, and it reports on the caller's own
+    /// workspace through the resolved context. No <c>actorUserId</c> either, unlike
+    /// <see cref="DispositionAsync"/> — nothing is being decided.
+    /// </para>
+    /// <para>
+    /// <strong>It is called from a class of its own on the other side, not from the Recipes module's main
+    /// facade.</strong> <c>AiProposalBusiness</c> already depends on <c>IRecipeFacade</c>, so a readiness method
+    /// added to that interface would close a constructor cycle through the container and fail at resolution
+    /// rather than at review. The recipe module reaches this through its separate readiness facade for exactly
+    /// that reason.
+    /// </para>
+    /// </remarks>
+    Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
+        Guid recipeId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiProposalFacade"/>
@@ -115,6 +143,10 @@ internal sealed class AiProposalFacade(
         Guid requestId,
         CancellationToken cancellationToken) =>
         business.GetAsync(recipeId, requestId, cancellationToken);
+
+    public Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
+        Guid recipeId, CancellationToken cancellationToken) =>
+        business.SummarizeOutstandingAsync(recipeId, cancellationToken);
 
     public async Task<OperationResult<AiProposalDispositionServiceModel>> DispositionAsync(
         string actorUserId,

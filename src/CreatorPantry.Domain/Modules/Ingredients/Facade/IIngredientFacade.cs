@@ -28,5 +28,38 @@ public interface IIngredientFacade
     /// it reaches a foreign key.
     /// </summary>
     Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which of the named ingredients nobody has finished recording allergen information for.
+    /// </summary>
+    /// <param name="ingredientIds">
+    /// The ingredients to ask about — typically the vocabulary references a recipe's matched lines carry. An empty
+    /// collection is answered with an empty list and reads nothing.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// One entry per ingredient with a gap, and nothing for the ones that are complete. See
+    /// <see cref="IngredientAllergenReviewServiceModel"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// The cross-module entry point another module uses to ask how far the allergen records have got — added for
+    /// the recipe readiness evaluation, which must be able to say "this has not been checked" without being able
+    /// to read this module's tables.
+    /// </para>
+    /// <para>
+    /// <strong>This answers a question about records, never about food.</strong> An empty result means every named
+    /// ingredient has reviewed allergen traits recorded; it does not mean the recipe is free of any allergen, and a
+    /// caller that presented it that way would be making exactly the claim recipes.md forbids. Nothing here names
+    /// an allergen, which is the structural reason it cannot be turned into a finding about a dish.
+    /// </para>
+    /// <para>
+    /// Uncached, unlike the catalogue reads above. The traits behind this change as sources are reviewed, and a
+    /// stale "already checked" is the one answer that would matter — so the read is cheap and current rather than
+    /// cached and occasionally reassuring about work nobody has done.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<IngredientAllergenReviewServiceModel>> FindAllergenReviewGapsAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
 }
 

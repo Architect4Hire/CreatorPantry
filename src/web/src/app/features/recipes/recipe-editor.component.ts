@@ -200,7 +200,6 @@ const FIELD_LOCATIONS: readonly FieldLocation[] = [
   { field: 'headnote', controlId: 'recipe-headnote', tabId: 'general' },
   { field: 'attributionText', controlId: 'recipe-attribution', tabId: 'general' },
   { field: 'sourceUrl', controlId: 'recipe-source-url', tabId: 'general' },
-  { field: 'status', controlId: 'recipe-status', tabId: 'general' },
   { field: 'tags', controlId: 'recipe-new-tag', tabId: 'general' },
   { field: 'notes', controlId: 'recipe-notes', tabId: 'general' },
   { field: 'storageNotes', controlId: 'recipe-storage-notes', tabId: 'general' },
@@ -247,7 +246,6 @@ interface RecipeFormSnapshot {
   readonly yieldUnitId: string | null;
   readonly servingCount: number | null;
   readonly servingSize: number | null;
-  readonly status: SettableRecipeStatus;
   readonly tags: readonly string[];
   readonly instructionsJson: string;
   readonly ingredientGroupsJson: string;
@@ -819,7 +817,6 @@ export class RecipeEditorComponent {
       : `Optional. Measured in ${unit.label.toLowerCase()}, from the Yield unit field.`;
   });
 
-  readonly status = signal<SettableRecipeStatus>('Draft');
   readonly tags = signal<readonly string[]>([]);
   readonly newTagText = signal('');
 
@@ -875,12 +872,24 @@ export class RecipeEditorComponent {
     return key === null ? null : INSTRUCTION_GROUP_ANCHOR_PREFIX + key;
   });
 
-  /**
-   * Draft and Ready, in both modes. Archiving is its own command (`POST .../archive`) at a higher role bar,
-   * and the API refuses `status: "Archived"` on an edit — offering it here would be a control that always
-   * fails. The archive action belongs beside the recipe, not inside its status field.
+  /*
+   * There is no status control here any more, and its absence is the point.
+   *
+   * It used to offer Draft and Ready. Since TESTRUN-005 made editorial state a machine, every move through
+   * it — including the approval that Ready became — is a readiness transition at its own role bar, over its
+   * own readiness gate, recorded in the recipe's immutable transition history. The API accepts only
+   * `status: "Draft"` on a write and refuses the rest with a field error, which left this field able to say
+   * only what a draft already is.
+   *
+   * Keeping it would have been worse than removing it: with Draft its only option, a recipe in Testing or
+   * Approved would have rendered as a select reading "Draft", which is a wrong answer where there used to be
+   * a right one. An edit no longer sends a status at all, so the form cannot misreport one.
+   *
+   * What a creator has lost is the ability to mark a recipe finished from this form, which is exactly the
+   * bypass the machine closes — that move needs an Editor and a clear readiness evaluation. The transition
+   * UI that replaces it is its own piece of work; archiving and bringing back are still the buttons beside
+   * the form, and `isArchived()` still reads the recipe's own state for the banner and the disabled save.
    */
-  readonly statusOptions = computed<readonly SettableRecipeStatus[]>(() => ['Draft', 'Ready']);
 
   /**
    * An archived recipe cannot be saved: `PATCH` answers `409 recipes.archived.conflict` until it is brought
@@ -1753,11 +1762,10 @@ export class RecipeEditorComponent {
     this.servingCount.set(detail.servingCount);
     this.servingSize.set(detail.servingSize);
 
-    // An archived recipe's status is held beside the form rather than in it: the select offers Draft and
-    // Ready, an archive matches neither, and the API refuses `status: "Archived"` on an edit — so the form
-    // carries the state the recipe will come back as, and never a value a save could not send.
+    // The recipe's editorial state is held beside the form and never in it: the form no longer carries a
+    // status at all, and an edit no longer sends one. What is still needed from it is whether the recipe is
+    // archived, because that disables the save and shows the banner.
     this.archivedSignal.set(detail.status === 'Archived');
-    this.status.set(detail.status === 'Archived' ? 'Draft' : detail.status);
     this.tags.set(detail.tags.map((tag) => tag.name));
     this.ingredientGroups.set(detail.ingredientGroups);
     this.editedIngredientGroups.set(toEditableGroups(detail.ingredientGroups));
@@ -1814,7 +1822,6 @@ export class RecipeEditorComponent {
       servingCount: this.servingCount(),
       servingSize: this.servingSize(),
       tags: this.tags(),
-      status: this.status(),
       instructions: this.buildInstructions(),
       ingredientGroups: this.buildIngredientGroups(),
     };
@@ -1840,7 +1847,6 @@ export class RecipeEditorComponent {
       servingCount: submitted(this.servingCount()),
       servingSize: submitted(this.servingSize()),
       tags: submitted(this.tags()),
-      status: submitted(this.status()),
       instructions: submitted(this.buildInstructions()),
       ingredientGroups: submitted(this.buildIngredientGroups()),
     };
@@ -1936,7 +1942,6 @@ export class RecipeEditorComponent {
       yieldUnitId: this.yieldUnitId(),
       servingCount: this.servingCount(),
       servingSize: this.servingSize(),
-      status: this.status(),
       tags: this.tags(),
       instructionsJson: JSON.stringify(this.buildInstructions()),
       ingredientGroupsJson: JSON.stringify(this.buildIngredientGroups()),
@@ -1960,7 +1965,6 @@ export class RecipeEditorComponent {
       a.yieldUnitId === b.yieldUnitId &&
       a.servingCount === b.servingCount &&
       a.servingSize === b.servingSize &&
-      a.status === b.status &&
       a.instructionsJson === b.instructionsJson &&
       a.ingredientGroupsJson === b.ingredientGroupsJson &&
       a.tags.length === b.tags.length &&

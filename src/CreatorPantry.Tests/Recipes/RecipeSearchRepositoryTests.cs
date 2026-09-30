@@ -65,7 +65,7 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
     public async Task A_status_filter_includes_only_the_named_statuses()
     {
         await AddAsync(title: "Draft one", status: RecipeStatus.Draft);
-        await AddAsync(title: "Ready one", status: RecipeStatus.Ready);
+        await AddAsync(title: "Ready one", status: RecipeStatus.Approved);
         await AddAsync(title: "Archived one", status: RecipeStatus.Archived);
 
         var rows = await SearchAsync(new RecipeSearchFilters(
@@ -235,7 +235,7 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
     {
         await AddAsync(
             title: "Everything",
-            status: RecipeStatus.Ready,
+            status: RecipeStatus.Approved,
             cuisineId: SqlServerRecipeFixture.CuisineId,
             authorId: SqlServerRecipeFixture.AuthorOne,
             tagIds: [SqlServerRecipeFixture.TagIdA],
@@ -244,13 +244,13 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
         // Each of these differs from the row above in exactly one dimension, so a filter silently dropped from
         // the query shows up as one of them arriving in the result.
         await AddAsync(title: "Wrong status", status: RecipeStatus.Draft, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
-        await AddAsync(title: "Wrong cuisine", status: RecipeStatus.Ready, cuisineId: SqlServerRecipeFixture.OtherCuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
-        await AddAsync(title: "Wrong author", status: RecipeStatus.Ready, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorTwo, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
-        await AddAsync(title: "Wrong tag", status: RecipeStatus.Ready, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.SecondTagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
-        await AddAsync(title: "Wrong readiness", status: RecipeStatus.Ready, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Draft]);
+        await AddAsync(title: "Wrong cuisine", status: RecipeStatus.Approved, cuisineId: SqlServerRecipeFixture.OtherCuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
+        await AddAsync(title: "Wrong author", status: RecipeStatus.Approved, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorTwo, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
+        await AddAsync(title: "Wrong tag", status: RecipeStatus.Approved, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.SecondTagIdA], versionReadiness: [RecipeVersionReadiness.Ready]);
+        await AddAsync(title: "Wrong readiness", status: RecipeStatus.Approved, cuisineId: SqlServerRecipeFixture.CuisineId, authorId: SqlServerRecipeFixture.AuthorOne, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Draft]);
 
         var rows = await SearchAsync(new RecipeSearchFilters(
-            Statuses: [RecipeStatus.Ready],
+            Statuses: [RecipeStatus.Approved],
             CuisineIds: [SqlServerRecipeFixture.CuisineId],
             CreatorMembershipIds: [SqlServerRecipeFixture.AuthorOne],
             TagIds: [SqlServerRecipeFixture.TagIdA],
@@ -469,22 +469,22 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
     [Fact]
     public async Task The_count_agrees_with_a_full_drain_under_every_filter()
     {
-        await AddAsync(title: "Ready italian", status: RecipeStatus.Ready, cuisineId: SqlServerRecipeFixture.CuisineId, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready], lineStatuses: [IngredientMatchStatus.Matched]);
+        await AddAsync(title: "Ready italian", status: RecipeStatus.Approved, cuisineId: SqlServerRecipeFixture.CuisineId, tagIds: [SqlServerRecipeFixture.TagIdA], versionReadiness: [RecipeVersionReadiness.Ready], lineStatuses: [IngredientMatchStatus.Matched]);
         await AddAsync(title: "Draft italian", status: RecipeStatus.Draft, cuisineId: SqlServerRecipeFixture.CuisineId, lineStatuses: [IngredientMatchStatus.NoMatch]);
-        await AddAsync(title: "Ready thai", status: RecipeStatus.Ready, cuisineId: SqlServerRecipeFixture.OtherCuisineId, tagIds: [SqlServerRecipeFixture.SecondTagIdA]);
+        await AddAsync(title: "Ready thai", status: RecipeStatus.Approved, cuisineId: SqlServerRecipeFixture.OtherCuisineId, tagIds: [SqlServerRecipeFixture.SecondTagIdA]);
         await AddAsync(title: "Archived", status: RecipeStatus.Archived, updatedAt: Now.AddYears(-1));
 
         RecipeSearchFilters[] cases =
         [
             new(),
-            new(Statuses: [RecipeStatus.Ready]),
+            new(Statuses: [RecipeStatus.Approved]),
             new(CuisineIds: [SqlServerRecipeFixture.CuisineId]),
             new(TagIds: [SqlServerRecipeFixture.TagIdA, SqlServerRecipeFixture.SecondTagIdA]),
             new(LatestVersionReadiness: RecipeVersionReadiness.Ready),
             new(IngredientReview: RecipeIngredientReviewFilter.HasUnmatched),
             new(Search: RecipeSearchPolicy.NormalizeSearch("italian")),
             new(UpdatedOnOrAfter: Now),
-            new(Statuses: [RecipeStatus.Ready], CuisineIds: [SqlServerRecipeFixture.CuisineId]),
+            new(Statuses: [RecipeStatus.Approved], CuisineIds: [SqlServerRecipeFixture.CuisineId]),
         ];
 
         foreach (var filters in cases)

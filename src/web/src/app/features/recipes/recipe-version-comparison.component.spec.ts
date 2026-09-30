@@ -232,7 +232,7 @@ describe('RecipeVersionComparisonComponent', () => {
    * the section a creator reads is headed "Status" rather than with a word that implies publication.
    */
   it('heads the publication section as Status', async () => {
-    const element = await render(comparison([section('Publication', [{ field: 'Status', from: 'Draft', to: 'Ready' }])]));
+    const element = await render(comparison([section('Publication', [{ field: 'Status', from: 'Draft', to: 'Approved' }])]));
 
     expect(element.querySelector('.section-heading')!.textContent?.trim()).toBe('Status');
   });

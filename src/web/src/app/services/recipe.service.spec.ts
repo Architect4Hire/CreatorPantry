@@ -60,21 +60,21 @@ describe('RecipeService', () => {
 
   describe('createRecipe', () => {
     it('POSTs the encoded body with credentials and decodes a 201 response', async () => {
-      const call = service.createRecipe('cozy-fall', { title: 'Chili', status: 'Ready' });
+      const call = service.createRecipe('cozy-fall', { title: 'Chili', status: 'Approved' });
       const req = http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes');
       expect(req.request.method).toBe('POST');
       expect(req.request.withCredentials).toBeTrue();
-      expect(req.request.body).toEqual({ title: 'Chili', status: 'Ready' });
+      expect(req.request.body).toEqual({ title: 'Chili', status: 'Approved' });
       expect(req.request.headers.has('Idempotency-Key')).toBeFalse();
 
       req.flush(
-        { recipeId: 'r1', title: 'Chili', status: 'Ready', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        { recipeId: 'r1', title: 'Chili', status: 'Approved', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
         { status: 201, statusText: 'Created' },
       );
 
       expect(await call).toEqual({
         status: 'created',
-        recipe: { recipeId: 'r1', title: 'Chili', status: 'Ready', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        recipe: { recipeId: 'r1', title: 'Chili', status: 'Approved', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
         replayed: false,
       });
     });

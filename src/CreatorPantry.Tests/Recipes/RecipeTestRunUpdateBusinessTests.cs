@@ -744,6 +744,15 @@ public sealed class RecipeTestRunUpdateBusinessTests
             Guid recipeId, int versionNumber, CancellationToken cancellationToken) =>
             Task.FromResult(VersionIdForNumber);
 
+        /// <summary>
+        /// Never called from this class, which is about the update and resolution seams. The read path has its own
+        /// coverage in <see cref="RecipeTestRunBusinessTests"/>; returning null here would be a 404 if anything
+        /// reached it, which is the honest answer for a fake that holds no history.
+        /// </summary>
+        public Task<TestRunHistoryPage?> ListAsync(
+            TestRunHistoryCriteria criteria, CancellationToken cancellationToken) =>
+            Task.FromResult<TestRunHistoryPage?>(null);
+
         public Task<TestIssueResolutionOutcome> ResolveAsync(
             TestIssueResolution resolution, CancellationToken cancellationToken)
         {

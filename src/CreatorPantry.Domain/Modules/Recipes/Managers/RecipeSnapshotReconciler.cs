@@ -104,17 +104,22 @@ public static class RecipeSnapshotReconciler
     /// both directions.
     /// </para>
     /// <para>
-    /// <see cref="Recipe.Status"/> <strong>is</strong> restored, which is worth stating because it is the one
-    /// field here that is editorial rather than content. It keeps the version a restore writes identical to
-    /// the version it restored, which is the property a later diff of the two depends on.
+    /// <see cref="Recipe.Status"/> is <strong>not</strong> restored, although the snapshot carries it. It was,
+    /// until TESTRUN-005 made editorial state a machine: a restore that put the status back would move a
+    /// recipe to <c>Approved</c> — or to <c>Testing</c>, or <c>ReadyForReview</c> — with no transition
+    /// recorded, no role checked and no readiness evaluation, which is exactly the unaudited jump
+    /// <see cref="RecipeStatusTransitions"/> exists to make impossible. A restore restores what a recipe
+    /// <em>said</em>; where it sits in the workflow is not something it said.
     /// </para>
     /// <para>
-    /// <strong>It cannot move a recipe into or out of the archive, and that is structural rather than
-    /// checked here.</strong> Out of, because an archived recipe refuses a restore altogether
-    /// (<c>RecipePolicy.AcceptsContentChanges</c>). Into, because no snapshot can carry
-    /// <c>RecipeStatus.Archived</c> in the first place: archiving writes no version, and a recipe cannot be
-    /// edited while archived, so no capture ever sees that state. Between them, the lifecycle stays
-    /// reachable only through the audited commands — see <c>IRecipeDataLayer.TrySetStatusAsync</c>.
+    /// The cost is that the version a restore writes differs from the version it restored in that one field,
+    /// so a diff of the two shows it. That is the honest reading rather than a wart: the content is identical
+    /// and the editorial state genuinely is not, because time passed and the recipe is somewhere else in its
+    /// life now.
+    /// </para>
+    /// <para>
+    /// The snapshot still records the status, because a version is a record of a moment and that is part of
+    /// the moment. Nothing reads it back onto a recipe.
     /// </para>
     /// <para>
     /// <see cref="Recipe.YieldUnitDimension"/> is copied rather than re-derived, unlike on the create and
@@ -145,8 +150,7 @@ public static class RecipeSnapshotReconciler
             || recipe.YieldUnitId != target.YieldUnitId
             || recipe.YieldUnitDimension != target.YieldUnitDimension
             || recipe.ServingCount != target.ServingCount
-            || recipe.ServingSize != target.ServingSize
-            || recipe.Status != target.Status;
+            || recipe.ServingSize != target.ServingSize;
 
         if (!changed)
         {
@@ -173,7 +177,8 @@ public static class RecipeSnapshotReconciler
         recipe.YieldUnitDimension = target.YieldUnitDimension;
         recipe.ServingCount = target.ServingCount;
         recipe.ServingSize = target.ServingSize;
-        recipe.Status = target.Status;
+
+        // Status is deliberately not assigned; see the remarks on this type.
 
         return true;
     }

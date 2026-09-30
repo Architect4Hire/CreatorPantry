@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
@@ -97,6 +98,31 @@ public interface IRecipeTestRunBusiness
         Guid testRunId,
         Guid issueId,
         CanonicalResolveTestIssue request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one page of a recipe's test history, with the counts when they were asked for.
+    /// </summary>
+    /// <returns>
+    /// The page and the tester memberships the Facade still has to name, or <c>recipes.recipe.not_found</c> when
+    /// the recipe is not visible in the resolved workspace.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>A failure case, unlike <c>SearchAsync</c> on the recipe side, and the difference is which question
+    /// is being asked.</strong> A library search asks "what is in this workspace", and nothing matching is an
+    /// empty answer. This asks "what happened to this recipe", which is not answerable at all for a recipe the
+    /// caller may not see — and must be refused identically whether it never existed or belongs to someone else.
+    /// </para>
+    /// <para>
+    /// <strong>The counts are not recomputed here.</strong> They arrive from the DataLayer already scoped to the
+    /// same filtered set the rows came from; this layer only fills in the outcomes the <c>GROUP BY</c> had no row
+    /// for, so that the published object names every verdict at zero rather than omitting it. Filling them in is a
+    /// presentation guarantee, not arithmetic over creator data.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<TestRunHistoryPageResult>> ListAsync(
+        TestRunHistoryCriteria criteria,
         CancellationToken cancellationToken);
 }
 
@@ -671,6 +697,96 @@ internal sealed class RecipeTestRunBusiness(
 
         return null;
     }
+
+    public async Task<OperationResult<TestRunHistoryPageResult>> ListAsync(
+        TestRunHistoryCriteria criteria,
+        CancellationToken cancellationToken)
+    {
+        var read = await dataLayer.ListAsync(criteria, cancellationToken);
+
+        if (read is not { } history)
+        {
+            // The recipe is not visible. Answered identically to one that was never created, because the layer
+            // beneath cannot tell them apart and this one must not be able to either (tenancy.md).
+            return OperationResult<TestRunHistoryPageResult>.Failure(new OperationError(
+                RecipeErrorCodes.RecipeNotFound,
+                "That recipe could not be found.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // The cursor is minted here rather than in the repository, for the reason PageBuilder exists: it is bound
+        // to the recipe, workspace and filters it was issued for, none of which a repository is told.
+        var page = PageBuilder.Build(history.Rows, history.HasMore, criteria.Scope, ToSummary);
+
+        // The tester names travel beside the page rather than inside it: naming a membership needs two other
+        // modules, and this layer may call neither. See TestRunHistoryPageResult.
+        return OperationResult<TestRunHistoryPageResult>.Success(new TestRunHistoryPageResult(
+            new TestRunHistoryPageServiceModel(page.Items, page.NextCursor, ToSummary(history.Counts)),
+            history.Rows.ToDictionary(row => row.Id, row => row.TestedByMembershipId)));
+    }
+
+    /// <summary>
+    /// Maps a repository row to the wire shape, leaving the tester's name for the Facade to fill in.
+    /// </summary>
+    /// <remarks>
+    /// The row version is exchanged for the opaque token a client quotes, and the membership id is <em>kept</em> —
+    /// the one place this module publishes one, because <see cref="RecipeTestRunServiceModel"/> already does and
+    /// <c>?testedBy=</c> has to be answerable from what a client holds. See
+    /// <see cref="TestRunSummaryServiceModel"/>.
+    /// </remarks>
+    private static TestRunSummaryServiceModel ToSummary(TestRunHistoryRecord row) => new()
+    {
+        Id = row.Id,
+        RecipeVersionId = row.RecipeVersionId,
+        VersionNumber = row.VersionNumber,
+        TestedAt = row.TestedAt,
+        TestedByMembershipId = row.TestedByMembershipId,
+
+        // Filled in by the Facade, which is the only layer that may ask Tenancy who this is.
+        TestedByName = null,
+        Outcome = row.Outcome,
+        Rating = row.Rating,
+        SummaryNotes = row.SummaryNotes,
+        ActualYieldText = row.ActualYieldText,
+        ActualYieldQuantity = row.ActualYieldQuantity,
+        ActualYieldUnitId = row.ActualYieldUnitId,
+        ActualPrepTimeMinutes = row.ActualPrepTimeMinutes,
+        ActualCookTimeMinutes = row.ActualCookTimeMinutes,
+        ActualRestTimeMinutes = row.ActualRestTimeMinutes,
+        ActualTotalTimeMinutes = row.ActualTotalTimeMinutes,
+        ObservationCount = row.ObservationCount,
+        IssueCount = row.IssueCount,
+        UnresolvedIssueCount = row.UnresolvedIssueCount,
+        AttachmentCount = row.AttachmentCount,
+        CreatedAt = row.CreatedAt,
+        UpdatedAt = row.UpdatedAt,
+        ConcurrencyToken = RecipeConcurrencyToken.From(row.RowVersion),
+    };
+
+    /// <summary>
+    /// Publishes the counts, naming every outcome even where the <c>GROUP BY</c> returned no row for one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The total is summed from the breakdown rather than counted again. Every run holds exactly one outcome, so
+    /// the sum <em>is</em> the count — and reading it from the same statement means the headline figure and the
+    /// breakdown beneath it cannot disagree, which a second <c>COUNT</c> across a concurrent write could.
+    /// </para>
+    /// <para>
+    /// Zero-filling is what makes the published object safe to read positionally: a screen showing four verdicts
+    /// must not have to tell "no failures" from "failures not counted".
+    /// </para>
+    /// </remarks>
+    private static TestRunHistorySummaryServiceModel? ToSummary(TestRunHistoryCounts? counts) =>
+        counts is null
+            ? null
+            : new TestRunHistorySummaryServiceModel(
+                counts.OutcomeCounts.Values.Sum(),
+                Enum.GetValues<TestRunOutcome>().ToDictionary(
+                    outcome => outcome,
+                    outcome => counts.OutcomeCounts.TryGetValue(outcome, out var count) ? count : 0),
+                counts.RunsWithUnresolvedIssues,
+                counts.UnresolvedIssueCount);
 
     private static OperationResult<RecipeTestRunServiceModel> RunNotFound() =>
         Refuse<RecipeTestRunServiceModel>(RecipeErrorCodes.TestRunNotFound, "That test could not be found.");

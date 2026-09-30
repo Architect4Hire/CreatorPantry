@@ -138,7 +138,7 @@ public sealed class RecipeTestRunBusinessTests
     [Fact]
     public async Task A_recorded_test_pins_the_version_and_takes_its_actor_from_the_context()
     {
-        _dataLayer.Target = new TestRunTarget(RecipeStatus.Ready, VersionId);
+        _dataLayer.Target = new TestRunTarget(RecipeStatus.Approved, VersionId);
 
         var result = await CreateAsync();
         var run = _dataLayer.Created!;
@@ -256,6 +256,140 @@ public sealed class RecipeTestRunBusinessTests
         Assert.Equal("got 10, not 12", _dataLayer.Created!.ActualYieldText);
     }
 
+    // ---- Reading the history ----
+
+    /// <summary>
+    /// Null from the DataLayer covers both "no such recipe" and "another workspace's recipe" — deliberately
+    /// indistinguishable, so this refusal must not describe which it was, and it must not be an empty page either.
+    /// </summary>
+    [Fact]
+    public async Task A_history_of_a_recipe_that_is_not_visible_is_not_found()
+    {
+        _dataLayer.History = null;
+
+        var result = await ListAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task A_history_with_no_tests_is_an_empty_page_rather_than_a_refusal()
+    {
+        _dataLayer.History = new TestRunHistoryPage([], false, Counts(new Dictionary<TestRunOutcome, int>()));
+
+        var result = await ListAsync();
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Value!.Page.Items);
+        Assert.Equal(0, result.Value.Page.Summary!.TotalCount);
+    }
+
+    /// <summary>
+    /// The row version becomes the opaque token a client quotes, and the tester membership travels beside the page
+    /// rather than inside it — Business may not name a person, so it hands the id to the Facade unspent.
+    /// </summary>
+    [Fact]
+    public async Task A_row_publishes_its_token_and_leaves_the_tester_to_be_named()
+    {
+        var row = HistoryRow();
+        _dataLayer.History = new TestRunHistoryPage([row], false, Counts(new Dictionary<TestRunOutcome, int>()));
+
+        var result = await ListAsync();
+        var published = Assert.Single(result.Value!.Page.Items);
+
+        Assert.Equal(RecipeConcurrencyToken.From(row.RowVersion), published.ConcurrencyToken);
+        Assert.Null(published.TestedByName);
+        Assert.Equal(row.TestedByMembershipId, published.TestedByMembershipId);
+        Assert.Equal(
+            row.TestedByMembershipId,
+            result.Value.TesterMembershipByTestRunId[row.Id]);
+    }
+
+    /// <summary>
+    /// A cursor is minted here rather than in the repository, bound to the scope the criteria carries — and only
+    /// when another page actually follows, so a client loops until it is null rather than asking one page too many.
+    /// </summary>
+    [Fact]
+    public async Task A_cursor_is_minted_only_when_another_page_follows()
+    {
+        _dataLayer.History = new TestRunHistoryPage([HistoryRow()], false, null);
+        Assert.Null((await ListAsync()).Value!.Page.NextCursor);
+
+        _dataLayer.History = new TestRunHistoryPage([HistoryRow()], true, null);
+        Assert.NotNull((await ListAsync()).Value!.Page.NextCursor);
+    }
+
+    /// <summary>
+    /// The published breakdown names every verdict, at zero where the <c>GROUP BY</c> returned no row — so a screen
+    /// never has to tell "no failures" from "failures not counted". The total is summed from it rather than counted
+    /// again, which is what stops the headline figure disagreeing with the numbers beneath it.
+    /// </summary>
+    [Fact]
+    public async Task The_published_summary_names_every_outcome_and_totals_the_breakdown()
+    {
+        _dataLayer.History = new TestRunHistoryPage(
+            [],
+            false,
+            Counts(new Dictionary<TestRunOutcome, int>
+            {
+                [TestRunOutcome.Succeeded] = 2,
+                [TestRunOutcome.Failed] = 1,
+            }));
+
+        var summary = (await ListAsync()).Value!.Page.Summary!;
+
+        Assert.Equal(3, summary.TotalCount);
+        Assert.Equal(Enum.GetValues<TestRunOutcome>().Order(), summary.ByOutcome.Keys.Order());
+        Assert.Equal(2, summary.ByOutcome[TestRunOutcome.Succeeded]);
+        Assert.Equal(0, summary.ByOutcome[TestRunOutcome.NotStated]);
+    }
+
+    /// <summary>
+    /// Null means "not asked for" and never "nothing to report", so a caller that turned the summary off gets no
+    /// figures rather than zeros they might render.
+    /// </summary>
+    [Fact]
+    public async Task A_history_read_without_a_summary_publishes_none()
+    {
+        _dataLayer.History = new TestRunHistoryPage([HistoryRow()], false, null);
+
+        Assert.Null((await ListAsync()).Value!.Page.Summary);
+    }
+
+    private Task<OperationResult<TestRunHistoryPageResult>> ListAsync() =>
+        _business.ListAsync(
+            new TestRunHistoryCriteria(RecipeId, new TestRunHistoryFilters(), "scope"),
+            TestContext.Current.CancellationToken);
+
+    private static TestRunHistoryCounts Counts(IReadOnlyDictionary<TestRunOutcome, int> byOutcome) =>
+        new(byOutcome, 0, 0);
+
+    private static TestRunHistoryRecord HistoryRow() =>
+        new(
+            Guid.NewGuid(),
+            VersionId,
+            2,
+            Now.AddDays(-1),
+            ActorMembershipId,
+            TestRunOutcome.Succeeded,
+            4,
+            "Good but dense.",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0,
+            0,
+            0,
+            0,
+            Now,
+            Now,
+            [1, 2, 3, 4, 5, 6, 7, 8]);
+
     private sealed class RecordingTestRunDataLayer : IRecipeTestRunDataLayer
     {
         public TestRunTarget? Target { get; set; } = new(RecipeStatus.Draft, Guid.NewGuid());
@@ -280,6 +414,15 @@ public sealed class RecipeTestRunBusinessTests
 
         /// <summary>Forces the resolution insert to lose the race the unique index settles.</summary>
         public bool ResolutionRaceLost { get; set; }
+
+        /// <summary>
+        /// What a history read returns. Null — the default — is a recipe the caller may not see, which is the
+        /// answer an unknown recipe and another workspace's recipe both produce.
+        /// </summary>
+        public TestRunHistoryPage? History { get; set; }
+
+        /// <summary>The criteria the last history read was handed, so a test can prove they reached the query.</summary>
+        public TestRunHistoryCriteria? ListedCriteria { get; private set; }
 
         public int Writes { get; private set; }
 
@@ -325,6 +468,14 @@ public sealed class RecipeTestRunBusinessTests
         public Task<Guid?> FindVersionIdAsync(
             Guid recipeId, int versionNumber, CancellationToken cancellationToken) =>
             Task.FromResult(VersionIdForNumber);
+
+        public Task<TestRunHistoryPage?> ListAsync(
+            TestRunHistoryCriteria criteria, CancellationToken cancellationToken)
+        {
+            ListedCriteria = criteria;
+
+            return Task.FromResult(History);
+        }
 
         public Task<TestIssueResolutionOutcome> ResolveAsync(
             TestIssueResolution resolution, CancellationToken cancellationToken)

@@ -182,18 +182,37 @@ public sealed class RecipeUpdateEndpointTests : IAsyncLifetime
         Assert.Equal(1, reread.GetProperty("currentVersion").GetProperty("versionNumber").GetInt32());
     }
 
+    /// <summary>
+    /// An edit may no longer change the editorial state at all (TESTRUN-005): the field is refused naming
+    /// itself, and the recipe does not move.
+    /// </summary>
+    /// <remarks>
+    /// This test used to assert the opposite — that an edit could still reach the states archiving could not.
+    /// Editorial state is a machine now, every move through it is a readiness transition at its own role bar,
+    /// and a second road to Approved with no readiness gate on it is the thing the machine exists to close.
+    /// Draft stays acceptable because re-stating the state a draft is already in is a request an edit can
+    /// honour.
+    /// </remarks>
     [Fact]
-    public async Task An_edit_can_still_change_the_other_states()
+    public async Task An_edit_may_not_change_the_editorial_state()
     {
         using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: TestContext.Current.CancellationToken);
         var (recipeId, token, _) = await SeedAsync(client, _fixture.WorkspaceA);
 
-        var body = await BodyOf(await client.PatchAsJsonAsync(
+        var response = await client.PatchAsJsonAsync(
             RecipeIn(_fixture.WorkspaceA, recipeId),
-            new { expectedConcurrencyToken = token, status = "Ready" },
-            TestContext.Current.CancellationToken));
+            new { expectedConcurrencyToken = token, status = "Approved" },
+            TestContext.Current.CancellationToken);
 
-        Assert.Equal("Ready", body.GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await BodyOf(response);
+        Assert.True(problem.GetProperty("errors").TryGetProperty("status", out _));
+
+        var reread = await BodyOf(await client.GetAsync(
+            RecipeIn(_fixture.WorkspaceA, recipeId), TestContext.Current.CancellationToken));
+
+        Assert.Equal("Draft", reread.GetProperty("status").GetString());
     }
 
     [Fact]

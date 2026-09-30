@@ -8,6 +8,17 @@ namespace CreatorPantry.Domain.Modules.Ai.Data;
 /// <summary>An operation and the proposal it produced, if it has produced one yet.</summary>
 internal sealed record AiOperationWithProposal(AiOperation Operation, AiProposal? Proposal);
 
+/// <summary>
+/// One warning row as the outstanding-work read projects it.
+/// </summary>
+/// <remarks>
+/// Identical in shape to <see cref="AiOutstandingWarningServiceModel"/> today and separate from it anyway, for the
+/// reason every repository row here is separate from what it becomes: this is what the query returns, and the
+/// other is what the module publishes. Collapsing them would put a published contract inside a projection, where
+/// the next column added for a query's own convenience becomes a field somebody's client can read.
+/// </remarks>
+internal sealed record AiOutstandingWarningRow(AiWarningKind Kind, string Message, Guid AiProposalId);
+
 
 /// <summary>
 /// EF Core access to the AI operation aggregate, within the resolved workspace.
@@ -53,6 +64,25 @@ internal interface IAiOperationRepository
     /// </remarks>
     Task<IReadOnlyList<AiConceptChangeRow>> FindConceptChangesAsync(
         Guid conceptRequestId, Guid conceptId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What AI work about one recipe is still undecided: how many proposed changes remain
+    /// <see cref="AiChangeDisposition.Pending"/>, and the warnings on the proposals holding them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The proposals are selected by being unfinished, not by being recent.</strong> A warning lives on an
+    /// immutable proposal forever, so filtering by proposal age or by the operation's status would keep reporting
+    /// cautions the creator has already accepted or rejected. "Still has a pending change" is the only condition
+    /// that goes away when the work is done.
+    /// </para>
+    /// <para>
+    /// Zero and empty for a recipe in another workspace or one that does not exist — the query filter makes the
+    /// first indistinguishable from the second, and this read is not where a recipe's existence is settled.
+    /// </para>
+    /// </remarks>
+    Task<(int PendingChangeCount, IReadOnlyList<Guid> ProposalIds, IReadOnlyList<AiOutstandingWarningRow> Warnings)>
+        SummarizeOutstandingAsync(Guid recipeId, CancellationToken cancellationToken);
 
     void AddProposal(AiProposal proposal);
 
@@ -175,6 +205,46 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
                 && change.TargetId == conceptId)
             .Select(change => new AiConceptChangeRow(change.ChangeKind, change.FieldName, change.AfterValue))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<(int PendingChangeCount, IReadOnlyList<Guid> ProposalIds, IReadOnlyList<AiOutstandingWarningRow> Warnings)>
+        SummarizeOutstandingAsync(Guid recipeId, CancellationToken cancellationToken)
+    {
+        // The proposals about this recipe that still hold an undecided change. Composed once and used by both
+        // statements below, so the count and the warnings cannot describe two different sets.
+        //
+        // No WorkspaceId predicate: AiOperations, AiProposals, AiStructuredChanges and AiWarnings are all
+        // workspace-owned, so the global query filter already scopes every join, and writing one by hand would
+        // suggest the filter is optional.
+        var unfinished = context.AiProposals.AsNoTracking()
+            .Where(proposal =>
+                context.AiOperations.Any(operation =>
+                    operation.Id == proposal.AiOperationId && operation.RecipeId == recipeId)
+                && context.AiStructuredChanges.Any(change =>
+                    change.AiProposalId == proposal.Id
+                    && change.Disposition == AiChangeDisposition.Pending));
+
+        // Grouped by proposal so one statement answers both "how many changes" and "which proposals hold them".
+        // The count alone could not be explained by a caller — a proposal may hold undecided changes and raise no
+        // warning, leaving nothing to link a reader to.
+        var perProposal = await context.AiStructuredChanges.AsNoTracking()
+            .Where(change => change.Disposition == AiChangeDisposition.Pending
+                && unfinished.Any(proposal => proposal.Id == change.AiProposalId))
+            .GroupBy(change => change.AiProposalId)
+            .Select(group => new { AiProposalId = group.Key, Count = group.Count() })
+            .OrderBy(row => row.AiProposalId)
+            .ToListAsync(cancellationToken);
+
+        var warnings = await context.AiWarnings.AsNoTracking()
+            .Where(warning => unfinished.Any(proposal => proposal.Id == warning.AiProposalId))
+            // Stable across reads: a caller rendering a list must not see it reshuffle between two requests that
+            // found the same work outstanding.
+            .OrderBy(warning => warning.AiProposalId)
+            .ThenBy(warning => warning.SortOrder)
+            .Select(warning => new AiOutstandingWarningRow(warning.Kind, warning.Message, warning.AiProposalId))
+            .ToListAsync(cancellationToken);
+
+        return (perProposal.Sum(row => row.Count), [.. perProposal.Select(row => row.AiProposalId)], warnings);
     }
 
     public void AddProposal(AiProposal proposal) => context.AiProposals.Add(proposal);

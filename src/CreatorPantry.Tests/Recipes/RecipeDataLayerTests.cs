@@ -1,6 +1,7 @@
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Recipes.Data;
+using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -190,7 +191,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var readToken = loaded.Recipe.Recipe.RowVersion;
 
         loaded.Recipe.Recipe.Title = "Lemon olive oil cake";
-        var outcome = await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken);
+        var outcome = await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Conflicted);
         Assert.Equal(2, outcome.Version!.VersionNumber);
@@ -221,7 +222,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var readWith = loaded.Recipe.Recipe.RowVersion;
 
         loaded.Recipe.Recipe.Title = "Lemon olive oil cake";
-        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken);
+        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var stored = await Repository(readScope).GetCompleteAsync(created.RecipeId, TestContext.Current.CancellationToken);
@@ -243,13 +244,13 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var first = await LoadForUpdateAsync(firstScope, created.RecipeId);
         var firstToken = first.Recipe.Recipe.RowVersion;
         first.Recipe.Recipe.Title = "Second";
-        var second = await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, TestContext.Current.CancellationToken);
+        var second = await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         await using var secondScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var reloaded = await LoadForUpdateAsync(secondScope, created.RecipeId);
         var secondToken = reloaded.Recipe.Recipe.RowVersion;
         reloaded.Recipe.Recipe.Title = "Third";
-        var third = await DataLayer(secondScope).UpdateAsync(reloaded, NextVersion, null, TestContext.Current.CancellationToken);
+        var third = await DataLayer(secondScope).UpdateAsync(reloaded, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         // Numbering and lineage were only ever proven for the 1 → 2 step, which is the step where the parent
         // happens to be version 1 and "one past what we read" happens to be 2.
@@ -275,7 +276,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var doomed = new RecipeVersionFacts(RecipeVersionSource.AiProposalAccepted, RecipeVersionReadiness.Draft, null);
 
         await Assert.ThrowsAsync<DbUpdateException>(
-            () => DataLayer(scope).UpdateAsync(loaded, doomed, null, TestContext.Current.CancellationToken));
+            () => DataLayer(scope).UpdateAsync(loaded, doomed, null, null, TestContext.Current.CancellationToken));
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var reread = await Repository(readScope).GetCompleteAsync(created.RecipeId, TestContext.Current.CancellationToken);
@@ -296,12 +297,12 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var second = await LoadForUpdateAsync(secondScope, created.RecipeId);
 
         first.Recipe.Recipe.Title = "First writer wins";
-        await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, TestContext.Current.CancellationToken);
+        await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         second.Recipe.Recipe.Title = "Second writer loses";
         second.Recipe.Recipe.Headnote = "And this must not survive either.";
         var loser = await DataLayer(secondScope).UpdateAsync(
-            second, NextVersion, [new RecipeTagName("Citrus", "citrus")], TestContext.Current.CancellationToken);
+            second, NextVersion, [new RecipeTagName("Citrus", "citrus")], null, TestContext.Current.CancellationToken);
 
         Assert.True(loser.Conflicted);
 
@@ -333,7 +334,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
         loaded.Recipe.Recipe.Title = "After";
 
-        var outcome = await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken);
+        var outcome = await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var stored = await SqlServerRecipeFixture.Db(readScope).RecipeVersionSnapshots
@@ -356,7 +357,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
         loaded.Recipe.Recipe.Title = "Something else";
-        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken);
+        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var first = await SqlServerRecipeFixture.Db(readScope).RecipeVersions
@@ -385,11 +386,11 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var second = await LoadForUpdateAsync(secondScope, created.RecipeId);
 
         first.Recipe.Recipe.Title = "First writer wins";
-        var winner = await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, TestContext.Current.CancellationToken);
+        var winner = await DataLayer(firstScope).UpdateAsync(first, NextVersion, null, null, TestContext.Current.CancellationToken);
         Assert.False(winner.Conflicted);
 
         second.Recipe.Recipe.Title = "Second writer loses";
-        var loser = await DataLayer(secondScope).UpdateAsync(second, NextVersion, null, TestContext.Current.CancellationToken);
+        var loser = await DataLayer(secondScope).UpdateAsync(second, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         // The lost update this whole seam exists to prevent. Without the row version the second save would
         // silently destroy the first creator's work.
@@ -418,7 +419,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         loaded.Recipe.Recipe.Title = "Never landed";
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken));
+            () => DataLayer(scope).UpdateAsync(loaded, NextVersion, null, null, TestContext.Current.CancellationToken));
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var reread = await Repository(readScope).GetCompleteAsync(created.RecipeId, TestContext.Current.CancellationToken);
@@ -516,7 +517,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var editing = await LoadForUpdateAsync(editScope, created.RecipeId);
         editing.Recipe.Recipe.Title = "Lemon olive oil cake";
         var edited = await DataLayer(editScope).UpdateAsync(
-            editing, NextVersion, null, TestContext.Current.CancellationToken);
+            editing, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var unit = await LoadForRestoreAsync(scope, created.RecipeId, 1);
@@ -603,7 +604,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var restoring = await LoadForRestoreAsync(secondScope, created.RecipeId, 1);
 
         editing.Recipe.Recipe.Title = "The editor won";
-        await DataLayer(firstScope).UpdateAsync(editing, NextVersion, null, token);
+        await DataLayer(firstScope).UpdateAsync(editing, NextVersion, null, null, token);
 
         restoring.Recipe.Recipe.Recipe.Title = "The restore lost";
         var loser = await DataLayer(secondScope).RestoreAsync(
@@ -711,6 +712,26 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
 
     // ---- The archive seam ----
 
+    /// <summary>
+    /// The transition row an archive now carries (TESTRUN-005). Built the way Business builds it, minus the
+    /// approval columns, which the archive rule does not populate and
+    /// <c>CK_RecipeStatusTransitions_Approval_Columns</c> forbids on any move but the approval.
+    /// </summary>
+    private static RecipeStatusTransition ArchiveTransition(Guid recipeId) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = SqlServerRecipeFixture.WorkspaceA,
+            RecipeId = recipeId,
+            FromStatus = RecipeStatus.Draft,
+            ToStatus = RecipeStatus.Archived,
+            // Any membership: ActorMembershipId carries no foreign key, exactly as
+            // RecipeTestRun.TestedByMembershipId does not.
+            ActorMembershipId = Guid.NewGuid(),
+            OccurredAt = SqlServerRecipeFixture.Now,
+            MachineVersion = RecipeStatusTransitions.Version,
+        };
+
     private static AuditEntry ArchiveEntry(Guid recipeId) =>
         new(
             "user-1",
@@ -737,7 +758,8 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var readWith = loaded.Recipe.Recipe.RowVersion;
 
         loaded.Recipe.Recipe.Status = RecipeStatus.Archived;
-        var committed = await DataLayer(scope).TrySetStatusAsync(loaded, ArchiveEntry(created.RecipeId), token);
+        var committed = await DataLayer(scope).TryTransitionAsync(
+            loaded, ArchiveTransition(created.RecipeId), null, ArchiveEntry(created.RecipeId), token);
 
         Assert.True(committed);
 
@@ -779,7 +801,8 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
         loaded.Recipe.Recipe.Status = RecipeStatus.Archived;
-        await DataLayer(scope).TrySetStatusAsync(loaded, ArchiveEntry(created.RecipeId), token);
+        await DataLayer(scope).TryTransitionAsync(
+            loaded, ArchiveTransition(created.RecipeId), null, ArchiveEntry(created.RecipeId), token);
 
         await using var afterScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var after = await Repository(afterScope).GetCompleteAsync(created.RecipeId, token);
@@ -809,11 +832,11 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var archiving = await LoadForUpdateAsync(secondScope, created.RecipeId);
 
         editing.Recipe.Recipe.Title = "The editor won";
-        await DataLayer(firstScope).UpdateAsync(editing, NextVersion, null, token);
+        await DataLayer(firstScope).UpdateAsync(editing, NextVersion, null, null, token);
 
         archiving.Recipe.Recipe.Status = RecipeStatus.Archived;
-        var committed = await DataLayer(secondScope).TrySetStatusAsync(
-            archiving, ArchiveEntry(created.RecipeId), token);
+        var committed = await DataLayer(secondScope).TryTransitionAsync(
+            archiving, ArchiveTransition(created.RecipeId), null, ArchiveEntry(created.RecipeId), token);
 
         Assert.False(committed);
 
@@ -832,6 +855,237 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
             0,
             await SqlServerRecipeFixture.Db(readScope).AuditLogs
                 .CountAsync(log => log.ResourceId == created.RecipeId.ToString("D"), token));
+    }
+
+    // ---- The transition seam (TESTRUN-005) ----
+
+    /// <summary>The approval's transition row, as Business builds it.</summary>
+    private static RecipeStatusTransition ApprovalTransition(Guid recipeId, Guid evaluatedVersionId) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = SqlServerRecipeFixture.WorkspaceA,
+            RecipeId = recipeId,
+            FromStatus = RecipeStatus.ReadyForReview,
+            ToStatus = RecipeStatus.Approved,
+            Reason = "Third bake was the one.",
+            ActorMembershipId = Guid.NewGuid(),
+            OccurredAt = SqlServerRecipeFixture.Now,
+            MachineVersion = RecipeStatusTransitions.Version,
+            ReadinessRuleSetVersion = RecipeReadinessCatalogue.Version,
+            ReadinessEvaluatedVersionId = evaluatedVersionId,
+        };
+
+    private static AuditEntry ApprovalEntry(Guid recipeId) =>
+        new(
+            "user-1",
+            RecipeAuditActions.Approved,
+            RecipeAuditActions.ResourceType,
+            recipeId.ToString("D"),
+            Guid.NewGuid(),
+            "Moved the recipe from ReadyForReview to Approved.",
+            BeforeReference: nameof(RecipeStatus.ReadyForReview),
+            AfterReference: nameof(RecipeStatus.Approved));
+
+    /// <summary>
+    /// The atomic transition: the status, the transition row, the approved version and the audit entry all
+    /// land in one save, and the transition names the version it wrote.
+    /// </summary>
+    /// <remarks>
+    /// The interleaving this rules out is the one that matters — a recipe reading as approved with no version
+    /// behind the approval, or a version with no row saying who approved it. Only a real database can show
+    /// it, because <c>RecipeVersion.Id</c> is assigned in code and the question is whether both rows commit.
+    /// </remarks>
+    [Fact]
+    public async Task An_approval_writes_the_status_the_transition_the_version_and_the_audit_in_one_unit()
+    {
+        var created = await CreateAsync("Olive oil cake");
+        var token = TestContext.Current.CancellationToken;
+
+        await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
+
+        loaded.Recipe.Recipe.Status = RecipeStatus.Approved;
+        var transition = ApprovalTransition(created.RecipeId, created.VersionId);
+
+        var committed = await DataLayer(scope).TryTransitionAsync(
+            loaded,
+            transition,
+            new RecipeVersionFacts(
+                RecipeVersionSource.ReadinessApproval,
+                RecipeVersionReadiness.Ready,
+                "Third bake was the one."),
+            ApprovalEntry(created.RecipeId),
+            token);
+
+        Assert.True(committed);
+
+        // Filled in by the data layer, because the version is built there and the row has to name it.
+        Assert.NotNull(transition.CreatedVersionId);
+
+        await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var db = SqlServerRecipeFixture.Db(readScope);
+
+        var reread = await Repository(readScope).GetCompleteAsync(created.RecipeId, token);
+        Assert.Equal(RecipeStatus.Approved, reread!.Recipe.Status);
+
+        var row = await db.RecipeStatusTransitions.SingleAsync(entry => entry.RecipeId == created.RecipeId, token);
+        Assert.Equal(RecipeStatus.ReadyForReview, row.FromStatus);
+        Assert.Equal(RecipeStatus.Approved, row.ToStatus);
+        Assert.Equal(created.VersionId, row.ReadinessEvaluatedVersionId);
+        Assert.Equal(transition.CreatedVersionId, row.CreatedVersionId);
+        Assert.Equal(SqlServerRecipeFixture.WorkspaceA, row.WorkspaceId);
+
+        // The version the approval names is real, is this recipe's, and is the one ready version.
+        var approved = await db.RecipeVersions.SingleAsync(version => version.Id == row.CreatedVersionId, token);
+        Assert.Equal(created.RecipeId, approved.RecipeId);
+        Assert.Equal(RecipeVersionSource.ReadinessApproval, approved.Source);
+        Assert.Equal(RecipeVersionReadiness.Ready, approved.Readiness);
+        Assert.Equal(2, approved.VersionNumber);
+
+        var entry = await db.AuditLogs.SingleAsync(log => log.ResourceId == created.RecipeId.ToString("D"), token);
+        Assert.Equal(RecipeAuditActions.Approved, entry.Action);
+    }
+
+    /// <summary>
+    /// The race, on the move that writes most: nothing commits — not the status, not the transition, not the
+    /// version, not the audit entry that would otherwise claim an approval happened.
+    /// </summary>
+    [Fact]
+    public async Task An_approval_onto_a_recipe_that_moved_on_writes_nothing_at_all()
+    {
+        var created = await CreateAsync("Contested cake");
+        var token = TestContext.Current.CancellationToken;
+
+        await using var firstScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        await using var secondScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+
+        var editing = await LoadForUpdateAsync(firstScope, created.RecipeId);
+        var approving = await LoadForUpdateAsync(secondScope, created.RecipeId);
+
+        editing.Recipe.Recipe.Title = "The editor won";
+        await DataLayer(firstScope).UpdateAsync(editing, NextVersion, null, null, token);
+
+        approving.Recipe.Recipe.Status = RecipeStatus.Approved;
+        var committed = await DataLayer(secondScope).TryTransitionAsync(
+            approving,
+            ApprovalTransition(created.RecipeId, created.VersionId),
+            new RecipeVersionFacts(
+                RecipeVersionSource.ReadinessApproval, RecipeVersionReadiness.Ready, null),
+            ApprovalEntry(created.RecipeId),
+            token);
+
+        Assert.False(committed);
+
+        // Nothing staged either, or the next SaveChanges on this scope would commit a refused approval.
+        var staged = SqlServerRecipeFixture.Db(secondScope);
+        Assert.DoesNotContain(staged.ChangeTracker.Entries(), entry => entry.State != EntityState.Detached);
+
+        await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var db = SqlServerRecipeFixture.Db(readScope);
+
+        var reread = await Repository(readScope).GetCompleteAsync(created.RecipeId, token);
+        Assert.Equal("The editor won", reread!.Recipe.Title);
+        Assert.NotEqual(RecipeStatus.Approved, reread.Recipe.Status);
+
+        Assert.Empty(await db.RecipeStatusTransitions.Where(row => row.RecipeId == created.RecipeId).ToListAsync(token));
+        Assert.DoesNotContain(
+            await db.RecipeVersions.Where(version => version.RecipeId == created.RecipeId).ToListAsync(token),
+            version => version.Readiness == RecipeVersionReadiness.Ready);
+    }
+
+    /// <summary>
+    /// A transition is write-once. <c>ImmutableRecordInterceptor</c> refuses both, whatever code path arrives
+    /// at <c>SaveChanges</c> — a history that can be rewritten is not a history.
+    /// </summary>
+    [Fact]
+    public async Task A_transition_can_be_neither_edited_nor_deleted()
+    {
+        var created = await CreateAsync("Olive oil cake");
+        var token = TestContext.Current.CancellationToken;
+
+        await using var writeScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var loaded = await LoadForUpdateAsync(writeScope, created.RecipeId);
+        loaded.Recipe.Recipe.Status = RecipeStatus.Archived;
+        await DataLayer(writeScope).TryTransitionAsync(
+            loaded, ArchiveTransition(created.RecipeId), null, ArchiveEntry(created.RecipeId), token);
+
+        await using var editScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var editDb = SqlServerRecipeFixture.Db(editScope);
+        var row = await editDb.RecipeStatusTransitions.SingleAsync(entry => entry.RecipeId == created.RecipeId, token);
+        row.Reason = "Actually, a different reason.";
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => editDb.SaveChangesAsync(token));
+
+        await using var deleteScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var deleteDb = SqlServerRecipeFixture.Db(deleteScope);
+        deleteDb.RecipeStatusTransitions.Remove(
+            await deleteDb.RecipeStatusTransitions.SingleAsync(entry => entry.RecipeId == created.RecipeId, token));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => deleteDb.SaveChangesAsync(token));
+    }
+
+    /// <summary>
+    /// Two workspaces, and neither can see the other's editorial history. The global query filter covers this
+    /// table like every other workspace-owned one; a single-workspace test would not show it.
+    /// </summary>
+    [Fact]
+    public async Task Each_workspace_sees_only_its_own_transitions()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var mine = await CreateInAsync(SqlServerRecipeFixture.WorkspaceA, "Mine");
+        var theirs = await CreateInAsync(SqlServerRecipeFixture.WorkspaceB, "Theirs");
+
+        foreach (var (workspaceId, recipeId) in new[]
+            {
+                (SqlServerRecipeFixture.WorkspaceA, mine.RecipeId),
+                (SqlServerRecipeFixture.WorkspaceB, theirs.RecipeId),
+            })
+        {
+            await using var scope = fixture.ScopeFor(workspaceId);
+            var loaded = await LoadForUpdateAsync(scope, recipeId);
+            loaded.Recipe.Recipe.Status = RecipeStatus.Archived;
+
+            await DataLayer(scope).TryTransitionAsync(
+                loaded,
+                new RecipeStatusTransition
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    RecipeId = recipeId,
+                    FromStatus = RecipeStatus.Draft,
+                    ToStatus = RecipeStatus.Archived,
+                    ActorMembershipId = Guid.NewGuid(),
+                    OccurredAt = SqlServerRecipeFixture.Now,
+                    MachineVersion = RecipeStatusTransitions.Version,
+                },
+                null,
+                ArchiveEntry(recipeId),
+                token);
+        }
+
+        // By recipe id rather than by row count: this class shares one database with every other test in it,
+        // and several of them write transitions of their own. What isolation means here is that each
+        // workspace's read reaches its own recipe's row and cannot reach the other's, which counting would
+        // only accidentally show.
+        await using var readA = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var rowsA = await SqlServerRecipeFixture.Db(readA).RecipeStatusTransitions
+            .Select(row => row.RecipeId)
+            .ToListAsync(token);
+
+        await using var readB = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceB);
+        var rowsB = await SqlServerRecipeFixture.Db(readB).RecipeStatusTransitions
+            .Select(row => row.RecipeId)
+            .ToListAsync(token);
+
+        Assert.Contains(mine.RecipeId, rowsA);
+        Assert.DoesNotContain(theirs.RecipeId, rowsA);
+
+        Assert.Contains(theirs.RecipeId, rowsB);
+        Assert.DoesNotContain(mine.RecipeId, rowsB);
+
+        // And nothing of workspace A's reaches B at all, however many rows A has accumulated.
+        Assert.Empty(rowsB.Intersect(rowsA));
     }
 
     // ---- The duplicate seam ----
@@ -864,7 +1118,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         await using var editScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var editing = await LoadForUpdateAsync(editScope, created.RecipeId);
         editing.Recipe.Recipe.Title = "Lemon olive oil cake";
-        var edited = await DataLayer(editScope).UpdateAsync(editing, NextVersion, null, token);
+        var edited = await DataLayer(editScope).UpdateAsync(editing, NextVersion, null, null, token);
 
         await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var (visible, source) = await DataLayer(scope).FindDuplicateSourceAsync(created.RecipeId, null, token);
@@ -971,7 +1225,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         await using var editScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var editing = await LoadForUpdateAsync(editScope, created.RecipeId);
         editing.Recipe.Recipe.Title = "Source moved on";
-        await DataLayer(editScope).UpdateAsync(editing, NextVersion, null, token);
+        await DataLayer(editScope).UpdateAsync(editing, NextVersion, null, null, token);
 
         await using var afterScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var after = await Repository(afterScope).GetCompleteAsync(written.RecipeId, token);
@@ -1015,6 +1269,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
             loaded,
             NextVersion,
             [new RecipeTagName("Weeknight", "weeknight"), new RecipeTagName("Citrus", "citrus")],
+            null,
             TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Conflicted);
@@ -1049,7 +1304,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         loaded.Recipe.Recipe.Title = "B's retagged cake";
 
         await DataLayer(scope).UpdateAsync(
-            loaded, NextVersion, [new RecipeTagName("Weeknight", "weeknight")], TestContext.Current.CancellationToken);
+            loaded, NextVersion, [new RecipeTagName("Weeknight", "weeknight")], null, TestContext.Current.CancellationToken);
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceB);
         var reread = await DataLayer(readScope).GetDetailAsync(created.RecipeId, TestContext.Current.CancellationToken);
@@ -1066,7 +1321,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
         loaded.Recipe.Recipe.Title = "Untagged cake";
 
-        await DataLayer(scope).UpdateAsync(loaded, NextVersion, [], TestContext.Current.CancellationToken);
+        await DataLayer(scope).UpdateAsync(loaded, NextVersion, [], null, TestContext.Current.CancellationToken);
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var reread = await DataLayer(readScope).GetDetailAsync(created.RecipeId, TestContext.Current.CancellationToken);
@@ -1084,7 +1339,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var loaded = await LoadForUpdateAsync(scope, created.RecipeId);
         loaded.Recipe.Recipe.Title = "Still tagged";
 
-        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, TestContext.Current.CancellationToken);
+        await DataLayer(scope).UpdateAsync(loaded, NextVersion, null, null, TestContext.Current.CancellationToken);
 
         await using var readScope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
         var reread = await DataLayer(readScope).GetDetailAsync(created.RecipeId, TestContext.Current.CancellationToken);

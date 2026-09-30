@@ -502,8 +502,13 @@ public interface IRecipeBusiness
     /// </para>
     /// <para>
     /// <strong>No version is written.</strong> A version records what a recipe said, and this changes
-    /// nothing it says — see <see cref="IRecipeDataLayer.TrySetStatusAsync"/>, which also explains why that
-    /// keeps a later version restore from archiving a recipe without an audit trail.
+    /// nothing it says — see <see cref="IRecipeDataLayer.TryTransitionAsync"/>.
+    /// </para>
+    /// <para>
+    /// <strong>Since TESTRUN-005 this is one move of the editorial machine</strong>, not a command beside it:
+    /// it runs through <see cref="TransitionAsync"/>, writes a <c>RecipeStatusTransition</c> like every other
+    /// move, and is refused from a state <see cref="RecipeStatusTransitions"/> has no archive rule for. The
+    /// route, the role bar and the answers a caller gets are unchanged.
     /// </para>
     /// </remarks>
     Task<OperationResult<RecipeDetailServiceModel>> ArchiveAsync(
@@ -532,6 +537,58 @@ public interface IRecipeBusiness
     /// </remarks>
     Task<OperationResult<RecipeDetailServiceModel>> UnarchiveAsync(
         Guid recipeId,
+        string actorUserId,
+        string? expectedConcurrencyToken,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Moves a recipe to another editorial state, if <see cref="RecipeStatusTransitions"/> has that move and
+    /// the caller may make it (TESTRUN-005).
+    /// </summary>
+    /// <param name="target">The state to move to. From a route or a request body, never from the recipe.</param>
+    /// <param name="reason">
+    /// Why, in the caller's own words. Required for the moves
+    /// <see cref="RecipeStatusTransitionRule.RequiresReason"/> names and optional for the rest.
+    /// </param>
+    /// <param name="readiness">
+    /// A readiness evaluation of this recipe, for the move that needs one, and <c>null</c> otherwise. Gathered
+    /// by the facade, because the evaluation crosses module boundaries that Business may not.
+    /// </param>
+    /// <param name="actorUserId">The authenticated caller, for the audit entry. Never from a request field.</param>
+    /// <param name="expectedConcurrencyToken">The state the command was composed against.</param>
+    /// <returns>
+    /// The recipe as it now stands, or a failure carrying
+    /// <see cref="RecipeErrorCodes.RecipeNotFound"/>, <see cref="RecipeErrorCodes.RecipeConflict"/>,
+    /// <see cref="RecipeErrorCodes.TransitionInvalidRequest"/>,
+    /// <see cref="RecipeErrorCodes.TransitionForbidden"/> or
+    /// <see cref="RecipeErrorCodes.TransitionBlockedConflict"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>The only thing that moves <c>Recipe.Status</c>.</strong> The archive and restore commands run
+    /// through it, an edit's reopen runs through it, and nothing else touches the column — the edit seam
+    /// refuses a submitted status that differs from the recipe's own, and a version restore no longer puts one
+    /// back. That is what makes the transition table a complete account of a recipe's editorial life rather
+    /// than a partial one.
+    /// </para>
+    /// <para>
+    /// <strong>Asking for the state the recipe is already in succeeds and does nothing.</strong> Not an
+    /// invalid jump — a jump goes somewhere — but a repeat, which is the ordinary shape of a retried command
+    /// and the behaviour REC-006 documented for archiving. It matters most for the approval: a replayed
+    /// approval must not write a second version or a second transition, and answering "already there" is how
+    /// that is guaranteed without an idempotency key.
+    /// </para>
+    /// <para>
+    /// <strong>The readiness gate is checked against this recipe at this moment.</strong> A supplied
+    /// evaluation whose concurrency token no longer matches the recipe is refused as a conflict rather than
+    /// honoured: an evaluation of content that has since changed is not a fresh evaluation, whatever it says.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeDetailServiceModel>> TransitionAsync(
+        Guid recipeId,
+        RecipeStatus target,
+        string? reason,
+        RecipeReadinessServiceModel? readiness,
         string actorUserId,
         string? expectedConcurrencyToken,
         CancellationToken cancellationToken);
@@ -613,9 +670,12 @@ internal sealed class RecipeBusiness(
         var version = new RecipeVersionFacts(
             origin.Source,
 
-            // The version inherits the recipe's editorial state rather than inventing one: a recipe created
-            // as Ready has a first version that is ready, and one created as a draft does not.
-            input.Status == RecipeStatus.Ready ? RecipeVersionReadiness.Ready : RecipeVersionReadiness.Draft,
+            // Draft, always. This used to derive from the recipe's status, which was right while a create
+            // could ask for Ready; since TESTRUN-005 only the approval transition mints a ready version, and
+            // it is the one write that may — a create cannot reach Approved at all
+            // (SettableRecipeStatusViewModel), so a conditional here would be a branch that can never take
+            // its other path.
+            RecipeVersionReadiness.Draft,
 
             // No reason. RecipeVersion.Reason is documented as optional — "a routine save has no reason" —
             // and "this is the first version" is already carried by the version number. Inventing a sentence
@@ -1230,12 +1290,11 @@ internal sealed class RecipeBusiness(
         Change(patch.ServingCount, recipe.ServingCount, value => recipe.ServingCount = value);
         Change(patch.ServingSize, recipe.ServingSize, value => recipe.ServingSize = value);
 
-        // Handled outside the generic helper because the request's type and the recipe's differ: a status
-        // may be submitted as null, and the validation above has already refused that.
-        if (patch.Status.IsSubmitted && patch.Status.Value is { } requestedStatus && requestedStatus != recipe.Status)
-        {
-            changes.Add(() => recipe.Status = requestedStatus);
-        }
+        // No status change is staged here, and there is nothing left to stage: the validation above refuses a
+        // submitted status that differs from the recipe's own, so anything that reaches this point is asking
+        // for the state the recipe is already in. Editorial state moves through the transition seam
+        // (TESTRUN-005) and nowhere else — including the reopen an edit to an approved recipe triggers, which
+        // is a transition in its own right rather than a field assignment hidden in a merge.
 
         var tags = patch.Tags.IsSubmitted ? patch.Tags.Value : null;
         var tagsChanged = tags is not null && !SameTags(loaded.Tags, tags);
@@ -1268,18 +1327,36 @@ internal sealed class RecipeBusiness(
         recipe.UpdatedAt = clock.UtcNow;
         recipe.UpdatedByMembershipId = workspace.MembershipId;
 
+        // Editing an approved recipe reopens it, because an approval is a claim that somebody cleared these
+        // words and the words are about to change (RecipeStatusTransitions.EditReopens). Staged here so it
+        // commits in the edit's own transaction: a recipe that had been edited and left reading as approved,
+        // even for an instant, is the state this rule exists to make unreachable.
+        //
+        // No role check, deliberately, and it is the one asymmetry in the machine: the reopen rule asks for
+        // an Editor, and this reopen is a consequence of an edit rather than a move anybody requested. A
+        // Contributor allowed to edit the recipe is allowed to edit it, and refusing them because of a
+        // transition they did not ask for would make the edit route's permissions depend on a state they
+        // cannot see the significance of. The transition row records them as the actor, so the history still
+        // says who caused it.
+        var reopen = RecipeStatusTransitions.EditReopens(recipe.Status)
+            ? StageReopen(recipe)
+            : null;
+
         var facts = new RecipeVersionFacts(
             source,
 
-            // The version inherits the recipe's editorial state, exactly as version 1 does: an edit that
-            // leaves it Ready captures a ready version, and one that does not, does not.
-            recipe.Status == RecipeStatus.Ready ? RecipeVersionReadiness.Ready : RecipeVersionReadiness.Draft,
+            // Draft, always, for the reason CreateAsync gives: the approval transition is the only write that
+            // mints a ready version. An edit to an approved recipe is emphatically not one — it reopens the
+            // recipe (RecipeStatusTransitions.EditReopens), so the version it captures is of content that is
+            // once again being worked on.
+            RecipeVersionReadiness.Draft,
             patch.Reason,
             AiProposalId: aiProposalId);
 
         // Tags are handed down only when they are actually changing. Submitting the set a recipe already has
         // is not a request to rewrite its links.
-        var outcome = await dataLayer.UpdateAsync(loaded, facts, tagsChanged ? tags : null, cancellationToken);
+        var outcome = await dataLayer.UpdateAsync(
+            loaded, facts, tagsChanged ? tags : null, reopen, cancellationToken);
 
         return outcome.Version is null
             ? Conflict()
@@ -1379,10 +1456,11 @@ internal sealed class RecipeBusiness(
         var facts = new RecipeVersionFacts(
             RecipeVersionSource.Restore,
 
-            // Derived from the status the restore just put back, by the same rule an edit follows. Restoring a
-            // version that was Ready produces a ready version, because the recipe now says what that version
-            // said — including its status.
-            recipe.Status == RecipeStatus.Ready ? RecipeVersionReadiness.Ready : RecipeVersionReadiness.Draft,
+            // Draft, always, for the reason CreateAsync gives. A restore no longer puts the status back at
+            // all (RecipeSnapshotReconciler), so there is no longer a status here to derive from — and a
+            // restore of an approved version producing another ready version would have been an approval
+            // nobody made.
+            RecipeVersionReadiness.Draft,
             request.Reason,
 
             // The version the content came from. The one the restore replaces is the parent, and the
@@ -1504,15 +1582,15 @@ internal sealed class RecipeBusiness(
         string actorUserId,
         string? expectedConcurrencyToken,
         CancellationToken cancellationToken) =>
-        SetStatusAsync(
+        TransitionAsync(
             recipeId,
-            // Anything that is not already shelved is shelved. Expressed as "which recipes this moves"
-            // rather than "which state this leaves", because the two commands are not mirror images: see
-            // UnarchiveAsync.
-            current => current != RecipeStatus.Archived,
             RecipeStatus.Archived,
-            RecipeAuditActions.Archived,
-            "Archived the recipe.",
+
+            // No reason. The route says what happened and RecipeLifecycleViewModel deliberately carries no
+            // field for one; the archive rule asks for none, so this is an absence the machine agrees with
+            // rather than a value being dropped.
+            reason: null,
+            readiness: null,
             actorUserId,
             expectedConcurrencyToken,
             cancellationToken);
@@ -1522,47 +1600,25 @@ internal sealed class RecipeBusiness(
         string actorUserId,
         string? expectedConcurrencyToken,
         CancellationToken cancellationToken) =>
-        SetStatusAsync(
+        TransitionAsync(
             recipeId,
-            // Only an archived recipe moves. "Already in the target state" would be the wrong test here and
-            // actively harmful: the target is Draft, so it would leave a Ready recipe alone — and quietly
-            // demote every other one this command was never meant to touch.
-            current => current == RecipeStatus.Archived,
+
+            // The one target the machine has out of the archive. A recipe that is not archived is answered
+            // as a repeat rather than demoted, which is the asymmetry this command always had: the old
+            // implementation spelled it as a predicate, and the machine gets it from there being no rule
+            // from any other state to here.
             RecipePolicy.UnarchivedStatus,
-            RecipeAuditActions.Unarchived,
-            "Brought the recipe back from the archive.",
+            reason: null,
+            readiness: null,
             actorUserId,
             expectedConcurrencyToken,
             cancellationToken);
 
-    /// <summary>
-    /// The one implementation behind both lifecycle commands: load, check, move, record, save.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Two public methods over one private body rather than one method taking the target state, because the
-    /// target is not a caller's choice — the route decides it, and a parameter would invite a future caller
-    /// to move a recipe somewhere neither command means. What genuinely differs between the two is three
-    /// values, and they are passed.
-    /// </para>
-    /// <para>
-    /// <strong>No <c>AcceptsContentChanges</c> check here</strong>, and that is not an oversight: this
-    /// changes the state itself rather than the content, so gating it on the state would make an archived
-    /// recipe impossible to unarchive.
-    /// </para>
-    /// </remarks>
-    /// <param name="moves">
-    /// Whether a recipe in this state is one the command acts on. Supplied rather than derived from
-    /// <paramref name="status"/>, because "already in the target state" is the right test for archiving and
-    /// the wrong one for its opposite — unarchiving targets Draft, and a Ready recipe is not one it should
-    /// touch.
-    /// </param>
-    private async Task<OperationResult<RecipeDetailServiceModel>> SetStatusAsync(
+    public async Task<OperationResult<RecipeDetailServiceModel>> TransitionAsync(
         Guid recipeId,
-        Func<RecipeStatus, bool> moves,
-        RecipeStatus status,
-        string auditAction,
-        string auditSummary,
+        RecipeStatus target,
+        string? reason,
+        RecipeReadinessServiceModel? readiness,
         string actorUserId,
         string? expectedConcurrencyToken,
         CancellationToken cancellationToken)
@@ -1576,50 +1632,232 @@ internal sealed class RecipeBusiness(
         var recipe = loaded.Recipe.Recipe;
 
         // Before anything is touched, so a refused command is answered from the state it was composed
-        // against. Checked even though the state may already be the one asked for: a creator quoting a stale
-        // token has not seen what the recipe looks like now, and telling them "already archived" would hide
-        // a collaborator's edit from them.
+        // against. Checked even before the "already there" answer below: a creator quoting a stale token has
+        // not seen what the recipe looks like now, and telling them "already approved" would hide a
+        // collaborator's work from them.
         if (!RecipeConcurrencyToken.Matches(expectedConcurrencyToken, recipe.RowVersion))
         {
             return Conflict();
         }
 
-        if (!moves(recipe.Status))
+        var from = recipe.Status;
+
+        if (from == target)
         {
-            // Nothing for this command to do. The honest answer is the recipe, and writing an audit entry
-            // for a transition that did not happen would put a lie in the one log that has to be
-            // trustworthy.
+            // A repeat, not a jump. The honest answer is the recipe, and writing a transition row or an audit
+            // entry for a move that did not happen would put a lie in the two records that have to be
+            // trustworthy. This is also what makes a replayed approval safe: no second version, no second
+            // row.
             return OperationResult<RecipeDetailServiceModel>.Success(RecipeDetailMapper.ToDetail(loaded));
         }
 
-        var from = recipe.Status;
+        if (RecipeStatusTransitions.Find(from, target) is not { } rule)
+        {
+            return Invalid(
+                RecipeErrorCodes.TransitionInvalidRequest,
+                $"A recipe cannot go from {from} to {target}.",
+                RecipeStatusTransitions.From(from) is { Count: > 0 } available
+                    ? $"From {from} it can go to {string.Join(", ", available)}."
+                    : $"Nothing can move a recipe out of {from}.");
+        }
+
+        // Role before reason, so a Contributor asking for an approval is told they may not rather than told
+        // to write a sentence first and then told they may not.
+        if (workspace.Role < rule.MinimumRole)
+        {
+            return OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
+                RecipeErrorCodes.TransitionForbidden,
+                $"Moving a recipe from {from} to {target} is a {rule.MinimumRole} action.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (rule.RequiresReason && string.IsNullOrWhiteSpace(reason))
+        {
+            return Invalid(
+                RecipeErrorCodes.TransitionInvalidRequest,
+                $"Moving a recipe from {from} to {target} needs a reason.",
+                "Say why, so the recipe's history explains itself later.");
+        }
+
+        if (rule.RequiresReadinessClear)
+        {
+            if (readiness is null)
+            {
+                // Not reachable through the facade, which evaluates whenever the target needs it. Refused
+                // rather than assumed clear, because the assumption in the other direction is an approval
+                // nothing gated — and a caller that skipped the evaluation is a caller with a bug, not a
+                // caller to be trusted.
+                return Invalid(
+                    RecipeErrorCodes.TransitionInvalidRequest,
+                    $"Moving a recipe from {from} to {target} needs a readiness evaluation.",
+                    "No evaluation was supplied with this transition.");
+            }
+
+            // The evaluation has to be of the recipe as it stands now. One made before a collaborator's edit
+            // says nothing about the content this approval would name, however clear it was — so a token that
+            // no longer matches is a conflict, which tells the approver to go and look.
+            if (readiness.ConcurrencyToken != RecipeConcurrencyToken.From(recipe.RowVersion))
+            {
+                return Conflict();
+            }
+
+            if (readiness.HasBlockers)
+            {
+                return OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
+                    RecipeErrorCodes.TransitionBlockedConflict,
+                    $"This recipe has {readiness.BlockerCount} readiness blocker"
+                        + $"{(readiness.BlockerCount == 1 ? string.Empty : "s")} outstanding.",
+
+                    // The rule ids, so a client can name them rather than send the approver back to the
+                    // readiness screen to work out which. Ids and not details: the details are that screen's
+                    // to render, and repeating them here would be two places for the same sentence.
+                    new Dictionary<string, string[]>
+                    {
+                        ["blockingRules"] =
+                        [
+                            .. readiness.Findings
+                                .Where(finding => finding.Status is RecipeReadinessStatus.Blocker)
+                                .Select(finding => finding.RuleId),
+                        ],
+                    }));
+            }
+        }
 
         // One read of the clock, and the actor from the resolved membership — never a request field. The
         // audit entry's own timestamp comes from the same clock inside the writer.
-        recipe.Status = status;
-        recipe.UpdatedAt = clock.UtcNow;
+        var occurredAt = clock.UtcNow;
+
+        recipe.Status = target;
+        recipe.UpdatedAt = occurredAt;
         recipe.UpdatedByMembershipId = workspace.MembershipId;
 
-        var committed = await dataLayer.TrySetStatusAsync(
+        var transition = new RecipeStatusTransition
+        {
+            Id = Guid.NewGuid(),
+            RecipeId = recipe.Id,
+            FromStatus = from,
+            ToStatus = target,
+
+            // Trimmed, because a reason of three spaces satisfied the check above only by accident, and
+            // nulled when empty so that "no reason" has one spelling in the column.
+            Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+            ActorMembershipId = workspace.MembershipId,
+            OccurredAt = occurredAt,
+            MachineVersion = RecipeStatusTransitions.Version,
+
+            // Set together with the readiness gate or not at all, which is what
+            // CK_RecipeStatusTransitions_Approval_Columns enforces. CreatedVersionId is filled in by the
+            // DataLayer, which is where the version is built.
+            ReadinessRuleSetVersion = rule.RequiresReadinessClear ? readiness!.RuleSetVersion : null,
+            ReadinessEvaluatedVersionId = rule.RequiresReadinessClear ? readiness!.EvaluatedVersionId : null,
+        };
+
+        var version = rule.WritesVersion
+            ? new RecipeVersionFacts(
+                RecipeVersionSource.ReadinessApproval,
+
+                // The only write that mints one. Every other path now records Draft; see CreateAsync.
+                RecipeVersionReadiness.Ready,
+
+                // The approver's own words where they wrote any. A version's reason is creator text and this
+                // is the same kind of sentence, so it travels into the version as well as the transition
+                // rather than being paraphrased for one of them.
+                transition.Reason)
+            : null;
+
+        var committed = await dataLayer.TryTransitionAsync(
             loaded,
+            transition,
+            version,
             new AuditEntry(
                 actorUserId,
-                auditAction,
+                AuditActionFor(target, from),
                 RecipeAuditActions.ResourceType,
                 recipeId.ToString("D"),
                 CorrelationId(),
-                auditSummary,
+                $"Moved the recipe from {from} to {target}.",
 
                 // State names, not content. AuditLog requires these to stay safe to display, and "which
-                // editorial state" is exactly the kind of pointer they are for — no title, no creator text.
+                // editorial state" is exactly the kind of pointer they are for — no title, no creator text,
+                // and in particular not the reason, which is the creator's own words.
                 BeforeReference: from.ToString(),
-                AfterReference: status.ToString()),
+                AfterReference: target.ToString()),
             cancellationToken);
 
         return committed
             ? OperationResult<RecipeDetailServiceModel>.Success(RecipeDetailMapper.ToDetail(loaded))
             : Conflict();
     }
+
+    /// <summary>
+    /// Which audit code a move is written under.
+    /// </summary>
+    /// <remarks>
+    /// The three moves auth.md and REC-006 name get their own codes, and the rest share one. Keyed on the
+    /// target except for the restore, which is the one move whose meaning is in where it came <em>from</em>:
+    /// a recipe arriving at Draft from the archive was unarchived, and one arriving there any other way
+    /// cannot happen, so the pair is read rather than the target alone.
+    /// </remarks>
+    private static string AuditActionFor(RecipeStatus target, RecipeStatus from) => (from, target) switch
+    {
+        (_, RecipeStatus.Archived) => RecipeAuditActions.Archived,
+        (RecipeStatus.Archived, _) => RecipeAuditActions.Unarchived,
+        (_, RecipeStatus.Approved) => RecipeAuditActions.Approved,
+        _ => RecipeAuditActions.StatusTransitioned,
+    };
+
+    /// <summary>
+    /// Builds the reopen an edit to an approved recipe triggers, and applies it to the aggregate.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The status is set here rather than by the caller so that the row and the column cannot be built from
+    /// two different readings of "where is this going". The clock is not read again: the recipe's
+    /// <c>UpdatedAt</c> was set a moment ago by the edit, and a transition timestamped even a tick apart from
+    /// the edit that caused it would read as two events instead of one.
+    /// </para>
+    /// <para>
+    /// <strong>No audit entry, unlike every commanded transition.</strong> The edit seam writes none —
+    /// <see cref="RecipeAuditActions"/> argues that a recipe's version history records an edit with more
+    /// fidelity than an audit summary could, and it has no actor account id to hand because of it. The same
+    /// argument covers this: the transition row records the reopen with its actor, its instant, its two
+    /// states and its reason, which is strictly more than the log would say. Every transition somebody
+    /// <em>asked</em> for is still audited.
+    /// </para>
+    /// </remarks>
+    private static RecipeStatusTransition StageReopen(Recipe recipe)
+    {
+        var from = recipe.Status;
+        var target = RecipeStatusTransitions.ReopenTarget;
+
+        recipe.Status = target;
+
+        return new RecipeStatusTransition
+        {
+            Id = Guid.NewGuid(),
+            RecipeId = recipe.Id,
+            FromStatus = from,
+            ToStatus = target,
+
+            // Nobody typed a reason, so the domain supplies the sentence — the reopen rule requires one, and
+            // this reopen has no author to ask. See RecipeStatusTransitions.EditReopenReason.
+            Reason = RecipeStatusTransitions.EditReopenReason,
+
+            // The membership the edit recorded a moment ago, so the two rows name the same person.
+            ActorMembershipId = recipe.UpdatedByMembershipId,
+            OccurredAt = recipe.UpdatedAt,
+            MachineVersion = RecipeStatusTransitions.Version,
+        };
+    }
+
+    private static OperationResult<RecipeDetailServiceModel> Invalid(
+        string code,
+        string message,
+        string detail) =>
+        OperationResult<RecipeDetailServiceModel>.Failure(new OperationError(
+            code,
+            message,
+            new Dictionary<string, string[]> { ["transition"] = [detail] }));
 
     /// <summary>
     /// The identifier tying an audit entry to the request that produced it.
@@ -2156,6 +2394,22 @@ internal sealed class RecipeBusiness(
         if (patch.Status.IsSubmitted && patch.Status.Value is null)
         {
             errors.Add((nameof(UpdateRecipeViewModel.Status), "A recipe must keep an editorial state."));
+        }
+
+        // Editorial state is a machine since TESTRUN-005, and an edit is not one of its moves: a submitted
+        // status that asks for a different state is refused rather than applied. Submitting the state the
+        // recipe is already in stays legal, because that is a request an edit can honour by doing nothing to
+        // it.
+        //
+        // Here rather than in the validator because it is data-dependent — whether Draft is the state this
+        // recipe is already in is a fact about the recipe, and backend.md keeps those in Business. The
+        // validator's own rule narrows the field to Draft on shape alone, which catches the common client
+        // mistake earlier and with a field error of its own.
+        if (patch.Status.IsSubmitted && patch.Status.Value is { } submittedStatus && submittedStatus != recipe.Status)
+        {
+            errors.Add((
+                nameof(UpdateRecipeViewModel.Status),
+                "Move a recipe between editorial states with a readiness transition, not by editing its status."));
         }
 
         // A total below the longest single phase is incoherent under any amount of overlap. Deliberately not

@@ -62,6 +62,12 @@ internal sealed class IngredientFacade(
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
         business.IsUsableAsync(ingredientId, cancellationToken);
 
+    // Uncached on purpose — see the interface. A cached "already checked" would outlive the review it reports on,
+    // and that is the one wrong answer here that matters.
+    public Task<IReadOnlyList<IngredientAllergenReviewServiceModel>> FindAllergenReviewGapsAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        business.FindAllergenReviewGapsAsync(ingredientIds, cancellationToken);
+
     /// <summary>
     /// One global key for the whole flattened match index, not one per candidate: the catalogue is small
     /// enough to hold in memory entirely, and resolving a batch of candidates against it costs one cache read

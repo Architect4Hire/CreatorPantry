@@ -93,7 +93,7 @@ public sealed class CanonicalCreateRecipeTests
     {
         Assert.NotEqual(
             Fingerprint(new CreateRecipeViewModel { Title = "Cake" }),
-            Fingerprint(new CreateRecipeViewModel { Title = "Cake", Status = SettableRecipeStatusViewModel.Ready }));
+            Fingerprint(new CreateRecipeViewModel { Title = "Cake", Status = SettableRecipeStatusViewModel.Approved }));
     }
 
     [Fact]

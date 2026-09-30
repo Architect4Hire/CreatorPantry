@@ -92,16 +92,16 @@ public sealed class RecipeSearchQueryFactoryTests
     public void The_default_and_an_explicit_archived_filter_scope_cursors_differently() =>
         Assert.NotEqual(
             Created(new RecipeSearchViewModel()).Scope,
-            Created(new RecipeSearchViewModel(Status: "Draft,Ready,Archived")).Scope);
+            Created(new RecipeSearchViewModel(Status: "Draft,Approved,Archived")).Scope);
 
     // ---- Parsing ----
 
     [Fact]
     public void A_comma_separated_list_is_split_and_trimmed()
     {
-        var criteria = Created(new RecipeSearchViewModel(Status: " Draft , Ready "));
+        var criteria = Created(new RecipeSearchViewModel(Status: " Draft , Approved "));
 
-        Assert.Equal([RecipeStatus.Draft, RecipeStatus.Ready], criteria.Filters.Statuses);
+        Assert.Equal([RecipeStatus.Draft, RecipeStatus.Approved], criteria.Filters.Statuses);
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public sealed class RecipeSearchQueryFactoryTests
 
         var message = Assert.Single(error.FieldErrors["status"]);
         Assert.Contains("Published", message, StringComparison.Ordinal);
-        Assert.Contains("Draft, Ready, Archived", message, StringComparison.Ordinal);
+        Assert.Contains("Draft, Approved, Archived", message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -241,8 +241,8 @@ public sealed class RecipeSearchQueryFactoryTests
     public void Reordering_a_list_filter_does_not_change_the_scope()
     {
         Assert.Equal(
-            Created(new RecipeSearchViewModel(Status: "Draft,Ready")).Scope,
-            Created(new RecipeSearchViewModel(Status: "Ready,Draft")).Scope);
+            Created(new RecipeSearchViewModel(Status: "Draft,Approved")).Scope,
+            Created(new RecipeSearchViewModel(Status: "Approved,Draft")).Scope);
     }
 
     /// <summary>
@@ -343,7 +343,7 @@ public sealed class RecipeSearchQueryFactoryTests
 
         Assert.Equal(
             RecipeErrorCodes.CursorInvalidRequest,
-            Refused(model with { Cursor = cursor, Status = "Ready" }).Code);
+            Refused(model with { Cursor = cursor, Status = "Approved" }).Code);
     }
 
     /// <summary>

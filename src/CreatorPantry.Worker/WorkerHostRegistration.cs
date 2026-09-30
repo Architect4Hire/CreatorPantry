@@ -78,7 +78,7 @@ public static class WorkerHostRegistration
         builder.Services.AddMeasurementModule();
         builder.Services.AddVocabularyModule();
         builder.Services.AddIngredientModule();
-        builder.Services.AddRecipesModule();
+        builder.Services.AddRecipesModule(builder.Configuration);
         builder.Services.AddAudit();
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddAiOperationWorker();

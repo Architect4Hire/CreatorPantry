@@ -9,8 +9,22 @@
 // are PascalCase member names on the wire, never integers. Decoding is a membership check against
 // the literal union below, not a number lookup.
 
-export type RecipeStatus = 'Draft' | 'Ready' | 'Archived';
-export type SettableRecipeStatus = 'Draft' | 'Ready' | 'Archived';
+/**
+ * Mirrors RecipeStatus: where a recipe sits in the editorial machine (TESTRUN-005).
+ *
+ * `Ready` was renamed `Approved` when the machine landed, and the three middle states are new. Every one of
+ * them is reached only through a readiness transition, never by an edit.
+ */
+export type RecipeStatus = 'Draft' | 'InDevelopment' | 'Testing' | 'ReadyForReview' | 'Approved' | 'Archived';
+
+/**
+ * Mirrors SettableRecipeStatusViewModel: what a create or an edit may carry.
+ *
+ * All three are in the schema and only `Draft` is accepted — the server refuses the other two with a field
+ * error pointing at the transition route. The union keeps them so that a request naming one gets that error
+ * rather than an unreadable-body 400.
+ */
+export type SettableRecipeStatus = 'Draft' | 'Approved' | 'Archived';
 export type RecipeVersionSource = 'CreatorEdit' | 'AiProposalAccepted' | 'Import' | 'Restore' | 'Duplicate';
 export type RecipeVersionReadiness = 'Draft' | 'Ready';
 export type IngredientMatchStatus = 'NotAttempted' | 'Matched' | 'NoMatch' | 'Ambiguous';
@@ -19,7 +33,14 @@ export type IngredientScaling = 'Proportional' | 'Fixed' | 'ReviewRequired';
 export type IngredientDisplayTextSource = 'Creator' | 'Composed';
 export type RecipeAssetRole = 'Hero' | 'Gallery' | 'Process';
 
-const RECIPE_STATUS_VALUES: ReadonlySet<string> = new Set<RecipeStatus>(['Draft', 'Ready', 'Archived']);
+const RECIPE_STATUS_VALUES: ReadonlySet<string> = new Set<RecipeStatus>([
+  'Draft',
+  'InDevelopment',
+  'Testing',
+  'ReadyForReview',
+  'Approved',
+  'Archived',
+]);
 export const RECIPE_VERSION_SOURCE_VALUES: ReadonlySet<string> = new Set<RecipeVersionSource>([
   'CreatorEdit',
   'AiProposalAccepted',

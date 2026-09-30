@@ -339,7 +339,6 @@ describe('RecipeEditorComponent', () => {
       const [workspaceSlug, request] = recipeService.createRecipe.calls.mostRecent().args;
       expect(workspaceSlug).toBe('cozy-fall');
       expect(request.title).toBe('Weeknight Chili');
-      expect(request.status).toBe('Draft');
 
       const router = TestBed.inject(Router);
       expect(router.url).toBe('/cozy-fall/recipes/new-id');
@@ -441,7 +440,6 @@ describe('RecipeEditorComponent', () => {
       expect(recipeId).toBe('r1');
       expect(request.expectedConcurrencyToken).toBe('AAAAAAAAB9E=');
       expect(request.title).toEqual({ submitted: true, value: 'New Chili' });
-      expect(request.status).toEqual({ submitted: true, value: 'Draft' });
 
       // Across every live region on the surface, not the first one: the restore notice keeps an empty
       // `role="status"` region in the DOM at all times so that its own text can be announced when it lands.
@@ -3456,9 +3454,6 @@ describe('RecipeEditorComponent', () => {
       expect(component.canSave()).toBeFalse();
       expect(saveButton(harness.routeNativeElement!)?.disabled).toBeTrue();
 
-      // NgModel applies a disabled binding on its own microtask, so the select settles a tick after the rest.
-      await waitUntil(() => harness.routeNativeElement?.querySelector<HTMLSelectElement>('#recipe-status')?.disabled === true);
-      expect(harness.routeNativeElement?.querySelector<HTMLSelectElement>('#recipe-status')?.disabled).toBeTrue();
       expect(component.notice()?.text).toContain('Nothing was deleted');
     });
 
@@ -3482,11 +3477,14 @@ describe('RecipeEditorComponent', () => {
       expect(bringBackButton(harness.routeNativeElement!)).toBeUndefined();
     });
 
-    it('never holds Archived in the status a save would send', async () => {
-      const { harness, component } = await loaded(ARCHIVED);
+    // The form no longer carries a status at all (TESTRUN-005), so there is nothing here that could hold
+    // Archived: an edit never sends one, and editorial state moves through a readiness transition. What the
+    // form still reads off the recipe is whether it is archived, which the tests above assert through the
+    // banner, the disabled save and the absent archive button.
+    it('has no status control for an edit to send', async () => {
+      const { harness } = await loaded(ARCHIVED);
 
-      expect(component.status()).toBe('Draft');
-      expect(harness.routeNativeElement?.querySelector<HTMLSelectElement>('#recipe-status')?.value).toBe('Draft');
+      expect(harness.routeNativeElement?.querySelector('#recipe-status')).toBeNull();
     });
 
     it('says the recipe comes back as a Draft before bringing it back', async () => {

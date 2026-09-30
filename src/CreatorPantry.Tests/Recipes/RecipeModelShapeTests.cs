@@ -32,11 +32,22 @@ public sealed class RecipeModelShapeTests : IDisposable
     /// is a root because a creator's tag vocabulary is listed, renamed and retired without reference to any
     /// recipe. <see cref="RecipeTestRun"/> is a root because a test is evidence in its own right: it is
     /// listed, filtered and read without loading the recipe, and it is pinned to an immutable version rather
-    /// than owned by one. Adding a name here is a claim that something is independently owned — it is the one
-    /// place that claim is written down, so it should be argued rather than appended.
+    /// than owned by one. <see cref="RecipeStatusTransition"/> is a root by the same argument as
+    /// <see cref="RecipeVersion"/>, and deliberately not by a weaker one: it is immutable, it is the record of
+    /// a decision that has to outlive every edit made after it, and it is read as a history in its own right
+    /// rather than loaded with the recipe. Cascading it from the recipe would make a recipe's editorial past
+    /// deletable by deleting the recipe, which is the thing the version table's own <c>Restrict</c> exists to
+    /// prevent. Adding a name here is a claim that something is independently owned — it is the one place that
+    /// claim is written down, so it should be argued rather than appended.
     /// </remarks>
     private static readonly Type[] AggregateRoots =
-        [typeof(Recipe), typeof(RecipeVersion), typeof(WorkspaceTag), typeof(RecipeTestRun)];
+    [
+        typeof(Recipe),
+        typeof(RecipeVersion),
+        typeof(WorkspaceTag),
+        typeof(RecipeTestRun),
+        typeof(RecipeStatusTransition),
+    ];
 
     /// <summary>Every concrete entity class declared in the recipe module's entity namespace.</summary>
     public static TheoryData<string> RecipeEntityNames()
@@ -44,7 +55,7 @@ public sealed class RecipeModelShapeTests : IDisposable
         var names = RecipeEntityTypes().Select(type => type.FullName!).ToList();
 
         // Without this the theory passes vacuously if the namespace is ever renamed.
-        Assert.Equal(16, names.Count);
+        Assert.Equal(17, names.Count);
 
         return [.. names];
     }

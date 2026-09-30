@@ -32,4 +32,26 @@ public static class RecipeAuditActions
 
     /// <summary>A recipe was brought back from the archive.</summary>
     public const string Unarchived = "recipe.unarchived";
+
+    /// <summary>
+    /// A recipe was moved to <see cref="RecipeStatus.Approved"/> (TESTRUN-005).
+    /// </summary>
+    /// <remarks>
+    /// Its own code rather than folded into <see cref="StatusTransitioned"/>, because auth.md names approval
+    /// among the operations that must be separately auditable: "who approved this recipe, and when" is a
+    /// question somebody asks on its own, and answering it by filtering a generic transition code on a
+    /// target state would mean the audit log knows less than the transition table beside it.
+    /// </remarks>
+    public const string Approved = "recipe.approved";
+
+    /// <summary>
+    /// A recipe moved between editorial states by any other transition (TESTRUN-005).
+    /// </summary>
+    /// <remarks>
+    /// One code for the forward moves and the reopens together. They are the ordinary progress of a recipe
+    /// through the workflow, and the transition record itself carries which move it was — a code per pair
+    /// would be a dozen append-only constants whose only reader is a filter that could as easily read the
+    /// row.
+    /// </remarks>
+    public const string StatusTransitioned = "recipe.status_transitioned";
 }

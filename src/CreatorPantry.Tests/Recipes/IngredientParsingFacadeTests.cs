@@ -64,6 +64,10 @@ public sealed class IngredientParsingFacadeTests
 
         public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<IReadOnlyList<IngredientAllergenReviewServiceModel>> FindAllergenReviewGapsAsync(
+            IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class CancellationCheckingMeasurementFacade : IMeasurementFacade

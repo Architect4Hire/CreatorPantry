@@ -2,7 +2,9 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
+using CreatorPantry.Domain.Modules.Ingredients.Managers;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes;
@@ -58,6 +60,10 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
     public static Guid GramId { get; } = Guid.NewGuid();
 
     public static Guid FlourId { get; } = Guid.NewGuid();
+
+    public static Guid AllergenId { get; } = Guid.NewGuid();
+
+    public static Guid ReferenceSourceId { get; } = Guid.NewGuid();
 
     public static Guid CuisineId { get; } = Guid.NewGuid();
 
@@ -131,6 +137,9 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
         new ServiceCollection()
             .AddTenancy()
             .AddRecipesModule()
+            // The readiness seam asks the Ingredients module how far the allergen records have got, so its
+            // repository and business have to be resolvable here. Additive for every other test in this folder.
+            .AddIngredientModule()
 
             // The recipe DataLayer records audit entries for lifecycle commands, and the writer needs a clock.
             // Both are shared-kernel services the module depends on rather than registers, exactly as it
@@ -281,6 +290,25 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
             new Cuisine { Id = OtherCuisineId, Code = "thai", DisplayName = "Thai" });
 
         db.Courses.Add(new Course { Id = CourseId, Code = "dessert", DisplayName = "Dessert" });
+
+        // An allergen and a source to hang an IngredientAllergenTrait from, for the readiness rule that reports how
+        // far the allergen records have got. Both are global reference data with no workspace of their own.
+        db.Allergens.Add(new Allergen
+        {
+            Id = AllergenId,
+            Code = "gluten",
+            DisplayName = "Gluten",
+            Description = "Cereals containing gluten.",
+        });
+
+        db.ReferenceSources.Add(new ReferenceSource
+        {
+            Id = ReferenceSourceId,
+            Code = "test-list",
+            Name = "Test regulatory list",
+            Kind = ReferenceSourceKind.OfficialDatabase,
+            Citation = "Seeded for tests.",
+        });
 
         db.WorkspaceTags.AddRange(
             // The same tag name in both workspaces, so isolation cannot pass by the two being distinguishable.
