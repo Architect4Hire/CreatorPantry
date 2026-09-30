@@ -72,6 +72,12 @@ public static class RecipeJsonLdCodes
     public const string TimesMissing = "recipe_json_ld_times_missing";
     public const string YieldMissing = "recipe_json_ld_yield_missing";
     public const string EditorialNotCurrent = "recipe_json_ld_editorial_not_current";
+
+    /// <summary>The description is the accepted SEO revision's, not the creator's own.</summary>
+    public const string DescriptionFromSeo = "recipe_json_ld_description_from_seo";
+
+    /// <summary>The SEO description says something the recipe does not support.</summary>
+    public const string DescriptionUnsupportedClaim = "recipe_json_ld_description_unsupported_claim";
     public const string CuisineUnresolved = "recipe_json_ld_cuisine_unresolved";
     public const string CourseUnresolved = "recipe_json_ld_course_unresolved";
 }

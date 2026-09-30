@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 
 namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 
@@ -88,7 +89,26 @@ public static class RecipeJsonLdGenerator
             editorial = null;
         }
 
-        var description = Clean(editorial?.MetaDescription) ?? Clean(header.Description);
+        var seoDescription = Clean(editorial?.MetaDescription);
+        var description = seoDescription ?? Clean(header.Description);
+
+        if (seoDescription is not null)
+        {
+            // Generated copy replaces the creator's own description here, and structured data carries no
+            // "(editorial)" label the way Markdown and PDF do, so the provenance is reported instead.
+            warnings.Add(new(RecipeJsonLdCodes.DescriptionFromSeo,
+                "The description comes from the accepted SEO revision, not from the recipe's own description."));
+
+            // The scan that ran when the copy was generated is not the last word: the creator may have edited
+            // it since, and the recipe may have changed. Reported, never rewritten or dropped.
+            var unsupported = AiEditorialClaimScanner.ScanText(seoDescription, AiEditorialSourceFacts.From(doc));
+            if (unsupported.Count > 0)
+            {
+                warnings.Add(new(RecipeJsonLdCodes.DescriptionUnsupportedClaim,
+                    $"The SEO description makes {unsupported.Count} claim(s) the recipe does not support: {unsupported[0].Message}"));
+            }
+        }
+
         var prep = Minutes(header.PrepTimeMinutes);
         var cook = Minutes(header.CookTimeMinutes);
         var total = Minutes(header.TotalTimeMinutes);

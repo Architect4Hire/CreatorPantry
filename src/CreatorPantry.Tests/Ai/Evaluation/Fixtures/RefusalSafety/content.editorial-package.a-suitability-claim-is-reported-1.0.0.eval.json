@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-suitability-claim-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "'Suitable for vegans' and 'contains no gluten' are dietary claims the creator did not make.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Suitable for vegans, and it contains no gluten.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "A simple loaf.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

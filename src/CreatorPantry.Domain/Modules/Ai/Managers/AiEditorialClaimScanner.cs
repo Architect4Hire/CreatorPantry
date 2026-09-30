@@ -19,8 +19,8 @@ public sealed record AiEditorialFinding(
 /// </para>
 /// <para>
 /// <strong>Four kinds</strong>, each a deterministic check rather than a judgement: a figure the recipe does not
-/// state — checked in context, so a duration needs the same duration in the same unit and a temperature a
-/// temperature; a safety, allergen, dietary or health claim the creator did not write; storage or reheating
+/// state — checked in context, so a duration needs the same duration in the same unit, a temperature the same
+/// temperature in the same scale, and a measured amount the same amount in the same unit; a safety, allergen, dietary or health claim the creator did not write; storage or reheating
 /// guidance the recipe's own storage notes do not give; and an experience or provenance claim ("my
 /// grandmother", "tested five times") the creator's own prose does not make.
 /// </para>
@@ -48,8 +48,12 @@ public static partial class AiEditorialClaimScanner
     /// <summary>The sentence a storage section uses, and only that, when the recipe gives no storage guidance to repeat.</summary>
     public const string NoStorageGuidance = "no storage guidance supplied";
 
+    // A closed list, and a net rather than a proof (see the remarks). It covers four shapes: a dietary or allergen
+    // label (including plurals, "suitable for vegans" and "no/without <allergen>"); a health or safety
+    // assurance; method advice that touches food safety (raw eggs or batter, rinsing poultry, "safe to taste",
+    // leaving food out); and a condition the recipe is presented as suitable for.
     [GeneratedRegex(
-        @"\b(?:(?:gluten|dairy|nut|peanut|tree[- ]nut|egg|soy|lactose|sugar|wheat|sesame|shellfish|fish|allergen|allergy)[- ]free|gf|vegan|vegetarian|plant[- ]based|pescatarian|keto|paleo|whole30|halal|kosher|diabetic[- ]friendly|allergy[- ]friendly|allergen[- ]friendly|low[- ](?:carb|calorie|fat|sodium|sugar)|safe (?:to eat|to serve|for)|(?:food|kid|toddler|baby|pregnancy)[- ]safe|perfectly safe|guarantee[ds]?|100% safe|kills? (?:bacteria|germs)|healthy|healthier|heart[- ]healthy|nutritious|anti[- ]inflammatory|boosts? (?:your )?immun\w+|good for (?:your )?(?:gut|digestion|heart)|superfood|detox\w*|cures?|cooked through|won't spoil)\b",
+        @"\b(?:(?:gluten|dairy|nut|peanut|tree[- ]nut|egg|soy|lactose|sugar|wheat|sesame|shellfish|fish|allergen|allergy)[- ]free|gf|vegans?|vegetarians?|plant[- ]based|pescatarians?|keto|paleo|whole30|halal|kosher|celiacs?|coeliacs?|diabetics?|diabetic[- ]friendly|diabetes|safe (?:to eat|to serve|for)|allergy[- ]friendly|allergen[- ]friendly|allergen[- ]safe|low[- ](?:carb|calorie|fat|sodium|sugar|glycemic|gi)|glycemic|(?:suitable|appropriate|ideal|safe|okay|ok|fine) for (?:vegans?|vegetarians?|diabetics?|celiacs?|coeliacs?|kids|children|toddlers|babies|infants|pregnan\w*|people with|those with|anyone with)|(?:safe|okay|ok|fine) to (?:eat|serve|taste|sample|lick|consume)|(?:food|kid|toddler|baby|pregnancy)[- ]safe|perfectly safe|guarantee[ds]?|100% safe|kills? (?:bacteria|germs)|healthy|healthier|heart[- ]healthy|nutritious|anti[- ]inflammatory|boosts? (?:your )?immun\w+|good for (?:your )?(?:gut|digestion|heart)|superfood|detox\w*|cures?|cooked through|won't spoil|(?:no|without|free of|contains no|does not contain|doesn't contain) (?:added )?(?:gluten|dairy|nuts?|peanuts?|eggs?|soy|lactose|sugar|wheat|sesame|shellfish|fish|allergens?)|raw (?:eggs?|batter|dough|flour|chicken|poultry|meat|pork|beef|fish)|rinse (?:the |your )?(?:chicken|poultry|turkey|meat|pork|beef)|(?:can|may|will|could) (?:safely )?(?:stay|sit) out|medium[- ]rare|pregnan\w*|botulism|salmonella|home[- ]canning|canning|ferment\w*)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SafetyClaim();
 
@@ -138,7 +142,8 @@ public static partial class AiEditorialClaimScanner
             var supported = token.Kind switch
             {
                 AiEditorialTokenKind.Time => times.Contains(token.Pair),
-                AiEditorialTokenKind.Temperature => temperatures.Contains(token.Number),
+                AiEditorialTokenKind.Temperature => AiEditorialProse.TemperatureSupported(temperatures, token.Number, token.Pair),
+                AiEditorialTokenKind.Measure => source.Measures.Contains(token.Pair),
                 _ => source.Numbers.Contains(token.Number),
             };
 
@@ -150,8 +155,9 @@ public static partial class AiEditorialClaimScanner
             var what = token.Kind switch
             {
                 AiEditorialTokenKind.Time => "a duration the recipe does not state in that unit",
-                AiEditorialTokenKind.Temperature => "a temperature the recipe does not state",
-                _ => "a quantity, time, temperature or yield the recipe does not state",
+                AiEditorialTokenKind.Temperature => "a temperature the recipe does not state in that scale",
+                AiEditorialTokenKind.Measure => "an amount the recipe does not state in that unit",
+                _ => "a count, time, temperature or yield the recipe does not state",
             };
 
             findings.Add(new AiEditorialFinding(

@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-temperature-in-the-other-scale-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "350\u00b0F in the recipe does not support 350\u00b0C: the scale is part of the claim, and a swapped scale is a safety-critical change.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Bake at 350\\u00b0C until golden.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Mix the dough. Bake at 350\u00b0F until golden.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

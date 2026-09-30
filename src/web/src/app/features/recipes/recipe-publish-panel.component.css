@@ -1,0 +1,121 @@
+/*
+ * Layout only. Every colour is a semantic --cp-* token, and status is always carried by words as well —
+ * a pill's tone is the quieter half of something the label already says.
+ */
+
+:host {
+  display: block;
+}
+
+/* `minmax(0, 1fr)`: an auto track's floor is its content's max-content width, so one long line would hold
+   the whole panel wider than the card and push the page sideways. */
+cp-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-5);
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+}
+
+.heading {
+  display: grid;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  line-height: var(--cp-leading-tight);
+}
+
+.intro,
+.muted {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.block {
+  display: grid;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.block-heading {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+.source,
+.copy-head,
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.copy-list,
+.download-list {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.copy-row,
+.download-row {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  min-width: 0;
+}
+
+.download-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.download-text {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.banner {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  overflow-wrap: anywhere;
+}
+
+.banner--warning {
+  border-color: var(--cp-orange);
+  background: var(--cp-orange-soft);
+}
+
+.banner--error {
+  border-color: var(--cp-danger);
+  background: var(--cp-danger-soft);
+}
+
+@media (max-width: 40rem) {
+  .download-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

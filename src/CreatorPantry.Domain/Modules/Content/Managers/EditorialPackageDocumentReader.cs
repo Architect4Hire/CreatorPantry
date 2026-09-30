@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 
 namespace CreatorPantry.Domain.Modules.Content.Managers;
 
@@ -48,7 +49,7 @@ public static class EditorialPackageDocumentReader
                     && String(item, "culinaryNote") is { } note
                         ? new AcceptedEditorialSubstitution(lineId, suggestion, note)
                         : null),
-                Text(sections, "storageReheating"),
+                WithoutSentinel(Text(sections, "storageReheating")),
                 Items(sections, "faq", item =>
                     item.ValueKind == JsonValueKind.Object
                     && String(item, "question") is { } question
@@ -63,6 +64,16 @@ public static class EditorialPackageDocumentReader
             return empty;
         }
     }
+
+    /// <summary>
+    /// The storage section's answer when the recipe gave no storage guidance is a fixed marker sentence, not
+    /// advice. Read as no section, so an export never prints a machine marker as if it were guidance.
+    /// </summary>
+    private static string? WithoutSentinel(string? text) =>
+        text is not null
+        && string.Equals(text.Trim().TrimEnd('.', '!', ' '), AiEditorialClaimScanner.NoStorageGuidance, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : text;
 
     private static string? Text(JsonElement sections, string name) =>
         sections.TryGetProperty(name, out var element) ? TextOf(element) : null;

@@ -1,0 +1,147 @@
+<cp-card>
+  <header class="header">
+    <div class="heading">
+      <h2 class="title">Publish</h2>
+      <p class="intro">
+        Download this recipe for the places it goes. Each file is made on the server from the version shown
+        here, using your own wording; nothing is changed in the recipe.
+      </p>
+    </div>
+
+    <button cpButton variant="secondary" size="sm" type="button" [disabled]="state().status === 'loading'" (click)="load()">
+      @if (state().status === 'loading') {
+        Checking…
+      } @else {
+        Check again
+      }
+    </button>
+  </header>
+
+  <!-- A polite announcement when a read finishes; visually hidden, so a reload is never silent. -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  @switch (state().status) {
+    @case ('loading') {
+      <p class="muted" role="status">Checking what can be exported…</p>
+    }
+
+    @case ('not_found') {
+      <cp-empty-state
+        title="This recipe could not be found"
+        description="It may have been removed, or you may no longer have access to it."
+        variant="no-results"
+      />
+    }
+
+    @case ('error') {
+      <p class="banner banner--error" role="alert">Couldn't check what can be exported.</p>
+      <div>
+        <button cpButton variant="secondary" type="button" (click)="load()">Try again</button>
+      </div>
+    }
+
+    @case ('ready') {
+      @if (summary(); as current) {
+        <section class="block" aria-labelledby="publish-source-heading">
+          <h3 id="publish-source-heading" class="block-heading">Source</h3>
+          <div class="source">
+            <cp-status-pill tone="neutral">Version {{ current.versionNumber }}</cp-status-pill>
+            @if (current.exportable) {
+              <cp-status-pill tone="success">Ready to export</cp-status-pill>
+            } @else {
+              <cp-status-pill tone="warning">Not approved</cp-status-pill>
+            }
+          </div>
+          @if (!current.exportable) {
+            <p class="banner banner--warning" role="status">{{ notExportableMessage() }}</p>
+          }
+        </section>
+
+        <section class="block" aria-labelledby="publish-copy-heading">
+          <h3 id="publish-copy-heading" class="block-heading">Accepted copy</h3>
+          <ul class="copy-list">
+            @for (row of copyRows(); track row.key) {
+              <li class="copy-row">
+                <div class="copy-head">
+                  <strong>{{ row.label }}</strong>
+                  @if (row.copy) {
+                    <span class="muted">Revision {{ row.copy.revisionNumber }}</span>
+                  }
+                  <cp-status-pill [tone]="copyTone(row.copy)">{{ copyStatusLabel(row.copy) }}</cp-status-pill>
+                </div>
+                <p class="muted">{{ copyDetail(row) }}</p>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <cp-form-section
+          heading="Layout"
+          intro="These choices shape Markdown and PDF. Structured data has none."
+        >
+          <cp-field label="Template" forId="publish-template">
+            <select id="publish-template" name="template" [ngModel]="template()" (ngModelChange)="template.set($event)">
+              @for (option of templateOptions; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </cp-field>
+
+          <cp-field
+            label="Units"
+            forId="publish-units"
+            hint="A converted amount is added beside yours. Your own line is never replaced."
+          >
+            <select id="publish-units" name="units" [ngModel]="units()" (ngModelChange)="units.set($event)">
+              @for (option of unitsOptions; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </cp-field>
+
+          <cp-field label="PDF page size" forId="publish-page-size">
+            <select id="publish-page-size" name="pageSize" [ngModel]="pageSize()" (ngModelChange)="pageSize.set($event)">
+              @for (option of pageSizeOptions; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </cp-field>
+        </cp-form-section>
+
+        <section class="block" aria-labelledby="publish-downloads-heading">
+          <h3 id="publish-downloads-heading" class="block-heading">Downloads</h3>
+
+          @if (linksUnavailable()) {
+            <p class="banner banner--error" role="alert">
+              Downloads aren't available right now. Reload the page and try again.
+            </p>
+          }
+
+          <ul class="download-list">
+            @for (row of downloads(); track row.format) {
+              <li class="download-row">
+                <div class="download-text">
+                  <strong>{{ row.title }}</strong>
+                  <span class="muted">{{ row.description }}</span>
+                </div>
+
+                <div class="download-actions">
+                  @if (row.href) {
+                    @if (row.previewable) {
+                      <a cpButton variant="ghost" size="sm" [href]="row.href" target="_blank" rel="noopener noreferrer">
+                        Preview<span class="cp-sr-only"> {{ row.title }} in a new tab</span>
+                      </a>
+                    }
+                    <a cpButton variant="primary" size="sm" [href]="row.href" download>{{ row.actionLabel }}</a>
+                  } @else {
+                    <button cpButton variant="primary" size="sm" type="button" disabled>{{ row.actionLabel }}</button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+</cp-card>

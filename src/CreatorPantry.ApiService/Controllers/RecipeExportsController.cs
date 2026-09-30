@@ -3,6 +3,7 @@ using System.Text;
 using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,8 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
     public const string JsonLdContentType = "application/ld+json";
 
     public const string MarkdownContentType = "text/markdown";
+
+    public const string PdfContentType = "application/pdf";
 
     public const string WarningsHeader = "Cp-Export-Warnings";
 
@@ -68,7 +71,7 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
         var result = await exports.GetJsonLdAsync(recipeId, query, cancellationToken);
         if (!result.Succeeded)
         {
-            return this.ProblemFor(result.Error!);
+            return ExportProblem(result.Error!);
         }
 
         var export = result.Value!;
@@ -129,7 +132,7 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
         var result = await exports.GetMarkdownAsync(recipeId, query, cancellationToken);
         if (!result.Succeeded)
         {
-            return this.ProblemFor(result.Error!);
+            return ExportProblem(result.Error!);
         }
 
         var export = result.Value!;
@@ -150,11 +153,128 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
         return Content(export.Markdown, new MediaTypeHeaderValue(MarkdownContentType) { Encoding = Encoding.UTF8 }.ToString());
     }
 
+    /// <summary>Renders one approved version of a recipe as a PDF file.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">
+    /// The recipe to export. Constrained to a Guid, so a malformed id answers 404 at routing — the same status
+    /// as an unknown recipe and as one belonging to another workspace.
+    /// </param>
+    /// <param name="query">Which version, template, unit presentation, accepted editorial revision and page size. Carries no workspace, recipe or image.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only (RCPUB-004): a projection of the creator's own stored fields, never a stored document. The
+    /// body is the PDF and nothing else, with `Content-Type: application/pdf`, offered as a download:
+    /// `Content-Disposition: attachment` with a deterministic ASCII name, the recipe's title as a slug plus
+    /// `-v{version}.pdf`, that carries no id, workspace or path. The page is real text, tagged for accessibility,
+    /// not an image of one. Omitting `versionNumber` exports the recipe's current version; it is never replaced
+    /// by an older approved one. Only an approved version, or one marked ready, is exported: any other answers
+    /// `409 recipes.pdfExport.notApproved.conflict`. `units`, `template` and `editorialRevision` behave as they
+    /// do for the Markdown export, and `pageSize` is `a4` (the default) or `letter`. A `versionNumber` the recipe
+    /// lacks answers `404 recipes.version.not_found` and an `editorialRevision` that is not the accepted
+    /// revision answers `404 content.revision.not_found`, each naming the parameter. A recipe that cannot be
+    /// drawn answers `422 recipes.pdfExport.incomplete.unprocessable` whose `missingRequired` lists why, and a
+    /// renderer fault answers `500 recipes.pdfExport.render.failed` with no detail. No image is included yet:
+    /// none is authorized until media is built, and nothing is ever fetched from a URL. The response is private
+    /// and must be revalidated: `ETag` and `If-None-Match` are supported over the inputs the document is
+    /// rendered from, so a match answers 304 although the PDF's bytes are not reproducible.
+    /// </remarks>
+    [HttpGet("pdf")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<byte[]>(StatusCodes.Status200OK, PdfContentType)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status500InternalServerError, "application/problem+json")]
+    public async Task<IActionResult> GetPdf(
+        string workspaceSlug,
+        Guid recipeId,
+        [FromQuery] RecipePdfExportViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await exports.GetPdfAsync(recipeId, query, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return ExportProblem(result.Error!);
+        }
+
+        var export = result.Value!;
+
+        // ASCII a-z, 0-9 and hyphens by construction, as for the Markdown export.
+        Response.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+        {
+            FileName = export.FileName,
+        }.ToString();
+        Response.Headers.XContentTypeOptions = "nosniff";
+
+        if (ApplyValidatorTag(export.ContentTag, export.Warnings.Select(warning => warning.Code)))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        return File(export.Pdf, PdfContentType);
+    }
+
+    /// <summary>Says what an export of a recipe's current version would be built from.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">
+    /// The recipe. Constrained to a Guid, so a malformed id answers 404 at routing — the same status as an
+    /// unknown recipe and as one belonging to another workspace.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only and content-free (RCPUB-002 to 004): the current version number, whether it may be exported
+    /// (approved, or marked ready) and, when it may not, a stable reason code; and for editorial and SEO copy
+    /// the accepted revision number and whether it is current for that version. A copy that is not current is
+    /// left out of an export, so this is how a client learns that before downloading. `editorial` and `seo`
+    /// are null when nothing is accepted. It carries no copy text, no path and no storage or provider
+    /// address; download links are built from the export routes alone. The response is private and must be
+    /// revalidated: it is never served from an earlier answer.
+    /// </remarks>
+    [HttpGet("summary")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeExportSummaryServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetSummary(string workspaceSlug, Guid recipeId, CancellationToken cancellationToken)
+    {
+        var result = await exports.GetSummaryAsync(recipeId, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return ExportProblem(result.Error!);
+        }
+
+        Response.Headers.CacheControl = "private, no-cache";
+        Response.Headers.Vary = HeaderNames.Cookie;
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// A refusal, marked so nothing keeps it: a 409 or 422 describes this recipe as it stands now, and a 422 lists
+    /// which of its facts are missing, so a shared cache or a stale client copy must never replay it.
+    /// </summary>
+    private ObjectResult ExportProblem(OperationError error)
+    {
+        Response.Headers.CacheControl = "private, no-store";
+        Response.Headers.Vary = HeaderNames.Cookie;
+        return this.ProblemFor(error);
+    }
+
     /// <summary>
     /// Sets the headers every export carries and answers whether the caller's validator already matches.
     /// </summary>
     /// <returns><c>true</c> when the request's <c>If-None-Match</c> matches, so the body must not be sent.</returns>
-    private bool ApplyValidators(string body, IEnumerable<string> warningCodes)
+    private bool ApplyValidators(string body, IEnumerable<string> warningCodes) =>
+        ApplyValidatorTag(body, warningCodes);
+
+    /// <summary>The same, for a document whose validator comes from its inputs rather than from its bytes.</summary>
+    private bool ApplyValidatorTag(string material, IEnumerable<string> warningCodes)
     {
         var warnings = string.Join(", ", warningCodes);
 
@@ -167,9 +287,9 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
             Response.Headers[WarningsHeader] = warnings;
         }
 
-        // Over the warnings as well as the body: the same content can be produced with and without a warning.
+        // Over the warnings as well as the content: the same content can be produced with and without a warning.
         var etag = new EntityTagHeaderValue(
-            "\"" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body + "\n" + warnings)))[..32] + "\"");
+            "\"" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material + "\n" + warnings)))[..32] + "\"");
         Response.Headers.ETag = etag.ToString();
 
         return Request.GetTypedHeaders().IfNoneMatch.Any(candidate =>

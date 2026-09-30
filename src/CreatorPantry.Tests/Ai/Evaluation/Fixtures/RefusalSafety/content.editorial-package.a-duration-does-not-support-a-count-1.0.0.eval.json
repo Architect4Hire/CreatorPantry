@@ -1,0 +1,24 @@
+{
+  "id": "content.editorial-package.a-duration-does-not-support-a-count",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "24 hours of chilling in the recipe does not support 'makes 24 cookies': a duration is not a yield.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Makes 24 cookies.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "24 hours"
+      ],
+      "freeText": "Chill the dough for 24 hours.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

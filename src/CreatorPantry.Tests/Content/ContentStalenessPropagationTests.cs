@@ -204,6 +204,84 @@ public sealed class ContentStalenessPropagationTests(SqlServerRecipeFixture fixt
     }
 
     [Fact]
+    public async Task A_restore_writes_a_newer_version_so_a_derivative_accepted_for_the_old_one_needs_review()
+    {
+        var recipe = await CreateRecipeAsync(WsA);
+        var content = await SeedAcceptedAsync(WsA, recipe);
+        await EditAsync(WsA, recipe.RecipeId);
+
+        await using (var scope = fixture.ScopeFor(WsA))
+        {
+            var dataLayer = scope.ServiceProvider.GetRequiredService<IRecipeDataLayer>();
+            var loaded = (await dataLayer.GetForUpdateAsync(recipe.RecipeId, Ct))!;
+            var outcome = await dataLayer.RestoreAsync(
+                loaded,
+                new RecipeVersionFacts(
+                    RecipeVersionSource.Restore, RecipeVersionReadiness.Draft, "Back to the first.", RestoredFromVersionId: recipe.VersionId),
+                loaded.Tags,
+                Ct);
+            Assert.False(outcome.Conflicted);
+        }
+
+        await DispatchAsync();
+
+        // Restoring the very version the copy was accepted for still writes a newer version number, so the copy
+        // is stale: what the recipe says now is a later state, even if its words match the earlier one.
+        await using var check = fixture.ScopeFor(WsA);
+        var proposal = await SqlServerRecipeFixture.Db(check).ContentProposals.SingleAsync(p => p.Id == content.ProposalId, Ct);
+
+        Assert.Equal(ContentProposalStatus.NeedsReview, proposal.Status);
+        Assert.Equal(ContentStaleReasons.RecipeChanged, proposal.StaleReasons);
+        Assert.Equal(content.RevisionId, proposal.AcceptedRevisionId);
+    }
+
+    [Fact]
+    public async Task An_approval_writes_a_newer_version_so_a_derivative_accepted_before_it_needs_review()
+    {
+        var recipe = await CreateRecipeAsync(WsA);
+        var content = await SeedAcceptedAsync(WsA, recipe);
+
+        await using (var scope = fixture.ScopeFor(WsA))
+        {
+            var dataLayer = scope.ServiceProvider.GetRequiredService<IRecipeDataLayer>();
+            var loaded = (await dataLayer.GetForUpdateAsync(recipe.RecipeId, Ct))!;
+            loaded.Recipe.Recipe.Status = RecipeStatus.Approved;
+
+            var committed = await dataLayer.TryTransitionAsync(
+                loaded,
+                new RecipeStatusTransition
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = WsA,
+                    RecipeId = recipe.RecipeId,
+                    FromStatus = RecipeStatus.ReadyForReview,
+                    ToStatus = RecipeStatus.Approved,
+                    ActorMembershipId = Author,
+                    OccurredAt = SqlServerRecipeFixture.Now,
+                    MachineVersion = RecipeStatusTransitions.Version,
+                    ReadinessRuleSetVersion = RecipeReadinessCatalogue.Version,
+                    ReadinessEvaluatedVersionId = recipe.VersionId,
+                },
+                new RecipeVersionFacts(RecipeVersionSource.ReadinessApproval, RecipeVersionReadiness.Ready, "Approved."),
+                new(
+                    "user-1", RecipeAuditActions.Approved, RecipeAuditActions.ResourceType, recipe.RecipeId.ToString("D"),
+                    Guid.NewGuid(), "Approved.", BeforeReference: nameof(RecipeStatus.ReadyForReview), AfterReference: nameof(RecipeStatus.Approved)),
+                Ct);
+            Assert.True(committed.Committed);
+        }
+
+        await DispatchAsync();
+
+        // Approval changes the recipe's status and writes a version, so copy accepted against the version
+        // before it no longer describes the approved recipe as it stands.
+        await using var check = fixture.ScopeFor(WsA);
+        var proposal = await SqlServerRecipeFixture.Db(check).ContentProposals.SingleAsync(p => p.Id == content.ProposalId, Ct);
+
+        Assert.Equal(ContentProposalStatus.NeedsReview, proposal.Status);
+        Assert.Equal(ContentStaleReasons.RecipeChanged, proposal.StaleReasons);
+    }
+
+    [Fact]
     public async Task Between_the_recipe_commit_and_delivery_the_derivative_reads_Accepted_but_is_never_reported_current()
     {
         var recipe = await CreateRecipeAsync(WsA);

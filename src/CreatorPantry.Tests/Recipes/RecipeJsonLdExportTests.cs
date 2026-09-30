@@ -251,6 +251,32 @@ public sealed class RecipeJsonLdExportTests
             Domain.Modules.Content.Managers.AcceptedEditorialServiceModel? editorial) =>
             throw new NotSupportedException();
 
+        public Task<OperationResult<RecipeExportSummarySource>> GetSummarySourceAsync(
+            Guid recipeId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public RecipeExportSummaryServiceModel BuildSummary(
+            RecipeExportSummarySource source,
+            Domain.Modules.Content.Managers.AcceptedEditorialServiceModel? editorial,
+            AcceptedSeoServiceModel? seo) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<RecipeExportSource>> GetPdfSourceAsync(
+            Guid recipeId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public OperationResult<RecipePdfExportServiceModel> BuildPdf(
+            RecipeExportSource source,
+            RecipeExportTemplate template,
+            RecipeUnitPresentation units,
+            RecipePdfPageSize pageSize,
+            IReadOnlyDictionary<Guid, Domain.Modules.Measurement.Managers.MeasurementUnitServiceModel> unitsById,
+            IReadOnlyDictionary<Domain.Managers.Reference.MeasurementDimension, Domain.Modules.Measurement.Managers.MeasurementUnitServiceModel> targetUnits,
+            Domain.Modules.Content.Managers.AcceptedEditorialServiceModel? editorial,
+            RecipePdfImage? image,
+            DateTimeOffset createdAt) =>
+            throw new NotSupportedException();
+
         public OperationResult<RecipeJsonLdExportServiceModel> BuildJsonLd(
             RecipeExportSource source, string? cuisineName, string? courseName, AcceptedSeoServiceModel? seo, string? imageUrl)
         {
@@ -323,10 +349,17 @@ public sealed class RecipeJsonLdExportTests
     private static OperationResult<AcceptedSeoServiceModel?> NoSeo() =>
         OperationResult<AcceptedSeoServiceModel?>.Success(null);
 
+    private sealed class FixedClock : Domain.Managers.Time.IClock
+    {
+        public DateTimeOffset UtcNow { get; } = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    }
+
     private static RecipeExportFacade FacadeOver(StubBusiness business, StubVocabulary vocabulary, StubSeoFacade seo) =>
         new(
             new RecipeJsonLdExportViewModelValidator(),
             new RecipeMarkdownExportViewModelValidator(),
+            new RecipePdfExportViewModelValidator(),
+            new FixedClock(),
             business,
             vocabulary,
             new NoMeasurement(),

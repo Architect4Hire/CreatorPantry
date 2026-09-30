@@ -866,6 +866,17 @@
             (reloadRequested)="onHistoryReloadRequested()"
           />
         </cp-tab-panel>
+
+        <cp-tab-panel id="publish">
+          <!-- Mounted lazily by the tab. It reads a summary of the saved version and builds download links; the
+               files are made by the server, so nothing here produces or judges an export. The version number
+               is passed only so a save or a restore makes it read again. -->
+          <cp-recipe-publish-panel
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [versionHint]="currentVersionNumber()"
+          />
+        </cp-tab-panel>
       }
     </cp-tabs>
     </cp-card>

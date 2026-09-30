@@ -73,7 +73,7 @@ public sealed class AiEditorialClaimScannerTests
     [Fact]
     public void Unit_suffixes_and_thousand_separators_are_read_as_the_number_they_carry()
     {
-        var facts = AiEditorialSourceFacts.Of(["2000"], "Bake at 220C.", null);
+        var facts = AiEditorialSourceFacts.Of(["2000 g"], "Bake at 220C.", null);
 
         Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Bake at 220 degrees and use 2,000 g."), facts));
     }
@@ -294,5 +294,148 @@ public sealed class AiEditorialClaimScannerTests
         var findings = Scan(Headnote(text));
 
         Assert.NotNull(findings);
+    }
+
+    // ---- units: a figure is supported only in the unit the recipe gave it ----
+
+    [Fact]
+    public void A_temperature_in_the_other_scale_is_reported()
+    {
+        var facts = AiEditorialSourceFacts.Of([], "Bake at 350°F for a crisp crust.", null);
+
+        var finding = Assert.Single(AiEditorialClaimScanner.Scan(Headnote("Bake at 350°C."), facts));
+
+        Assert.Equal(AiEditorialClaimScanner.UnsupportedNumber, finding.Code);
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Bake at 350°F."), facts));
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Bake at 350 F."), facts));
+    }
+
+    [Fact]
+    public void A_temperature_with_no_scale_written_agrees_with_either()
+    {
+        var facts = AiEditorialSourceFacts.Of([], "Bake at 350°F.", null);
+
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Bake at 350 degrees."), facts));
+    }
+
+    [Fact]
+    public void A_structured_temperature_with_no_scale_known_supports_either_scale_but_never_another_number()
+    {
+        var snapshot = new RecipeSnapshotDocument
+        {
+            SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
+            Recipe = new RecipeSnapshotHeader { Title = "Loaf" },
+            InstructionGroups =
+            [
+                new RecipeSnapshotInstructionGroup
+                {
+                    Id = Guid.NewGuid(),
+                    Steps = [new RecipeSnapshotInstructionStep { Id = Guid.NewGuid(), Text = "Bake.", TemperatureValue = 350m }],
+                },
+            ],
+        };
+        var facts = AiEditorialSourceFacts.From(snapshot);
+
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Bake at 350°C."), facts));
+        Assert.Single(AiEditorialClaimScanner.Scan(Headnote("Bake at 360°F."), facts));
+    }
+
+    private static AiEditorialSourceFacts ButterSource() => AiEditorialSourceFacts.From(new RecipeSnapshotDocument
+    {
+        SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
+        Recipe = new RecipeSnapshotHeader { Title = "Cookies", ServingCount = 12m },
+        IngredientGroups =
+        [
+            new RecipeSnapshotIngredientGroup
+            {
+                Id = Guid.NewGuid(),
+                Ingredients =
+                [
+                    new RecipeSnapshotIngredient { Id = Guid.NewGuid(), SortOrder = 0, DisplayText = "2 tbsp butter", Quantity = 2m, UnitText = "tbsp" },
+                    new RecipeSnapshotIngredient { Id = Guid.NewGuid(), SortOrder = 1, DisplayText = "3 eggs", Quantity = 3m },
+                ],
+            },
+        ],
+        InstructionGroups =
+        [
+            new RecipeSnapshotInstructionGroup
+            {
+                Id = Guid.NewGuid(),
+                Steps = [new RecipeSnapshotInstructionStep { Id = Guid.NewGuid(), Text = "Chill for 24 hours.", DurationMinutes = 1440 }],
+            },
+        ],
+    });
+
+    [Fact]
+    public void A_measured_amount_in_another_unit_is_reported()
+    {
+        var facts = ButterSource();
+
+        var finding = Assert.Single(AiEditorialClaimScanner.Scan(Headnote("Use 2 cups of butter."), facts));
+
+        Assert.Equal(AiEditorialClaimScanner.UnsupportedNumber, finding.Code);
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Use 2 tbsp of butter."), facts));
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Use 2 tablespoons of butter."), facts));
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Use two tablespoons of butter."), facts));
+    }
+
+    [Fact]
+    public void A_measured_amount_does_not_support_a_count_nor_a_count_a_measure()
+    {
+        var facts = ButterSource();
+
+        // "2 tbsp" is in the recipe; a bare 2 is not, because the only bare figures are 3 eggs and 12 servings.
+        Assert.Single(AiEditorialClaimScanner.Scan(Headnote("Makes 2 dozen."), facts));
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Uses 3 eggs."), facts));
+        Assert.Single(AiEditorialClaimScanner.Scan(Headnote("Use 3 cups of flour."), facts));
+    }
+
+    [Fact]
+    public void A_duration_does_not_support_a_count()
+    {
+        var facts = ButterSource();
+
+        // 24 hours is stated, so 24 hours is fine; "makes 24 cookies" is a yield the recipe never states.
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Chill for 24 hours."), facts));
+        Assert.Single(AiEditorialClaimScanner.Scan(Headnote("Makes 24 cookies."), facts));
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Makes 12 cookies."), facts));
+    }
+
+    // ---- advice the recipe did not give ----
+
+    [Theory]
+    [InlineData("Suitable for vegans.")]
+    [InlineData("Contains no gluten.")]
+    [InlineData("Made without dairy.")]
+    [InlineData("It is fine to taste the raw batter.")]
+    [InlineData("Rinse the chicken first.")]
+    [InlineData("Perfect for diabetics.")]
+    [InlineData("A low-glycemic treat.")]
+    [InlineData("The eggs can stay out while you prep.")]
+    [InlineData("Not advised during pregnancy.")]
+    public void Advice_and_suitability_claims_the_recipe_did_not_make_are_reported(string text)
+    {
+        var findings = Scan(Headnote(text)).Where(f => f.Code == AiEditorialClaimScanner.UnsupportedSafetyClaim).ToList();
+
+        Assert.NotEmpty(findings);
+        Assert.All(findings, finding => Assert.Equal(AiWarningKind.SafetyCaution, finding.Kind));
+    }
+
+    [Theory]
+    [InlineData("Perfect for weeknights.")]
+    [InlineData("A great way to use up stale bread.")]
+    [InlineData("Fine for a crowd.")]
+    [InlineData("No fuss and no waiting.")]
+    public void Ordinary_praise_is_not_a_safety_claim(string text)
+    {
+        Assert.DoesNotContain(Scan(Headnote(text)), f => f.Code == AiEditorialClaimScanner.UnsupportedSafetyClaim);
+    }
+
+    [Fact]
+    public void A_claim_the_creator_made_in_their_own_words_is_not_reported()
+    {
+        var facts = AiEditorialSourceFacts.Of([], "Suitable for vegans. Contains no gluten.", null);
+
+        Assert.Empty(AiEditorialClaimScanner.Scan(Headnote("Suitable for vegans, and it contains no gluten."), facts));
     }
 }

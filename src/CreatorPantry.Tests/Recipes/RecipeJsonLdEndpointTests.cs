@@ -130,6 +130,27 @@ public sealed class RecipeJsonLdEndpointTests : IAsyncLifetime
 
     // ---- Errors over HTTP ----
 
+    [Theory]
+    [InlineData("?imageUrl=https://evil.example/hero.jpg")]
+    [InlineData("?image=http://169.254.169.254/latest/meta-data")]
+    [InlineData("?assetId=00000000-0000-0000-0000-000000000001")]
+    [InlineData("?workspaceId=00000000-0000-0000-0000-000000000002")]
+    public async Task No_query_parameter_can_supply_an_image_or_name_a_workspace(string query)
+    {
+        var seeded = await SeedAsync(_fixture.WorkspaceA, RecipeStatus.Approved);
+
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: Ct);
+        var response = await client.GetAsync(ExportOf(_fixture.WorkspaceA, seeded.RecipeId, query), Ct);
+        var body = await response.Content.ReadAsStringAsync(Ct);
+
+        // Nothing authorizes an image yet, so the answer is the same as with no parameter at all, and nothing
+        // from the query is echoed or used.
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("recipe_json_ld_image_missing", body);
+        Assert.DoesNotContain("evil.example", body);
+        Assert.DoesNotContain("169.254", body);
+    }
+
     [Fact]
     public async Task An_approved_recipe_without_an_image_is_unprocessable_and_lists_what_is_missing()
     {
@@ -394,6 +415,14 @@ public sealed class RecipeJsonLdEndpointTests : IAsyncLifetime
         public Task<OperationResult<RecipeMarkdownExportServiceModel>> GetMarkdownAsync(
             Guid recipeId, RecipeMarkdownExportViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<OperationResult<RecipeExportSummaryServiceModel>> GetSummaryAsync(
+            Guid recipeId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OperationResult<RecipePdfExportServiceModel>> GetPdfAsync(
+            Guid recipeId, RecipePdfExportViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private static (RecipeExportsController Controller, DefaultHttpContext Http) ControllerFor(
@@ -502,13 +531,13 @@ public sealed class RecipeJsonLdEndpointTests : IAsyncLifetime
         Assert.Equal("api/v{version:apiVersion}/workspaces/{workspaceSlug}/recipes/{recipeId:guid}/exports", route.Template);
         Assert.Equal("json-ld", action.GetCustomAttributes(typeof(HttpGetAttribute), false).Cast<HttpGetAttribute>().Single().Template);
 
-        // The controller exposes exactly these two reads, both GETs, and nothing that writes.
+        // The controller exposes exactly these reads, both GETs, and nothing that writes.
         var templates = typeof(RecipeExportsController).GetMethods()
             .SelectMany(m => m.GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute), false)
                 .Cast<Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute>())
             .ToList();
         Assert.All(templates, attribute => Assert.Equal(["GET"], attribute.HttpMethods));
-        Assert.Equal(["json-ld", "markdown"], templates.Select(attribute => attribute.Template!).Order());
+        Assert.Equal(["json-ld", "markdown", "pdf", "summary"], templates.Select(attribute => attribute.Template!).Order());
         Assert.Equal(
             ApiService::CreatorPantry.ApiService.Authorization.AuthorizationPolicies.WorkspaceViewer,
             action.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), false)

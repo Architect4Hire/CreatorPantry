@@ -54,6 +54,7 @@ import {
 } from '../../models/recipe.models';
 import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
+import { RecipePublishPanelComponent } from './recipe-publish-panel.component';
 import {
   EditableIngredientGroup,
   RecipeIngredientEditorComponent,
@@ -324,6 +325,7 @@ type RecipeEditorSaveState =
     CpTabPanelComponent,
     CpTabsComponent,
     RecipeHistoryComponent,
+    RecipePublishPanelComponent,
     RecipeIngredientEditorComponent,
     RecipeDisplayNormalizationComponent,
     RecipeScalingPreviewComponent,
@@ -361,7 +363,7 @@ export class RecipeEditorComponent {
   readonly workspaceSlug = this.resolveWorkspaceSlug();
 
   /**
-   * Four areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
+   * Five areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
    * save operation is no longer spread across five tablist clicks — which is what let the "Unsaved changes"
    * pill say only that *something* was dirty, and let a field error land on a panel nobody was looking at.
    *
@@ -374,6 +376,8 @@ export class RecipeEditorComponent {
     { id: 'tools', label: 'Tools', disabled: this.isCreateMode },
     { id: 'media', label: 'Media', disabled: this.isCreateMode },
     { id: 'history', label: 'History', disabled: this.isCreateMode },
+    // Reads the saved version's export summary, which a recipe being created does not have yet.
+    { id: 'publish', label: 'Publish', disabled: this.isCreateMode },
   ];
   readonly selectedAreaId = signal('edit');
 

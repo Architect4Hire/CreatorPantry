@@ -1,0 +1,24 @@
+{
+  "id": "content.editorial-package.a-conversion-the-model-did-is-reported",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "2 tbsp is 1/8 cup, but converting is the domain's job: a figure the model converted is not one the recipe states, so it is reported.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"That is about 0.125 cup of butter.\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "2 tbsp"
+      ],
+      "freeText": "Cream 2 tbsp butter with the sugar.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

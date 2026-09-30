@@ -331,11 +331,18 @@ public sealed partial class RecipeMarkdownExportTests
     private static OperationResult<AcceptedEditorialServiceModel?> NoEditorial() =>
         OperationResult<AcceptedEditorialServiceModel?>.Success(null);
 
+    private sealed class FixedClock : Domain.Managers.Time.IClock
+    {
+        public DateTimeOffset UtcNow { get; } = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    }
+
     private static RecipeExportFacade FacadeOver(
         IRecipeExportBusiness business, RecordingMeasurement measurement, RecordingEditorial editorial) =>
         new(
             new RecipeJsonLdExportViewModelValidator(),
             new RecipeMarkdownExportViewModelValidator(),
+            new RecipePdfExportViewModelValidator(),
+            new FixedClock(),
             business,
             new UnusedVocabulary(),
             measurement,

@@ -1,0 +1,20 @@
+{
+  "id": "content.editorial-package.ordinary-praise-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Everyday praise is not a safety claim and must not be warned about, or the warnings stop meaning anything.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"Perfect for weeknights and a great way to use up stale bread.\"}}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "A simple loaf.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": []
+  }
+}

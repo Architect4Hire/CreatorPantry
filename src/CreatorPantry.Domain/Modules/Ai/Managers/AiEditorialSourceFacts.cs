@@ -13,8 +13,10 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// <para>
 /// <strong>Numbers are checked in context, not as one bag.</strong> A duration is supported only by the same
 /// duration in the same unit — "3 weeks" is not supported by "3 eggs" or by "3 days" — and a temperature only by
-/// a temperature. Any other figure (a quantity, a yield, a serving count) is supported by the same figure
-/// anywhere the recipe states it. A stated time also supports the same time in another unit where that is an
+/// a temperature in the same scale (°C is not supported by °F). A measured quantity is supported only by the same
+/// number in the same unit ("2 cups" is not supported by "2 tbsp"). Any other figure (a count, a yield, a serving
+/// count) is supported by the same bare figure where the recipe states one — a duration or a temperature does not
+/// support a count. A stated time also supports the same time in another unit where that is an
 /// exact restatement (90 minutes, 1.5 hours); any other arithmetic is a model doing maths the domain should do
 /// (ai.md), and is reported.
 /// </para>
@@ -38,6 +40,13 @@ public sealed record AiEditorialSourceFacts(
     IReadOnlySet<string> StorageTimePairs,
     IReadOnlySet<string> StorageTemperatures)
 {
+    /// <summary>
+    /// <c>number|unit</c> for each measured quantity the recipe states ("2|tbsp"). Kept apart from
+    /// <see cref="Numbers"/> so "2 cups" is not supported by "2 tbsp", and a measured amount does not support a
+    /// bare count.
+    /// </summary>
+    public IReadOnlySet<string> Measures { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+
     /// <summary>The facts, from a recipe version's snapshot.</summary>
     public static AiEditorialSourceFacts From(RecipeSnapshotDocument source)
     {
@@ -50,6 +59,7 @@ public sealed record AiEditorialSourceFacts(
         var numbers = new HashSet<string>(StringComparer.Ordinal);
         var times = new HashSet<string>(StringComparer.Ordinal);
         var temperatures = new HashSet<string>(StringComparer.Ordinal);
+        var measures = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var minutes in new[] { header.PrepTimeMinutes, header.CookTimeMinutes, header.RestTimeMinutes, header.TotalTimeMinutes })
         {
@@ -63,8 +73,19 @@ public sealed record AiEditorialSourceFacts(
         foreach (var line in source.IngredientGroups.SelectMany(group => group.Ingredients))
         {
             other.AddRange([line.DisplayText, line.IngredientNameText, line.PreparationNote]);
-            AddNumber(numbers, line.Quantity);
-            AddNumber(numbers, line.QuantityUpper);
+
+            // A quantity with a unit is a measure ("2 tbsp"); one without is a count ("2 eggs"). Each supports
+            // only its own kind.
+            if (string.IsNullOrWhiteSpace(line.UnitText))
+            {
+                AddNumber(numbers, line.Quantity);
+                AddNumber(numbers, line.QuantityUpper);
+            }
+            else
+            {
+                AddMeasure(measures, line.Quantity, line.UnitText);
+                AddMeasure(measures, line.QuantityUpper, line.UnitText);
+            }
         }
 
         foreach (var step in source.InstructionGroups.SelectMany(group => group.Steps))
@@ -74,8 +95,10 @@ public sealed record AiEditorialSourceFacts(
 
             if (step.TemperatureValue is { } temperature)
             {
-                temperatures.Add(AiEditorialProse.Normalize(temperature));
-                numbers.Add(AiEditorialProse.Normalize(temperature));
+                // The snapshot keeps a unit id, not a scale, so the scale is unknown here: an unscaled
+                // temperature supports the same number in either scale. A step's own text, absorbed below,
+                // carries the scale when it is written, and then only that scale is supported.
+                temperatures.Add(AiEditorialProse.TemperaturePair(AiEditorialProse.Normalize(temperature), string.Empty));
             }
         }
 
@@ -85,14 +108,17 @@ public sealed record AiEditorialSourceFacts(
         }
 
         var proseText = Join(prose);
-        Absorb(Join(other.Concat(prose)), numbers, times, temperatures);
+        Absorb(Join(other.Concat(prose)), numbers, times, temperatures, measures);
 
         var storage = header.StorageNotes ?? string.Empty;
         var storageTimes = new HashSet<string>(StringComparer.Ordinal);
         var storageTemperatures = new HashSet<string>(StringComparer.Ordinal);
-        Absorb(storage, new HashSet<string>(), storageTimes, storageTemperatures);
+        Absorb(storage, new HashSet<string>(), storageTimes, storageTemperatures, new HashSet<string>());
 
-        return new AiEditorialSourceFacts(numbers, times, temperatures, AiEditorialProse.Canonicalize(proseText), AiEditorialProse.Canonicalize(storage), storageTimes, storageTemperatures);
+        return new AiEditorialSourceFacts(numbers, times, temperatures, AiEditorialProse.Canonicalize(proseText), AiEditorialProse.Canonicalize(storage), storageTimes, storageTemperatures)
+        {
+            Measures = measures,
+        };
     }
 
     /// <summary>Facts stated directly, for fixtures that do not carry a whole snapshot.</summary>
@@ -103,35 +129,45 @@ public sealed record AiEditorialSourceFacts(
         var general = new HashSet<string>(StringComparer.Ordinal);
         var times = new HashSet<string>(StringComparer.Ordinal);
         var temperatures = new HashSet<string>(StringComparer.Ordinal);
+        var measures = new HashSet<string>(StringComparer.Ordinal);
 
-        Absorb(string.Join(' ', numbers), general, times, temperatures);
-        Absorb(Join([prose, storageNotes]), general, times, temperatures);
+        Absorb(string.Join(' ', numbers), general, times, temperatures, measures);
+        Absorb(Join([prose, storageNotes]), general, times, temperatures, measures);
 
         var storageTimes = new HashSet<string>(StringComparer.Ordinal);
         var storageTemperatures = new HashSet<string>(StringComparer.Ordinal);
-        Absorb(storageNotes ?? string.Empty, new HashSet<string>(), storageTimes, storageTemperatures);
+        Absorb(storageNotes ?? string.Empty, new HashSet<string>(), storageTimes, storageTemperatures, new HashSet<string>());
 
         return new AiEditorialSourceFacts(
             general, times, temperatures,
             AiEditorialProse.Canonicalize(Join([prose, storageNotes])), AiEditorialProse.Canonicalize(storageNotes ?? string.Empty),
-            storageTimes, storageTemperatures);
+            storageTimes, storageTemperatures)
+        {
+            Measures = measures,
+        };
     }
 
     private static string Join(IEnumerable<string?> texts) => string.Join('\n', texts.Where(text => !string.IsNullOrWhiteSpace(text)));
 
-    private static void Absorb(string text, HashSet<string> numbers, HashSet<string> times, HashSet<string> temperatures)
+    private static void Absorb(
+        string text, HashSet<string> numbers, HashSet<string> times, HashSet<string> temperatures, HashSet<string> measures)
     {
         foreach (var token in AiEditorialProse.Tokens(text))
         {
-            numbers.Add(token.Number);
-
+            // Each kind of figure supports only its own kind: a duration is not a count, nor a temperature a quantity.
             switch (token.Kind)
             {
                 case AiEditorialTokenKind.Time:
                     times.Add(token.Pair);
                     break;
                 case AiEditorialTokenKind.Temperature:
-                    temperatures.Add(token.Number);
+                    temperatures.Add(AiEditorialProse.TemperaturePair(token.Number, token.Pair));
+                    break;
+                case AiEditorialTokenKind.Measure:
+                    measures.Add(token.Pair);
+                    break;
+                default:
+                    numbers.Add(token.Number);
                     break;
             }
         }
@@ -145,6 +181,20 @@ public sealed record AiEditorialSourceFacts(
         }
     }
 
+    private static void AddMeasure(HashSet<string> measures, decimal? quantity, string unitText)
+    {
+        if (quantity is not { } number)
+        {
+            return;
+        }
+
+        // Read the pair the way prose is read, so "2 tablespoons" and "2 tbsp" are one measure.
+        foreach (var token in AiEditorialProse.Tokens($"{AiEditorialProse.Normalize(number)} {unitText}"))
+        {
+            measures.Add(token.Kind == AiEditorialTokenKind.Measure ? token.Pair : AiEditorialProse.Normalize(number));
+        }
+    }
+
     private static void AddMinutes(HashSet<string> times, HashSet<string> numbers, int? minutes)
     {
         if (minutes is not { } value)
@@ -152,7 +202,6 @@ public sealed record AiEditorialSourceFacts(
             return;
         }
 
-        numbers.Add(AiEditorialProse.Normalize(value));
         times.Add(AiEditorialProse.Pair(value, "minute"));
 
         // Exact restatements only: 90 minutes is 1.5 hours; 100 minutes is not "1.67 hours".
@@ -173,11 +222,17 @@ public enum AiEditorialTokenKind
     Plain = 0,
     Time = 1,
     Temperature = 2,
+
+    /// <summary>A quantity with a unit of volume, weight or length ("2 tbsp", "500 g").</summary>
+    Measure = 3,
 }
 
 /// <summary>One figure found in prose, with what it measures when the prose says.</summary>
 /// <param name="Number">The normalized decimal.</param>
-/// <param name="Pair"><c>number|unit</c> for a duration, otherwise the empty string.</param>
+/// <param name="Pair">
+/// <c>number|unit</c> for a duration or a measure; <c>C</c>, <c>F</c> or the empty string (scale not written) for
+/// a temperature; otherwise the empty string.
+/// </param>
 /// <param name="Text">The span as written, for a warning to quote.</param>
 public readonly record struct AiEditorialToken(AiEditorialTokenKind Kind, string Number, string Pair, string Text);
 
@@ -212,10 +267,10 @@ public static partial class AiEditorialProse
     [GeneratedRegex($@"\bhalf an? (?<u>hour|day|week)\b|\b(?:a )?couple of (?<c>{Units})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Colloquial();
 
-    // One alternation, in order: a duration, then a temperature, then any other figure. A figure belongs to the
+    // One alternation, in order: a duration, then a temperature, then a measured quantity, then any other figure. A figure belongs to the
     // first shape that claims it, so "220C" is a temperature and "25 minutes" is a duration, not two plain numbers.
     [GeneratedRegex(
-        @"(?<![\w.])(?<num>[0-9]+(?:\.[0-9]+)?(?:\s*/\s*[0-9]+)?)(?:(?:\s*-?\s*(?<time>minutes?|mins?|hours?|hrs?|days?|weeks?|months?)\b)|(?:\s*(?:°|º|degrees?\b)\s*[cf]?\b)|(?:\s*[cf]\b))?",
+        @"(?<![\w.])(?<num>[0-9]+(?:\.[0-9]+)?(?:\s*/\s*[0-9]+)?)(?:(?:\s*-?\s*(?<time>minutes?|mins?|hours?|hrs?|days?|weeks?|months?)\b)|(?:\s*(?:°|º|degrees?\b)\s*[cf]?\b)|(?:\s*[cf]\b)|(?:\s*-?\s*(?<measure>cups?|tablespoons?|teaspoons?|tbsp|tsp|grams?|g|kg|ounces?|oz|pounds?|lbs?|ml|litres?|liters?|quarts?)\b))?",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Figure();
 
@@ -290,10 +345,14 @@ public static partial class AiEditorialProse
             {
                 tokens.Add(new AiEditorialToken(AiEditorialTokenKind.Time, number, Pair(number, match.Groups["time"].Value), match.Value.Trim()));
             }
+            else if (match.Groups["measure"].Success)
+            {
+                tokens.Add(new AiEditorialToken(AiEditorialTokenKind.Measure, number, MeasurePair(number, match.Groups["measure"].Value), match.Value.Trim()));
+            }
             else if (Regex.IsMatch(match.Value, @"(?:°|º|degrees?|\s*[cf]\b)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 && !match.Groups["num"].Value.Contains('/', StringComparison.Ordinal))
             {
-                tokens.Add(new AiEditorialToken(AiEditorialTokenKind.Temperature, number, string.Empty, match.Value.Trim()));
+                tokens.Add(new AiEditorialToken(AiEditorialTokenKind.Temperature, number, ScaleOf(match.Value), match.Value.Trim()));
             }
             else
             {
@@ -302,6 +361,51 @@ public static partial class AiEditorialProse
         }
 
         return tokens;
+    }
+
+    /// <summary>The scale a temperature was written in: <c>C</c>, <c>F</c>, or empty when it gave none ("350 degrees").</summary>
+    private static string ScaleOf(string matched)
+    {
+        var last = matched.Trim()[^1];
+
+        return last is 'c' or 'C' ? "C" : last is 'f' or 'F' ? "F" : string.Empty;
+    }
+
+    /// <summary><c>number|scale</c>: the form temperatures are stored and compared in.</summary>
+    public static string TemperaturePair(string number, string scale) => $"{number}|{scale}";
+
+    /// <summary>
+    /// Whether a temperature is supported by a set of <see cref="TemperaturePair"/>s. The same number in the same
+    /// scale supports it; a recipe temperature with no scale, or a claim with no scale, is taken to agree with
+    /// the same number in either — the only disagreement reported is one scale against the other.
+    /// </summary>
+    public static bool TemperatureSupported(IReadOnlySet<string> pairs, string number, string scale)
+    {
+        if (pairs.Contains(TemperaturePair(number, scale)) || pairs.Contains(TemperaturePair(number, string.Empty)))
+        {
+            return true;
+        }
+
+        return scale.Length == 0
+            && (pairs.Contains(TemperaturePair(number, "C")) || pairs.Contains(TemperaturePair(number, "F")));
+    }
+
+    /// <summary><c>number|unit</c> with the unit reduced to one spelling, so "tablespoons" and "tbsp" agree.</summary>
+    private static string MeasurePair(string number, string unit) => $"{number}|{MeasureFamily(unit)}";
+
+    private static string MeasureFamily(string unit)
+    {
+        var lower = unit.ToLowerInvariant();
+
+        return lower.StartsWith("tab", StringComparison.Ordinal) || lower == "tbsp" ? "tbsp"
+            : lower.StartsWith("tea", StringComparison.Ordinal) || lower == "tsp" ? "tsp"
+            : lower.StartsWith("cup", StringComparison.Ordinal) ? "cup"
+            : lower.StartsWith("gram", StringComparison.Ordinal) || lower == "g" ? "g"
+            : lower.StartsWith("oun", StringComparison.Ordinal) || lower == "oz" ? "oz"
+            : lower.StartsWith("pou", StringComparison.Ordinal) || lower.StartsWith("lb", StringComparison.Ordinal) ? "lb"
+            : lower.StartsWith("lit", StringComparison.Ordinal) ? "l"
+            : lower.StartsWith("qua", StringComparison.Ordinal) ? "qt"
+            : lower;
     }
 
     public static string Normalize(decimal value) => value.ToString("0.####", CultureInfo.InvariantCulture);

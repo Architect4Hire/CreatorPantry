@@ -68,6 +68,7 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IValidator<RecipeLifecycleViewModel>, RecipeLifecycleViewModelValidator>();
         services.AddScoped<IValidator<RecipeJsonLdExportViewModel>, RecipeJsonLdExportViewModelValidator>();
         services.AddScoped<IValidator<RecipeMarkdownExportViewModel>, RecipeMarkdownExportViewModelValidator>();
+        services.AddScoped<IValidator<RecipePdfExportViewModel>, RecipePdfExportViewModelValidator>();
 
         // Bound when a host supplies configuration, and left at the catalogue's defaults when it does not — the
         // same shape AddAiUsageModule uses for its quota options. A readiness rule set that failed to register

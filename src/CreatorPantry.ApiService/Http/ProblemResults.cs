@@ -30,7 +30,7 @@ public static class ProblemResults
     /// HTTP status for an application error code. Codes follow <c>area.reason</c>; the reason suffix selects
     /// the status so new features map consistently: <c>.not_found</c> 404 (also used to hide existence),
     /// <c>.forbidden</c> 403, <c>.conflict</c> 409 (e.g. stale concurrency token), <c>.gone</c> 410, <c>.unprocessable</c> 422 (well formed, but not something the server can accept),
-    /// <c>.suspended</c> 403, <c>.exhausted</c> 429. Anything else is a 400 request error.
+    /// <c>.suspended</c> 403, <c>.exhausted</c> 429, <c>.render.failed</c> 500 (our own fault, never the caller's). Anything else is a 400 request error.
     /// </summary>
     public static int StatusFor(string code) => code switch
     {
@@ -51,6 +51,7 @@ public static class ProblemResults
 
         // Switched off administratively: not temporary, and deliberately not a 429 -- there is no instant to
         // wait for, so telling a client to retry would send it round a loop that cannot end differently.
+        _ when code.EndsWith(".render.failed", StringComparison.Ordinal) => StatusCodes.Status500InternalServerError,
         _ when code.EndsWith(".suspended", StringComparison.Ordinal) => StatusCodes.Status403Forbidden,
         _ => StatusCodes.Status400BadRequest,
     };

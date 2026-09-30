@@ -271,4 +271,13 @@ public static class RecipeErrorCodes
     public const string MarkdownExportNotApprovedConflict = "recipes.markdownExport.notApproved.conflict";
 
     public const string MarkdownExportIncompleteUnprocessable = "recipes.markdownExport.incomplete.unprocessable";
+
+    public const string PdfExportInvalidRequest = "recipes.pdfExport.invalid_request";
+
+    public const string PdfExportNotApprovedConflict = "recipes.pdfExport.notApproved.conflict";
+
+    public const string PdfExportIncompleteUnprocessable = "recipes.pdfExport.incomplete.unprocessable";
+
+    /// <summary>The renderer itself threw. A server fault, never the creator's: answers 500 with no detail.</summary>
+    public const string PdfExportRenderFailed = "recipes.pdfExport.render.failed";
 }

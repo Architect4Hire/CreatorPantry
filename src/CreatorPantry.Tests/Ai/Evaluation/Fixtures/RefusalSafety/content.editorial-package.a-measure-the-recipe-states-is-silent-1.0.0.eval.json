@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.a-measure-the-recipe-states-is-silent",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "The same amount in the same unit, written out in full, is supported by the recipe's own line.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"Use two tablespoons of butter.\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [
+        "2 tbsp"
+      ],
+      "freeText": "Cream 2 tbsp butter with the sugar.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": []
+  }
+}

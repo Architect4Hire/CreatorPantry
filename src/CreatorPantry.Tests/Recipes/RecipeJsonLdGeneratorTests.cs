@@ -163,6 +163,57 @@ public sealed class RecipeJsonLdGeneratorTests
         Assert.Equal(RecipeJsonLdGenerator.Generate(input).Json, RecipeJsonLdGenerator.Generate(input).Json);
     }
 
+    // ---- Where the description came from ----
+
+    [Fact]
+    public void A_description_taken_from_the_seo_revision_says_so_and_the_creators_own_is_not_used()
+    {
+        var doc = Doc(header: h => h.Description = "The creator's own words.");
+
+        var report = RecipeJsonLdGenerator.Generate(Input(
+            doc, editorial: new RecipeJsonLdEditorial("A dense, tangy loaf.", ["soda bread"], IsCurrent: true)));
+
+        Assert.Contains(RecipeJsonLdCodes.DescriptionFromSeo, report.Warnings.Select(w => w.Code));
+        Assert.Contains("A dense, tangy loaf.", report.Json);
+        Assert.DoesNotContain("The creator's own words.", report.Json);
+        Assert.DoesNotContain(RecipeJsonLdCodes.DescriptionUnsupportedClaim, report.Warnings.Select(w => w.Code));
+    }
+
+    [Fact]
+    public void The_creators_own_description_carries_no_provenance_warning()
+    {
+        var doc = Doc(header: h => h.Description = "The creator's own words.");
+
+        var report = RecipeJsonLdGenerator.Generate(Input(doc));
+
+        Assert.DoesNotContain(RecipeJsonLdCodes.DescriptionFromSeo, report.Warnings.Select(w => w.Code));
+    }
+
+    [Fact]
+    public void An_seo_description_is_scanned_again_at_export_and_a_claim_the_recipe_does_not_support_is_reported()
+    {
+        var doc = Doc(header: h => h.Description = "A simple loaf.");
+
+        var report = RecipeJsonLdGenerator.Generate(Input(
+            doc, editorial: new RecipeJsonLdEditorial("A gluten-free loaf, suitable for vegans.", ["soda bread"], IsCurrent: true)));
+
+        // Reported, never rewritten or dropped: the creator accepted it, and the export says what it found.
+        var warning = Assert.Single(report.Warnings, w => w.Code == RecipeJsonLdCodes.DescriptionUnsupportedClaim);
+        Assert.Contains("claim(s) the recipe does not support", warning.Message);
+        Assert.Contains("A gluten-free loaf, suitable for vegans.", report.Json);
+    }
+
+    [Fact]
+    public void An_seo_description_the_creator_supports_in_their_own_words_is_not_reported()
+    {
+        var doc = Doc(header: h => h.Description = "A gluten-free loaf.");
+
+        var report = RecipeJsonLdGenerator.Generate(Input(
+            doc, editorial: new RecipeJsonLdEditorial("A gluten-free loaf.", ["soda bread"], IsCurrent: true)));
+
+        Assert.DoesNotContain(RecipeJsonLdCodes.DescriptionUnsupportedClaim, report.Warnings.Select(w => w.Code));
+    }
+
     // ---- Missing and invalid data ----
 
     [Fact]

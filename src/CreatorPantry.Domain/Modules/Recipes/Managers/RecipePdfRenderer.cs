@@ -26,6 +26,13 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// </remarks>
 public static class RecipePdfRenderer
 {
+    /// <summary>
+    /// Part of the export's validator. Bump it when a change to the layout, fonts or wording would make an
+    /// existing PDF differ from a new one made from the same inputs, so an earlier answer is never confirmed
+    /// with a 304.
+    /// </summary>
+    public const string LayoutVersion = "1";
+
     private const string Font = "Lato";
     private const string Ink = "#1A1A1A";
     private const string Muted = "#4A4A4A";

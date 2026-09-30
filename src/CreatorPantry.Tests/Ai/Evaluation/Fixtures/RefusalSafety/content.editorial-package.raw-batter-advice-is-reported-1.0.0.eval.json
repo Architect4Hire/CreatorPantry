@@ -1,0 +1,22 @@
+{
+  "id": "content.editorial-package.raw-batter-advice-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "EditorialPackageOutputValidation",
+  "description": "Method advice that touches food safety is reported when the recipe gives none, even with no figure and no allergen word.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"It is fine to taste the raw batter while you mix.\"}]}}",
+    "expectedSchemaVersion": "content.editorial-package.v1",
+    "source": {
+      "numbers": [],
+      "freeText": "Mix the batter.",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}
