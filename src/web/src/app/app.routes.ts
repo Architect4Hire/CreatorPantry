@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
+import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
 import { recipeFirstDraftReviewCanDeactivateGuard } from './features/ai/recipe-first-draft-review.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
@@ -19,7 +20,7 @@ const SECTION_ROUTES: Routes = [
       { path: ':recipeId', loadComponent: () => import('./features/recipes/recipe-editor.component').then((m) => m.RecipeEditorComponent), canDeactivate: [recipeEditorCanDeactivateGuard], data: { title: 'Edit recipe' } },
     ],
   },
-  { path: 'brand', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Brand' } },
+  { path: 'brand', loadComponent: () => import('./features/brand/brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand' } },
   {
     path: 'ai-recipe-studio',
     children: [

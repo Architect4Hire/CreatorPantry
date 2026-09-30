@@ -1,0 +1,326 @@
+<section class="brand-settings" aria-labelledby="brand-heading">
+  <header class="page-header">
+    <h1 id="brand-heading">Brand settings</h1>
+    <p class="lede">The facts about your brand that every piece of work in this workspace starts from.</p>
+  </header>
+
+  @switch (load().status) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your brand settings…</p>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <p class="state" role="alert">We couldn't find this workspace.</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <p class="state" role="alert">Your brand settings couldn't be loaded right now.</p>
+        <button cpButton type="button" variant="secondary" (click)="init()">Try again</button>
+      </cp-card>
+    }
+    @default {
+      @if (isFirstUse()) {
+        <cp-card class="intro">
+          <h2 class="intro-title">Set up your brand</h2>
+          <p>Start with a name. Everything else is optional and you can fill it in whenever you like.</p>
+        </cp-card>
+      }
+
+      @if (!canEdit()) {
+        <p class="banner" role="note" id="brand-readonly-note">
+          You can view these settings. An Editor or Owner of this workspace can change them.
+        </p>
+      }
+
+      @switch (saveState().status) {
+        @case ('conflict') {
+          <p class="banner warning" role="alert">
+            Someone else changed the brand settings while you were editing. Your edits are still here, and anything you
+            hadn't touched now shows the latest. Review it, then save again.
+          </p>
+        }
+        @case ('forbidden') {
+          <p class="banner warning" role="alert">You don't have permission to change the brand settings in this workspace.</p>
+        }
+        @case ('retry_key') {
+          <p class="banner warning" role="alert">That save couldn't be completed. Please press Save again.</p>
+        }
+        @case ('unavailable') {
+          <p class="banner warning" role="alert">The brand settings couldn't be saved right now. Your edits are still here; try again.</p>
+        }
+        @case ('invalid') {
+          <p class="banner warning" role="alert">Some details need another look. They are marked below.</p>
+        }
+      }
+
+      <form (ngSubmit)="save()" novalidate aria-labelledby="brand-heading">
+        <cp-card>
+          <p class="legend">Fields marked * are required. Everything else is optional.</p>
+
+          <fieldset class="form-fields" [disabled]="!canEdit()" [attr.aria-describedby]="canEdit() ? null : 'brand-readonly-note'">
+            <cp-form-section sectionId="section-identity" heading="Identity" intro="What your brand is called and what it is about.">
+              <cp-field label="Brand name" forId="brand-name" [required]="true" [error]="fieldError('brandName')">
+                <input
+                  id="brand-name"
+                  name="brandName"
+                  type="text"
+                  autocomplete="off"
+                  required
+                  [maxlength]="limits.brandNameMaxLength"
+                  [attr.aria-invalid]="fieldError('brandName') ? 'true' : null"
+                  [ngModel]="draft().brandName"
+                  (ngModelChange)="setField('brandName', $event)"
+                />
+              </cp-field>
+
+              <cp-field label="Short description" forId="brand-short-description" [error]="fieldError('shortDescription')">
+                <textarea
+                  id="brand-short-description"
+                  name="shortDescription"
+                  rows="3"
+                  [maxlength]="limits.shortDescriptionMaxLength"
+                  [attr.aria-invalid]="fieldError('shortDescription') ? 'true' : null"
+                  [ngModel]="draft().shortDescription"
+                  (ngModelChange)="setField('shortDescription', $event)"
+                ></textarea>
+              </cp-field>
+            </cp-form-section>
+
+            <cp-form-section
+              sectionId="section-audience"
+              heading="Audience and language"
+              intro="Who you write for, the language you write in, and the time zone your schedule follows."
+            >
+              <cp-field label="Default audience" forId="brand-default-audience" [error]="fieldError('defaultAudience')">
+                <textarea
+                  id="brand-default-audience"
+                  name="defaultAudience"
+                  rows="3"
+                  [maxlength]="limits.defaultAudienceMaxLength"
+                  [attr.aria-invalid]="fieldError('defaultAudience') ? 'true' : null"
+                  [ngModel]="draft().defaultAudience"
+                  (ngModelChange)="setField('defaultAudience', $event)"
+                ></textarea>
+              </cp-field>
+
+              <cp-field-row>
+                <cp-field
+                  label="Language"
+                  forId="brand-locale"
+                  hint="A language tag such as en-US. Pick one or type your own."
+                  [error]="fieldError('locale')"
+                >
+                  <cp-combobox
+                    inputId="brand-locale"
+                    mode="free-text"
+                    [options]="locales"
+                    [value]="draft().locale"
+                    (valueChange)="setField('locale', $event)"
+                  />
+                </cp-field>
+
+                <cp-field
+                  label="Time zone"
+                  forId="brand-time-zone"
+                  hint="Your workspace's scheduling time zone. Scheduled posts use it."
+                  [error]="fieldError('timeZoneId')"
+                >
+                  <cp-combobox
+                    inputId="brand-time-zone"
+                    mode="restricted"
+                    [options]="zoneOptions()"
+                    [value]="zoneText()"
+                    (valueChange)="zoneText.set($event)"
+                    [selected]="zoneSelected()"
+                    (selectedChange)="onZoneSelected($event)"
+                  />
+                </cp-field>
+              </cp-field-row>
+            </cp-form-section>
+
+            <cp-form-section
+              sectionId="section-links"
+              heading="Links"
+              intro="Your website and any other pages that describe your brand."
+              [problem]="linksProblem()"
+            >
+              @if (draft().links.length === 0) {
+                <p class="empty">No links yet.</p>
+              }
+
+              <ul class="rows">
+                @for (link of draft().links; track link.id; let index = $index) {
+                  <li class="row" role="group" [attr.aria-label]="'Link ' + (index + 1)">
+                    <cp-field-row>
+                      <cp-field label="Type" [forId]="'brand-link-' + link.id + '-kind'" [error]="linkError(index, 'kind')">
+                        <select
+                          [id]="'brand-link-' + link.id + '-kind'"
+                          [name]="'linkKind' + link.id"
+                          [ngModel]="link.kind"
+                          (ngModelChange)="setLink(link.id, 'kind', $event)"
+                        >
+                          @for (kind of linkKinds; track kind) {
+                            <option [value]="kind">{{ kind }}</option>
+                          }
+                        </select>
+                      </cp-field>
+
+                      <cp-field label="Address" [forId]="'brand-link-' + link.id + '-url'" [error]="linkError(index, 'url')">
+                        <input
+                          [id]="'brand-link-' + link.id + '-url'"
+                          [name]="'linkUrl' + link.id"
+                          type="url"
+                          inputmode="url"
+                          autocomplete="off"
+                          placeholder="https://"
+                          [maxlength]="limits.urlMaxLength"
+                          [attr.aria-invalid]="linkError(index, 'url') ? 'true' : null"
+                          [ngModel]="link.url"
+                          (ngModelChange)="setLink(link.id, 'url', $event)"
+                        />
+                      </cp-field>
+
+                      <cp-field label="Label (optional)" [forId]="'brand-link-' + link.id + '-label'" [error]="linkError(index, 'label')">
+                        <input
+                          [id]="'brand-link-' + link.id + '-label'"
+                          [name]="'linkLabel' + link.id"
+                          type="text"
+                          autocomplete="off"
+                          [maxlength]="limits.linkLabelMaxLength"
+                          [ngModel]="link.label"
+                          (ngModelChange)="setLink(link.id, 'label', $event)"
+                        />
+                      </cp-field>
+                    </cp-field-row>
+
+                    <button
+                      cpButton
+                      type="button"
+                      variant="text"
+                      size="sm"
+                      [id]="'brand-link-' + link.id + '-remove'"
+                      [attr.aria-label]="'Remove link ' + (index + 1)"
+                      (click)="removeLink(link.id)"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                }
+              </ul>
+
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                id="brand-add-link"
+                [disabled]="draft().links.length >= limits.maxLinks"
+                (click)="addLink()"
+              >
+                Add a link
+              </button>
+              @if (draft().links.length >= limits.maxLinks) {
+                <p class="hint">You can keep up to {{ limits.maxLinks }} links.</p>
+              }
+            </cp-form-section>
+
+            <cp-form-section
+              sectionId="section-logo"
+              heading="Logo"
+              intro="The logo your brand is known by."
+            >
+              @if (logoCount() > 0) {
+                <p>{{ logoCount() }} logo{{ logoCount() === 1 ? '' : 's' }} linked.</p>
+              }
+              <p class="disabled-note" id="brand-logo-note">
+                Choosing a logo isn't available yet. It arrives with the media library, and nothing you've saved here is
+                affected.
+              </p>
+              <button cpButton type="button" variant="secondary" disabled aria-describedby="brand-logo-note">Choose a logo</button>
+            </cp-form-section>
+
+            <cp-form-section
+              sectionId="section-channels"
+              heading="Default channels"
+              intro="Where you usually publish. Used as the starting point when you plan new work."
+              [problem]="channelProblem()"
+            >
+              @if (channelsUnavailable()) {
+                <p class="banner warning" role="status">
+                  The list of channels couldn't be loaded, so they can't be changed right now. Anything you've already
+                  chosen is kept.
+                </p>
+                @if (draft().channelKeys.length > 0) {
+                  <p>Currently chosen: {{ draft().channelKeys.join(', ') }}.</p>
+                } @else {
+                  <p class="empty">No default channels chosen.</p>
+                }
+              } @else {
+                <div class="channels" role="group" aria-label="Default channels">
+                  @for (row of channelRows(); track row.key) {
+                    <cp-checkbox
+                      [inputId]="'brand-channel-' + row.key"
+                      [label]="row.label"
+                      [checked]="isChannelChecked(row.key)"
+                      (checkedChange)="toggleChannel(row.key, $event)"
+                    />
+                  }
+                </div>
+              }
+            </cp-form-section>
+
+            <cp-form-section
+              sectionId="section-style"
+              heading="Voice, tone and visual style"
+              intro="These live in your Brand Style Guide, not here."
+            >
+              <p>
+                Brand settings hold the facts about your brand. How it sounds and how it looks will be set up in the
+                Brand Style Guide, which isn't available yet.
+              </p>
+            </cp-form-section>
+          </fieldset>
+
+          @if (canEdit()) {
+            <div class="save-area">
+              @if (!isFirstUse()) {
+                <cp-field
+                  label="Note for history (optional)"
+                  forId="brand-reason"
+                  hint="Why you're making this change. It is kept with this version of your settings."
+                  [error]="fieldError('reason')"
+                >
+                  <input
+                    id="brand-reason"
+                    name="reason"
+                    type="text"
+                    autocomplete="off"
+                    [maxlength]="limits.reasonMaxLength"
+                    [ngModel]="reason()"
+                    (ngModelChange)="reason.set($event)"
+                  />
+                </cp-field>
+              }
+
+              <div class="actions">
+                <button cpButton type="submit" variant="primary" [disabled]="saveState().status === 'saving'">
+                  {{ saveState().status === 'saving' ? 'Saving…' : isFirstUse() ? 'Create brand settings' : 'Save changes' }}
+                </button>
+                @if (isDirty()) {
+                  <span class="dirty" role="status">You have unsaved changes.</span>
+                }
+                @if (saveState().status === 'conflict' || saveState().status === 'unavailable') {
+                  <button cpButton type="button" variant="text" (click)="reload()">Discard my edits and reload</button>
+                }
+              </div>
+            </div>
+          }
+        </cp-card>
+      </form>
+    }
+  }
+
+  <cp-toast-region [toasts]="toasts()" (dismissed)="dismissToast($event)" />
+</section>

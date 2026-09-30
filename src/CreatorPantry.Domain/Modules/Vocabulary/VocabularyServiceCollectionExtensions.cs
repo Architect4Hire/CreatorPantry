@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Modules.Vocabulary.Business;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Modules.Vocabulary.Data;
 using CreatorPantry.Domain.Modules.Vocabulary.Managers;
+using CreatorPantry.Domain.Managers.Reference;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,6 +16,9 @@ public static class VocabularyServiceCollectionExtensions
     {
         services.AddPaging();
         services.AddScoped<IValidator<ReferenceQueryViewModel>, ReferenceQueryViewModelValidator>();
+        services.AddContentChannelCatalog();
+        services.AddScoped<IContentChannelFacade, ContentChannelFacade>();
+        services.AddScoped<IContentChannelBusiness, ContentChannelBusiness>();
         services.AddScoped<IVocabularyFacade, VocabularyFacade>();
         services.AddScoped<IVocabularyBusiness, VocabularyBusiness>();
         services.AddScoped<IVocabularyDataLayer, VocabularyDataLayer>();

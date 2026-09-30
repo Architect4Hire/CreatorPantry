@@ -2375,7 +2375,7 @@ fix blockers, and rerun.
 
 ## Phase 11 — Editorial, SEO, structured data, and exports
 
-### 11.1 Creator brand profile entity
+### 11.1 Creator brand profile entity - done
 
 ```text
 SCOPE: Add workspace-owned BrandProfile with brand name, short description, default audience, channel
@@ -2386,7 +2386,7 @@ BrandStyleGuideVersion is their sole source of truth. No endpoint/UI/AI training
 BEHAVIOR: Show schema/index/version design, wait for approval, implement migration, review/apply, test.
 ```
 
-### 11.1a Read brand profile
+### 11.1a Read brand profile - done
 
 ```text
 SCOPE: Implement only the authorized profile read through the full request seam.
@@ -2395,7 +2395,7 @@ RESTRICTION: No update/create; unknown and cross-workspace are indistinguishable
 BEHAVIOR: Plan ServiceModel, wait for approval, implement found/empty/isolation tests.
 ```
 
-### 11.1b Create or update brand profile
+### 11.1b Create or update brand profile - done
 
 ```text
 SCOPE: Implement only create/update with submitted-field semantics, validation, version/audit record,
@@ -2405,14 +2405,25 @@ RESTRICTION: No delete and no voice/style fields. Brand defaults cannot weaken p
 BEHAVIOR: Plan patch/version semantics, wait for approval, implement validation/conflict/isolation tests.
 ```
 
-### 11.1c Brand settings UI
+*Delivery note: `POST`/`PATCH .../brand-profile` are live, with an immutable `BrandProfileRevisions` history and
+audit entries. Four things were deliberately left for later prompts: a non-empty `assets` list answers
+`422 brand.assets.unprocessable` until 12.10k can verify ownership through the DAM; `ChannelKey` is an opaque
+string until 12.1 supplies the channel keys to validate against; `BrandProfile.TimeZoneId` is the workspace
+scheduling zone that 13.10a, 13A.22 and 13A.30 read; and 11A.19 records the profile revision that each
+generation used. Neither migration has been applied to a dev database by the prompt itself — restart
+`aspire run`.*
+
+### 11.1c Brand settings UI - done
 
 ```text
 SCOPE: Build only settings UI for brand identity, description, default audience, locale/time zone, website/
 reference links, logo/asset selection, and channel defaults using profile read/update contracts.
-CONSTRAINT: creatorpantry-design-system and new-component skills.
+CONSTRAINT: creatorpantry-design-system and new-component skills. Run 12.1 first: channel defaults pick from
+its channel configuration, so there is nothing to pick from before it. The time zone field is the workspace
+scheduling zone.
 RESTRICTION: No voice/style editing, AI generation, or model-training claim. Link users to Brand Style
-Guide setup for voice, tone, tenor, writing, and visual direction.
+Guide setup for voice, tone, tenor, writing, and visual direction. Logo selection is a disabled,
+explained state here: the profile refuses asset links until 12.10k, which enables it.
 BEHAVIOR: Show form/states, wait for approval, implement component/contract/a11y tests.
 ```
 
@@ -2804,10 +2815,15 @@ replay/rollback/isolation tests.
 ```text
 SCOPE: Build a server-side assembler that takes workspace, task type, channel, audience, optional guide
 version, and source-document selections and returns a bounded BrandContextPackage containing exact guide
-version, relevant structured rules, cited excerpts, conflicts, omissions, checksum, and token estimate.
+version, relevant structured rules, cited excerpts, conflicts, omissions, checksum, and token estimate. It also
+reads the workspace BrandProfile through the brand facade (default audience, locale, channel defaults) and
+records the exact profile `revision` beside the guide version, so a generation can be traced to the profile
+state it used.
 CONSTRAINT: AI-001/002/008, DEC-010; .claude/rules/ai.md and content.md.
 RESTRICTION: No arbitrary all-document stuffing, cross-workspace retrieval, client-supplied blob key,
 provider call, or hidden fallback to another guide. Exact context inputs are recorded with generation.
+Profile text is untrusted prompt content, delimited from instructions; no profile field switches a platform
+safety rule, warning, or check on or off.
 BEHAVIOR: Show precedence, retrieval, conflict, and token-budget rules, wait for approval, implement
 deterministic task/channel/no-guide/override/injection/isolation tests.
 ```
@@ -3008,7 +3024,7 @@ approved blockers in atomic turns, and rerun evaluations.
 
 ## Phase 12 — Creative production, generated images, and DAM
 
-### 12.1 Content channel and weekly-theme configuration
+### 12.1 Content channel and weekly-theme configuration - channels done, themes open
 
 ```text
 SCOPE: Add validated application configuration or reference data for the six content channels and seven
@@ -3016,9 +3032,21 @@ weekly themes required by DATA-RQ-001 through 003, with stable keys and display 
 CONSTRAINT: SEED-001 and DATA-RQ-001 through 003; .claude/rules/content.md.
 RESTRICTION: Do not scatter channel/theme literals across prompts, Angular, or providers. If user-managed
 configuration is chosen, stop and add separate ILF/function-point scope before implementation.
-BEHAVIOR: Show source-of-truth choice and schema, wait for approval, implement with uniqueness and
-invalid-key tests.
+Expose channel-key validation through a facade, and make the brand profile's create/update call it: 11.1b
+stores `channelDefaults` as opaque keys, so this prompt is what makes an unknown key a validation failure.
+Decide and test what happens to keys already stored when a channel is retired.
+BEHAVIOR: Show source-of-truth choice and schema, wait for approval, implement with uniqueness, invalid-key,
+brand-profile unknown-key, and retired-key tests.
 ```
+
+*Delivery note: the channel half is built as code-owned configuration (`ContentChannelCatalog`, shared kernel),
+with a facade, `GET /api/v1/reference/content-channels`, and brand-profile validation that refuses unknown keys
+and refuses newly choosing a retired one while leaving a retired key a profile already stores alone. **The six
+channels are provisional**: the requirement text behind DATA-RQ-001 to 003 is not in the repository, so they are
+the SOC-001 social platforms (Instagram, TikTok, Pinterest, Facebook, X, Threads). Confirm or correct them in
+`ContentChannels.cs` and `ContentChannelCatalogTests` before anything else stores these keys. **The seven weekly
+themes are not built**: nothing in the repository names them, so supply the list, then add them beside the
+channels and close this prompt.*
 
 ### 12.2 Content-seed generator
 
@@ -3380,7 +3408,25 @@ RESTRICTION: No upload/edit/delete asset action inside recipe editor.
 BEHAVIOR: Show interaction, wait for approval, implement component/contract/a11y tests.
 ```
 
-### 12.10k Creative-production audit
+### 12.10k Brand logo link command and UI
+
+```text
+SCOPE: Enable BrandProfile logo links. Validate each asset id through the DAM facade in the resolved
+workspace and lift the 11.1b `brand.assets.unprocessable` refusal in both the facade and Business. Add the
+composite foreign key (WorkspaceId, MediaAssetId) -> DamAssets (WorkspaceId, Id) for BrandAssetLink and for
+the two earlier unconstrained pointers, RecipeAssetLink and TestAttachmentLink. Enable logo selection in the
+brand settings UI using the DAM browser from 12.10j.
+CONSTRAINT: DAM-001, RCPUB-005, DEC-010; .claude/rules/media.md; add-media-feature, add-workspace-entity,
+add-endpoint, and new-component skills.
+RESTRICTION: Composite keys only, never a single-column key. A foreign, unknown, or soft-deleted asset is
+one indistinguishable not-found. Unlink never deletes an asset or its history. One primary logo. No
+visual-direction fields.
+BEHAVIOR: Show the FK/migration plan including how rows that already exist without a matching asset are
+found and handled, wait for approval, implement migration, guard replacement, and link/unlink/replay and
+cross-workspace-asset isolation tests.
+```
+
+### 12.10l Creative-production audit
 
 ```text
 SCOPE: Audit content pipeline, image studio, prompt library, staging, DAM, and recipe asset links.
@@ -3568,6 +3614,8 @@ SCOPE: Implement only PUB-002 schedule command: validate card/profile/platform/t
 approval, create pending ledger idempotently, call adapter, and record external ID or failure/uncertainty.
 CONSTRAINT: INT-031 through 033; add-external-integration and add-endpoint skills.
 RESTRICTION: No SQL transaction across provider call. Replay creates no second post. Never guess timeout outcome.
+Store UTC plus the originating workspace scheduling zone, read from `BrandProfile.TimeZoneId` (11.1b,
+publishing.md); when it is unset, refuse with a prompt to set it rather than guessing a zone.
 BEHAVIOR: Show state/compensation plan, wait for approval, implement success/replay/reject/timeout/isolation tests.
 ```
 
@@ -3907,10 +3955,11 @@ conflict/resume/end-to-end tests.
 
 ```text
 SCOPE: Compose content package selection, readiness/staleness check, board placement, profile/platform,
-copy/media preview, schedule time in user zone, explicit confirmation, status, and cancellation guidance.
+copy/media preview, schedule time in the workspace zone, explicit confirmation, status, and cancellation guidance.
 CONSTRAINT: KAN-001 through KAN-006 and PUB-001 through PUB-003; easy-as-pie rule.
 RESTRICTION: No publish without explicit confirmation or provider outcome assumption. Show UTC only as
-secondary diagnostic detail, not the primary scheduling language.
+secondary diagnostic detail, not the primary scheduling language. The zone is the workspace scheduling zone
+(`BrandProfile.TimeZoneId`); when unset, link to brand settings instead of guessing.
 BEHAVIOR: Show step/state/uncertain-outcome map, wait for approval, implement one step screen per turn with
 timezone/validation/replay/timeout/resume/end-to-end tests.
 ```
@@ -4012,7 +4061,9 @@ BEHAVIOR: Show suggestion/link/idempotency design, wait for approval, implement 
 
 ```text
 SCOPE: Add optional workspace-owned WorkTaskTemplate plus recurrence materialization for common daily/
-weekly routines with next occurrence, local time zone, default fields, active state, and idempotent Worker.
+weekly routines with next occurrence, workspace scheduling zone (`BrandProfile.TimeZoneId`, stored with the
+template so later profile edits do not move existing occurrences), default fields, active state, and
+idempotent Worker.
 CONSTRAINT: add-workspace-entity and add-background-job skills; API-009.
 RESTRICTION: No natural-language recurrence in this prompt. Materialization never duplicates an occurrence
 or edits completed tasks when a template changes.

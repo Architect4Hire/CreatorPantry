@@ -163,8 +163,8 @@ public sealed class ModuleBoundaryTests
         var files = DomainFiles();
 
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
-        Assert.InRange(files.Count, 150, 600);
-        Assert.Equal(8, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        Assert.InRange(files.Count, 150, 700);
+        Assert.Equal(9, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.

@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -327,6 +328,30 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
             new AuditLogImmutabilityInterceptor(),
             new ImmutableRecordInterceptor());
     }
+
+    /// <remarks>
+    /// The workspace's brand identity facts, one per workspace: a root of the brand module. Holds no voice,
+    /// tone or visual direction — those belong to the style guide (DEC-010).
+    /// </remarks>
+    public DbSet<BrandProfile> BrandProfiles => Set<BrandProfile>();
+
+    /// <inheritdoc cref="BrandProfiles"/>
+    /// <remarks>Interior to the <see cref="BrandProfile"/> aggregate, as are the two sets below.</remarks>
+    public DbSet<BrandChannelDefault> BrandChannelDefaults => Set<BrandChannelDefault>();
+
+    /// <inheritdoc cref="BrandChannelDefaults"/>
+    public DbSet<BrandLink> BrandLinks => Set<BrandLink>();
+
+    /// <inheritdoc cref="BrandChannelDefaults"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. One row per
+    /// profile revision, holding the facts as they stood then.
+    /// </remarks>
+    public DbSet<BrandProfileRevision> BrandProfileRevisions => Set<BrandProfileRevision>();
+
+    /// <inheritdoc cref="BrandChannelDefaults"/>
+    /// <remarks>Its <c>MediaAssetId</c> has no foreign key until the media aggregate lands.</remarks>
+    public DbSet<BrandAssetLink> BrandAssetLinks => Set<BrandAssetLink>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -12,6 +12,8 @@ import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
 import { RecipeLibraryComponent } from './features/recipes/recipe-library.component';
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
+import { BrandSettingsComponent } from './features/brand/brand-settings.component';
+import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 import { RecipeConceptStudioComponent } from './features/ai/recipe-concept-studio.component';
 import { RecipeFirstDraftReviewComponent } from './features/ai/recipe-first-draft-review.component';
@@ -91,10 +93,15 @@ describe('app routes', () => {
     // the component class itself. Compare by reference against a directly-imported class, not by
     // `.name` — the bundler can rename same-named classes duplicated across separate lazy chunks.
     for (const section of workspaceRoute.children!.filter(
-      (route) => route.path !== '' && route.path !== 'recipes' && route.path !== 'ai-recipe-studio',
+      (route) => route.path !== '' && route.path !== 'recipes' && route.path !== 'ai-recipe-studio' && route.path !== 'brand',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
+
+    // 'brand' is the brand settings (11.1c), no longer a placeholder, and is guarded against losing edits.
+    const brandRoute = workspaceRoute.children!.find((route) => route.path === 'brand')!;
+    expect(await brandRoute.loadComponent!()).toBe(BrandSettingsComponent);
+    expect(brandRoute.canDeactivate).toEqual([brandSettingsCanDeactivateGuard]);
 
     // 'ai-recipe-studio' is a nested grouping like 'recipes': AIREC-001's concept form at its index, and
     // AIREC-002's first-draft review beside it, so it resolves through children rather than loadComponent.

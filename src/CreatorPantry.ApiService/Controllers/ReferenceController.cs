@@ -27,8 +27,18 @@ namespace CreatorPantry.ApiService.Controllers;
 public sealed class ReferenceController(
     IMeasurementFacade measurementFacade,
     IVocabularyFacade vocabularyFacade,
+    IContentChannelFacade contentChannelFacade,
     IIngredientFacade ingredientFacade) : ControllerBase
 {
+    /// <summary>
+    /// The content channels CreatorPantry writes for, in display order. Retired channels are included with
+    /// `isActive: false` so a record that already carries one can still show its name; offer only active ones
+    /// as new choices. Not paged: the list is small and fixed.
+    /// </summary>
+    [HttpGet("content-channels")]
+    [ProducesResponseType<IReadOnlyList<ContentChannelServiceModel>>(StatusCodes.Status200OK)]
+    public IActionResult ContentChannels() => Ok(contentChannelFacade.List());
+
     /// <summary>Active ingredients in the shared catalogue, with the aliases that resolve to each one. Retired entries are not listed.</summary>
     [HttpGet("ingredients")]
     [ProducesResponseType<CursorPageServiceModel<IngredientServiceModel>>(StatusCodes.Status200OK)]

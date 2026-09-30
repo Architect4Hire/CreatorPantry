@@ -15,6 +15,7 @@ using CreatorPantry.Domain.Modules.Auth.Gateways;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
@@ -54,6 +55,7 @@ builder.Services.AddMeasurementModule();
 builder.Services.AddVocabularyModule();
 builder.Services.AddIngredientModule();
 builder.Services.AddRecipesModule(builder.Configuration);
+builder.Services.AddBrandModule();
 // The provider-specific failure classifier goes in before AddAiModule, whose TryAdd fallback is deliberately
 // weaker: it cannot read a provider SDK's status code, so it cannot tell a rate limit or a safety block from a
 // generic transient fault.

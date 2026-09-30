@@ -99,3 +99,9 @@ public sealed record DescribedReferenceEntryServiceModel(
     string Code,
     string DisplayName,
     string Description);
+
+/// <summary>A content channel as the reference API publishes it.</summary>
+/// <param name="Key">Stable key that workspace-owned records store.</param>
+/// <param name="DisplayName">What a creator sees.</param>
+/// <param name="IsActive">False for a retired channel: show it where already chosen, never offer it as new.</param>
+public sealed record ContentChannelServiceModel(string Key, string DisplayName, bool IsActive);

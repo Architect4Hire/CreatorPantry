@@ -781,6 +781,335 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-profile": {
+      "get": {
+        "tags": [
+          "BrandProfile"
+        ],
+        "summary": "Returns the workspace\u0027s brand profile.",
+        "description": "Each workspace has at most one profile. It holds brand facts only \u2014 name, description, default audience,\ndefault channels, locale, scheduling time zone, links and logo references \u2014 and never voice, tone or\nvisual direction, which belong to the brand style guide. \u0060concurrencyToken\u0060 identifies this state for the\nconditional write that follows in a later release; \u0060revision\u0060 counts edits.\n\nA workspace that has not created a profile answers \u0060404 brand.profile.not_found\u0060, which a client treats\nas its first-use state. An unknown workspace and one the caller is not a member of both answer the\ntenancy 404 before this action runs, so neither is distinguishable from the other. Every member\nincluding a Viewer may read. The response is \u0060no-store\u0060: it is personalised and editable.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "BrandProfile"
+        ],
+        "summary": "Creates the workspace\u0027s brand profile.",
+        "description": "Editor or above. A workspace has one profile: creating a second answers\n\u0060409 brand.profile.exists.conflict\u0060, and the way to change it is \u0060PATCH\u0060. The response is the profile\nas a read returns it, at \u0060revision\u0060 1. \u0060assets\u0060 is part of the contract, but any non-empty list answers\n\u0060422 brand.assets.unprocessable\u0060 until the media library exists to verify that an asset belongs to this\nworkspace; an empty or omitted list is accepted.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same body returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than failing on the profile it created.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandProfile"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandProfile"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "BrandProfile"
+        ],
+        "summary": "Changes the workspace\u0027s brand profile.",
+        "description": "Editor or above. This is a JSON Merge Patch, not a replacement. A field the body does not mention is\nleft exactly as it is; a field sent with a value is set; a field sent as \u0060null\u0060 is cleared. Omitting a\nfield never blanks it. \u0060channelDefaults\u0060, \u0060links\u0060 and \u0060assets\u0060 replace as a whole: a submitted list\nbecomes the complete set, and \u0060[]\u0060 or \u0060null\u0060 empties it. \u0060brandName\u0060 may be changed but not cleared.\n\u0060expectedConcurrencyToken\u0060 is required and is not a profile field: it is the \u0060concurrencyToken\u0060 from the\nread this edit was composed against, and an edit quoting a token the profile has moved past is refused\nwith \u0060409 brand.profile.conflict\u0060 rather than overwriting whoever saved first. \u0060reason\u0060 is likewise not\na profile field; it is recorded on the revision this edit writes. An edit that would change nothing\nwrites no revision and leaves the token valid. The response is the whole profile as a read returns it,\ncarrying the refreshed token the next edit must quote. A non-empty \u0060assets\u0060 list answers\n\u0060422 brand.assets.unprocessable\u0060 for the reason \u0060POST\u0060 gives. A workspace with no profile answers\n\u0060404 brand.profile.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and body returns the original response.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandProfile"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandProfile"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/ingredient-tools/parse": {
       "post": {
         "tags": [
@@ -5480,6 +5809,60 @@
         ]
       }
     },
+    "/api/v1/reference/content-channels": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "The content channels CreatorPantry writes for, in display order. Retired channels are included with\n\u0060isActive: false\u0060 so a record that already carries one can still show its name; offer only active ones\nas new choices. Not paged: the list is small and fixed.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentChannel"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentChannel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentChannel"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/reference/ingredients": {
       "get": {
         "tags": [
@@ -7011,6 +7394,217 @@
         ],
         "type": "string"
       },
+      "BrandAsset": {
+        "required": [
+          "mediaAssetId",
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/BrandAssetRole"
+          }
+        }
+      },
+      "BrandAssetInput": {
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandAssetRole"
+              }
+            ]
+          }
+        }
+      },
+      "BrandAssetRole": {
+        "enum": [
+          "PrimaryLogo",
+          "AlternateLogo"
+        ],
+        "type": "string"
+      },
+      "BrandChannelDefault": {
+        "required": [
+          "channelKey"
+        ],
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandChannelDefaultInput": {
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandLink": {
+        "required": [
+          "kind",
+          "url",
+          "label"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/BrandLinkKind"
+          },
+          "url": {
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandLinkInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandLinkKind"
+              }
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandLinkKind": {
+        "enum": [
+          "Website",
+          "Reference"
+        ],
+        "type": "string"
+      },
+      "BrandProfile": {
+        "required": [
+          "id",
+          "brandName",
+          "shortDescription",
+          "defaultAudience",
+          "locale",
+          "timeZoneId",
+          "channelDefaults",
+          "links",
+          "assets",
+          "revision",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "brandName": {
+            "type": "string"
+          },
+          "shortDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaultAudience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "locale": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZoneId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelDefaults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandChannelDefault"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandLink"
+            }
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandAsset"
+            }
+          },
+          "revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
       "ChangePassword": {
         "type": "object",
         "properties": {
@@ -7044,6 +7638,25 @@
           },
           "token": {
             "type": "string"
+          }
+        }
+      },
+      "ContentChannel": {
+        "required": [
+          "key",
+          "displayName",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
           }
         }
       },
@@ -7180,6 +7793,68 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CreateBrandProfile": {
+        "type": "object",
+        "properties": {
+          "brandName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shortDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaultAudience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "locale": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZoneId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelDefaults": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandChannelDefaultInput"
+            }
+          },
+          "links": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandLinkInput"
+            }
+          },
+          "assets": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandAssetInput"
+            }
           }
         }
       },
@@ -11553,6 +12228,80 @@
           }
         }
       },
+      "UpdateBrandProfile": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "brandName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shortDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaultAudience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "locale": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZoneId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelDefaults": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandChannelDefaultInput"
+            }
+          },
+          "links": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandLinkInput"
+            }
+          },
+          "assets": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandAssetInput"
+            }
+          }
+        }
+      },
       "UpdateRecipe": {
         "type": "object",
         "properties": {
@@ -12199,6 +12948,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "BrandProfile"
     },
     {
       "name": "IngredientTools"

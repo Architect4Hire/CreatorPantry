@@ -29,7 +29,7 @@ public static class ProblemResults
     /// <summary>
     /// HTTP status for an application error code. Codes follow <c>area.reason</c>; the reason suffix selects
     /// the status so new features map consistently: <c>.not_found</c> 404 (also used to hide existence),
-    /// <c>.forbidden</c> 403, <c>.conflict</c> 409 (e.g. stale concurrency token), <c>.gone</c> 410,
+    /// <c>.forbidden</c> 403, <c>.conflict</c> 409 (e.g. stale concurrency token), <c>.gone</c> 410, <c>.unprocessable</c> 422 (well formed, but not something the server can accept),
     /// <c>.suspended</c> 403, <c>.exhausted</c> 429. Anything else is a 400 request error.
     /// </summary>
     public static int StatusFor(string code) => code switch
@@ -40,6 +40,7 @@ public static class ProblemResults
         _ when code.EndsWith(".forbidden", StringComparison.Ordinal) => StatusCodes.Status403Forbidden,
         _ when code.EndsWith(".conflict", StringComparison.Ordinal) => StatusCodes.Status409Conflict,
         _ when code.EndsWith(".gone", StringComparison.Ordinal) => StatusCodes.Status410Gone,
+        _ when code.EndsWith(".unprocessable", StringComparison.Ordinal) => StatusCodes.Status422UnprocessableEntity,
 
         // A spent allowance: temporary, self-resolving, and carrying the instant it resolves at. 429 rather
         // than 403 because the remedy is to wait rather than to be granted something, and because a client

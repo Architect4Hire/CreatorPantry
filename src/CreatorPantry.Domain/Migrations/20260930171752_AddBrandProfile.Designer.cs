@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CreatorPantry.Domain.Migrations
 {
     [DbContext(typeof(CreatorPantryDbContext))]
-    partial class CreatorPantryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260930171752_AddBrandProfile")]
+    partial class AddBrandProfile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1349,52 +1352,6 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_BrandProfiles_BrandName_NotBlank", "trim(BrandName) <> ''");
 
                             t.HasCheckConstraint("CK_BrandProfiles_Revision_Positive", "Revision >= 1");
-                        });
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandProfileRevision", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("BrandProfileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ChangedByMembershipId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Document")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("Revision")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SchemaVersion")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkspaceId", "BrandProfileId", "Revision")
-                        .IsUnique()
-                        .HasDatabaseName("UX_BrandProfileRevisions_Workspace_Profile_Revision");
-
-                    b.ToTable("BrandProfileRevisions", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_BrandProfileRevisions_Revision_Positive", "Revision >= 1");
-
-                            t.HasCheckConstraint("CK_BrandProfileRevisions_SchemaVersion_Positive", "SchemaVersion >= 1");
                         });
                 });
 
@@ -3465,16 +3422,6 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandProfileRevision", b =>
-                {
-                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandProfile", null)
-                        .WithMany()
-                        .HasForeignKey("WorkspaceId", "BrandProfileId")
-                        .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
