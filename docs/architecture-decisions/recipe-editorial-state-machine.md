@@ -101,24 +101,55 @@ Only `Approved` reopens. `Testing` and `ReadyForReview` assert that work is unde
 was cleared, and editing a recipe while testing it is how a test kitchen runs; approval re-evaluates readiness
 from scratch anyway, so nothing an edit does can slip past the gate through those states.
 
-## A known wrinkle: the approval version reads as untested
+## The approval gate: two defects, both fixed
 
-`RecipeVersion` is `IImmutableRecord`, so an approval cannot mark the tested version `Ready` — it has to write
-a new one. That new version is a byte-identical copy of its parent, and TESTRUN-004's
-`recipe.testing.currentVersionUntested` asks whether any test run names the *latest* version. So immediately
-after an approval, a readiness evaluation of that recipe reports a blocker against the snapshot the approval
-just wrote.
+As first built, `ReadyForReview → Approved` could not succeed — twice over. Both are worth recording because
+each came from a decision that was individually reasonable.
 
-It is consistent and it errs in the safe direction — nothing is ever approved on evidence that does not exist,
-and the rule asks for a test of the words as they now stand. It is also mildly redundant: a creator who
-approves, reopens, advances and approves again is asked to record a test of content identical to one they
-already tested.
+### A hero image was a blocker nothing could clear
 
-Left as it stands rather than patched, because every fix is a decision of its own: teaching the rule to walk
-back over consecutive `ReadinessApproval` ancestors needs either an unbounded version walk per evaluation or a
-bounded probe with a documented fallback, and recording the inheritance on the version instead needs a column
-and a migration. Both change the meaning of a readiness rule that was approved separately. Worth revisiting
-when the readiness surface exists and somebody can see how often it actually reads oddly.
+`recipe.media.heroMissing` was a blocker, and `RecipeAssetLink` rows are written only by the snapshot
+reconciler during a restore — so the only way to have one is to restore a version that already had one, and
+nothing ever puts one there. There is no `MediaAssets` set at all. Every recipe in the product was therefore
+permanently unapprovable.
+
+It is now a **recommendation**, and that is a correction rather than a workaround. An approval says a recipe is
+developed and tested, and recipes are routinely locked before they are photographed — the shoot follows the
+final bake. A hero image is genuinely required to *publish*, which is a different gate with its own records and
+its own rules (publishing.md). Blocking development on a photograph confused the two. When the media library
+lands, the hero requirement belongs on the publication gate; this rule stays advice about a recipe that would be
+thin to look at. `RecipeReadinessCatalogue.Version` is `1.1.0`, so an approval made under `1.0.0` is still
+readable as having been held to the stricter rule.
+
+### The approval's own snapshot read as untested
+
+`RecipeVersion` is `IImmutableRecord`, so an approval cannot mark the version it approved as ready — it has to
+write one, whose content is a byte-identical copy of its parent. `recipe.testing.currentVersionUntested` keyed
+on the *latest version id*, so the approval's own snapshot came back untested. A recipe that was approved,
+reopened and advanced again could not be approved a second time until somebody recorded a test of words they
+had already tested. A hard block, not a nuisance.
+
+`RecipeReadinessRepository` now evaluates the testing rules against **every version whose content is the
+content being evaluated**: the latest, plus the run of approval snapshots above the last version that actually
+changed something. Found by version number rather than by walking parents — every version above the last
+non-approval one is an approval snapshot copying its parent, so "number at or above the last content version"
+is the whole set, in one scalar read and one projection with no depth to bound.
+
+That is faithful to what the rule always meant. Its own summary is "somebody has cooked the version as it now
+stands", and an approval snapshot *is* the version as it stands. The equivalence stops at content: an edit
+after an approval writes a creator version, and approving those words needs a new test.
+
+### What this bought
+
+A successful approval is now reachable end to end, which nothing could demonstrate before:
+`RecipeReadinessTransitionEndpointTests.A_complete_and_tested_recipe_can_be_approved` builds a complete recipe
+through the API, records a passing test, advances it and approves it — and
+`A_reopened_recipe_can_be_approved_again_without_being_cooked_again` proves the second half.
+
+One further correction fell out of writing that test: the response to an approval was carrying the recipe's
+*pre*-approval version, because Business mapped the aggregate as it had been read. `TryTransitionAsync` now
+returns the version it captured and Business splices it in, the way the edit path already did — so
+`currentVersion` is the version the approval wrote, as the route's contract says.
 
 ## Audit codes
 

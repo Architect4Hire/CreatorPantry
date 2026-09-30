@@ -540,7 +540,7 @@ public sealed class RecipeTransitionBusinessTests
         public override Task<TaggedRecipe?> GetForUpdateAsync(Guid recipeId, CancellationToken cancellationToken) =>
             Task.FromResult(Detail);
 
-        public override Task<bool> TryTransitionAsync(
+        public override Task<(bool Committed, RecipeVersion? Version)> TryTransitionAsync(
             TaggedRecipe loaded,
             RecipeStatusTransition transition,
             RecipeVersionFacts? version,
@@ -552,7 +552,7 @@ public sealed class RecipeTransitionBusinessTests
             TransitionVersion = version;
             Audit = audit;
 
-            return Task.FromResult(!Conflict);
+            return Task.FromResult<(bool, RecipeVersion?)>((!Conflict, null));
         }
     }
 

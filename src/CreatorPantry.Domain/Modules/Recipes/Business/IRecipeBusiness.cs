@@ -1765,7 +1765,7 @@ internal sealed class RecipeBusiness(
                 transition.Reason)
             : null;
 
-        var committed = await dataLayer.TryTransitionAsync(
+        var (committed, captured) = await dataLayer.TryTransitionAsync(
             loaded,
             transition,
             version,
@@ -1784,9 +1784,18 @@ internal sealed class RecipeBusiness(
                 AfterReference: target.ToString()),
             cancellationToken);
 
-        return committed
-            ? OperationResult<RecipeDetailServiceModel>.Success(RecipeDetailMapper.ToDetail(loaded))
-            : Conflict();
+        if (!committed)
+        {
+            return Conflict();
+        }
+
+        // The recipe as it now stands, which on an approval means the version the approval wrote rather than
+        // the one the read came back with. A `with` expression, not a fresh construction, for the reason
+        // MergeAsync gives: everything else the read resolved has to survive unchanged.
+        return OperationResult<RecipeDetailServiceModel>.Success(RecipeDetailMapper.ToDetail(
+            captured is null
+                ? loaded
+                : loaded with { Recipe = new CompleteRecipe(recipe, captured) }));
     }
 
     /// <summary>

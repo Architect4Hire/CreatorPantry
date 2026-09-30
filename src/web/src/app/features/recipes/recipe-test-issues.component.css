@@ -1,0 +1,185 @@
+:host {
+  display: block;
+}
+
+cp-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+.muted {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.problem {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+/* Issues ---------------------------------------------------------------- */
+
+.issues {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.issue {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  min-width: 0;
+}
+
+.issue-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.issue-title {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+.issue-detail {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* The tester's own words, set apart so it reads as a quotation rather than as this panel's prose. */
+.observation {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  padding-inline-start: var(--cp-space-3);
+  border-inline-start: 2px solid var(--cp-border-strong);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.observation-label {
+  display: block;
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+}
+
+/* Resolution ------------------------------------------------------------ */
+
+.resolution {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface);
+}
+
+.resolution-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.resolution-when {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.resolution-notes {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.resolution-version {
+  margin: 0;
+}
+
+.resolution-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-style: italic;
+  line-height: var(--cp-leading-normal);
+}
+
+/* The resolve form ------------------------------------------------------ */
+
+.resolve {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  min-width: 0;
+}
+
+.resolve-heading {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+/* Fields in a form take the reading measure; the section rule does not reach a grandchild. */
+.resolve cp-field {
+  max-width: var(--cp-measure-field);
+}
+
+/* A write-once record deserves a warning that reads as one, not a hint under a field. */
+.resolve-warning {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-orange);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+.resolve-actions,
+.issue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+.resolve-actions {
+  justify-content: flex-end;
+}

@@ -86,7 +86,7 @@ internal abstract class StubRecipeDataLayerBase : IRecipeDataLayer
         Guid versionId,
         CancellationToken cancellationToken) => throw Unused();
 
-    public virtual Task<bool> TryTransitionAsync(
+    public virtual Task<(bool Committed, RecipeVersion? Version)> TryTransitionAsync(
         TaggedRecipe loaded,
         RecipeStatusTransition transition,
         RecipeVersionFacts? version,

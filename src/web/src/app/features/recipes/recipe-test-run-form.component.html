@@ -1,0 +1,486 @@
+<!--
+  One card, a legend, and named sections a --cp-space-8 apart (DESIGN-SYSTEM.md). Optionality is stated once in
+  the legend and never field by field: marking one optional field among a dozen unmarked ones makes the rest
+  read as required.
+-->
+<cp-card>
+  <form (ngSubmit)="save()" novalidate>
+    <header class="legend">
+      <h1 class="title">{{ isEditing() ? 'Correct this test' : 'Record a test' }}</h1>
+      <p class="intro">
+        Testing <strong>version {{ versionNumber() }}</strong>. Everything you record here sits beside what that
+        version says — nothing on this form changes the recipe. Only the date is required.
+      </p>
+    </header>
+
+    <cp-form-section
+      heading="The test"
+      intro="When you cooked it, and how it went overall."
+      [sectionId]="idPrefix + '-section-test'"
+    >
+      <cp-field label="Tested on" [forId]="idPrefix + '-testedAt'" [required]="true" [error]="fieldError('testedAt')"
+        hint="When you cooked it, not when you are writing this up.">
+        <input
+          [id]="idPrefix + '-testedAt'"
+          type="datetime-local"
+          required
+          [ngModel]="testedAt()"
+          (ngModelChange)="testedAt.set($event)"
+          name="testedAt"
+          [attr.aria-invalid]="fieldError('testedAt') ? 'true' : null"
+        />
+      </cp-field>
+
+      <cp-field label="Outcome" [forId]="idPrefix + '-outcome'" [error]="fieldError('outcome')"
+        hint="Your verdict. “Not stated” is an answer — nothing reads it as a pass.">
+        <select
+          [id]="idPrefix + '-outcome'"
+          name="outcome"
+          [ngModel]="outcome()"
+          (ngModelChange)="outcome.set(outcomeFromValue($event))"
+          [attr.aria-invalid]="fieldError('outcome') ? 'true' : null"
+        >
+          @for (option of outcomeOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </cp-field>
+
+      <cp-field label="Rating" [forId]="idPrefix + '-rating'" [error]="fieldError('rating')"
+        hint="Out of five, if you scored it.">
+        <select
+          [id]="idPrefix + '-rating'"
+          name="rating"
+          [ngModel]="rating()"
+          (ngModelChange)="rating.set($event)"
+          [attr.aria-invalid]="fieldError('rating') ? 'true' : null"
+        >
+          <option value="">Not rated</option>
+          @for (value of ratingValues; track value) {
+            <option [value]="value">{{ value }} of 5</option>
+          }
+        </select>
+      </cp-field>
+    </cp-form-section>
+
+    <cp-form-section
+      heading="What it made"
+      intro="What you actually got, however you measured it."
+      [sectionId]="idPrefix + '-section-yield'"
+    >
+      <cp-field label="In your own words" [forId]="idPrefix + '-actualYieldText'"
+        [error]="fieldError('actualYieldText')" hint="“Got 10, not 12.”">
+        <input
+          [id]="idPrefix + '-actualYieldText'"
+          type="text"
+          name="actualYieldText"
+          [maxlength]="yieldTextMaxLength"
+          [ngModel]="actualYieldText()"
+          (ngModelChange)="actualYieldText.set($event)"
+          [attr.aria-invalid]="fieldError('actualYieldText') ? 'true' : null"
+        />
+      </cp-field>
+
+      <!-- A quantity and its unit are short and read as one set, which is what cp-field-row is for. -->
+      <cp-field-row minColumn="16rem">
+        <cp-field label="Amount" [forId]="idPrefix + '-actualYieldQuantity'"
+          [error]="fieldError('actualYieldQuantity')">
+          <input
+            [id]="idPrefix + '-actualYieldQuantity'"
+            type="number"
+            inputmode="decimal"
+            step="any"
+            min="0"
+            name="actualYieldQuantity"
+            [ngModel]="actualYieldQuantity()"
+            (ngModelChange)="actualYieldQuantity.set($event)"
+            [attr.aria-invalid]="fieldError('actualYieldQuantity') ? 'true' : null"
+          />
+        </cp-field>
+
+        <!--
+          `restricted`, like the recipe editor's yield unit and unlike an ingredient line's: this is an id or
+          nothing, and text naming no unit has nowhere to go. Which is also why removing one needs the explicit
+          Clear — restricted text reverts to the chosen unit's name when the field is left.
+        -->
+        <cp-field label="Unit" [forId]="idPrefix + '-actualYieldUnitId'" [hint]="yieldUnitHint()"
+          [error]="fieldError('actualYieldUnitId')">
+          <div class="unit-control">
+            <cp-combobox
+              [inputId]="idPrefix + '-actualYieldUnitId'"
+              [options]="yieldUnitOptions()"
+              [disabled]="unitCatalogue().status !== 'ready'"
+              mode="restricted"
+              placeholder="e.g. loaves"
+              [value]="actualYieldUnitText()"
+              (valueChange)="actualYieldUnitText.set($event)"
+              [selected]="yieldUnitSelection()"
+              (selectedChange)="onYieldUnitPicked($event)"
+            />
+            @if (actualYieldUnitId() !== null) {
+              <button cpButton variant="text" size="sm" type="button" aria-label="Clear the yield unit"
+                (click)="clearYieldUnit()">
+                Clear
+              </button>
+            }
+          </div>
+        </cp-field>
+      </cp-field-row>
+    </cp-form-section>
+
+    <cp-form-section
+      heading="Conditions"
+      intro="Anything about your kitchen or your kit that would change the result."
+      [sectionId]="idPrefix + '-section-conditions'"
+    >
+      <!-- Two textareas, stacked. Prose never shares a row, however short it happens to be. -->
+      <cp-field label="Environment" [forId]="idPrefix + '-environmentNotes'"
+        [error]="fieldError('environmentNotes')" hint="Oven, altitude, weather — whatever mattered.">
+        <textarea
+          [id]="idPrefix + '-environmentNotes'"
+          name="environmentNotes"
+          rows="3"
+          [maxlength]="environmentNotesMaxLength"
+          [ngModel]="environmentNotes()"
+          (ngModelChange)="environmentNotes.set($event)"
+          [attr.aria-invalid]="fieldError('environmentNotes') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+
+      <cp-field label="Equipment" [forId]="idPrefix + '-equipmentNotes'" [error]="fieldError('equipmentNotes')"
+        hint="What you actually used, where it differed from the recipe.">
+        <textarea
+          [id]="idPrefix + '-equipmentNotes'"
+          name="equipmentNotes"
+          rows="3"
+          [maxlength]="equipmentNotesMaxLength"
+          [ngModel]="equipmentNotes()"
+          (ngModelChange)="equipmentNotes.set($event)"
+          [attr.aria-invalid]="fieldError('equipmentNotes') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+    </cp-form-section>
+
+    <cp-form-section
+      heading="How long it took"
+      intro="What it actually took you, in minutes."
+      [sectionId]="idPrefix + '-section-times'"
+    >
+      <cp-field-row>
+        <cp-field label="Prep" [forId]="idPrefix + '-actualPrepTimeMinutes'"
+          [error]="fieldError('actualPrepTimeMinutes')">
+          <input
+            [id]="idPrefix + '-actualPrepTimeMinutes'"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="1"
+            name="actualPrepTimeMinutes"
+            [ngModel]="actualPrepTimeMinutes()"
+            (ngModelChange)="actualPrepTimeMinutes.set($event)"
+            [attr.aria-invalid]="fieldError('actualPrepTimeMinutes') ? 'true' : null"
+          />
+        </cp-field>
+
+        <cp-field label="Cook" [forId]="idPrefix + '-actualCookTimeMinutes'"
+          [error]="fieldError('actualCookTimeMinutes')">
+          <input
+            [id]="idPrefix + '-actualCookTimeMinutes'"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="1"
+            name="actualCookTimeMinutes"
+            [ngModel]="actualCookTimeMinutes()"
+            (ngModelChange)="actualCookTimeMinutes.set($event)"
+            [attr.aria-invalid]="fieldError('actualCookTimeMinutes') ? 'true' : null"
+          />
+        </cp-field>
+
+        <cp-field label="Rest" [forId]="idPrefix + '-actualRestTimeMinutes'"
+          [error]="fieldError('actualRestTimeMinutes')">
+          <input
+            [id]="idPrefix + '-actualRestTimeMinutes'"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            step="1"
+            name="actualRestTimeMinutes"
+            [ngModel]="actualRestTimeMinutes()"
+            (ngModelChange)="actualRestTimeMinutes.set($event)"
+            [attr.aria-invalid]="fieldError('actualRestTimeMinutes') ? 'true' : null"
+          />
+        </cp-field>
+      </cp-field-row>
+
+      <!--
+        On its own line and never summed. A real kitchen overlaps prep with cooking, so a total below the sum
+        of the three above is a measurement rather than a mistake — which is why nothing here derives it.
+      -->
+      <cp-field label="Total" [forId]="idPrefix + '-actualTotalTimeMinutes'"
+        [error]="fieldError('actualTotalTimeMinutes')"
+        hint="Recorded exactly as you enter it. Nothing adds the three above together.">
+        <input
+          [id]="idPrefix + '-actualTotalTimeMinutes'"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          step="1"
+          name="actualTotalTimeMinutes"
+          [ngModel]="actualTotalTimeMinutes()"
+          (ngModelChange)="actualTotalTimeMinutes.set($event)"
+          [attr.aria-invalid]="fieldError('actualTotalTimeMinutes') ? 'true' : null"
+        />
+      </cp-field>
+    </cp-form-section>
+
+    <cp-form-section
+      heading="How it went"
+      intro="The cook as a whole, as opposed to one thing you noticed."
+      [sectionId]="idPrefix + '-section-summary'"
+    >
+      <cp-field label="Summary" [forId]="idPrefix + '-summaryNotes'" [error]="fieldError('summaryNotes')">
+        <textarea
+          [id]="idPrefix + '-summaryNotes'"
+          name="summaryNotes"
+          rows="4"
+          [maxlength]="summaryNotesMaxLength"
+          [ngModel]="summaryNotes()"
+          (ngModelChange)="summaryNotes.set($event)"
+          [attr.aria-invalid]="fieldError('summaryNotes') ? 'true' : null"
+        ></textarea>
+      </cp-field>
+    </cp-form-section>
+
+    <cp-form-section
+      heading="What you noticed"
+      intro="One note per thing, in the order you want them read."
+      [problem]="observationsProblem()"
+      [sectionId]="idPrefix + '-section-observations'"
+    >
+      @if (observations().length === 0) {
+        <p class="empty">No notes yet. Add one for anything worth remembering about this cook.</p>
+      }
+
+      <ol class="rows">
+        @for (row of observations(); track row.key; let index = $index, count = $count) {
+          <li class="row">
+            <div class="row-head">
+              <h3 class="row-title" [id]="idPrefix + '-observation-label-' + row.key">Note {{ index + 1 }}</h3>
+              <div class="row-actions" role="group"
+                [attr.aria-labelledby]="idPrefix + '-observation-label-' + row.key">
+                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === 0"
+                  [attr.aria-label]="'Move note ' + (index + 1) + ' earlier'"
+                  (click)="moveObservation(row.key, -1)">↑</button>
+                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === count - 1"
+                  [attr.aria-label]="'Move note ' + (index + 1) + ' later'"
+                  (click)="moveObservation(row.key, 1)">↓</button>
+                <button cpButton variant="text" size="sm" type="button"
+                  [attr.aria-label]="'Remove note ' + (index + 1)" (click)="removeObservation(row.key)">
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            @if (rowOtherError('observations', row.key)) {
+              <p class="row-problem" role="alert">{{ rowOtherError('observations', row.key) }}</p>
+            }
+
+            <cp-field label="What kind of note" [forId]="idPrefix + '-observations-kind-' + row.key"
+              [error]="rowFieldError('observations', row.key, 'kind')">
+              <select
+                [id]="idPrefix + '-observations-kind-' + row.key"
+                [name]="'observation-kind-' + row.key"
+                [ngModel]="row.kind"
+                (ngModelChange)="updateObservation(row.key, { kind: observationKindFromValue($event) })"
+              >
+                @for (option of observationKindOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </cp-field>
+
+            <cp-field label="What you noticed" [forId]="idPrefix + '-observations-text-' + row.key"
+              [error]="rowFieldError('observations', row.key, 'text')">
+              <textarea
+                [id]="idPrefix + '-observations-text-' + row.key"
+                [name]="'observation-text-' + row.key"
+                rows="3"
+                [maxlength]="observationTextMaxLength"
+                [ngModel]="row.text"
+                (ngModelChange)="updateObservation(row.key, { text: $event })"
+                [attr.aria-invalid]="rowFieldError('observations', row.key, 'text') ? 'true' : null"
+              ></textarea>
+            </cp-field>
+          </li>
+        }
+      </ol>
+
+      <div class="row-add">
+        <button cpButton variant="secondary" size="sm" type="button" [disabled]="!canAddObservation()"
+          (click)="addObservation()">
+          Add a note
+        </button>
+        @if (!canAddObservation()) {
+          <p class="empty">That is as many notes as one test can carry.</p>
+        }
+      </div>
+    </cp-form-section>
+
+    <cp-form-section
+      heading="What needs fixing"
+      intro="Problems this cook found with the recipe. Severity describes the recipe as a draft, never its safety."
+      [problem]="issuesProblem()"
+      [sectionId]="idPrefix + '-section-issues'"
+    >
+      @if (issues().length === 0) {
+        <p class="empty">No problems recorded. A test with none is not thereby a success — the outcome above says that.</p>
+      }
+
+      <ol class="rows">
+        @for (row of issues(); track row.key; let index = $index, count = $count) {
+          <li class="row">
+            <div class="row-head">
+              <h3 class="row-title" [id]="idPrefix + '-issue-label-' + row.key">Issue {{ index + 1 }}</h3>
+              @if (row.resolved) {
+                <cp-status-pill tone="success">Resolved</cp-status-pill>
+              }
+              <div class="row-actions" role="group" [attr.aria-labelledby]="idPrefix + '-issue-label-' + row.key">
+                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === 0"
+                  [attr.aria-label]="'Move issue ' + (index + 1) + ' earlier'" (click)="moveIssue(row.key, -1)">↑</button>
+                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === count - 1"
+                  [attr.aria-label]="'Move issue ' + (index + 1) + ' later'" (click)="moveIssue(row.key, 1)">↓</button>
+                <!--
+                  A resolved issue has no Remove at all. Dropping it would erase the decision somebody recorded
+                  about it, which the server refuses outright — so the control is absent rather than disabled,
+                  and the line below says why.
+                -->
+                @if (!row.resolved) {
+                  <button cpButton variant="text" size="sm" type="button"
+                    [attr.aria-label]="'Remove issue ' + (index + 1)" (click)="removeIssue(row.key)">Remove</button>
+                }
+              </div>
+            </div>
+
+            @if (row.resolved) {
+              <p class="row-note">
+                Somebody has recorded what was done about this. It stays on the test, and the words below can
+                still be corrected.
+              </p>
+            }
+
+            @if (rowOtherError('issues', row.key)) {
+              <p class="row-problem" role="alert">{{ rowOtherError('issues', row.key) }}</p>
+            }
+
+            <cp-field label="How bad is it" [forId]="idPrefix + '-issues-severity-' + row.key" [required]="true"
+              [error]="rowFieldError('issues', row.key, 'severity')">
+              <select
+                [id]="idPrefix + '-issues-severity-' + row.key"
+                [name]="'issue-severity-' + row.key"
+                required
+                [ngModel]="row.severity"
+                (ngModelChange)="updateIssue(row.key, { severity: severityFromValue($event) })"
+                [attr.aria-invalid]="rowFieldError('issues', row.key, 'severity') ? 'true' : null"
+              >
+                <option value="" disabled>Choose how badly it affects the recipe</option>
+                @for (option of severityOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </cp-field>
+
+            <cp-field label="The problem, in one line" [forId]="idPrefix + '-issues-title-' + row.key" [required]="true"
+              [error]="rowFieldError('issues', row.key, 'title')">
+              <input
+                [id]="idPrefix + '-issues-title-' + row.key"
+                type="text"
+                required
+                [name]="'issue-title-' + row.key"
+                [maxlength]="issueTitleMaxLength"
+                [ngModel]="row.title"
+                (ngModelChange)="updateIssue(row.key, { title: $event })"
+                [attr.aria-invalid]="rowFieldError('issues', row.key, 'title') ? 'true' : null"
+              />
+            </cp-field>
+
+            <cp-field label="At more length" [forId]="idPrefix + '-issues-description-' + row.key"
+              [error]="rowFieldError('issues', row.key, 'description')">
+              <textarea
+                [id]="idPrefix + '-issues-description-' + row.key"
+                [name]="'issue-description-' + row.key"
+                rows="3"
+                [maxlength]="issueDescriptionMaxLength"
+                [ngModel]="row.description"
+                (ngModelChange)="updateIssue(row.key, { description: $event })"
+                [attr.aria-invalid]="rowFieldError('issues', row.key, 'description') ? 'true' : null"
+              ></textarea>
+            </cp-field>
+
+            @if (observationLinkOptions().length > 0) {
+              <cp-field label="Came from" [forId]="idPrefix + '-issues-observationIndex-' + row.key"
+                [error]="rowFieldError('issues', row.key, 'observationIndex')"
+                hint="One of your notes above, if this came from one.">
+                <select
+                  [id]="idPrefix + '-issues-observationIndex-' + row.key"
+                  [name]="'issue-observation-' + row.key"
+                  [ngModel]="row.fromObservationKey ?? ''"
+                  (ngModelChange)="updateIssue(row.key, { fromObservationKey: $event === '' ? null : $event })"
+                >
+                  <option value="">Not from a note</option>
+                  @for (option of observationLinkOptions(); track option.key) {
+                    <option [value]="option.key">{{ option.label }}</option>
+                  }
+                </select>
+              </cp-field>
+            }
+          </li>
+        }
+      </ol>
+
+      <div class="row-add">
+        <button cpButton variant="secondary" size="sm" type="button" [disabled]="!canAddIssue()" (click)="addIssue()">
+          Add a problem
+        </button>
+        @if (!canAddIssue()) {
+          <p class="empty">That is as many problems as one test can carry.</p>
+        }
+      </div>
+    </cp-form-section>
+
+    <!--
+      Attachments are deliberately not here. Neither route accepts an asset, because a media id from a client
+      can only be trusted once something can authorize it against the resolved workspace — so an uploader on
+      this form would collect photographs that a Save silently dropped. It arrives with the media library.
+    -->
+
+    <footer class="actions">
+      <!--
+        The status line is focusable so a refusal that named no field this form renders still has somewhere to
+        send focus. `role="status"` rather than `alert`: the message is also the thing revealFirstError falls
+        back to, and announcing it twice would be worse than announcing it once.
+      -->
+      <p class="status" [id]="idPrefix + '-status'" tabindex="-1" role="status" [class.status--problem]="stateMessage()">
+        @if (stateMessage()) {
+          {{ stateMessage() }}
+        } @else if (isEditing() && isDirty()) {
+          Unsaved changes.
+        }
+      </p>
+
+      <div class="buttons">
+        @if (canReload()) {
+          <button cpButton variant="secondary" type="button" (click)="reload()">Reload this test</button>
+        }
+        <button cpButton variant="ghost" type="button" [disabled]="submitting()" (click)="cancel()">Cancel</button>
+        <button cpButton variant="primary" type="submit" [disabled]="!canSave()" [attr.aria-busy]="submitting()">
+          @if (submitting()) {
+            Saving…
+          } @else {
+            {{ isEditing() ? 'Save changes' : 'Save this test' }}
+          }
+        </button>
+      </div>
+    </footer>
+  </form>
+</cp-card>

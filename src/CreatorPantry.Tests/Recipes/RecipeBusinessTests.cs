@@ -3542,7 +3542,7 @@ public sealed class RecipeBusinessTests
         /// <inheritdoc cref="Transition"/>
         public RecipeVersionFacts? TransitionVersion { get; private set; }
 
-        public Task<bool> TryTransitionAsync(
+        public Task<(bool Committed, RecipeVersion? Version)> TryTransitionAsync(
             TaggedRecipe loaded,
             RecipeStatusTransition transition,
             RecipeVersionFacts? version,
@@ -3557,7 +3557,7 @@ public sealed class RecipeBusinessTests
             Transition = transition;
             TransitionVersion = version;
 
-            return Task.FromResult(!StatusConflict);
+            return Task.FromResult<(bool, RecipeVersion?)>((!StatusConflict, null));
         }
 
         /// <summary>

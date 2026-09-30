@@ -41,6 +41,63 @@ public interface IRecipeReadinessRepository
 
 internal sealed class RecipeReadinessRepository(CreatorPantryDbContext context) : IRecipeReadinessRepository
 {
+    /// <summary>
+    /// The versions whose content is the content being evaluated: the latest, plus the run of approval
+    /// snapshots above the last version that actually changed something.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Why this is not just "the latest version".</strong> It was, and that made the approval gate
+    /// contradict itself. <c>RecipeVersion</c> is immutable, so an approval cannot mark the version it
+    /// approved as ready — it has to <em>write</em> one, whose content is a byte-identical copy of its parent
+    /// (<c>RecipeVersionSource.ReadinessApproval</c>). Keyed on the latest id alone,
+    /// <c>recipe.testing.currentVersionUntested</c> then reported the approval's own snapshot as untested, so
+    /// a recipe that was approved, reopened and advanced again could not be approved a second time until
+    /// somebody recorded a test of words they had already tested.
+    /// </para>
+    /// <para>
+    /// The rule always meant the words rather than the row — its own summary is "somebody has cooked the
+    /// version as it now stands", and an approval snapshot <em>is</em> the version as it stands. This is what
+    /// makes that true.
+    /// </para>
+    /// <para>
+    /// <strong>Found by version number rather than by walking parents.</strong> Every version above the last
+    /// non-approval one is an approval snapshot, and each copies its parent, so all of them carry that
+    /// version's content — which makes "number at or above the last content version" the whole set, in one
+    /// scalar read and one projection rather than a chain of lookups with a depth nobody can bound.
+    /// </para>
+    /// <para>
+    /// A recipe with no versions answers empty, and the testing rules then report what
+    /// <see cref="RecipeReadinessFacts.EvaluatedVersionId"/> being null already says.
+    /// </para>
+    /// </remarks>
+    private async Task<List<Guid>> CurrentContentVersionIdsAsync(
+        Guid recipeId,
+        int? latestVersionNumber,
+        CancellationToken cancellationToken)
+    {
+        if (latestVersionNumber is null)
+        {
+            return [];
+        }
+
+        // Version 1 is always a create, so this is never null for a recipe that has any version at all. Read
+        // as nullable anyway rather than assumed: a Max over an empty set throws, and the honest reading of
+        // "no content version" is the conservative one below.
+        var contentVersionNumber = await context.RecipeVersions.AsNoTracking()
+            .Where(version =>
+                version.RecipeId == recipeId
+                && version.Source != RecipeVersionSource.ReadinessApproval)
+            .MaxAsync(version => (int?)version.VersionNumber, cancellationToken);
+
+        return await context.RecipeVersions.AsNoTracking()
+            .Where(version =>
+                version.RecipeId == recipeId
+                && version.VersionNumber >= (contentVersionNumber ?? latestVersionNumber))
+            .Select(version => version.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<RecipeReadinessFacts?> FindFactsAsync(Guid recipeId, CancellationToken cancellationToken)
     {
         // The recipe, its scalar facts, its counts, and the latest version — one statement, because every part of
@@ -109,18 +166,24 @@ internal sealed class RecipeReadinessRepository(CreatorPantryDbContext context) 
 
         var latestVersionId = head.LatestVersionId;
 
-        // Everything about testing is scoped to the version being evaluated, which is the whole point of the
-        // rules: a test of an earlier version is evidence about words that have since changed.
-        var testedCurrentVersion = latestVersionId is not null
+        // Every version whose content is the content being evaluated — usually just the latest, and more than
+        // one once an approval has written a snapshot of words nobody changed.
+        var currentContentVersionIds = await CurrentContentVersionIdsAsync(
+            recipeId, head.LatestVersionNumber, cancellationToken);
+
+        // Everything about testing is scoped to those versions, which is the whole point of the rules: a test
+        // of an *earlier* version is evidence about words that have since changed, and a test of an identical
+        // version is evidence about these exact words.
+        var testedCurrentVersion = currentContentVersionIds.Count > 0
             && await context.RecipeTestRuns.AsNoTracking()
-                .AnyAsync(run => run.RecipeVersionId == latestVersionId, cancellationToken);
+                .AnyAsync(run => currentContentVersionIds.Contains(run.RecipeVersionId), cancellationToken);
 
         // Most recently cooked, not most recently entered — the same ordering the test history uses, and for the
         // same reason: testers write their notes up days later.
-        var latestTest = latestVersionId is null
+        var latestTest = currentContentVersionIds.Count == 0
             ? null
             : await context.RecipeTestRuns.AsNoTracking()
-                .Where(run => run.RecipeVersionId == latestVersionId)
+                .Where(run => currentContentVersionIds.Contains(run.RecipeVersionId))
                 .OrderByDescending(run => run.TestedAt)
                 .ThenByDescending(run => run.Id)
                 .Select(run => new { run.Id, run.Outcome })
@@ -128,12 +191,13 @@ internal sealed class RecipeReadinessRepository(CreatorPantryDbContext context) 
 
         // "Unresolved" is the absence of a resolution row and nothing else, which is the one meaning TestIssue
         // establishes. There is no flag here to disagree with it.
-        var openIssues = latestVersionId is null
+        var openIssues = currentContentVersionIds.Count == 0
             ? []
             : await context.TestIssues.AsNoTracking()
                 .Where(issue =>
                     context.RecipeTestRuns.Any(run =>
-                        run.Id == issue.RecipeTestRunId && run.RecipeVersionId == latestVersionId)
+                        run.Id == issue.RecipeTestRunId
+                        && currentContentVersionIds.Contains(run.RecipeVersionId))
                     && !context.TestIssueResolutions.Any(resolution => resolution.TestIssueId == issue.Id))
                 .OrderBy(issue => issue.RecipeTestRunId)
                 .ThenBy(issue => issue.SortOrder)

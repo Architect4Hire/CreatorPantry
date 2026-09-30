@@ -1,0 +1,203 @@
+/*
+ * The same control vocabulary the recipe library established for a filtered, cursor-paged list — chips whose
+ * state is carried by `aria-pressed`, border weight and background as well as colour, and a pager that is a
+ * nav. Restated here rather than shared because the two screens are compositions, not a component; if a third
+ * list wants them, that is the point at which they become one.
+ */
+
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* Filters --------------------------------------------------------------- */
+
+.typed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+.field {
+  display: grid;
+  gap: var(--cp-space-1);
+}
+
+.label {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+}
+
+.field input,
+.issues-field select {
+  min-height: 40px;
+  padding: 0 var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  font: inherit;
+}
+
+.field input[type='text'] {
+  min-width: 9rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* A toggle, so its state is carried by aria-pressed and by more than colour: a selected chip also changes its
+   border weight and background, which survives both themes and a monochrome display. */
+.chip {
+  min-height: 40px;
+  padding: 0 var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* --cp-primary, not --cp-primary-ink: the ink token is for text on a solid primary fill. */
+.chip--on {
+  border-color: var(--cp-primary);
+  background: var(--cp-primary-soft);
+  color: var(--cp-primary);
+  font-weight: 600;
+}
+
+.chip:focus-visible,
+.field input:focus-visible,
+.issues-field select:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.filter-error {
+  margin: 0;
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+/* Summary --------------------------------------------------------------- */
+
+.summary {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding-block-end: var(--cp-space-2);
+}
+
+.summary-line {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.outcome-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Rows ------------------------------------------------------------------ */
+
+.run-row {
+  padding: 0;
+}
+
+/*
+ * A button rather than a link: picking a test asks the host to show it, and only the host knows whether that is
+ * a route, a panel or nothing yet. It fills the card so the whole row is the target.
+ */
+.run-button {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  width: 100%;
+  min-height: 40px;
+  padding: var(--cp-space-4);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.run-button:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: -2px;
+}
+
+.run-main {
+  display: grid;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.version {
+  font-weight: 700;
+}
+
+.run-meta,
+.run-counts {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+.run-notes {
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.chevron {
+  color: var(--cp-text-faint);
+  flex: 0 0 auto;
+}
+
+/* Paging ---------------------------------------------------------------- */
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.page-number {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}

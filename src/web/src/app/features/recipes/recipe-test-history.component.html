@@ -1,0 +1,224 @@
+<cp-toolbar ariaLabel="Test history filters" [loading]="state().status === 'loading'">
+  <!--
+    Typed filters are applied on submit rather than on every keystroke: "3, 5" matches nothing while it is
+    still "3,", and a list that emptied itself mid-type would read as "no tests".
+  -->
+  <form class="typed" cpToolbarSearch (ngSubmit)="applyTypedFilters()">
+    <label class="field">
+      <span class="label">Versions</span>
+      <input
+        [id]="idPrefix + '-versions'"
+        type="text"
+        name="versions"
+        inputmode="numeric"
+        placeholder="e.g. 3, 5"
+        [value]="versionsText()"
+        (input)="versionsText.set($any($event.target).value)"
+        [attr.aria-invalid]="filterError('version') ? 'true' : null"
+        [attr.aria-describedby]="filterError('version') ? idPrefix + '-versions-error' : null"
+      />
+    </label>
+
+    <label class="field">
+      <span class="label">Cooked from</span>
+      <input
+        [id]="idPrefix + '-from'"
+        type="date"
+        name="testedFrom"
+        [value]="testedFromDate()"
+        (change)="testedFromDate.set($any($event.target).value); applyTypedFilters()"
+        [attr.aria-invalid]="filterError('testedFrom') ? 'true' : null"
+      />
+    </label>
+
+    <label class="field">
+      <span class="label">Cooked to</span>
+      <input
+        [id]="idPrefix + '-to'"
+        type="date"
+        name="testedTo"
+        [value]="testedToDate()"
+        (change)="testedToDate.set($any($event.target).value); applyTypedFilters()"
+        [attr.aria-invalid]="filterError('testedBefore') ? 'true' : null"
+      />
+    </label>
+
+    <button cpButton variant="secondary" size="sm" type="submit">Apply</button>
+  </form>
+
+  <div class="filter-group" cpToolbarFilters role="group" aria-label="Filter by the tester's verdict">
+    @for (outcome of outcomeOptions; track outcome) {
+      <button
+        type="button"
+        class="chip"
+        [class.chip--on]="isOutcomeSelected(outcome)"
+        [attr.aria-pressed]="isOutcomeSelected(outcome)"
+        (click)="toggleOutcome(outcome)"
+      >
+        {{ outcomeLabels[outcome] }}
+      </button>
+    }
+
+    @if (canFilterToMine()) {
+      <button
+        type="button"
+        class="chip"
+        [class.chip--on]="mineOnly()"
+        [attr.aria-pressed]="mineOnly()"
+        (click)="toggleMine()"
+      >
+        Cooked by me
+      </button>
+    }
+  </div>
+
+  <label class="issues-field" cpToolbarActions>
+    <span class="cp-sr-only">Filter by outstanding problems</span>
+    <!--
+      Single-valued, so a select rather than chips. Labelled as a record of what testers wrote: it is never a
+      readiness, safety or dietary finding.
+    -->
+    <select
+      [id]="idPrefix + '-issues'"
+      name="issues"
+      [value]="issueFilter()"
+      (change)="setIssueFilter($any($event.target).value)"
+    >
+      <option value="">Any problems</option>
+      <option value="HasUnresolved">{{ issueFilterLabels['HasUnresolved'] }}</option>
+      <option value="AllResolved">{{ issueFilterLabels['AllResolved'] }}</option>
+    </select>
+  </label>
+
+  @if (hasActiveFilters()) {
+    <button cpButton cpToolbarActions variant="text" size="sm" type="button" (click)="clearFilters()">
+      Clear filters
+    </button>
+  }
+</cp-toolbar>
+
+@if (filterError('version')) {
+  <p class="filter-error" [id]="idPrefix + '-versions-error'" role="alert">{{ filterError('version') }}</p>
+}
+@if (filterError('issues')) {
+  <p class="filter-error" role="alert">{{ filterError('issues') }}</p>
+}
+@if (filterError('testedFrom') || filterError('testedBefore')) {
+  <p class="filter-error" role="alert">{{ filterError('testedFrom') }} {{ filterError('testedBefore') }}</p>
+}
+
+<cp-list-shell
+  heading="Test history"
+  [state]="listShellState()"
+  [errorMessage]="errorMessage()"
+  emptyMessage="No tests recorded."
+>
+  <div cpListShellActions>
+    @if (listShellState() === 'error') {
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+    }
+  </div>
+
+  <div cpListShellEmpty>
+    @if (hasActiveFilters()) {
+      <cp-empty-state
+        title="No tests match these filters"
+        description="Try a different date range or verdict, or clear the filters to see every test."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="No tests yet"
+        description="Once somebody cooks this recipe and writes it up, every test shows here against the exact version it was cooked from."
+        variant="first-use"
+        icon="◷"
+      />
+    }
+  </div>
+
+  @if (summary(); as counts) {
+    <!--
+      Describes the filtered set, and says so. Never a readiness verdict — that is a separate evaluation with
+      its own screen, and a count of outstanding problems is not a judgement about the recipe.
+    -->
+    <div class="summary">
+      <p class="summary-line" role="status" aria-live="polite">{{ resultSummary() }}</p>
+
+      <ul class="outcome-counts">
+        @for (entry of outcomeCounts(); track entry.outcome) {
+          <li>
+            <cp-status-pill [tone]="entry.count === 0 ? 'neutral' : outcomeTone(entry.outcome)">
+              {{ entry.count }} {{ outcomeLabels[entry.outcome] }}
+            </cp-status-pill>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
+  @for (row of rows(); track row.id) {
+    <cp-card [interactive]="true" class="run-row">
+      <button class="run-button" type="button" (click)="testSelected.emit(row)">
+        <span class="run-main">
+          <span class="run-head">
+            <span class="version">Version {{ row.versionNumber }}</span>
+            <cp-status-pill [tone]="outcomeTone(row.outcome)">{{ outcomeLabels[row.outcome] }}</cp-status-pill>
+
+            @if (row.unresolvedIssueCount > 0) {
+              <cp-status-pill tone="error">
+                {{ row.unresolvedIssueCount }} unresolved
+              </cp-status-pill>
+            } @else if (row.issueCount > 0) {
+              <cp-status-pill tone="success">All {{ row.issueCount }} resolved</cp-status-pill>
+            }
+          </span>
+
+          <span class="run-meta">
+            Cooked {{ row.testedAt | date: 'mediumDate' }} by {{ testerName(row) }}
+            @if (row.rating !== null) {
+              · rated {{ row.rating }} of 5
+            }
+          </span>
+
+          @if (row.summaryNotes) {
+            <span class="run-notes">{{ row.summaryNotes }}</span>
+          }
+
+          <span class="run-counts">
+            {{ row.observationCount }} {{ row.observationCount === 1 ? 'note' : 'notes' }}
+            · {{ row.issueCount }} {{ row.issueCount === 1 ? 'problem' : 'problems' }}
+            @if (row.attachmentCount > 0) {
+              · {{ row.attachmentCount }} {{ row.attachmentCount === 1 ? 'photo' : 'photos' }}
+            }
+            @if (row.actualYieldText) {
+              · made {{ row.actualYieldText }}
+            }
+            @if (row.actualTotalTimeMinutes !== null) {
+              · took {{ row.actualTotalTimeMinutes }} min
+            }
+          </span>
+        </span>
+        <span class="chevron" aria-hidden="true">→</span>
+      </button>
+    </cp-card>
+  }
+
+  <div cpListShellPagination class="pager">
+    @if (hasPreviousPage() || hasNextPage()) {
+      <nav class="pager-actions" aria-label="Test history pages">
+        <button cpButton variant="secondary" type="button" [disabled]="!hasPreviousPage()" (click)="previousPage()">
+          Previous
+        </button>
+        <span class="page-number">Page {{ pageNumber() }}</span>
+        <button cpButton variant="secondary" type="button" [disabled]="!hasNextPage()" (click)="nextPage()">
+          Next
+        </button>
+      </nav>
+    }
+  </div>
+</cp-list-shell>

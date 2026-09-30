@@ -1,0 +1,280 @@
+<cp-card>
+  <header class="header">
+    <div class="heading">
+      <h2 class="title">Readiness</h2>
+      <p class="intro">
+        Every rule checked against this recipe as it stands now. The checks are run on the server and the same
+        recipe always gets the same answer.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <cp-status-pill tone="neutral">{{ statusLabels[status()] }}</cp-status-pill>
+      <button cpButton variant="secondary" size="sm" type="button" [disabled]="loading()" (click)="reevaluate()">
+        @if (loading()) {
+          Checking…
+        } @else {
+          Check again
+        }
+      </button>
+    </div>
+  </header>
+
+  <!--
+    Not a safety claim, said where a reader will actually see it rather than in a footnote. The nearest rule
+    reports how complete the allergen *records* are and never what is in the dish (recipes.md).
+  -->
+  <p class="caveat">
+    This is about how complete the recipe is, not whether it is safe. It is not an allergen, nutrition, dietary
+    or food-safety clearance, and no combination of these checks makes it one.
+  </p>
+
+  @if (readinessMessage()) {
+    <p class="problem" role="alert">{{ readinessMessage() }}</p>
+    @if (readinessState().status === 'error') {
+      <div class="retry">
+        <button cpButton variant="secondary" type="button" (click)="reevaluate()">Try again</button>
+      </div>
+    }
+  }
+
+  @if (loading() && readiness() === null) {
+    <p class="muted" role="status">Checking this recipe…</p>
+  }
+
+  @if (readiness(); as check) {
+    <div class="counts">
+      <cp-status-pill [tone]="countTone(check.blockerCount, 'error')">
+        {{ check.blockerCount }} in the way
+      </cp-status-pill>
+      <cp-status-pill [tone]="countTone(check.recommendationCount, 'warning')">
+        {{ check.recommendationCount }} worth doing
+      </cp-status-pill>
+
+      @if (isStale()) {
+        <!-- The evaluation describes words the recipe has moved past; the server refuses an approval on one. -->
+        <cp-status-pill tone="stale">Out of date</cp-status-pill>
+      }
+    </div>
+
+    <p class="muted">
+      Checked
+      @if (check.evaluatedVersionNumber !== null) {
+        against version {{ check.evaluatedVersionNumber }}
+      } @else {
+        before this recipe had a version
+      }
+      · rule set {{ check.ruleSetVersion }}
+    </p>
+
+    @if (isStale()) {
+      <p class="problem" role="status">
+        This recipe has been edited since it was checked, so these answers describe earlier words. Check it again
+        before approving.
+      </p>
+    }
+
+    <!--
+      A rule configuration switched off is not reported as satisfied anywhere, and this line exists so its
+      absence from the list below is visible rather than silent.
+    -->
+    @if (check.disabledRuleIds.length > 0) {
+      <p class="muted">
+        {{ check.disabledRuleIds.length }}
+        {{ check.disabledRuleIds.length === 1 ? 'check is' : 'checks are' }} switched off for this workspace and
+        did not run. A check that did not run has not passed.
+      </p>
+    }
+
+    @if (check.unknownConfiguredRuleIds.length > 0) {
+      <p class="problem" role="status">
+        Configuration names
+        {{ check.unknownConfiguredRuleIds.length === 1 ? 'a check' : 'checks' }} that do not exist:
+        {{ check.unknownConfiguredRuleIds.join(', ') }}. Someone should fix that spelling — nothing was checked
+        for it.
+      </p>
+    }
+
+    @for (group of groupOrder; track group) {
+      @if (findingsIn(group).length > 0) {
+        <section class="group" [attr.aria-labelledby]="idPrefix + '-group-' + group">
+          <div class="group-head">
+            <!--
+              The pill shows a bare number because the heading it sits inside already names what is being
+              counted; the noun is added for a screen reader so the heading reads "In the way of approval, 1
+              check" rather than trailing an unexplained digit.
+            -->
+            <h3 class="group-title" [id]="idPrefix + '-group-' + group">
+              {{ headingFor(group) }}
+              <cp-status-pill [tone]="toneFor(group)">
+                {{ findingsIn(group).length }}<span class="cp-sr-only">
+                  {{ findingsIn(group).length === 1 ? 'check' : 'checks' }}</span>
+              </cp-status-pill>
+            </h3>
+
+            @if (isCollapsible(group)) {
+              <button
+                cpButton
+                variant="text"
+                size="sm"
+                type="button"
+                [attr.aria-expanded]="isExpanded(group)"
+                [attr.aria-controls]="idPrefix + '-list-' + group"
+                (click)="toggleGroup(group)"
+              >
+                {{ isExpanded(group) ? 'Hide' : 'Show' }}
+              </button>
+            }
+          </div>
+
+          <ul class="findings" [id]="idPrefix + '-list-' + group" [hidden]="!isExpanded(group)">
+            @for (finding of findingsIn(group); track finding.ruleId) {
+              <!--
+                tabindex="-1" so a refused approval can send focus to the exact check it named. Never in the
+                tab order: a checklist is read, and forty stops nobody asked for is not navigation.
+              -->
+              <li class="finding" [id]="findingElementId(finding.ruleId)" tabindex="-1">
+                <p class="finding-summary">{{ finding.summary }}</p>
+
+                @if (finding.detail) {
+                  <p class="finding-detail">{{ finding.detail }}</p>
+                }
+
+                @if (finding.severityOverridden) {
+                  <p class="finding-note">How much this one matters was set by this workspace's configuration.</p>
+                }
+
+                @if (finding.evidence.length > 0) {
+                  <ul class="evidence">
+                    @for (item of finding.evidence; track $index) {
+                      <li>
+                        <!--
+                          A button, not a link: only the host knows whether the record has a surface to show,
+                          and several kinds have none yet. Activating it asks the host to go there.
+                        -->
+                        <button
+                          cpButton
+                          variant="text"
+                          size="sm"
+                          type="button"
+                          (click)="activateEvidence(item)"
+                        >
+                          <span class="evidence-kind">{{ evidenceKindLabel(item.kind) }}</span>
+                          @if (item.label) {
+                            <span class="evidence-label">{{ item.label }}</span>
+                          }
+                          @if (item.fieldName) {
+                            <span class="evidence-field">{{ item.fieldName }}</span>
+                          }
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+
+  <footer class="actions">
+    @if (transitionMessage()) {
+      <p class="problem" [id]="idPrefix + '-transition-status'" role="alert">{{ transitionMessage() }}</p>
+    }
+
+    <!--
+      The checks a refused approval named, by name. The refusal carries rule ids only — on purpose, since the
+      sentences belong to the list above — so each one is offered as a way back to the check itself.
+    -->
+    @if (blockedRules().length > 0) {
+      <ul class="blocked-rules">
+        @for (rule of blockedRules(); track rule.ruleId) {
+          <li>
+            <button cpButton variant="text" size="sm" type="button" (click)="revealFinding(rule.ruleId)">
+              {{ rule.summary ?? rule.ruleId }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (availableMoves().length === 0) {
+      <p class="muted">
+        @if (role() === null) {
+          Your role in this workspace is still loading.
+        } @else {
+          Nothing you can do from here moves this recipe on.
+        }
+      </p>
+    } @else {
+      <div class="moves" role="group" [attr.aria-label]="'Move this recipe on from ' + statusLabels[status()]">
+        @for (move of availableMoves(); track move.to) {
+          <div class="move">
+            <button
+              cpButton
+              [variant]="move.to === 'Archived' ? 'secondary' : 'primary'"
+              type="button"
+              [disabled]="!canAttempt(move) || (!canRetryTransition() && submittingMove() === null)"
+              [attr.aria-busy]="submittingMove() === move"
+              [attr.aria-describedby]="blockedReason(move) ? idPrefix + '-why-' + move.to : null"
+              (click)="attempt(move)"
+            >
+              @if (submittingMove() === move) {
+                {{ busyLabelFor(move) }}
+              } @else {
+                {{ move.label }}
+              }
+            </button>
+
+            @if (blockedReason(move)) {
+              <p class="move-why" [id]="idPrefix + '-why-' + move.to">{{ blockedReason(move) }}</p>
+            }
+          </div>
+        }
+      </div>
+    }
+  </footer>
+</cp-card>
+
+<!--
+  A modal hosting a field with its own validation, which is what CpDialogComponent is for — as opposed to a
+  two-answer confirmation, which goes through ConfirmService and is what archiving uses.
+-->
+@if (pendingMove(); as move) {
+  <cp-dialog
+    [open]="true"
+    [title]="move.requiresReason ? 'Reopen this recipe?' : 'Approve this recipe?'"
+    [description]="
+      move.writesVersion
+        ? 'Approving saves a version of the recipe exactly as it stands, so the approval names words that cannot then change.'
+        : 'Reopening withdraws work someone advanced, so the history needs a sentence saying why.'
+    "
+    [titleId]="idPrefix + '-dialog-title'"
+    (closed)="closeDialog()"
+  >
+    <cp-field
+      label="Why"
+      [forId]="idPrefix + '-reason'"
+      [required]="move.requiresReason"
+      [hint]="move.requiresReason ? 'Required, and kept on the recipe\'s history.' : 'Optional. It travels onto the version this approval writes.'"
+    >
+      <textarea
+        [id]="idPrefix + '-reason'"
+        name="reason"
+        rows="3"
+        [maxlength]="reasonMaxLength"
+        [ngModel]="reason()"
+        (ngModelChange)="reason.set($event)"
+      ></textarea>
+    </cp-field>
+
+    <div cpDialogActions>
+      <button cpButton variant="ghost" type="button" (click)="closeDialog()">Cancel</button>
+      <button cpButton variant="primary" type="button" [disabled]="!canConfirmDialog()" (click)="confirmDialog()">
+        {{ move.label }}
+      </button>
+    </div>
+  </cp-dialog>
+}

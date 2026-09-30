@@ -571,12 +571,18 @@ public sealed class RecipeReadinessEvaluatorTests
 
     // ---- Media ----
 
+    /// <summary>
+    /// Advice, not a bar. A recipe is developed and tested before it is photographed, and a hero image is
+    /// genuinely required to <em>publish</em> rather than to approve — see the catalogue's own remarks. It was
+    /// briefly a blocker, which made approval unreachable for every recipe in the product.
+    /// </summary>
     [Fact]
-    public void A_recipe_with_no_hero_link_is_blocked()
+    public void A_recipe_with_no_hero_link_is_recommended_against_not_blocked()
     {
         var result = Evaluate(Ready() with { HasHeroAsset = false, HeroAssetLinkId = null });
 
-        Blocker(result, RecipeReadinessCatalogue.MediaHeroMissing);
+        Recommendation(result, RecipeReadinessCatalogue.MediaHeroMissing);
+        Assert.False(result.HasBlockers);
     }
 
     // ---- Publication-facing metadata ----
@@ -643,7 +649,6 @@ public sealed class RecipeReadinessEvaluatorTests
                 RecipeReadinessCatalogue.InstructionsPresent,
                 RecipeReadinessCatalogue.IngredientsAmbiguous,
                 RecipeReadinessCatalogue.AiSafetyCautionOutstanding,
-                RecipeReadinessCatalogue.MediaHeroMissing,
             ],
             blockers);
 
@@ -656,12 +661,15 @@ public sealed class RecipeReadinessEvaluatorTests
                 RecipeReadinessCatalogue.DescriptionPresent,
                 RecipeReadinessCatalogue.AiChangesPending,
                 RecipeReadinessCatalogue.AllergensTraitUnreviewed,
+
+                // In the catalogue's own order, which puts media before the publication-facing rules.
+                RecipeReadinessCatalogue.MediaHeroMissing,
                 RecipeReadinessCatalogue.PublicationCuisineMissing,
             ],
             recommendations);
 
-        Assert.Equal(4, result.BlockerCount);
-        Assert.Equal(4, result.RecommendationCount);
+        Assert.Equal(3, result.BlockerCount);
+        Assert.Equal(5, result.RecommendationCount);
     }
 
     /// <summary>
@@ -706,15 +714,16 @@ public sealed class RecipeReadinessEvaluatorTests
     [Fact]
     public void A_severity_override_changes_the_status_and_says_so()
     {
+        // Relaxing a real blocker, so the test says something: the yield rule bars approval by default.
         var options = new RecipeReadinessOptions();
-        options.Severities[RecipeReadinessCatalogue.MediaHeroMissing] = RecipeReadinessSeverity.Recommendation;
+        options.Severities[RecipeReadinessCatalogue.YieldStated] = RecipeReadinessSeverity.Recommendation;
 
         var result = Evaluate(
-            Ready() with { HasHeroAsset = false, HeroAssetLinkId = null },
+            Ready() with { YieldText = null, YieldQuantity = null, YieldUnitId = null, ServingCount = null },
             RecipeReadinessExternalFacts.None,
             options);
 
-        var finding = Recommendation(result, RecipeReadinessCatalogue.MediaHeroMissing);
+        var finding = Recommendation(result, RecipeReadinessCatalogue.YieldStated);
 
         Assert.True(finding.SeverityOverridden);
         Assert.False(result.HasBlockers);
@@ -723,9 +732,10 @@ public sealed class RecipeReadinessEvaluatorTests
     [Fact]
     public void A_rule_left_at_its_default_is_not_marked_as_overridden()
     {
-        var result = Evaluate(Ready() with { HasHeroAsset = false, HeroAssetLinkId = null });
+        var result = Evaluate(
+            Ready() with { YieldText = null, YieldQuantity = null, YieldUnitId = null, ServingCount = null });
 
-        Assert.False(Blocker(result, RecipeReadinessCatalogue.MediaHeroMissing).SeverityOverridden);
+        Assert.False(Blocker(result, RecipeReadinessCatalogue.YieldStated).SeverityOverridden);
     }
 
     /// <summary>
@@ -805,7 +815,7 @@ public sealed class RecipeReadinessEvaluatorTests
         RecipeReadinessEvaluator.Evaluate(facts, external ?? RecipeReadinessExternalFacts.None, options);
 
     private static RecipeReadinessFinding Finding(RecipeReadinessServiceModel result, string ruleId) =>
-        Assert.Single(result.Findings.Where(finding => finding.RuleId == ruleId));
+        Assert.Single(result.Findings, finding => finding.RuleId == ruleId);
 
     /// <summary>The rule fired as a blocker, and said something specific about why.</summary>
     private static RecipeReadinessFinding Blocker(RecipeReadinessServiceModel result, string ruleId)

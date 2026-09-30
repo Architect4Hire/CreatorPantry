@@ -761,7 +761,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var committed = await DataLayer(scope).TryTransitionAsync(
             loaded, ArchiveTransition(created.RecipeId), null, ArchiveEntry(created.RecipeId), token);
 
-        Assert.True(committed);
+        Assert.True(committed.Committed);
 
         // The server generated a new token, so every edit composed against the old state is now stale.
         Assert.NotEqual(readWith, loaded.Recipe.Recipe.RowVersion);
@@ -838,7 +838,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var committed = await DataLayer(secondScope).TryTransitionAsync(
             archiving, ArchiveTransition(created.RecipeId), null, ArchiveEntry(created.RecipeId), token);
 
-        Assert.False(committed);
+        Assert.False(committed.Committed);
 
         // Nothing staged either, or the next SaveChanges on this scope would commit a refused transition.
         var db = SqlServerRecipeFixture.Db(secondScope);
@@ -918,7 +918,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
             ApprovalEntry(created.RecipeId),
             token);
 
-        Assert.True(committed);
+        Assert.True(committed.Committed);
 
         // Filled in by the data layer, because the version is built there and the row has to name it.
         Assert.NotNull(transition.CreatedVersionId);
@@ -975,7 +975,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
             ApprovalEntry(created.RecipeId),
             token);
 
-        Assert.False(committed);
+        Assert.False(committed.Committed);
 
         // Nothing staged either, or the next SaveChanges on this scope would commit a refused approval.
         var staged = SqlServerRecipeFixture.Db(secondScope);

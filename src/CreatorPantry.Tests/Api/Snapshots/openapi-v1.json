@@ -2061,6 +2061,231 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/readiness": {
+      "get": {
+        "tags": [
+          "RecipeReadiness"
+        ],
+        "summary": "Evaluates one recipe against the readiness rules and returns every rule\u0027s verdict.",
+        "description": "**Deterministic, and no model decides any of it** (TESTRUN-004). Every verdict comes out of a comparison\nagainst a column or a count; a model may have written some of the material being judged \u2014 a proposal\u0027s\nwarnings are among the facts \u2014 but what those facts mean for approval is settled by code, the same way\nevery time. The same recipe evaluated twice with nothing changed in between answers identically.\n\n**It writes nothing.** No state changes, no audit row, no cache entry: this is a read, and a readiness\nverdict stored anywhere would be a second source of truth that goes stale on the next edit. \u0060no-store\u0060\nfor the same reason \u2014 the answer describes the recipe at the moment it was read.\n\n**It is not a status and must not be stored as one.** The recipe\u0027s editorial state is \u0060status\u0060 on the\nrecipe itself. \u0060evaluatedVersionNumber\u0060 and \u0060concurrencyToken\u0060 say which moment this describes, so a\nclient holding both can tell whether the answer still describes the recipe it is showing and re-fetch\nwhen they diverge. A screen that cached \u0060hasBlockers\u0060 as a badge would be showing a verdict about\ncontent that has since changed.\n\n**It is not a safety, allergen, nutrition or dietary clearance**, and no combination of findings makes\nit one. The nearest rule, \u0060recipe.allergens.traitUnreviewed\u0060, reports how complete the allergen\n*records* are and never what is in the dish \u2014 and no absence of findings here means a recipe is safe\nfor anyone.\n\n\u0060findings\u0060 carries **every rule that ran, satisfied ones included**, because the thing it feeds is a\nchecklist: a creator needs to see what they have cleared as much as what they have not. There are no\nquery parameters \u2014 no filtering, no paging \u2014 and a client that wants only the blockers filters on\n\u0060status\u0060. \u0060ruleId\u0060 is the stable identifier to branch on; \u0060summary\u0060 and \u0060detail\u0060 are sentences for a\nreader and may be reworded. \u0060detail\u0060 and \u0060evidence\u0060 are populated on an unmet rule and empty on a\nsatisfied or inapplicable one, and \u0060evidence\u0060 is what names the exact record and field behind a\nfinding \u2014 \u0060label\u0060 quotes the creator\u0027s own words where the evidence has any. \u0060recordId\u0060 is null where\nthe finding is about a record that does not exist, which is what \u0022this recipe has no version to have\ntested\u0022 looks like; \u0060fieldName\u0060 is null where the finding is about the record\u0027s existence rather than\none of its fields.\n\n\u0060status\u0060 distinguishes four answers, not two: \u0060NotApplicable\u0060 means the rule did not apply rather than\nthat it passed \u2014 the attribution rule against a recipe citing no source, say. \u0060disabledRuleIds\u0060 lists\nrules configuration switched off, which are **absent from \u0060findings\u0060 entirely** rather than reported as\nsatisfied, because a rule that did not run has not passed; \u0060unknownConfiguredRuleIds\u0060 lists ids\nconfiguration named that the catalogue does not have, so a typo is discoverable rather than silent.\n\u0060ruleSetVersion\u0060 is the catalogue\u0027s own version, so a result stays interpretable after the rules move.\n\nA recipe with no content at all is evaluated rather than refused: it answers \u0060200\u0060 with blockers, which\nis what a creator who has just started typing must see. An unknown recipe and another workspace\u0027s\nrecipe both answer \u0060404 recipes.recipe.not_found\u0060. Every member including a Viewer may read this \u2014\nevery fact it surfaces is already readable through the test history, a proposal or the ingredient\ntools.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to evaluate. Constrained to a Guid, so a malformed id never reaches this action \u2014 routing\nanswers 404, the same status as an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeReadiness"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeReadiness"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeReadiness"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/readiness-transitions": {
+      "post": {
+        "tags": [
+          "RecipeReadinessTransitions"
+        ],
+        "summary": "Moves a recipe to another editorial state and returns it as it now stands.",
+        "description": "Editorial state is a machine, and this is its only door (TESTRUN-005). An edit cannot change \u0060status\u0060,\na version restore no longer puts one back, and the archive and restore commands run through the same\nrules \u2014 so a recipe\u0027s \u0060readiness-transitions\u0060 history is a complete account of how it got where it is.\n\n**Which moves exist depends on where the recipe is now**, which is why the body carries no \u0060fromStatus\u0060\nand the route no list of legal targets. Forward movement is one step at a time \u2014\n\u0060Draft \u2192 InDevelopment \u2192 Testing \u2192 ReadyForReview \u2192 Approved\u0060 \u2014 so \u0060Draft \u2192 Approved\u0060 is refused as an\ninvalid jump with \u0060400 recipes.transition.invalid_request\u0060, and the answer names the states the recipe\n*could* have gone to. Reopening goes straight to \u0060InDevelopment\u0060 from anywhere past it. \u0060Archived\u0060 is\nreachable from every state and leaves only to \u0060Draft\u0060.\n\n**Roles differ per move.** Advancing is a Contributor\u0027s; approving, reopening, archiving and restoring\nare an Editor\u0027s. A move above the caller\u0027s role is \u0060403 recipes.transition.forbidden\u0060, which is\ndeliberately distinct from the 400 above: one says nobody may do this from here, the other says you may\nnot.\n\n**A reason is required to reopen** a recipe and optional on every other move \u2014 a reopen withdraws work\nsomebody else advanced, and it is the one move a later reader cannot reconstruct from its two states.\n\n**Approving requires a readiness evaluation with no blockers, and the server makes it.** There is no\nfield for one: a body that carried a verdict would be a client asserting its own recipe was ready.\nBlockers outstanding is \u0060409 recipes.transition.blocked.conflict\u0060, carrying the blocking rule ids in\n\u0060errors.blockingRules\u0060 so a client can name them rather than send the approver back to guess. An\napproval also **writes a version** \u2014 the content as it stood, so the approval names words that cannot\nthen change underneath it \u2014 and that version is the \u0060currentVersion\u0060 of the response.\n\n\u0060expectedConcurrencyToken\u0060 is required and is the \u0060concurrencyToken\u0060 from the read this request was\ncomposed against; the readiness evaluation publishes the same token for exactly this. One the recipe\nhas moved past is \u0060409 recipes.recipe.conflict\u0060 rather than acting on work the caller has not seen, and\nan approval whose evaluation describes content that has since changed is refused the same way \u2014 an\nevaluation of words that have moved is not a fresh evaluation, whatever it said.\n\n**Asking for the state the recipe is already in succeeds and changes nothing**: no transition row, no\naudit entry, no stamped \u0060updatedAt\u0060. That is a repeat rather than a jump, it is the behaviour REC-006\ndocumented for archiving an archived recipe, and it is what keeps a replayed approval from writing a\nsecond version even under a fresh key.\n\nThe response is the whole recipe, carrying its new \u0060status\u0060 and the refreshed token the next write must\nquote. An unknown recipe and another workspace\u0027s recipe both answer \u0060404 recipes.recipe.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to move. Constrained to a Guid, so a malformed id never reaches this action \u2014 routing\nanswers 404, the same status as an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key and the same body returns the original response with\n\u0060Idempotent-Replayed: true\u0060; the same key with a different body is \u0060422\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeReadinessTransition"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeReadinessTransition"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeReadinessTransition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/review-requests": {
       "post": {
         "tags": [
@@ -9340,6 +9565,207 @@
           }
         }
       },
+      "RecipeReadiness": {
+        "required": [
+          "recipeId",
+          "evaluatedVersionId",
+          "evaluatedVersionNumber",
+          "concurrencyToken",
+          "ruleSetVersion",
+          "hasBlockers",
+          "blockerCount",
+          "recommendationCount",
+          "findings",
+          "disabledRuleIds",
+          "unknownConfiguredRuleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "evaluatedVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "evaluatedVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "ruleSetVersion": {
+            "type": "string"
+          },
+          "hasBlockers": {
+            "type": "boolean"
+          },
+          "blockerCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recommendationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeReadinessFinding"
+            }
+          },
+          "disabledRuleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unknownConfiguredRuleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RecipeReadinessEvidence": {
+        "required": [
+          "kind",
+          "recordId"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/RecipeReadinessEvidenceKind"
+          },
+          "recordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "fieldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecipeReadinessEvidenceKind": {
+        "enum": [
+          "Recipe",
+          "RecipeIngredientLine",
+          "RecipeVersion",
+          "RecipeTestRun",
+          "TestIssue",
+          "RecipeAssetLink",
+          "Ingredient",
+          "AiProposal"
+        ],
+        "type": "string"
+      },
+      "RecipeReadinessFinding": {
+        "required": [
+          "ruleId",
+          "status",
+          "summary",
+          "detail",
+          "evidence",
+          "severityOverridden"
+        ],
+        "type": "object",
+        "properties": {
+          "ruleId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RecipeReadinessStatus"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeReadinessEvidence"
+            }
+          },
+          "severityOverridden": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecipeReadinessStatus": {
+        "enum": [
+          "Satisfied",
+          "Blocker",
+          "Recommendation",
+          "NotApplicable"
+        ],
+        "type": "string"
+      },
+      "RecipeReadinessTransition": {
+        "type": "object",
+        "properties": {
+          "targetStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The editorial state to move the recipe to. Which targets are legal depends on the state the recipe is in now.",
+                "$ref": "#/components/schemas/RecipeTransitionTarget"
+              }
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why the recipe is being moved. Required when reopening a recipe; optional otherwise."
+          },
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The recipe\u0027s concurrencyToken as the caller last saw it. A token the recipe has moved past is refused as a conflict."
+          }
+        }
+      },
       "RecipeScalingPreview": {
         "required": [
           "factor",
@@ -9745,6 +10171,17 @@
             }
           }
         }
+      },
+      "RecipeTransitionTarget": {
+        "enum": [
+          "Draft",
+          "Approved",
+          "Archived",
+          "InDevelopment",
+          "Testing",
+          "ReadyForReview"
+        ],
+        "type": "string"
       },
       "RecipeUnitConversionResult": {
         "required": [
@@ -11780,6 +12217,12 @@
     },
     {
       "name": "RecipeDraftRequests"
+    },
+    {
+      "name": "RecipeReadiness"
+    },
+    {
+      "name": "RecipeReadinessTransitions"
     },
     {
       "name": "RecipeReviewRequests"

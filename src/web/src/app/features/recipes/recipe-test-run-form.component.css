@@ -1,0 +1,176 @@
+/*
+ * The form's own layout only. The heading, intro, section-level server problem and field row all belong to
+ * `CpFormSectionComponent` and `CpFieldRowComponent` — a stylesheet here that redrew any of them would be the
+ * drift those components exist to stop (DESIGN-SYSTEM.md, "The shape of a form").
+ */
+
+:host {
+  display: block;
+}
+
+/*
+ * `minmax(0, 1fr)` rather than the implicit `auto`: an auto track's floor is its content's max-content width,
+ * so one wide descendant — a long note, a combobox popup — would hold the whole form wider than the card and
+ * push the page sideways.
+ */
+form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
+}
+
+.legend {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+/* The one display-face moment on the form. Controls, labels and data stay in the sans. */
+.title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  line-height: var(--cp-leading-tight);
+}
+
+.intro {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.empty,
+.row-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* Repeatable rows ------------------------------------------------------- */
+
+.rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  min-width: 0;
+}
+
+/*
+ * The reading measure a section gives a field it holds directly. A field inside a row is a grandchild, so the
+ * section's own rule does not reach it and the cap has to be restated here — without it the controls inside a
+ * row stretch the full width of the card while every other field on the form stops at the measure.
+ */
+.row cp-field {
+  max-width: var(--cp-measure-field);
+}
+
+.row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.row-title {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+/* Pushed to the end on a wide row, and wrapping under the title rather than off the edge on a narrow one. */
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-1);
+  margin-inline-start: auto;
+}
+
+.row-problem {
+  margin: 0;
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-xs);
+}
+
+.row-add {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-2);
+}
+
+/* The yield unit's box and its Clear, which sit on one line until the line is too narrow for both. */
+.unit-control {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.unit-control cp-combobox {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Actions --------------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+  padding-block-start: var(--cp-space-4);
+  border-block-start: 1px solid var(--cp-border);
+}
+
+.status {
+  flex: 1 1 18rem;
+  margin: 0;
+  min-width: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/*
+ * A refusal reads in the danger colour *and* in words — the sentence says what happened, so the colour is the
+ * quieter half of something already said rather than the only signal.
+ */
+.status--problem {
+  color: var(--cp-danger);
+  font-weight: 700;
+}
+
+/* The status line is a focus target of last resort; the visible ring belongs to a field wherever there is one. */
+.status:focus {
+  outline: none;
+}
+
+.status:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}

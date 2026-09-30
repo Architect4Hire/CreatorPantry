@@ -190,6 +190,86 @@ public sealed class RecipeReadinessRepositoryTests(SqlServerRecipeFixture fixtur
         Assert.Null(facts.LatestTestOutcome);
     }
 
+    /// <summary>
+    /// A test of the version an approval snapshotted counts as a test of the snapshot, because the snapshot is
+    /// that version's content. Without this the approval gate contradicted itself: approving wrote a version
+    /// that its own rules then called untested.
+    /// </summary>
+    [Fact]
+    public async Task A_test_of_the_version_an_approval_copied_counts_as_a_test_of_the_approval()
+    {
+        var seeded = await SeedAsync(versionCount: 2, approvalVersionNumbers: [2]);
+
+        // Cooked against the content version, which is what a tester can have done: the approval snapshot did
+        // not exist when they cooked it.
+        await AddRunAsync(seeded, versionNumber: 1);
+
+        var facts = await FindAsync(seeded.RecipeId);
+
+        Assert.True(facts!.TestedCurrentVersion);
+        Assert.Equal(TestRunOutcome.Succeeded, facts.LatestTestOutcome);
+
+        // The evaluated version is still the latest — the equivalence is about which tests count, not about
+        // which version the answer describes.
+        Assert.Equal(seeded.VersionIds[2], facts.EvaluatedVersionId);
+        Assert.Equal(2, facts.EvaluatedVersionNumber);
+    }
+
+    /// <summary>
+    /// A run of approval snapshots reaches back to the one version that changed something — the
+    /// approve, reopen, advance, approve cycle, which writes a second snapshot over the first.
+    /// </summary>
+    [Fact]
+    public async Task A_run_of_approval_snapshots_all_count_as_the_version_they_copied()
+    {
+        var seeded = await SeedAsync(versionCount: 4, approvalVersionNumbers: [2, 3, 4]);
+        await AddRunAsync(seeded, versionNumber: 1);
+
+        var facts = await FindAsync(seeded.RecipeId);
+
+        Assert.True(facts!.TestedCurrentVersion);
+    }
+
+    /// <summary>
+    /// The equivalence stops at content. An edit after an approval writes a creator version, and a test of the
+    /// approval snapshot before it is evidence about words that have since changed — which is the rule this
+    /// whole area exists to enforce.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_after_an_approval_leaves_the_earlier_tests_behind()
+    {
+        var seeded = await SeedAsync(versionCount: 3, approvalVersionNumbers: [2]);
+
+        // Cooked against version 2, the approval snapshot — and version 3 is an edit made afterwards.
+        await AddRunAsync(seeded, versionNumber: 2);
+
+        var facts = await FindAsync(seeded.RecipeId);
+
+        Assert.False(facts!.TestedCurrentVersion);
+        Assert.Null(facts.LatestTestOutcome);
+    }
+
+    /// <summary>
+    /// The issues and the latest outcome follow the same equivalence, so a blocking issue raised against the
+    /// tested version still blocks after an approval snapshotted it.
+    /// </summary>
+    [Fact]
+    public async Task Issues_raised_against_the_copied_version_are_still_outstanding()
+    {
+        var seeded = await SeedAsync(versionCount: 2, approvalVersionNumbers: [2]);
+
+        await AddRunAsync(
+            seeded,
+            versionNumber: 1,
+            outcome: TestRunOutcome.Failed,
+            issues: [("Collapsed in the tin", TestIssueSeverity.Blocking, false)]);
+
+        var facts = await FindAsync(seeded.RecipeId);
+
+        Assert.Equal(TestRunOutcome.Failed, facts!.LatestTestOutcome);
+        Assert.Equal("Collapsed in the tin", Assert.Single(facts.OpenIssues).Title);
+    }
+
     [Fact]
     public async Task A_test_of_the_current_version_is_found_with_its_outcome()
     {
@@ -289,9 +369,15 @@ public sealed class RecipeReadinessRepositoryTests(SqlServerRecipeFixture fixtur
                 RecipeReadinessCatalogue.TimeStated,
                 RecipeReadinessCatalogue.IngredientsAmbiguous,
                 RecipeReadinessCatalogue.TestingCurrentVersionUntested,
-                RecipeReadinessCatalogue.MediaHeroMissing,
             ],
             blockers);
+
+        // Not among them: a hero image is advice, so a recipe can be approved before it is photographed.
+        Assert.Equal(
+            RecipeReadinessStatus.Recommendation,
+            Assert.Single(
+                result.Findings,
+                finding => finding.RuleId == RecipeReadinessCatalogue.MediaHeroMissing).Status);
 
         Assert.Equal(seeded.VersionIds[1], result.EvaluatedVersionId);
         Assert.Equal(RecipeConcurrencyToken.From(facts!.RecipeRowVersion), result.ConcurrencyToken);
@@ -492,13 +578,19 @@ public sealed class RecipeReadinessRepositoryTests(SqlServerRecipeFixture fixtur
     /// <c>WorkspaceId</c> is never set on anything — the ownership interceptor stamps it from the resolved context,
     /// and feature code assigning it is a defect.
     /// </remarks>
+    /// <param name="approvalVersionNumbers">
+    /// Version numbers to write as <c>ReadinessApproval</c> snapshots rather than creator edits. An approval
+    /// captures content nobody changed, so these carry the content of the version below them — which is what
+    /// makes them equivalent for the testing rules.
+    /// </param>
     private async Task<SeededRecipe> SeedAsync(
         Action<Recipe>? configure = null,
         int versionCount = 1,
         bool populated = false,
         Guid? workspaceId = null,
         IReadOnlyList<(string Text, IngredientMatchStatus Status)>? lines = null,
-        IReadOnlyList<RecipeAssetRole>? assetRoles = null)
+        IReadOnlyList<RecipeAssetRole>? assetRoles = null,
+        IReadOnlyCollection<int>? approvalVersionNumbers = null)
     {
         await using var scope = fixture.ScopeFor(workspaceId ?? SqlServerRecipeFixture.WorkspaceA);
         var db = SqlServerRecipeFixture.Db(scope);
@@ -579,13 +671,15 @@ public sealed class RecipeReadinessRepositoryTests(SqlServerRecipeFixture fixtur
 
         for (var number = 1; number <= versionCount; number++)
         {
+            var approval = approvalVersionNumbers?.Contains(number) is true;
+
             var version = new RecipeVersion
             {
                 Id = Guid.NewGuid(),
                 RecipeId = recipe.Id,
                 VersionNumber = number,
-                Source = RecipeVersionSource.CreatorEdit,
-                Readiness = RecipeVersionReadiness.Draft,
+                Source = approval ? RecipeVersionSource.ReadinessApproval : RecipeVersionSource.CreatorEdit,
+                Readiness = approval ? RecipeVersionReadiness.Ready : RecipeVersionReadiness.Draft,
                 CreatedByMembershipId = SqlServerRecipeFixture.AuthorOne,
                 CreatedAt = Now.AddDays(-versionCount + number),
                 SnapshotSchemaVersion = 1,

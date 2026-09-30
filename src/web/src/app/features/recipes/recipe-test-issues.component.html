@@ -1,0 +1,220 @@
+<cp-card>
+  <header class="header">
+    <h3 class="title">What this test found</h3>
+    @if (hasIssues()) {
+      <cp-status-pill [tone]="unresolvedCount() === 0 ? 'success' : 'warning'">
+        @if (unresolvedCount() === 0) {
+          All {{ issues().length }} dealt with
+        } @else {
+          {{ unresolvedCount() }} of {{ issues().length }} still open
+        }
+      </cp-status-pill>
+    }
+  </header>
+
+  @if (!hasIssues()) {
+    <!-- An empty issue list is not a verdict: the tester's own outcome says how the cook went. -->
+    <p class="muted">
+      This test recorded no problems. That is not the same as the recipe being right — the tester's verdict on the
+      test itself says how the cook went.
+    </p>
+  }
+
+  <!--
+    Severity describes the recipe's fitness as a draft and never its safety. A Blocking problem means this
+    version should not be treated as a finished source; the absence of one clears nothing (recipes.md).
+  -->
+  @if (hasIssues()) {
+    <p class="muted">
+      How bad a problem is describes the recipe as a draft, not whether the food is safe.
+    </p>
+  }
+
+  <ol class="issues">
+    @for (issue of issues(); track issue.id; let index = $index) {
+      <li class="issue">
+        <div class="issue-head">
+          <cp-status-pill [tone]="severityTone(issue.severity)">{{ severityLabels[issue.severity] }}</cp-status-pill>
+          <h4 class="issue-title" [id]="idPrefix + '-issue-' + issue.id">{{ issue.title }}</h4>
+        </div>
+
+        @if (issue.description) {
+          <p class="issue-detail">{{ issue.description }}</p>
+        }
+
+        @if (observationTextFor(issue)) {
+          <!-- The tester's own note, shown as context and never editable from here. -->
+          <p class="observation">
+            <span class="observation-label">From the tester's note:</span>
+            {{ observationTextFor(issue) }}
+          </p>
+        }
+
+        @if (resolutionFor(issue); as resolution) {
+          <div class="resolution">
+            <div class="resolution-head">
+              <cp-status-pill tone="success">{{ resolutionKindLabels[resolution.kind] }}</cp-status-pill>
+              <span class="resolution-when">
+                Recorded {{ resolution.resolvedAt | date: 'mediumDate' }}
+              </span>
+            </div>
+
+            @if (resolution.notes) {
+              <p class="resolution-notes">{{ resolution.notes }}</p>
+            }
+
+            @if (resolution.resolutionRecipeVersionId) {
+              <p class="resolution-version">
+                <!--
+                  A button, not a link: only the host knows where a version can be shown. Activating it asks the
+                  host to go there.
+                -->
+                <button
+                  cpButton
+                  variant="text"
+                  size="sm"
+                  type="button"
+                  (click)="activateVersion(resolution.resolutionRecipeVersionId!)"
+                >
+                  See the version that carried the correction
+                </button>
+              </p>
+            }
+
+            @if (resolution.predatingVersionOverrideReason) {
+              <p class="resolution-note">
+                That version is not later than the one tested. Recorded reason:
+                {{ resolution.predatingVersionOverrideReason }}
+              </p>
+            }
+          </div>
+        } @else if (resolvingIssueId() === issue.id) {
+          <form class="resolve" (ngSubmit)="submitResolve(issue)">
+            <p class="resolve-heading">What was done about it</p>
+
+            @if (stateMessage()) {
+              <p class="problem" role="alert">{{ stateMessage() }}</p>
+            }
+
+            <cp-field
+              label="How it was dealt with"
+              [forId]="idPrefix + '-kind-' + issue.id"
+              [required]="true"
+              [error]="fieldError('kind')"
+            >
+              <select
+                [id]="idPrefix + '-kind-' + issue.id"
+                [name]="'kind-' + issue.id"
+                required
+                [ngModel]="kind()"
+                (ngModelChange)="kind.set(kindFromValue($event))"
+                [attr.aria-invalid]="fieldError('kind') ? 'true' : null"
+              >
+                <option value="" disabled>Say how the issue was resolved</option>
+                @for (option of resolutionKindOptions; track option) {
+                  <option [value]="option">{{ resolutionKindLabels[option] }}</option>
+                }
+              </select>
+            </cp-field>
+
+            <cp-field label="Notes" [forId]="idPrefix + '-notes-' + issue.id" [error]="fieldError('notes')"
+              hint="What was done, in your own words. This never rewrites the tester's note above.">
+              <textarea
+                [id]="idPrefix + '-notes-' + issue.id"
+                [name]="'notes-' + issue.id"
+                rows="3"
+                [maxlength]="notesMaxLength"
+                [ngModel]="notes()"
+                (ngModelChange)="notes.set($event)"
+              ></textarea>
+            </cp-field>
+
+            <!--
+              Offered only for a fix. Only a fix may name the version that corrected something — the server
+              refuses the other combinations and the database constrains them — so the box is absent rather
+              than present and doomed.
+            -->
+            @if (canNameVersion()) {
+              <cp-field
+                label="Version carrying the correction"
+                [forId]="idPrefix + '-version-' + issue.id"
+                [error]="fieldError('resolutionVersionNumber')"
+                [hint]="
+                  testedVersionNumber() === null
+                    ? 'By number, as the recipe’s history lists it.'
+                    : 'By number. A correction normally comes after version ' + testedVersionNumber() + ', the one tested.'
+                "
+              >
+                <input
+                  [id]="idPrefix + '-version-' + issue.id"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  step="1"
+                  [name]="'version-' + issue.id"
+                  [ngModel]="versionNumber()"
+                  (ngModelChange)="versionNumber.set($event)"
+                  [attr.aria-invalid]="fieldError('resolutionVersionNumber') ? 'true' : null"
+                />
+              </cp-field>
+
+              @if (versionNumber().trim().length > 0) {
+                <cp-field
+                  label="Why an earlier version"
+                  [forId]="idPrefix + '-override-' + issue.id"
+                  [error]="fieldError('predatingVersionOverrideReason')"
+                  hint="Only needed if that version is not later than the one tested — an older version that had it right all along, say."
+                >
+                  <textarea
+                    [id]="idPrefix + '-override-' + issue.id"
+                    [name]="'override-' + issue.id"
+                    rows="2"
+                    [maxlength]="overrideReasonMaxLength"
+                    [ngModel]="overrideReason()"
+                    (ngModelChange)="overrideReason.set($event)"
+                  ></textarea>
+                </cp-field>
+              }
+            }
+
+            <p class="resolve-warning">
+              A resolution is written once and cannot be edited or removed afterwards.
+            </p>
+
+            <div class="resolve-actions">
+              <button cpButton variant="ghost" size="sm" type="button" [disabled]="submitting()"
+                (click)="cancelResolve()">
+                Cancel
+              </button>
+              <button cpButton variant="primary" size="sm" type="submit" [disabled]="!canSubmit()"
+                [attr.aria-busy]="submitting()">
+                @if (submitting()) {
+                  Recording…
+                } @else {
+                  Record it
+                }
+              </button>
+            </div>
+          </form>
+        } @else if (canResolve()) {
+          <div class="issue-actions">
+            <button
+              cpButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [attr.aria-describedby]="idPrefix + '-issue-' + issue.id"
+              (click)="openResolve(issue)"
+            >
+              Record what was done
+            </button>
+          </div>
+        } @else {
+          <p class="muted">Nobody has recorded what was done about this yet.</p>
+        }
+
+        <span class="cp-sr-only">Problem {{ index + 1 }} of {{ issues().length }}.</span>
+      </li>
+    }
+  </ol>
+</cp-card>

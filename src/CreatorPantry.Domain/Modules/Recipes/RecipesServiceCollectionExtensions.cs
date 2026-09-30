@@ -43,6 +43,8 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IValidator<CreateRecipeTestRunViewModel>, CreateRecipeTestRunViewModelValidator>();
         services.AddScoped<IValidator<UpdateRecipeTestRunViewModel>, UpdateRecipeTestRunViewModelValidator>();
         services.AddScoped<IValidator<TestRunHistoryViewModel>, TestRunHistoryViewModelValidator>();
+        services.AddScoped<
+            IValidator<RecipeReadinessTransitionViewModel>, RecipeReadinessTransitionViewModelValidator>();
         services.AddScoped<IValidator<ResolveTestIssueViewModel>, ResolveTestIssueViewModelValidator>();
         services.AddScoped<IValidator<ParseIngredientLinesViewModel>, ParseIngredientLinesViewModelValidator>();
         services.AddScoped<IValidator<CreateRecipeViewModel>, CreateRecipeViewModelValidator>();

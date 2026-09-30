@@ -379,9 +379,14 @@ public interface IRecipeDataLayer
     /// its two halves in two saves.
     /// </param>
     /// <returns>
-    /// <c>false</c> when the recipe had already moved on, in which case nothing was written and nothing is
-    /// left staged.
+    /// Whether the move committed, and the version it captured when it was an approval. A refusal means the
+    /// recipe had already moved on, in which case nothing was written and nothing is left staged.
     /// </returns>
+    /// <remarks>
+    /// The version is returned rather than left inside, because the response to a transition is the recipe as
+    /// it now stands and an approval changes which version that is — see <see cref="UpdateAsync"/>, which
+    /// hands its own version back for the same reason.
+    /// </remarks>
     /// <remarks>
     /// <para>
     /// <strong>Three rows, or four, in one batch.</strong> The recipe's <c>UPDATE</c>, the transition's
@@ -414,7 +419,7 @@ public interface IRecipeDataLayer
     /// index on <c>(WorkspaceId, RecipeId, VersionNumber)</c> may refuse the batch first.
     /// </para>
     /// </remarks>
-    Task<bool> TryTransitionAsync(
+    Task<(bool Committed, RecipeVersion? Version)> TryTransitionAsync(
         TaggedRecipe loaded,
         RecipeStatusTransition transition,
         RecipeVersionFacts? version,
@@ -585,7 +590,7 @@ internal sealed class RecipeDataLayer(
         return (true, await versions.FindSnapshotByIdAsync(recipeId, versionId, cancellationToken));
     }
 
-    public async Task<bool> TryTransitionAsync(
+    public async Task<(bool Committed, RecipeVersion? Version)> TryTransitionAsync(
         TaggedRecipe loaded,
         RecipeStatusTransition transition,
         RecipeVersionFacts? version,
@@ -598,13 +603,15 @@ internal sealed class RecipeDataLayer(
         // generated — and this is the value the losing writer needs to recognise that it lost.
         var readWith = recipe.RowVersion;
 
+        RecipeVersion? captured = null;
+
         if (version is not null)
         {
             // Built before the transition is staged, because the transition has to name it: RecipeVersion.Id
             // is assigned in code rather than by the store, so the id is knowable now and both rows can go in
             // one batch. Reading it back after the save would mean two saves and an explicit transaction to
             // keep them together — the thing this method exists to avoid.
-            var captured = BuildVersion(loaded.Recipe, version, recipe.UpdatedByMembershipId, recipe.UpdatedAt);
+            captured = BuildVersion(loaded.Recipe, version, recipe.UpdatedByMembershipId, recipe.UpdatedAt);
             versions.Add(captured);
 
             transition.CreatedVersionId = captured.Id;
@@ -637,13 +644,13 @@ internal sealed class RecipeDataLayer(
                 // scope would commit a transition the caller was told had been refused.
                 context.ChangeTracker.Clear();
 
-                return false;
+                return (false, null);
             }
 
             throw;
         }
 
-        return true;
+        return (true, captured);
     }
 
     public Task<RecipeUpdateOutcome> RestoreAsync(

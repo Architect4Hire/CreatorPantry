@@ -1,0 +1,222 @@
+/*
+ * Layout only. Every colour is a semantic --cp-* token, and status is always carried by words as well —
+ * a pill's tone is the quieter half of something the label already says.
+ */
+
+:host {
+  display: block;
+}
+
+/* `minmax(0, 1fr)`: an auto track's floor is its content's max-content width, so one long finding would hold
+   the whole panel wider than the card and push the page sideways. */
+cp-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-5);
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+}
+
+.heading {
+  display: grid;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  line-height: var(--cp-leading-tight);
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.intro,
+.muted,
+.caveat {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* Set apart because it is a limit on what this panel claims, not commentary on it. */
+.caveat {
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border-inline-start: 3px solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-subtle);
+}
+
+.problem {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+.retry {
+  display: flex;
+}
+
+/* Groups ---------------------------------------------------------------- */
+
+.group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.group-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+.findings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.finding {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  min-width: 0;
+}
+
+/* Focusable only as a target for a refused approval, so no ring unless focus actually arrives by keyboard. */
+.finding:focus {
+  outline: none;
+}
+
+.finding:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.finding-summary {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+.finding-detail,
+.finding-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.finding-note {
+  font-style: italic;
+}
+
+.evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The kind is the quiet part; the creator's own words are the part worth reading. */
+.evidence-kind {
+  color: var(--cp-text-muted);
+  font-weight: 400;
+}
+
+.evidence-label {
+  font-weight: 700;
+}
+
+.evidence-field {
+  color: var(--cp-text-muted);
+  font-weight: 400;
+}
+
+/* Actions --------------------------------------------------------------- */
+
+.actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  padding-block-start: var(--cp-space-4);
+  border-block-start: 1px solid var(--cp-border);
+  min-width: 0;
+}
+
+.blocked-rules {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+}
+
+.move {
+  display: grid;
+  gap: var(--cp-space-1);
+  /* So a long "why" wraps under its own control rather than stretching the row. */
+  max-width: var(--cp-measure-field);
+}
+
+.move-why {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}

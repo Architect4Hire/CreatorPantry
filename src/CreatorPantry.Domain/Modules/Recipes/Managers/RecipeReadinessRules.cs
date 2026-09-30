@@ -155,6 +155,24 @@ public sealed record RecipeReadinessRule(
 /// text. That is a real limit of the rule and not an oversight; media.md's alt-text requirements get their rule
 /// when the media library can answer them.
 /// </para>
+/// <para>
+/// <strong><see cref="MediaHeroMissing"/> is a recommendation, and it was briefly a blocker.</strong> Two
+/// reasons it should not have been, and the second is the one that matters.
+/// </para>
+/// <para>
+/// The practical one: nothing can link a hero image. <c>RecipeAssetLink</c> rows are written by the snapshot
+/// reconciler and by nothing else, so the only way to have one is to restore a version that already had one,
+/// and nothing ever puts one there. As a blocker it made <c>ReadyForReview → Approved</c> unreachable for
+/// every recipe in the product (TESTRUN-005).
+/// </para>
+/// <para>
+/// The principled one: <strong>the rule was mis-sited.</strong> An approval says a recipe is developed and
+/// tested, and recipes are routinely locked before they are photographed — the shoot follows the final bake.
+/// A hero image is genuinely required to <em>publish</em>, which is a different gate with its own records and
+/// its own rules (publishing.md). Blocking development on a photograph confused the two. When the media
+/// library lands, the hero requirement belongs on the publication gate; this rule stays advice about a recipe
+/// that would be thin to look at.
+/// </para>
 /// </remarks>
 public static class RecipeReadinessCatalogue
 {
@@ -162,7 +180,12 @@ public static class RecipeReadinessCatalogue
     /// The catalogue's version, reported on every evaluation. Raised when a rule is added or removed, or when a
     /// default severity changes.
     /// </summary>
-    public const string Version = "1.0.0";
+    /// <remarks>
+    /// 1.1.0 moved <see cref="MediaHeroMissing"/> from a blocker to a recommendation. A stored or screenshotted
+    /// result from 1.0.0 was held to the stricter rule, which is exactly why the version travels on every
+    /// evaluation and on every approval that relied on one.
+    /// </remarks>
+    public const string Version = "1.1.0";
 
     // ---- Required fields ----
 
@@ -266,7 +289,7 @@ public static class RecipeReadinessCatalogue
         new(TestingIssueOutstanding, RecipeReadinessSeverity.Recommendation,
             "No other issue found by a test of the current version is still unresolved."),
 
-        new(MediaHeroMissing, RecipeReadinessSeverity.Blocker,
+        new(MediaHeroMissing, RecipeReadinessSeverity.Recommendation,
             "The recipe links a hero image."),
 
         new(PublicationCuisineMissing, RecipeReadinessSeverity.Recommendation,
