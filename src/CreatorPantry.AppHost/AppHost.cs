@@ -37,6 +37,18 @@ var sql = builder.AddSqlServer("sql", sqlPassword)
     .WithDataVolume("creatorpantry-sql-data");
 var db = sql.AddDatabase("creatorpantrydb");
 
+// Development only: a browser SQL client the app model wires to `sql` itself, so reading the tables costs no
+// port lookup and no pasted password — both of which change whenever that container is recreated. Run mode
+// only, because it receives the sa credential and has no business in a published manifest. Persistent so a
+// saved connection and open query tabs survive a restart, matching the server it points at.
+//
+// It queries with no workspace filter, so it shows every workspace at once: the right tool for inspecting
+// schema and data, the wrong one for judging what a request can reach.
+if (builder.ExecutionContext.IsRunMode)
+{
+    sql.WithDbGate(dbGate => dbGate.WithLifetime(ContainerLifetime.Persistent));
+}
+
 var cache = builder.AddRedis("cache", password: redisPassword)
     .WithLifetime(ContainerLifetime.Persistent)
     .WithDataVolume("creatorpantry-redis-data");

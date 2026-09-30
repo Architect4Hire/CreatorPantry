@@ -2222,7 +2222,7 @@ BEHAVIOR: Plan states — loading, healthy, nearly spent, exhausted, suspended, 
 approval, implement with component, contract, at-limit, reset-boundary, and accessibility tests.
 ```
 
-### 9A.11 Account usage audit *PICK UP HERE*
+### 9A.11 Account usage audit
 
 ```text
 SCOPE: Verify that every provider attempt posts exactly one ledger entry, that account totals reconcile across

@@ -52,6 +52,17 @@ internal sealed class RecipeVersionConfiguration : IEntityTypeConfiguration<Reci
         builder.HasAlternateKey(version => new { version.WorkspaceId, version.Id })
             .HasName("AK_RecipeVersions_Workspace_Id");
 
+        // A second key that carries the recipe as well, for references that must be pinned to a version *of a
+        // particular recipe* rather than merely to one in the same workspace. RecipeTestRun points at it so a
+        // test cannot record a result against another recipe's version, and TestIssueResolution points at it
+        // so a correction version belongs to the recipe whose issue it resolves — in both cases enforced by
+        // the database instead of by a validator a later caller can forget.
+        //
+        // Redundant with the key above in the sense that Id alone is already unique. That is the ordinary
+        // price of a composite foreign key here, and the same one AK_RecipeVersions_Workspace_Id itself pays.
+        builder.HasAlternateKey(version => new { version.WorkspaceId, version.RecipeId, version.Id })
+            .HasName("AK_RecipeVersions_Workspace_Recipe_Id");
+
         builder.Property(version => version.VersionNumber).IsRequired();
         builder.Property(version => version.Source).IsRequired();
         builder.Property(version => version.Readiness).IsRequired();

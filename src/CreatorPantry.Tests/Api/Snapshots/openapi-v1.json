@@ -4632,6 +4632,480 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs": {
+      "post": {
+        "tags": [
+          "RecipeTestRuns"
+        ],
+        "summary": "Records one cook of one exact version of a recipe.",
+        "description": "\u0060sourceVersionNumber\u0060 is **required** and is a version number as the history lists it, not a version\nid: a test is evidence about an exact set of words, so there is no \u0022latest\u0022 to fall back on. Requires\nthe Contributor role, the same bar as creating a recipe \u2014 recording a test adds the creator\u0027s own\nmaterial and changes no canonical content. **Nothing here writes to the recipe**: every \u0060actual\u0060 figure\nsits on the test beside what the version claims, never over it, and reconciling the two is an ordinary\n\u0060PATCH\u0060 afterwards. There is **no \u0060expectedConcurrencyToken\u0060 and no \u0060409\u0060 for staleness** \u2014 nothing is\nbeing overwritten, which makes this one of the two recipe-area writes with no state to quote. The body\ncarries **no attachments**: linking media needs something that can authorize an asset against this\nworkspace, and that arrives with the media library. An unknown recipe and another workspace\u0027s recipe\nboth answer \u0060404 recipes.recipe.not_found\u0060; a version number the recipe does not have answers\n\u0060404 recipes.version.not_found\u0060, naming \u0060sourceVersionNumber\u0060; an archived recipe answers\n\u0060409 recipes.archived.conflict\u0060, and the remedy is to bring it back rather than to retry. A \u0060testedAt\u0060\nin the future is refused \u2014 testers record the past. Issues point at this request\u0027s own observations by\nposition through \u0060observationIndex\u0060, and the response returns both sets of ids in submitted order so a\nclient can resolve an issue later without listing the test back.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it beyond building the location\n(tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe under test. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same test returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than recording a second run.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipeTestRun"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipeTestRun"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipeTestRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedRecipeTestRun"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedRecipeTestRun"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedRecipeTestRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{testRunId}": {
+      "patch": {
+        "tags": [
+          "RecipeTestRuns"
+        ],
+        "summary": "Changes part of one recorded test and returns it as it now stands.",
+        "description": "A JSON Merge Patch, not a replacement: a field the body does not mention is left exactly as it is, a\nfield sent with a value is set to it, and a field sent as \u0060null\u0060 is cleared. \u0060observations\u0060 and \u0060issues\u0060\nare the two fields that **replace** rather than merge \u2014 a submitted list becomes the test\u0027s complete set,\nentries carrying an \u0060id\u0060 this test owns are updated in place, entries without one are added, anything\nomitted is removed, and \u0060[]\u0060 clears them. **There is no \u0060sourceVersionNumber\u0060**: a test is evidence about\nthe version that was cooked, and repointing it would be a claim that something else happened. An issue\npointing at an observation by \u0060observationIndex\u0060 may only do so when \u0060observations\u0060 is sent in the same\nrequest, because the positions mean that list. **An issue that has been resolved cannot be dropped** by\nomitting it \u2014 \u0060409 recipes.testIssue.removal.conflict\u0060 \u2014 because a resolution records a decision and\nremoving the issue would erase it. \u0060expectedConcurrencyToken\u0060 is required and is the \u0060concurrencyToken\u0060\nfrom the read this edit was composed against; one the test has moved past is refused with\n\u0060409 recipes.testRun.conflict\u0060 rather than overwriting whoever saved first. **Nothing here writes to the\nrecipe.** An unknown test, another workspace\u0027s, and one belonging to a different recipe all answer\n\u0060404 recipes.testRun.not_found\u0060; an archived recipe answers \u0060409 recipes.archived.conflict\u0060. The response\nis the whole test, carrying the refreshed token the next edit must quote.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe the test belongs to. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "testRunId",
+            "in": "path",
+            "description": "The test to change.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same edit returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than being answered as a conflict.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecipeTestRun"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecipeTestRun"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRecipeTestRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTestRun"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTestRun"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTestRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{testRunId}/issues/{issueId}/resolution": {
+      "post": {
+        "tags": [
+          "RecipeTestRuns"
+        ],
+        "summary": "Records what was done about one issue a test found.",
+        "description": "A separate command from the edit above, and deliberately so. It writes exactly one row and **rewrites\nneither the issue nor the observation it came from** \u2014 the read that judges it does not even track them.\nRequires the Editor role, a step above recording a test: reporting a problem and deciding it is closed\nare different acts, and this decision is immutable once written. There is **no\n\u0060expectedConcurrencyToken\u0060** because nothing is being overwritten; the conflict this route has instead is\n\u0060409 recipes.testIssue.resolved.conflict\u0060, and retrying will never change it. \u0060resolutionVersionNumber\u0060\nis a version number of **this recipe** \u2014 the database enforces that, not only this seam \u2014 and must be\n**later than the version that was tested**, because a version written before the problem was found cannot\ncontain its fix; naming an earlier one needs \u0060predatingVersionOverrideReason\u0060 to say why, which is then\nrecorded. Only a \u0060Fixed\u0060 resolution may name a version at all. An unknown test or issue answers\n\u0060404\u0060, and a version this recipe does not have answers \u0060404 recipes.version.not_found\u0060 naming the field.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe the test belongs to.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "testRunId",
+            "in": "path",
+            "description": "The test that found the issue.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "issueId",
+            "in": "path",
+            "description": "The issue being resolved.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same resolution returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than reporting the issue as already resolved.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveTestIssue"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveTestIssue"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveTestIssue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedTestIssue"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedTestIssue"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedTestIssue"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/reference/ingredients": {
       "get": {
         "tags": [
@@ -6374,6 +6848,71 @@
           }
         }
       },
+      "CreatedRecipeTestRun": {
+        "required": [
+          "testRunId",
+          "recipeId",
+          "recipeVersionId",
+          "sourceVersionNumber",
+          "outcome",
+          "testedAt",
+          "createdAt",
+          "concurrencyToken",
+          "observationIds",
+          "issueIds"
+        ],
+        "type": "object",
+        "properties": {
+          "testRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/TestRunOutcome"
+          },
+          "testedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "observationIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "issueIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "CreateRecipe": {
         "type": "object",
         "properties": {
@@ -6551,6 +7090,140 @@
             ],
             "items": {
               "$ref": "#/components/schemas/RecipeIngredientGroupInput"
+            }
+          }
+        }
+      },
+      "CreateRecipeTestRun": {
+        "type": "object",
+        "properties": {
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "testedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "outcome": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TestRunOutcome"
+              }
+            ]
+          },
+          "rating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "environmentNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "equipmentNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summaryNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actualYieldText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actualYieldQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "actualYieldUnitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "actualPrepTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualCookTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualRestTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualTotalTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "observations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TestObservationInput"
+            }
+          },
+          "issues": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TestIssueInput"
             }
           }
         }
@@ -8762,6 +9435,165 @@
           }
         }
       },
+      "RecipeTestRun": {
+        "required": [
+          "id",
+          "recipeId",
+          "recipeVersionId",
+          "testedAt",
+          "testedByMembershipId",
+          "outcome",
+          "createdByMembershipId",
+          "updatedByMembershipId",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken",
+          "observations",
+          "issues"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "testedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "testedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/TestRunOutcome"
+          },
+          "rating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "environmentNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "equipmentNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summaryNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actualYieldText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actualYieldQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "actualYieldUnitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "actualPrepTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualCookTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualRestTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualTotalTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updatedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestObservation"
+            }
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestIssue"
+            }
+          }
+        }
+      },
       "RecipeUnitConversionResult": {
         "required": [
           "sourceVersionNumber",
@@ -9345,6 +10177,63 @@
           }
         }
       },
+      "ResolvedTestIssue": {
+        "required": [
+          "testRunId",
+          "testIssueId",
+          "resolution"
+        ],
+        "type": "object",
+        "properties": {
+          "testRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "testIssueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/TestIssueResolution"
+          }
+        }
+      },
+      "ResolveTestIssue": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TestIssueResolutionKind"
+              }
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resolutionVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "predatingVersionOverrideReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RestoreRecipeVersion": {
         "type": "object",
         "properties": {
@@ -9473,6 +10362,241 @@
         "enum": [
           "Celsius",
           "Fahrenheit"
+        ],
+        "type": "string"
+      },
+      "TestIssue": {
+        "required": [
+          "id",
+          "severity",
+          "title",
+          "sortOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/TestIssueSeverity"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testObservationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sortOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "resolution": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TestIssueResolution"
+              }
+            ]
+          }
+        }
+      },
+      "TestIssueInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "severity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TestIssueSeverity"
+              }
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "observationIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "TestIssueResolution": {
+        "required": [
+          "id",
+          "kind",
+          "resolvedByMembershipId",
+          "resolvedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TestIssueResolutionKind"
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resolvedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resolvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resolutionRecipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "predatingVersionOverrideReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TestIssueResolutionKind": {
+        "enum": [
+          "Fixed",
+          "WontFix",
+          "NotReproduced"
+        ],
+        "type": "string"
+      },
+      "TestIssueSeverity": {
+        "enum": [
+          "Minor",
+          "Major",
+          "Blocking"
+        ],
+        "type": "string"
+      },
+      "TestObservation": {
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "sortOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TestObservationKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "TestObservationInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TestObservationKind"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TestObservationKind": {
+        "enum": [
+          "Unspecified",
+          "Texture",
+          "Flavour",
+          "Appearance",
+          "Aroma",
+          "Timing",
+          "Difficulty",
+          "Other"
+        ],
+        "type": "string"
+      },
+      "TestRunOutcome": {
+        "enum": [
+          "NotStated",
+          "Succeeded",
+          "SucceededWithIssues",
+          "Failed"
         ],
         "type": "string"
       },
@@ -9781,6 +10905,139 @@
             ],
             "items": {
               "$ref": "#/components/schemas/RecipeIngredientGroupInput"
+            }
+          }
+        }
+      },
+      "UpdateRecipeTestRun": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "outcome": {
+            "enum": [
+              "NotStated",
+              "Succeeded",
+              "SucceededWithIssues",
+              "Failed"
+            ],
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "environmentNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "equipmentNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "summaryNotes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actualYieldText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actualYieldQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "actualYieldUnitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "actualPrepTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualCookTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualRestTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actualTotalTimeMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "observations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TestObservationInput"
+            }
+          },
+          "issues": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TestIssueInput"
             }
           }
         }
@@ -10134,6 +11391,9 @@
     },
     {
       "name": "RecipeSubstitutionRequests"
+    },
+    {
+      "name": "RecipeTestRuns"
     },
     {
       "name": "Reference"

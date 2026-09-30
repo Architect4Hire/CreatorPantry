@@ -151,4 +151,79 @@ public static class RecipeErrorCodes
 
     /// <summary>A display-normalization request named a value, unit, or precision that could not be rendered.</summary>
     public const string DisplayNormalizationInvalidRequest = "recipes.displayNormalization.invalid_request";
+
+    /// <summary>
+    /// A test-run submission failed shape or format validation, or named a <c>testedAt</c> in the future.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="RecipeInvalidRequest"/> for the reason <see cref="ScalingInvalidRequest"/> is:
+    /// the field names in the problem body are this request's own — <c>sourceVersionNumber</c>,
+    /// <c>testedAt</c>, <c>observations[0].text</c>, <c>issues[2].severity</c> — and not a recipe edit's. A
+    /// client showing a creator where they went wrong needs the path it actually sent.
+    /// </remarks>
+    public const string TestRunInvalidRequest = "recipes.testRun.invalid_request";
+
+    /// <summary>
+    /// Unknown test run, or one belonging to another workspace or another recipe: deliberately
+    /// indistinguishable, so a caller cannot learn a test exists by being refused it (tenancy.md).
+    /// </summary>
+    /// <remarks>
+    /// Its own code rather than <see cref="RecipeNotFound"/>, and safe to be: by the time this can be returned
+    /// the caller has been shown that the recipe exists and that they may read it, so "that test is not one of
+    /// this recipe's" discloses nothing they could not learn by listing them. Collapsing the two would leave a
+    /// client unable to tell "you cannot see this recipe" from "check the test id".
+    /// </remarks>
+    public const string TestRunNotFound = "recipes.testRun.not_found";
+
+    /// <summary>
+    /// An edit to a test run quoted a concurrency token the run has moved past: somebody else finished the
+    /// write-up first, or this caller composed their change against a stale read.
+    /// </summary>
+    /// <remarks>
+    /// Its own code rather than <see cref="RecipeConflict"/> because the resource is a different one, and a
+    /// client showing "this test changed since you opened it" must not be able to confuse it with the recipe
+    /// having changed. The body carries no current state, for the reason <see cref="RecipeConflict"/> gives.
+    /// </remarks>
+    public const string TestRunConflict = "recipes.testRun.conflict";
+
+    /// <summary>An issue id that is not one of this test run's. The run itself was found and is readable.</summary>
+    public const string TestIssueNotFound = "recipes.testIssue.not_found";
+
+    /// <summary>
+    /// A resolution request named a version that cannot be the correction, or asked for something the
+    /// resolution shape does not allow.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="TestRunInvalidRequest"/> because the field names in the problem body are this
+    /// request's own — <c>resolutionVersionNumber</c>, <c>predatingVersionOverrideReason</c> — and a client
+    /// showing a creator where they went wrong needs the path it actually sent.
+    /// </remarks>
+    public const string TestIssueInvalidRequest = "recipes.testIssue.invalid_request";
+
+    /// <summary>
+    /// The issue already has a resolution.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 409 and its own code, because the remedy is specific and is not "retry": the decision has been recorded
+    /// and it is immutable, so a client that treated this like a stale token would loop forever. What a creator
+    /// who disagrees does instead is record another test.
+    /// </para>
+    /// <para>
+    /// Reached only by a genuinely second resolution. A client replaying its own request with the same
+    /// idempotency key is answered from the idempotency record with the original response, never with this.
+    /// </para>
+    /// </remarks>
+    public const string TestIssueResolvedConflict = "recipes.testIssue.resolved.conflict";
+
+    /// <summary>
+    /// An edit tried to drop an issue that has already been resolved.
+    /// </summary>
+    /// <remarks>
+    /// 409 rather than 400, because the request is well formed and would be accepted for any unresolved issue.
+    /// Its own code because the remedy is particular: keep the issue in the submitted list. A resolution records
+    /// a decision somebody took, and removing the issue would erase the decision along with it — which is also
+    /// why the database refuses the delete when the resolution is loaded.
+    /// </remarks>
+    public const string TestIssueResolvedRemovalConflict = "recipes.testIssue.removal.conflict";
 }

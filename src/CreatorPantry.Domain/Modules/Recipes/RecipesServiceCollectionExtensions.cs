@@ -19,10 +19,17 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeSearchRepository, RecipeSearchRepository>();
         services.AddScoped<IRecipeVersionRepository, RecipeVersionRepository>();
         services.AddScoped<IWorkspaceTagRepository, WorkspaceTagRepository>();
+        services.AddScoped<IRecipeTestRunRepository, RecipeTestRunRepository>();
         services.AddScoped<IRecipeDataLayer, RecipeDataLayer>();
+        services.AddScoped<IRecipeTestRunDataLayer, RecipeTestRunDataLayer>();
         services.AddScoped<IRecipeBusiness, RecipeBusiness>();
+        services.AddScoped<IRecipeTestRunBusiness, RecipeTestRunBusiness>();
         services.AddScoped<IRecipeFacade, RecipeFacade>();
+        services.AddScoped<IRecipeTestRunFacade, RecipeTestRunFacade>();
         services.AddScoped<IIngredientParsingFacade, IngredientParsingFacade>();
+        services.AddScoped<IValidator<CreateRecipeTestRunViewModel>, CreateRecipeTestRunViewModelValidator>();
+        services.AddScoped<IValidator<UpdateRecipeTestRunViewModel>, UpdateRecipeTestRunViewModelValidator>();
+        services.AddScoped<IValidator<ResolveTestIssueViewModel>, ResolveTestIssueViewModelValidator>();
         services.AddScoped<IValidator<ParseIngredientLinesViewModel>, ParseIngredientLinesViewModelValidator>();
         services.AddScoped<IValidator<CreateRecipeViewModel>, CreateRecipeViewModelValidator>();
         services.AddScoped<IValidator<UpdateRecipeViewModel>, UpdateRecipeViewModelValidator>();

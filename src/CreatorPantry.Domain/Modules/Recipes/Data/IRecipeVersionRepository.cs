@@ -187,11 +187,50 @@ public interface IRecipeVersionRepository
     Task<RecipeDuplicateSourceRecord?> FindDuplicateSourceLineageAsync(
         Guid versionId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The id of one version of one recipe, by the number the history lists it under, or null when this recipe
+    /// has no such version.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The identity only. Callers that need to pin a reference to an exact version — a test run is the first —
+    /// need nothing the version said, and <see cref="FindSnapshotAsync"/> would drag the whole archived
+    /// document across the wire to answer a question about a Guid.
+    /// </para>
+    /// <para>
+    /// Scoped by the recipe, which is what makes the number mean anything: a version number is unique only
+    /// within its recipe, so another recipe's version 3 matches nothing here rather than being refused by a
+    /// check somebody has to remember to write.
+    /// </para>
+    /// <para>
+    /// Unlike <see cref="FindSnapshotAsync"/> this does not require an archived document to exist. A version
+    /// with no snapshot is still a real version and still a legitimate thing to have cooked; refusing to name
+    /// it would make an unreachable storage state into a refusal the creator cannot act on.
+    /// </para>
+    /// </remarks>
+    Task<Guid?> FindVersionIdAsync(Guid recipeId, int versionNumber, CancellationToken cancellationToken);
 }
 
 internal sealed class RecipeVersionRepository(CreatorPantryDbContext context) : IRecipeVersionRepository
 {
     public void Add(RecipeVersion version) => context.RecipeVersions.Add(version);
+
+    public async Task<Guid?> FindVersionIdAsync(
+        Guid recipeId,
+        int versionNumber,
+        CancellationToken cancellationToken) =>
+        await context.RecipeVersions
+            // Never tracked: nothing here is written, and the row is immutable in any case. No WorkspaceId
+            // predicate either — the global query filter already scopes this, so another workspace's version
+            // is not found rather than found and refused.
+            .AsNoTracking()
+            .Where(version => version.RecipeId == recipeId && version.VersionNumber == versionNumber)
+
+            // Cast, so a missing version is null rather than Guid.Empty. The seek is
+            // UX_RecipeVersions_Workspace_Recipe_VersionNumber, and the id comes off the index itself.
+            .Select(version => (Guid?)version.Id)
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<(IReadOnlyList<RecipeVersionHistoryRecord> Rows, bool HasMore)> ListHistoryAsync(
         RecipeVersionHistoryCriteria criteria,

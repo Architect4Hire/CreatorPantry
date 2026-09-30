@@ -184,6 +184,45 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<RecipeTag> RecipeTags => Set<RecipeTag>();
 
     /// <remarks>
+    /// One cook of one exact recipe version, and the root of the test-run aggregate. A fourth root in the
+    /// recipes module: tests are listed, filtered and read on their own, and they outlive nothing — they are
+    /// pinned to an immutable version by a <c>Restrict</c> foreign key, so a version with test history cannot
+    /// be removed out from under them.
+    /// </remarks>
+    public DbSet<RecipeTestRun> RecipeTestRuns => Set<RecipeTestRun>();
+
+    /// <remarks>
+    /// Interior to the <see cref="RecipeTestRun"/> aggregate. Exposed as a set because EF needs the entity
+    /// type in the model, not because anything may write one on its own. Mutable, unlike the AI module's
+    /// warnings: these are the tester's own words about their own cook, and correcting them is the creator
+    /// editing their own content rather than the system rewriting it.
+    /// </remarks>
+    public DbSet<TestObservation> TestObservations => Set<TestObservation>();
+
+    /// <inheritdoc cref="TestObservations"/>
+    /// <remarks>
+    /// Carries no resolved flag. Whether an issue has been dealt with is answered by whether a
+    /// <see cref="TestIssueResolution"/> exists for it, so there is no second copy of that fact to drift.
+    /// </remarks>
+    public DbSet<TestIssue> TestIssues => Set<TestIssue>();
+
+    /// <inheritdoc cref="TestObservations"/>
+    /// <remarks>
+    /// The one write-once entity in this aggregate — <see cref="ImmutableRecordInterceptor"/> refuses every
+    /// update and delete of a row here, because a resolution records a decision somebody took at a moment
+    /// rather than an observation somebody is still making. At most one per issue, by unique index.
+    /// </remarks>
+    public DbSet<TestIssueResolution> TestIssueResolutions => Set<TestIssueResolution>();
+
+    /// <inheritdoc cref="TestObservations"/>
+    /// <remarks>
+    /// Records a test's use of a media asset and never the asset itself: no bytes, no copied alt text. Like
+    /// <see cref="RecipeAssetLinks"/>, its <c>MediaAssetId</c> has no foreign key until the media aggregate
+    /// lands, so the write seam is what keeps an attachment inside the workspace until then.
+    /// </remarks>
+    public DbSet<TestAttachmentLink> TestAttachmentLinks => Set<TestAttachmentLink>();
+
+    /// <remarks>
     /// The AI module's aggregate root: one request for assistance and what became of it. Deliberately holds
     /// no prompt body, model response, or generated text — ai.md forbids storing those by default, and a
     /// table with no column for them cannot accumulate them by accident.

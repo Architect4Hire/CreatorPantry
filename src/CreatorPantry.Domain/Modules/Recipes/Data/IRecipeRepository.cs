@@ -91,4 +91,23 @@ public interface IRecipeRepository
     /// </para>
     /// </remarks>
     Task<bool> ExistsAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The editorial state of a visible recipe, or null when there is no such recipe in the resolved
+    /// workspace.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Answers existence and state in one round trip, for writers that gate on
+    /// <see cref="RecipePolicy.AcceptsContentChanges"/> but need nothing else the recipe contains — the
+    /// test-run seam is the first of them. <see cref="ExistsAsync"/> remains for readers that genuinely only
+    /// need existence; collapsing the two would make every caller of the cheaper question pay for a column
+    /// they do not read, and would blur what each one is asking.
+    /// </para>
+    /// <para>
+    /// Null means invisible, never "archived": an unknown recipe and another workspace's recipe both land here
+    /// as null, which is what lets the caller answer 404 to both without disclosing which it was (tenancy.md).
+    /// </para>
+    /// </remarks>
+    Task<RecipeStatus?> FindStatusAsync(Guid recipeId, CancellationToken cancellationToken);
 }

@@ -32,6 +32,19 @@ internal sealed class RecipeRepository(CreatorPantryDbContext context) : IRecipe
             .AsNoTracking()
             .AnyAsync(recipe => recipe.Id == recipeId, cancellationToken);
 
+    public async Task<RecipeStatus?> FindStatusAsync(Guid recipeId, CancellationToken cancellationToken) =>
+        await context.Recipes
+            // No WorkspaceId predicate and no IgnoreQueryFilters, as above: the global query filter is what
+            // makes an invisible recipe answer null, which is the whole point of asking.
+            .AsNoTracking()
+            .Where(recipe => recipe.Id == recipeId)
+
+            // Cast so that "no such recipe" and a status that happens to be the enum's zero are distinguishable
+            // — without it, SingleOrDefaultAsync over a non-nullable enum returns Draft for a recipe that is
+            // not there, and a writer would gate an archived-recipe rule on a recipe it never found.
+            .Select(recipe => (RecipeStatus?)recipe.Status)
+            .SingleOrDefaultAsync(cancellationToken);
+
     /// <summary>
     /// The one query both reads use, because a snapshot taken from a half-loaded aggregate is a permanent
     /// mistake and two queries that had to stay identical would eventually not be.

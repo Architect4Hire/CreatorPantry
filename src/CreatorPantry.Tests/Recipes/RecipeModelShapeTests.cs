@@ -30,10 +30,13 @@ public sealed class RecipeModelShapeTests : IDisposable
     /// <see cref="Recipe"/> owns its interior children. <see cref="RecipeVersion"/> is a root of its own
     /// because it outlives the edits that supersede it and is read independently. <see cref="WorkspaceTag"/>
     /// is a root because a creator's tag vocabulary is listed, renamed and retired without reference to any
-    /// recipe. Adding a name here is a claim that something is independently owned — it is the one place
-    /// that claim is written down, so it should be argued rather than appended.
+    /// recipe. <see cref="RecipeTestRun"/> is a root because a test is evidence in its own right: it is
+    /// listed, filtered and read without loading the recipe, and it is pinned to an immutable version rather
+    /// than owned by one. Adding a name here is a claim that something is independently owned — it is the one
+    /// place that claim is written down, so it should be argued rather than appended.
     /// </remarks>
-    private static readonly Type[] AggregateRoots = [typeof(Recipe), typeof(RecipeVersion), typeof(WorkspaceTag)];
+    private static readonly Type[] AggregateRoots =
+        [typeof(Recipe), typeof(RecipeVersion), typeof(WorkspaceTag), typeof(RecipeTestRun)];
 
     /// <summary>Every concrete entity class declared in the recipe module's entity namespace.</summary>
     public static TheoryData<string> RecipeEntityNames()
@@ -41,7 +44,7 @@ public sealed class RecipeModelShapeTests : IDisposable
         var names = RecipeEntityTypes().Select(type => type.FullName!).ToList();
 
         // Without this the theory passes vacuously if the namespace is ever renamed.
-        Assert.Equal(11, names.Count);
+        Assert.Equal(16, names.Count);
 
         return [.. names];
     }
