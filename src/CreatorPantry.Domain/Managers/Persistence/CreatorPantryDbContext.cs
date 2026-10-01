@@ -355,6 +355,64 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<BrandAssetLink> BrandAssetLinks => Set<BrandAssetLink>();
 
     /// <remarks>
+    /// A creator's private brand source material: a root of the brand module. Metadata and private blob
+    /// pointers only — no document body, extracted text or URL is stored in SQL.
+    /// </remarks>
+    public DbSet<BrandSourceDocument> BrandSourceDocuments => Set<BrandSourceDocument>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. One row per
+    /// uploaded file, exactly as it arrived.
+    /// </remarks>
+    public DbSet<BrandSourceDocumentVersion> BrandSourceDocumentVersions => Set<BrandSourceDocumentVersion>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>Write-once record of each extraction attempt or creator correction of a version's text.</remarks>
+    public DbSet<BrandSourceExtraction> BrandSourceExtractions => Set<BrandSourceExtraction>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>The creator's tag vocabulary for source material; separate from the recipe tags.</remarks>
+    public DbSet<BrandSourceTag> BrandSourceTags => Set<BrandSourceTag>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>Interior to the <see cref="BrandSourceDocument"/> aggregate.</remarks>
+    public DbSet<BrandSourceDocumentTag> BrandSourceDocumentTags => Set<BrandSourceDocumentTag>();
+
+    /// <remarks>
+    /// A named guide to how the brand writes and looks: a root of the brand module, and the sole source of
+    /// voice, tone and visual direction (DEC-010). What it says lives on its versions.
+    /// </remarks>
+    public DbSet<BrandStyleGuide> BrandStyleGuides => Set<BrandStyleGuide>();
+
+    /// <inheritdoc cref="BrandStyleGuides"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete, as it does for
+    /// the four sets below. One row per edit of a guide.
+    /// </remarks>
+    public DbSet<BrandStyleGuideVersion> BrandStyleGuideVersions => Set<BrandStyleGuideVersion>();
+
+    /// <inheritdoc cref="BrandStyleGuideVersions"/>
+    /// <remarks>Interior to a guide version: one keyed prose section in the creator's words.</remarks>
+    public DbSet<BrandStyleGuideSection> BrandStyleGuideSections => Set<BrandStyleGuideSection>();
+
+    /// <inheritdoc cref="BrandStyleGuideVersions"/>
+    /// <remarks>Interior to a guide version: one ordered do or don't.</remarks>
+    public DbSet<BrandStyleGuideRule> BrandStyleGuideRules => Set<BrandStyleGuideRule>();
+
+    /// <inheritdoc cref="BrandStyleGuideVersions"/>
+    /// <remarks>Interior to a guide version: one exact source-document version it was written from.</remarks>
+    public DbSet<BrandStyleGuideSourceLink> BrandStyleGuideSourceLinks => Set<BrandStyleGuideSourceLink>();
+
+    /// <inheritdoc cref="BrandStyleGuideVersions"/>
+    /// <remarks>The record that a guide version was approved; its existence is what "approved" means.</remarks>
+    public DbSet<BrandStyleGuideApproval> BrandStyleGuideApprovals => Set<BrandStyleGuideApproval>();
+
+    /// <inheritdoc cref="BrandStyleGuides"/>
+    /// <remarks>The approved guide version a workspace writes with by default; at most one row per workspace.</remarks>
+    public DbSet<BrandStyleGuideDefault> BrandStyleGuideDefaults => Set<BrandStyleGuideDefault>();
+
+    /// <remarks>
     /// One derivative package per recipe and kind, and where it stands in review. The mutable root of the
     /// content module; its content lives on the immutable revisions below.
     /// </remarks>

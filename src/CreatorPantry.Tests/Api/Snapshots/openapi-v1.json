@@ -6233,6 +6233,91 @@
       }
     },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{testRunId}": {
+      "get": {
+        "tags": [
+          "RecipeTestRuns"
+        ],
+        "summary": "Reads one recorded test whole.",
+        "description": "The companion to the list above, and what lets it stay summaries: a row carries counts where a test has\nnotes and problems, and this is where their contents are \u2014 the observations in the tester\u0027s own words,\nevery issue with its severity, and the resolution on each issue that has one. It also returns\n\u0060concurrencyToken\u0060, which is what makes correcting a test possible from anywhere other than the response\nto a previous write. A recipe the caller may not see answers \u0060404 recipes.recipe.not_found\u0060, whether it is\nunknown or another workspace\u0027s; a test id that is not one of that recipe\u0027s answers\n\u0060404 recipes.testRun.not_found\u0060. An **archived recipe still answers**: archiving withdraws a recipe from\ncontent changes, not from its own history, so the create and the edit refuse where this does not. Every\nmember including a Viewer may read this; deciding an issue is closed is what needs an Editor. No tester\ndisplay name \u2014 the membership ids here are the ones the history publishes beside the names.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe the test belongs to. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "testRunId",
+            "in": "path",
+            "description": "The test to read.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTestRun"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTestRun"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeTestRun"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
       "patch": {
         "tags": [
           "RecipeTestRuns"

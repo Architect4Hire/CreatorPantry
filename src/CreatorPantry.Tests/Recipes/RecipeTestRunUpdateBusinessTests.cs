@@ -113,6 +113,74 @@ public sealed class RecipeTestRunUpdateBusinessTests
         _business.UpdateAsync(
             RecipeId, _dataLayer.Loaded!.Id, request, yieldUnitDimension, TestContext.Current.CancellationToken);
 
+    // ---- Read ----
+
+    /// <summary>
+    /// The read's two refusals are a different pair from the edit's, and the order is the disclosure rule: a
+    /// caller who may not see the recipe learns only that, and never whether the test id is one of its tests.
+    /// </summary>
+    [Fact]
+    public async Task An_invisible_recipe_is_refused_as_a_missing_recipe_before_the_test_is_looked_for()
+    {
+        _dataLayer.Loaded = StoredRun();
+        var testRunId = _dataLayer.Loaded.Id;
+        _dataLayer.Status = null;
+
+        var result = await _business.GetAsync(RecipeId, testRunId, TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.RecipeNotFound, result.Error!.Code);
+    }
+
+    /// <summary>Visible recipe, no such test: safe to name, because listing them would show the same thing.</summary>
+    [Fact]
+    public async Task A_missing_test_of_a_visible_recipe_is_refused_as_a_missing_test()
+    {
+        _dataLayer.Loaded = null;
+
+        var result = await _business.GetAsync(RecipeId, Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RecipeErrorCodes.TestRunNotFound, result.Error!.Code);
+    }
+
+    /// <summary>
+    /// Archiving withdraws a recipe from content changes, not from its own history. The edit refuses on this
+    /// status; the read must not.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_recipe_still_reads_its_own_tests()
+    {
+        _dataLayer.Loaded = StoredRun();
+        _dataLayer.Status = RecipeStatus.Archived;
+
+        var result = await _business.GetAsync(
+            RecipeId, _dataLayer.Loaded.Id, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(_dataLayer.Loaded.Id, result.Value!.Id);
+    }
+
+    /// <summary>
+    /// A read is not somebody standing by the write-up. The edit stamps both of these deliberately; this must
+    /// leave them exactly as the last person to write it left them.
+    /// </summary>
+    [Fact]
+    public async Task Reading_a_test_stamps_nothing_on_it()
+    {
+        var stored = StoredRun();
+        _dataLayer.Loaded = stored;
+        var updatedAt = stored.UpdatedAt;
+        var updatedBy = stored.UpdatedByMembershipId;
+
+        var result = await _business.GetAsync(RecipeId, stored.Id, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(updatedAt, stored.UpdatedAt);
+        Assert.Equal(updatedBy, stored.UpdatedByMembershipId);
+        Assert.NotEqual(ActorMembershipId, stored.UpdatedByMembershipId);
+    }
+
     // ---- Update: refusals ----
 
     [Fact]
@@ -721,6 +789,12 @@ public sealed class RecipeTestRunUpdateBusinessTests
             throw new NotSupportedException("This fake serves the edit and resolution paths only.");
 
         public Task<RecipeTestRun?> GetForUpdateAsync(
+            Guid recipeId, Guid testRunId, CancellationToken cancellationToken) =>
+            Task.FromResult(Loaded);
+
+        // The read path loads the same graph as the edit path, untracked; a fake has no tracker, so the two
+        // answer from one field.
+        public Task<RecipeTestRun?> GetForReadAsync(
             Guid recipeId, Guid testRunId, CancellationToken cancellationToken) =>
             Task.FromResult(Loaded);
 

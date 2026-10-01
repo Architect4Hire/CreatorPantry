@@ -1,0 +1,235 @@
+<!--
+  Two surfaces, one errand. The bar is the same in both so the Test Kitchen does not read as two different
+  screens, and the single button in it is the move between them.
+
+  Nothing here wraps the three panels in a card: the form and the problems panel each own one, and the history
+  renders carded rows. An outer card would nest surfaces two and three deep.
+-->
+<cp-card class="bar">
+  <div class="heading">
+    <h2 class="title">Test kitchen</h2>
+    <p class="intro">
+      What happened when this recipe was actually cooked. Every test is filed against the exact version it was
+      cooked from, and nothing recorded here changes the recipe.
+    </p>
+  </div>
+
+  @if (view() === 'history') {
+    <button
+      cpButton
+      variant="primary"
+      size="sm"
+      type="button"
+      [id]="idPrefix + '-record'"
+      [disabled]="!canRecord()"
+      (click)="startRecording()"
+    >
+      Record a test
+    </button>
+  } @else {
+    <button cpButton variant="secondary" size="sm" type="button" (click)="backToHistory()">
+      Back to the history
+    </button>
+  }
+</cp-card>
+
+@switch (view()) {
+  @case ('history') {
+    <!-- Plain text, not a live region and not a tooltip on the disabled button: the reason is true from first
+         render, which is exactly the case a live region announces least reliably, and a keyboard user cannot
+         reach a disabled control to read anything hung on it. The same call the editor makes for its locked
+         areas. -->
+    @if (recordBlockedReason()) {
+      <p class="note">
+        <span class="note-icon" aria-hidden="true">⚑</span>
+        <span>{{ recordBlockedReason() }}</span>
+      </p>
+    } @else if (versionNumber() !== null) {
+      <p class="muted">A new test will be filed against version {{ versionNumber() }}, the saved one.</p>
+    }
+
+    <cp-recipe-test-history
+      [workspaceSlug]="workspaceSlug()"
+      [recipeId]="recipeId()"
+      (testSelected)="onTestSelected($event)"
+    />
+  }
+
+  @case ('test') {
+    <!-- The header of the test being looked at, built from the row it was opened from — which is where the
+         version number and the tester's name are. Absent when recording a new one, because there is no row
+         and nothing yet to head. -->
+    @if (openSummary(); as row) {
+      <cp-card
+        class="detail"
+        [id]="idPrefix + '-open'"
+        tabindex="-1"
+        role="group"
+        [attr.aria-labelledby]="idPrefix + '-open-title'"
+      >
+        <header class="detail-header">
+          <div class="heading">
+            <h3 class="detail-title" [id]="idPrefix + '-open-title'">
+              Version {{ row.versionNumber }}, cooked {{ row.testedAt | date: 'mediumDate' }}
+            </h3>
+            <p class="muted">
+              by {{ testerName(row) }}
+              @if (row.rating !== null) {
+                · rated {{ row.rating }} of 5
+              }
+            </p>
+          </div>
+
+          <div class="pills">
+            <cp-status-pill [tone]="outcomeTones[row.outcome]">{{ outcomeLabels[row.outcome] }}</cp-status-pill>
+
+            @if (row.unresolvedIssueCount > 0) {
+              <cp-status-pill tone="error">{{ row.unresolvedIssueCount }} unresolved</cp-status-pill>
+            } @else if (row.issueCount > 0) {
+              <cp-status-pill tone="success">All {{ row.issueCount }} resolved</cp-status-pill>
+            }
+          </div>
+        </header>
+
+        <!-- The facts a list row has no space for: the phase times, the clock time it was cooked, and when
+             the write-up was filed and last changed. -->
+        <dl class="facts">
+          <div class="fact">
+            <dt>Cooked</dt>
+            <dd>{{ row.testedAt | date: 'medium' }}</dd>
+          </div>
+
+          @if (row.actualYieldText) {
+            <div class="fact">
+              <dt>Made</dt>
+              <dd>{{ row.actualYieldText }}</dd>
+            </div>
+          }
+
+          @for (time of openTimes(); track time.label) {
+            <div class="fact">
+              <dt>{{ time.label }}</dt>
+              <dd>{{ time.minutes }} min</dd>
+            </div>
+          }
+
+          <div class="fact">
+            <dt>Written up</dt>
+            <dd>{{ row.createdAt | date: 'medium' }}</dd>
+          </div>
+
+          @if (openWasCorrected()) {
+            <div class="fact">
+              <dt>Last corrected</dt>
+              <dd>{{ row.updatedAt | date: 'medium' }}</dd>
+            </div>
+          }
+        </dl>
+
+        <!-- A reader who may not write sees the tester's notes here, because the form that would otherwise
+             show them is not offered to them. A writer reads them in the form, where they can also be
+             corrected; repeating them above it would be the same words twice. -->
+        @if (!showForm() && openRun(); as run) {
+          @if (run.observations.length > 0) {
+            <div class="block">
+              <h4 class="block-heading">What the tester noticed</h4>
+              <ul class="notes">
+                @for (observation of run.observations; track observation.id) {
+                  <li>
+                    <span class="note-kind">{{ observation.kind }}</span>
+                    <span>{{ observation.text }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (run.environmentNotes || run.equipmentNotes) {
+            <div class="block">
+              <h4 class="block-heading">Conditions</h4>
+              @if (run.environmentNotes) {
+                <p class="detail-notes">{{ run.environmentNotes }}</p>
+              }
+              @if (run.equipmentNotes) {
+                <p class="detail-notes">{{ run.equipmentNotes }}</p>
+              }
+            </div>
+          }
+        }
+      </cp-card>
+    }
+
+    @if (notice()) {
+      <p class="banner banner--success" role="status">{{ notice() }}</p>
+    }
+
+    @switch (openState().status) {
+      @case ('loading') {
+        <p class="muted" role="status">Opening this test…</p>
+      }
+
+      @case ('not_found') {
+        <p class="banner banner--warning" role="alert">
+          This test is no longer there. The history may have moved on since it was listed.
+        </p>
+        <div class="detail-actions">
+          <button cpButton variant="secondary" type="button" (click)="backToHistory()">Back to the history</button>
+        </div>
+      }
+
+      @case ('recipe_not_found') {
+        <p class="banner banner--warning" role="alert">
+          This recipe could not be read. It may have been removed, or you may no longer have access to it.
+        </p>
+      }
+
+      @case ('unavailable') {
+        <p class="banner banner--warning" role="alert">Couldn't open this test. Nothing about it has changed.</p>
+        <div class="detail-actions">
+          <button cpButton variant="secondary" type="button" (click)="retryOpen()">Try again</button>
+        </div>
+      }
+    }
+
+    <!--
+      One form for both jobs. `testRun` null records a new test; a loaded one corrects it — the form reseeds
+      itself from whichever it is handed, which is also how a re-read after a conflict replaces what is on
+      screen.
+
+      `versionForForm()` is non-null here: startRecording() refuses while recordBlockedReason() has anything to
+      say, and an opened row always carries its own version number.
+    -->
+    @if (showForm()) {
+      @if (versionForForm(); as version) {
+        <cp-recipe-test-run-form
+          [workspaceSlug]="workspaceSlug()"
+          [recipeId]="recipeId()"
+          [versionNumber]="version"
+          [testRun]="openRun()"
+          (saved)="onSaved($event)"
+          (cancelled)="onCancelled()"
+          (reloadRequested)="onReloadRequested()"
+        />
+      }
+    } @else if (openRun() !== null && !canWrite()) {
+      <p class="muted">
+        Correcting a write-up needs the Contributor role or above in this workspace.
+      </p>
+    }
+
+    <!-- Shown whenever the test in hand found something, to a reader as well as a writer: the panel gates
+         recording a decision on the Editor role itself, so a Viewer gets the list and none of the controls. -->
+    @if (openRun(); as run) {
+      @if (run.issues.length > 0) {
+        <cp-recipe-test-issues
+          [workspaceSlug]="workspaceSlug()"
+          [recipeId]="recipeId()"
+          [testRun]="run"
+          [testedVersionNumber]="versionForForm()"
+          (resolved)="onIssueResolved()"
+          (versionActivated)="versionActivated.emit($event)"
+        />
+      }
+    }
+  }
+}

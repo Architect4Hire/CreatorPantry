@@ -6,7 +6,8 @@
 <cp-card>
   <form (ngSubmit)="save()" novalidate>
     <header class="legend">
-      <h1 class="title">{{ isEditing() ? 'Correct this test' : 'Record a test' }}</h1>
+      <!-- h2, not h1: this form is mounted inside the recipe editor, whose page heading is the h1. -->
+      <h2 class="title">{{ isEditing() ? 'Correct this test' : 'Record a test' }}</h2>
       <p class="intro">
         Testing <strong>version {{ versionNumber() }}</strong>. Everything you record here sits beside what that
         version says — nothing on this form changes the recipe. Only the date is required.

@@ -375,6 +375,56 @@ public sealed class RecipeTestRunDataLayerTests(SqlServerRecipeFixture fixture) 
         ResolvedAt = SqlServerRecipeFixture.Now,
     };
 
+    /// <summary>
+    /// The read the detail route is built on, at the layer where the query filter either holds or does not.
+    /// </summary>
+    /// <remarks>
+    /// Asserted against the method rather than against <c>db.RecipeTestRuns</c>, which is a different claim: this
+    /// read carries three <c>Include</c>s, and an `Include` of a set that stopped being workspace-owned would
+    /// still pass a test that only queried the root. The positive half is in the same test so that "null" is
+    /// known to mean isolation rather than a seed that never wrote anything.
+    /// </remarks>
+    [Fact]
+    public async Task A_read_of_one_test_cannot_reach_another_workspaces_run()
+    {
+        var token = TestContext.Current.CancellationToken;
+
+        Guid foreignRecipeId;
+        Guid foreignRunId;
+
+        await using (var inB = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceB))
+        {
+            // B's own tag, because the default is A's and tags are workspace-owned: the database refuses the
+            // cross-workspace foreign key, which is the isolation working rather than a fixture to route around.
+            var seeded = await SeedRecipeAsync(inB, "B's own bake", tagId: SqlServerRecipeFixture.TagIdB);
+            var run = NewRun(seeded.RecipeId, seeded.VersionId);
+            var observation = NewObservation(run.Id, 0, "B's crumb was close.");
+            run.Observations.Add(observation);
+            run.Issues.Add(NewIssue(run, observation.Id));
+
+            await DataLayer(inB).CreateAsync(run, token);
+
+            foreignRecipeId = seeded.RecipeId;
+            foreignRunId = run.Id;
+
+            // B reads its own, so the refusal below is isolation rather than a run that was never written.
+            var own = await DataLayer(inB).GetForReadAsync(seeded.RecipeId, run.Id, token);
+            Assert.NotNull(own);
+            Assert.Single(own.Observations);
+            Assert.Single(own.Issues);
+        }
+
+        await using var inA = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var ownRecipe = await SeedRecipeAsync(inA, "A's own bake");
+
+        // Both of B's ids together, which is the strongest form of the ask: nothing is guessed.
+        Assert.Null(await DataLayer(inA).GetForReadAsync(foreignRecipeId, foreignRunId, token));
+
+        // And B's run id under A's own readable recipe, which is the case the recipe-visibility check in
+        // Business cannot catch — only the query filter can.
+        Assert.Null(await DataLayer(inA).GetForReadAsync(ownRecipe.RecipeId, foreignRunId, token));
+    }
+
     private static RecipeTestRun NewRun(Guid recipeId, Guid versionId) => new()
     {
         Id = Guid.NewGuid(),

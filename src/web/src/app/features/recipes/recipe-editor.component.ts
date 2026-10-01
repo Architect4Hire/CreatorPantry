@@ -57,6 +57,7 @@ import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
 import { RecipeReadinessComponent } from './recipe-readiness.component';
 import { RecipePublishPanelComponent } from './recipe-publish-panel.component';
+import { RecipeTestKitchenComponent } from './recipe-test-kitchen.component';
 import {
   EditableIngredientGroup,
   RecipeIngredientEditorComponent,
@@ -329,6 +330,7 @@ type RecipeEditorSaveState =
     RecipeHistoryComponent,
     RecipePublishPanelComponent,
     RecipeReadinessComponent,
+    RecipeTestKitchenComponent,
     RecipeIngredientEditorComponent,
     RecipeDisplayNormalizationComponent,
     RecipeScalingPreviewComponent,
@@ -379,6 +381,10 @@ export class RecipeEditorComponent {
     { id: 'tools', label: 'Tools', disabled: this.isCreateMode },
     { id: 'media', label: 'Media', disabled: this.isCreateMode },
     { id: 'history', label: 'History', disabled: this.isCreateMode },
+    // What happened when the recipe was cooked. Before Readiness because that is the order the work happens
+    // in: testing is what produces the evidence a readiness check then reads. A test is filed against an
+    // exact saved version, which a recipe being created does not have yet.
+    { id: 'tests', label: 'Test kitchen', disabled: this.isCreateMode },
     // Checks the saved recipe and moves it through Draft to Approved, neither of which a recipe being created
     // has yet.
     { id: 'readiness', label: 'Readiness', disabled: this.isCreateMode },
@@ -1342,6 +1348,17 @@ export class RecipeEditorComponent {
   /** Evidence names a record of the recipe; the only surface for any of them today is the form. */
   onReadinessEvidenceActivated(): void {
     this.selectedAreaId.set('edit');
+  }
+
+  /**
+   * A version named as carrying a correction, activated from the Test Kitchen.
+   *
+   * History is where a version can actually be read, so that is where this goes. It selects the area and
+   * nothing more: the panel there owns which version it is showing, and reaching into it to preselect one
+   * would be this component deciding something it does not own.
+   */
+  onTestVersionActivated(): void {
+    this.selectedAreaId.set('history');
   }
 
   /**

@@ -60,6 +60,41 @@ public sealed class RecipeTestRunsController(IRecipeTestRunFacade testRunFacade)
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>Reads one recorded test whole.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="recipeId">The recipe the test belongs to. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="testRunId">The test to read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// The companion to the list above, and what lets it stay summaries: a row carries counts where a test has
+    /// notes and problems, and this is where their contents are — the observations in the tester's own words,
+    /// every issue with its severity, and the resolution on each issue that has one. It also returns
+    /// `concurrencyToken`, which is what makes correcting a test possible from anywhere other than the response
+    /// to a previous write. A recipe the caller may not see answers `404 recipes.recipe.not_found`, whether it is
+    /// unknown or another workspace's; a test id that is not one of that recipe's answers
+    /// `404 recipes.testRun.not_found`. An **archived recipe still answers**: archiving withdraws a recipe from
+    /// content changes, not from its own history, so the create and the edit refuse where this does not. Every
+    /// member including a Viewer may read this; deciding an issue is closed is what needs an Editor. No tester
+    /// display name — the membership ids here are the ones the history publishes beside the names.
+    /// </remarks>
+    [HttpGet("{testRunId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<RecipeTestRunServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> Get(
+        string workspaceSlug,
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken)
+    {
+        var result = await testRunFacade.GetAsync(recipeId, testRunId, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Records one cook of one exact version of a recipe.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
@@ -114,10 +149,10 @@ public sealed class RecipeTestRunsController(IRecipeTestRunFacade testRunFacade)
         // No mapping beyond choosing the response: the facade already returns the ServiceModel, and the
         // location is the only thing this layer contributes, because only it knows the route shape.
         //
-        // The location names the run's own resource even though no GET serves that exact path: the test history
-        // above lists the collection, and reading one run on its own is still unbuilt. A created resource has an
-        // address whether or not it can currently be fetched from it, and adding the header later would have been
-        // a visible change to a shipped contract.
+        // The location names the run's own resource, which the GET above now serves. It was set before that
+        // route existed, on the argument that a created resource has an address whether or not it can yet be
+        // fetched from it and that adding the header later would be a visible change to a shipped contract —
+        // which is exactly why building the read needed no change here.
         return this.IdempotentResult(outcome, created =>
             Created(
                 $"/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{created.TestRunId}",

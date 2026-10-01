@@ -4,6 +4,7 @@ using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Caching;
 using CreatorPantry.ApiService.Development;
 using CreatorPantry.ApiService.Http;
+using CreatorPantry.ApiService.Storage;
 using CreatorPantry.ApiService.Tenancy;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Modules.Auth;
@@ -44,6 +45,10 @@ builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
 
 // Redis where the AppHost supplies it, in-process otherwise. Reference reads are the only consumer today.
 builder.AddCreatorPantryCache();
+
+// Private object storage for creator files. Nothing is served from it directly: bytes are read through a
+// module gateway after the metadata has been authorized.
+builder.AddCreatorPantryObjectStorage();
 
 // IChatClient and IEmbeddingGenerator over the AppHost's model deployments, or the unconfigured clients in
 // development where there are none. Nothing calls a model yet; this establishes the abstractions.

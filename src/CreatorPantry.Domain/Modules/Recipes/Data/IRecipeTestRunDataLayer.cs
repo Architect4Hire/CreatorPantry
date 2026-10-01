@@ -48,6 +48,9 @@ public interface IRecipeTestRunDataLayer
     /// </summary>
     Task<RecipeTestRun?> GetForUpdateAsync(Guid recipeId, Guid testRunId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IRecipeTestRunRepository.GetForReadAsync"/>
+    Task<RecipeTestRun?> GetForReadAsync(Guid recipeId, Guid testRunId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Commits an edit already applied to a tracked run, refusing it if the run has moved on since it was read.
     /// </summary>
@@ -164,6 +167,12 @@ internal sealed class RecipeTestRunDataLayer(
         Guid testRunId,
         CancellationToken cancellationToken) =>
         testRuns.GetForUpdateAsync(recipeId, testRunId, cancellationToken);
+
+    public Task<RecipeTestRun?> GetForReadAsync(
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken) =>
+        testRuns.GetForReadAsync(recipeId, testRunId, cancellationToken);
 
     public Task<TestIssueResolutionTarget?> FindIssueForResolutionAsync(
         Guid recipeId,

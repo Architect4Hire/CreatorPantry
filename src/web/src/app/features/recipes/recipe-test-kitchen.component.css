@@ -1,0 +1,201 @@
+/*
+ * Layout only. Every colour is a semantic --cp-* token, and status is always carried by words as well — a
+ * pill's tone is the quieter half of something the label already says.
+ *
+ * This file dresses the bar and the read-only card this host owns, and nothing else. The form, the issues
+ * panel and the history each own their own surface; redrawing any of them from here would be a feature
+ * stylesheet overruling a component, which is the defect .claude/rules/frontend.md names.
+ */
+
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-5);
+  min-width: 0;
+}
+
+/* The bar ---------------------------------------------------------------- */
+
+/* `minmax(0, 1fr)` on the text track: an auto track's floor is its content's max-content width, so one long
+   word would hold the bar wider than the card and push the page sideways. */
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+.heading {
+  display: grid;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  line-height: var(--cp-leading-tight);
+}
+
+
+.intro,
+.muted {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+/* Why a control is unavailable, next to the control. The flag is decorative; the sentence carries it. */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-2);
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.note-icon {
+  flex: none;
+  line-height: var(--cp-leading-tight);
+}
+
+/* The picked row ---------------------------------------------------------- */
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+
+.detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+}
+
+.detail-title {
+  margin: 0;
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.detail-notes {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Short, labelled values, as many across as fit — the same shape a field row takes, for the same reason:
+   each is a couple of words and reads as one set. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--cp-space-3) var(--cp-space-4);
+  margin: 0;
+  min-width: 0;
+}
+
+.fact {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.fact dt {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fact dd {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+/* Banners ---------------------------------------------------------------- */
+
+.banner {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  overflow-wrap: anywhere;
+}
+
+.banner--success {
+  border-color: var(--cp-primary);
+  background: var(--cp-primary-soft);
+}
+
+.banner--warning {
+  border-color: var(--cp-orange);
+  background: var(--cp-orange-soft);
+}
+
+@media (max-width: 40rem) {
+  .bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The open test's own notes, for a reader who is not offered the form that would otherwise hold them. */
+
+.block {
+  display: grid;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.block-heading {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+.notes {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes li {
+  display: grid;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.note-kind {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

@@ -448,6 +448,12 @@ public sealed class RecipeTestRunBusinessTests
             Guid recipeId, Guid testRunId, CancellationToken cancellationToken) =>
             Task.FromResult(Loaded);
 
+        // The read path loads the same graph as the edit path, untracked; a fake has no tracker, so the two
+        // answer from one field.
+        public Task<RecipeTestRun?> GetForReadAsync(
+            Guid recipeId, Guid testRunId, CancellationToken cancellationToken) =>
+            Task.FromResult(Loaded);
+
         public Task<TestRunUpdateOutcome> UpdateAsync(RecipeTestRun run, CancellationToken cancellationToken)
         {
             if (UpdateConflicts)

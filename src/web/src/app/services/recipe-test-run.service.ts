@@ -68,6 +68,20 @@ export type TestRunHistoryOutcome =
   | { readonly status: 'not_found' }
   | { readonly status: 'unavailable' };
 
+export type GetTestRunOutcome =
+  /** The whole test, carrying the token a correction must quote. */
+  | { readonly status: 'found'; readonly testRun: RecipeTestRun }
+  /**
+   * The recipe is readable and has no such test — or the test belongs to a different recipe.
+   *
+   * Told apart from {@link GetTestRunOutcome} `recipe_not_found` because the two have different remedies: one
+   * means the id is stale and the list will say so, the other that this caller cannot see the recipe at all.
+   */
+  | { readonly status: 'not_found' }
+  /** Unknown recipe, or one belonging to another workspace — deliberately indistinguishable. */
+  | { readonly status: 'recipe_not_found' }
+  | { readonly status: 'unavailable' };
+
 export type ResolveTestIssueOutcome =
   | { readonly status: 'resolved'; readonly resolved: ResolvedTestIssue; readonly replayed: boolean }
   | { readonly status: 'validation_failed'; readonly fieldErrors: Readonly<Record<string, readonly string[]>> }
@@ -124,6 +138,9 @@ const ISSUE_REMOVAL_CONFLICT_CODE = 'recipes.testIssue.removal.conflict';
 /** RecipeErrorCodes.CursorInvalidRequest — a stale cursor, whose remedy is to start the list again. */
 const CURSOR_INVALID_CODE = 'recipes.cursor.invalid_request';
 
+/** RecipeErrorCodes.RecipeNotFound — on a read of one test, the recipe rather than the test is unreadable. */
+const RECIPE_NOT_FOUND_CODE = 'recipes.recipe.not_found';
+
 /**
  * The typed client for recording and correcting one cook of one exact version (TESTRUN-001/002).
  *
@@ -174,6 +191,48 @@ export class RecipeTestRunService {
       }
       if (code === 409) return { status: 'archived_conflict' };
       if (code === 422) return { status: 'idempotency_key_conflict' };
+      return { status: 'unavailable' };
+    }
+  }
+
+  /**
+   * One recorded test whole: the notes in the tester's own words, every problem with its severity, and the
+   * resolution on each problem that has one.
+   *
+   * The companion to {@link listTestRuns}, which returns counts where this returns contents — so a client
+   * lists to choose and reads to open. It is also the only way to hold a usable `concurrencyToken` without
+   * having just written the test, which is what lets a correction start from the history rather than only
+   * from the response to a previous save.
+   *
+   * A Promise rather than an Observable, like the writes and unlike the list: this is one read of one chosen
+   * record, with no filter racing behind it that a later response could arrive out of order with.
+   */
+  async getTestRun(
+    workspaceSlug: string,
+    recipeId: string,
+    testRunId: string,
+  ): Promise<GetTestRunOutcome> {
+    const url = this.testRunsUrl(workspaceSlug, recipeId);
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const body = await firstValueFrom(
+        this.http.get<unknown>(`${url}/${encodeURIComponent(testRunId)}`, { withCredentials: true }),
+      );
+      const testRun = decodeRecipeTestRun(body);
+
+      // A partially decoded test would hide something a tester recorded; the decoder rejects the whole thing
+      // rather than return less than was written. See decodeArray in the models.
+      return testRun ? { status: 'found', testRun } : { status: 'unavailable' };
+    } catch (error) {
+      if (statusCodeOf(error) === 404) {
+        // Two different 404s with two different remedies: a stale test id the list will correct, or a recipe
+        // this caller cannot see at all.
+        return problemCodeOf(error) === RECIPE_NOT_FOUND_CODE
+          ? { status: 'recipe_not_found' }
+          : { status: 'not_found' };
+      }
+
       return { status: 'unavailable' };
     }
   }

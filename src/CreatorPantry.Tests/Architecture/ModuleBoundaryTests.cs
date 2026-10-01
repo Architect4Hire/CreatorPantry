@@ -163,7 +163,7 @@ public sealed class ModuleBoundaryTests
         var files = DomainFiles();
 
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
-        Assert.InRange(files.Count, 150, 700);
+        Assert.InRange(files.Count, 150, 1000);
         Assert.Equal(10, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the

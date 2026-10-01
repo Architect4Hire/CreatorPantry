@@ -101,6 +101,37 @@ public interface IRecipeTestRunBusiness
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads one recorded test whole: its notes, its problems, and what was decided about each.
+    /// </summary>
+    /// <returns>
+    /// The test, or <c>recipes.recipe.not_found</c> when the recipe is not visible in the resolved workspace,
+    /// or <c>recipes.testRun.not_found</c> when the recipe is visible but has no such test.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Two refusals rather than one, decided in that order, and the order is the disclosure rule.</strong>
+    /// A caller who may not see the recipe is told only that, exactly as the history is — learning that a test id
+    /// is or is not one of its tests would be learning something about a recipe they have not been shown
+    /// (tenancy.md). Once the recipe has been shown to exist and be readable, naming a missing test discloses
+    /// nothing they could not find by listing them, which is what <see cref="RecipeErrorCodes.TestRunNotFound"/>
+    /// documents as the condition for being its own code.
+    /// </para>
+    /// <para>
+    /// <strong>An archived recipe's tests stay readable.</strong> Archiving withdraws a recipe from content
+    /// changes, not from its own history: the create and the edit refuse with
+    /// <c>recipes.archived.conflict</c>, and this does not, for the same reason the history list does not.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing is tracked and nothing is stamped.</strong> Unlike the edit, reading a test is not
+    /// somebody standing by it, so <c>UpdatedAt</c> and <c>UpdatedByMembershipId</c> are untouched.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeTestRunServiceModel>> GetAsync(
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads one page of a recipe's test history, with the counts when they were asked for.
     /// </summary>
     /// <returns>
@@ -698,6 +729,27 @@ internal sealed class RecipeTestRunBusiness(
         return null;
     }
 
+    public async Task<OperationResult<RecipeTestRunServiceModel>> GetAsync(
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken)
+    {
+        // The recipe first and on its own, exactly as the history list does it — see the interface remarks for
+        // why these are two refusals rather than one. No status check beyond visibility: an archived recipe
+        // still answers for its own tests.
+        if (await dataLayer.FindRecipeStatusAsync(recipeId, cancellationToken) is null)
+        {
+            return RecipeNotFound();
+        }
+
+        if (await dataLayer.GetForReadAsync(recipeId, testRunId, cancellationToken) is not { } run)
+        {
+            return RunNotFound();
+        }
+
+        return OperationResult<RecipeTestRunServiceModel>.Success(RecipeTestRunMapper.ToServiceModel(run));
+    }
+
     public async Task<OperationResult<TestRunHistoryPageResult>> ListAsync(
         TestRunHistoryCriteria criteria,
         CancellationToken cancellationToken)
@@ -790,6 +842,14 @@ internal sealed class RecipeTestRunBusiness(
 
     private static OperationResult<RecipeTestRunServiceModel> RunNotFound() =>
         Refuse<RecipeTestRunServiceModel>(RecipeErrorCodes.TestRunNotFound, "That test could not be found.");
+
+    /// <summary>
+    /// The recipe itself is not visible — a different answer from <see cref="RunNotFound"/>, and only the read
+    /// tells them apart. The write paths deliberately collapse both into "that test could not be found",
+    /// because a caller composing an edit has no use for the distinction and the narrower answer is safer.
+    /// </summary>
+    private static OperationResult<RecipeTestRunServiceModel> RecipeNotFound() =>
+        Refuse<RecipeTestRunServiceModel>(RecipeErrorCodes.RecipeNotFound, "That recipe could not be found.");
 
     private static OperationResult<RecipeTestRunServiceModel> Conflict() =>
         Refuse<RecipeTestRunServiceModel>(

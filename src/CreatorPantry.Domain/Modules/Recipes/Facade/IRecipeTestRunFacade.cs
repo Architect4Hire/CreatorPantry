@@ -92,6 +92,40 @@ public interface IRecipeTestRunFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads one recorded test whole — its notes, its problems, and what was decided about each.
+    /// </summary>
+    /// <param name="recipeId">The recipe the test belongs to, from the route.</param>
+    /// <param name="testRunId">The test to read, from the route.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The test, or <c>recipes.recipe.not_found</c> for a recipe the caller may not see, or
+    /// <c>recipes.testRun.not_found</c> for a test that is not one of that recipe's.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// A read, so no idempotency key and nothing to replay. The lowest role there is, like the history: every
+    /// member may read what the workspace's testers recorded. There is no validation step either — both ids are
+    /// route-bound Guids, so there is no shape left to refuse.
+    /// </para>
+    /// <para>
+    /// <strong>The companion to <see cref="ListAsync"/>, and the reason it can stay summaries.</strong> A row
+    /// carries counts where a test has notes and problems; this is where their contents live, so a client reads
+    /// the history to choose and this to open. It is also what makes a correction possible from anything other
+    /// than the response to a write: the concurrency token an edit has to quote comes back here.
+    /// </para>
+    /// <para>
+    /// <strong>No tester name, unlike a history row.</strong> A row is a list entry a reader scans, so it is worth
+    /// one lookup per page to name the person on it; this is one test the reader has already chosen, and the
+    /// membership ids it carries are the same ones the history publishes. Adding the name would mean a Tenancy
+    /// call on every read of a test for a line the client already has beside it.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<RecipeTestRunServiceModel>> GetAsync(
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Lists one recipe's recorded tests, most recently cooked first, filtered and paged.
     /// </summary>
     /// <param name="recipeId">The recipe whose history to read, from the route.</param>
@@ -316,6 +350,18 @@ internal sealed class RecipeTestRunFacade(
             token => business.ResolveIssueAsync(recipeId, testRunId, issueId, canonical, token),
             cancellationToken);
     }
+
+    /// <remarks>
+    /// Straight through, and deliberately so: nothing is validated because both ids are route-bound Guids,
+    /// nothing is cached because a test moves whenever anybody corrects it, and nothing is enriched because
+    /// this route publishes no name. A facade that adds nothing is still the boundary — workers and AI plugins
+    /// reach this seam here, not through Business.
+    /// </remarks>
+    public Task<OperationResult<RecipeTestRunServiceModel>> GetAsync(
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken) =>
+        business.GetAsync(recipeId, testRunId, cancellationToken);
 
     public async Task<OperationResult<TestRunHistoryPageServiceModel>> ListAsync(
         Guid recipeId,

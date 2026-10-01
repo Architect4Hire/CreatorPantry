@@ -1396,6 +1396,566 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Audience")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ChannelKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CurrentVersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("RemovedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UpdatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_BrandSourceDocuments_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "ChannelKey")
+                        .HasDatabaseName("IX_BrandSourceDocuments_Workspace_ChannelKey");
+
+                    b.HasIndex("WorkspaceId", "DocumentType")
+                        .HasDatabaseName("IX_BrandSourceDocuments_Workspace_DocumentType");
+
+                    b.HasIndex("WorkspaceId", "Status", "UpdatedAt")
+                        .HasDatabaseName("IX_BrandSourceDocuments_Workspace_Status_UpdatedAt");
+
+                    b.ToTable("BrandSourceDocuments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_Archived_HasTimestamp", "Status <> 2 OR ArchivedAt IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_CurrentVersionNumber_Positive", "CurrentVersionNumber >= 1");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_DocumentType_Specified", "DocumentType <> 0");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_Purpose_Specified", "Purpose <> 0");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_Removed_Consistent", "(Status = 3 AND RemovedAt IS NOT NULL AND RemovedByMembershipId IS NOT NULL) OR (Status <> 3 AND RemovedAt IS NULL AND RemovedByMembershipId IS NULL)");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_Status_Specified", "Status <> 0");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocuments_Title_NotBlank", "trim(Title) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocumentTag", b =>
+                {
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourceTagId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WorkspaceId", "BrandSourceDocumentId", "BrandSourceTagId");
+
+                    b.HasIndex("WorkspaceId", "BrandSourceTagId")
+                        .HasDatabaseName("IX_BrandSourceDocumentTags_Workspace_Tag");
+
+                    b.ToTable("BrandSourceDocumentTags", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocumentVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentChecksum")
+                        .IsRequired()
+                        .HasMaxLength(71)
+                        .HasColumnType("nvarchar(71)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_BrandSourceDocumentVersions_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "ContentChecksum")
+                        .HasDatabaseName("IX_BrandSourceDocumentVersions_Workspace_ContentChecksum");
+
+                    b.HasIndex("WorkspaceId", "ObjectKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandSourceDocumentVersions_Workspace_ObjectKey");
+
+                    b.HasIndex("WorkspaceId", "BrandSourceDocumentId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandSourceDocumentVersions_Workspace_Document_VersionNumber");
+
+                    b.ToTable("BrandSourceDocumentVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandSourceDocumentVersions_ContentChecksum_Sha256", "ContentChecksum LIKE 'sha256:%'");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocumentVersions_MediaType_NotBlank", "trim(MediaType) <> ''");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocumentVersions_ObjectKey_NotUrl", "trim(ObjectKey) <> '' AND ObjectKey NOT LIKE '%://%'");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocumentVersions_OriginalFileName_NotBlank", "trim(OriginalFileName) <> ''");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocumentVersions_SizeBytes_Positive", "SizeBytes > 0");
+
+                            t.HasCheckConstraint("CK_BrandSourceDocumentVersions_VersionNumber_Positive", "VersionNumber >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceExtraction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourceDocumentVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentChecksum")
+                        .HasMaxLength(71)
+                        .HasColumnType("nvarchar(71)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExtractedTextObjectKey")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_BrandSourceExtractions_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "ExtractedTextObjectKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandSourceExtractions_Workspace_ObjectKey")
+                        .HasFilter("[ExtractedTextObjectKey] IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "BrandSourceDocumentVersionId", "Ordinal")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandSourceExtractions_Workspace_Version_Ordinal");
+
+                    b.ToTable("BrandSourceExtractions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_ContentChecksum_Sha256", "ContentChecksum IS NULL OR ContentChecksum LIKE 'sha256:%'");
+
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_Corrected_Succeeded_Attributed", "Origin <> 2 OR (Status = 1 AND CreatedByMembershipId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_ObjectKey_NotUrl", "ExtractedTextObjectKey IS NULL OR (trim(ExtractedTextObjectKey) <> '' AND ExtractedTextObjectKey NOT LIKE '%://%')");
+
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_Ordinal_Positive", "Ordinal >= 1");
+
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_Origin_Specified", "Origin <> 0");
+
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_Status_Specified", "Status <> 0");
+
+                            t.HasCheckConstraint("CK_BrandSourceExtractions_Succeeded_HasArtifact", "(Status = 1 AND ExtractedTextObjectKey IS NOT NULL AND ContentChecksum IS NOT NULL) OR (Status <> 1 AND ExtractedTextObjectKey IS NULL AND ContentChecksum IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_BrandSourceTags_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandSourceTags_Workspace_NormalizedName");
+
+                    b.HasIndex("WorkspaceId", "IsActive", "Name")
+                        .HasDatabaseName("IX_BrandSourceTags_Workspace_IsActive_Name");
+
+                    b.ToTable("BrandSourceTags", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandSourceTags_Name_NotBlank", "trim(Name) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuide", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UpdatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_BrandStyleGuides_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "Status", "DisplayName")
+                        .HasDatabaseName("IX_BrandStyleGuides_Workspace_Status_DisplayName");
+
+                    b.ToTable("BrandStyleGuides", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandStyleGuides_Archived_HasTimestamp", "Status <> 2 OR ArchivedAt IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuides_DisplayName_NotBlank", "trim(DisplayName) <> ''");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuides_Status_Specified", "Status <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideApproval", b =>
+                {
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ApprovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ApprovedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("WorkspaceId", "BrandStyleGuideVersionId");
+
+                    b.ToTable("BrandStyleGuideApprovals", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideDefault", b =>
+                {
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ActivatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ActivatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("WorkspaceId");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasDatabaseName("IX_BrandStyleGuideDefaults_Workspace_Version");
+
+                    b.ToTable("BrandStyleGuideDefaults", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideVersionId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandStyleGuideRules_Workspace_Version_Order");
+
+                    b.ToTable("BrandStyleGuideRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandStyleGuideRules_Kind_Specified", "Kind <> 0");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuideRules_SortOrder_NonNegative", "SortOrder >= 0");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuideRules_Text_NotBlank", "trim(Text) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideSection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChannelKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("SectionKey")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideVersionId", "SectionKey", "ChannelKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandStyleGuideSections_Workspace_Version_Key_Channel");
+
+                    b.ToTable("BrandStyleGuideSections", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandStyleGuideSections_Body_NotBlank", "trim(Body) <> ''");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuideSections_ChannelKey_Variant", "(SectionKey = 12 AND trim(ChannelKey) <> '') OR (SectionKey <> 12 AND ChannelKey = '')");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuideSections_SectionKey_Specified", "SectionKey <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideSourceLink", b =>
+                {
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourceDocumentVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WorkspaceId", "BrandStyleGuideVersionId", "BrandSourceDocumentVersionId");
+
+                    b.HasIndex("WorkspaceId", "BrandSourceDocumentVersionId")
+                        .HasDatabaseName("IX_BrandStyleGuideSourceLinks_Workspace_SourceDocumentVersion");
+
+                    b.ToTable("BrandStyleGuideSourceLinks", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandStyleGuideId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_BrandStyleGuideVersions_Workspace_Id");
+
+                    b.HasAlternateKey("WorkspaceId", "BrandStyleGuideId", "Id")
+                        .HasName("AK_BrandStyleGuideVersions_Workspace_Guide_Id");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideId", "ParentVersionId");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BrandStyleGuideVersions_Workspace_Guide_VersionNumber");
+
+                    b.ToTable("BrandStyleGuideVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BrandStyleGuideVersions_Parent_NotSelf", "ParentVersionId IS NULL OR ParentVersionId <> Id");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuideVersions_Parent_VersionNumber", "VersionNumber > 1 OR ParentVersionId IS NULL");
+
+                            t.HasCheckConstraint("CK_BrandStyleGuideVersions_VersionNumber_Positive", "VersionNumber >= 1");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.ContentProposal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3697,6 +4257,166 @@ namespace CreatorPantry.Domain.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocument", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocumentTag", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocument", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("WorkspaceId", "BrandSourceDocumentId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceTag", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandSourceTagId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocumentVersion", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocument", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("WorkspaceId", "BrandSourceDocumentId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceExtraction", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocumentVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandSourceDocumentVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceTag", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuide", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideApproval", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithOne()
+                        .HasForeignKey("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideApproval", "WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasPrincipalKey("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", "WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideDefault", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithOne()
+                        .HasForeignKey("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideDefault", "WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideApproval", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideRule", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithMany("Rules")
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideSection", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithMany("Sections")
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideSourceLink", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocumentVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandSourceDocumentVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithMany("SourceLinks")
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuide", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideId", "ParentVersionId")
+                        .HasPrincipalKey("WorkspaceId", "BrandStyleGuideId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.ContentProposal", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
@@ -4301,6 +5021,22 @@ namespace CreatorPantry.Domain.Migrations
                     b.Navigation("ChannelDefaults");
 
                     b.Navigation("Links");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandSourceDocument", b =>
+                {
+                    b.Navigation("Tags");
+
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", b =>
+                {
+                    b.Navigation("Rules");
+
+                    b.Navigation("Sections");
+
+                    b.Navigation("SourceLinks");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>

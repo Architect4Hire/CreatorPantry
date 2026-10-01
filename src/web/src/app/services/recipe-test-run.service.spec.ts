@@ -199,6 +199,71 @@ describe('RecipeTestRunService', () => {
     });
   });
 
+  describe('getTestRun', () => {
+    it('reads one test whole, with credentials and no body', async () => {
+      const pending = service.getTestRun('cozy-fall', 'r1', RUN_ID);
+
+      const request = http.expectOne(`${BASE}/${RUN_ID}`);
+      expect(request.request.method).toBe('GET');
+      expect(request.request.withCredentials).toBeTrue();
+      expect(request.request.body).toBeNull();
+      request.flush(runPayload());
+
+      const outcome = await pending;
+      expect(outcome.status).toBe('found');
+      if (outcome.status === 'found') {
+        expect(outcome.testRun.id).toBe(RUN_ID);
+
+        // The reason the route exists: a correction can quote this without having just written the test.
+        expect(outcome.testRun.concurrencyToken).toBe('token-2');
+      }
+    });
+
+    /**
+     * Two 404s with two different remedies — a stale test id the list will correct, or a recipe this caller
+     * cannot see at all. Collapsing them would send somebody back to a list that cannot help them.
+     */
+    it('separates a missing test from an unreadable recipe', async () => {
+      const missingTest = service.getTestRun('cozy-fall', 'r1', RUN_ID);
+      http
+        .expectOne(`${BASE}/${RUN_ID}`)
+        .flush(problem('recipes.testRun.not_found'), { status: 404, statusText: 'Not Found' });
+      expect((await missingTest).status).toBe('not_found');
+
+      const missingRecipe = service.getTestRun('cozy-fall', 'r1', RUN_ID);
+      http
+        .expectOne(`${BASE}/${RUN_ID}`)
+        .flush(problem('recipes.recipe.not_found'), { status: 404, statusText: 'Not Found' });
+      expect((await missingRecipe).status).toBe('recipe_not_found');
+    });
+
+    /** A 404 with no code is the narrower answer, because the test is the thing that was asked for. */
+    it('treats an unlabelled 404 as a missing test', async () => {
+      const pending = service.getTestRun('cozy-fall', 'r1', RUN_ID);
+      http.expectOne(`${BASE}/${RUN_ID}`).flush({}, { status: 404, statusText: 'Not Found' });
+
+      expect((await pending).status).toBe('not_found');
+    });
+
+    /**
+     * A partially decoded test would hide something a tester recorded, and a correction composed against it
+     * would then delete the issue it never showed.
+     */
+    it('refuses a body it cannot decode rather than returning less than was written', async () => {
+      const pending = service.getTestRun('cozy-fall', 'r1', RUN_ID);
+      http.expectOne(`${BASE}/${RUN_ID}`).flush({ id: RUN_ID });
+
+      expect((await pending).status).toBe('unavailable');
+    });
+
+    it('reports itself unavailable when the server cannot be reached', async () => {
+      const pending = service.getTestRun('cozy-fall', 'r1', RUN_ID);
+      http.expectOne(`${BASE}/${RUN_ID}`).flush({}, { status: 500, statusText: 'Server Error' });
+
+      expect((await pending).status).toBe('unavailable');
+    });
+  });
+
   describe('updateTestRun', () => {
     it('patches the run and returns it with the refreshed token', async () => {
       const pending = service.updateTestRun('cozy-fall', 'r1', RUN_ID, update({ rating: submitted(5) }), 'key-2');

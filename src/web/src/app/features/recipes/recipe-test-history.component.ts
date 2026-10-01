@@ -60,7 +60,7 @@ export const TEST_OUTCOME_LABELS: Readonly<Record<TestRunOutcome, string>> = {
  *
  * `NotStated` is neutral and never `success`: an unstated verdict is not a pass.
  */
-const OUTCOME_TONES: Readonly<Record<TestRunOutcome, CpStatusPillTone>> = {
+export const TEST_OUTCOME_TONES: Readonly<Record<TestRunOutcome, CpStatusPillTone>> = {
   Succeeded: 'success',
   SucceededWithIssues: 'warning',
   Failed: 'error',
@@ -269,7 +269,7 @@ export class RecipeTestHistoryComponent {
   });
 
   outcomeTone(outcome: TestRunOutcome): CpStatusPillTone {
-    return OUTCOME_TONES[outcome];
+    return TEST_OUTCOME_TONES[outcome];
   }
 
   /** Authorship outlives membership, so a tester who has left still has to be named as somebody. */

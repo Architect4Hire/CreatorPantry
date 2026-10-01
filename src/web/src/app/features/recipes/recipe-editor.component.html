@@ -867,6 +867,20 @@
           />
         </cp-tab-panel>
 
+        <cp-tab-panel id="tests">
+          <!-- Mounted lazily by the tab. Unlike Readiness it is offered while the form is dirty, because
+               reading what earlier cooks found does not depend on what is unsaved; the panel itself refuses
+               to *record* a test until the edits are saved, since a test is filed against the saved version.
+               Nothing here changes the recipe, so there is no token to quote and nothing to apply back. -->
+          <cp-recipe-test-kitchen
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [versionNumber]="currentVersionNumber()"
+            [editorIsDirty]="isDirty()"
+            (versionActivated)="onTestVersionActivated()"
+          />
+        </cp-tab-panel>
+
         <cp-tab-panel id="readiness">
           <!-- Mounted lazily by the tab. It checks the *saved* recipe and moves it through the states to
                Approved, so it is not offered while the form has edits that are not saved: the check would

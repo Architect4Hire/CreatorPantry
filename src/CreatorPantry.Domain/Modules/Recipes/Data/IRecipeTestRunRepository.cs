@@ -49,6 +49,24 @@ public interface IRecipeTestRunRepository
     Task<RecipeTestRun?> GetForUpdateAsync(Guid recipeId, Guid testRunId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// One complete test run of one recipe for reading, or null when there is no such run in the resolved
+    /// workspace.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same graph as <see cref="GetForUpdateAsync"/> and the same scoping, untracked. A separate method
+    /// rather than a <c>tracked</c> flag on that one: the change tracker is the difference between a read and
+    /// the start of a write, and a caller that passed the wrong flag would get a method that silently behaves
+    /// as the other one. Tracking a graph nothing intends to change also costs a snapshot of every row.
+    /// </para>
+    /// <para>
+    /// <strong>Resolutions come with it</strong>, because what was decided about a problem is most of what a
+    /// reader wants to know about it. Attachments do not: nothing writes one yet.
+    /// </para>
+    /// </remarks>
+    Task<RecipeTestRun?> GetForReadAsync(Guid recipeId, Guid testRunId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// One issue of one run, with its resolution if it has one and the version number the run was recorded
     /// against — everything a resolution has to judge, in one read.
     /// </summary>
@@ -80,6 +98,22 @@ internal sealed class RecipeTestRunRepository(CreatorPantryDbContext context) : 
             //
             // No WorkspaceId predicate: every entity here is workspace-owned, so the global query filter
             // already scopes all four sets. Another workspace's run is not found rather than found and refused.
+            .Include(run => run.Observations)
+            .Include(run => run.Issues)
+                .ThenInclude(issue => issue.Resolution)
+            .SingleOrDefaultAsync(
+                run => run.Id == testRunId && run.RecipeId == recipeId, cancellationToken);
+
+    public async Task<RecipeTestRun?> GetForReadAsync(
+        Guid recipeId,
+        Guid testRunId,
+        CancellationToken cancellationToken) =>
+        await context.RecipeTestRuns
+            .AsNoTracking()
+            // Same includes and same scoping as the tracked read above — including the resolutions, which are
+            // most of what a reader of an issue wants. No WorkspaceId predicate: every set here is
+            // workspace-owned, so the global query filter already scopes all four, and another workspace's run
+            // is not found rather than found and refused.
             .Include(run => run.Observations)
             .Include(run => run.Issues)
                 .ThenInclude(issue => issue.Resolution)

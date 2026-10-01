@@ -59,6 +59,11 @@ var storage = builder.AddAzureStorage("storage")
         .WithDataVolume("creatorpantry-storage-data"));
 var blobs = storage.AddBlobs("blobs");
 
+// Private brand source material: uploads and the text extracted from them. Declared here so the emulator and
+// a deployment both get the container; the API reads it through the "blobs" connection and never creates it.
+// The name is BrandSourceObjectKey.Container.
+var brandSources = blobs.AddBlobContainer("brand-sources");
+
 // One-shot: applies EF migrations, then exits. Dependents use WaitForCompletion(migrations).
 var migrations = builder.AddProject<Projects.CreatorPantry_MigrationService>("migrations")
     .WithReference(db)
@@ -82,6 +87,7 @@ var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchPro
     .WithReference(db).WaitFor(db)
     .WithReference(cache).WaitFor(cache)
     .WithReference(blobs).WaitFor(blobs)
+    .WaitFor(brandSources)
     .WaitForCompletion(migrations)
     .WithHttpHealthCheck("/health");
 
