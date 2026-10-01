@@ -42,7 +42,8 @@ internal sealed class SqliteApiHost : IAsyncDisposable
     public InMemoryAccountMessageSink Messages => Factory.Services.GetRequiredService<InMemoryAccountMessageSink>();
 
     /// <param name="time">Optional clock shared with a gateway under test, so token lifetimes agree.</param>
-    public static async Task<SqliteApiHost> StartAsync(TimeProvider? time = null)
+    /// <param name="configureServices">Optional test doubles, applied after the host's own replacements.</param>
+    public static async Task<SqliteApiHost> StartAsync(TimeProvider? time = null, Action<IServiceCollection>? configureServices = null)
     {
         var host = new SqliteApiHost();
         await host._connection.OpenAsync();
@@ -71,6 +72,8 @@ internal sealed class SqliteApiHost : IAsyncDisposable
                     // sends — and DateTimeOffset, which SQLite cannot order by at all. See
                     // SqliteModelCustomizer for both, and for why the production mappings stay native.
                     .ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
+
+                configureServices?.Invoke(services);
             });
         });
 

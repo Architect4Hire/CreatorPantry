@@ -1110,6 +1110,1264 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Lists the workspace\u0027s brand source documents, filtered and paged.",
+        "description": "Any member may read. Newest edit first, and that is the only ordering. Cursor-paged: follow \u0060nextCursor\u0060\nuntil it is null. A cursor is bound to the workspace and filters it was issued for, so changing a\nfilter means starting again without one. \u0060limit\u0060 is clamped rather than refused. \u0060status\u0060 is \u0060Active\u0060\nunless \u0060Archived\u0060 is asked for; removed documents are never listed. Filters combine with AND, except\nthat repeated \u0060tag\u0060 values match a document carrying any one of them. A filter naming a channel or tag\nnothing carries is an empty page, not an error; a malformed filter or a cursor from another filter set\nanswers \u0060400 brand.source.invalid_request\u0060.\n\nEach item carries the document\u0027s description, its current version\u0027s metadata and \u0060extraction.state\u0060:\n\u0060NotExtracted\u0060 until a first attempt, then how the latest attempt ended. It never carries the file,\nextracted text, a checksum or a storage location. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched as a substring of the title or the current version\u0027s original filename. Terms shorter than two characters are ignored. Never matched against a document\u0027s contents.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Active (the default) or Archived. One value; removed documents are never listed.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentType",
+            "in": "query",
+            "description": "What the creator classified the document as: StyleGuide, WritingSample, PublishedPost, Newsletter, SocialSample, VisualReference or Other.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channelKey",
+            "in": "query",
+            "description": "The channel a document exemplifies, as its key. A key no document carries matches nothing.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "A tag name; repeat the parameter for several. A document matches if it carries any one of them.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Uploads a file as a new brand source document.",
+        "description": "Editor or above. Accepts PDF, Word (\u0060.docx\u0060, without macros), Markdown, plain text, HTML, PNG, JPEG and\nWebP, up to 20 MB (5 MB for the three text formats). What the file is comes from its bytes: the\npart\u0027s declared content type is ignored, and a file whose contents are not what its extension claims\nanswers \u0060422 brand.source.file.unsupported.unprocessable\u0060. A file that starts like an accepted format\nbut is damaged answers \u0060422 brand.source.file.corrupt.unprocessable\u0060, one over its format\u0027s limit\n\u0060413 brand.source.file.payload_too_large\u0060, and one the malware scan refuses\n\u0060422 brand.source.file.rejected.unprocessable\u0060. When the scan or private storage cannot be reached the\nanswer is \u0060503\u0060 (\u0060brand.source.scan.unavailable\u0060, \u0060brand.source.storage.unavailable\u0060) and nothing is\nrecorded; the same request with the same key may be sent again.\n\nThe response is the document\u0027s metadata at version 1, with \u0060mediaType\u0060 as established from the bytes.\nIt never carries a storage location, and no text has been extracted from the file yet.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key with the same file and description returns the original response with\n\u0060Idempotent-Replayed: true\u0060 and stores nothing new; the same key with anything different answers\n\u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "documentType": {
+                    "$ref": "#/components/schemas/BrandSourceDocumentType"
+                  },
+                  "purpose": {
+                    "$ref": "#/components/schemas/BrandSourcePurpose"
+                  },
+                  "channelKey": {
+                    "type": "string"
+                  },
+                  "audience": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Reads one brand source document\u0027s metadata.",
+        "description": "Any member may read. Carries the document\u0027s description, its tags, its current version\u0027s metadata,\n\u0060extraction.state\u0060 and the \u0060concurrencyToken\u0060 a replacement or an archive has to quote. It adds three\nthings a list row does not: that token, the current version\u0027s \u0060contentChecksum\u0060, and \u0060archivedAt\u0060.\nIt **never** carries the file, its extracted text, an object key, a container or a URL \u2014 the bytes are\nreached through the download route below, which streams them. An **archived** document reads normally;\narchiving is a shelf, not a deletion. An unknown id, another workspace\u0027s document and one this\nworkspace has removed all answer \u0060404 brand.source.not_found\u0060, deliberately indistinguishable. The\nresponse is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document to read. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown document and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions/{versionNumber}/content": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Downloads one version of a brand source document, as it was uploaded.",
+        "description": "Any member may read. The body is the original file, byte for byte, streamed rather than buffered.\n\u0060Content-Type\u0060 is the media type **established from the file\u0027s bytes at upload**, never the one the\nclient declared, and \u0060Content-Disposition: attachment\u0060 names it \u0060{title-slug}-v{n}.{ext}\u0060 where the\nextension also comes from that media type \u2014 so a file uploaded as \u0060hero.jpeg\u0060 downloads as \u0060.jpg\u0060,\nbecause one version has one name. The name is ASCII \u0060a-z0-9\u0060 and hyphens by construction and carries no\nid, workspace or storage location; the creator\u0027s own filename is in the metadata above, for display,\nand is never put in a header.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set. A version is immutable, so the\nresponse carries a strong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 and \u0060If-None-Match\u0060 answers 304.\nAn unknown document, another workspace\u0027s, a removed one, and a version number this document does not\nhave all answer \u0060404 brand.source.not_found\u0060, so a version number cannot be used to count a document\u0027s\nhistory. Metadata that exists whose bytes cannot be read answers \u0060503\nbrand.source.storage.unavailable\u0060 rather than 404: the document is there, and retrying is the remedy.\nNo range requests, and no URL is ever issued for the object.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document the version belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version to download, as the document\u0027s metadata numbers it. Constrained to an int, so a\nnon-numeric segment answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Replaces a brand source document\u0027s file with a new version.",
+        "description": "Editor or above. The file is accepted on exactly the terms an upload is \u2014 the same formats, the same\nlimits, established from the bytes rather than the declared type, and the same four refusals\n(\u0060unsupported\u0060, \u0060corrupt\u0060, \u0060payload_too_large\u0060, \u0060rejected\u0060) plus the same two \u0060503\u0060s when the scanner\nor private storage cannot be reached, after which nothing is recorded and the same key may be resent.\n\n**Nothing is overwritten.** The new version is numbered one past the document\u0027s current version, gets\nits own private object, and leaves every earlier version\u0027s row, bytes and download untouched \u2014\n\u0060/versions/1/content\u0060 still serves version 1 afterwards. Text extracted from the old version stays\nattached to it; the new version reads \u0060extraction.state: NotExtracted\u0060 until something extracts it.\nA style-guide version that cited the old upload still cites that exact version, because the citation\npins a version rather than a document.\n\n\u0060expectedConcurrencyToken\u0060 is required and guards the document, which is what the new version\u0027s number\nis read from: a replacement composed against a picture that has since moved answers\n\u0060409 brand.source.conflict\u0060 and writes nothing. An **archived** document answers\n\u0060409 brand.source.archived.conflict\u0060 \u2014 restore it first. An unknown id, another workspace\u0027s document\nand one this workspace has removed all answer \u0060404 brand.source.not_found\u0060, deliberately\nindistinguishable.\n\nThe response is the document\u0027s metadata at its new version. It never carries a storage location.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document to replace. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same\nstatus as an unknown document and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key for the same document, token and bytes returns the original response\nwith \u0060Idempotent-Replayed: true\u0060 and stores nothing new; the same key with anything different answers\n\u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  },
+                  "expectedConcurrencyToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/removed": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Lists this workspace\u0027s removed brand source documents, newest removal first.",
+        "description": "**Owner only, and the only route that answers for a removed document.** Everywhere else a tombstone is\na \u0060404\u0060 \u2014 the read, the download, the replacement and the three Editor lifecycle commands alike \u2014 so\nthis bin is how a removal is undone at all, and it is the one place a removed document\u0027s\n\u0060concurrencyToken\u0060 is published. Cursor-paged like the library: follow \u0060nextCursor\u0060 until it is null.\n\nA row carries who removed it and when, which a library row has no field for, and drops what a bin does\nnot need: tags, channel, audience and extraction state. It never carries the file, a checksum or a\nstorage location. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedBrandSourceDocumentPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedBrandSourceDocumentPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedBrandSourceDocumentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/usage": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Reports what still points at one brand source document.",
+        "description": "Any member may read. The confirmation step for a removal: it says how many versions the document has,\nhow many bytes they hold, and what still points at them \u2014 so a creator sees what a removal does\n**not** take with it.\n\nNothing here is a warning about data loss, because a removal causes none. Every version row and every\nstored object survives it, and a style-guide version that cited this document still resolves\nafterwards, because the citation pins an exact version and that version is never deleted.\n\n\u0060isHeld\u0060 is the fact a future retention job has to honour: true when at least one **approved** guide\nversion cites one of this document\u0027s versions. A draft guide version is listed in \u0060holds\u0060 but does not\nmake the document held, because a draft may still be superseded. An **archived** document reports\nnormally; a removed one answers \u0060404 brand.source.not_found\u0060, like every other read of a tombstone.\nThe response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document to report on. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentUsage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentUsage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentUsage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/archive": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Shelves one brand source document.",
+        "description": "**Archiving is not deleting.** Every version, tag and stored object stays exactly where it was, and the\ndocument is still readable by id and still downloadable. What changes is that it drops out of the\ndefault library listing (\u0060GET .../brand-source-documents\u0060 returns it only for \u0060?status=Archived\u0060) and\nstops accepting a replacement: \u0060POST .../versions\u0060 answers \u0060409 brand.source.archived.conflict\u0060 until\nit is brought back.\n\nEditor or above, because archiving takes a document out of every collaborator\u0027s library rather than\ncontributing to one. \u0060expectedConcurrencyToken\u0060 is required: archiving a document someone else is\nreplacing should tell the archiver it moved under them. Archiving an already-archived document\nsucceeds and changes nothing \u2014 no audit entry, no new token \u2014 so the command is safe to retry and\ntakes no idempotency key.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document to shelve. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/unarchive": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Brings one brand source document back off the shelf.",
+        "description": "The mirror of the archive command, at the same Editor bar and with the same shape. The document\nreturns to \u0060Active\u0060 and accepts replacements again. \u0060archivedAt\u0060 is **kept**: it records when the\ndocument was last shelved, not whether it is shelved now. Unarchiving a document that is not archived\nsucceeds and changes nothing.\n\nNamed \u0060unarchive\u0060 rather than \u0060restore\u0060 deliberately \u2014 \u0060restore\u0060 already means bringing a *removed*\ndocument back, which is a different command at a different role, and one word for two operations\nwould be a trap in a client and in this codebase alike.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document to bring back. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/remove": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Soft-deletes one brand source document.",
+        "description": "**Nothing is deleted.** Not the document row, not one version row, not one stored object, not one\nextraction. A style-guide version that cited this document still resolves its citation afterwards,\nbecause the citation pins an exact version and that version survives \u2014 which is why a removal is\nallowed even when an approved guide cites it. Read \u0060GET .../usage\u0060 first to see what stays behind;\nphysical purge is a retention job\u0027s decision and no retention period has been set.\n\nEditor or above, from \u0060Active\u0060 or from \u0060Archived\u0060. \u0060expectedConcurrencyToken\u0060 is required.\n\nThe answer is \u0060204 No Content\u0060 on purpose: the document this command produced is invisible to every\nread, and answering with its metadata would make this a second place a tombstone is published. The\none place that happens is \u0060GET .../brand-source-documents/removed\u0060, which is Owner-only \u2014 so after\nthis call an Editor can no longer see the document at all, and **repeating the removal answers\n\u0060404\u0060** rather than succeeding a second time. An Owner brings it back with\n\u0060POST .../{id}/restore\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document to remove. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/restore": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Brings one removed brand source document back.",
+        "description": "**Owner only**, and the only command that can address a removed document: every other route answers\n\u0060404\u0060 for one, so this is the single way back.\n\nThe document returns to **\u0060Archived\u0060, not \u0060Active\u0060** \u2014 a document somebody deliberately removed should\nnot reappear in every collaborator\u0027s picker and in brand context on its way back, so an Editor\nunarchives it afterwards as a separate, deliberate step. \u0060removedAt\u0060 and \u0060removedBy\u0060 are cleared,\nbecause \u0060CK_BrandSourceDocuments_Removed_Consistent\u0060 refuses them on a row that is not removed; the\naudit log is therefore the only lasting record that the document was ever removed.\n\nRestoring a document that is not removed succeeds and changes nothing, which is what makes this\ncommand safe to retry.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The removed document to bring back. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandSourceDocumentLifecycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -8685,6 +9943,508 @@
           }
         }
       },
+      "BrandSourceDocument": {
+        "required": [
+          "id",
+          "title",
+          "documentType",
+          "purpose",
+          "channelKey",
+          "audience",
+          "tags",
+          "status",
+          "currentVersion",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "documentType": {
+            "$ref": "#/components/schemas/BrandSourceDocumentType"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/BrandSourcePurpose"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandSourceDocumentStatus"
+          },
+          "currentVersion": {
+            "$ref": "#/components/schemas/BrandSourceDocumentVersion"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandSourceDocumentDetail": {
+        "required": [
+          "id",
+          "title",
+          "documentType",
+          "purpose",
+          "channelKey",
+          "audience",
+          "tags",
+          "status",
+          "currentVersion",
+          "extraction",
+          "archivedAt",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "documentType": {
+            "$ref": "#/components/schemas/BrandSourceDocumentType"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/BrandSourcePurpose"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandSourceDocumentStatus"
+          },
+          "currentVersion": {
+            "$ref": "#/components/schemas/BrandSourceDocumentVersionDetail"
+          },
+          "extraction": {
+            "$ref": "#/components/schemas/BrandSourceExtractionSummary"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandSourceDocumentLifecycle": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandSourceDocumentStatus": {
+        "enum": [
+          "Active",
+          "Archived",
+          "Removed"
+        ],
+        "type": "string"
+      },
+      "BrandSourceDocumentSummary": {
+        "required": [
+          "id",
+          "title",
+          "documentType",
+          "purpose",
+          "channelKey",
+          "audience",
+          "tags",
+          "status",
+          "currentVersion",
+          "extraction",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "documentType": {
+            "$ref": "#/components/schemas/BrandSourceDocumentType"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/BrandSourcePurpose"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandSourceDocumentStatus"
+          },
+          "currentVersion": {
+            "$ref": "#/components/schemas/BrandSourceDocumentVersion"
+          },
+          "extraction": {
+            "$ref": "#/components/schemas/BrandSourceExtractionSummary"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BrandSourceDocumentSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandSourceDocumentSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandSourceDocumentType": {
+        "enum": [
+          "StyleGuide",
+          "WritingSample",
+          "PublishedPost",
+          "Newsletter",
+          "SocialSample",
+          "VisualReference",
+          "Other"
+        ],
+        "type": "string"
+      },
+      "BrandSourceDocumentUsage": {
+        "required": [
+          "documentId",
+          "versionCount",
+          "storedBytes",
+          "isHeld",
+          "holds"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "storedBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "isHeld": {
+            "type": "boolean"
+          },
+          "holds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandSourceHold"
+            }
+          }
+        }
+      },
+      "BrandSourceDocumentVersion": {
+        "required": [
+          "id",
+          "versionNumber",
+          "mediaType",
+          "sizeBytes",
+          "originalFileName",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BrandSourceDocumentVersionDetail": {
+        "required": [
+          "id",
+          "versionNumber",
+          "mediaType",
+          "sizeBytes",
+          "originalFileName",
+          "contentChecksum",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "contentChecksum": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BrandSourceExtractionOrigin": {
+        "enum": [
+          "Extracted",
+          "Corrected"
+        ],
+        "type": "string"
+      },
+      "BrandSourceExtractionState": {
+        "enum": [
+          "NotExtracted",
+          "Succeeded",
+          "Unsupported",
+          "Failed"
+        ],
+        "type": "string"
+      },
+      "BrandSourceExtractionSummary": {
+        "required": [
+          "state",
+          "origin",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/BrandSourceExtractionState"
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandSourceExtractionOrigin"
+              }
+            ]
+          },
+          "at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "BrandSourceHold": {
+        "required": [
+          "kind",
+          "holderId",
+          "holderName",
+          "holderVersionNumber",
+          "sourceVersionNumber",
+          "isApproved"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/BrandSourceHoldKind"
+          },
+          "holderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "holderName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "holderVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sourceVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isApproved": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrandSourceHoldKind": {
+        "enum": [
+          "StyleGuideVersion"
+        ],
+        "type": "string"
+      },
+      "BrandSourcePurpose": {
+        "enum": [
+          "Voice",
+          "WritingStyle",
+          "VisualDirection",
+          "Background"
+        ],
+        "type": "string"
+      },
       "ChangePassword": {
         "type": "object",
         "properties": {
@@ -9471,6 +11231,10 @@
           "Decimal"
         ],
         "type": "string"
+      },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
       },
       "Ingredient": {
         "required": [
@@ -12318,6 +14082,79 @@
           }
         }
       },
+      "RemovedBrandSourceDocument": {
+        "required": [
+          "id",
+          "title",
+          "documentType",
+          "purpose",
+          "currentVersionNumber",
+          "removedAt",
+          "removedByMembershipId",
+          "createdAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "documentType": {
+            "$ref": "#/components/schemas/BrandSourceDocumentType"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/BrandSourcePurpose"
+          },
+          "currentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "removedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "removedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "RemovedBrandSourceDocumentPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RemovedBrandSourceDocument"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RequestAiProposal": {
         "type": "object",
         "properties": {
@@ -14136,6 +15973,9 @@
     },
     {
       "name": "BrandProfile"
+    },
+    {
+      "name": "BrandSourceDocuments"
     },
     {
       "name": "EditorialPackageRequests"

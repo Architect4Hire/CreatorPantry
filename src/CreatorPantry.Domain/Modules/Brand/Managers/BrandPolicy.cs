@@ -55,6 +55,28 @@ public static class BrandPolicy
     /// <summary><c>sha256:</c> plus 64 hex characters.</summary>
     public const int ChecksumMaxLength = 71;
 
+    /// <summary>The largest source file accepted, whatever its format.</summary>
+    public const long SourceUploadMaxBytes = 20 * 1024 * 1024;
+
+    /// <summary>The largest Markdown, plain-text or HTML source accepted: these are read whole to be checked.</summary>
+    public const long SourceTextUploadMaxBytes = 5 * 1024 * 1024;
+
+    /// <summary>
+    /// The upload route's request-body limit: the largest file plus room for the multipart framing and the
+    /// metadata fields. The gateway's route for the same path carries the same number.
+    /// </summary>
+    public const long SourceUploadRequestMaxBytes = SourceUploadMaxBytes + (1024 * 1024);
+
+    /// <summary>The most pixels a source image may declare, so a small file cannot describe an enormous canvas.</summary>
+    public const long SourceImageMaxPixels = 50_000_000;
+
+    /// <summary>Caps on a DOCX package, against an archive that expands far past its upload size.</summary>
+    public const int SourceDocxMaxEntries = 2000;
+
+    public const long SourceDocxMaxUncompressedBytes = 200L * 1024 * 1024;
+
+    public const int MaxSourceDocumentTags = 10;
+
     public const int StyleGuideDisplayNameMaxLength = 200;
 
     /// <summary>The creator's own words on what a guide is for.</summary>

@@ -1,5 +1,7 @@
 using CreatorPantry.Gateway.InternalTokens;
 using CreatorPantry.Gateway.Sessions;
+using Microsoft.AspNetCore.Mvc;
+using Yarp.ReverseProxy.Model;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +28,17 @@ app.UseEdgeSecurity();
 
 app.MapDefaultEndpoints();
 app.MapBffEndpoints();
-app.MapReverseProxy();
+
+// A route that declares MaxRequestBodySize is an upload route. YARP applies that number when it forwards, but
+// the edge's own body limit runs first and reads endpoint metadata, so the route's limit is published there
+// too; otherwise the 4 MB default would refuse the upload before YARP saw it. 21 MB on the brand-source route
+// is BrandPolicy.SourceUploadRequestMaxBytes, which the API enforces again on its own action.
+app.MapReverseProxy().Add(endpoint =>
+{
+    if (endpoint.Metadata.OfType<RouteModel>().FirstOrDefault()?.Config.MaxRequestBodySize is { } limit)
+    {
+        endpoint.Metadata.Add(new RequestSizeLimitAttribute(limit));
+    }
+});
 
 app.Run();

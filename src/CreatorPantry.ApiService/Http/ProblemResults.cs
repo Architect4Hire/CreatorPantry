@@ -30,7 +30,7 @@ public static class ProblemResults
     /// HTTP status for an application error code. Codes follow <c>area.reason</c>; the reason suffix selects
     /// the status so new features map consistently: <c>.not_found</c> 404 (also used to hide existence),
     /// <c>.forbidden</c> 403, <c>.conflict</c> 409 (e.g. stale concurrency token), <c>.gone</c> 410, <c>.unprocessable</c> 422 (well formed, but not something the server can accept),
-    /// <c>.suspended</c> 403, <c>.exhausted</c> 429, <c>.render.failed</c> 500 (our own fault, never the caller's). Anything else is a 400 request error.
+    /// <c>.payload_too_large</c> 413, <c>.unavailable</c> 503, <c>.suspended</c> 403, <c>.exhausted</c> 429, <c>.render.failed</c> 500 (our own fault, never the caller's). Anything else is a 400 request error.
     /// </summary>
     public static int StatusFor(string code) => code switch
     {
@@ -41,6 +41,15 @@ public static class ProblemResults
         _ when code.EndsWith(".conflict", StringComparison.Ordinal) => StatusCodes.Status409Conflict,
         _ when code.EndsWith(".gone", StringComparison.Ordinal) => StatusCodes.Status410Gone,
         _ when code.EndsWith(".unprocessable", StringComparison.Ordinal) => StatusCodes.Status422UnprocessableEntity,
+
+        // An upload that fits the route's body limit but not its own format's. The edge's `request_too_large`
+        // shares the status; the code separates them. Deliberately not `.too_large`, which a shipped
+        // code already ends in and answers 400 for.
+        _ when code.EndsWith(".payload_too_large", StringComparison.Ordinal) => StatusCodes.Status413PayloadTooLarge,
+
+        // A dependency this request needs is not answering. Nothing was written, and the same request may
+        // succeed later.
+        _ when code.EndsWith(".unavailable", StringComparison.Ordinal) => StatusCodes.Status503ServiceUnavailable,
 
         // A spent allowance: temporary, self-resolving, and carrying the instant it resolves at. 429 rather
         // than 403 because the remedy is to wait rather than to be granted something, and because a client

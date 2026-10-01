@@ -242,4 +242,80 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
 
         await db.SaveChangesAsync(cancellation);
     }
+
+    /// <summary>
+    /// The library query on the server it ships against: SQLite proves what it returns, this proves SQL Server
+    /// translates it — the cut before the join, the tag semi-join, the lowered search, the per-row extraction
+    /// reads, and a keyset that compares <c>uniqueidentifier</c>s inside a tie on the edit time.
+    /// </summary>
+    [Fact]
+    public async Task The_library_list_query_runs_on_sql_server_with_every_filter_and_pages_through_a_tie()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        await SeedEverythingAsync(WorkspaceA);
+        var inB = await SeedEverythingAsync(WorkspaceB);
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var member = Guid.NewGuid();
+        var tag = new BrandSourceTag { Id = Guid.NewGuid(), WorkspaceId = WorkspaceA, Name = "Seasonal", NormalizedName = "seasonal", CreatedAt = Now };
+        db.BrandSourceTags.Add(tag);
+
+        // Two more documents edited in the same instant as the seeded one, so every page boundary is inside a tie.
+        foreach (var title in new[] { "House Two", "Reel captions" })
+        {
+            var document = new BrandSourceDocument
+            {
+                Id = Guid.NewGuid(), WorkspaceId = WorkspaceA, Title = title, DocumentType = BrandSourceDocumentType.SocialSample,
+                Purpose = BrandSourcePurpose.Voice, ChannelKey = "instagram", CreatedAt = Now, UpdatedAt = Now,
+                CreatedByMembershipId = member, UpdatedByMembershipId = member,
+            };
+            document.Versions.Add(new BrandSourceDocumentVersion
+            {
+                Id = Guid.NewGuid(), WorkspaceId = WorkspaceA, BrandSourceDocumentId = document.Id, VersionNumber = 1,
+                MediaType = "text/markdown", SizeBytes = 10, ContentChecksum = "sha256:" + new string('3', 64),
+                OriginalFileName = "Captions.md", ObjectKey = $"brand-sources/{document.Id:N}/1",
+                CreatedByMembershipId = member, CreatedAt = Now,
+            });
+            document.Tags.Add(new BrandSourceDocumentTag { WorkspaceId = WorkspaceA, BrandSourceDocumentId = document.Id, BrandSourceTagId = tag.Id });
+            db.BrandSourceDocuments.Add(document);
+        }
+
+        await db.SaveChangesAsync(cancellation);
+
+        var repository = new CreatorPantry.Domain.Modules.Brand.Data.BrandSourceDocumentRepository(db);
+        var everything = new BrandSourceDocumentListFilters(BrandSourceDocumentStatus.Active, null, null, [], null);
+
+        var first = await repository.ListAsync(new BrandSourceDocumentListCriteria(everything, "scope", RequestedLimit: 2), cancellation);
+        var last = first.Rows[^1];
+        var second = await repository.ListAsync(
+            new BrandSourceDocumentListCriteria(
+                everything, "scope", new BrandSourceDocumentListPosition(last.UpdatedAt, last.Id), RequestedLimit: 2),
+            cancellation);
+
+        Assert.True(first.HasMore);
+        Assert.False(second.HasMore);
+        var walked = first.Rows.Concat(second.Rows).Select(row => row.Id).ToList();
+        Assert.Equal(3, walked.Distinct().Count());
+        Assert.DoesNotContain(inB.DocumentId, walked);
+
+        // The seeded document has extraction history; the two added here have none.
+        Assert.Single(first.Rows.Concat(second.Rows), row => row.ExtractionStatus is not null);
+
+        var filtered = await repository.ListAsync(
+            new BrandSourceDocumentListCriteria(
+                new BrandSourceDocumentListFilters(
+                    BrandSourceDocumentStatus.Active, BrandSourceDocumentType.SocialSample, "instagram", ["seasonal"], "house"),
+                "scope"),
+            cancellation);
+        var byFileName = await repository.ListAsync(
+            new BrandSourceDocumentListCriteria(everything with { Search = "captions.md" }, "scope"), cancellation);
+
+        Assert.Equal("House Two", Assert.Single(filtered.Rows).Title);
+        Assert.Equal(2, byFileName.Rows.Count);
+
+        var tagNames = await repository.TagNamesAsync([.. walked], cancellation);
+        Assert.InRange(tagNames.Count, 2, 3);
+        Assert.Equal(2, tagNames.Values.Count(names => names.SequenceEqual(["Seasonal"])));
+    }
 }

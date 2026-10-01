@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Modules.Brand.Business;
 using CreatorPantry.Domain.Modules.Brand.Data;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Gateways;
+using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Managers.Reference;
@@ -30,6 +31,17 @@ public static class BrandServiceCollectionExtensions
         // a host with no storage and fails loudly only if an object is actually reached for.
         services.AddPrivateObjectStorage();
         services.AddScoped<IBrandSourceObjectGateway, BrandSourceObjectGateway>();
+
+        // Likewise the scanner that clears nothing: without a real one, uploads are refused rather than
+        // accepted unscanned.
+        services.AddMalwareScanning();
+        services.AddScoped<IBrandSourceDocumentRepository, BrandSourceDocumentRepository>();
+        services.AddScoped<IBrandSourceDocumentDataLayer, BrandSourceDocumentDataLayer>();
+        services.AddScoped<IBrandSourceDocumentBusiness, BrandSourceDocumentBusiness>();
+        services.AddScoped<IBrandSourceDocumentFacade, BrandSourceDocumentFacade>();
+        services.AddScoped<IValidator<UploadBrandSourceDocumentViewModel>, UploadBrandSourceDocumentViewModelValidator>();
+        services.AddScoped<IValidator<ReplaceBrandSourceDocumentViewModel>, ReplaceBrandSourceDocumentViewModelValidator>();
+        services.AddScoped<IValidator<BrandSourceDocumentLifecycleViewModel>, BrandSourceDocumentLifecycleViewModelValidator>();
 
         return services;
     }

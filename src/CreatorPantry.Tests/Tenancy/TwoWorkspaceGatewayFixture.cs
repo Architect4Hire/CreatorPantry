@@ -54,9 +54,10 @@ internal sealed class TwoWorkspaceGatewayFixture : IAsyncDisposable
 
     public SeededWorkspace WorkspaceB { get; private set; } = null!;
 
-    public static async Task<TwoWorkspaceGatewayFixture> CreateAsync()
+    /// <param name="configureApiServices">Optional test doubles for the API host, such as an in-memory object store.</param>
+    public static async Task<TwoWorkspaceGatewayFixture> CreateAsync(Action<IServiceCollection>? configureApiServices = null)
     {
-        var api = await SqliteApiHost.StartAsync();
+        var api = await SqliteApiHost.StartAsync(configureServices: configureApiServices);
         var gateway = GatewayTestHost.Create(proxyDownstream: api.Factory.Server.CreateHandler, apiSessions: api.Factory.Server.CreateHandler);
         var fixture = new TwoWorkspaceGatewayFixture(api, gateway);
 
@@ -177,6 +178,21 @@ internal sealed class GatewayClient(HttpClient http, string antiforgeryToken) : 
     public Task<HttpResponseMessage> PatchAsJsonAsync(
         string path, object body, string idempotencyKey, CancellationToken cancellationToken = default) =>
         SendAsync(HttpMethod.Patch, path, body, idempotencyKey, cancellationToken);
+
+    /// <summary>Posts a prepared body, such as a multipart upload, with the antiforgery token and an optional key.</summary>
+    public Task<HttpResponseMessage> PostAsync(
+        string path, HttpContent content, string? idempotencyKey = null, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
+        request.Headers.Add("X-XSRF-TOKEN", antiforgeryToken);
+
+        if (idempotencyKey is not null)
+        {
+            request.Headers.Add(IdempotencyPolicy.KeyHeader, idempotencyKey);
+        }
+
+        return http.SendAsync(request, cancellationToken);
+    }
 
     public void Dispose() => http.Dispose();
 
