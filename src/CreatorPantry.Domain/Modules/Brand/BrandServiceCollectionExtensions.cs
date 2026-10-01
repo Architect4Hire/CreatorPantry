@@ -43,6 +43,36 @@ public static class BrandServiceCollectionExtensions
         services.AddScoped<IValidator<ReplaceBrandSourceDocumentViewModel>, ReplaceBrandSourceDocumentViewModelValidator>();
         services.AddScoped<IValidator<BrandSourceDocumentLifecycleViewModel>, BrandSourceDocumentLifecycleViewModelValidator>();
 
+        // The extraction seam. The repository is registered here rather than only in the Worker because the
+        // upload and the replacement stage a queued operation through it, in the same save as the version —
+        // which is the whole reason a committed version always has work queued for it.
+        services.AddScoped<IBrandSourceExtractionRepository, BrandSourceExtractionRepository>();
+        services.AddScoped<IBrandSourceExtractionDataLayer, BrandSourceExtractionDataLayer>();
+        services.AddScoped<IBrandSourceExtractionBusiness, BrandSourceExtractionBusiness>();
+        services.AddScoped<IBrandSourceExtractionFacade, BrandSourceExtractionFacade>();
+
+        // The creator-facing half of the same seam: reading a version's text and correcting it. A separate
+        // facade from the worker's because that one checks no role by design — see its remarks.
+        services.AddScoped<IBrandSourceExtractionReviewBusiness, BrandSourceExtractionReviewBusiness>();
+        services.AddScoped<IBrandSourceExtractionReviewFacade, BrandSourceExtractionReviewFacade>();
+        services.AddScoped<IValidator<CorrectBrandSourceExtractionViewModel>, CorrectBrandSourceExtractionViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the extraction queue driver. For the Worker host alone, like <c>AddAiOperationWorker</c>.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddBrandModule"/> because the claim is cross-workspace and the API has no
+    /// business holding it: a host that cannot claim cannot accidentally run a creator's extraction inside a
+    /// request. The module itself must also be registered — this adds the driver, not the seam below it.
+    /// </remarks>
+    public static IServiceCollection AddBrandSourceExtractionWorker(this IServiceCollection services)
+    {
+        services.AddScoped<BrandSourceExtractionClaimRepository>();
+        services.AddScoped<IBrandSourceExtractionWorker, BrandSourceExtractionWorker>();
+
         return services;
     }
 }

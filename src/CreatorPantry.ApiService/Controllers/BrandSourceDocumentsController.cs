@@ -15,7 +15,8 @@ namespace CreatorPantry.ApiService.Controllers;
 [ApiController]
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/brand-source-documents")]
-public sealed class BrandSourceDocumentsController(IBrandSourceDocumentFacade documents) : ControllerBase
+public sealed class BrandSourceDocumentsController(
+    IBrandSourceDocumentFacade documents, IBrandSourceExtractionReviewFacade extractions) : ControllerBase
 {
     /// <summary>Lists the workspace's brand source documents, filtered and paged.</summary>
     /// <param name="workspaceSlug">
@@ -599,6 +600,148 @@ public sealed class BrandSourceDocumentsController(IBrandSourceDocumentFacade do
         }
 
         return result.Value is { } document ? Ok(document) : NoContent();
+    }
+
+    /// <summary>Reads the text extracted from one version of a brand source document.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="documentId">The document the version belongs to. Constrained to a Guid.</param>
+    /// <param name="versionNumber">
+    /// The version whose text to read, as the document's metadata numbers it. Any version reads, so a corrected
+    /// or superseded version's text stays available.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. The body is the version's **current** extracted text — its latest attempt or
+    /// correction — as JSON, not a download: this is the text a creator reviews and edits, and the file it came
+    /// from is reached through `/content` above.
+    ///
+    /// `text` is present exactly when `state` is `Succeeded`. `Unsupported` carries `reason` instead and no text,
+    /// which is what a scanned PDF or an uploaded image answers — this API performs no text recognition, and says
+    /// so rather than returning an empty success. `Failed` likewise. A version nothing has read yet answers
+    /// `200` with `state: NotExtracted` rather than a 404: the version exists and downloads, and a creator
+    /// watching a queued extraction needs to see "not yet".
+    ///
+    /// `id` identifies the exact artifact and is what a correction sends back as `expectedExtractionId`;
+    /// `ordinal` counts how many times this version's text has been written, and `origin` says whether a parser
+    /// or a person wrote it. The response carries no object key, no container, no URL and no membership id.
+    ///
+    /// An unknown id, another workspace's document, one this workspace has removed, and a version number this
+    /// document does not have all answer `404 brand.source.not_found`, deliberately indistinguishable. An
+    /// **archived** document reads normally. An artifact whose stored text cannot be read answers
+    /// `503 brand.source.storage.unavailable` rather than 404, because the document is there and retrying is the
+    /// remedy. The response is `no-store`.
+    ///
+    /// Whatever this returns is untrusted content, however it was produced: a creator's correction is no more an
+    /// instruction than a parser's output is.
+    /// </remarks>
+    [HttpGet("{documentId:guid}/versions/{versionNumber:int}/extraction")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<BrandSourceExtractionServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public async Task<IActionResult> GetExtraction(
+        string workspaceSlug,
+        Guid documentId,
+        int versionNumber,
+        CancellationToken cancellationToken)
+    {
+        var result = await extractions.GetAsync(documentId, versionNumber, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        // Private creator material, and large: nothing may cache it anywhere between here and the browser.
+        Response.Headers.CacheControl = "no-store";
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>Corrects the text extracted from a brand source document's current version.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="documentId">The document the version belongs to. Constrained to a Guid.</param>
+    /// <param name="versionNumber">
+    /// The version whose text to correct. Must be the document's current version — see below.
+    /// </param>
+    /// <param name="model">The corrected text in full, the creator's reason, and `expectedExtractionId`.</param>
+    /// <param name="idempotencyKey">
+    /// Required. A repeat of the same key for the same version, artifact, text and reason returns the original
+    /// response with `Idempotent-Replayed: true` and stores nothing new; the same key with anything different
+    /// answers `422 idempotency.key_reused`.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Editor or above. **Nothing is overwritten.** The correction becomes a new artifact at the next `ordinal`
+    /// with `origin: Corrected`, recording who made it and why; the uploaded file, the parser's artifact and
+    /// every earlier correction all stay exactly where they are and stay readable. The document's own
+    /// `extraction.state` then reads `Succeeded` with `origin: Corrected`.
+    ///
+    /// **Correcting an `Unsupported` or `Failed` extraction is the point of this route**, not an edge case: a
+    /// scanned PDF or an image has no text to read, and typing it in is how a creator makes that document usable.
+    ///
+    /// `text` is stored as the creator wrote it. Line endings become `\n`, a leading byte-order mark is dropped
+    /// and the text ends on one newline, because that is the stored form; nothing else is reshaped, and text
+    /// carrying control or invisible formatting characters is **refused** rather than quietly cleaned —
+    /// `400 brand.source.invalid_request`, as for text longer than four megabytes or a missing `reason`.
+    ///
+    /// `expectedExtractionId` is required and names the artifact this correction was composed against. One that
+    /// has since been superseded answers `409 brand.source.extraction.conflict` and writes nothing, leaving the
+    /// creator's attempted text in their own client rather than merging it into something they have not seen.
+    /// A version whose text has not been read yet answers `409 brand.source.extraction.pending.conflict` — wait
+    /// for the extraction, then correct it. A version that is not the document's current one answers
+    /// `409 brand.source.extraction.superseded.conflict`: only the current version's text has consumers, so
+    /// correcting an older one would be a write with no visible effect. Reading an older version's text stays
+    /// allowed. An **archived** document answers `409 brand.source.archived.conflict` — restore it first.
+    ///
+    /// Text byte-identical to what is already stored is answered with the current artifact and writes nothing:
+    /// an ordinal that changes nothing is provenance a later reader has to explain for no gain.
+    ///
+    /// An unknown id, another workspace's document, a removed one and a version this document does not have all
+    /// answer `404 brand.source.not_found`. Private storage that cannot be reached answers
+    /// `503 brand.source.storage.unavailable` with nothing recorded, after which the same key may be resent.
+    ///
+    /// The corrected text stays private and stays untrusted: it is delimited source material wherever it later
+    /// reaches a prompt, never instruction.
+    /// </remarks>
+    [HttpPost("{documentId:guid}/versions/{versionNumber:int}/extraction/corrections")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
+
+    // Raised above the 4 MB default so that a four-megabyte text, once escaped into JSON, still reaches the
+    // validator — which refuses it with a stable code and a field error rather than letting the transport answer
+    // 413 with nothing a client can act on. The gateway's route for this path carries the same number.
+    [RequestSizeLimit(BrandPolicy.ExtractionCorrectionRequestMaxBytes)]
+    [ProducesResponseType<BrandSourceExtractionServiceModel>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public async Task<IActionResult> CorrectExtraction(
+        string workspaceSlug,
+        Guid documentId,
+        int versionNumber,
+        [FromBody] CorrectBrandSourceExtractionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await extractions.CorrectAsync(
+            userId, documentId, versionNumber, model, idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, corrected =>
+            Created(
+                $"/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}"
+                    + $"/versions/{versionNumber}/extraction",
+                corrected));
     }
 }
 

@@ -357,7 +357,13 @@ internal sealed class BrandSourceDocumentBusiness(
             .Select(name => new BrandSourceTagInput(name, NameNormalization.NormalizeName(name)))
             .ToList();
 
-        var result = await dataLayer.StoreAsync(document, version, tags, Audit(actorUserId, document), upload.Content, cancellationToken);
+        // Queued with the version, not after it. Every version is queued, whatever its format: an image's
+        // extraction will be a review state saying there is no text, and a version with no operation would be
+        // left reading as "not extracted", which a creator cannot tell from "still working".
+        var extraction = BrandSourceExtractionQueue.For(workspaceId, document.Id, version.Id, now);
+
+        var result = await dataLayer.StoreAsync(
+            document, version, tags, extraction, Audit(actorUserId, document), upload.Content, cancellationToken);
 
         return result.Outcome switch
         {
@@ -421,8 +427,19 @@ internal sealed class BrandSourceDocumentBusiness(
         document.UpdatedAt = now;
         document.UpdatedByMembershipId = membershipId;
 
+        // The new version's own queued extraction, for the same reason the upload's is queued with its version.
+        // The previous version keeps the extraction it already had: a guide version that cited that text still
+        // cites it, because the citation pins a version rather than a document.
+        var extraction = BrandSourceExtractionQueue.For(
+            workspace.WorkspaceId, document.Id, version.Id, now);
+
         var result = await dataLayer.ReplaceAsync(
-            document, version, Audit(actorUserId, document, previousVersionNumber), replacement.Content, cancellationToken);
+            document,
+            version,
+            extraction,
+            Audit(actorUserId, document, previousVersionNumber),
+            replacement.Content,
+            cancellationToken);
 
         return result.Outcome switch
         {

@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -281,7 +282,7 @@ public sealed class IdempotencyTests : IDisposable
         .AddLogging()
         .AddSingleton<TimeProvider>(_time)
         .AddApplicationTime()
-        .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite($"Data Source={_databasePath};Default Timeout=30"))
+        .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite($"Data Source={_databasePath};Default Timeout=30").ReplaceService<IModelCustomizer, SqliteModelCustomizer>())
         .AddIdempotency(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Idempotency:FingerprintKey"] = fingerprintKey })
             .Build())

@@ -15,6 +15,7 @@ using CreatorPantry.Domain.Managers.Time;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
@@ -42,7 +43,7 @@ internal sealed class SqliteAuthServices : IDisposable
             .AddLogging(logging => logging.SetMinimumLevel(LogLevel.Trace).AddProvider(Logs))
             .AddSingleton<TimeProvider>(Time)
             .AddApplicationTime()
-            .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection))
+            .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>())
             .AddDevelopmentAccountMessageSink()
             .AddAuthDomain();
         configure?.Invoke(services);

@@ -20,6 +20,7 @@ using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.MigrationService;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -409,7 +410,7 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddDbContext<CreatorPantryDbContext>(options =>
         {
-            options.UseSqlite(_connection);
+            options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>();
 
             if (interceptor is not null)
             {
@@ -463,7 +464,7 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
     }
 
     private CreatorPantryDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).Options);
+        new(new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>().Options);
 
     /// <summary>Counts entities the seeder actually asked the database to change.</summary>
     private sealed class WriteCountingInterceptor : ISaveChangesInterceptor

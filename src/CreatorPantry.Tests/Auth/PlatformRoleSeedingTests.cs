@@ -13,6 +13,7 @@ using CreatorPantry.MigrationService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -32,7 +33,7 @@ public sealed class PlatformRoleSeedingTests : IAsyncLifetime
 
         // Schema via EnsureCreated: the initial migration arrives in prompt 1.5.
         await using var context = new CreatorPantryDbContext(
-            new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).Options);
+            new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>().Options);
         await context.Database.EnsureCreatedAsync();
     }
 
@@ -98,7 +99,7 @@ public sealed class PlatformRoleSeedingTests : IAsyncLifetime
     private async Task<MigrationOutcome> RunMigrationHostAsync()
     {
         var builder = Host.CreateApplicationBuilder();
-        builder.Services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection));
+        builder.Services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
         builder.Services.AddPlatformRoleSeeding();
         builder.Services.AddMigrationHost();
 
@@ -116,5 +117,5 @@ public sealed class PlatformRoleSeedingTests : IAsyncLifetime
     }
 
     private CreatorPantryDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).Options);
+        new(new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>().Options);
 }

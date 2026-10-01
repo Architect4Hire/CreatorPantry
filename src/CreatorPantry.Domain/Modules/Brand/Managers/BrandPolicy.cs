@@ -92,4 +92,155 @@ public static class BrandPolicy
     public const int MaxStyleGuideChannelVariants = 20;
 
     public const int MaxStyleGuideSourceLinks = 50;
+
+    /// <summary>The largest extracted-text artifact stored. Longer text is truncated and says so.</summary>
+    /// <remarks>
+    /// Below <see cref="SourceUploadMaxBytes"/> deliberately: a 20 MB DOCX is mostly images, and a document
+    /// whose text alone runs past four megabytes is not brand evidence anybody is going to read. Truncation is
+    /// recorded on the extraction's reason rather than applied silently.
+    /// </remarks>
+    public const long ExtractedTextMaxBytes = 4 * 1024 * 1024;
+
+    /// <summary>
+    /// The correction route's request-body limit: room for the longest text a creator may submit, once it has
+    /// been written out as JSON.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Twice <see cref="ExtractedTextMaxBytes"/> plus a megabyte, because the limit applies to the encoded body
+    /// and the text inside it is escaped: quotes, backslashes and newlines each cost two bytes where they cost
+    /// one in the stored artifact, so a legitimate four-megabyte text can arrive as more than four megabytes of
+    /// JSON. Without the headroom the edge would refuse a correction the domain would have accepted.
+    /// </para>
+    /// <para>
+    /// Deliberately a limit and not an absence of one: what this buys is that the <em>domain</em> decides a text
+    /// is too long, with a stable code and a field error naming it, rather than the transport refusing it as a
+    /// 413 with nothing a client can act on. The gateway's route for the same path carries the same number.
+    /// </para>
+    /// </remarks>
+    public const long ExtractionCorrectionRequestMaxBytes = (ExtractedTextMaxBytes * 2) + (1024 * 1024);
+
+    /// <summary>The most pages a PDF is read from, against a file that declares thousands.</summary>
+    public const int ExtractionMaxPdfPages = 500;
+
+    /// <summary>The most blocks — headings, paragraphs, list items — one extraction produces.</summary>
+    public const int ExtractionMaxBlocks = 50_000;
+
+    /// <summary>A parser's stable identity, recorded as provenance: <c>pdf/pdfpig@0.1.16</c>.</summary>
+    public const int ExtractorIdMaxLength = 100;
+
+    /// <summary>Why an extraction operation gave up, in operator-facing terms. Never creator content.</summary>
+    public const int ExtractionFailureSummaryMaxLength = 1000;
+
+    /// <summary>
+    /// How many times an extraction may be claimed before it is abandoned for good.
+    /// </summary>
+    /// <remarks>
+    /// The bound on the lease-recovery cycle, for the reason <c>AiOperation.Attempts</c> gives: a document
+    /// that kills its worker every time would otherwise cycle between Running and Queued indefinitely. Four
+    /// rather than the AI queue's three, because nothing here spends a provider budget on a pass.
+    /// </remarks>
+    public const int ExtractionMaxAttempts = 4;
+
+    /// <summary>How many due operations one claim pass reads at once.</summary>
+    public const int ExtractionClaimBatchSize = 10;
+
+    /// <summary>
+    /// How long a claim holds before another worker may take the operation.
+    /// </summary>
+    /// <remarks>
+    /// Generous for the work: the ceiling is a 20 MB file parsed in this process, which is seconds. There is
+    /// deliberately no heartbeat — a renewal hook is what to add if that stops being true, rather than a
+    /// longer lease, because a long lease delays recovery from a worker that actually died.
+    /// </remarks>
+    public static readonly TimeSpan ExtractionLeaseDuration = TimeSpan.FromMinutes(5);
+
+    /// <summary>How often the Worker's extraction loop looks for work.</summary>
+    public static readonly TimeSpan ExtractionPollingInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How often lapsed extraction leases are recovered. Shorter than <see cref="ExtractionLeaseDuration"/>,
+    /// so a worker that died is noticed without sweeping on every claim pass.
+    /// </summary>
+    public static readonly TimeSpan ExtractionMaintenanceInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// How many dimensions a brand-source embedding has, and therefore the width of the stored vector.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One number for the whole product, by necessity.</strong> A <c>vector(n)</c> column fixes n in
+    /// DDL, so the dimension is a schema fact rather than a configuration one: every environment's
+    /// <c>embeddings</c> deployment must produce vectors this wide, including Foundry Local in development. The
+    /// small local models — all-MiniLM-L6-v2 at 384, nomic-embed-text at 768 — are therefore not usable here.
+    /// Development points <c>embeddings</c> at a 1536-dimension deployment even when <c>chat</c> stays local.
+    /// </para>
+    /// <para>
+    /// 1536 because that is what text-embedding-3-small and ada-002 return, and because SQL Server 2025 caps a
+    /// float32 vector at 1,998 dimensions: text-embedding-3-large's native 3,072 cannot be stored at all
+    /// without the preview float16 base type, and would have to be requested at a reduced width instead.
+    /// </para>
+    /// <para>
+    /// A change here is a migration, not a setting, and it invalidates every stored chunk: a vector is only
+    /// comparable with others from the same model at the same width, which is why
+    /// <see cref="Data.Entities.BrandSourceChunkSet"/> records both and retrieval filters on the model.
+    /// </para>
+    /// </remarks>
+    public const int EmbeddingDimension = 1536;
+
+    /// <summary>The embedding deployment's stable identity, as <c>text-embedding-3-small</c>.</summary>
+    public const int EmbeddingModelMaxLength = 100;
+
+    /// <summary>
+    /// A chunking strategy's stable identity, as <c>text/paragraph-1600c-200o@1</c>.
+    /// </summary>
+    /// <remarks>
+    /// The role <see cref="ExtractorIdMaxLength"/> plays for an extraction. A strategy change moves boundaries,
+    /// which changes what every vector in a set means, so a chunk nobody can attribute to a named chunker is
+    /// one nobody can tell is stale.
+    /// </remarks>
+    public const int ChunkerIdMaxLength = 100;
+
+    /// <summary>
+    /// The characters one chunk aims for: roughly 400 tokens at the usual four-characters-per-token rule.
+    /// </summary>
+    /// <remarks>
+    /// A character budget rather than a token count, deliberately. Counting tokens exactly would mean a
+    /// tokenizer dependency in this assembly, per-model and provider-shaped, to place a boundary that is
+    /// approximate anyway — the chunker's job is passages a creator would recognize, not packing a context
+    /// window to the last token. <see cref="ChunkTextMaxLength"/> is what keeps the approximation safe.
+    /// </remarks>
+    public const int ChunkTargetLength = 1600;
+
+    /// <summary>Characters repeated from the previous chunk, so a passage split mid-sentence stays findable.</summary>
+    public const int ChunkOverlapLength = 200;
+
+    /// <summary>
+    /// The longest chunk text stored, and the width of the column that holds it.
+    /// </summary>
+    /// <remarks>
+    /// Well above <see cref="ChunkTargetLength"/> so a chunker that will not split a long unbroken paragraph
+    /// has somewhere to put it, and far below every embedding model's input limit so that no stored chunk can
+    /// be silently truncated by the provider.
+    /// </remarks>
+    public const int ChunkTextMaxLength = 4000;
+
+    /// <summary>
+    /// The most UTF-8 bytes one chunk may span in the extracted artifact.
+    /// </summary>
+    /// <remarks>
+    /// Four times <see cref="ChunkTextMaxLength"/>, because the offsets are byte offsets into the stored UTF-8
+    /// artifact while the column is measured in UTF-16 characters, and a character costs up to four bytes
+    /// there. The two limits describe one slice in two units; neither implies the other.
+    /// </remarks>
+    public const int ChunkMaxBytes = ChunkTextMaxLength * 4;
+
+    /// <summary>Doubling backoff before a requeued extraction is claimable again: 15s, 30s, 60s, capped at five minutes.</summary>
+    public static TimeSpan ExtractionBackoffFor(int attempts)
+    {
+        var exponent = Math.Max(0, attempts - 1);
+        var seconds = Math.Min(15 * Math.Pow(2, exponent), TimeSpan.FromMinutes(5).TotalSeconds);
+
+        return TimeSpan.FromSeconds(seconds);
+    }
 }

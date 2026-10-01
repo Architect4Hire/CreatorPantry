@@ -172,8 +172,10 @@ public sealed class BrandSourceDocumentSqlServerTests : IAsyncLifetime
         var winner = NextVersionFor(firstCopy, "winner");
         var loser = NextVersionFor(secondCopy, "loser");
 
-        var won = await firstLayer.ReplaceAsync(firstCopy, winner, AuditOf(firstCopy), StreamOf("winner"), cancellation);
-        var lost = await secondLayer.ReplaceAsync(secondCopy, loser, AuditOf(secondCopy), StreamOf("loser"), cancellation);
+        var won = await firstLayer.ReplaceAsync(
+            firstCopy, winner, QueuedFor(winner), AuditOf(firstCopy), StreamOf("winner"), cancellation);
+        var lost = await secondLayer.ReplaceAsync(
+            secondCopy, loser, QueuedFor(loser), AuditOf(secondCopy), StreamOf("loser"), cancellation);
 
         Assert.Equal(BrandSourceReplaceOutcome.Replaced, won.Outcome);
         Assert.Equal(BrandSourceReplaceOutcome.Conflict, lost.Outcome);
@@ -286,6 +288,14 @@ public sealed class BrandSourceDocumentSqlServerTests : IAsyncLifetime
 
         return version;
     }
+
+    /// <summary>
+    /// The extraction a new version is queued with. It commits in the same save as the version, so a losing
+    /// replacement must leave none behind either.
+    /// </summary>
+    private static BrandSourceExtractionOperation QueuedFor(BrandSourceDocumentVersion version) =>
+        BrandSourceExtractionQueue.For(
+            version.WorkspaceId, version.BrandSourceDocumentId, version.Id, version.CreatedAt);
 
     /// <summary>What the store will measure, so the data layer's size and checksum check agrees with it.</summary>
     private static string ChecksumOf(byte[] bytes) =>

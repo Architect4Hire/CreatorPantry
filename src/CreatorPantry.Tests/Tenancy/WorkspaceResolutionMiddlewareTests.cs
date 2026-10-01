@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -196,7 +197,8 @@ internal sealed class WorkspaceMiddlewareHost : IAsyncDisposable
         builder.Configuration["InternalToken:PublicKeyPem"] = TestKeyPair.Shared.PublicKeyPem;
 
         builder.Services.AddApplicationTime();
-        builder.Services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(host._connection));
+        builder.Services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(host._connection)
+            .ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
         builder.Services.AddTenancy();
         builder.Services.AddInternalTokenAuthentication(builder.Configuration);
         builder.Services.AddCreatorPantryAuthorization();

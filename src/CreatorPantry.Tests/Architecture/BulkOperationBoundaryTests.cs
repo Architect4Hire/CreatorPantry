@@ -79,11 +79,21 @@ public sealed class BulkOperationBoundaryTests
     /// rather than asserted here — the membership join is paired on workspace as well as id, and the pass
     /// refuses to run in a scope that has a workspace resolved.
     /// </para>
+    /// <para>
+    /// The document-extraction claim is the third (11A.10), and it claims the same category as the first: a
+    /// <strong>background queue claim</strong>. It is the same shape for the same reason — a worker looks for a
+    /// document to read before it knows whose document it is — and it carries both of that category's conditions.
+    /// <c>BrandSourceExtractionClaim</c> has fields for six identifiers and nothing else, with nowhere to put a
+    /// title, a filename, a media type, an object key or a byte of the document; and the worker resolves and
+    /// validates the workspace through <c>IWorkspaceResolutionFacade</c> before it reads even the operation row,
+    /// which is itself workspace-owned and unreachable without a resolved context.
+    /// </para>
     /// </remarks>
     private static readonly string[] Exemptions =
     [
         "Modules/Ai/Data/AiOperationClaimRepository.cs",
         "Modules/Ai/Data/AiUsageReconciliationRepository.cs",
+        "Modules/Brand/Data/BrandSourceExtractionClaimRepository.cs",
     ];
 
     [Fact]
@@ -114,12 +124,19 @@ public sealed class BulkOperationBoundaryTests
     /// <summary>
     /// The scan sees the domain, so the rule above cannot pass by finding nothing.
     /// </summary>
+    /// <remarks>
+    /// Only the lower bound is load-bearing: a scan that found a handful of files would pass the rule above
+    /// vacuously, and that is what this is for. The upper bound is a tripwire for a root resolved somewhere
+    /// absurd — the repository, a drive — rather than a budget for how large the domain may grow, so it is set
+    /// generously. It had quietly gone stale at 600 against a domain of over 700 files, which nobody saw because
+    /// a redirected build output makes this class fail on root discovery first.
+    /// </remarks>
     [Fact]
     public void The_scan_actually_sees_the_domain()
     {
         var files = DomainSourceFiles();
 
-        Assert.InRange(files.Count, 150, 600);
+        Assert.InRange(files.Count, 150, 5000);
 
         // And it can actually detect an offender: the pattern matches text of the shape it is looking for.
         Assert.Matches(@"\.ExecuteDeleteAsync\s*[(<]", "await db.RecipeVersions.ExecuteDeleteAsync();");

@@ -86,4 +86,37 @@ public static class BrandErrorCodes
 
     /// <summary>Private storage could not be reached, so nothing was recorded. Maps to 503.</summary>
     public const string SourceStorageUnavailable = "brand.source.storage.unavailable";
+
+    /// <summary>
+    /// The version's text has not been extracted yet, so there is nothing to correct. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// Not a 404: the version exists, downloads, and reads as <c>NotExtracted</c> through the review route. And
+    /// not an invitation to write the first artifact either — a correction at ordinal 1 would race the worker
+    /// that is about to write it, and the loser of that race is whichever one the creator cares about.
+    /// </remarks>
+    public const string SourceExtractionPendingConflict = "brand.source.extraction.pending.conflict";
+
+    /// <summary>
+    /// The extracted text moved on since the read this correction was composed against. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// Says only that the caller is holding a stale copy, never what changed: the remedy is to read the text
+    /// again, and a client told more would learn about a collaborator's edits it may not be entitled to a history
+    /// of. Nothing is written, and the creator's attempted text comes back to them in their own client rather
+    /// than being merged into something they have not seen.
+    /// </remarks>
+    public const string SourceExtractionConflict = "brand.source.extraction.conflict";
+
+    /// <summary>
+    /// The version is not the document's current one, so its text cannot be corrected. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="SourceExtractionConflict"/> because the remedy is different and a client can act
+    /// on it: correct the current version instead. The restriction exists because only the current version's text
+    /// has consumers — chunking, retrieval and guide drafting all read it — so a correction on a superseded
+    /// version would be a write whose effect the creator could never see. Reading an older version's text stays
+    /// allowed; history is readable.
+    /// </remarks>
+    public const string SourceExtractionSupersededConflict = "brand.source.extraction.superseded.conflict";
 }

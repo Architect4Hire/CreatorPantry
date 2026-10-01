@@ -65,11 +65,43 @@ internal static class BrandSourceSampleFiles
         return bytes;
     }
 
-    public static byte[] Docx(bool withMacros = false) => Zip(
+    public static byte[] Docx(bool withMacros = false) => DocxWith("<w:document/>", withMacros);
+
+    /// <summary>
+    /// A Word package whose main document part is <paramref name="documentXml"/> verbatim.
+    /// </summary>
+    /// <remarks>
+    /// Written as raw WordprocessingML rather than through a document library, so an extraction test states
+    /// exactly which markup it claims produces which text — a heading style, a numbered item, a field code.
+    /// <see cref="WordNamespaceDeclaration"/> is what makes those elements the parser's namespace rather than an
+    /// undeclared prefix.
+    /// </remarks>
+    public static byte[] DocxWith(string documentXml, bool withMacros = false) => Zip(
         ("[Content_Types].xml",
             $"<Types><Override PartName=\"/word/document.xml\" ContentType=\"{DocxMediaType}.main+xml\"/></Types>"),
-        ("word/document.xml", "<w:document/>"),
+        ("word/document.xml", documentXml),
         withMacros ? ("word/vbaProject.bin", "macro") : default);
+
+    /// <summary>The <c>w:</c> prefix declaration a test's document markup needs to be read as WordprocessingML.</summary>
+    public const string WordNamespaceDeclaration =
+        "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"";
+
+    /// <summary>A Word package whose main part is a document holding <paramref name="bodyXml"/>.</summary>
+    public static byte[] DocxBody(string bodyXml) =>
+        DocxWith($"<w:document {WordNamespaceDeclaration}><w:body>{bodyXml}</w:body></w:document>");
+
+    /// <summary>One Word paragraph of plain runs, optionally styled.</summary>
+    public static string DocxParagraph(string text, string? style = null, bool numbered = false)
+    {
+        var properties = style is null && !numbered
+            ? string.Empty
+            : "<w:pPr>"
+                + (style is null ? string.Empty : $"<w:pStyle w:val=\"{style}\"/>")
+                + (numbered ? "<w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr>" : string.Empty)
+                + "</w:pPr>";
+
+        return $"<w:p>{properties}<w:r><w:t>{text}</w:t></w:r></w:p>";
+    }
 
     /// <summary>A real ZIP that is not a Word package.</summary>
     public static byte[] PlainZip() => Zip(("notes.txt", "not a document"));

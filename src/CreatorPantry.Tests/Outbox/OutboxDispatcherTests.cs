@@ -10,6 +10,7 @@ using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Managers.Time;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -33,7 +34,7 @@ public sealed class OutboxDispatcherTests : IAsyncLifetime
         _services = new ServiceCollection()
             .AddSingleton<TimeProvider>(_time)
             .AddApplicationTime()
-            .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection))
+            .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>())
             .AddOutbox()
             .AddKeyedSingleton<IOutboxMessageHandler>(MessageType, _handler)
             .BuildServiceProvider(validateScopes: true);

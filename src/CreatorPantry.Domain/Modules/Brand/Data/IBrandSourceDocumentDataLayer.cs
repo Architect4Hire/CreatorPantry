@@ -58,18 +58,28 @@ public interface IBrandSourceDocumentDataLayer
     Task<MalwareScanVerdict> ScanAsync(Stream content, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Writes the private object, then the document, its first version, its tags and the audit entry as one
-    /// save. The object comes first so that no committed row can name bytes that are not there; if the save
-    /// fails the object is removed again before the failure propagates.
+    /// Writes the private object, then the document, its first version, its tags, its queued extraction and the
+    /// audit entry as one save. The object comes first so that no committed row can name bytes that are not
+    /// there; if the save fails the object is removed again before the failure propagates.
     /// </summary>
     /// <param name="version">
     /// Carries the inspected media type, size and checksum; storage must report the same size and checksum.
     /// Its <c>ObjectKey</c> is set here.
     /// </param>
+    /// <param name="extraction">
+    /// The queued extraction for <paramref name="version"/>, staged in the same save.
+    /// </param>
+    /// <remarks>
+    /// The extraction row travelling with the version is what makes the queue durable without a second hop: a
+    /// committed version always has work queued for it and an uncommitted one never does, which is the property
+    /// an outbox exists to arrange for an event and which is had for free here because the consumer is this same
+    /// database.
+    /// </remarks>
     Task<BrandSourceStoreResult> StoreAsync(
         BrandSourceDocument document,
         BrandSourceDocumentVersion version,
         IReadOnlyList<BrandSourceTagInput> tags,
+        BrandSourceExtractionOperation extraction,
         AuditEntry audit,
         Stream content,
         CancellationToken cancellationToken);
@@ -133,9 +143,14 @@ public interface IBrandSourceDocumentDataLayer
     /// is what the UPDATE is conditioned on.
     /// </param>
     /// <param name="version">Carries the inspected media type, size and checksum. Its <c>ObjectKey</c> is set here.</param>
+    /// <param name="extraction">
+    /// The queued extraction for the new version, staged in the same save. The previous version's extraction
+    /// history is untouched: this names the new version, and the unique index is per version.
+    /// </param>
     Task<BrandSourceReplaceResult> ReplaceAsync(
         BrandSourceDocument document,
         BrandSourceDocumentVersion version,
+        BrandSourceExtractionOperation extraction,
         AuditEntry audit,
         Stream content,
         CancellationToken cancellationToken);
@@ -198,6 +213,7 @@ public sealed record BrandSourceDocumentListPage(
 
 internal sealed class BrandSourceDocumentDataLayer(
     IBrandSourceDocumentRepository documents,
+    IBrandSourceExtractionRepository extractions,
     IBrandSourceObjectGateway objects,
     IMalwareScanGateway scanner,
     IAuditWriter auditWriter,
@@ -216,6 +232,7 @@ internal sealed class BrandSourceDocumentDataLayer(
         BrandSourceDocument document,
         BrandSourceDocumentVersion version,
         IReadOnlyList<BrandSourceTagInput> tags,
+        BrandSourceExtractionOperation extraction,
         AuditEntry audit,
         Stream content,
         CancellationToken cancellationToken)
@@ -235,9 +252,14 @@ internal sealed class BrandSourceDocumentDataLayer(
 
             document.Versions.Add(version);
             documents.Add(document);
+
+            // Staged here, so the queue row cannot commit without the version it names and the version cannot
+            // commit without work queued for it.
+            extractions.Enqueue(extraction);
             auditWriter.Record(audit);
 
-            // One save: the document, its version, its tags and the audit row commit together or not at all.
+            // One save: the document, its version, its tags, its queued extraction and the audit row commit
+            // together or not at all.
             await context.SaveChangesAsync(cancellationToken);
 
             return new BrandSourceStoreResult(BrandSourceStoreOutcome.Stored, tagNames);
@@ -283,6 +305,7 @@ internal sealed class BrandSourceDocumentDataLayer(
     public async Task<BrandSourceReplaceResult> ReplaceAsync(
         BrandSourceDocument document,
         BrandSourceDocumentVersion version,
+        BrandSourceExtractionOperation extraction,
         AuditEntry audit,
         Stream content,
         CancellationToken cancellationToken)
@@ -308,10 +331,14 @@ internal sealed class BrandSourceDocumentDataLayer(
             // already tracked as modified. Nothing is added to the context: the root is loaded, not new, and
             // the previous version is not touched at all.
             document.Versions.Add(version);
+
+            // The new version's own queued extraction. The previous version's extraction history is untouched —
+            // the unique index is per version, and this names the one this request created.
+            extractions.Enqueue(extraction);
             auditWriter.Record(audit);
 
-            // One save: the new version, the document's UPDATE and the audit row commit together or not at
-            // all. That UPDATE carries the row version, which is what decides the race.
+            // One save: the new version, its queued extraction, the document's UPDATE and the audit row commit
+            // together or not at all. That UPDATE carries the row version, which is what decides the race.
             await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException exception)

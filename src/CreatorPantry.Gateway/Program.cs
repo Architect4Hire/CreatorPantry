@@ -29,10 +29,12 @@ app.UseEdgeSecurity();
 app.MapDefaultEndpoints();
 app.MapBffEndpoints();
 
-// A route that declares MaxRequestBodySize is an upload route. YARP applies that number when it forwards, but
-// the edge's own body limit runs first and reads endpoint metadata, so the route's limit is published there
-// too; otherwise the 4 MB default would refuse the upload before YARP saw it. 21 MB on the brand-source route
-// is BrandPolicy.SourceUploadRequestMaxBytes, which the API enforces again on its own action.
+// A route that declares MaxRequestBodySize carries a body larger than the 4 MB default. YARP applies that number
+// when it forwards, but the edge's own body limit runs first and reads endpoint metadata, so the route's limit is
+// published there too; otherwise the default would refuse the request before YARP saw it. 21 MB on the two
+// brand-source routes is BrandPolicy.SourceUploadRequestMaxBytes, and 9 MB on the extraction-correction route is
+// BrandPolicy.ExtractionCorrectionRequestMaxBytes. The API enforces each again on its own action, which is what
+// decides the refusal: the edge's job is to bound the body, not to answer for the domain.
 app.MapReverseProxy().Add(endpoint =>
 {
     if (endpoint.Metadata.OfType<RouteModel>().FirstOrDefault()?.Config.MaxRequestBodySize is { } limit)

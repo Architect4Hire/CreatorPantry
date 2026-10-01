@@ -35,6 +35,13 @@
     <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.10.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="NodaTime" Version="3.3.4" />
+    <!-- Named only by Modules/Brand/Managers/BrandSourcePdfTextExtractor: the text layer of an uploaded PDF.
+         A reader, where QuestPDF below is a writer, and the one parser in this assembly that is not hand-written
+         — PDF text extraction is a content-stream interpreter, not a signature check. Its provenance is recorded
+         on every extraction as the parser's id, so an upgrade that changes what a document's text comes out as
+         is attributable rather than mysterious. No PdfPig type may appear in an interface, a ServiceModel or
+         another module. -->
+    <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
   </ItemGroup>
 

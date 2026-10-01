@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CreatorPantry.Tests.Auth;
@@ -52,7 +53,7 @@ public sealed class PublicResponseTests : IAsyncLifetime
                     .ToList();
                 contextRegistrations.ForEach(descriptor => services.Remove(descriptor));
 
-                services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection));
+                services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
             });
         });
         _client = _factory.CreateClient();

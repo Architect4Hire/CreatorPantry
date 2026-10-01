@@ -13,6 +13,7 @@ using CreatorPantry.Domain.Modules.Vocabulary.Seeding;
 using CreatorPantry.Domain.Modules.Ingredients.Seeding;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CreatorPantry.Tests.Reference;
@@ -51,7 +52,7 @@ internal sealed class ReferenceCatalogFixture : IAsyncDisposable
     }
 
     public CreatorPantryDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).Options);
+        new(new DbContextOptionsBuilder<CreatorPantryDbContext>().UseSqlite(_connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>().Options);
 
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
 }

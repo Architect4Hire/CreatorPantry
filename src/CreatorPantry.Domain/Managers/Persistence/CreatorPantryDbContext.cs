@@ -372,6 +372,30 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<BrandSourceExtraction> BrandSourceExtractions => Set<BrandSourceExtraction>();
 
     /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>
+    /// The extraction queue itself, not a record of one: a row is written in the same save as the version it
+    /// names, and the Worker claims it from here. Mutable, unlike the rest of this aggregate — a queue whose
+    /// rows could not change would not be one.
+    /// </remarks>
+    public DbSet<BrandSourceExtractionOperation> BrandSourceExtractionOperations =>
+        Set<BrandSourceExtractionOperation>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>
+    /// One embedding run over one extracted artifact, and the unit of replacement for what retrieval reads.
+    /// Mutable: its status is what moves a freshly built set into use and the one it replaces out.
+    /// </remarks>
+    public DbSet<BrandSourceChunkSet> BrandSourceChunkSets => Set<BrandSourceChunkSet>();
+
+    /// <inheritdoc cref="BrandSourceChunkSets"/>
+    /// <remarks>
+    /// Interior to a set: one passage of brand source material, its offsets in the artifact it was cut from,
+    /// and its vector. Derived data — rebuildable from the artifact, so replaced rather than versioned. The
+    /// text is creator content and untrusted prompt content wherever it is later used (ai.md).
+    /// </remarks>
+    public DbSet<BrandSourceChunk> BrandSourceChunks => Set<BrandSourceChunk>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
     /// <remarks>The creator's tag vocabulary for source material; separate from the recipe tags.</remarks>
     public DbSet<BrandSourceTag> BrandSourceTags => Set<BrandSourceTag>();
 

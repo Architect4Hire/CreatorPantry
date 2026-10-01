@@ -1,6 +1,9 @@
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Storage;
+using CreatorPantry.Domain.Modules.Brand.Facade;
+using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,6 +88,27 @@ public class WorkerHostCompositionTests
         Assert.Single(hosted.OfType<OutboxDispatcherHostedService>());
         Assert.Single(hosted.OfType<AiOperationWorkerHostedService>());
         Assert.Single(hosted.OfType<AiOperationMaintenanceHostedService>());
+
+        // The document extraction queue and its own lease recovery. Without the first, every uploaded brand
+        // document sits Queued forever and the library shows "not extracted" indefinitely; without the second, a
+        // worker that dies holding a lease strands that document with no sign of why.
+        Assert.Single(hosted.OfType<BrandSourceExtractionWorkerHostedService>());
+        Assert.Single(hosted.OfType<BrandSourceExtractionMaintenanceHostedService>());
+    }
+
+    [Fact]
+    public void The_extraction_seam_resolves_in_this_host()
+    {
+        // The worker reaches a document through the brand module's own facade, which needs the whole seam below
+        // it — and the private object store, which only this host and the API register. A container that cannot
+        // build this is a host that exits quietly at startup, which from the library looks like extraction
+        // simply never happening.
+        using var provider = BuildProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IBrandSourceExtractionFacade>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IBrandSourceExtractionWorker>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPrivateObjectStore>());
     }
 
     [Fact]

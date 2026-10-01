@@ -2368,6 +2368,273 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions/{versionNumber}/extraction": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Reads the text extracted from one version of a brand source document.",
+        "description": "Any member may read. The body is the version\u0027s **current** extracted text \u2014 its latest attempt or\ncorrection \u2014 as JSON, not a download: this is the text a creator reviews and edits, and the file it came\nfrom is reached through \u0060/content\u0060 above.\n\n\u0060text\u0060 is present exactly when \u0060state\u0060 is \u0060Succeeded\u0060. \u0060Unsupported\u0060 carries \u0060reason\u0060 instead and no text,\nwhich is what a scanned PDF or an uploaded image answers \u2014 this API performs no text recognition, and says\nso rather than returning an empty success. \u0060Failed\u0060 likewise. A version nothing has read yet answers\n\u0060200\u0060 with \u0060state: NotExtracted\u0060 rather than a 404: the version exists and downloads, and a creator\nwatching a queued extraction needs to see \u0022not yet\u0022.\n\n\u0060id\u0060 identifies the exact artifact and is what a correction sends back as \u0060expectedExtractionId\u0060;\n\u0060ordinal\u0060 counts how many times this version\u0027s text has been written, and \u0060origin\u0060 says whether a parser\nor a person wrote it. The response carries no object key, no container, no URL and no membership id.\n\nAn unknown id, another workspace\u0027s document, one this workspace has removed, and a version number this\ndocument does not have all answer \u0060404 brand.source.not_found\u0060, deliberately indistinguishable. An\n**archived** document reads normally. An artifact whose stored text cannot be read answers\n\u0060503 brand.source.storage.unavailable\u0060 rather than 404, because the document is there and retrying is the\nremedy. The response is \u0060no-store\u0060.\n\nWhatever this returns is untrusted content, however it was produced: a creator\u0027s correction is no more an\ninstruction than a parser\u0027s output is.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document the version belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version whose text to read, as the document\u0027s metadata numbers it. Any version reads, so a corrected\nor superseded version\u0027s text stays available.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions/{versionNumber}/extraction/corrections": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Corrects the text extracted from a brand source document\u0027s current version.",
+        "description": "Editor or above. **Nothing is overwritten.** The correction becomes a new artifact at the next \u0060ordinal\u0060\nwith \u0060origin: Corrected\u0060, recording who made it and why; the uploaded file, the parser\u0027s artifact and\nevery earlier correction all stay exactly where they are and stay readable. The document\u0027s own\n\u0060extraction.state\u0060 then reads \u0060Succeeded\u0060 with \u0060origin: Corrected\u0060.\n\n**Correcting an \u0060Unsupported\u0060 or \u0060Failed\u0060 extraction is the point of this route**, not an edge case: a\nscanned PDF or an image has no text to read, and typing it in is how a creator makes that document usable.\n\n\u0060text\u0060 is stored as the creator wrote it. Line endings become \u0060\\n\u0060, a leading byte-order mark is dropped\nand the text ends on one newline, because that is the stored form; nothing else is reshaped, and text\ncarrying control or invisible formatting characters is **refused** rather than quietly cleaned \u2014\n\u0060400 brand.source.invalid_request\u0060, as for text longer than four megabytes or a missing \u0060reason\u0060.\n\n\u0060expectedExtractionId\u0060 is required and names the artifact this correction was composed against. One that\nhas since been superseded answers \u0060409 brand.source.extraction.conflict\u0060 and writes nothing, leaving the\ncreator\u0027s attempted text in their own client rather than merging it into something they have not seen.\nA version whose text has not been read yet answers \u0060409 brand.source.extraction.pending.conflict\u0060 \u2014 wait\nfor the extraction, then correct it. A version that is not the document\u0027s current one answers\n\u0060409 brand.source.extraction.superseded.conflict\u0060: only the current version\u0027s text has consumers, so\ncorrecting an older one would be a write with no visible effect. Reading an older version\u0027s text stays\nallowed. An **archived** document answers \u0060409 brand.source.archived.conflict\u0060 \u2014 restore it first.\n\nText byte-identical to what is already stored is answered with the current artifact and writes nothing:\nan ordinal that changes nothing is provenance a later reader has to explain for no gain.\n\nAn unknown id, another workspace\u0027s document, a removed one and a version this document does not have all\nanswer \u0060404 brand.source.not_found\u0060. Private storage that cannot be reached answers\n\u0060503 brand.source.storage.unavailable\u0060 with nothing recorded, after which the same key may be resent.\n\nThe corrected text stays private and stays untrusted: it is delimited source material wherever it later\nreaches a prompt, never instruction.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document the version belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version whose text to correct. Must be the document\u0027s current version \u2014 see below.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key for the same version, artifact, text and reason returns the original\nresponse with \u0060Idempotent-Replayed: true\u0060 and stores nothing new; the same key with anything different\nanswers \u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectBrandSourceExtraction"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectBrandSourceExtraction"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectBrandSourceExtraction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -10339,6 +10606,76 @@
           }
         }
       },
+      "BrandSourceExtraction": {
+        "required": [
+          "versionNumber",
+          "state",
+          "id",
+          "ordinal",
+          "origin",
+          "text",
+          "reason",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandSourceExtractionState"
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "ordinal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandSourceExtractionOrigin"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "BrandSourceExtractionOrigin": {
         "enum": [
           "Extracted",
@@ -10629,6 +10966,30 @@
             }
           },
           "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CorrectBrandSourceExtraction": {
+        "type": "object",
+        "properties": {
+          "expectedExtractionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
             "type": [
               "null",
               "string"

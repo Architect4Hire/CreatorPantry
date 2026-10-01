@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
@@ -15,6 +16,7 @@ using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.ServiceDefaults;
 using CreatorPantry.Worker.Caching;
+using CreatorPantry.Worker.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.Worker;
@@ -88,6 +90,13 @@ public static class WorkerHostRegistration
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddAiOperationWorker();
 
+        // Document extraction (11A.10). The store comes first because the brand module's gateway needs one, and
+        // the registration order between the two does not matter — AddBrandModule's own AddPrivateObjectStorage
+        // is a TryAdd, so the real store registered here is the one that survives.
+        builder.AddCreatorPantryObjectStorage();
+        builder.Services.AddBrandModule();
+        builder.Services.AddBrandSourceExtractionWorker();
+
         // The one host that sweeps every workspace's execution metadata looking for attempts the account
         // ledger never received (USAGE-002). Registered here rather than in the API for the same reason the
         // queue is: it is background work, and it belongs where background work runs.
@@ -99,6 +108,8 @@ public static class WorkerHostRegistration
         builder.Services.AddHostedService<AiOperationMaintenanceHostedService>();
         builder.Services.AddHostedService<AiQuotaMaintenanceHostedService>();
         builder.Services.AddHostedService<AiUsageReconciliationHostedService>();
+        builder.Services.AddHostedService<BrandSourceExtractionWorkerHostedService>();
+        builder.Services.AddHostedService<BrandSourceExtractionMaintenanceHostedService>();
 
         return builder;
     }

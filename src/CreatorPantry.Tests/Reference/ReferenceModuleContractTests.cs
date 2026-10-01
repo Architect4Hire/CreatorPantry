@@ -12,6 +12,7 @@ using CreatorPantry.Domain.Modules.Vocabulary.Facade;
 using CreatorPantry.Domain.Modules.Vocabulary.Managers;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CreatorPantry.Tests.Reference;
@@ -163,7 +164,7 @@ public sealed class ReferenceModuleContractTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(connection));
+        services.AddDbContext<CreatorPantryDbContext>(options => options.UseSqlite(connection).ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
         services.AddSingleton<IApplicationCache, FakeApplicationCache>();
 
         switch (module)

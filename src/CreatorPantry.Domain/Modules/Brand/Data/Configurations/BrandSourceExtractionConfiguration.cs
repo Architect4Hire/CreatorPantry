@@ -39,9 +39,23 @@ internal sealed class BrandSourceExtractionConfiguration : IEntityTypeConfigurat
         builder.HasKey(extraction => extraction.Id);
         builder.Property(extraction => extraction.Id).ValueGeneratedNever();
 
-        // Target of a chunk's reference to the exact artifact it was cut from.
         builder.HasAlternateKey(extraction => new { extraction.WorkspaceId, extraction.Id })
             .HasName("AK_BrandSourceExtractions_Workspace_Id");
+
+        // Target of a chunk set's reference to the exact artifact it was cut from, and wider than it needs to
+        // be to identify a row on purpose. Carrying the version and the status into the key means a referencing
+        // row has to state both and cannot state them wrongly: a set whose version disagrees with its
+        // extraction's has no key to resolve against, and neither does one hung off an extraction that failed
+        // or was unsupported. An extraction is immutable, so neither column can drift after the reference is
+        // made. See BrandSourceChunkSetConfiguration for the other half.
+        builder.HasAlternateKey(extraction => new
+        {
+            extraction.WorkspaceId,
+            extraction.Id,
+            extraction.BrandSourceDocumentVersionId,
+            extraction.Status,
+        })
+            .HasName("AK_BrandSourceExtractions_Workspace_Id_Version_Status");
 
         builder.Property(extraction => extraction.Ordinal).IsRequired();
         builder.Property(extraction => extraction.Status).IsRequired();
