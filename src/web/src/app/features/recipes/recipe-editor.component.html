@@ -867,6 +867,28 @@
           />
         </cp-tab-panel>
 
+        <cp-tab-panel id="readiness">
+          <!-- Mounted lazily by the tab. It checks the *saved* recipe and moves it through the states to
+               Approved, so it is not offered while the form has edits that are not saved: the check would
+               describe words the creator is no longer looking at, and applying a confirmed move would
+               overwrite them. The server decides every verdict and every move; nothing here does. -->
+          @if (isDirty()) {
+            <p class="banner" role="status">
+              You have changes that are not saved yet. Save them first, then come back here: readiness checks
+              the saved recipe.
+            </p>
+          } @else {
+            <cp-recipe-readiness
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [status]="recipeStatus()"
+              [concurrencyToken]="concurrencyToken() ?? ''"
+              (transitioned)="onRecipeTransitioned($event)"
+              (evidenceActivated)="onReadinessEvidenceActivated()"
+            />
+          }
+        </cp-tab-panel>
+
         <cp-tab-panel id="publish">
           <!-- Mounted lazily by the tab. It reads a summary of the saved version and builds download links; the
                files are made by the server, so nothing here produces or judges an export. The version number

@@ -175,7 +175,7 @@ export class RecipePublishPanelComponent {
     if (!summary || summary.exportable) return '';
 
     return summary.notExportableReason === NOT_EXPORTABLE_REASON_NOT_APPROVED
-      ? `Version ${summary.versionNumber} is not approved or marked ready, so it cannot be exported yet.`
+      ? `Version ${summary.versionNumber} is not approved or marked ready, so it cannot be exported yet. Approve it from the Readiness tab.`
       : `Version ${summary.versionNumber} cannot be exported right now.`;
   });
 

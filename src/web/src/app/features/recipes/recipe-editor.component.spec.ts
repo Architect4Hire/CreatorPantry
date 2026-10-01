@@ -296,7 +296,7 @@ describe('RecipeEditorComponent', () => {
       expect(component.canSave()).toBeTrue();
     });
 
-    it('offers five areas at the top level, with the form itself split inside Edit', async () => {
+    it('offers six areas at the top level, with the form itself split inside Edit', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       const root = harness.routeNativeElement!;
@@ -304,7 +304,7 @@ describe('RecipeEditorComponent', () => {
       // Scoped to the outer tablist: the Edit area now contains a tablist of its own, and an unscoped query
       // would conflate the two levels.
       const areas = Array.from(root.querySelector('[role="tablist"]')!.querySelectorAll('button[role="tab"]'));
-      expect(areas.map((tab) => tab.textContent?.trim())).toEqual(['Edit', 'Tools', 'Media', 'History', 'Publish']);
+      expect(areas.map((tab) => tab.textContent?.trim())).toEqual(['Edit', 'Tools', 'Media', 'History', 'Readiness', 'Publish']);
 
       const form = Array.from(formTablist(root).querySelectorAll('button[role="tab"]'));
       expect(form.map((tab) => tab.textContent?.trim())).toEqual(['General', 'Ingredients', 'Instructions']);
@@ -313,13 +313,14 @@ describe('RecipeEditorComponent', () => {
       expect(form.some((tab) => (tab as HTMLButtonElement).disabled)).toBeFalse();
     });
 
-    it('disables the Tools, Media, History and Publish areas (no recipe exists yet)', async () => {
+    it('disables the Tools, Media, History, Readiness and Publish areas (no recipe exists yet)', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(tabButton(harness.routeNativeElement!, 'Tools')?.disabled).toBeTrue();
       expect(tabButton(harness.routeNativeElement!, 'Media')?.disabled).toBeTrue();
       expect(tabButton(harness.routeNativeElement!, 'History')?.disabled).toBeTrue();
+      expect(tabButton(harness.routeNativeElement!, 'Readiness')?.disabled).toBeTrue();
       expect(tabButton(harness.routeNativeElement!, 'Publish')?.disabled).toBeTrue();
       // Edit is the one area a recipe being created can use, and it is where the form is.
       expect(tabButton(harness.routeNativeElement!, 'Edit')?.disabled).toBeFalse();
@@ -395,7 +396,7 @@ describe('RecipeEditorComponent', () => {
       expect(harness.routeNativeElement?.querySelector('#recipe-title')).toBeTruthy();
     });
 
-    it('enables the Tools, Media, History and Publish areas once the recipe exists', async () => {
+    it('enables the Tools, Media, History, Readiness and Publish areas once the recipe exists', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
@@ -403,7 +404,48 @@ describe('RecipeEditorComponent', () => {
       expect(tabButton(harness.routeNativeElement!, 'Tools')?.disabled).toBeFalse();
       expect(tabButton(harness.routeNativeElement!, 'Media')?.disabled).toBeFalse();
       expect(tabButton(harness.routeNativeElement!, 'History')?.disabled).toBeFalse();
+      expect(tabButton(harness.routeNativeElement!, 'Readiness')?.disabled).toBeFalse();
       expect(tabButton(harness.routeNativeElement!, 'Publish')?.disabled).toBeFalse();
+    });
+
+    it('shows the readiness check on the Readiness tab, with the status the server reported', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: { ...RECIPE_DETAIL, status: 'ReadyForReview' } });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.selectedAreaId.set('readiness');
+      harness.detectChanges();
+
+      expect(component.recipeStatus()).toBe('ReadyForReview');
+      expect(harness.routeNativeElement!.querySelector('cp-recipe-readiness')).not.toBeNull();
+    });
+
+    it('asks for a save first instead of mounting the readiness check while the form has unsaved edits', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.title.set('Edited but not saved');
+      component.selectedAreaId.set('readiness');
+      harness.detectChanges();
+
+      const root = harness.routeNativeElement!;
+      expect(root.querySelector('cp-recipe-readiness')).toBeNull();
+      expect(root.textContent).toContain('You have changes that are not saved yet');
+    });
+
+    it('takes the recipe as the server returns it after a confirmed move, and only then shows the new status', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: { ...RECIPE_DETAIL, status: 'ReadyForReview' } });
+      const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      expect(component.recipeStatus()).toBe('ReadyForReview');
+
+      component.onRecipeTransitioned({ ...RECIPE_DETAIL, status: 'Approved', concurrencyToken: 'token-after-approval' });
+
+      expect(component.recipeStatus()).toBe('Approved');
+      expect(component.concurrencyToken()).toBe('token-after-approval');
+      expect(component.isDirty()).toBeFalse();
     });
 
     it('still hides an unselected area entirely, not merely marks its tab unselected', async () => {

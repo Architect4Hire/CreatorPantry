@@ -2563,6 +2563,21 @@ BEHAVIOR: Return deduplicated findings, wait for approval, fix blockers, rerun g
 tests, and report exact export samples verified.
 ```
 
+### 11.10a Recipe approval in the editor - done
+
+```text
+SCOPE: Mount the existing readiness checklist and state-transition controls (10.7d) in the recipe editor as a
+Readiness area, so a creator can move a recipe Draft → InDevelopment → Testing → ReadyForReview → Approved
+from the browser and then export it. The endpoints (10.7, 10.7a) already exist; add no new route.
+CONSTRAINT: TESTRUN-004/005 and TEST-UI-003; creatorpantry-design-system and new-component skills.
+RESTRICTION: Do not evaluate readiness or decide legal moves in the editor. Show the status the server last
+reported, never the one a click hoped for. Do not offer the tab while the form has unsaved edits, because a
+confirmed move replaces the form's state and would overwrite them.
+BEHAVIOR: Hold the server's status beside the form, apply the returned recipe after a confirmed move, point the
+Publish panel's "not approved" message at the Readiness tab, and test the tab, the unsaved-edits guard and the
+applied result.
+```
+
 ## Phase 11A — Brand Voice, Style Guide, and prompt context
 
 > The creator owns the voice. Uploaded examples are private source material, AI produces an editable proposal, and only an explicitly approved guide version becomes the default context for writing or visual generation.

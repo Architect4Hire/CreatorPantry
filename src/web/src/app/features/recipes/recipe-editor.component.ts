@@ -48,12 +48,14 @@ import {
   RecipeIngredient,
   RecipeIngredientGroup,
   RecipeInstructionGroup,
+  RecipeStatus,
   SettableRecipeStatus,
   UpdateRecipeRequest,
   submitted,
 } from '../../models/recipe.models';
 import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
+import { RecipeReadinessComponent } from './recipe-readiness.component';
 import { RecipePublishPanelComponent } from './recipe-publish-panel.component';
 import {
   EditableIngredientGroup,
@@ -326,6 +328,7 @@ type RecipeEditorSaveState =
     CpTabsComponent,
     RecipeHistoryComponent,
     RecipePublishPanelComponent,
+    RecipeReadinessComponent,
     RecipeIngredientEditorComponent,
     RecipeDisplayNormalizationComponent,
     RecipeScalingPreviewComponent,
@@ -363,7 +366,7 @@ export class RecipeEditorComponent {
   readonly workspaceSlug = this.resolveWorkspaceSlug();
 
   /**
-   * Five areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
+   * Six areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
    * save operation is no longer spread across five tablist clicks — which is what let the "Unsaved changes"
    * pill say only that *something* was dirty, and let a field error land on a panel nobody was looking at.
    *
@@ -376,6 +379,9 @@ export class RecipeEditorComponent {
     { id: 'tools', label: 'Tools', disabled: this.isCreateMode },
     { id: 'media', label: 'Media', disabled: this.isCreateMode },
     { id: 'history', label: 'History', disabled: this.isCreateMode },
+    // Checks the saved recipe and moves it through Draft to Approved, neither of which a recipe being created
+    // has yet.
+    { id: 'readiness', label: 'Readiness', disabled: this.isCreateMode },
     // Reads the saved version's export summary, which a recipe being created does not have yet.
     { id: 'publish', label: 'Publish', disabled: this.isCreateMode },
   ];
@@ -472,6 +478,14 @@ export class RecipeEditorComponent {
    * fact; `status` is what a save would send.
    */
   private readonly archivedSignal = signal(false);
+
+  /**
+   * The recipe's editorial status as the server last reported it. Held beside the form and never in it, and
+   * only ever set from a server answer, so the Readiness tab shows where the recipe is and not where a click
+   * hoped to take it.
+   */
+  private readonly recipeStatusSignal = signal<RecipeStatus>('Draft');
+  readonly recipeStatus = this.recipeStatusSignal.asReadonly();
   readonly isArchived = this.archivedSignal.asReadonly();
 
   readonly lifecycleWorking = computed(() => this.lifecycleState().status === 'working');
@@ -1313,6 +1327,24 @@ export class RecipeEditorComponent {
   }
 
   /**
+   * A move the server confirmed on the Readiness tab: the recipe as it now stands.
+   *
+   * Applied through {@link applyDetail} like a restore, which is safe here only because the Readiness tab is
+   * not offered while the form has unsaved edits — otherwise taking the new token would overwrite them.
+   */
+  onRecipeTransitioned(detail: RecipeDetail): void {
+    this.applyDetail(detail);
+    this.saveStateSignal.set({ status: 'idle' });
+    this.fieldErrorsSignal.set({});
+    this.clearPendingIdempotencyKey();
+  }
+
+  /** Evidence names a record of the recipe; the only surface for any of them today is the form. */
+  onReadinessEvidenceActivated(): void {
+    this.selectedAreaId.set('edit');
+  }
+
+  /**
    * Shelves the recipe, or takes it back off the shelf, after asking.
    *
    * A confirmation rather than a modal with fields, so it goes through `ConfirmService` — and at the neutral
@@ -1770,6 +1802,7 @@ export class RecipeEditorComponent {
     // status at all, and an edit no longer sends one. What is still needed from it is whether the recipe is
     // archived, because that disables the save and shows the banner.
     this.archivedSignal.set(detail.status === 'Archived');
+    this.recipeStatusSignal.set(detail.status);
     this.tags.set(detail.tags.map((tag) => tag.name));
     this.ingredientGroups.set(detail.ingredientGroups);
     this.editedIngredientGroups.set(toEditableGroups(detail.ingredientGroups));
