@@ -110,6 +110,10 @@ builder.Services.AddAiSeoPackageRequestSeam();
 
 // AIREC-008's. No recipe-module prerequisite -- it explains an existing proposal, not a recipe.
 builder.Services.AddAiProposalExplanationRequestSeam();
+
+// 11A.17's. The brand module is its prerequisite rather than the recipe one: the guide it proposes for, the
+// documents it grounds in and the channel catalogue it checks keys against are all that module's.
+builder.Services.AddAiBrandGuideProposalRequestSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

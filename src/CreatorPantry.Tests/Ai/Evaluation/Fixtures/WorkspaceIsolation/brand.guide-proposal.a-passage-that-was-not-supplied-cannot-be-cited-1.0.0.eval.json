@@ -1,0 +1,17 @@
+{
+  "id": "brand.guide-proposal.a-passage-that-was-not-supplied-cannot-be-cited",
+  "version": "1.0.0",
+  "category": "WorkspaceIsolation",
+  "kind": "BrandGuideOutputValidation",
+  "description": "A citation is checked against the exact passages this request supplied, so an id from anywhere else -- invented, guessed, or belonging to another workspace -- is refused. The handler's passage set comes from a facade reading under the workspace query filter, so a neighbour's passage is never in it; this proves that an id outside the set cannot be cited even so. The refusal never echoes the id: one this request did not offer is not this workspace's to confirm.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm and direct.\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"99999999-9999-9999-9999-999999999999\"}]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "We write like a friend who happens to cook." }]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.brand_guide_citation_invalid",
+    "category": "DomainInvalid"
+  }
+}

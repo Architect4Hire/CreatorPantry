@@ -781,6 +781,231 @@
         }
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-guide-proposal-requests": {
+      "post": {
+        "tags": [
+          "BrandGuideProposalRequests"
+        ],
+        "summary": "Asks for a brand-guide proposal. Returns 202 with the request to follow.",
+        "description": "Contributor or above, as for every other generation request. The work runs in the background: this\nanswers \u0060202\u0060 with a request id, and the \u0060GET\u0060 below reports where it got to.\n\n\u0060dimensions\u0060 defaults to every dimension except \u0060channel\u0060, which needs \u0060channelKeys\u0060 to mean anything.\nA channel key the product does not know is \u0060400\u0060; channel keys sent without asking for channel guidance\nare also \u0060400\u0060, rather than ignored.\n\n\u0060sourceDocumentIds\u0060 is optional \u2014 a proposal from the creator\u0027s own guide answers alone is legitimate,\nand says so in its findings. Each document\u0027s **current** version is pinned server-side, so the proposal\nrecords the exact text it was grounded in. A document that does not resolve, for any reason, answers\n\u0060422\u0060 identically for every cause. A document that resolves but has no indexed passages yet is not an\nerror: it travels, and the proposal reports that the evidence was thin.\n\nThe guide\u0027s working version is pinned too, and the task refuses to run if the guide is edited in the\nmeantime \u2014 a proposal explained by answers that have since been rewritten is unexplainable.\n\n**Nothing returned here becomes the guide.** Every claim carries a citation to a passage this request\nsupplied, or says it rests on the creator\u0027s answers or on nothing; contradictions between sources are\nreported with both sides cited; and the result is a proposal the creator reads, edits and writes their\nown version from. There is no code path from a stored row to a guide.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Generation is not free, so a retried request returns the first answer rather than buying a\nsecond; the same key with a different body is refused.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBrandGuideProposal"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBrandGuideProposal"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBrandGuideProposal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-guide-proposal-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "BrandGuideProposalRequests"
+        ],
+        "summary": "Reports where one brand-guide proposal request got to, and its proposal once there is one.",
+        "description": "Any member may read. An unknown id, another workspace\u0027s request, and a request that ran a different task\nall answer \u0060404\u0060 identically.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The request to follow, as the \u0060POST\u0060 returned it.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-profile": {
       "get": {
         "tags": [
@@ -2808,6 +3033,357 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions": {
+      "get": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Lists one brand style guide\u0027s versions, newest first.",
+        "description": "Any member may read. Metadata only: a row says which version it is, whether it is \u0060Draft\u0060 or\n\u0060Approved\u0060, how many sources it cites, who wrote it and why, when, and whether it is the workspace\u0027s\nactive version. **No section, rule or body is returned** \u2014 read the guide itself for what a version\nsays. Nothing is written: listing a version does not approve it or activate it.\n\n\u0060staleSourceCount\u0060 is how many of the version\u0027s citations name a source document version the document\nhas since been replaced past; \u00600\u0060 means every cited source is still its document\u0027s current version. A\ncited document the workspace has archived or removed is not counted \u2014 shelving a document does not\nchange what the guide was written from.\n\n\u0060isActive\u0060 marks the one version the workspace default points at, and is false on every row when the\ndefault is another guide\u0027s or the workspace has none. There is no fallback to the latest approved\nversion. \u0060createdByMembershipId\u0060 is a membership id, never a name or an address.\n\nOrdering is fixed at version number descending and there are no filters, so paging is \u0060limit\u0060 plus the\nprevious page\u0027s \u0060nextCursor\u0060, until \u0060nextCursor\u0060 is null. A cursor is bound to the workspace and the\nguide it was issued for: replaying one against another guide answers \u0060400\nbrand.guide.invalid_request\u0060 rather than a plausible page of the wrong history. An out-of-range\n\u0060limit\u0060 is clamped rather than refused.\n\nAn unknown id and another workspace\u0027s guide both answer \u0060404 brand.guide.not_found\u0060, deliberately\nindistinguishable. An archived guide lists normally. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose history to list. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the\nsame status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions/compare": {
+      "get": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Compares two of one brand style guide\u0027s versions and returns what differs between them.",
+        "description": "Any member may read. The comparison is calculated on the server from the two immutable versions and is\nthe only one \u2014 a client renders it rather than deriving a second diff of its own, which is why the two\nversions\u0027 content is not returned alongside it. Nothing is written: comparing leaves no record that it\nhappened, approves nothing and activates nothing, and no model is called.\n\n\u0060from\u0060 and \u0060to\u0060 are version numbers as the history lists them, not version ids: a number is unique only\nwithin its guide, so a number naming another guide\u0027s version matches nothing rather than being refused\nby a check. Either order is allowed \u2014 reading the newer version as \u0060from\u0060 is what weighing a revert\nlooks like \u2014 and \u0060from\u0060 equal to \u0060to\u0060 answers a comparison with no changes in it.\n\nEach part reports every item either version holds, including the unchanged ones, so a client renders a\nstable frame. \u0060sections\u0060 are keyed by section key and channel and report \u0060Added\u0060, \u0060Removed\u0060, \u0060Changed\u0060\nor \u0060Unchanged\u0060, never \u0060Moved\u0060, because sections have no order. \u0060rules\u0060 are identified by their kind and\ntheir own text, so they report \u0060Added\u0060, \u0060Removed\u0060, \u0060Moved\u0060 or \u0060Unchanged\u0060 and **never \u0060Changed\u0060**: a\nreworded rule is one removal and one addition, and its position is reported as a rank among rules of\nthe same kind rather than as a stored sort order. \u0060sources\u0060 are keyed by document, so re-pinning a\ncitation to another version of the same document is one \u0060Changed\u0060.\n\nThe guide\u0027s name, purpose and archived state are not compared: they belong to the guide rather than to\nany version of it.\n\nAn unknown guide and another workspace\u0027s guide both answer \u0060404 brand.guide.not_found\u0060. A version\nnumber this guide does not have answers \u0060404 brand.guide.version.not_found\u0060, naming the parameter at\nfault \u2014 both parameters when both are wrong. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose versions to compare. Constrained to a Guid, so a malformed id answers 404 at routing \u2014\nthe same status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Required. The version number whose content is reported as the \u0027from\u0027 side, as the history lists it.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Required. The version number reported as the \u0027to\u0027 side. It may be lower than \u0027from\u0027, which reverses the reading, and it may equal it.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionComparison"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionComparison"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionComparison"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions/{versionNumber}/activation": {
+      "post": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Makes one approved brand style guide version this workspace\u0027s default.",
+        "description": "**Owner only**, above the Editor that creates and edits a guide: there is one default per workspace and\nit governs what every later generation is grounded on.\n\n\u0060confirmed\u0060 must be \u0060true\u0060 \u2014 a well-formed body is not by itself a decision. \u0060expectedActiveVersionId\u0060\nis the version the caller believes holds the default now, from \u0060activeVersion.id\u0060 on the guide read or\nthe history row whose \u0060isActive\u0060 is true; **omit it only to assert the workspace has no default**, which\nis checked rather than assumed, so forgetting the field cannot replace a default the caller never saw. A\nmismatch answers \u0060409 brand.guide.activation.conflict\u0060 and names what actually holds it in\n\u0060activeGuideId\u0060, \u0060activeVersionId\u0060 and \u0060activeVersionNumber\u0060 \u2014 each null when the workspace has none.\n\nNothing in the guide is edited: the version is immutable and this writes only the workspace\u0027s one\nactivation decision, its audit entry, and nothing else. \u0060200 OK\u0060 rather than \u0060201\u0060, because the default\nis a singleton being repointed and not a new subresource. Activating the version that already holds it\nis a success that writes nothing and answers \u0060alreadyActive: true\u0060, with the original \u0060activatedAt\u0060 and\nactivator rather than this request\u0027s.\n\nFour refusals are about the version named and will not read differently after a re-read, so they are\nanswered before the expectation is checked: a version with no approval is \u0060409\nbrand.guide.version.unapproved.conflict\u0060; one citing a source document that has been replaced since is\n\u0060409 brand.guide.version.stale.conflict\u0060, with \u0060staleSourceCount\u0060; one with no sections and no rules is\n\u0060409 brand.guide.version.empty.conflict\u0060; and a version of an archived guide is \u0060409\nbrand.guide.archived.conflict\u0060. There is no override: lifting one of these is a policy decision rather\nthan a field on a request.\n\nAn unknown guide and another workspace\u0027s both answer \u0060404 brand.guide.not_found\u0060. A version number this\nguide does not have answers \u0060404 brand.guide.version.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose version to activate. Constrained to a Guid, so a malformed id answers 404 at routing \u2014\nthe same status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "Which of the guide\u0027s versions, by number as the history lists them. Constrained to an int, which is\nwhat keeps this route distinct from the literal \u0060compare\u0060 segment above.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Replaying a request with the same key returns the activation the first one recorded, with\n\u0060Idempotency-Replayed: true\u0060, and writes nothing further; the same key with a different body is refused.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateBrandStyleGuideVersion"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateBrandStyleGuideVersion"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateBrandStyleGuideVersion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideActivationResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideActivationResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideActivationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -9723,6 +10299,33 @@
           }
         }
       },
+      "ActivateBrandStyleGuideVersion": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Must be true. States that a person confirmed this activation; a request without it is refused."
+          },
+          "expectedActiveVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The id of the version the caller believes is currently active. Omit it only to assert the workspace has no active version.",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why this version is being activated, in the caller\u0027s own words. Stored on the activation."
+          }
+        }
+      },
       "AiAdaptationGoal": {
         "enum": [
           "Unspecified",
@@ -9766,7 +10369,8 @@
           "IngredientSubstitution",
           "RecipeReviewFinding",
           "ProposalExplanationItem",
-          "ContentSection"
+          "ContentSection",
+          "BrandGuideSection"
         ],
         "type": "string"
       },
@@ -10176,7 +10780,8 @@
           "RecipeReview",
           "ProposalExplanation",
           "EditorialPackage",
-          "SeoPackage"
+          "SeoPackage",
+          "BrandGuideProposal"
         ],
         "type": "string"
       },
@@ -11022,6 +11627,32 @@
           }
         }
       },
+      "BrandStyleGuideActivatedVersion": {
+        "required": [
+          "guideId",
+          "versionId",
+          "versionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "BrandStyleGuideActivation": {
         "required": [
           "activatedAt",
@@ -11037,6 +11668,64 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "BrandStyleGuideActivationResult": {
+        "required": [
+          "guideId",
+          "versionId",
+          "versionNumber",
+          "activatedAt",
+          "activatedByMembershipId",
+          "reason",
+          "alreadyActive",
+          "replaced"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "activatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activatedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alreadyActive": {
+            "type": "boolean"
+          },
+          "replaced": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleGuideActivatedVersion"
+              }
             ]
           }
         }
@@ -11059,6 +11748,77 @@
             ]
           }
         }
+      },
+      "BrandStyleGuideComparison": {
+        "required": [
+          "sections",
+          "rules",
+          "sources"
+        ],
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSectionComparison"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideRuleComparison"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSourceComparison"
+            }
+          },
+          "hasChanges": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrandStyleGuideComparisonSide": {
+        "required": [
+          "versionId",
+          "versionNumber",
+          "status",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersionStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BrandStyleGuideComparisonState": {
+        "enum": [
+          "Unchanged",
+          "Added",
+          "Removed",
+          "Changed",
+          "Moved"
+        ],
+        "type": "string"
       },
       "BrandStyleGuideDetail": {
         "required": [
@@ -11192,6 +11952,45 @@
           }
         }
       },
+      "BrandStyleGuideRuleComparison": {
+        "required": [
+          "kind",
+          "text",
+          "state",
+          "fromRank",
+          "toRank"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/BrandStyleGuideRuleKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonState"
+          },
+          "fromRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "BrandStyleGuideRuleKind": {
         "enum": [
           "Do",
@@ -11218,6 +12017,42 @@
           },
           "body": {
             "type": "string"
+          }
+        }
+      },
+      "BrandStyleGuideSectionComparison": {
+        "required": [
+          "sectionKey",
+          "channelKey",
+          "state",
+          "fromBody",
+          "toBody"
+        ],
+        "type": "object",
+        "properties": {
+          "sectionKey": {
+            "$ref": "#/components/schemas/BrandStyleGuideSectionKey"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonState"
+          },
+          "fromBody": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "toBody": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -11286,6 +12121,42 @@
           "versionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BrandStyleGuideSourceComparison": {
+        "required": [
+          "documentId",
+          "state",
+          "fromVersionNumber",
+          "toVersionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonState"
+          },
+          "fromVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
               "integer",
               "string"
             ],
@@ -11375,6 +12246,25 @@
           }
         }
       },
+      "BrandStyleGuideVersionComparison": {
+        "required": [
+          "from",
+          "to",
+          "comparison"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonSide"
+          },
+          "to": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonSide"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparison"
+          }
+        }
+      },
       "BrandStyleGuideVersionDetail": {
         "required": [
           "id",
@@ -11458,6 +12348,98 @@
             "items": {
               "$ref": "#/components/schemas/BrandStyleGuideSource"
             }
+          }
+        }
+      },
+      "BrandStyleGuideVersionStatus": {
+        "enum": [
+          "Draft",
+          "Approved"
+        ],
+        "type": "string"
+      },
+      "BrandStyleGuideVersionSummary": {
+        "required": [
+          "id",
+          "versionNumber",
+          "status",
+          "sourceCount",
+          "staleSourceCount",
+          "createdByMembershipId",
+          "changeReason",
+          "createdAt",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersionStatus"
+          },
+          "sourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "staleSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrandStyleGuideVersionSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideVersionSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -15258,6 +16240,43 @@
           }
         }
       },
+      "RequestBrandGuideProposal": {
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dimensions": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "channelKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceDocumentIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "RequestEditorialPackage": {
         "type": "object",
         "properties": {
@@ -17055,6 +18074,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "BrandGuideProposalRequests"
     },
     {
       "name": "BrandProfile"

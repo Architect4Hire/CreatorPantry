@@ -1,0 +1,15 @@
+{
+  "id": "brand.guide-proposal.a-link-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandGuideOutputValidation",
+  "description": "Plain text is enforced, not merely asked for in the prompt: a link is an unverified claim about somewhere else, and these strings are rendered to a creator. The same rule the editorial and SEO packages apply.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm and direct. See https://example.com/style for more.\",\"evidence\":\"Questionnaire\",\"citations\":[]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

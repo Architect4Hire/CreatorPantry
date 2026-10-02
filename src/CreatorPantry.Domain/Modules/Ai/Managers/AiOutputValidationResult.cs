@@ -226,6 +226,48 @@ public static class AiOutputReason
     /// answer as a whole, not any finding.
     /// </remarks>
     public const string ReviewAnswerUnexplained = "ai.output.review_answer_unexplained";
+
+    /// <summary>
+    /// A section or rule claims the sources support it but cites none, or cites a passage the request never
+    /// offered.
+    /// </summary>
+    /// <remarks>
+    /// The structural half of 11A.17's "source citations" requirement. A citation is checked against the exact
+    /// passage rows the handler read for this request, so a model cannot invent one and a passage belonging to
+    /// another workspace was never a candidate. An answer that merely claims to be sourced is refused rather
+    /// than relabelled.
+    /// </remarks>
+    public const string BrandGuideCitationInvalid = "ai.output.brand_guide_citation_invalid";
+
+    /// <summary>A conflict names fewer than two passages, so it reports a disagreement with only one side.</summary>
+    /// <remarks>
+    /// "Do not hide contradictory evidence" means the contradiction has to be checkable. One citation is an
+    /// opinion about a passage; two are a finding the creator can go and read.
+    /// </remarks>
+    public const string BrandGuideConflictUnsupported = "ai.output.brand_guide_conflict_unsupported";
+
+    /// <summary>
+    /// A section names a channel key the request did not offer, or carries one on a dimension that takes none.
+    /// </summary>
+    public const string BrandGuideChannelInvalid = "ai.output.brand_guide_channel_invalid";
+
+    /// <summary>The answer wrote a dimension the request did not ask for, or wrote one twice.</summary>
+    public const string BrandGuideDimensionInvalid = "ai.output.brand_guide_dimension_invalid";
+
+    /// <summary>
+    /// A body or rule reproduces a long run of words from a cited passage.
+    /// </summary>
+    /// <remarks>
+    /// 11A.17's RESTRICTION lists copying long source passages beside mixing workspaces, so it is a refusal and
+    /// not a caution. Guidance describes how the creator writes; it does not reproduce what they wrote, and
+    /// nothing is truncated into something the model never said.
+    /// </remarks>
+    public const string BrandGuidePassageCopied = "ai.output.brand_guide_passage_copied";
+
+    // There is deliberately no reason code for naming a person or inferring a trait. Both are detected by a
+    // best-effort heuristic (AiBrandGuideClaimScanner), which warns rather than refuses, so a rejection code for
+    // either would be dead and would imply an enforcement this capability does not have. The warnings carry
+    // AiBrandGuideClaimScanner's own codes instead.
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

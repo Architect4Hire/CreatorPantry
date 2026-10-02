@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
@@ -14,10 +15,62 @@ public interface IBrandStyleGuideBusiness
     Task<OperationResult<BrandStyleGuideDetailServiceModel>> GetAsync(Guid guideId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// One page of a guide's version history, newest version first: metadata only, and nothing is written —
+    /// listing a version does not approve it, activate it or change its status.
+    /// </summary>
+    /// <returns>
+    /// The page, or <c>brand.guide.not_found</c> when the resolved workspace has no such guide. An existing
+    /// guide with no citations and no approvals still answers with its versions; an empty page is never how a
+    /// missing guide is reported.
+    /// </returns>
+    Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
+        BrandStyleGuideVersionListCriteria criteria, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Compares two of one guide's versions. Deterministic, computed by <see cref="BrandStyleGuideComparer"/>,
+    /// and writes nothing — no approval, no activation, and no record that the comparison happened.
+    /// </summary>
+    /// <returns>
+    /// The comparison, or <c>brand.guide.not_found</c> for a guide this workspace cannot read, or
+    /// <c>brand.guide.version.not_found</c> naming whichever of <c>from</c> and <c>to</c> the guide does not
+    /// have — both of them when both are wrong.
+    /// </returns>
+    Task<OperationResult<BrandStyleGuideVersionComparisonServiceModel>> CompareVersionsAsync(
+        Guid guideId, int fromVersionNumber, int toVersionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Creates a guide and its version 1 from an already-validated, blank-free draft. No model is called.
     /// </summary>
     Task<OperationResult<BrandStyleGuideServiceModel>> CreateAsync(
         string userId, BrandStyleGuideDraft draft, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Makes one approved version of one guide the workspace's default. Nothing in the guide is edited: the
+    /// version is immutable and this writes only the workspace's one activation decision.
+    /// </summary>
+    /// <param name="expectedActiveVersionId">
+    /// The version the caller believes currently holds the default, or null for "this workspace has none".
+    /// Checked before anything is written.
+    /// </param>
+    /// <returns>
+    /// The activation, or the first refusal that applies: <c>brand.guide.not_found</c>,
+    /// <c>brand.guide.version.not_found</c>, <c>brand.guide.archived.conflict</c>,
+    /// <c>brand.guide.version.unapproved.conflict</c>, <c>brand.guide.version.stale.conflict</c>,
+    /// <c>brand.guide.version.empty.conflict</c>, or <c>brand.guide.activation.conflict</c>.
+    /// </returns>
+    /// <remarks>
+    /// Eligibility is settled before the expectation. A version that is a draft, stale or empty is ineligible
+    /// however fresh the caller's picture of the workspace is, and that refusal will not read differently
+    /// after a re-read — so it is the more useful one to give first. The expectation is about the world having
+    /// moved, and is checked last, immediately before the write.
+    /// </remarks>
+    Task<OperationResult<BrandStyleGuideActivationResultServiceModel>> ActivateVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        Guid? expectedActiveVersionId,
+        string? reason,
+        CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IBrandStyleGuideBusiness"/>
@@ -53,6 +106,116 @@ internal sealed class BrandStyleGuideBusiness(
                 ? null
                 : Map(read.Active, new BrandStyleGuideActivationServiceModel(read.ActivatedAt!.Value, read.ActivationReason))));
     }
+
+    public async Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
+        BrandStyleGuideVersionListCriteria criteria, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        // Asked first, so an unknown guide and another workspace's are one answer rather than an empty page.
+        // A guide always has at least version 1, so "no rows" could only ever mean a guide that is not there.
+        if (!await dataLayer.GuideExistsAsync(criteria.GuideId, cancellationToken))
+        {
+            return OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>.Failure(new OperationError(
+                BrandErrorCodes.GuideNotFound,
+                "There is no such brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var page = await dataLayer.ListVersionsAsync(criteria, cancellationToken);
+
+        // The cursor is minted here, where the scope is known: a repository is handed a predicate, not a route.
+        return OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>.Success(
+            PageBuilder.Build(page.Rows, page.HasMore, criteria.Scope, row => new BrandStyleGuideVersionSummaryServiceModel(
+                row.Id,
+                row.VersionNumber,
+                row.IsApproved ? BrandStyleGuideVersionStatus.Approved : BrandStyleGuideVersionStatus.Draft,
+                row.SourceCount,
+                page.StaleSourceCounts.TryGetValue(row.Id, out var stale) ? stale : 0,
+                row.CreatedByMembershipId,
+                row.ChangeReason,
+                row.CreatedAt,
+                row.IsActive)));
+    }
+
+    public async Task<OperationResult<BrandStyleGuideVersionComparisonServiceModel>> CompareVersionsAsync(
+        Guid guideId, int fromVersionNumber, int toVersionNumber, CancellationToken cancellationToken)
+    {
+        if (await dataLayer.ReadForComparisonAsync(guideId, fromVersionNumber, toVersionNumber, cancellationToken)
+            is not { } read)
+        {
+            // The guide is not visible. Answered identically to one that was never created (tenancy.md).
+            return OperationResult<BrandStyleGuideVersionComparisonServiceModel>.Failure(new OperationError(
+                BrandErrorCodes.GuideNotFound,
+                "There is no such brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // Both sides are named, so a creator who mistyped one number is told which one. Reporting only the
+        // first would send them round the loop twice when they mistyped both.
+        var missing = new List<(string Field, string Error)>();
+
+        if (read.From is null)
+        {
+            missing.Add(("from", $"This guide has no version {fromVersionNumber}."));
+        }
+
+        // Equal numbers are one question, so a single "no such version" rather than the same one twice.
+        if (read.To is null && toVersionNumber != fromVersionNumber)
+        {
+            missing.Add(("to", $"This guide has no version {toVersionNumber}."));
+        }
+
+        if (missing.Count > 0)
+        {
+            return OperationResult<BrandStyleGuideVersionComparisonServiceModel>.Failure(OperationError.Validation(
+                BrandErrorCodes.GuideVersionNotFound, "Those versions could not be compared.", missing));
+        }
+
+        var from = read.From!;
+
+        // Equal numbers read the one version as both sides rather than as a missing one: comparing a version
+        // with itself is a legitimate question whose answer is "nothing changed".
+        var to = read.To ?? from;
+
+        return OperationResult<BrandStyleGuideVersionComparisonServiceModel>.Success(
+            new BrandStyleGuideVersionComparisonServiceModel
+            {
+                From = Side(from),
+                To = Side(to),
+                Comparison = BrandStyleGuideComparer.Compare(Input(from), Input(to)),
+            });
+    }
+
+    private static BrandStyleGuideComparisonSideServiceModel Side(BrandStyleGuideComparisonVersionRead read) => new(
+        read.Version.Id,
+        read.Version.VersionNumber,
+        read.IsApproved ? BrandStyleGuideVersionStatus.Approved : BrandStyleGuideVersionStatus.Draft,
+        read.Version.CreatedAt);
+
+    /// <summary>
+    /// Turns one stored version into the values the comparer works on.
+    /// </summary>
+    /// <remarks>
+    /// The empty channel key becomes null here, exactly as the single-guide read does, so the two routes
+    /// describe the same section the same way. Translation between stored and application shapes is
+    /// Business's job; the comparer never sees an entity.
+    /// </remarks>
+    private static BrandStyleGuideComparisonInput Input(BrandStyleGuideComparisonVersionRead read) => new(
+        [
+            .. read.Version.Sections.Select(section => new BrandStyleGuideSectionServiceModel(
+                section.SectionKey,
+                section.ChannelKey.Length == 0 ? null : section.ChannelKey,
+                section.Body)),
+        ],
+        [
+            .. read.Version.Rules.Select(rule => new BrandStyleGuideComparisonRuleInput(
+                rule.Kind, rule.Text, rule.SortOrder)),
+        ],
+        [
+            .. read.Citations.Select(citation => new BrandStyleGuideSourceServiceModel(
+                citation.DocumentId, citation.VersionNumber)),
+        ]);
 
     private static BrandStyleGuideVersionDetailServiceModel Map(
         BrandStyleGuideVersionRead read, BrandStyleGuideActivationServiceModel? activation) => new(
@@ -204,6 +367,173 @@ internal sealed class BrandStyleGuideBusiness(
                 [.. draft.Sources.Select(source => new BrandStyleGuideSourceServiceModel(
                     source.DocumentId!.Value, source.VersionNumber!.Value))])));
     }
+
+    public async Task<OperationResult<BrandStyleGuideActivationResultServiceModel>> ActivateVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        Guid? expectedActiveVersionId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        if (await dataLayer.ReadForActivationAsync(guideId, versionNumber, cancellationToken) is not { } read)
+        {
+            // Answered identically to a guide that was never created (tenancy.md).
+            return Refuse(new OperationError(
+                BrandErrorCodes.GuideNotFound,
+                "There is no such brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (read.Version is not { } version)
+        {
+            // The guide is already known to be readable, so naming the route's segment discloses nothing.
+            return Refuse(OperationError.Validation(
+                BrandErrorCodes.GuideVersionNotFound,
+                "There is no such version of this brand style guide.",
+                [("versionNumber", $"This guide has no version {versionNumber}.")]));
+        }
+
+        // Eligibility first, and in this order, because each of these is a fact about the version the caller
+        // named rather than about the state of the workspace: none of them reads differently after a re-read.
+        if (read.Guide.Status is BrandStyleGuideStatus.Archived)
+        {
+            return Refuse(new OperationError(
+                BrandErrorCodes.GuideArchivedConflict,
+                "This brand style guide is archived, so it cannot be the workspace default. Restore it first.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (!read.IsApproved)
+        {
+            return Refuse(new OperationError(
+                BrandErrorCodes.GuideVersionUnapprovedConflict,
+                "This version has not been approved, so it cannot be the workspace default.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (read.StaleSourceCount > 0)
+        {
+            return Refuse(new OperationError(
+                BrandErrorCodes.GuideVersionStaleConflict,
+                "This version cites source documents that have been replaced since it was written, so it cannot "
+                    + "be the workspace default. Write a new version from the current sources.",
+                new Dictionary<string, string[]>(),
+
+                // The count, so a client can say how much is stale without listing the history again. A
+                // figure about this workspace's own guide, citing this workspace's own documents.
+                new Dictionary<string, object?> { ["staleSourceCount"] = read.StaleSourceCount }));
+        }
+
+        if (version.Sections.Count == 0 && version.Rules.Count == 0)
+        {
+            return Refuse(new OperationError(
+                BrandErrorCodes.GuideVersionEmptyConflict,
+                "This version has nothing in it yet, so it cannot be the workspace default.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // Last, and immediately before the write: the one check that is about the world rather than about
+        // what was asked for. Null expected means "this workspace has no default", which is a claim like any
+        // other and is true only when there is no row.
+        if (read.CurrentDefault?.VersionId != expectedActiveVersionId)
+        {
+            return Refuse(ActivationConflict(read.CurrentDefault));
+        }
+
+        // Already the default, so there is nothing to change. Reported as a success that wrote nothing rather
+        // than as a conflict: the caller asked for a state the workspace is already in.
+        if (read.CurrentDefault is { } unchanged && unchanged.VersionId == version.Id)
+        {
+            return OperationResult<BrandStyleGuideActivationResultServiceModel>.Success(
+                new BrandStyleGuideActivationResultServiceModel(
+                    read.Guide.Id,
+                    version.Id,
+                    version.VersionNumber,
+                    unchanged.ActivatedAt,
+                    unchanged.ActivatedByMembershipId,
+                    unchanged.Reason,
+                    AlreadyActive: true,
+                    Replaced: null));
+        }
+
+        var previous = read.CurrentDefault;
+        var now = clock.UtcNow;
+        var membershipId = workspace.MembershipId;
+
+        // Ids and version numbers only. The activator's own words stay on the activation row, because an
+        // audit summary has to be safe to display and creator free text is not something this seam can
+        // promise that of.
+        var audit = new AuditEntry(
+            userId,
+            BrandAuditActions.StyleGuideActivated,
+            BrandAuditActions.StyleGuideResourceType,
+            read.Guide.Id.ToString("D"),
+            CorrelationId(),
+            previous is null
+                ? $"Made version {version.VersionNumber} the workspace's default brand style guide. The workspace had none."
+                : $"Made version {version.VersionNumber} the workspace's default brand style guide, replacing version "
+                    + $"{previous.VersionNumber} of {(previous.GuideId == read.Guide.Id ? "the same guide" : "another guide")}.",
+            previous is null ? null : Pointer(previous.GuideId, previous.VersionNumber),
+            Pointer(read.Guide.Id, version.VersionNumber));
+
+        // The default as it was read above, so the write path is chosen against the same picture every
+        // decision in this activation was made against rather than against a second, later read.
+        var write = await dataLayer.ActivateAsync(
+            previous, version.Id, reason, membershipId, now, audit, cancellationToken);
+
+        if (write is BrandStyleGuideActivationWrite.Conflict)
+        {
+            // Another activation committed between the read and the save. Re-read rather than report the
+            // picture that just lost, so the refusal names what actually holds the default now.
+            return Refuse(ActivationConflict(await dataLayer.ReadWorkspaceDefaultAsync(cancellationToken)));
+        }
+
+        return OperationResult<BrandStyleGuideActivationResultServiceModel>.Success(
+            new BrandStyleGuideActivationResultServiceModel(
+                read.Guide.Id,
+                version.Id,
+                version.VersionNumber,
+                now,
+                membershipId,
+                reason,
+                AlreadyActive: false,
+                previous is null
+                    ? null
+                    : new BrandStyleGuideActivatedVersionServiceModel(
+                        previous.GuideId, previous.VersionId, previous.VersionNumber)));
+    }
+
+    /// <summary>A guide version as an audit reference: the guide, because the default may move between them.</summary>
+    private static string Pointer(Guid guideId, int versionNumber) =>
+        $"{guideId:N}:{versionNumber}";
+
+    /// <summary>
+    /// The one refusal in this module that names the state the caller got wrong.
+    /// </summary>
+    /// <remarks>
+    /// Every value is this workspace's own and already reachable: a member can find the active version by
+    /// listing each guide's history and reading <c>isActive</c>. What the extensions buy is the case the
+    /// listing is awkward for — a default held by a guide other than the one being activated — where a caller
+    /// told only "re-read" has nowhere in this route's namespace to read it from.
+    /// </remarks>
+    private static OperationError ActivationConflict(BrandStyleGuideWorkspaceDefault? current) => new(
+        BrandErrorCodes.GuideActivationConflict,
+        "This workspace's active brand style guide version is not the one this request expected. Read it again "
+            + "and confirm from there.",
+        new Dictionary<string, string[]>
+        {
+            ["expectedActiveVersionId"] = ["This is not the version this workspace is currently using."],
+        },
+        new Dictionary<string, object?>
+        {
+            ["activeGuideId"] = current?.GuideId,
+            ["activeVersionId"] = current?.VersionId,
+            ["activeVersionNumber"] = current?.VersionNumber,
+        });
+
+    private static OperationResult<BrandStyleGuideActivationResultServiceModel> Refuse(OperationError error) =>
+        OperationResult<BrandStyleGuideActivationResultServiceModel>.Failure(error);
 
     private static Guid CorrelationId()
     {

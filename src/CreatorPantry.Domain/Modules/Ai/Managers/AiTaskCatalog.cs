@@ -65,6 +65,9 @@ public static class AiTaskCatalog
     /// <summary>RCPUB-002: the SEO package for one approved recipe version.</summary>
     public const string SeoPackage = "content.seo-package";
 
+    /// <summary>11A.17: the brand-guide analysis for one of the workspace's own style guides.</summary>
+    public const string BrandGuideProposal = "brand.guide-proposal";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -77,6 +80,7 @@ public static class AiTaskCatalog
         [ProposalExplanation] = AiTaskType.ProposalExplanation,
         [EditorialPackage] = AiTaskType.EditorialPackage,
         [SeoPackage] = AiTaskType.SeoPackage,
+        [BrandGuideProposal] = AiTaskType.BrandGuideProposal,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -137,12 +141,19 @@ public static class AiTaskCatalog
     /// through <c>TaskInputsJson</c> exactly as an adaptation's goal does. Its own route exists so that field has
     /// somewhere to go; this route has nowhere to put it.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.BrandGuideProposal"/> needs the carve-out for all three reasons at once, which no
+    /// earlier task does. It names capability-specific fields — the guide and the selected source versions —
+    /// that have nowhere to travel on the generic contract; its scope must be fixed server-side to
+    /// <see cref="AiOperationScope.NotApplicable"/>; and it names no recipe at all, so the recipe-nested route
+    /// would stamp a <c>RecipeId</c> onto a row whose whole subject is a brand guide.
+    /// </para>
     /// </remarks>
     public static bool RequiresTaskInputs(AiTaskType task) =>
         task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
             or AiTaskType.ProposalExplanation or AiTaskType.RecipeConcepts or AiTaskType.RecipeFirstDraft
             or AiTaskType.RecipeRevision or AiTaskType.EditorialPackage
-            or AiTaskType.SeoPackage;
+            or AiTaskType.SeoPackage or AiTaskType.BrandGuideProposal;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

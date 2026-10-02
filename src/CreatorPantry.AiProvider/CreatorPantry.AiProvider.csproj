@@ -19,7 +19,7 @@
       Preview because Aspire has not shipped a stable AI client integration for 13.5.4; it is the same build
       as the stable 13.5.4 hosting packages the AppHost pins.
     -->
-    <PackageReference Include="Aspire.Azure.AI.Inference" Version="13.5.4-preview.1.26464.4" />
+    <PackageReference Include="Aspire.Azure.AI.Inference" Version="13.6.0-preview.1.26479.8" />
   </ItemGroup>
 
   <ItemGroup>

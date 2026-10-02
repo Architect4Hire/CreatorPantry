@@ -111,6 +111,20 @@ public enum AiEvaluationKind
     /// title becomes, and that the model is never the source of one.
     /// </summary>
     SeoSlugDerivation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiBrandGuideOutputValidator.Validate"/> against a
+    /// declared request context, and then
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiBrandGuideClaimScanner"/>, for 11A.17's own document.
+    /// </summary>
+    /// <remarks>
+    /// A fixture declares what the request offered — the dimensions, the channel keys, and the passages with
+    /// their ids and text — so "a citation naming a passage nobody supplied is refused" and "an answer that
+    /// reproduces a passage is refused" are shown against the real validator rather than asserted in prose. It
+    /// may also declare the scanner codes the answer must produce, which is how the sparse-evidence and
+    /// person-reference findings are demonstrated.
+    /// </remarks>
+    BrandGuideOutputValidation,
 }
 
 /// <summary>

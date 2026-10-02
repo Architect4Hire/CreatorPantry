@@ -62,4 +62,18 @@ public static class BrandAuditActions
 
     /// <summary>A brand style guide and its first version were created.</summary>
     public const string StyleGuideCreated = "brand.guide.created";
+
+    /// <summary>
+    /// One approved guide version became the workspace's default.
+    /// </summary>
+    /// <remarks>
+    /// The workspace's brand-voice decision, so it is audited for the reason auth.md gives for automation
+    /// approval: it changes what every later generation is grounded on, and the record of who changed it has
+    /// to outlive the row, which only holds the latest activation. The before and after references are the
+    /// version moved off and the version moved to, each as <c>{guideId:N}:{versionNumber}</c> — the guide
+    /// travels with the number because the default may move between guides, and a number alone would be
+    /// ambiguous. Ids and numbers only: the activator's stated reason stays on the activation row, because an
+    /// audit summary is not where free text about a private guide belongs.
+    /// </remarks>
+    public const string StyleGuideActivated = "brand.guide.activated";
 }

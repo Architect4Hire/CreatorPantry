@@ -1,0 +1,17 @@
+{
+  "id": "brand.guide-proposal.a-copied-passage-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandGuideOutputValidation",
+  "description": "Guidance describes how the creator writes; it does not reproduce what they wrote. A body carrying a long verbatim run of a cited passage is refused, not truncated -- and the measure compares words with punctuation and case folded away, so reformatting the quotation does not get past it.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"WE WRITE LIKE A FRIEND WHO HAPPENS TO COOK, AND WE NEVER TALK DOWN TO ANYONE, EVER!\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"11111111-1111-1111-1111-111111111111\"}]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "we write like a friend who happens to cook and we never talk down to anyone ever" }]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.brand_guide_passage_copied",
+    "category": "DomainInvalid"
+  }
+}

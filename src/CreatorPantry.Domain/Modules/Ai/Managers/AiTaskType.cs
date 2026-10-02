@@ -142,4 +142,34 @@ public enum AiTaskType
     /// <see cref="AiChangeTargetKind.ContentSection"/>, which has no path to a recipe edit.
     /// </summary>
     SeoPackage = 10,
+
+    /// <summary>
+    /// 11A.17: proposes structured brand-guide guidance — voice, tone, tenor, style, language, channel, blog,
+    /// social and visual direction — from the creator's own guide answers and the source document versions they
+    /// selected, with a citation behind every claim and its uncertainties stated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The first task that names neither a recipe nor anything derived from one.</strong> Its subject is
+    /// a <c>BrandStyleGuide</c>, so <c>RecipeId</c> and <c>RecipeVersionId</c> are both null and the scope is
+    /// <see cref="AiOperationScope.NotApplicable"/> — the reading <see cref="RecipeConcepts"/> uses, not
+    /// <see cref="AiOperationScope.Advisory"/>, whose own remarks require a recipe and a pinned version to be
+    /// present.
+    /// </para>
+    /// <para>
+    /// <strong>A proposal, never an active guide.</strong> <see cref="AiChangeTargetKind.BrandGuideSection"/> is
+    /// absent from <see cref="AiChangeApplicability"/> and answers <c>null</c> in
+    /// <see cref="AiChangeTargetPolicy"/>, so no stored row can become a guide edit; a guide version is
+    /// immutable and nothing in the brand module reads an <c>AiStructuredChange</c>; and becoming the
+    /// workspace's default additionally needs an approval and an Owner. The creator reads the proposal, writes
+    /// their own version from what they agree with, and approves and activates that.
+    /// </para>
+    /// <para>
+    /// <strong>Every claim is cited or it is not stored.</strong> Grounding is the passages of the selected
+    /// versions' current chunk sets, read through the brand module's facade; the validator refuses a citation
+    /// naming a passage this request did not offer, and the handler refuses an answer that copies a long run of
+    /// one. Thin and contradictory evidence are stated by the server rather than left to the model to mention.
+    /// </para>
+    /// </remarks>
+    BrandGuideProposal = 11,
 }

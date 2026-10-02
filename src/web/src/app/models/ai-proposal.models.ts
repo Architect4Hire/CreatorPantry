@@ -97,7 +97,9 @@ export type AiTaskType =
   /** RCPUB-001's editorial package for one approved recipe version. Reads a recipe; changes nothing in it. */
   | 'EditorialPackage'
   /** RCPUB-002's SEO package for one approved recipe version. Reads a recipe; changes nothing in it. */
-  | 'SeoPackage';
+  | 'SeoPackage'
+  /** 11A.17's brand guide proposal. Reads a style guide and source documents; changes neither. */
+  | 'BrandGuideProposal';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -112,6 +114,7 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'ProposalExplanation',
   'EditorialPackage',
   'SeoPackage',
+  'BrandGuideProposal',
 ]);
 
 /**
@@ -157,6 +160,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And SEO packages through recipe/{id}/seo-package-requests, for the same reason: the route fixes the Advisory
   // scope, and asking again needs the requested sections, which this generic route cannot carry.
   SeoPackage: null,
+  // And brand guide proposals through brand-guide-proposal-requests, which is not nested under a recipe at all:
+  // this task names a style guide, so there is no recipe segment for this generic route to supply.
+  BrandGuideProposal: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -257,7 +263,9 @@ export type AiChangeTargetKind =
   /** AIREC-008's explanation items. Like `RecipeReviewFinding`, never an edit — not even to the proposal it explains. */
   | 'ProposalExplanationItem'
   /** RCPUB-001's editorial package sections. Never an edit to the recipe: content a creator accepts separately. */
-  | 'ContentSection';
+  | 'ContentSection'
+  /** 11A.17's brand guide proposal items. Never an edit to the guide: the creator writes their own version. */
+  | 'BrandGuideSection';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -274,6 +282,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'RecipeReviewFinding',
   'ProposalExplanationItem',
   'ContentSection',
+  'BrandGuideSection',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

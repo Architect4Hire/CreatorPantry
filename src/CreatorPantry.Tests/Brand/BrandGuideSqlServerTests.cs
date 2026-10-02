@@ -125,6 +125,28 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         return new Seeded(document.Id, source.Id, guide.Id, draft.Id, approved.Id);
     }
 
+    /// <summary>
+    /// Adds a second version to a document, as a replacement does, which supersedes every citation of
+    /// version 1 without touching the version-1 row or the citations themselves.
+    /// </summary>
+    private async Task SupersedeAsync(Guid workspaceId, Guid documentId)
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        await using var scope = ScopeFor(workspaceId);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.BrandSourceDocumentVersions.Add(new BrandSourceDocumentVersion
+        {
+            Id = Guid.NewGuid(), BrandSourceDocumentId = documentId, VersionNumber = 2, MediaType = "application/pdf",
+            SizeBytes = 2048, ContentChecksum = "sha256:" + new string('4', 64), OriginalFileName = "house-style-v2.pdf",
+            ObjectKey = $"brand-sources/{documentId:N}/2", CreatedByMembershipId = Guid.NewGuid(), CreatedAt = Now,
+        });
+
+        var document = await db.BrandSourceDocuments.SingleAsync(row => row.Id == documentId, cancellation);
+        document.CurrentVersionNumber = 2;
+        await db.SaveChangesAsync(cancellation);
+    }
+
     private static async Task<int> RowCountAsync(CreatorPantryDbContext db, CancellationToken cancellation) =>
         await db.BrandSourceDocuments.CountAsync(cancellation)
         + await db.BrandSourceDocumentVersions.CountAsync(cancellation)
@@ -186,6 +208,62 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<Exception>(() => db.Database.ExecuteSqlAsync($"DELETE FROM BrandStyleGuideApprovals WHERE BrandStyleGuideVersionId = {seeded.ApprovedVersionId}", cancellation));
 
         Assert.Equal(14, await RowCountAsync(db, cancellation));
+    }
+
+    /// <summary>
+    /// What the activation route's conflict rests on, and the one thing SQLite cannot show: the server bumps
+    /// <c>BrandStyleGuideDefaults.RowVersion</c> on update, so of two activations composed against the same
+    /// read exactly one commits.
+    /// </summary>
+    /// <remarks>
+    /// Under SQLite the column gets a value on insert and nothing changes it afterwards, so the losing save
+    /// would succeed there and the endpoint tests cover the expectation check instead. This is the mechanism
+    /// behind <c>BrandStyleGuideDataLayer.ActivateAsync</c>'s concurrency branch.
+    /// </remarks>
+    [Fact]
+    public async Task Two_activations_composed_against_one_read_resolve_to_a_single_winner()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var seeded = await SeedEverythingAsync(WorkspaceA);
+
+        // Version 2 needs an approval before it can legally hold the default at all.
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.BrandStyleGuideApprovals.Add(new BrandStyleGuideApproval
+            {
+                WorkspaceId = WorkspaceA,
+                BrandStyleGuideVersionId = seeded.DraftVersionId,
+                ApprovedByMembershipId = Guid.NewGuid(),
+                ApprovedAt = Now,
+            });
+            await db.SaveChangesAsync(cancellation);
+        }
+
+        await using var firstScope = ScopeFor(WorkspaceA);
+        await using var secondScope = ScopeFor(WorkspaceA);
+        var first = firstScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var second = secondScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        // Both read the same row version, as two activators reading the same guide would.
+        var firstRow = await first.BrandStyleGuideDefaults.SingleAsync(cancellation);
+        var secondRow = await second.BrandStyleGuideDefaults.SingleAsync(cancellation);
+
+        firstRow.BrandStyleGuideVersionId = seeded.DraftVersionId;
+        firstRow.ActivatedAt = Now.AddMinutes(1);
+        await first.SaveChangesAsync(cancellation);
+
+        secondRow.Reason = "Mine instead";
+        secondRow.ActivatedAt = Now.AddMinutes(2);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync(cancellation));
+
+        // The winner's activation stands whole: the loser wrote neither its version nor its reason.
+        await using var after = ScopeFor(WorkspaceA);
+        var stored = await after.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .BrandStyleGuideDefaults.AsNoTracking().SingleAsync(cancellation);
+        Assert.Equal(seeded.DraftVersionId, stored.BrandStyleGuideVersionId);
+        Assert.Null(stored.Reason);
     }
 
     [Fact]
@@ -317,5 +395,61 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         var tagNames = await repository.TagNamesAsync([.. walked], cancellation);
         Assert.InRange(tagNames.Count, 2, 3);
         Assert.Equal(2, tagNames.Values.Count(names => names.SequenceEqual(["Seasonal"])));
+    }
+
+    [Fact]
+    public async Task The_version_history_query_runs_on_sql_server_with_its_counts_and_markers()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var seeded = await SeedEverythingAsync(WorkspaceA);
+        var inB = await SeedEverythingAsync(WorkspaceB);
+
+        // Both workspaces replace their cited document, so each one's version 1 now has exactly one stale
+        // citation. Superseding only A's would have made the cross-workspace assertion below unfailable:
+        // B's row would have been absent for having nothing stale rather than for being B's.
+        await SupersedeAsync(WorkspaceA, seeded.DocumentId);
+        await SupersedeAsync(WorkspaceB, inB.DocumentId);
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var repository = new CreatorPantry.Domain.Modules.Brand.Data.BrandStyleGuideRepository(db);
+
+        var first = await repository.ListVersionsAsync(
+            new BrandStyleGuideVersionListCriteria(seeded.GuideId, "scope", RequestedLimit: 1), cancellation);
+        var second = await repository.ListVersionsAsync(
+            new BrandStyleGuideVersionListCriteria(
+                seeded.GuideId, "scope", new BrandStyleGuideVersionListPosition(first.Rows[^1].VersionNumber), RequestedLimit: 1),
+            cancellation);
+
+        // Newest first, one page at a time, and the keyset resumes without repeating.
+        Assert.True(first.HasMore);
+        Assert.False(second.HasMore);
+        Assert.Equal(seeded.DraftVersionId, Assert.Single(first.Rows).Id);
+        Assert.Equal(seeded.ApprovedVersionId, Assert.Single(second.Rows).Id);
+
+        // The draft cites nothing and is not the default; version 1 is approved and is what the workspace
+        // writes with.
+        Assert.False(first.Rows[0].IsApproved);
+        Assert.False(first.Rows[0].IsActive);
+        Assert.Equal(0, first.Rows[0].SourceCount);
+        Assert.True(second.Rows[0].IsApproved);
+        Assert.True(second.Rows[0].IsActive);
+        Assert.Equal(1, second.Rows[0].SourceCount);
+
+        var stale = await repository.StaleSourceCountsAsync(
+            [seeded.ApprovedVersionId, seeded.DraftVersionId, inB.ApprovedVersionId], cancellation);
+
+        // Keyed only where there is something stale: A's version 1 has one superseded citation, A's draft
+        // cites nothing, and B's version 1 has a superseded citation of its own that the filter must keep
+        // out — without it this would be two entries, not one.
+        Assert.Equal(1, Assert.Single(stale).Value);
+        Assert.Equal(seeded.ApprovedVersionId, stale.Keys.Single());
+
+        // Nothing of B's is reachable from a scope resolved to A.
+        Assert.True(await repository.GuideExistsAsync(seeded.GuideId, cancellation));
+        Assert.False(await repository.GuideExistsAsync(inB.GuideId, cancellation));
+        var acrossB = await repository.ListVersionsAsync(
+            new BrandStyleGuideVersionListCriteria(inB.GuideId, "scope"), cancellation);
+        Assert.Empty(acrossB.Rows);
     }
 }

@@ -144,4 +144,69 @@ public static class BrandErrorCodes
     /// learn that a guide exists somewhere the caller cannot see it (tenancy.md).
     /// </remarks>
     public const string GuideNotFound = "brand.guide.not_found";
+
+    /// <summary>
+    /// The guide exists, but does not have a version number the request named. Maps to 404.
+    /// </summary>
+    /// <remarks>
+    /// Worth telling apart from <see cref="GuideNotFound"/> only because it names the parameter at fault in
+    /// <c>errors</c> — a caller who mistyped <c>from</c> is told which side was wrong, and one who mistyped
+    /// both is told both rather than being sent round the loop twice. It discloses nothing: the guide is
+    /// already known to be readable before any version number is looked up.
+    /// </remarks>
+    public const string GuideVersionNotFound = "brand.guide.version.not_found";
+
+    /// <summary>
+    /// The guide is archived, so none of its versions can be made the workspace default. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// Not a 404 — an archived guide reads normally, lists normally and compares normally; archiving is a
+    /// shelf, not a deletion. What it cannot do is govern the workspace's writing, and the remedy is one a
+    /// client can act on: restore the guide, then activate it.
+    /// </remarks>
+    public const string GuideArchivedConflict = "brand.guide.archived.conflict";
+
+    /// <summary>
+    /// The version has no approval, so it cannot be the workspace default. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// A draft is a version nobody has signed off, and the schema agrees: the default's foreign key targets
+    /// <c>BrandStyleGuideApprovals</c>, so the database refuses the row even if this check were bypassed.
+    /// Refused rather than approved on the way past, because approving and activating are two decisions and
+    /// conflating them would let one request make both without saying so.
+    /// </remarks>
+    public const string GuideVersionUnapprovedConflict = "brand.guide.version.unapproved.conflict";
+
+    /// <summary>
+    /// The version cites a source document version that document has since superseded. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// The same staleness the version history publishes as <c>staleSourceCount</c>, and the count travels in
+    /// the refusal's extensions so a client can say how much is stale without listing the history again. The
+    /// remedy is a new version citing the sources as they now stand; there is deliberately no override flag,
+    /// because an override is a policy decision rather than a field on a request.
+    /// </remarks>
+    public const string GuideVersionStaleConflict = "brand.guide.version.stale.conflict";
+
+    /// <summary>
+    /// The version has no sections and no rules, so there is nothing for it to govern. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// Reachable because creation requires only a display name: a guide may legitimately exist as a name while
+    /// its creator is still filling it in. What that version cannot be is the thing every later generation is
+    /// grounded on, which would amount to grounding them on nothing.
+    /// </remarks>
+    public const string GuideVersionEmptyConflict = "brand.guide.version.empty.conflict";
+
+    /// <summary>
+    /// The workspace's active version is not the one the request expected. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// Unlike this module's other conflicts, this one <strong>names what is actually active</strong>:
+    /// <c>activeGuideId</c>, <c>activeVersionId</c> and <c>activeVersionNumber</c> in the problem's
+    /// extensions, each explicitly null when the workspace has no default. It discloses nothing a caller could
+    /// not already assemble by listing each guide's versions and reading <c>isActive</c>, and without it a
+    /// caller whose default lives in another guide has no route to the value this precondition requires.
+    /// </remarks>
+    public const string GuideActivationConflict = "brand.guide.activation.conflict";
 }

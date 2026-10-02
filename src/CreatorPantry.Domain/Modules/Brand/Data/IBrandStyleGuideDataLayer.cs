@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Managers;
+using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.Domain.Modules.Brand.Data;
 
@@ -20,6 +21,83 @@ public sealed record BrandStyleGuideRead(
     DateTimeOffset? ActivatedAt,
     string? ActivationReason);
 
+/// <summary>
+/// One page of a guide's version history, with the stale-citation counts read for the page's own rows.
+/// </summary>
+/// <param name="StaleSourceCounts">
+/// Keyed by guide version id, and holding only the versions that have a stale citation. A version absent from
+/// it has none.
+/// </param>
+public sealed record BrandStyleGuideVersionListPage(
+    IReadOnlyList<BrandStyleGuideVersionSummaryRecord> Rows,
+    bool HasMore,
+    IReadOnlyDictionary<Guid, int> StaleSourceCounts);
+
+/// <summary>One side of a comparison as stored: the version, whether it is approved, and what it cites.</summary>
+/// <remarks>
+/// Narrower than <see cref="BrandStyleGuideVersionRead"/>, which also resolves the parent version's number —
+/// a second query per version that a comparison has no reading for.
+/// </remarks>
+public sealed record BrandStyleGuideComparisonVersionRead(
+    BrandStyleGuideVersion Version,
+    bool IsApproved,
+    IReadOnlyList<(Guid DocumentId, int VersionNumber)> Citations);
+
+/// <summary>
+/// Whichever of the two requested versions the guide actually has. Either side is null when the guide has no
+/// version of that number; the guide itself is known to exist by the time this is returned.
+/// </summary>
+public sealed record BrandStyleGuideComparisonRead(
+    BrandStyleGuideComparisonVersionRead? From,
+    BrandStyleGuideComparisonVersionRead? To);
+
+/// <summary>
+/// The workspace's one stored activation decision, whichever guide holds it.
+/// </summary>
+/// <remarks>
+/// Not guide-scoped, unlike the <c>Active</c> side of <see cref="BrandStyleGuideRead"/>: an activation has to
+/// compare against the default — and report what it replaced — even when that default belongs to a different
+/// guide than the one in the route, which is the question a guide-scoped read cannot answer.
+/// </remarks>
+public sealed record BrandStyleGuideWorkspaceDefault(
+    Guid GuideId,
+    Guid VersionId,
+    int VersionNumber,
+    DateTimeOffset ActivatedAt,
+    Guid ActivatedByMembershipId,
+    string? Reason);
+
+/// <summary>
+/// Everything an activation has to decide on, read before anything is written.
+/// </summary>
+/// <param name="Version">
+/// The named version with its sections and rules, or null when the guide has no version of that number. The
+/// guide itself is known to exist by the time this is returned.
+/// </param>
+/// <param name="IsApproved">Whether an approval row exists for the version. A draft has none.</param>
+/// <param name="StaleSourceCount">
+/// How many of the version's citations name a source document version the document has since superseded.
+/// </param>
+/// <param name="CurrentDefault">The workspace's default as it stands, or null when it has none.</param>
+public sealed record BrandStyleGuideActivationRead(
+    BrandStyleGuide Guide,
+    BrandStyleGuideVersion? Version,
+    bool IsApproved,
+    int StaleSourceCount,
+    BrandStyleGuideWorkspaceDefault? CurrentDefault);
+
+/// <summary>Why an activation was not written. <see cref="None"/> means it was.</summary>
+public enum BrandStyleGuideActivationWrite
+{
+    None = 0,
+
+    /// <summary>
+    /// The default row moved between the read and the save. The caller is told the same thing a mismatched
+    /// expectation is told: re-read and decide again.
+    /// </summary>
+    Conflict = 1,
+}
+
 public interface IBrandStyleGuideDataLayer
 {
     /// <summary>
@@ -27,6 +105,31 @@ public interface IBrandStyleGuideDataLayer
     /// workspace's guide looks like.
     /// </summary>
     Task<BrandStyleGuideRead?> ReadAsync(Guid guideId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IBrandStyleGuideRepository.GuideExistsAsync"/>
+    Task<bool> GuideExistsAsync(Guid guideId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the two versions a comparison needs, with their sections, rules, citations and approval state.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when the resolved workspace has no such guide — which is also what another workspace's
+    /// guide looks like. Otherwise the read, with either side null if the guide lacks that version number.
+    /// </returns>
+    /// <remarks>
+    /// The guide's existence is settled before any version number is looked up, so "no such guide" and "no
+    /// such version" stay two separate answers, and the second one can name a parameter without disclosing
+    /// anything: by then the guide is known to be readable.
+    /// </remarks>
+    Task<BrandStyleGuideComparisonRead?> ReadForComparisonAsync(
+        Guid guideId, int fromVersionNumber, int toVersionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One page of a guide's version history: the projected rows, whether another page follows, and the
+    /// stale-citation count for each row that has one.
+    /// </summary>
+    Task<BrandStyleGuideVersionListPage> ListVersionsAsync(
+        BrandStyleGuideVersionListCriteria criteria, CancellationToken cancellationToken);
 
     /// <summary>
     /// Resolves each cited (document, version number) to the exact version id in the resolved workspace.
@@ -41,6 +144,66 @@ public interface IBrandStyleGuideDataLayer
     /// </summary>
     Task CreateAsync(
         BrandStyleGuide guide, BrandStyleGuideVersion version, AuditEntry audit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the guide, the named version and the workspace's current default: everything an activation
+    /// decides on.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when the resolved workspace has no such guide — which is also what another workspace's
+    /// guide looks like.
+    /// </returns>
+    Task<BrandStyleGuideActivationRead?> ReadForActivationAsync(
+        Guid guideId, int versionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The workspace's current default on its own, for reporting a save that lost a race. Null when the
+    /// workspace has none.
+    /// </summary>
+    Task<BrandStyleGuideWorkspaceDefault?> ReadWorkspaceDefaultAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Repoints the workspace default at <paramref name="versionId"/> and records the audit entry, in one
+    /// save.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The transaction boundary for an activation. The default row and the audit entry commit together or
+    /// neither does, and so does the idempotency record the facade's executor staged on this same
+    /// <c>DbContext</c> — which is what stops a replay from returning a response for a write that rolled back.
+    /// </para>
+    /// <para>
+    /// Three of the guarantees here are the schema's rather than this method's, and hold even if Business's
+    /// checks were bypassed: the foreign key targets <c>BrandStyleGuideApprovals</c>, so an unapproved version
+    /// cannot be stored as the default; <c>WorkspaceId</c> is the whole primary key, so a second default
+    /// cannot exist as a rival; and <c>RowVersion</c> decides which of two simultaneous activations wins.
+    /// </para>
+    /// <para>
+    /// <strong>The two paths lose differently.</strong> An update carries <c>RowVersion</c> in its
+    /// <c>WHERE</c> clause, so its loser arrives as a <c>DbUpdateConcurrencyException</c>. An insert has no
+    /// row version to check — the guard is the primary key — so its loser arrives as an ordinary
+    /// <c>DbUpdateException</c>, indistinguishable by type from a schema refusal. Both are reported as the
+    /// same conflict, and the insert path tells them apart by looking: a default that exists now is one
+    /// another activation wrote.
+    /// </para>
+    /// </remarks>
+    /// <param name="current">
+    /// The default as Business read it, which decides whether this writes an insert or an update. Passed down
+    /// rather than read again here so the choice is made once, against the same read every other decision in
+    /// this activation was made against.
+    /// </param>
+    /// <returns>
+    /// <see cref="BrandStyleGuideActivationWrite.None"/> on success, or
+    /// <see cref="BrandStyleGuideActivationWrite.Conflict"/> when the default moved under the save.
+    /// </returns>
+    Task<BrandStyleGuideActivationWrite> ActivateAsync(
+        BrandStyleGuideWorkspaceDefault? current,
+        Guid versionId,
+        string? reason,
+        Guid membershipId,
+        DateTimeOffset now,
+        AuditEntry audit,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class BrandStyleGuideDataLayer(
@@ -81,6 +244,56 @@ internal sealed class BrandStyleGuideDataLayer(
             activeRecord?.ActivationReason);
     }
 
+    public Task<bool> GuideExistsAsync(Guid guideId, CancellationToken cancellationToken) =>
+        guides.GuideExistsAsync(guideId, cancellationToken);
+
+    public async Task<BrandStyleGuideComparisonRead?> ReadForComparisonAsync(
+        Guid guideId, int fromVersionNumber, int toVersionNumber, CancellationToken cancellationToken)
+    {
+        if (!await guides.GuideExistsAsync(guideId, cancellationToken))
+        {
+            return null;
+        }
+
+        var sameVersion = fromVersionNumber == toVersionNumber;
+        var numbers = sameVersion ? new[] { fromVersionNumber } : [fromVersionNumber, toVersionNumber];
+
+        var versions = await guides.FindVersionsByNumberAsync(guideId, numbers, cancellationToken);
+        var citations = await guides.FindCitationsAsync([.. versions.Select(version => version.Id)], cancellationToken);
+
+        async Task<BrandStyleGuideComparisonVersionRead> Attach(BrandStyleGuideVersion version) => new(
+            version,
+            await guides.FindApprovalAsync(version.Id, cancellationToken) is not null,
+            [.. citations.Where(citation => citation.GuideVersionId == version.Id)
+                .Select(citation => (citation.DocumentId, citation.VersionNumber))]);
+
+        var from = versions.FirstOrDefault(version => version.VersionNumber == fromVersionNumber);
+        var fromRead = from is null ? null : await Attach(from);
+
+        // One number was asked for twice, so the one row is both sides — read and attached once.
+        if (sameVersion)
+        {
+            return new BrandStyleGuideComparisonRead(fromRead, fromRead);
+        }
+
+        var to = versions.FirstOrDefault(version => version.VersionNumber == toVersionNumber);
+
+        return new BrandStyleGuideComparisonRead(fromRead, to is null ? null : await Attach(to));
+    }
+
+    public async Task<BrandStyleGuideVersionListPage> ListVersionsAsync(
+        BrandStyleGuideVersionListCriteria criteria, CancellationToken cancellationToken)
+    {
+        var (rows, hasMore) = await guides.ListVersionsAsync(criteria, cancellationToken);
+
+        // A second read for the page's own versions, at most a page of ids, rather than a three-table
+        // subquery per row. Skipped entirely when nothing on the page cites anything.
+        var staleSourceCounts = await guides.StaleSourceCountsAsync(
+            [.. rows.Where(row => row.SourceCount > 0).Select(row => row.Id)], cancellationToken);
+
+        return new BrandStyleGuideVersionListPage(rows, hasMore, staleSourceCounts);
+    }
+
     public async Task<IReadOnlyList<Guid?>> ResolveSourceVersionsAsync(
         IReadOnlyList<BrandStyleGuideSourceInput> sources, CancellationToken cancellationToken)
     {
@@ -117,5 +330,112 @@ internal sealed class BrandStyleGuideDataLayer(
             context.ChangeTracker.Clear();
             throw;
         }
+    }
+
+    public async Task<BrandStyleGuideActivationRead?> ReadForActivationAsync(
+        Guid guideId, int versionNumber, CancellationToken cancellationToken)
+    {
+        // The guide first, and on its own, so "no such guide" stays a different answer from "no such version"
+        // — and so an archived guide is recognised as archived rather than as absent.
+        if (await guides.FindGuideAsync(guideId, cancellationToken) is not { } guide)
+        {
+            return null;
+        }
+
+        // By number within the route's guide, which is what makes another guide's version unreachable here
+        // rather than merely refused.
+        var version = (await guides.FindVersionsByNumberAsync(guideId, [versionNumber], cancellationToken))
+            .FirstOrDefault();
+
+        var currentDefault = await guides.FindWorkspaceDefaultAsync(cancellationToken);
+
+        if (version is null)
+        {
+            return new BrandStyleGuideActivationRead(guide, null, IsApproved: false, StaleSourceCount: 0, currentDefault);
+        }
+
+        var staleSourceCounts = await guides.StaleSourceCountsAsync([version.Id], cancellationToken);
+
+        return new BrandStyleGuideActivationRead(
+            guide,
+            version,
+            await guides.FindApprovalAsync(version.Id, cancellationToken) is not null,
+            staleSourceCounts.TryGetValue(version.Id, out var stale) ? stale : 0,
+            currentDefault);
+    }
+
+    public Task<BrandStyleGuideWorkspaceDefault?> ReadWorkspaceDefaultAsync(CancellationToken cancellationToken) =>
+        guides.FindWorkspaceDefaultAsync(cancellationToken);
+
+    public async Task<BrandStyleGuideActivationWrite> ActivateAsync(
+        BrandStyleGuideWorkspaceDefault? current,
+        Guid versionId,
+        string? reason,
+        Guid membershipId,
+        DateTimeOffset now,
+        AuditEntry audit,
+        CancellationToken cancellationToken)
+    {
+        if (current is null)
+        {
+            // WorkspaceId is left to WorkspaceOwnershipInterceptor, as on every other workspace-owned insert:
+            // a server-stamped value cannot be the one a request supplied.
+            guides.AddDefault(new BrandStyleGuideDefault
+            {
+                BrandStyleGuideVersionId = versionId,
+                Reason = reason,
+                ActivatedByMembershipId = membershipId,
+                ActivatedAt = now,
+            });
+        }
+        else
+        {
+            // Tracked, unlike every read above: this row is read to be written, and its RowVersion becomes
+            // the UPDATE's WHERE clause.
+            if (await guides.TrackWorkspaceDefaultAsync(cancellationToken) is not { } tracked)
+            {
+                // Business read a default and there is none now, so something removed it under this request.
+                // Inserting instead would write a decision against a workspace state nobody has seen.
+                return BrandStyleGuideActivationWrite.Conflict;
+            }
+
+            tracked.BrandStyleGuideVersionId = versionId;
+            tracked.Reason = reason;
+            tracked.ActivatedByMembershipId = membershipId;
+            tracked.ActivatedAt = now;
+        }
+
+        auditWriter.Record(audit);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception)
+        {
+            // Nothing committed, and nothing may stay staged for the next save on this scope to commit.
+            context.ChangeTracker.Clear();
+
+            // The two paths lose differently. An update carries RowVersion in its WHERE clause, so its loser
+            // is a DbUpdateConcurrencyException. An insert has no row version to check — the guard is the
+            // primary key on WorkspaceId — so its loser is an ordinary DbUpdateException, which is also what a
+            // schema refusal looks like. Telling those apart by exception type is not possible, so ask the
+            // question that matters: is there a default now that this request did not write? If so, another
+            // activation wrote it, which is the same conflict a mismatched expectation reports.
+            if (exception is DbUpdateConcurrencyException
+                || (current is null && await guides.FindWorkspaceDefaultAsync(cancellationToken) is not null))
+            {
+                return BrandStyleGuideActivationWrite.Conflict;
+            }
+
+            throw;
+        }
+        catch
+        {
+            context.ChangeTracker.Clear();
+            throw;
+        }
+
+        return BrandStyleGuideActivationWrite.None;
     }
 }

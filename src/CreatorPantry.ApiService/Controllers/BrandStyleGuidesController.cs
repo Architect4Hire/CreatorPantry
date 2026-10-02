@@ -2,6 +2,7 @@ using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using Microsoft.AspNetCore.Authorization;
@@ -93,5 +94,196 @@ public sealed class BrandStyleGuidesController(IBrandStyleGuideFacade guides) : 
         var result = await guides.GetAsync(guideId, cancellationToken);
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Lists one brand style guide's versions, newest first.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="guideId">
+    /// The guide whose history to list. Constrained to a Guid, so a malformed id answers 404 at routing — the
+    /// same status as an unknown guide and as another workspace's.
+    /// </param>
+    /// <param name="query">Cursor and page size. Carries no workspace and no guide.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. Metadata only: a row says which version it is, whether it is `Draft` or
+    /// `Approved`, how many sources it cites, who wrote it and why, when, and whether it is the workspace's
+    /// active version. **No section, rule or body is returned** — read the guide itself for what a version
+    /// says. Nothing is written: listing a version does not approve it or activate it.
+    ///
+    /// `staleSourceCount` is how many of the version's citations name a source document version the document
+    /// has since been replaced past; `0` means every cited source is still its document's current version. A
+    /// cited document the workspace has archived or removed is not counted — shelving a document does not
+    /// change what the guide was written from.
+    ///
+    /// `isActive` marks the one version the workspace default points at, and is false on every row when the
+    /// default is another guide's or the workspace has none. There is no fallback to the latest approved
+    /// version. `createdByMembershipId` is a membership id, never a name or an address.
+    ///
+    /// Ordering is fixed at version number descending and there are no filters, so paging is `limit` plus the
+    /// previous page's `nextCursor`, until `nextCursor` is null. A cursor is bound to the workspace and the
+    /// guide it was issued for: replaying one against another guide answers `400
+    /// brand.guide.invalid_request` rather than a plausible page of the wrong history. An out-of-range
+    /// `limit` is clamped rather than refused.
+    ///
+    /// An unknown id and another workspace's guide both answer `404 brand.guide.not_found`, deliberately
+    /// indistinguishable. An archived guide lists normally. The response is `no-store`.
+    /// </remarks>
+    [HttpGet("{guideId:guid}/versions")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> ListVersions(
+        string workspaceSlug,
+        Guid guideId,
+        [FromQuery] BrandStyleGuideVersionListViewModel query,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await guides.ListVersionsAsync(guideId, query, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Compares two of one brand style guide's versions and returns what differs between them.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="guideId">
+    /// The guide whose versions to compare. Constrained to a Guid, so a malformed id answers 404 at routing —
+    /// the same status as an unknown guide and as another workspace's.
+    /// </param>
+    /// <param name="query">Which two versions, by number. Carries no workspace and no guide.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. The comparison is calculated on the server from the two immutable versions and is
+    /// the only one — a client renders it rather than deriving a second diff of its own, which is why the two
+    /// versions' content is not returned alongside it. Nothing is written: comparing leaves no record that it
+    /// happened, approves nothing and activates nothing, and no model is called.
+    ///
+    /// `from` and `to` are version numbers as the history lists them, not version ids: a number is unique only
+    /// within its guide, so a number naming another guide's version matches nothing rather than being refused
+    /// by a check. Either order is allowed — reading the newer version as `from` is what weighing a revert
+    /// looks like — and `from` equal to `to` answers a comparison with no changes in it.
+    ///
+    /// Each part reports every item either version holds, including the unchanged ones, so a client renders a
+    /// stable frame. `sections` are keyed by section key and channel and report `Added`, `Removed`, `Changed`
+    /// or `Unchanged`, never `Moved`, because sections have no order. `rules` are identified by their kind and
+    /// their own text, so they report `Added`, `Removed`, `Moved` or `Unchanged` and **never `Changed`**: a
+    /// reworded rule is one removal and one addition, and its position is reported as a rank among rules of
+    /// the same kind rather than as a stored sort order. `sources` are keyed by document, so re-pinning a
+    /// citation to another version of the same document is one `Changed`.
+    ///
+    /// The guide's name, purpose and archived state are not compared: they belong to the guide rather than to
+    /// any version of it.
+    ///
+    /// An unknown guide and another workspace's guide both answer `404 brand.guide.not_found`. A version
+    /// number this guide does not have answers `404 brand.guide.version.not_found`, naming the parameter at
+    /// fault — both parameters when both are wrong. The response is `no-store`.
+    /// </remarks>
+    // A literal segment inside the versions namespace, which also holds the history list above. A later
+    // GET .../versions/{versionNumber} must carry a route constraint, or routing cannot tell it from this word.
+    [HttpGet("{guideId:guid}/versions/compare")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<BrandStyleGuideVersionComparisonServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    // ValidationProblemDetails rather than ProblemDetails on the 404, as RecipesController.CompareVersions
+    // declares it and unlike this controller's other reads: a version number this guide does not have names
+    // the parameter at fault in `errors`, and that naming is the only reason
+    // brand.guide.version.not_found is worth telling apart from brand.guide.not_found. One schema per status,
+    // because a document cannot describe two and the wider one is the honest answer — every refusal this API
+    // makes goes through CreateValidationProblemDetails, so `errors` is always present. On
+    // brand.guide.not_found it is empty, which is what promises that the guide 404 names no parameter.
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> CompareVersions(
+        string workspaceSlug,
+        Guid guideId,
+        [FromQuery] BrandStyleGuideVersionComparisonViewModel query,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await guides.CompareVersionsAsync(guideId, query, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Makes one approved brand style guide version this workspace's default.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="guideId">
+    /// The guide whose version to activate. Constrained to a Guid, so a malformed id answers 404 at routing —
+    /// the same status as an unknown guide and as another workspace's.
+    /// </param>
+    /// <param name="versionNumber">
+    /// Which of the guide's versions, by number as the history lists them. Constrained to an int, which is
+    /// what keeps this route distinct from the literal `compare` segment above.
+    /// </param>
+    /// <param name="model">The confirmation, the expected current active version, and an optional reason.</param>
+    /// <param name="idempotencyKey">
+    /// Required. Replaying a request with the same key returns the activation the first one recorded, with
+    /// `Idempotency-Replayed: true`, and writes nothing further; the same key with a different body is refused.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// **Owner only**, above the Editor that creates and edits a guide: there is one default per workspace and
+    /// it governs what every later generation is grounded on.
+    ///
+    /// `confirmed` must be `true` — a well-formed body is not by itself a decision. `expectedActiveVersionId`
+    /// is the version the caller believes holds the default now, from `activeVersion.id` on the guide read or
+    /// the history row whose `isActive` is true; **omit it only to assert the workspace has no default**, which
+    /// is checked rather than assumed, so forgetting the field cannot replace a default the caller never saw. A
+    /// mismatch answers `409 brand.guide.activation.conflict` and names what actually holds it in
+    /// `activeGuideId`, `activeVersionId` and `activeVersionNumber` — each null when the workspace has none.
+    ///
+    /// Nothing in the guide is edited: the version is immutable and this writes only the workspace's one
+    /// activation decision, its audit entry, and nothing else. `200 OK` rather than `201`, because the default
+    /// is a singleton being repointed and not a new subresource. Activating the version that already holds it
+    /// is a success that writes nothing and answers `alreadyActive: true`, with the original `activatedAt` and
+    /// activator rather than this request's.
+    ///
+    /// Four refusals are about the version named and will not read differently after a re-read, so they are
+    /// answered before the expectation is checked: a version with no approval is `409
+    /// brand.guide.version.unapproved.conflict`; one citing a source document that has been replaced since is
+    /// `409 brand.guide.version.stale.conflict`, with `staleSourceCount`; one with no sections and no rules is
+    /// `409 brand.guide.version.empty.conflict`; and a version of an archived guide is `409
+    /// brand.guide.archived.conflict`. There is no override: lifting one of these is a policy decision rather
+    /// than a field on a request.
+    ///
+    /// An unknown guide and another workspace's both answer `404 brand.guide.not_found`. A version number this
+    /// guide does not have answers `404 brand.guide.version.not_found`.
+    /// </remarks>
+    [HttpPost("{guideId:guid}/versions/{versionNumber:int}/activation")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceOwner)]
+    [ProducesResponseType<BrandStyleGuideActivationResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    // ValidationProblemDetails on the 404 for the reason CompareVersions records: a version number this guide
+    // does not have names the route segment at fault in `errors`, and that naming is the only reason
+    // brand.guide.version.not_found is worth telling apart from brand.guide.not_found.
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> Activate(
+        string workspaceSlug,
+        Guid guideId,
+        int versionNumber,
+        [FromBody] ActivateBrandStyleGuideVersionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await guides.ActivateVersionAsync(
+            userId, guideId, versionNumber, model, idempotencyKey, cancellationToken);
+
+        // No Location: the activation is not a resource of its own, and the guide read already reports it.
+        return this.IdempotentResult(outcome, Ok);
     }
 }
