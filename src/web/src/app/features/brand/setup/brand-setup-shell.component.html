@@ -1,0 +1,205 @@
+<ng-template #stepList let-rows>
+  <ol class="step-list" aria-label="Setup steps">
+    @for (row of rows; track row.step.slug) {
+      <li [attr.aria-current]="row.status === 'current' ? 'step' : null" [attr.data-status]="row.status">
+        <span class="glyph" aria-hidden="true">{{ row.glyph }}</span>
+        <span class="name">{{ row.step.label }}</span>
+        <span class="word">{{ row.word }}</span>
+      </li>
+    }
+  </ol>
+</ng-template>
+
+<section class="setup" aria-labelledby="setup-heading">
+  <header class="page-header">
+    <h1 id="setup-heading">Create my voice</h1>
+    <p class="lede">A few short steps to describe how you write. You can stop at any time and pick up later.</p>
+  </header>
+
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your setup…</p>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <p class="state" role="alert">We couldn't find this workspace.</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <p class="state" role="alert">Your setup couldn't be loaded right now.</p>
+        <button cpButton type="button" variant="secondary" (click)="load()">Try again</button>
+      </cp-card>
+    }
+    @case ('cancelled') {
+      <cp-card>
+        <p class="state" role="status">You left setup. Anything already saved is kept.</p>
+      </cp-card>
+    }
+    @case ('resumable') {
+      <cp-card>
+        <section class="resume" aria-labelledby="resume-heading">
+          <h2 id="resume-heading" tabindex="-1">Pick up where you left off</h2>
+          <p>
+            You were on <strong>{{ resumeStep().label }}</strong>.
+            @if (resumeSavedAt()) {
+              Last saved {{ resumeSavedAt() }}.
+            }
+          </p>
+          @if (actionError()) {
+            <p class="problem" role="alert">{{ actionError() }}</p>
+          }
+          @if (startOverProblem()) {
+            <div class="problem-row">
+              <p class="problem" role="alert">{{ startOverProblem() }}</p>
+              <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="startOver()">Try again</button>
+            </div>
+          }
+          <div class="actions">
+            <button cpButton type="button" variant="primary" [disabled]="busy() !== ''" (click)="resume()">Continue</button>
+            <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="startOver()">Start over</button>
+          </div>
+        </section>
+      </cp-card>
+    }
+    @case ('completed') {
+      <cp-card>
+        <section class="summary" aria-labelledby="summary-heading">
+          <h2 id="summary-heading" tabindex="-1">Setup finished. Nothing is active yet.</h2>
+          <p>
+            Your answers are saved, but your voice is not being used for anything. Switching it on is a separate step
+            that you choose.
+            @if (completedAt()) {
+              Finished {{ completedAt() }}.
+            }
+          </p>
+          <ng-container *ngTemplateOutlet="stepList; context: { $implicit: summaryRows() }" />
+          @if (actionError()) {
+            <p class="problem" role="alert">{{ actionError() }}</p>
+          }
+          @if (startOverProblem()) {
+            <div class="problem-row">
+              <p class="problem" role="alert">{{ startOverProblem() }}</p>
+              <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="startOver()">Try again</button>
+            </div>
+          }
+          <div class="actions">
+            <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Back to brand settings</a>
+            <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="startOver()">Start over</button>
+          </div>
+        </section>
+      </cp-card>
+    }
+    @default {
+      @if (!canStart()) {
+        <cp-card>
+          <p class="notice" role="note">
+            You have view-only access to this workspace, so you can't start voice setup. Ask an Owner or Editor to set it
+            up for you.
+          </p>
+          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'brand']">Back to brand settings</a>
+        </cp-card>
+      } @else if (currentIndex() !== null) {
+        <div class="layout">
+          <div class="progress">
+            <cp-progress label="Setup progress" [value]="percent()" [valueText]="progressText()" />
+            @if (narrow()) {
+              <details class="steps-disclosure">
+                <summary>{{ progressText() }}: all steps</summary>
+                <ng-container *ngTemplateOutlet="stepList; context: { $implicit: rows() }" />
+              </details>
+            } @else {
+              <nav aria-label="Setup progress">
+                <ng-container *ngTemplateOutlet="stepList; context: { $implicit: rows() }" />
+              </nav>
+            }
+          </div>
+
+          <cp-card>
+            @for (step of currentStepList(); track step.slug) {
+              <section class="step" aria-labelledby="cp-step-heading">
+                <h2 id="cp-step-heading" tabindex="-1">{{ step.label }}</h2>
+                <details class="help">
+                  <summary>Need help with this step?</summary>
+                  <p>{{ step.help }}</p>
+                </details>
+                <cp-brand-setup-step-placeholder [step]="step" [draft]="currentStepDraft()" (reported)="onStepReport($event)" />
+              </section>
+            }
+
+            <div class="footer">
+              <div class="save">
+                <p class="save-status" role="status" aria-live="polite" aria-atomic="true">{{ saveStatusText() }}</p>
+                @if (saveProblem()) {
+                  <p class="problem" role="alert">{{ saveProblem() }}</p>
+                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="retry()">Retry</button>
+                }
+              </div>
+
+              @if (indicator().kind === 'conflict') {
+                <div class="conflict" role="alert">
+                  @if (conflictFinished()) {
+                    <p>This setup was already finished somewhere else, so it can't be changed here. Your edits are still on screen.</p>
+                    <button cpButton type="button" variant="secondary" [disabled]="busy() !== ''" (click)="reload()">Reload</button>
+                  } @else {
+                    <p>
+                      A newer version of this setup was saved somewhere else, maybe in another tab. Your edits are still on
+                      screen. Keep yours to save over it, or reload to see the newer one and drop yours.
+                    </p>
+                    <div class="actions">
+                      <button cpButton type="button" variant="primary" [disabled]="busy() !== ''" (click)="keepMine()">Keep mine</button>
+                      <button cpButton type="button" variant="secondary" [disabled]="busy() !== ''" (click)="reload()">Reload</button>
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (actionError()) {
+                <p class="problem" role="alert">{{ actionError() }}</p>
+              }
+              @if (switchBlocked()) {
+                <p class="problem" role="alert">
+                  You moved to another workspace, but your changes here haven't saved yet. Retry to save them and continue.
+                </p>
+              }
+              @if (startOverProblem()) {
+                <div class="problem-row">
+                  <p class="problem" role="alert">{{ startOverProblem() }}</p>
+                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="startOver()">Try again</button>
+                </div>
+              }
+
+              <div class="actions primary-row">
+                <button cpButton type="button" variant="secondary" [disabled]="isFirst() || busy() !== ''" (click)="back()">Back</button>
+                @if (skippable() && !isLast()) {
+                  <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="skip()">Skip for now</button>
+                }
+                @if (isLast()) {
+                  <button cpButton type="button" variant="primary" [disabled]="busy() !== ''" (click)="finish()">
+                    {{ busy() === 'complete' ? 'Finishing…' : 'Finish setup' }}
+                  </button>
+                } @else {
+                  <button cpButton type="button" variant="primary" [disabled]="!report().canContinue || busy() !== ''" (click)="continueToNext()">
+                    {{ busy() === 'continue' ? 'Saving…' : 'Continue' }}
+                  </button>
+                }
+              </div>
+
+              <div class="actions secondary-row">
+                <button cpButton type="button" variant="ghost" [disabled]="busy() !== ''" (click)="saveAndExit()">Save and exit</button>
+                <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="cancel()">Cancel</button>
+                @if (hasSession()) {
+                  <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="startOver()">Start over</button>
+                }
+              </div>
+            </div>
+          </cp-card>
+        </div>
+      }
+    }
+  }
+</section>

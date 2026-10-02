@@ -27,6 +27,12 @@ public static class BrandServiceCollectionExtensions
         services.AddScoped<IValidator<CreateBrandProfileViewModel>, CreateBrandProfileViewModelValidator>();
         services.AddScoped<IValidator<UpdateBrandProfileViewModel>, UpdateBrandProfileViewModelValidator>();
 
+        services.AddScoped<IBrandSetupSessionRepository, BrandSetupSessionRepository>();
+        services.AddScoped<IBrandSetupSessionDataLayer, BrandSetupSessionDataLayer>();
+        services.AddScoped<IBrandSetupSessionBusiness, BrandSetupSessionBusiness>();
+        services.AddScoped<IBrandSetupSessionFacade, BrandSetupSessionFacade>();
+        services.AddScoped<IValidator<SaveBrandSetupSessionViewModel>, SaveBrandSetupSessionViewModelValidator>();
+
         // The store that refuses everything unless the host registered a real one, so this module resolves in
         // a host with no storage and fails loudly only if an object is actually reached for.
         services.AddPrivateObjectStorage();

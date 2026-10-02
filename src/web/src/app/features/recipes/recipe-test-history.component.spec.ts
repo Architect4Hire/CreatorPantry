@@ -58,10 +58,13 @@ class StubTestRunService {
   /** Set to answer from here instead, so a test can control when a page arrives. */
   pending: ((outcome: TestRunHistoryOutcome) => void) | null = null;
   holdNext = false;
+  cursorRefused = false;
 
   listTestRuns(_slug: string, _recipeId: string, query: TestRunHistoryQuery): Observable<TestRunHistoryOutcome> {
     this.queries.push(query);
 
+    // Only a request that carries a cursor can have it refused; the server has nothing to refuse on a first page.
+    if (this.cursorRefused && query.cursor !== null) return of<TestRunHistoryOutcome>({ status: 'cursor_expired' });
     if (!this.holdNext) return of(this.outcome);
 
     this.holdNext = false;
@@ -475,12 +478,21 @@ describe('RecipeTestHistoryComponent', () => {
     service.outcome = { status: 'found', page: page({ nextCursor: 'c1' }) };
     const element = await render();
 
-    service.outcome = { status: 'cursor_expired' };
+    service.cursorRefused = true;
     await click(element, 'Next');
 
     const restarted = service.queries[service.queries.length - 1];
     expect(restarted.cursor).toBeNull();
     expect(fixture.componentInstance.pageNumber()).toBe(1);
+  });
+
+  /** Regression: a refused first page used to restart itself without end, overflowing the stack. */
+  it('treats a refused first page as a failure instead of restarting forever', async () => {
+    service.outcome = { status: 'cursor_expired' };
+    const element = await render();
+
+    expect(service.queries.length).toBe(1);
+    expect(element.textContent).toContain('Try again');
   });
 
   it('reports an unreadable recipe', async () => {

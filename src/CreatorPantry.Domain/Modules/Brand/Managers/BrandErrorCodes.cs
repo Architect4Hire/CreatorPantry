@@ -240,4 +240,28 @@ public static class BrandErrorCodes
     /// and report success.
     /// </remarks>
     public const string GuideVersionLimitExceeded = "brand.guide.version.limit.invalid_request";
+
+    // The setup-session codes are underscore-shaped by contract (11A.22), so the `.suffix` rule in
+    // ProblemResults.StatusFor cannot map them; each is listed there explicitly.
+
+    /// <summary>The caller's role is below Editor. Maps to 403.</summary>
+    public const string SetupSessionForbidden = "brand_setup_session_forbidden";
+
+    /// <summary>The request failed shape validation. Falls through to 400.</summary>
+    public const string SetupSessionInvalidRequest = "brand_setup_session_invalid_request";
+
+    /// <summary>The caller has no setup session to complete. Maps to 404.</summary>
+    public const string SetupSessionNotFound = "brand_setup_session_not_found";
+
+    /// <summary>
+    /// <c>If-Match</c> was missing while a session exists, or does not match it. Maps to 409; the stored
+    /// session is untouched.
+    /// </summary>
+    public const string SetupSessionConflict = "brand_setup_session_conflict";
+
+    /// <summary>The session is already completed and takes no more saves. Maps to 409.</summary>
+    public const string SetupSessionCompleted = "brand_setup_session_completed";
+
+    /// <summary>Completing requires furthestStep to be the final step. Maps to 409.</summary>
+    public const string SetupSessionNotFinished = "brand_setup_session_not_finished";
 }

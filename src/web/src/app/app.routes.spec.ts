@@ -14,6 +14,8 @@ import { RecipeLibraryComponent } from './features/recipes/recipe-library.compon
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
 import { BrandSettingsComponent } from './features/brand/brand-settings.component';
 import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
+import { BrandSetupShellComponent } from './features/brand/setup/brand-setup-shell.component';
+import { brandSetupCanDeactivateGuard } from './features/brand/setup/brand-setup.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 import { RecipeConceptStudioComponent } from './features/ai/recipe-concept-studio.component';
 import { RecipeFirstDraftReviewComponent } from './features/ai/recipe-first-draft-review.component';
@@ -99,9 +101,19 @@ describe('app routes', () => {
     }
 
     // 'brand' is the brand settings (11.1c), no longer a placeholder, and is guarded against losing edits.
+    // It is a grouping now: the settings page at its index, and the "Create my voice" wizard (11A.22) under
+    // 'setup/:step', so the Brand nav item stays active across the whole subtree.
     const brandRoute = workspaceRoute.children!.find((route) => route.path === 'brand')!;
-    expect(await brandRoute.loadComponent!()).toBe(BrandSettingsComponent);
-    expect(brandRoute.canDeactivate).toEqual([brandSettingsCanDeactivateGuard]);
+    const brandIndexRoute = brandRoute.children!.find((route) => route.path === '')!;
+    expect(await brandIndexRoute.loadComponent!()).toBe(BrandSettingsComponent);
+    expect(brandIndexRoute.canDeactivate).toEqual([brandSettingsCanDeactivateGuard]);
+
+    const setupRoute = brandRoute.children!.find((route) => route.path === 'setup')!;
+    const setupEntry = setupRoute.children!.find((route) => route.path === '')!;
+    expect(setupEntry.redirectTo).toBe('goals');
+    const setupStepRoute = setupRoute.children!.find((route) => route.path === ':step')!;
+    expect(await setupStepRoute.loadComponent!()).toBe(BrandSetupShellComponent);
+    expect(setupStepRoute.canDeactivate).toEqual([brandSetupCanDeactivateGuard]);
 
     // 'ai-recipe-studio' is a nested grouping like 'recipes': AIREC-001's concept form at its index, and
     // AIREC-002's first-draft review beside it, so it resolves through children rather than loadComponent.

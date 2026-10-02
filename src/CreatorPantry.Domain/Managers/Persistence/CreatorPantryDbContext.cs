@@ -350,6 +350,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// </remarks>
     public DbSet<BrandProfile> BrandProfiles => Set<BrandProfile>();
 
+    /// <remarks>
+    /// One creator's resumable "Create my voice" wizard session, per (workspace, user). Progress and an
+    /// opaque draft only; style guide versions remain the source of truth.
+    /// </remarks>
+    public DbSet<BrandSetupSession> BrandSetupSessions => Set<BrandSetupSession>();
+
     /// <inheritdoc cref="BrandProfiles"/>
     /// <remarks>Interior to the <see cref="BrandProfile"/> aggregate, as are the two sets below.</remarks>
     public DbSet<BrandChannelDefault> BrandChannelDefaults => Set<BrandChannelDefault>();

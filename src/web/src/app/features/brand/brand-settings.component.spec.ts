@@ -161,6 +161,12 @@ describe('BrandSettingsComponent', () => {
     expect(root().querySelector('form')).toBeNull();
   });
 
+  it('links to the Create my voice wizard for the same workspace', async () => {
+    await create();
+    const link = Array.from(root().querySelectorAll('a')).find((a) => a.textContent?.trim() === 'Create my voice');
+    expect(link?.getAttribute('href')).toBe('/sams-kitchen/brand/setup');
+  });
+
   it('reads the profile for the workspace named by the route', async () => {
     await create();
 

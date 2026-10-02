@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   CpButtonComponent,
   CpCardComponent,
@@ -124,6 +124,7 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
   standalone: true,
   imports: [
     FormsModule,
+    RouterLink,
     CpButtonComponent,
     CpCardComponent,
     CpCheckboxComponent,

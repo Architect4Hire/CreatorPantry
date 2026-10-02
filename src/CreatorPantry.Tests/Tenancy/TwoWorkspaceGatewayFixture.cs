@@ -194,6 +194,29 @@ internal sealed class GatewayClient(HttpClient http, string antiforgeryToken) : 
         return http.SendAsync(request, cancellationToken);
     }
 
+    /// <summary>Sends any method with optional body and extra headers (for example <c>If-Match</c>).</summary>
+    public Task<HttpResponseMessage> SendAsync(
+        HttpMethod method,
+        string path,
+        object? body,
+        IReadOnlyDictionary<string, string>? headers,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        request.Headers.Add("X-XSRF-TOKEN", antiforgeryToken);
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+        {
+            request.Headers.TryAddWithoutValidation(name, value);
+        }
+
+        return http.SendAsync(request, cancellationToken);
+    }
+
     public void Dispose() => http.Dispose();
 
     private Task<HttpResponseMessage> SendAsync(

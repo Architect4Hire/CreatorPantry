@@ -1475,6 +1475,371 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-setup-session": {
+      "get": {
+        "tags": [
+          "BrandSetupSession"
+        ],
+        "summary": "Returns the caller\u0027s own \u0022Create my voice\u0022 setup session.",
+        "description": "Each user has at most one session per workspace, and sees only their own. \u0060204 No Content\u0060 means the\ncaller has none. The session is progress plus an opaque draft: it holds no style fields, and style\nguide versions remain the source of truth. The response is \u0060no-store\u0060 and carries \u0060ETag\u0060, the same\nvalue as \u0060rowVersion\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "BrandSetupSession"
+        ],
+        "summary": "Saves the caller\u0027s setup session, creating it on first save.",
+        "description": "Editor or above. Without \u0060If-Match\u0060, creates the session (\u0060201\u0060). Once a session exists \u0060If-Match\u0060 is\nrequired: a missing or stale one answers \u0060409 brand_setup_session_conflict\u0060 and the stored session is\nuntouched. A completed session answers \u0060409 brand_setup_session_completed\u0060. \u0060draftJson\u0060 must be a JSON\nobject of at most 64 KB; it is stored as sent and never logged.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The \u0060rowVersion\u0060 (or \u0060ETag\u0060) of the session this save was composed against. Omit it only to create.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandSetupSession"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandSetupSession"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandSetupSession"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "BrandSetupSession"
+        ],
+        "summary": "Deletes the caller\u0027s own setup session (\u0022start over\u0022).",
+        "description": "Editor or above. Deletes only the caller\u0027s own session row; style guides, source documents, the brand\nprofile and every other creator\u0027s session are untouched. Answers \u0060204\u0060 whether or not a session existed;\n\u0060409 brand_setup_session_conflict\u0060 if concurrent saves kept the session alive through the delete, in which\ncase nothing was removed and the call can be repeated.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-setup-session/complete": {
+      "post": {
+        "tags": [
+          "BrandSetupSession"
+        ],
+        "summary": "Marks the caller\u0027s setup session completed.",
+        "description": "Editor or above. Requires \u0060furthestStep\u0060 to be \u0060finish\u0060 (\u0060409 brand_setup_session_not_finished\u0060\notherwise). Completing only records that the walk-through finished: it activates no style guide,\nchanges no guide, document or profile, and publishes nothing. A caller with no session answers\n\u0060404 brand_setup_session_not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The \u0060rowVersion\u0060 (or \u0060ETag\u0060) of the session being completed. Required.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSetupSession"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-source-documents": {
       "get": {
         "tags": [
@@ -11750,6 +12115,65 @@
           }
         }
       },
+      "BrandSetupSession": {
+        "required": [
+          "status",
+          "currentStep",
+          "furthestStep",
+          "completedSteps",
+          "skippedSteps",
+          "draftJson",
+          "createdUtc",
+          "updatedUtc",
+          "completedUtc",
+          "rowVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "currentStep": {
+            "type": "string"
+          },
+          "furthestStep": {
+            "type": "string"
+          },
+          "completedSteps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skippedSteps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "draftJson": {
+            "type": "string"
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "rowVersion": {
+            "type": "string"
+          }
+        }
+      },
       "BrandSourceDocument": {
         "required": [
           "id",
@@ -17553,6 +17977,47 @@
           }
         }
       },
+      "SaveBrandSetupSession": {
+        "type": "object",
+        "properties": {
+          "currentStep": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "furthestStep": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "completedSteps": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "skippedSteps": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "draftJson": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ScaleRecipe": {
         "required": [
           "sourceVersionNumber",
@@ -18991,6 +19456,9 @@
     },
     {
       "name": "BrandProfile"
+    },
+    {
+      "name": "BrandSetupSession"
     },
     {
       "name": "BrandSourceDocuments"

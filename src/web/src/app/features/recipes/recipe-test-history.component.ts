@@ -401,6 +401,13 @@ export class RecipeTestHistoryComponent {
         return;
 
       case 'cursor_expired':
+        // A first page carries no cursor, so there is nothing to start again from. Restarting would only ask
+        // the same question and be refused the same way, forever, so it is an ordinary failure.
+        if (this.cursor() === null) {
+          this.stateSignal.set({ status: 'error' });
+          return;
+        }
+
         // The remedy is to start again, and doing it rather than only saying so keeps the reader looking at a
         // list instead of an explanation.
         this.stateSignal.set({ status: 'cursor_expired' });

@@ -89,4 +89,14 @@ public static class BrandAuditActions
     /// <see cref="StyleGuideCreated"/> gives.
     /// </remarks>
     public const string StyleGuideVersionCreatedFromProposal = "brand.guide.version.created_from_proposal";
+
+    public const string SetupSessionResourceType = "BrandSetupSession";
+
+    /// <summary>A creator started a "Create my voice" session. The summary never carries the draft.</summary>
+    public const string SetupSessionStarted = "brand.setup_session.started";
+
+    public const string SetupSessionCompleted = "brand.setup_session.completed";
+
+    /// <summary>The creator deleted their own session to start over. Touches no guide, source or profile.</summary>
+    public const string SetupSessionReset = "brand.setup_session.reset";
 }

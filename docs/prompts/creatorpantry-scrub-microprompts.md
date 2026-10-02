@@ -2999,7 +2999,7 @@ RESTRICTION: No questionnaire, upload, extraction, AI generation, guide editor, 
 BEHAVIOR: Show step/state/resume/accessibility map, wait for approval, implement shell/recovery/a11y tests.
 ```
 
-### 11A.22a Brand goals wizard step
+### 11A.22a Brand goals wizard step **pick up here**
 
 ```text
 SCOPE: Add only the plain-language goal/audience/channel selection step with useful defaults and optional

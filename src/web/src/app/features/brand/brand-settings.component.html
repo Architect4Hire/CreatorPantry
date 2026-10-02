@@ -2,6 +2,9 @@
   <header class="page-header">
     <h1 id="brand-heading">Brand settings</h1>
     <p class="lede">The facts about your brand that every piece of work in this workspace starts from.</p>
+    <p class="create-voice">
+      <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'setup']">Create my voice</a>
+    </p>
   </header>
 
   @switch (load().status) {

@@ -103,3 +103,7 @@
 .state {
   margin: 0 0 var(--cp-space-3);
 }
+
+.create-voice {
+  margin: var(--cp-space-4) 0 0;
+}

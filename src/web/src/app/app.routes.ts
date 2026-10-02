@@ -4,6 +4,7 @@ import { Routes } from '@angular/router';
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
 import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
+import { brandSetupCanDeactivateGuard } from './features/brand/setup/brand-setup.guard';
 import { recipeFirstDraftReviewCanDeactivateGuard } from './features/ai/recipe-first-draft-review.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
@@ -20,7 +21,21 @@ const SECTION_ROUTES: Routes = [
       { path: ':recipeId', loadComponent: () => import('./features/recipes/recipe-editor.component').then((m) => m.RecipeEditorComponent), canDeactivate: [recipeEditorCanDeactivateGuard], data: { title: 'Edit recipe' } },
     ],
   },
-  { path: 'brand', loadComponent: () => import('./features/brand/brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand' } },
+  {
+    path: 'brand',
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand' } },
+      // The "Create my voice" wizard. Everything under 'brand' keeps the Brand nav item active
+      // (RouterLinkActive matches the subtree), so the section never appears to be left mid-setup.
+      {
+        path: 'setup',
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'goals' },
+          { path: ':step', loadComponent: () => import('./features/brand/setup/brand-setup-shell.component').then((m) => m.BrandSetupShellComponent), canDeactivate: [brandSetupCanDeactivateGuard], data: { title: 'Create my voice' } },
+        ],
+      },
+    ],
+  },
   {
     path: 'ai-recipe-studio',
     children: [

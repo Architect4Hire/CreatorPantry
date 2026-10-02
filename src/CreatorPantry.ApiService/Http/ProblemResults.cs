@@ -36,6 +36,13 @@ public static class ProblemResults
     {
         // The request is well formed, but the key already belongs to a different request.
         IdempotencyPolicy.KeyReusedCode => StatusCodes.Status422UnprocessableEntity,
+        // The setup-session codes are underscore-shaped by contract (11A.22), so the suffix rules below cannot
+        // reach them.
+        CreatorPantry.Domain.Modules.Brand.Managers.BrandErrorCodes.SetupSessionConflict
+            or CreatorPantry.Domain.Modules.Brand.Managers.BrandErrorCodes.SetupSessionCompleted
+            or CreatorPantry.Domain.Modules.Brand.Managers.BrandErrorCodes.SetupSessionNotFinished => StatusCodes.Status409Conflict,
+        CreatorPantry.Domain.Modules.Brand.Managers.BrandErrorCodes.SetupSessionNotFound => StatusCodes.Status404NotFound,
+        CreatorPantry.Domain.Modules.Brand.Managers.BrandErrorCodes.SetupSessionForbidden => StatusCodes.Status403Forbidden,
         _ when code.EndsWith(".not_found", StringComparison.Ordinal) => StatusCodes.Status404NotFound,
         _ when code.EndsWith(".forbidden", StringComparison.Ordinal) => StatusCodes.Status403Forbidden,
         _ when code.EndsWith(".conflict", StringComparison.Ordinal) => StatusCodes.Status409Conflict,
