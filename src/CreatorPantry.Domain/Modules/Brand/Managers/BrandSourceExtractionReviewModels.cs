@@ -39,6 +39,12 @@ namespace CreatorPantry.Domain.Modules.Brand.Managers;
 /// Null when there is nothing to say.
 /// </param>
 /// <param name="At">When this artifact was recorded. Null when there has been no extraction.</param>
+/// <param name="IsReading">
+/// Whether a read of this version is queued or running right now. Independent of <paramref name="State"/>: a
+/// version whose last attempt failed and which a creator has asked to be read again is <c>Failed</c> and reading
+/// until the new attempt settles, and a version nothing has finished reading is <c>NotExtracted</c> either way —
+/// reading while the work is queued, not reading once it has stopped.
+/// </param>
 public sealed record BrandSourceExtractionServiceModel(
     int VersionNumber,
     BrandSourceExtractionState State,
@@ -47,11 +53,28 @@ public sealed record BrandSourceExtractionServiceModel(
     BrandSourceExtractionOrigin? Origin,
     string? Text,
     string? Reason,
-    DateTimeOffset? At)
+    DateTimeOffset? At,
+    bool IsReading = false)
 {
     /// <summary>The answer for a version nothing has extracted yet: a state, and nothing else to report.</summary>
     public static BrandSourceExtractionServiceModel NotExtracted(int versionNumber) =>
         new(versionNumber, BrandSourceExtractionState.NotExtracted, null, 0, null, null, null, null);
+}
+
+/// <summary>
+/// A creator's request to have one version's text read again.
+/// </summary>
+/// <remarks>
+/// No field for a workspace, a document or a version: all three come from the route and the resolved context.
+/// </remarks>
+public sealed record RetryBrandSourceExtractionViewModel
+{
+    /// <summary>
+    /// The <c>id</c> of the artifact the creator was looking at when they asked, or null when they were looking at
+    /// a version nothing had read. The same concurrency check a correction makes: a read that has since landed
+    /// changes what there is to retry.
+    /// </summary>
+    public Guid? ExpectedExtractionId { get; init; }
 }
 
 /// <summary>

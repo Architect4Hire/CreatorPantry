@@ -1,0 +1,153 @@
+<div class="examples">
+  <p class="all-optional">Examples are optional. Skip this step if you'd rather not add any yet.</p>
+
+  <cp-form-section heading="What does this example show?" intro="Choose this first, then add your example below.">
+    <div class="group" role="radiogroup" aria-label="What does this example show?">
+      @for (option of kinds; track option.key) {
+        <label class="radio" [attr.for]="'cp-examples-kind-' + option.key">
+          <input
+            type="radio"
+            name="cp-examples-kind"
+            [id]="'cp-examples-kind-' + option.key"
+            [checked]="kind() === option.key"
+            (change)="chooseKind(option.key)"
+          />
+          <span class="radio-text">
+            <span class="radio-label">{{ option.label }}</span>
+            <span class="hint">{{ option.hint }}</span>
+          </span>
+        </label>
+      }
+    </div>
+  </cp-form-section>
+
+  <cp-form-section heading="Add an example">
+    @if (!canAdd()) {
+      <p class="hint" id="cp-examples-choose-first">Choose what your example shows above, then add it here.</p>
+    } @else {
+      <p class="hint">Adding as: <strong>{{ selectedKind()?.label }}</strong></p>
+      <cp-uploader
+        label="Drop a file here, or browse"
+        hint="PDF, Word, text, web page or image. Up to 20 MB, or 5 MB for text files."
+        [accept]="accept"
+        [multiple]="true"
+        (filesSelected)="onFiles($event)"
+      />
+      <div class="actions">
+        <button cpButton type="button" variant="secondary" size="sm" [attr.aria-expanded]="pasteOpen()" aria-controls="cp-examples-paste" (click)="togglePaste()">
+          Paste text instead
+        </button>
+        @if (pickable().length > 0) {
+          <button cpButton type="button" variant="secondary" size="sm" [attr.aria-expanded]="pickerOpen()" aria-controls="cp-examples-picker" (click)="togglePicker()">
+            Pick one you've already added
+          </button>
+        }
+      </div>
+
+      @if (pasteOpen()) {
+        <div id="cp-examples-paste" class="panel">
+          <cp-field label="Name this" forId="cp-examples-paste-title">
+            <input id="cp-examples-paste-title" type="text" [maxLength]="titleMax" [value]="pasteTitle()" (input)="setPasteTitle($event)" />
+          </cp-field>
+          <cp-field label="Paste your text" forId="cp-examples-paste-text" [error]="pasteProblem()">
+            <textarea
+              id="cp-examples-paste-text"
+              [value]="pasteText()"
+              [attr.aria-invalid]="pasteProblem() ? 'true' : null"
+              (input)="setPasteText($event)"
+            ></textarea>
+          </cp-field>
+          <div class="actions">
+            <button cpButton type="button" variant="secondary" size="sm" (click)="addPasted()">Add this text</button>
+            <button cpButton type="button" variant="ghost" size="sm" (click)="togglePaste()">Cancel</button>
+          </div>
+        </div>
+      }
+
+      @if (pickerOpen()) {
+        <div id="cp-examples-picker" class="panel">
+          <p class="hint">Choose the ones to use here.</p>
+          @for (doc of pickable(); track doc.id) {
+            <div class="pick">
+              <cp-checkbox
+                [label]="doc.title"
+                [inputId]="'cp-examples-pick-' + doc.id"
+                [checked]="picked().has(doc.id)"
+                (checkedChange)="setPicked(doc.id, $event)"
+              />
+              <p class="hint pick-detail">{{ kindFor(doc) }}, {{ doc.fileName }}, {{ size(doc.sizeBytes) }}</p>
+            </div>
+          }
+          <div class="actions">
+            <button cpButton type="button" variant="secondary" size="sm" [disabled]="picked().size === 0" (click)="usePicked()">Use these</button>
+            <button cpButton type="button" variant="ghost" size="sm" (click)="togglePicker()">Cancel</button>
+          </div>
+        </div>
+      }
+
+      <details class="more">
+        <summary>More options (optional)</summary>
+        <div class="more-body">
+          <cp-field label="Who is this written for?" forId="cp-examples-audience" hint="Applies to the examples you add next.">
+            <input id="cp-examples-audience" type="text" [maxLength]="audienceMax" [value]="audience()" (input)="setAudience($event)" />
+          </cp-field>
+        </div>
+      </details>
+    }
+  </cp-form-section>
+
+  <cp-form-section heading="Your examples">
+    @if (library() === 'loading' && entries().length === 0) {
+      <p class="hint" role="status">Checking your examples…</p>
+    }
+    @if (library() === 'degraded') {
+      <p class="notice" role="status">We couldn't check your earlier examples just now. They're still saved, and you can keep going.</p>
+    }
+    @if (note()) {
+      <p class="notice" role="status">{{ note() }}</p>
+    }
+
+    @if (entries().length === 0 && library() !== 'loading') {
+      <p class="empty">Nothing added yet. That's fine. You can add examples now or come back later.</p>
+    } @else if (entries().length > 0) {
+      <ul class="list">
+        @for (entry of entries(); track entry.id) {
+          <li class="item">
+            <div class="item-main">
+              <span class="name">{{ entry.name }}</span>
+              <span class="hint">{{ kindLabel(entry.kind) }}@if (entry.detail) {, {{ entry.detail }}}</span>
+              @if (entry.status === 'failed') {
+                <span class="problem">{{ failureText(entry) }}</span>
+              }
+            </div>
+            <div class="item-actions">
+              @switch (entry.status) {
+                @case ('adding') {
+                  <cp-status-pill tone="progress">Adding…</cp-status-pill>
+                  <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Stop adding ' + entry.name" (click)="cancel(entry.id)">Stop</button>
+                }
+                @case ('added') {
+                  <cp-status-pill tone="success">Added</cp-status-pill>
+                  <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Remove ' + entry.name + ' from this step'" (click)="remove(entry.id)">Remove</button>
+                }
+                @case ('failed') {
+                  <cp-status-pill tone="error">Not added</cp-status-pill>
+                  @if (retryable(entry)) {
+                    <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Try adding ' + entry.name + ' again'" (click)="retry(entry.id)">Try again</button>
+                  }
+                  <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Remove ' + entry.name + ' from this step'" (click)="remove(entry.id)">Remove</button>
+                }
+              }
+            </div>
+          </li>
+        }
+      </ul>
+      <p class="hint">Removing an example only takes it off this step.</p>
+    }
+    @if (adding()) {
+      <p class="hint">Please wait for your examples to finish adding before you continue.</p>
+    }
+  </cp-form-section>
+
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+</div>

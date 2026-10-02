@@ -120,6 +120,12 @@ public static class BrandErrorCodes
     /// </remarks>
     public const string SourceExtractionSupersededConflict = "brand.source.extraction.superseded.conflict";
 
+    /// <summary>
+    /// Reading the version again would not help: it was already read, it holds nothing to read, or the creator has
+    /// corrected it. A conflict with the artifact's state rather than a fault, so the remedy is stated in the message.
+    /// </summary>
+    public const string SourceExtractionNotRetryableConflict = "brand.source.extraction.not_retryable.conflict";
+
     /// <summary>The caller's role is below Editor, so they cannot create a brand style guide. Maps to 403.</summary>
     public const string GuideForbidden = "brand.guide.forbidden";
 

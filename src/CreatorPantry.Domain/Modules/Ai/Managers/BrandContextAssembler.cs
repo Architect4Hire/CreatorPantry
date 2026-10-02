@@ -528,6 +528,14 @@ internal sealed class BrandContextAssembler(
 
             var detail = document.Value!;
 
+            // Naming a document does not turn "doesn't sound like me" into an example to follow. It is left out
+            // and reported the same way as one that did not resolve: something was asked for and not supplied.
+            if (detail.Purpose == BrandSourcePurpose.NotMyVoice)
+            {
+                omissions.Add(BrandContextOmission.SourceDocumentUnavailable);
+                continue;
+            }
+
             // Reported, not excluded. The creator named this document for this job; a mismatch is worth telling
             // them about, and overriding their choice on a tag would be the assembler second-guessing them.
             if (channelKey is not null

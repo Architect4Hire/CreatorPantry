@@ -176,6 +176,12 @@ async function edit(draft: Record<string, unknown> = { note: 'hello' }): Promise
   await settle();
 }
 
+/** Step 1 is a real form now: Continue stays off until a purpose is picked. */
+async function answerGoals(): Promise<void> {
+  (root().querySelector('#cp-goals-purpose-blog') as HTMLInputElement).click();
+  await settle();
+}
+
 function heading(): HTMLElement {
   return root().querySelector('#cp-step-heading') as HTMLElement;
 }
@@ -189,7 +195,7 @@ describe('BrandSetupShellComponent', () => {
       expect(heading().textContent).toBe("What you're making");
       expect(root().querySelector('section.step')?.getAttribute('aria-labelledby')).toBe('cp-step-heading');
       expect(button('Back')?.disabled).toBeTrue();
-      expect(text()).toContain('coming soon');
+      expect(text()).toContain('What are you creating for?');
     });
 
     it('redirects an unknown step to the first', async () => {
@@ -231,12 +237,14 @@ describe('BrandSetupShellComponent', () => {
       await create();
       const bar = (): Element | null => root().querySelector('[role="progressbar"]');
       expect(bar()?.getAttribute('aria-valuetext')).toBe('Step 1 of 7');
+      await answerGoals();
       await click('Continue');
       expect(bar()?.getAttribute('aria-valuetext')).toBe('Step 2 of 7');
     });
 
     it('moves focus to the new step heading and announces the change politely', async () => {
       await create();
+      await answerGoals();
       await click('Continue');
       expect(document.activeElement).toBe(heading());
       expect(heading().textContent).toBe('How you sound');
@@ -274,6 +282,7 @@ describe('BrandSetupShellComponent', () => {
 
     it('advances only after the save succeeds, recording the step as done', async () => {
       await create();
+      await answerGoals();
       await click('Continue');
       expect(save).toHaveBeenCalledTimes(1);
       const [slug, body, rowVersion] = save.calls.mostRecent().args;
@@ -287,6 +296,7 @@ describe('BrandSetupShellComponent', () => {
 
     it('stays on the step when the save fails, never says Saved, and Retry recovers', async () => {
       await create();
+      await answerGoals();
       save.and.resolveTo({ status: 'unavailable' });
       await click('Continue');
 
@@ -308,12 +318,12 @@ describe('BrandSetupShellComponent', () => {
 
     it('goes Back to the previous step and keeps the draft', async () => {
       await create();
-      await edit({ note: 'keep me' });
+      await answerGoals();
       await click('Continue');
       await click('Back');
       expect(router.url).toBe(`/${SLUG}/brand/setup/goals`);
       expect(heading().textContent).toBe("What you're making");
-      expect(shell.data().draft['goals']).toEqual({ note: 'keep me' });
+      expect(shell.data().draft['goals']).toEqual(jasmine.objectContaining({ purposes: ['blog'] }));
     });
 
     it('offers Skip only on optional steps and records the step as skipped', async () => {
@@ -718,6 +728,7 @@ describe('BrandSetupShellComponent', () => {
       expect(heading().textContent).toBe("What you're making");
       expect(shell.data().completed).toEqual([]);
 
+      await answerGoals();
       await click('Continue');
       const writes = save.calls.all().map((call) => call.args);
       expect(writes.length).toBe(1);

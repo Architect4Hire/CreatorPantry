@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Brand.Facade;
+using CreatorPantry.Domain.Modules.Brand.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
 
@@ -214,7 +215,9 @@ internal sealed class AiBrandGuideProposalRequestBusiness(
         {
             var document = await documents.GetAsync(documentId, cancellationToken);
 
-            if (!document.Succeeded)
+            // A document marked "doesn't sound like me" cannot be a source for a guide: it is refused the same
+            // way as one that does not resolve.
+            if (!document.Succeeded || document.Value!.Purpose == BrandSourcePurpose.NotMyVoice)
             {
                 return null;
             }

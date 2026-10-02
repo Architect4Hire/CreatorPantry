@@ -159,6 +159,33 @@ public sealed record BrandSourceExtractionRead(
     BrandSourceExtractionArtifact? Artifact = null,
     string? Text = null);
 
+/// <summary>What a creator's request to read a version again needs, and nothing it does not.</summary>
+/// <param name="ActorUserId">From the authenticated principal, for the audit entry.</param>
+/// <param name="ExpectedExtractionId">
+/// The artifact the creator was looking at, or null for a version nothing had read. Checked again here, in the
+/// write's own round trip, because the Business check that preceded it was a separate one.
+/// </param>
+public sealed record BrandSourceExtractionRetry(
+    Guid DocumentId, Guid VersionId, int VersionNumber, Guid? ExpectedExtractionId, string ActorUserId);
+
+public enum BrandSourceRetryOutcome
+{
+    /// <summary>The version's operation was put back in the queue, with its attempts spent fresh.</summary>
+    Queued = 1,
+
+    /// <summary>
+    /// A read was already queued or running — before the request, or because a worker claimed the row between
+    /// the check and the write. Nothing was changed, and the creator gets the answer they wanted either way.
+    /// </summary>
+    AlreadyReading = 2,
+
+    /// <summary>
+    /// The version's current artifact is not the one the creator was looking at — someone corrected it, or another
+    /// read landed — so what there is to retry has changed. Nothing was queued.
+    /// </summary>
+    Conflict = 3,
+}
+
 /// <summary>
 /// A creator's correction, with everything the write needs and nothing it does not.
 /// </summary>
@@ -291,6 +318,27 @@ public interface IBrandSourceExtractionDataLayer
     /// </remarks>
     Task<BrandSourceExtractionRead> ReadCurrentAsync(Guid versionId, CancellationToken cancellationToken);
 
+    /// <summary>Whether a read of the version is queued or running right now.</summary>
+    Task<bool> IsReadingAsync(Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Puts a version's operation back in the queue so the worker reads it again, as one save with its audit entry.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The same row, not a second one.</strong> The queue is keyed on (workspace, version), so a retry
+    /// resets the operation rather than adding another: attempts return to zero, the lease and failure are
+    /// cleared, and it is due immediately. What the worker then writes is the version's next artifact, because it
+    /// asks for the next ordinal — nothing already recorded is touched, and the earlier attempt's artifact stays
+    /// readable as history.
+    /// </para>
+    /// <para>
+    /// Whether this <em>should</em> happen is Business's to decide from the artifact. This only does it, and
+    /// answers honestly when it did not need to.
+    /// </para>
+    /// </remarks>
+    Task<BrandSourceRetryOutcome> RetryAsync(BrandSourceExtractionRetry retry, CancellationToken cancellationToken);
+
     /// <summary>
     /// Appends a creator's corrected text as the version's next artifact, as one save.
     /// </summary>
@@ -410,6 +458,15 @@ internal sealed class BrandSourceExtractionDataLayer(
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(extracted);
+
+        // A creator's correction is the version's text, and a machine read that was queued before it landed must
+        // not be appended on top of it: the newest artifact is the current one, so it would quietly hide the
+        // person's words behind the parser's. Whatever order a retry and a correction arrived in, this is where it
+        // is decided — nothing is written, and the caller ends the operation as having nothing left to do.
+        if (await extractions.FindCurrentArtifactAsync(target.VersionId, cancellationToken) is { Origin: BrandSourceExtractionOrigin.Corrected })
+        {
+            return BrandSourceExtractionWriteOutcome.AlreadyExtracted;
+        }
 
         var ordinal = await extractions.NextOrdinalAsync(target.VersionId, cancellationToken);
         var stored = (BrandSourceObject?)null;
@@ -808,6 +865,89 @@ internal sealed class BrandSourceExtractionDataLayer(
         {
             context.ChangeTracker.Clear();
             await RemoveTextAsync(correction.DocumentId, correction.VersionId, ordinal, stored);
+            throw;
+        }
+    }
+
+    public Task<bool> IsReadingAsync(Guid versionId, CancellationToken cancellationToken) =>
+        extractions.IsReadingAsync(versionId, cancellationToken);
+
+    public async Task<BrandSourceRetryOutcome> RetryAsync(
+        BrandSourceExtractionRetry retry, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(retry);
+
+        var now = clock.UtcNow;
+
+        // Re-read here rather than trusting the Business check that came first: a correction can land between the
+        // two round trips, and a read queued behind it would be the newest artifact once the worker ran.
+        var current = await extractions.FindCurrentArtifactAsync(retry.VersionId, cancellationToken);
+        if (current?.Id != retry.ExpectedExtractionId || current is { Origin: BrandSourceExtractionOrigin.Corrected })
+        {
+            return BrandSourceRetryOutcome.Conflict;
+        }
+
+        var operation = await extractions.FindForVersionUpdateAsync(retry.VersionId, cancellationToken);
+        var repaired = operation is null;
+
+        if (operation is null)
+        {
+            // A committed version always has one, so this is a repair rather than a path: queue what should have
+            // been queued, the way the upload would have.
+            extractions.Enqueue(BrandSourceExtractionQueue.For(
+                workspace.WorkspaceId, retry.DocumentId, retry.VersionId, now));
+        }
+        else if (operation.Status is BrandSourceExtractionOperationStatus.Queued or BrandSourceExtractionOperationStatus.Running)
+        {
+            return BrandSourceRetryOutcome.AlreadyReading;
+        }
+        else
+        {
+            // Every column the schema ties to a terminal state is cleared together, or a check refuses the row:
+            // the failure, the completion time, the pointer to the previous run's extraction and the lease.
+            // StartedAt stays: it records that work began once, not that it is running.
+            operation.Status = BrandSourceExtractionOperationStatus.Queued;
+            operation.Attempts = 0;
+            operation.AvailableAt = now;
+            operation.QueuedAt = now;
+            operation.StatusChangedAt = now;
+            operation.LeasedBy = null;
+            operation.LeaseExpiresAt = null;
+            operation.FailureCategory = null;
+            operation.FailureSummary = null;
+            operation.CompletedAt = null;
+            operation.BrandSourceExtractionId = null;
+        }
+
+        auditWriter.Record(new AuditEntry(
+            retry.ActorUserId,
+            BrandAuditActions.SourceExtractionRetried,
+            BrandAuditActions.SourceDocumentResourceType,
+            retry.DocumentId.ToString(),
+            CorrelationId: retry.VersionId,
+            Summary: $"Version {retry.VersionNumber}'s text asked to be read again."));
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return BrandSourceRetryOutcome.Queued;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A worker claimed the row between the read and the write, which is the outcome the creator wanted.
+            context.ChangeTracker.Clear();
+            return BrandSourceRetryOutcome.AlreadyReading;
+        }
+        catch (DbUpdateException) when (repaired)
+        {
+            // Two retries both found no row and both tried to add one; the unique index let the first through. The
+            // other's read is queued, which is what this one was asking for.
+            context.ChangeTracker.Clear();
+            return BrandSourceRetryOutcome.AlreadyReading;
+        }
+        catch
+        {
+            context.ChangeTracker.Clear();
             throw;
         }
     }

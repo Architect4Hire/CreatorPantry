@@ -59,6 +59,18 @@ public interface IBrandSourceExtractionReviewFacade
     /// file, the parser's artifact and every earlier correction all stay exactly where they are and stay readable.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Asks for a version's text to be read again. Editor or above, and an idempotency key is required: it names
+    /// one click, so a request repeated after the new read has settled does not queue a second one.
+    /// </summary>
+    Task<IdempotentOutcome<BrandSourceExtractionServiceModel>> RetryAsync(
+        string userId,
+        Guid documentId,
+        int versionNumber,
+        RetryBrandSourceExtractionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
     Task<IdempotentOutcome<BrandSourceExtractionServiceModel>> CorrectAsync(
         string userId,
         Guid documentId,
@@ -77,6 +89,8 @@ internal sealed class BrandSourceExtractionReviewFacade(
     /// <summary>A stable operation name for the idempotency scope. Changing it orphans in-flight keys.</summary>
     private const string CorrectOperation = "brand.source.extraction.correct";
 
+    private const string RetryOperation = "brand.source.extraction.retry";
+
     /// <remarks>
     /// Straight through, and deliberately: there is nothing to validate because both arguments are route-bound,
     /// nothing to cache because the text changes whenever anybody corrects it, and no role above Viewer to check.
@@ -85,6 +99,38 @@ internal sealed class BrandSourceExtractionReviewFacade(
     public Task<OperationResult<BrandSourceExtractionServiceModel>> GetAsync(
         Guid documentId, int versionNumber, CancellationToken cancellationToken) =>
         business.GetAsync(documentId, versionNumber, cancellationToken);
+
+    public async Task<IdempotentOutcome<BrandSourceExtractionServiceModel>> RetryAsync(
+        string userId,
+        Guid documentId,
+        int versionNumber,
+        RetryBrandSourceExtractionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        if (workspace.Role < WorkspaceRole.Editor)
+        {
+            return Refused(new OperationError(
+                BrandErrorCodes.SourceForbidden,
+                "You do not have permission to read extracted text again in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        return await idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId,
+                workspace.WorkspaceId,
+                RetryOperation,
+                idempotencyKey,
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["documentId"] = documentId,
+                    ["versionNumber"] = versionNumber,
+                    ["expectedExtractionId"] = model.ExpectedExtractionId,
+                }),
+            token => business.RetryAsync(userId, documentId, versionNumber, model.ExpectedExtractionId, token),
+            cancellationToken);
+    }
 
     public async Task<IdempotentOutcome<BrandSourceExtractionServiceModel>> CorrectAsync(
         string userId,

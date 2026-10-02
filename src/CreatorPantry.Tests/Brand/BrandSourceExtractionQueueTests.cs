@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Brand;
@@ -305,6 +306,182 @@ public sealed class BrandSourceExtractionQueueTests : IDisposable
 
         Assert.Equal(0, second.Claimed);
         Assert.Single(await ExtractionsAsync());
+    }
+
+    // ---- reading again (11A.22d) -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_corrupt_document_read_again_gets_a_second_artifact_and_keeps_the_first()
+    {
+        var seeded = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Pdf());
+        Assert.Equal(1, (await RunPassAsync()).Reviewed);
+        var first = Assert.Single(await ExtractionsAsync());
+
+        var retried = await RetryAsync(seeded, first.Id);
+
+        Assert.True(retried.IsReading);
+        var queued = Assert.Single(await OperationsAsync());
+        Assert.Equal(BrandSourceExtractionOperationStatus.Queued, queued.Status);
+        Assert.Equal(0, queued.Attempts);
+        Assert.Null(queued.CompletedAt);
+        Assert.Null(queued.BrandSourceExtractionId);
+        Assert.Null(queued.LeasedBy);
+
+        // The worker takes it like any queued read, and writes the version's next artifact.
+        Assert.Equal(1, (await RunPassAsync()).Reviewed);
+
+        var artifacts = await ExtractionsAsync();
+        Assert.Equal([1, 2], artifacts.Select(extraction => extraction.Ordinal).Order());
+        Assert.Contains(artifacts, extraction => extraction.Id == first.Id);
+        Assert.Equal(BrandSourceExtractionOperationStatus.Completed, Assert.Single(await OperationsAsync()).Status);
+    }
+
+    [Fact]
+    public async Task A_read_that_stopped_without_an_answer_can_be_asked_for_again_and_then_completes()
+    {
+        var seeded = await UploadAsync(WorkspaceA, PdfBytes("House style", "Warm and plain."));
+        await MutateAsync(operation => operation.Attempts = BrandPolicy.ExtractionMaxAttempts - 1);
+
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            await Claims(scope).ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, TestContext.Current.CancellationToken);
+        }
+
+        _clock.Advance(BrandPolicy.ExtractionLeaseDuration + TimeSpan.FromSeconds(1));
+        await RunMaintenanceAsync();
+        Assert.Equal(BrandSourceExtractionOperationStatus.Failed, Assert.Single(await OperationsAsync()).Status);
+        Assert.Empty(await ExtractionsAsync());
+
+        var detail = await DetailAsync(WorkspaceA, seeded.DocumentId);
+        Assert.Equal(BrandSourceExtractionState.NotExtracted, detail.Extraction.State);
+
+        var retried = await RetryAsync(seeded, expectedExtractionId: null);
+
+        Assert.True(retried.IsReading);
+        Assert.Equal(BrandSourceExtractionState.NotExtracted, retried.State);
+        var queued = Assert.Single(await OperationsAsync());
+        Assert.Equal(BrandSourceExtractionOperationStatus.Queued, queued.Status);
+        Assert.Null(queued.FailureCategory);
+        Assert.Null(queued.FailureSummary);
+
+        Assert.Equal(1, (await RunPassAsync()).Extracted);
+
+        var extraction = Assert.Single(await ExtractionsAsync());
+        Assert.Equal(1, extraction.Ordinal);
+        Assert.Equal(BrandSourceExtractionStatus.Succeeded, extraction.Status);
+    }
+
+    [Fact]
+    public async Task Reading_again_is_refused_for_text_that_was_read_corrected_or_has_nothing_to_read()
+    {
+        var read = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Text(), "voice.md");
+        var scan = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Png(), "board.png");
+        await RunPassAsync();
+
+        var readArtifact = Assert.Single(await ExtractionsAsync(), e => e.BrandSourceDocumentVersionId == read.VersionId);
+        var scanArtifact = Assert.Single(await ExtractionsAsync(), e => e.BrandSourceDocumentVersionId == scan.VersionId);
+        Assert.Equal(BrandSourceExtractionStatus.Unsupported, scanArtifact.Status);
+
+        var alreadyRead = await TryRetryAsync(read, readArtifact.Id);
+        Assert.Equal(BrandErrorCodes.SourceExtractionNotRetryableConflict, alreadyRead.Error!.Code);
+
+        var nothingToRead = await TryRetryAsync(scan, scanArtifact.Id);
+        Assert.Equal(BrandErrorCodes.SourceExtractionNotRetryableConflict, nothingToRead.Error!.Code);
+        Assert.Contains("Type the text in", nothingToRead.Error.Message);
+
+        var corrected = await CorrectAsync(read, readArtifact.Id, "Warm, plain and brief.\n");
+        var afterCorrection = await TryRetryAsync(read, corrected.Id);
+        Assert.Equal(BrandErrorCodes.SourceExtractionNotRetryableConflict, afterCorrection.Error!.Code);
+        Assert.Contains("corrected", afterCorrection.Error.Message);
+
+        // None of the three queued anything.
+        Assert.All(await OperationsAsync(), operation => Assert.Equal(BrandSourceExtractionOperationStatus.Completed, operation.Status));
+    }
+
+    [Fact]
+    public async Task A_read_queued_before_a_correction_landed_never_hides_the_correction()
+    {
+        var seeded = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Pdf());
+        await RunPassAsync();
+        var first = Assert.Single(await ExtractionsAsync());
+
+        // The creator asks for a read again, and — before the worker gets to it — types the text in themselves.
+        await RetryAsync(seeded, first.Id);
+        var corrected = await CorrectAsync(seeded, first.Id, "Typed in by hand.\n");
+
+        // The worker reaches the queued read last. It must not become the version's newest artifact.
+        Assert.Equal(1, (await RunPassAsync()).Claimed);
+
+        var artifacts = await ExtractionsAsync();
+        Assert.Equal([1, 2], artifacts.Select(extraction => extraction.Ordinal).Order());
+        var current = artifacts.OrderByDescending(extraction => extraction.Ordinal).First();
+        Assert.Equal(corrected.Id, current.Id);
+        Assert.Equal(BrandSourceExtractionOrigin.Corrected, current.Origin);
+
+        // And the operation is ended rather than left running or queued.
+        Assert.Equal(BrandSourceExtractionOperationStatus.Cancelled, Assert.Single(await OperationsAsync()).Status);
+    }
+
+    [Fact]
+    public async Task A_read_again_that_names_an_artifact_a_correction_has_since_replaced_queues_nothing()
+    {
+        var seeded = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Pdf());
+        await RunPassAsync();
+        var first = Assert.Single(await ExtractionsAsync());
+
+        // Their screen still shows the failed read; someone else has since typed the text in.
+        await CorrectAsync(seeded, first.Id, "Typed in by hand.\n");
+
+        var stale = await TryRetryAsync(seeded, first.Id);
+
+        Assert.Equal(BrandErrorCodes.SourceExtractionConflict, stale.Error!.Code);
+        Assert.Equal(BrandSourceExtractionOperationStatus.Completed, Assert.Single(await OperationsAsync()).Status);
+    }
+
+    [Fact]
+    public async Task Asking_for_a_read_that_is_already_queued_changes_nothing_and_says_it_is_reading()
+    {
+        var seeded = await UploadAsync(WorkspaceA);
+        var before = Assert.Single(await OperationsAsync());
+
+        var retried = await RetryAsync(seeded, expectedExtractionId: null);
+
+        Assert.True(retried.IsReading);
+        var after = Assert.Single(await OperationsAsync());
+        Assert.Equal(before.Status, after.Status);
+        Assert.Equal(before.QueuedAt, after.QueuedAt);
+        Assert.Equal(before.Attempts, after.Attempts);
+    }
+
+    [Fact]
+    public async Task A_read_again_quoting_an_artifact_that_has_been_superseded_is_a_conflict()
+    {
+        var seeded = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Pdf());
+        await RunPassAsync();
+
+        var stale = await TryRetryAsync(seeded, expectedExtractionId: Guid.NewGuid());
+
+        Assert.Equal(BrandErrorCodes.SourceExtractionConflict, stale.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_document_cannot_be_read_again()
+    {
+        var seeded = await UploadAsync(WorkspaceA, BrandSourceSampleFiles.Pdf());
+        await RunPassAsync();
+        var artifact = Assert.Single(await ExtractionsAsync());
+
+        await using var scope = ScopeFor(WorkspaceB);
+        var outcome = await scope.ServiceProvider.GetRequiredService<IBrandSourceExtractionReviewFacade>().RetryAsync(
+            "user",
+            seeded.DocumentId,
+            1,
+            new RetryBrandSourceExtractionViewModel { ExpectedExtractionId = artifact.Id },
+            Guid.NewGuid().ToString("N"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(BrandErrorCodes.SourceNotFound, outcome.Result.Error!.Code);
+        Assert.Equal(BrandSourceExtractionOperationStatus.Completed, Assert.Single(await OperationsAsync()).Status);
     }
 
     // ---- transient faults ------------------------------------------------------------------------------
@@ -830,6 +1007,33 @@ public sealed class BrandSourceExtractionQueueTests : IDisposable
 
         return outcome.Result.Value!;
     }
+
+    private async Task<IdempotentOutcome<BrandSourceExtractionServiceModel>> RetryOutcomeAsync(
+        Seeded seeded, Guid? expectedExtractionId)
+    {
+        await using var scope = ScopeFor(WorkspaceA);
+
+        return await scope.ServiceProvider.GetRequiredService<IBrandSourceExtractionReviewFacade>().RetryAsync(
+            "user",
+            seeded.DocumentId,
+            versionNumber: 1,
+            new RetryBrandSourceExtractionViewModel { ExpectedExtractionId = expectedExtractionId },
+            Guid.NewGuid().ToString("N"),
+            TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Asks for a read again through the creator-facing seam and expects it to be accepted.</summary>
+    private async Task<BrandSourceExtractionServiceModel> RetryAsync(Seeded seeded, Guid? expectedExtractionId)
+    {
+        var outcome = await RetryOutcomeAsync(seeded, expectedExtractionId);
+        Assert.True(outcome.Result.Succeeded, outcome.Result.Error?.Message);
+
+        return outcome.Result.Value!;
+    }
+
+    private async Task<OperationResult<BrandSourceExtractionServiceModel>> TryRetryAsync(
+        Seeded seeded, Guid? expectedExtractionId) =>
+        (await RetryOutcomeAsync(seeded, expectedExtractionId)).Result;
 
     private async Task<BrandSourceDocumentDetailServiceModel> DetailAsync(Guid workspaceId, Guid documentId)
     {

@@ -25,6 +25,17 @@ public interface IBrandSourceDocumentFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Adds pasted text as a new source document. It is stored as a plain-text file and goes through
+    /// <see cref="UploadAsync"/>, so the size limit, inspection, malware scan, idempotency and audit are the
+    /// upload's own rather than a second copy of them.
+    /// </summary>
+    Task<IdempotentOutcome<BrandSourceDocumentServiceModel>> PasteTextAsync(
+        string userId,
+        PasteBrandSourceTextViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// One page of the resolved workspace's library, newest edit first. Any member may read. Not cached: the
     /// key would have to carry every filter and cursor, and no write could enumerate what to invalidate.
     /// </summary>
@@ -181,6 +192,7 @@ public interface IBrandSourceDocumentFacade
 
 internal sealed class BrandSourceDocumentFacade(
     IValidator<UploadBrandSourceDocumentViewModel> validator,
+    IValidator<PasteBrandSourceTextViewModel> pasteValidator,
     IValidator<ReplaceBrandSourceDocumentViewModel> replaceValidator,
     IValidator<BrandSourceDocumentLifecycleViewModel> lifecycleValidator,
     IBrandSourceDocumentBusiness business,
@@ -242,6 +254,60 @@ internal sealed class BrandSourceDocumentFacade(
             await business.AbandonAsync(upload.DocumentId, upload.VersionId);
             throw;
         }
+    }
+
+    public async Task<IdempotentOutcome<BrandSourceDocumentServiceModel>> PasteTextAsync(
+        string userId,
+        PasteBrandSourceTextViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var upload = new UploadBrandSourceDocumentViewModel
+        {
+            Title = model.Title,
+            DocumentType = model.DocumentType,
+            Purpose = model.Purpose,
+            ChannelKey = model.ChannelKey,
+            Audience = model.Audience,
+            Tags = model.Tags,
+        };
+
+        // The role check comes first so a Viewer learns nothing about the text; UploadAsync makes it before
+        // anything else, so a request that would be refused for role is handed straight to it.
+        if (workspace.Role < WorkspaceRole.Editor)
+        {
+            return await UploadAsync(userId, upload, null, idempotencyKey, cancellationToken);
+        }
+
+        var shape = await pasteValidator.ValidateAsync(model, cancellationToken);
+        if (!shape.IsValid)
+        {
+            // The upload's own fields are validated too, so the creator sees every problem in one answer.
+            var uploadFailures = (await validator.ValidateAsync(upload, cancellationToken)).Errors;
+            var failures = shape.Errors.Concat(uploadFailures)
+                .Select(failure => (failure.PropertyName, failure.ErrorMessage))
+                .ToList();
+            return Refused(OperationError.Validation(BrandErrorCodes.SourceInvalidRequest, "The text could not be added.", failures));
+        }
+
+        var bytes = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(model.Text!);
+        await using var content = new MemoryStream(bytes, writable: false);
+
+        return await UploadAsync(
+            userId, upload, new BrandSourceUploadFile(content, PastedFileName(model.Title)), idempotencyKey, cancellationToken);
+    }
+
+    /// <summary>The title as a file name: separators removed, kept short enough to leave room for the extension.</summary>
+    private static string PastedFileName(string? title)
+    {
+        const string extension = ".txt";
+        var stem = BrandSourceFileName.Clean(title?.Replace('/', '-').Replace('\\', '-')) ?? "pasted-text";
+        if (stem.Length > BrandPolicy.OriginalFileNameMaxLength - extension.Length)
+        {
+            stem = stem[..(BrandPolicy.OriginalFileNameMaxLength - extension.Length)].TrimEnd();
+        }
+
+        return stem + extension;
     }
 
     /// <summary>A stable operation name for the idempotency scope. Changing it orphans in-flight keys.</summary>

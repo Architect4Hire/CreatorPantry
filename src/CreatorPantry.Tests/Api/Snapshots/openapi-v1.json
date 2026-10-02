@@ -2108,6 +2108,139 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/text": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Adds pasted text as a new brand source document.",
+        "description": "Editor or above. The text is stored as a UTF-8 plain-text file named from the title and then handled\nexactly as an upload of that file: the same 5 MB limit, inspection and malware scan, and the same error\ncodes. Text that is empty or only whitespace answers \u0060400\u0060 on \u0060text\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key with the same text and description returns the original response with\n\u0060Idempotent-Replayed: true\u0060 and stores nothing new; the same key with anything different answers\n\u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasteBrandSourceText"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/PasteBrandSourceText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}": {
       "get": {
         "tags": [
@@ -3170,6 +3303,150 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions/{versionNumber}/extraction/retry": {
+      "post": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Asks for the text of a brand source document\u0027s current version to be read again.",
+        "description": "Editor or above. Answers \u0060202 Accepted\u0060: the read happens in the background, and \u0060isReading\u0060 on the body (and\non \u0060GET .../extraction\u0060) is true until it settles. A read already queued or running is not an error.\n\n**Nothing is overwritten.** The new read becomes the version\u0027s next artifact; the earlier attempt stays\nreadable.\n\nOnly a read that could come out differently is accepted: one that **failed**, or that stopped before\nwriting anything. A version that was already read, holds no text to read (a scan or an image), or carries a\ncreator\u0027s correction answers \u0060409 brand.source.extraction.not_retryable.conflict\u0060 with the reason in the\nmessage. A stale \u0060expectedExtractionId\u0060 answers \u0060409 brand.source.extraction.conflict\u0060; an archived document\n\u0060409 brand.source.archived.conflict\u0060; a version that is not the current one\n\u0060409 brand.source.extraction.superseded.conflict\u0060.\n\nAn unknown id, another workspace\u0027s document, a removed one and a version this document does not have all\nanswer \u0060404 brand.source.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document the version belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version to read again. Must be the document\u0027s current version.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key for the same version and artifact returns the original response with\n\u0060Idempotent-Replayed: true\u0060 and queues nothing new; the same key with anything different answers\n\u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryBrandSourceExtraction"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryBrandSourceExtraction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceExtraction"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -12637,6 +12914,10 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "isReading": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -12742,7 +13023,8 @@
           "Voice",
           "WritingStyle",
           "VisualDirection",
-          "Background"
+          "Background",
+          "NotMyVoice"
         ],
         "type": "string"
       },
@@ -15182,6 +15464,64 @@
         "properties": {
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "PasteBrandSourceText": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandSourceDocumentType"
+              }
+            ]
+          },
+          "purpose": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandSourcePurpose"
+              }
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -17974,6 +18314,18 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RetryBrandSourceExtraction": {
+        "type": "object",
+        "properties": {
+          "expectedExtractionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

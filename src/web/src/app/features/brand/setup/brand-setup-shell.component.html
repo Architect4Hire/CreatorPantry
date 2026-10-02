@@ -127,7 +127,29 @@
                   <summary>Need help with this step?</summary>
                   <p>{{ step.help }}</p>
                 </details>
-                <cp-brand-setup-step-placeholder [step]="step" [draft]="currentStepDraft()" (reported)="onStepReport($event)" />
+                @switch (step.slug) {
+                  @case ('goals') {
+                    <cp-brand-setup-goals-step [step]="step" [draft]="currentStepDraft()" (reported)="onStepReport($event)" />
+                  }
+                  @case ('review-text') {
+                    <cp-brand-setup-review-text-step
+                      [step]="step"
+                      [draft]="currentStepDraft()"
+                      [sources]="examplesDraft()"
+                      [workspaceSlug]="workspaceSlug()"
+                      (reported)="onStepReport($event)"
+                    />
+                  }
+                  @case ('examples') {
+                    <cp-brand-setup-examples-step [step]="step" [draft]="currentStepDraft()" [workspaceSlug]="workspaceSlug()" (reported)="onStepReport($event)" />
+                  }
+                  @case ('style') {
+                    <cp-brand-setup-style-step [step]="step" [draft]="currentStepDraft()" (reported)="onStepReport($event)" />
+                  }
+                  @default {
+                    <cp-brand-setup-step-placeholder [step]="step" [draft]="currentStepDraft()" (reported)="onStepReport($event)" />
+                  }
+                }
               </section>
             }
 

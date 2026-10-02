@@ -1,0 +1,62 @@
+<form class="style" (submit)="$event.preventDefault()" novalidate>
+  <p class="all-optional">Every question is optional. Skip any you like.</p>
+  @for (q of questions; track q.key) {
+    <cp-form-section [heading]="q.heading" [intro]="q.intro">
+      <div class="group" [attr.role]="q.multiple ? 'group' : 'radiogroup'" [attr.aria-label]="q.heading">
+        @if (q.multiple) {
+          <div class="checks">
+            @for (choice of q.choices; track choice.key) {
+              <cp-checkbox
+                [label]="choice.label"
+                [inputId]="'cp-style-' + q.key + '-' + choice.key"
+                [checked]="picked(q, choice.key)"
+                [disabled]="atCap(q, choice.key)"
+                (checkedChange)="choose(q, choice.key, $event)"
+              />
+            }
+          </div>
+          @if (answers().choices[q.key].length >= tonesMax) {
+            <p class="cap" role="status">That's {{ tonesMax }}. Untick one to pick a different feel.</p>
+          }
+        } @else {
+          @for (choice of q.choices; track choice.key) {
+            <label class="radio" [attr.for]="'cp-style-' + q.key + '-' + choice.key">
+              <input
+                type="radio"
+                [name]="'cp-style-' + q.key"
+                [id]="'cp-style-' + q.key + '-' + choice.key"
+                [checked]="picked(q, choice.key)"
+                (change)="choose(q, choice.key)"
+              />
+              <span class="radio-text">
+                <span class="radio-label">{{ choice.label }}</span>
+                @if (choice.example) {
+                  <span class="example">{{ choice.example }}</span>
+                }
+              </span>
+            </label>
+          }
+          <label class="radio" [attr.for]="'cp-style-' + q.key + '-unsure'">
+            <input
+              type="radio"
+              [name]="'cp-style-' + q.key"
+              [id]="'cp-style-' + q.key + '-unsure'"
+              [checked]="none(q)"
+              (change)="choose(q, null)"
+            />
+            <span class="radio-text"><span class="radio-label">Not sure yet</span></span>
+          </label>
+        }
+      </div>
+      <cp-field label="In your own words (optional)" [forId]="'cp-style-' + q.key + '-note'">
+        <input
+          type="text"
+          [id]="'cp-style-' + q.key + '-note'"
+          [maxLength]="noteMax"
+          [value]="answers().notes[q.key]"
+          (input)="setNote(q.key, $event)"
+        />
+      </cp-field>
+    </cp-form-section>
+  }
+</form>

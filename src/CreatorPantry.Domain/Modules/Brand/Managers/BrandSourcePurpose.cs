@@ -14,4 +14,11 @@ public enum BrandSourcePurpose
 
     /// <summary>Facts about the brand rather than an example of how it sounds or looks.</summary>
     Background = 4,
+
+    /// <summary>
+    /// An example the creator says does not sound like them. Kept as evidence of what to avoid, and never
+    /// offered as grounding for the voice: <c>BrandContextSelection</c> asks for the other purposes by name.
+    /// Appended, not renumbered: the value is stored as its integer.
+    /// </summary>
+    NotMyVoice = 5,
 }

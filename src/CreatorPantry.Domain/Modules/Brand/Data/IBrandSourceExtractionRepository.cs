@@ -72,6 +72,14 @@ internal interface IBrandSourceExtractionRepository
     Task<BrandSourceExtractionOperation?> FindForUpdateAsync(Guid operationId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The version's one queue row, tracked so it can be put back in the queue, or null when it has none.
+    /// </summary>
+    Task<BrandSourceExtractionOperation?> FindForVersionUpdateAsync(Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>Whether the version's queue row is waiting to be claimed or being worked on.</summary>
+    Task<bool> IsReadingAsync(Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The ordinal the next extraction of one version takes: one more than the highest there is, or 1.
     /// </summary>
     /// <remarks>
@@ -153,6 +161,20 @@ internal sealed class BrandSourceExtractionRepository(CreatorPantryDbContext con
         Guid operationId, CancellationToken cancellationToken) =>
         context.BrandSourceExtractionOperations
             .FirstOrDefaultAsync(operation => operation.Id == operationId, cancellationToken);
+
+    public Task<BrandSourceExtractionOperation?> FindForVersionUpdateAsync(
+        Guid versionId, CancellationToken cancellationToken) =>
+        context.BrandSourceExtractionOperations
+            .FirstOrDefaultAsync(operation => operation.BrandSourceDocumentVersionId == versionId, cancellationToken);
+
+    public Task<bool> IsReadingAsync(Guid versionId, CancellationToken cancellationToken) =>
+        context.BrandSourceExtractionOperations
+            .AsNoTracking()
+            .AnyAsync(
+                operation => operation.BrandSourceDocumentVersionId == versionId
+                    && (operation.Status == BrandSourceExtractionOperationStatus.Queued
+                        || operation.Status == BrandSourceExtractionOperationStatus.Running),
+                cancellationToken);
 
     public Task<BrandSourceVersionReview?> FindVersionForReviewAsync(
         Guid documentId, int versionNumber, CancellationToken cancellationToken) =>

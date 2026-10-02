@@ -23,6 +23,27 @@ public sealed record UploadBrandSourceDocumentViewModel
     public IReadOnlyList<string?>? Tags { get; init; }
 }
 
+/// <summary>
+/// Text the creator pasted in as a source document. The same description as an upload with the text in place of
+/// the file: it is stored as a plain-text file and goes through the same checks as one.
+/// </summary>
+public sealed record PasteBrandSourceTextViewModel
+{
+    public string? Title { get; init; }
+
+    public string? Text { get; init; }
+
+    public BrandSourceDocumentType? DocumentType { get; init; }
+
+    public BrandSourcePurpose? Purpose { get; init; }
+
+    public string? ChannelKey { get; init; }
+
+    public string? Audience { get; init; }
+
+    public IReadOnlyList<string?>? Tags { get; init; }
+}
+
 /// <summary>The file part of an upload, as the controller hands it over.</summary>
 /// <param name="Content">Seekable and positioned anywhere: it is read more than once. The caller disposes it.</param>
 /// <param name="FileName">The name the client sent. Display only, and cleaned before it is kept.</param>
@@ -203,5 +224,18 @@ public sealed class UploadBrandSourceDocumentViewModelValidator : AbstractValida
                 context.AddFailure(field, message);
             }
         });
+    }
+}
+
+/// <summary>The shape of pasted text itself. Everything else about it is the upload's own validation.</summary>
+public sealed class PasteBrandSourceTextViewModelValidator : AbstractValidator<PasteBrandSourceTextViewModel>
+{
+    public PasteBrandSourceTextViewModelValidator()
+    {
+        RuleFor(model => model.Text)
+            .Must(text => !string.IsNullOrWhiteSpace(text))
+            .WithMessage("Paste some text to add.")
+            .Must(text => text is null || System.Text.Encoding.UTF8.GetByteCount(text) <= BrandPolicy.SourceTextUploadMaxBytes)
+            .WithMessage($"Pasted text can be at most {BrandPolicy.SourceTextUploadMaxBytes / (1024 * 1024)} MB.");
     }
 }

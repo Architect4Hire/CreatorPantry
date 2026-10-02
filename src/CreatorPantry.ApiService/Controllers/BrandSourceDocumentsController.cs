@@ -130,6 +130,50 @@ public sealed class BrandSourceDocumentsController(
             Created($"/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{created.Id}", created));
     }
 
+    /// <summary>Adds pasted text as a new brand source document.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="model">
+    /// `title`, `text`, `documentType` and `purpose` are required. Carries no workspace, owner, media type or
+    /// storage field.
+    /// </param>
+    /// <param name="idempotencyKey">
+    /// Required. A repeat of the same key with the same text and description returns the original response with
+    /// `Idempotent-Replayed: true` and stores nothing new; the same key with anything different answers
+    /// `422 idempotency.key_reused`.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Editor or above. The text is stored as a UTF-8 plain-text file named from the title and then handled
+    /// exactly as an upload of that file: the same 5 MB limit, inspection and malware scan, and the same error
+    /// codes. Text that is empty or only whitespace answers `400` on `text`.
+    /// </remarks>
+    [HttpPost("text")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
+    [Consumes("application/json")]
+    [RequestSizeLimit(BrandPolicy.SourceTextPasteRequestMaxBytes)]
+    [ProducesResponseType<BrandSourceDocumentServiceModel>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public async Task<IActionResult> PasteText(
+        string workspaceSlug,
+        [FromBody] PasteBrandSourceTextViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await documents.PasteTextAsync(userId, model, idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, created =>
+            Created($"/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{created.Id}", created));
+    }
+
     /// <summary>Reads one brand source document's metadata.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
@@ -659,6 +703,65 @@ public sealed class BrandSourceDocumentsController(
         Response.Headers.CacheControl = "no-store";
 
         return Ok(result.Value);
+    }
+
+    /// <summary>Asks for the text of a brand source document's current version to be read again.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="documentId">The document the version belongs to. Constrained to a Guid.</param>
+    /// <param name="versionNumber">The version to read again. Must be the document's current version.</param>
+    /// <param name="model">`expectedExtractionId`: the artifact being looked at, or null for a version nothing has read.</param>
+    /// <param name="idempotencyKey">
+    /// Required. A repeat of the same key for the same version and artifact returns the original response with
+    /// `Idempotent-Replayed: true` and queues nothing new; the same key with anything different answers
+    /// `422 idempotency.key_reused`.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Editor or above. Answers `202 Accepted`: the read happens in the background, and `isReading` on the body (and
+    /// on `GET .../extraction`) is true until it settles. A read already queued or running is not an error.
+    ///
+    /// **Nothing is overwritten.** The new read becomes the version's next artifact; the earlier attempt stays
+    /// readable.
+    ///
+    /// Only a read that could come out differently is accepted: one that **failed**, or that stopped before
+    /// writing anything. A version that was already read, holds no text to read (a scan or an image), or carries a
+    /// creator's correction answers `409 brand.source.extraction.not_retryable.conflict` with the reason in the
+    /// message. A stale `expectedExtractionId` answers `409 brand.source.extraction.conflict`; an archived document
+    /// `409 brand.source.archived.conflict`; a version that is not the current one
+    /// `409 brand.source.extraction.superseded.conflict`.
+    ///
+    /// An unknown id, another workspace's document, a removed one and a version this document does not have all
+    /// answer `404 brand.source.not_found`.
+    /// </remarks>
+    [HttpPost("{documentId:guid}/versions/{versionNumber:int}/extraction/retry")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
+    [Consumes("application/json")]
+    [ProducesResponseType<BrandSourceExtractionServiceModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> RetryExtraction(
+        string workspaceSlug,
+        Guid documentId,
+        int versionNumber,
+        [FromBody] RetryBrandSourceExtractionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await extractions.RetryAsync(
+            userId, documentId, versionNumber, model, idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, accepted =>
+            Accepted(
+                $"/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}"
+                    + $"/versions/{versionNumber}/extraction",
+                accepted));
     }
 
     /// <summary>Corrects the text extracted from a brand source document's current version.</summary>

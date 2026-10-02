@@ -1,0 +1,102 @@
+<form class="goals" (submit)="$event.preventDefault()" novalidate>
+  <cp-form-section heading="What are you creating for?" intro="Pick all that apply.">
+    <div class="group" role="group" aria-label="What are you creating for?">
+    @for (option of purposeOptions; track option.key) {
+      <div class="choice">
+        <cp-checkbox
+          [label]="option.label"
+          [inputId]="'cp-goals-purpose-' + option.key"
+          [checked]="has(answers().purposes, option.key)"
+          (checkedChange)="setPurpose(option.key, $event)"
+        />
+        @if (option.hint) {
+          <p class="choice-hint">{{ option.hint }}</p>
+        }
+      </div>
+    }
+    @if (has(answers().purposes, 'other')) {
+      <cp-field label="Tell us more (optional)" forId="cp-goals-purpose-note">
+        <input id="cp-goals-purpose-note" type="text" [maxLength]="noteMax" [value]="answers().purposeNote" (input)="setText('purposeNote', $event)" />
+      </cp-field>
+    }
+  </div>
+  </cp-form-section>
+
+  <cp-form-section heading="Who are you writing for?" intro="Pick the closest match. You can change it later.">
+    <div class="group" role="radiogroup" aria-label="Who are you writing for?">
+    @for (option of audienceOptions; track option.key) {
+      <label class="radio" [attr.for]="'cp-goals-audience-' + option.key">
+        <input
+          type="radio"
+          name="cp-goals-audience"
+          [id]="'cp-goals-audience-' + option.key"
+          [value]="option.key"
+          [checked]="answers().audience === option.key"
+          (change)="setAudience(option.key)"
+        />
+        <span class="radio-text">
+          <span class="radio-label">{{ option.label }}</span>
+          @if (option.hint) {
+            <span class="choice-hint">{{ option.hint }}</span>
+          }
+        </span>
+      </label>
+    }
+    @if (answers().audience === 'other') {
+      <cp-field label="Tell us more (optional)" forId="cp-goals-audience-note">
+        <input id="cp-goals-audience-note" type="text" [maxLength]="noteMax" [value]="answers().audienceNote" (input)="setText('audienceNote', $event)" />
+      </cp-field>
+    }
+  </div>
+  </cp-form-section>
+
+  <cp-form-section heading="Where will you share it?" intro="Pick all that apply.">
+    <div class="group" role="group" aria-label="Where will you share it?">
+    <div class="channels">
+      @for (option of channelOptions; track option.key) {
+        <cp-checkbox
+          [label]="option.label"
+          [inputId]="'cp-goals-channel-' + option.key"
+          [checked]="has(answers().channels, option.key)"
+          (checkedChange)="setChannel(option.key, $event)"
+        />
+      }
+    </div>
+    @if (has(answers().channels, 'other')) {
+      <cp-field label="Where? (optional)" forId="cp-goals-channel-note">
+        <input id="cp-goals-channel-note" type="text" [maxLength]="noteMax" [value]="answers().channelNote" (input)="setText('channelNote', $event)" />
+      </cp-field>
+    }
+  </div>
+  </cp-form-section>
+
+  <cp-form-section heading="More details" intro="All optional. Skip anything you like.">
+  <details class="more" [open]="hasDetails()">
+    <summary>Add more details</summary>
+    <div class="more-body">
+      <cp-field label="What makes your food different?" forId="cp-goals-different" hint="A sentence is plenty.">
+        <textarea id="cp-goals-different" [maxLength]="differentMax" [value]="answers().different" (input)="setText('different', $event)"></textarea>
+      </cp-field>
+      <cp-field label="Anything you never want to talk about?" forId="cp-goals-avoid">
+        <textarea id="cp-goals-avoid" [maxLength]="avoidMax" [value]="answers().avoid" (input)="setText('avoid', $event)"></textarea>
+      </cp-field>
+      <cp-field label="Your website address" forId="cp-goals-website" hint="We only save it. We don't visit it." [error]="websiteError()">
+        <input
+          id="cp-goals-website"
+          type="url"
+          inputmode="url"
+          autocomplete="url"
+          [maxLength]="websiteMax"
+          [value]="answers().website"
+          [attr.aria-invalid]="websiteError() ? 'true' : null"
+          (input)="setText('website', $event)"
+        />
+      </cp-field>
+    </div>
+  </details>
+  </cp-form-section>
+
+  @if (!complete() && !websiteError()) {
+    <p class="needs" [attr.role]="touched() ? 'status' : null">Pick at least one thing you're creating for and one place you'll share, then press Continue.</p>
+  }
+</form>

@@ -39,6 +39,10 @@ import {
 } from '../../../models/brand-setup.models';
 import { BrandSetupSessionService } from '../../../services/brand-setup-session.service';
 import { WorkspaceMembershipService } from '../../../services/workspace-membership.service';
+import { BrandSetupExamplesStepComponent } from './brand-setup-examples-step.component';
+import { BrandSetupGoalsStepComponent } from './brand-setup-goals-step.component';
+import { BrandSetupStyleStepComponent } from './brand-setup-style-step.component';
+import { BrandSetupReviewTextStepComponent } from './brand-setup-review-text-step.component';
 import { BrandSetupStepPlaceholderComponent } from './brand-setup-step-placeholder.component';
 
 /** How long edits rest before they are saved on their own. Overridable so tests need not wait. */
@@ -130,6 +134,10 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
     CpButtonComponent,
     CpCardComponent,
     CpProgressComponent,
+    BrandSetupExamplesStepComponent,
+    BrandSetupReviewTextStepComponent,
+    BrandSetupGoalsStepComponent,
+    BrandSetupStyleStepComponent,
     BrandSetupStepPlaceholderComponent,
   ],
   templateUrl: './brand-setup-shell.component.html',
@@ -201,6 +209,9 @@ export class BrandSetupShellComponent {
     const slug = this.currentSlug();
     return slug === null ? null : (this.data().draft[slug] ?? null);
   });
+
+  /** The examples step's saved slice, which the text-checking step reads to know which examples to check. */
+  readonly examplesDraft = computed(() => this.data().draft['examples'] ?? null);
 
   readonly stepNumber = computed(() => (this.currentIndex() ?? 0) + 1);
   readonly progressText = computed(() => `Step ${this.stepNumber()} of ${TOTAL}`);

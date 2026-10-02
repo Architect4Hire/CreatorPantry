@@ -673,9 +673,12 @@ internal sealed class BrandSourceDocumentBusiness(
 
         var page = await dataLayer.ListAsync(criteria, cancellationToken);
 
+        // A document the creator marked "doesn't sound like me" is something to steer away from, so it is never
+        // offered as a look to follow, whatever else it was filed as.
         var matches = page.Rows
-            .Where(document => document.Purpose == BrandSourcePurpose.VisualDirection
-                || document.DocumentType == BrandSourceDocumentType.VisualReference)
+            .Where(document => document.Purpose != BrandSourcePurpose.NotMyVoice
+                && (document.Purpose == BrandSourcePurpose.VisualDirection
+                    || document.DocumentType == BrandSourceDocumentType.VisualReference))
             .OrderByDescending(document => document.UpdatedAt)
             .ThenBy(document => document.Id)
             .ToList();

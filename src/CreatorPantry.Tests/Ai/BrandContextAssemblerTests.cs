@@ -804,6 +804,18 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task A_document_marked_as_not_my_voice_is_left_out_even_when_named()
+    {
+        await SeedAsync(WorkspaceA);
+        var avoid = await AddDocumentAsync(WorkspaceA, "Stiff intro", BrandSourcePurpose.NotMyVoice);
+
+        var package = await AssembleAsync(WorkspaceA, Request(AiTaskType.EditorialPackage, sourceDocumentIds: [avoid]));
+
+        Assert.Empty(package.Excerpts);
+        Assert.Contains(BrandContextOmission.SourceDocumentUnavailable, package.Omissions);
+    }
+
+    [Fact]
     public async Task Another_workspaces_visual_guide_and_references_never_reach_an_image_task()
     {
         await SeedAsync(WorkspaceA);

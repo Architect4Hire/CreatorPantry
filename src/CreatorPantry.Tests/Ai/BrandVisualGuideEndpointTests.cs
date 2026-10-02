@@ -86,6 +86,20 @@ public sealed class BrandVisualGuideEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_look_the_creator_marked_as_not_theirs_is_never_offered_as_a_reference()
+    {
+        using var client = await OwnerOf(_fixture.WorkspaceA);
+        await ActivatedGuideAsync(client, _fixture.WorkspaceA, new { displayName = "Voice only", questionnaire = new { voice = "Warm." } });
+        await SeedDocumentAsync(_fixture.WorkspaceA, "Not my look", BrandSourceDocumentType.VisualReference, BrandSourcePurpose.NotMyVoice, chunks: 2);
+        await SeedDocumentAsync(_fixture.WorkspaceA, "Moodboard", BrandSourceDocumentType.VisualReference, BrandSourcePurpose.VisualDirection, chunks: 2);
+
+        var body = await BodyOf(await GetAsync(client, _fixture.WorkspaceA, "photography-concept"));
+
+        var titles = body.GetProperty("references").EnumerateArray().Select(r => r.GetProperty("title").GetString()).ToList();
+        Assert.Equal(["Moodboard"], titles);
+    }
+
+    [Fact]
     public async Task An_active_guide_with_no_visual_sections_says_so_and_still_offers_references()
     {
         using var client = await OwnerOf(_fixture.WorkspaceA);

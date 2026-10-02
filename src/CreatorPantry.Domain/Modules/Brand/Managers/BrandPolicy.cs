@@ -67,6 +67,13 @@ public static class BrandPolicy
     /// </summary>
     public const long SourceUploadRequestMaxBytes = SourceUploadMaxBytes + (1024 * 1024);
 
+    /// <summary>
+    /// The paste route's request-body limit: the largest text source twice over, because a JSON string can spend
+    /// more than one byte on a character, plus room for the metadata fields. The gateway's route for the same
+    /// path carries the same number.
+    /// </summary>
+    public const long SourceTextPasteRequestMaxBytes = (SourceTextUploadMaxBytes * 2) + (1024 * 1024);
+
     /// <summary>The most pixels a source image may declare, so a small file cannot describe an enormous canvas.</summary>
     public const long SourceImageMaxPixels = 50_000_000;
 

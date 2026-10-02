@@ -47,6 +47,7 @@ public static class BrandServiceCollectionExtensions
         services.AddScoped<IBrandSourceDocumentBusiness, BrandSourceDocumentBusiness>();
         services.AddScoped<IBrandSourceDocumentFacade, BrandSourceDocumentFacade>();
         services.AddScoped<IValidator<UploadBrandSourceDocumentViewModel>, UploadBrandSourceDocumentViewModelValidator>();
+        services.AddScoped<IValidator<PasteBrandSourceTextViewModel>, PasteBrandSourceTextViewModelValidator>();
         services.AddScoped<IValidator<ReplaceBrandSourceDocumentViewModel>, ReplaceBrandSourceDocumentViewModelValidator>();
         services.AddScoped<IValidator<BrandSourceDocumentLifecycleViewModel>, BrandSourceDocumentLifecycleViewModelValidator>();
 

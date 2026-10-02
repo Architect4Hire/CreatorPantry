@@ -55,6 +55,12 @@ public static class BrandAuditActions
     /// </remarks>
     public const string SourceDocumentTextCorrected = "brand.source.extraction.corrected";
 
+    /// <summary>
+    /// A creator asked for a version to be read again after the first attempt failed or stopped. Names the actor;
+    /// the summary says which version and nothing else.
+    /// </summary>
+    public const string SourceExtractionRetried = "brand.source.extraction.retried";
+
     /// <summary>A chunk set built from a document's extracted text became the one retrieval reads.</summary>
     public const string SourceDocumentEmbedded = "brand.source.embedded";
 

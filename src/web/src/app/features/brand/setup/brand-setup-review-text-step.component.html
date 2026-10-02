@@ -1,0 +1,203 @@
+<div class="review">
+  @if (!loaded()) {
+    <p class="hint" role="status">Checking your examples…</p>
+  } @else if (entries().length === 0) {
+    <cp-form-section heading="Nothing to check here">
+      <p class="empty">
+        You haven't added any written examples, so there's no text to check. You can carry on, or go back a step to add
+        some.
+      </p>
+      @if (note()) {
+        <p class="notice" role="status">{{ note() }}</p>
+      }
+      @if (visualCount() > 0) {
+        <p class="hint">Photos and looks you added don't need checking.</p>
+      }
+    </cp-form-section>
+  } @else {
+    <p class="hint">
+      Nothing is used until you say it looks right. Check the words we read from each example, fix anything that's wrong,
+      or leave an example out.
+    </p>
+
+    @if (undecided() > 0) {
+      <p class="notice" role="status">
+        {{ undecided() === 1 ? '1 example still needs' : undecided() + ' examples still need' }} your OK before you
+        continue.
+      </p>
+    }
+    @if (dirtyEditors() > 0) {
+      <p class="notice" role="status">Save or cancel your edit before you continue.</p>
+    }
+    @if (gaveUpWaiting()) {
+      <p class="notice" role="status">Some examples are taking longer than usual to read. You can check again.</p>
+    }
+    @if (note()) {
+      <p class="notice" role="status">{{ note() }}</p>
+    }
+    @if (visualCount() > 0) {
+      <p class="hint">Photos and looks you added don't need checking.</p>
+    }
+  }
+
+  @for (entry of entries(); track entry.card.documentId) {
+    @let card = entry.card;
+    @let editor = editors()[card.documentId];
+    <cp-form-section [heading]="titleOf(card)" [intro]="subtitleOf(card)">
+      <div class="card" [attr.data-kind]="entry.kind">
+        @switch (entry.kind) {
+          @case ('checking') {
+            <cp-status-pill tone="progress">Checking…</cp-status-pill>
+          }
+          @case ('waiting') {
+            <cp-status-pill tone="progress">Reading…</cp-status-pill>
+            <p>We're still reading this one.</p>
+          }
+          @case ('stopped') {
+            <cp-status-pill tone="error">Couldn't read</cp-status-pill>
+            <p>{{ failureText(entry.kind) }}</p>
+          }
+          @case ('failed') {
+            <cp-status-pill tone="error">Couldn't read</cp-status-pill>
+            <p>{{ failureText(entry.kind) }}</p>
+          }
+          @case ('scan') {
+            <cp-status-pill tone="warning">Needs your help</cp-status-pill>
+            <p>This looks like a scan or a picture, so there's no text to read. We can't read pictures yet.</p>
+          }
+          @case ('read') {
+            <cp-status-pill tone="warning">Needs your OK</cp-status-pill>
+            <p>We read this from your file. Check that it looks right.</p>
+          }
+          @case ('partial') {
+            <cp-status-pill tone="warning">Only part of it</cp-status-pill>
+            <p>We only kept the beginning of this one. It had more text than we can hold.</p>
+          }
+          @case ('confirmed') {
+            <cp-status-pill tone="success">Checked</cp-status-pill>
+            <p>{{ corrected(card) ? 'You corrected this text.' : 'You said this looks right.' }}</p>
+          }
+          @case ('left-out') {
+            <cp-status-pill tone="neutral">Left out</cp-status-pill>
+            <p>Left out. It stays in your library, but we won't use it here.</p>
+          }
+          @case ('unreachable') {
+            <cp-status-pill tone="error">Couldn't check</cp-status-pill>
+            <p>We couldn't reach this one just now.</p>
+          }
+        }
+
+        @if (!editor && (entry.kind === 'read' || entry.kind === 'partial' || entry.kind === 'confirmed') && card.extraction?.text) {
+          <p class="preview">{{ preview(card.extraction) }}</p>
+          <details class="all-text">
+            <summary>See all the text</summary>
+            <div class="full-text" role="region" tabindex="0" [attr.aria-label]="'All the text of ' + titleOf(card)">{{ card.extraction.text }}</div>
+          </details>
+        }
+
+        @if (editor) {
+          <div class="editor">
+            <cp-field
+              [label]="editor.typed ? 'Type or paste the text' : 'Edit the text'"
+              [forId]="'cp-review-text-' + card.documentId"
+              [error]="editor.problem"
+              hint="Your original file isn't changed."
+            >
+              <textarea
+                [id]="'cp-review-text-' + card.documentId"
+                class="editor-text"
+                [value]="editor.text"
+                [attr.aria-invalid]="editor.problem ? 'true' : null"
+                (input)="setText(card, $event)"
+              ></textarea>
+            </cp-field>
+            <details class="more">
+              <summary>Add a note (optional)</summary>
+              <cp-field label="What did you change?" [forId]="'cp-review-note-' + card.documentId">
+                <input
+                  type="text"
+                  [id]="'cp-review-note-' + card.documentId"
+                  [maxLength]="reasonMax"
+                  [value]="editor.note"
+                  (input)="setNote(card, $event)"
+                />
+              </cp-field>
+            </details>
+            <div class="actions">
+              @if (editor.conflict) {
+                <button cpButton type="button" variant="secondary" size="sm" (click)="keepMine(card)">Keep mine</button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startFromNewest(card)">Start from the newest</button>
+              } @else {
+                <button cpButton type="button" variant="primary" size="sm" [disabled]="editor.saving" (click)="saveEdit(card)">
+                  {{ editor.saving ? 'Saving…' : 'Save text' }}
+                </button>
+              }
+              <button cpButton type="button" variant="ghost" size="sm" [disabled]="editor.saving" (click)="cancelEdit(card)">Cancel</button>
+            </div>
+          </div>
+        } @else {
+          <div class="actions">
+            @switch (entry.kind) {
+              @case ('waiting') {
+                <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="checkAgain(card)">Check again</button>
+              }
+              @case ('unreachable') {
+                <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="checkAgain(card)">Check again</button>
+              }
+              @case ('stopped') {
+                <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
+                  {{ isBusy(card.documentId, 'retry') ? 'Asking…' : 'Try reading again' }}
+                </button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
+              }
+              @case ('failed') {
+                <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
+                  {{ isBusy(card.documentId, 'retry') ? 'Asking…' : 'Try reading again' }}
+                </button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
+              }
+              @case ('scan') {
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
+              }
+              @case ('read') {
+                <button cpButton type="button" variant="primary" size="sm" (click)="confirm(card)">Looks right</button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
+              }
+              @case ('partial') {
+                <button cpButton type="button" variant="primary" size="sm" (click)="confirm(card)">Use the beginning</button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
+              }
+              @case ('confirmed') {
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
+              }
+              @case ('left-out') {
+                <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="bringBack(card)">
+                  {{ isBusy(card.documentId, 'unarchive') ? 'Bringing it back…' : 'Bring it back' }}
+                </button>
+              }
+            }
+            @if (entry.kind === 'stopped' || entry.kind === 'failed' || entry.kind === 'scan' || entry.kind === 'read' || entry.kind === 'partial' || entry.kind === 'confirmed' || entry.kind === 'waiting') {
+              <button
+                cpButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                [attr.aria-label]="'Leave ' + titleOf(card) + ' out'"
+                [disabled]="isBusy(card.documentId)"
+                (click)="leaveOut(card)"
+              >
+                {{ isBusy(card.documentId, 'archive') ? 'Leaving it out…' : 'Leave this one out' }}
+              </button>
+            }
+          </div>
+        }
+
+        @if (problems()[card.documentId]) {
+          <p class="problem" role="alert">{{ problems()[card.documentId] }}</p>
+        }
+      </div>
+    </cp-form-section>
+  }
+
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+</div>

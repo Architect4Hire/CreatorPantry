@@ -26,6 +26,7 @@ public sealed class BrandSourceDocumentFacadeTests
     private static BrandSourceDocumentFacade FacadeOver(StubBusiness business, IIdempotentCommandExecutor executor, WorkspaceRole role = WorkspaceRole.Editor) =>
         new(
             new InlineValidator<UploadBrandSourceDocumentViewModel>(),
+            new PasteBrandSourceTextViewModelValidator(),
 
             // The real one, so these tests see the token rule the route actually enforces.
             new ReplaceBrandSourceDocumentViewModelValidator(),
