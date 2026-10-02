@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CpButtonComponent, CpCardComponent, CpProgressComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpCardComponent, CpNoticeComponent, CpProgressComponent } from '@creator-pantry/ui';
 import { combineLatest, map } from 'rxjs';
 
 import { ConfirmService } from '../../../core/confirm.service';
@@ -133,6 +133,7 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
+    CpNoticeComponent,
     CpProgressComponent,
     BrandSetupExamplesStepComponent,
     BrandSetupReviewTextStepComponent,

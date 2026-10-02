@@ -158,20 +158,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Picks or clears a choice. A single-choice question re-selects; "Not sure yet" is `null`. */
-export function withChoice(answers: StyleAnswers, question: StyleQuestion, key: string | null, on = true): StyleAnswers {
-  let next: string[];
-  if (key === null) next = [];
-  else if (!question.multiple) next = on ? [key] : [];
-  else {
-    const set = new Set(answers.choices[question.key]);
-    if (on) set.add(key);
-    else set.delete(key);
-    next = question.choices.map((x) => x.key).filter((k) => set.has(k));
-  }
-  return { ...answers, choices: { ...answers.choices, [question.key]: next } };
-}
-
 export function withNote(answers: StyleAnswers, key: StyleQuestionKey, value: string): StyleAnswers {
   return { ...answers, notes: { ...answers.notes, [key]: value.slice(0, NOTE_MAX) } };
 }

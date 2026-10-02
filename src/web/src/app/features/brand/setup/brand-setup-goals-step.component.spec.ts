@@ -85,7 +85,7 @@ describe('BrandSetupGoalsStepComponent', () => {
     expect(input('cp-goals-audience-beginners').checked).toBeTrue();
     expect(input('cp-goals-channel-tiktok').checked).toBeTrue();
     expect(input('cp-goals-channel-blog').checked).toBeFalse();
-    expect(el.querySelector('details.more')!.hasAttribute('open')).toBeTrue();
+    expect(el.querySelector('details.cp-disclosure')!.hasAttribute('open')).toBeTrue();
     expect(last().canContinue).toBeTrue();
     expect(last().isDirty).toBeFalse();
   });
@@ -117,7 +117,8 @@ describe('BrandSetupGoalsStepComponent', () => {
     const groups = Array.from(el.querySelectorAll('[role="group"], [role="radiogroup"]'));
     expect(groups.length).toBe(3);
     for (const g of groups) expect(g.getAttribute('aria-label')).toBeTruthy();
-    expect(el.querySelectorAll('cp-form-section').length).toBe(4);
+    // One section per question. The extras are a disclosure, not a fourth section.
+    expect(el.querySelectorAll('cp-form-section').length).toBe(3);
     for (const control of Array.from(el.querySelectorAll<HTMLInputElement>('input'))) {
       const named = control.labels?.length || control.getAttribute('aria-label');
       expect(named).withContext(control.id).toBeTruthy();

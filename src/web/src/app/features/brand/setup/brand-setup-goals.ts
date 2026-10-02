@@ -111,13 +111,6 @@ export function goalsComplete(answers: GoalsAnswers): boolean {
   return answers.purposes.length > 0 && answers.channels.length > 0 && websiteProblem(answers.website) === '';
 }
 
-export function toggled(list: readonly string[], key: string, on: boolean, options: readonly GoalOption[]): string[] {
-  const next = new Set(list);
-  if (on) next.add(key);
-  else next.delete(key);
-  return options.map((o) => o.key).filter((k) => next.has(k));
-}
-
 export function sameAnswers(a: GoalsAnswers, b: GoalsAnswers): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }

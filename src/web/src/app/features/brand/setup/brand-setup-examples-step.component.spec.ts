@@ -104,7 +104,8 @@ const file = (name = 'post.txt', content = 'hello'): File => new File([content],
 describe('BrandSetupExamplesStepComponent', () => {
   it('starts empty, optional, with nothing to add until the creator says what it shows', async () => {
     await mount();
-    expect(text()).toContain('Examples are optional');
+    // Optionality is the shell's legend, said once per step: the step itself must not repeat it per field.
+    expect(text()).not.toMatch(/\(optional\)/);
     expect(text()).toContain('Nothing added yet. That\'s fine');
     expect(el.querySelector('cp-uploader')).toBeNull();
     expect(text()).toContain('Choose what your example shows above');
@@ -235,7 +236,7 @@ describe('BrandSetupExamplesStepComponent', () => {
     await chooseFiles(file('a.txt'));
     expect(text()).toContain('only takes it off this step');
     await click('Remove');
-    expect(el.querySelectorAll('li.item').length).toBe(0);
+    expect(el.querySelectorAll('cp-brand-setup-example').length).toBe(0);
     expect(el.querySelector('.cp-sr-only[role="status"]')?.textContent).toContain('a.txt removed from this step');
     expect(last().draft).toEqual({ items: [] });
   });

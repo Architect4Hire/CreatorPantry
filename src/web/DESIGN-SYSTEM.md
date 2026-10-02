@@ -84,6 +84,28 @@ Optionality is stated once, in a legend above the sections, never field by field
 among a dozen unmarked ones makes the rest read as required. Which way round the legend runs depends on the
 form — the recipe editor marks its three required fields, the AI brief says every field is optional.
 
+A form inside a multi-step flow puts that legend in the *shell* rather than in each step, with its text on the
+step's own definition: one implementation, and no step can forget it. `BrandSetupShellComponent` does this, and
+it is why none of its steps marks a field optional.
+
+### What the product says about the thing on screen
+
+Saved, refused, shelved, still working: one sentence, in a `CpNoticeComponent`. The recipe editor worked the
+shape out as a `.banner` family and every screen written after it either copied those rules or drifted from
+them — by the time this became a component there were four private versions of it.
+
+Tone never carries the meaning on its own. Each of `neutral | success | warning | error` brings a glyph as well
+as a fill, because someone who cannot tell two hues apart still has to be able to tell "saved" from "could not
+save"; a consumer may replace the glyph but not switch it off. Liveness is the consumer's: it sets
+`role="status"` or `role="alert"`, since only the consumer knows whether the sentence interrupts. A live region
+also has to be in the DOM *before* it has text to be announced reliably, which is what `quiet` is for — it
+holds the place without a fill, padding or glyph. Content is projected, so an inline `Reload latest` sits in the
+flow of the sentence it belongs to rather than under it.
+
+Three utilities in `global.css` carry the rest of what features kept re-declaring: `.cp-muted` for supporting
+copy, `.cp-actions` for a wrapping row of buttons under the thing they act on, and `.cp-disclosure` for a
+`<details>` whose summary would otherwise sit under the 40px target.
+
 ### Fitting a form into the width it has
 
 Two CSS traps cost real time here, both worth recognising rather than rediscovering.
@@ -134,6 +156,18 @@ which every state — unchecked, checked, hover, focus, disabled — has to be a
 belongs in one library component rather than in each feature's stylesheet. `CpCheckboxComponent` is the
 reference: the real input stays in the DOM, focusable and in the accessibility tree, and is only visually
 replaced by a box beside it, so keyboard behaviour and what a screen reader announces stay the browser's.
+
+`CpChoiceGroupComponent` is the same rule applied to a *set* of answers, and the shape to reach for whenever a
+form asks the creator to choose rather than to type. Its options are **tiles**: the whole option is the target,
+which is what keeps an option carrying a label, a line about what it means and a sample sentence scannable, and
+what gets it past 40px without each feature inventing padding. A picked tile fills `--cp-primary-soft` behind an
+evergreen border and answers the pointer with the interactive card's own lift, so choosing reads as the same
+gesture as the rest of the product. It takes one answer or several, and a `max` disables the unpicked rest at
+the cap rather than letting a pick disappear.
+
+A single-answer group has no deselect — a radio cannot be unticked by clicking it — so a question that must be
+answerable with *no answer* gives that its own option. The brand questionnaire's "Not sure yet" is one, and it
+stands for the empty answer rather than being stored as a choice.
 
 ### Tabs, anchor navs, and one Save
 

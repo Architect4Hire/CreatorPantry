@@ -4,54 +4,17 @@
 
 .review {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-8);
 }
 
-.hint,
-.empty {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-}
-
-.notice {
-  margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border: 1px solid var(--cp-border-strong);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
-  font-size: var(--cp-font-size-sm);
-}
-
-.card {
-  display: grid;
-  gap: var(--cp-space-3);
-  padding: var(--cp-space-4);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-  max-inline-size: var(--cp-measure-field);
-  min-inline-size: 0;
-}
-
-.card p {
-  margin: 0;
-}
-
 .preview {
-  color: var(--cp-text);
+  margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.all-text summary,
-.more summary {
-  min-block-size: 2.5rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-weight: 600;
-}
-
+/* Bounded and scrollable: some of these are whole blog posts, and the card is one item in a list. */
 .full-text {
   max-block-size: 16rem;
   overflow: auto;
@@ -70,15 +33,4 @@
 
 .editor-text {
   min-block-size: 12rem;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
-}
-
-.problem {
-  color: var(--cp-danger);
-  font-size: var(--cp-font-size-sm);
 }

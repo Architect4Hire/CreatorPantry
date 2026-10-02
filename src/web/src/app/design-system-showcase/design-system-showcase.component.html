@@ -394,6 +394,66 @@
     </div>
   </section>
 
+  <section aria-labelledby="choice-group-heading">
+    <h2 id="choice-group-heading">Choice group</h2>
+    <p class="section-note">
+      A set of answers as selectable tiles. The whole tile is the target, which is how an option carrying a
+      label, a line about what it means and a sample sentence stays scannable — and how it clears 40px without
+      each feature inventing padding. Drawn, for the same reason the checkbox above is: a native radio left to
+      the inherited <code>color-scheme</code> arrives at 13px with no author focus ring. The real input stays in
+      the DOM, so arrow keys, <kbd>Space</kbd> and what a screen reader says are all still the browser's.
+    </p>
+    <div class="showcase-stack">
+      <cp-choice-group
+        label="How do you come across?"
+        [options]="voiceChoices"
+        [(value)]="showcaseVoice"
+      />
+      <p class="section-note">
+        Several answers, capped: at the cap the rest are <em>disabled</em> rather than a pick being dropped
+        silently, so the limit is visible before it bites.
+      </p>
+      <cp-choice-group
+        label="How does it feel to read?"
+        [options]="toneChoices"
+        [multiple]="true"
+        [max]="2"
+        [(value)]="showcaseTones"
+      />
+      <p class="section-note">Short options take the width they need and wrap, rather than stacking.</p>
+      <cp-choice-group
+        label="Where will you share it?"
+        layout="fit"
+        [options]="channelChoices"
+        [multiple]="true"
+        [(value)]="showcaseChannels"
+      />
+    </div>
+  </section>
+
+  <section aria-labelledby="notice-heading">
+    <h2 id="notice-heading">Notice</h2>
+    <p class="section-note">
+      One sentence the product has to say about the thing on screen. Every tone brings a glyph as well as a
+      fill, so "saved" and "could not save" are still different to someone who cannot tell two hues apart. The
+      consumer owns the liveness — <code>role="status"</code> or <code>role="alert"</code> — because only the
+      consumer knows whether the sentence interrupts; and a region that must exist before it has text can hold
+      its place <code>quiet</code>.
+    </p>
+    <div class="showcase-stack">
+      <cp-notice role="status">Saved at 4:05pm.</cp-notice>
+      <cp-notice tone="success" role="status">Your guide is active.</cp-notice>
+      <cp-notice tone="warning" role="status" glyph="⚑">
+        <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here. Editing is
+        off until you bring it back.
+      </cp-notice>
+      <cp-notice tone="error" role="alert">
+        This recipe changed elsewhere since you loaded it.
+        <button cpButton variant="secondary" size="sm" type="button">Reload latest</button>
+      </cp-notice>
+    </div>
+  </section>
+
   <section aria-labelledby="anchor-nav-heading">
     <h2 id="anchor-nav-heading">Anchor nav</h2>
     <p class="section-note">

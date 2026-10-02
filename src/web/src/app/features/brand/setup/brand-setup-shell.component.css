@@ -76,10 +76,6 @@
 }
 
 .steps-disclosure summary {
-  min-height: 2.5rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
   font-weight: 700;
 }
 
@@ -103,18 +99,18 @@
 }
 
 .help summary {
-  min-height: 2.5rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
   color: var(--cp-text-muted);
 }
 
 .help p,
 .resume p,
 .summary p,
-.notice,
 .state {
+  margin: 0;
+}
+
+/* The step's one sentence about what it needs, between the help disclosure and the first section. */
+.legend {
   margin: 0;
 }
 
@@ -145,48 +141,7 @@
   font-size: var(--cp-font-size-sm);
 }
 
-.problem {
-  margin: 0;
-  color: var(--cp-danger);
-  font-size: var(--cp-font-size-sm);
-  font-weight: 700;
-}
-
-.conflict {
-  display: grid;
-  gap: var(--cp-space-3);
-  padding: var(--cp-space-4);
-  border: 1px solid var(--cp-orange);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-orange-soft);
-}
-
-.conflict p {
-  margin: 0;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-3);
-  align-items: center;
-}
-
 .secondary-row {
   color: var(--cp-text-muted);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    scroll-behavior: auto;
-    transition: none;
-    animation: none;
-  }
-}
-
-.problem-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-3);
-}

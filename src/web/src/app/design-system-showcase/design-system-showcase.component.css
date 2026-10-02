@@ -180,3 +180,11 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   gap: var(--cp-space-4);
 }
+
+/* A column of examples inside one showcase section, at the width a form would give them. */
+.showcase-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  max-inline-size: var(--cp-measure-field);
+}

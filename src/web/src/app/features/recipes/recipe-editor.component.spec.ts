@@ -1122,7 +1122,7 @@ describe('RecipeEditorComponent', () => {
       it('points the banner at the tabs once it has somewhere to point', async () => {
         const { harness } = await refusedWith({ ingredientGroups: [QUANTITY_PROBLEM] });
 
-        const banner = harness.routeNativeElement!.querySelector('.banner--error');
+        const banner = harness.routeNativeElement!.querySelector('cp-notice.cp-notice--error');
         expect(banner?.textContent).toContain('Some fields need attention.');
         expect(banner?.textContent).toContain('The tabs below say which');
       });
@@ -1135,7 +1135,7 @@ describe('RecipeEditorComponent', () => {
       it('keeps the generic wording for a key it cannot locate, and marks no tab', async () => {
         const { harness, component } = await refusedWith({ cuisineId: ['That is not a valid cuisine reference.'] });
 
-        const banner = harness.routeNativeElement!.querySelector('.banner--error');
+        const banner = harness.routeNativeElement!.querySelector('cp-notice.cp-notice--error');
         expect(banner?.textContent).toContain('Check your recipe details and try again.');
         expect(tabLabels(harness)).toEqual(['General', 'Ingredients', 'Instructions']);
         expect(component.selectedEditTabId()).withContext('nowhere to reveal').toBe('general');

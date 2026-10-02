@@ -451,7 +451,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
     await mount(null);
     expect(el.querySelectorAll('cp-form-section h2').length).toBe(1);
     expect(button('Leave this one out')?.getAttribute('aria-label')).toBe('Leave Doc a out');
-    expect(el.querySelector('details.all-text .full-text')?.getAttribute('aria-label')).toBe('All the text of Doc a');
+    expect(el.querySelector('details.cp-disclosure .full-text')?.getAttribute('aria-label')).toBe('All the text of Doc a');
     expect(el.querySelector('.full-text')?.getAttribute('tabindex')).toBe('0');
     const live = el.querySelector('.cp-sr-only[role="status"]');
     expect(live?.getAttribute('aria-live')).toBe('polite');

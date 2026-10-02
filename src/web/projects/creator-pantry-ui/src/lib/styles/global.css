@@ -5,6 +5,14 @@ button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--cp-focus); outline-offset: 2px; }
 .cp-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+/* Supporting copy: a hint, a count, a line of metadata. Four feature stylesheets had declared these same
+   three properties before this existed. A paragraph of real prose is not this — it keeps the body size. */
+.cp-muted { margin: 0; color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); }
+/* A row of buttons under the thing they act on. Wraps rather than overflowing a narrow card. */
+.cp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cp-space-3); }
+/* An expandable aside — "More options", "See all the text". The marker stays the browser's; what this fixes
+   is the summary's target height, which the default line box leaves under the 40px minimum. */
+.cp-disclosure > summary { display: flex; align-items: center; min-height: 2.5rem; font-weight: 600; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }

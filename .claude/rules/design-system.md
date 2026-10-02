@@ -50,6 +50,8 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpAnchorNavComponent`: in-page destination nav (label + optional detail); tabbable links, not a tablist; emits the activated item and leaves scrolling and focus to the consumer; renders nothing when empty
 - `CpFormSectionComponent`: one named part of a form — heading, optional intro, optional server `problem` about the whole part, projected fields. Names its own region, describes the section by the problem while one shows, `tabindex="-1"` for a form that reveals it, and caps directly projected fields at `--cp-measure-field`
 - `CpFieldRowComponent`: a line of short fields sharing the width, wrapping to as many columns as fit; `minColumn` widens the floor
+- `CpChoiceGroupComponent`: a set of answers as selectable tiles — one answer or several, an optional `max` that disables the rest at the cap, `layout="fit"` for short options, label/hint/example per option. Drawn like `CpCheckboxComponent` and for the same reason; the real input stays focusable and announced, so arrow keys and `Space` remain the browser's. Use it rather than hand-drawing radio rows in a feature stylesheet
+- `CpNoticeComponent`: one sentence about the thing on screen — `neutral | success | warning | error`, each with a glyph as well as a fill, a replaceable `glyph`, and `quiet` for a live region that must exist before it has text. The consumer owns `role`; content is projected, so an inline action sits in the sentence it belongs to
 
 Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are defects.
 

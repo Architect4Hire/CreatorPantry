@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
 import {
   CpButtonComponent,
-  CpCheckboxComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
   CpFieldComponent,
   CpFormSectionComponent,
-  CpStatusPillComponent,
+  CpNoticeComponent,
+  CpStatusPillTone,
   CpUploaderComponent,
 } from '@creator-pantry/ui';
 
@@ -15,6 +17,7 @@ import {
   BrandSourceAddOutcome,
   BrandSourceDocumentService,
 } from '../../../services/brand-source-document.service';
+import { BrandSetupExampleComponent } from './brand-setup-example.component';
 import {
   EXAMPLE_KINDS,
   ExampleKind,
@@ -63,7 +66,15 @@ type Library = 'loading' | 'ready' | 'degraded';
 @Component({
   selector: 'cp-brand-setup-examples-step',
   standalone: true,
-  imports: [CpButtonComponent, CpCheckboxComponent, CpFieldComponent, CpFormSectionComponent, CpStatusPillComponent, CpUploaderComponent],
+  imports: [
+    BrandSetupExampleComponent,
+    CpButtonComponent,
+    CpChoiceGroupComponent,
+    CpFieldComponent,
+    CpFormSectionComponent,
+    CpNoticeComponent,
+    CpUploaderComponent,
+  ],
   templateUrl: './brand-setup-examples-step.component.html',
   styleUrl: './brand-setup-examples-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -76,7 +87,11 @@ export class BrandSetupExamplesStepComponent implements OnInit {
 
   private readonly documents = inject(BrandSourceDocumentService);
 
-  protected readonly kinds = EXAMPLE_KINDS;
+  protected readonly kindChoices: readonly CpChoiceOption[] = EXAMPLE_KINDS.map((option) => ({
+    value: option.key,
+    label: option.label,
+    hint: option.hint,
+  }));
   protected readonly accept = BRAND_SOURCE_ACCEPT;
   protected readonly titleMax = BRAND_SOURCE_TITLE_MAX;
   protected readonly audienceMax = BRAND_SOURCE_AUDIENCE_MAX;
@@ -168,9 +183,20 @@ export class BrandSetupExamplesStepComponent implements OnInit {
 
   // ---- Choosing what an example shows ----
 
-  protected chooseKind(key: ExampleKind): void {
-    this.kind.set(key);
+  protected chooseKind(picked: readonly string[]): void {
+    if (picked.length > 0) this.kind.set(picked[0] as ExampleKind);
   }
+
+  /** The library's documents as choices, labelled the way the creator filed them. */
+  protected readonly pickableChoices = computed<readonly CpChoiceOption[]>(() =>
+    this.pickable().map((doc) => ({
+      value: doc.id,
+      label: doc.title,
+      hint: `${this.kindFor(doc)}, ${doc.fileName}, ${formatSize(doc.sizeBytes)}`,
+    })),
+  );
+
+  protected readonly pickedList = computed(() => [...this.picked()]);
 
   // ---- Files ----
 
@@ -288,13 +314,8 @@ export class BrandSetupExamplesStepComponent implements OnInit {
     this.picked.set(new Set());
   }
 
-  protected setPicked(id: string, on: boolean): void {
-    this.picked.update((current) => {
-      const next = new Set(current);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+  protected setPicked(ids: readonly string[]): void {
+    this.picked.set(new Set(ids));
   }
 
   protected usePicked(): void {
@@ -310,6 +331,19 @@ export class BrandSetupExamplesStepComponent implements OnInit {
 
   protected kindLabel(key: ExampleKind): string {
     return kindOption(key).label;
+  }
+
+  protected metaOf(entry: Entry): string {
+    const kind = this.kindLabel(entry.kind);
+    return entry.detail ? `${kind}, ${entry.detail}` : kind;
+  }
+
+  protected toneOf(entry: Entry): CpStatusPillTone {
+    return entry.status === 'adding' ? 'progress' : entry.status === 'added' ? 'success' : 'error';
+  }
+
+  protected statusOf(entry: Entry): string {
+    return entry.status === 'adding' ? 'Adding…' : entry.status === 'added' ? 'Added' : 'Not added';
   }
 
   protected failureText(entry: Entry): string {

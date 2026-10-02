@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, input, output, signal } from '@angular/core';
-import { CpCheckboxComponent, CpFieldComponent, CpFormSectionComponent } from '@creator-pantry/ui';
+import { CpChoiceGroupComponent, CpChoiceOption, CpFieldComponent, CpFormSectionComponent } from '@creator-pantry/ui';
 
 import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/brand-setup.models';
 import {
   AUDIENCE_OPTIONS,
   AVOID_MAX,
+  GoalOption,
   CHANNEL_OPTIONS,
   DIFFERENT_MAX,
   GoalsAnswers,
@@ -14,9 +15,13 @@ import {
   decodeGoals,
   goalsComplete,
   sameAnswers,
-  toggled,
   websiteProblem,
 } from './brand-setup-goals';
+
+/** The feature's own option vocabulary in the shape the library's choice group takes. */
+function choices(options: readonly GoalOption[]): readonly CpChoiceOption[] {
+  return options.map((option) => ({ value: option.key, label: option.label, hint: option.hint || undefined }));
+}
 
 /**
  * Step 1 of "Create my voice": what the creator makes, who it is for, and where they share it.
@@ -26,7 +31,7 @@ import {
 @Component({
   selector: 'cp-brand-setup-goals-step',
   standalone: true,
-  imports: [CpCheckboxComponent, CpFieldComponent, CpFormSectionComponent],
+  imports: [CpChoiceGroupComponent, CpFieldComponent, CpFormSectionComponent],
   templateUrl: './brand-setup-goals-step.component.html',
   styleUrl: './brand-setup-goals-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,9 +41,9 @@ export class BrandSetupGoalsStepComponent implements OnInit {
   readonly draft = input<Readonly<Record<string, unknown>> | null>(null);
   readonly reported = output<BrandSetupStepReport>();
 
-  protected readonly purposeOptions = PURPOSE_OPTIONS;
-  protected readonly audienceOptions = AUDIENCE_OPTIONS;
-  protected readonly channelOptions = CHANNEL_OPTIONS;
+  protected readonly purposeChoices = choices(PURPOSE_OPTIONS);
+  protected readonly audienceChoices = choices(AUDIENCE_OPTIONS);
+  protected readonly channelChoices = choices(CHANNEL_OPTIONS);
   protected readonly noteMax = NOTE_MAX;
   protected readonly differentMax = DIFFERENT_MAX;
   protected readonly avoidMax = AVOID_MAX;
@@ -85,19 +90,21 @@ export class BrandSetupGoalsStepComponent implements OnInit {
     return list.includes(key);
   }
 
-  protected setPurpose(key: string, on: boolean): void {
+  protected setPurposes(purposes: readonly string[]): void {
     this.touched.set(true);
-    this.answers.update((a) => ({ ...a, purposes: toggled(a.purposes, key, on, PURPOSE_OPTIONS) }));
+    this.answers.update((a) => ({ ...a, purposes }));
   }
 
-  protected setChannel(key: string, on: boolean): void {
+  protected setChannels(channels: readonly string[]): void {
     this.touched.set(true);
-    this.answers.update((a) => ({ ...a, channels: toggled(a.channels, key, on, CHANNEL_OPTIONS) }));
+    this.answers.update((a) => ({ ...a, channels }));
   }
 
-  protected setAudience(key: string): void {
+  /** The group reports an array whether it takes one answer or many; one answer is its only element. */
+  protected setAudience(picked: readonly string[]): void {
+    if (picked.length === 0) return;
     this.touched.set(true);
-    this.answers.update((a) => ({ ...a, audience: key }));
+    this.answers.update((a) => ({ ...a, audience: picked[0] }));
   }
 
   protected setText(field: 'purposeNote' | 'audienceNote' | 'channelNote' | 'different' | 'avoid' | 'website', event: Event): void {

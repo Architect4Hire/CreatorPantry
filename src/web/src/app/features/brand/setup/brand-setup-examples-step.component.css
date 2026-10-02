@@ -4,132 +4,23 @@
 
 .examples {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-8);
 }
 
-.all-optional,
-.hint,
-.empty {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-}
-
-.group {
-  display: grid;
-  gap: var(--cp-space-2);
-  min-inline-size: 0;
-  max-inline-size: var(--cp-measure-field);
-}
-
-.radio {
-  display: flex;
-  gap: var(--cp-space-3);
-  align-items: flex-start;
-  min-block-size: 2.5rem;
-  padding-block: var(--cp-space-1);
-  cursor: pointer;
-}
-
-.radio input {
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  margin-block-start: 0.4rem;
-  accent-color: var(--cp-primary);
-  flex: none;
-}
-
-.radio:has(input:focus-visible) .radio-label {
-  outline: 3px solid var(--cp-focus);
-  outline-offset: 2px;
-}
-
-.radio-text {
-  display: grid;
-}
-
-.radio-label {
-  font-weight: 600;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
-}
-
+/* The paste box and the picker: a quieter surface than an example card, because they are a step in an action
+   rather than a thing the creator owns. */
 .panel {
   display: grid;
   gap: var(--cp-space-4);
   max-inline-size: var(--cp-measure-field);
   padding: var(--cp-space-4);
   border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-}
-
-.pick-detail {
-  padding-inline-start: 2.5rem;
-}
-
-.more summary {
-  min-block-size: 2.5rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-weight: 600;
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-subtle);
 }
 
 .more-body {
   max-inline-size: var(--cp-measure-field);
   padding-block-start: var(--cp-space-2);
-}
-
-.notice {
-  margin: 0;
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border: 1px solid var(--cp-border-strong);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
-  font-size: var(--cp-font-size-sm);
-}
-
-.list {
-  display: grid;
-  gap: var(--cp-space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.item {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2) var(--cp-space-4);
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--cp-space-3);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-}
-
-.item-main {
-  display: grid;
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
-}
-
-.name {
-  font-weight: 600;
-}
-
-.problem {
-  color: var(--cp-danger);
-  font-size: var(--cp-font-size-sm);
-}
-
-.item-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
-  align-items: center;
 }

@@ -42,21 +42,9 @@
   gap: var(--cp-space-4);
 }
 
-.banner {
-  margin: 0 0 var(--cp-space-4);
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--cp-space-3);
-}
-
-.banner--error {
-  background: var(--cp-danger-soft);
-  color: var(--cp-danger);
+/* The gap a notice used to carry itself, now that spacing is the page's business rather than the notice's. */
+cp-notice {
+  margin-bottom: var(--cp-space-4);
 }
 
 .editor-card {
@@ -291,27 +279,6 @@ cp-tab-panel:not([hidden]) {
 /* The restore region stays in the DOM whether or not it has anything to say, because a live region created
    with its text already in it is not reliably announced. With nothing to say it takes no space and draws
    nothing — it is not hidden, which would take it out of the accessibility tree along with the announcement. */
-.banner--quiet {
-  margin: 0;
-  padding: 0;
-  background: none;
-}
-
-/* Archived is a state to notice, not a failure: the warning tone the status pills already use for it, with a
-   glyph beside the words so the meaning never rests on colour alone. */
-.banner--archived {
-  align-items: flex-start;
-  gap: var(--cp-space-3);
-  background: var(--cp-orange-soft);
-  color: var(--cp-orange);
-  line-height: var(--cp-leading-normal);
-}
-
-.banner--archived .banner-icon {
-  font-size: var(--cp-font-size-lg);
-  line-height: 1;
-}
-
 /* Separates the two stacked calculations on the Convert tab. Decorative only — each section carries its own
    heading, which is what actually names it. */
 .conversion-divider {

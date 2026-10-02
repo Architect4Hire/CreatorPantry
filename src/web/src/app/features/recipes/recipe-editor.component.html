@@ -70,11 +70,10 @@
          the panel that raised it is no longer what they are looking at. Always in the DOM, never created
          alongside its own text — a live region inserted already populated is not reliably announced, and
          this banner is the only confirmation a restore gets. -->
-    <p
-      class="banner"
+    <cp-notice
       role="status"
-      [class.banner--quiet]="notice() === null"
-      [class.banner--error]="notice()?.isProblem ?? false"
+      [quiet]="notice() === null"
+      [tone]="(notice()?.isProblem ?? false) ? 'error' : 'neutral'"
     >
       {{ notice()?.text }}
 
@@ -85,14 +84,13 @@
           Open {{ copy.title }}
         </a>
       }
-    </p>
+    </cp-notice>
 
     <!-- Shelved, not deleted — and the banner says what is still true rather than only what is off. It is the
          one place the way back lives, so it is never conditional on a role: a Contributor who opens an
          archived recipe still learns why editing is off. -->
     @if (isArchived()) {
-      <p id="recipe-archived-banner" class="banner banner--archived" role="status">
-        <span class="banner-icon" aria-hidden="true">⚑</span>
+      <cp-notice id="recipe-archived-banner" tone="warning" glyph="⚑" role="status">
         <span>
           <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here, and
           the history and comparisons still work. Editing is off until you bring it back, and it stays out of
@@ -111,50 +109,50 @@
             {{ lifecycleWorking() ? 'Bringing it back…' : 'Bring it back' }}
           </button>
         }
-      </p>
+      </cp-notice>
     }
 
     @switch (lifecycleState().status) {
       @case ('conflict') {
-        <p class="banner banner--error" role="alert">
+        <cp-notice tone="error" role="alert">
           This recipe changed elsewhere since you loaded it, so nothing was moved.
           <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
-        </p>
+        </cp-notice>
       }
       @case ('forbidden') {
-        <p class="banner banner--error" role="alert">Archiving a recipe needs the Editor role in this workspace.</p>
+        <cp-notice tone="error" role="alert">Archiving a recipe needs the Editor role in this workspace.</cp-notice>
       }
       @case ('not_found') {
-        <p class="banner banner--error" role="alert">This recipe could not be found.</p>
+        <cp-notice tone="error" role="alert">This recipe could not be found.</cp-notice>
       }
       @case ('unavailable') {
-        <p class="banner banner--error" role="alert">
+        <cp-notice tone="error" role="alert">
           Couldn't move this recipe. Check your connection and try again.
-        </p>
+        </cp-notice>
       }
     }
 
     @switch (saveState().status) {
       @case ('success') {
-        <p class="banner" role="status">Saved.</p>
+        <cp-notice role="status">Saved.</cp-notice>
       }
       @case ('validation_failed') {
-        <p class="banner banner--error" role="alert">{{ validationBannerText() }}</p>
+        <cp-notice tone="error" role="alert">{{ validationBannerText() }}</cp-notice>
       }
       @case ('forbidden') {
-        <p class="banner banner--error" role="alert">You don't have permission to save this recipe.</p>
+        <cp-notice tone="error" role="alert">You don't have permission to save this recipe.</cp-notice>
       }
       @case ('conflict') {
-        <p class="banner banner--error" role="alert">
+        <cp-notice tone="error" role="alert">
           This recipe changed elsewhere since you loaded it.
           <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
-        </p>
+        </cp-notice>
       }
       @case ('unavailable') {
-        <p class="banner banner--error" role="alert">Couldn't save. Check your connection and try again.</p>
+        <cp-notice tone="error" role="alert">Couldn't save. Check your connection and try again.</cp-notice>
       }
       @case ('idempotency_key_conflict') {
-        <p class="banner banner--error" role="alert">Couldn't save. Please try again.</p>
+        <cp-notice tone="error" role="alert">Couldn't save. Please try again.</cp-notice>
       }
     }
 
@@ -887,10 +885,10 @@
                describe words the creator is no longer looking at, and applying a confirmed move would
                overwrite them. The server decides every verdict and every move; nothing here does. -->
           @if (isDirty()) {
-            <p class="banner" role="status">
+            <cp-notice role="status">
               You have changes that are not saved yet. Save them first, then come back here: readiness checks
               the saved recipe.
-            </p>
+            </cp-notice>
           } @else {
             <cp-recipe-readiness
               [workspaceSlug]="workspaceSlug"

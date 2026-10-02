@@ -26,13 +26,15 @@
     }
     @case ('not_found') {
       <cp-card>
-        <p class="state" role="alert">We couldn't find this workspace.</p>
+        <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
       </cp-card>
     }
     @case ('unavailable') {
       <cp-card>
-        <p class="state" role="alert">Your setup couldn't be loaded right now.</p>
-        <button cpButton type="button" variant="secondary" (click)="load()">Try again</button>
+        <cp-notice tone="error" role="alert">
+          Your setup couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="load()">Try again</button>
+        </cp-notice>
       </cp-card>
     }
     @case ('cancelled') {
@@ -51,15 +53,15 @@
             }
           </p>
           @if (actionError()) {
-            <p class="problem" role="alert">{{ actionError() }}</p>
+            <cp-notice tone="error" role="alert">{{ actionError() }}</cp-notice>
           }
           @if (startOverProblem()) {
-            <div class="problem-row">
-              <p class="problem" role="alert">{{ startOverProblem() }}</p>
+            <cp-notice tone="error" role="alert">
+              {{ startOverProblem() }}
               <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="startOver()">Try again</button>
-            </div>
+            </cp-notice>
           }
-          <div class="actions">
+          <div class="cp-actions">
             <button cpButton type="button" variant="primary" [disabled]="busy() !== ''" (click)="resume()">Continue</button>
             <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="startOver()">Start over</button>
           </div>
@@ -79,15 +81,15 @@
           </p>
           <ng-container *ngTemplateOutlet="stepList; context: { $implicit: summaryRows() }" />
           @if (actionError()) {
-            <p class="problem" role="alert">{{ actionError() }}</p>
+            <cp-notice tone="error" role="alert">{{ actionError() }}</cp-notice>
           }
           @if (startOverProblem()) {
-            <div class="problem-row">
-              <p class="problem" role="alert">{{ startOverProblem() }}</p>
+            <cp-notice tone="error" role="alert">
+              {{ startOverProblem() }}
               <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="startOver()">Try again</button>
-            </div>
+            </cp-notice>
           }
-          <div class="actions">
+          <div class="cp-actions">
             <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Back to brand settings</a>
             <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="startOver()">Start over</button>
           </div>
@@ -97,10 +99,10 @@
     @default {
       @if (!canStart()) {
         <cp-card>
-          <p class="notice" role="note">
+          <cp-notice role="note">
             You have view-only access to this workspace, so you can't start voice setup. Ask an Owner or Editor to set it
             up for you.
-          </p>
+          </cp-notice>
           <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'brand']">Back to brand settings</a>
         </cp-card>
       } @else if (currentIndex() !== null) {
@@ -123,10 +125,15 @@
             @for (step of currentStepList(); track step.slug) {
               <section class="step" aria-labelledby="cp-step-heading">
                 <h2 id="cp-step-heading" tabindex="-1">{{ step.label }}</h2>
-                <details class="help">
+                <details class="help cp-disclosure">
                   <summary>Need help with this step?</summary>
-                  <p>{{ step.help }}</p>
+                  <p class="cp-muted">{{ step.help }}</p>
                 </details>
+
+                <!-- Said once per step, above its sections, rather than on each field: marking one optional
+                     field among a dozen unmarked ones makes the rest read as required. The recipe editor's
+                     required-legend is the same idea the other way round. -->
+                <p class="legend cp-muted">{{ step.legend }}</p>
                 @switch (step.slug) {
                   @case ('goals') {
                     <cp-brand-setup-goals-step [step]="step" [draft]="currentStepDraft()" (reported)="onStepReport($event)" />
@@ -157,45 +164,49 @@
               <div class="save">
                 <p class="save-status" role="status" aria-live="polite" aria-atomic="true">{{ saveStatusText() }}</p>
                 @if (saveProblem()) {
-                  <p class="problem" role="alert">{{ saveProblem() }}</p>
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="retry()">Retry</button>
+                  <cp-notice tone="error" role="alert">
+                    {{ saveProblem() }}
+                    <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="retry()">Retry</button>
+                  </cp-notice>
                 }
               </div>
 
               @if (indicator().kind === 'conflict') {
-                <div class="conflict" role="alert">
+                <cp-notice tone="warning" role="alert">
                   @if (conflictFinished()) {
                     <p>This setup was already finished somewhere else, so it can't be changed here. Your edits are still on screen.</p>
-                    <button cpButton type="button" variant="secondary" [disabled]="busy() !== ''" (click)="reload()">Reload</button>
+                    <div class="cp-actions">
+                      <button cpButton type="button" variant="secondary" [disabled]="busy() !== ''" (click)="reload()">Reload</button>
+                    </div>
                   } @else {
                     <p>
                       A newer version of this setup was saved somewhere else, maybe in another tab. Your edits are still on
                       screen. Keep yours to save over it, or reload to see the newer one and drop yours.
                     </p>
-                    <div class="actions">
+                    <div class="cp-actions">
                       <button cpButton type="button" variant="primary" [disabled]="busy() !== ''" (click)="keepMine()">Keep mine</button>
                       <button cpButton type="button" variant="secondary" [disabled]="busy() !== ''" (click)="reload()">Reload</button>
                     </div>
                   }
-                </div>
+                </cp-notice>
               }
 
               @if (actionError()) {
-                <p class="problem" role="alert">{{ actionError() }}</p>
+                <cp-notice tone="error" role="alert">{{ actionError() }}</cp-notice>
               }
               @if (switchBlocked()) {
-                <p class="problem" role="alert">
+                <cp-notice tone="error" role="alert">
                   You moved to another workspace, but your changes here haven't saved yet. Retry to save them and continue.
-                </p>
+                </cp-notice>
               }
               @if (startOverProblem()) {
-                <div class="problem-row">
-                  <p class="problem" role="alert">{{ startOverProblem() }}</p>
+                <cp-notice tone="error" role="alert">
+                  {{ startOverProblem() }}
                   <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="startOver()">Try again</button>
-                </div>
+                </cp-notice>
               }
 
-              <div class="actions primary-row">
+              <div class="cp-actions primary-row">
                 <button cpButton type="button" variant="secondary" [disabled]="isFirst() || busy() !== ''" (click)="back()">Back</button>
                 @if (skippable() && !isLast()) {
                   <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="skip()">Skip for now</button>
@@ -211,7 +222,7 @@
                 }
               </div>
 
-              <div class="actions secondary-row">
+              <div class="cp-actions secondary-row">
                 <button cpButton type="button" variant="ghost" [disabled]="busy() !== ''" (click)="saveAndExit()">Save and exit</button>
                 <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="cancel()">Cancel</button>
                 @if (hasSession()) {

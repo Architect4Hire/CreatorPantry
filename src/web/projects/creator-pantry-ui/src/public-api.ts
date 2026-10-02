@@ -16,6 +16,8 @@ export * from './lib/components/diff-legend.component';
 export * from './lib/components/toast-region.component';
 export * from './lib/components/anchor-nav.component';
 export * from './lib/components/checkbox.component';
+export * from './lib/components/choice-group.component';
+export * from './lib/components/notice.component';
 export * from './lib/components/combobox.component';
 export * from './lib/components/form-section.component';
 export * from './lib/components/field-row.component';

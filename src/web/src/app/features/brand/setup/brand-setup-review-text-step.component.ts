@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
-import { CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent, CpStatusPillTone } from '@creator-pantry/ui';
 
 import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/brand-setup.models';
 import { BrandSourceDocumentDetail } from '../../../models/brand-source-document.models';
@@ -10,6 +10,7 @@ import {
   BrandSourceExtractionService,
   BrandSourceExtractionWriteOutcome,
 } from '../../../services/brand-source-extraction.service';
+import { BrandSetupExampleComponent } from './brand-setup-example.component';
 import { formatSize, kindOption } from './brand-setup-examples';
 import {
   CardKind,
@@ -63,7 +64,7 @@ interface Editor {
 @Component({
   selector: 'cp-brand-setup-review-text-step',
   standalone: true,
-  imports: [CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpStatusPillComponent],
+  imports: [BrandSetupExampleComponent, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
   templateUrl: './brand-setup-review-text-step.component.html',
   styleUrl: './brand-setup-review-text-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -408,8 +409,55 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     return what ? current === what : current !== undefined;
   }
 
-  protected failureText(kind: CardKind): string {
-    return kind === 'stopped' ? "We couldn't finish reading this one." : "We couldn't read this one.";
+  /**
+   * What each state is called and what it means, in one place. Previously a `@switch` of nine markup blocks,
+   * which is how the pill tone and the sentence got to disagree about a stopped read.
+   */
+  private static readonly STATES: Readonly<Record<CardKind, { tone: CpStatusPillTone; status: string; note: string }>> = {
+    checking: { tone: 'progress', status: 'Checking…', note: '' },
+    waiting: { tone: 'progress', status: 'Reading…', note: "We're still reading this one." },
+    stopped: { tone: 'error', status: "Couldn't read", note: "We couldn't finish reading this one." },
+    failed: { tone: 'error', status: "Couldn't read", note: "We couldn't read this one." },
+    scan: {
+      tone: 'warning',
+      status: 'Needs your help',
+      note: "This looks like a scan or a picture, so there's no text to read. We can't read pictures yet.",
+    },
+    read: { tone: 'warning', status: 'Needs your OK', note: 'We read this from your file. Check that it looks right.' },
+    partial: {
+      tone: 'warning',
+      status: 'Only part of it',
+      note: 'We only kept the beginning of this one. It had more text than we can hold.',
+    },
+    confirmed: { tone: 'success', status: 'Checked', note: '' },
+    'left-out': { tone: 'neutral', status: 'Left out', note: "Left out. It stays in your library, but we won't use it here." },
+    unreachable: { tone: 'error', status: "Couldn't check", note: "We couldn't reach this one just now." },
+  };
+
+  protected toneOf(kind: CardKind): CpStatusPillTone {
+    return BrandSetupReviewTextStepComponent.STATES[kind].tone;
+  }
+
+  protected statusOf(kind: CardKind): string {
+    return BrandSetupReviewTextStepComponent.STATES[kind].status;
+  }
+
+  protected noteOf(kind: CardKind, card: ReviewCard): string {
+    if (kind === 'confirmed') {
+      return this.corrected(card) ? 'You corrected this text.' : 'You said this looks right.';
+    }
+
+    return BrandSetupReviewTextStepComponent.STATES[kind].note;
+  }
+
+  /** The three states that have text worth showing: read, partly read, and settled. */
+  protected showsText(kind: CardKind): boolean {
+    return kind === 'read' || kind === 'partial' || kind === 'confirmed';
+  }
+
+  /** Every state except one already set aside, and one still being looked up. */
+  protected canLeaveOut(kind: CardKind): boolean {
+    return kind !== 'left-out' && kind !== 'checking';
   }
 
   protected corrected(card: ReviewCard): boolean {

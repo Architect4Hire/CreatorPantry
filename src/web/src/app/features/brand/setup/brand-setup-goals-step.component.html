@@ -1,78 +1,56 @@
 <form class="goals" (submit)="$event.preventDefault()" novalidate>
   <cp-form-section heading="What are you creating for?" intro="Pick all that apply.">
-    <div class="group" role="group" aria-label="What are you creating for?">
-    @for (option of purposeOptions; track option.key) {
-      <div class="choice">
-        <cp-checkbox
-          [label]="option.label"
-          [inputId]="'cp-goals-purpose-' + option.key"
-          [checked]="has(answers().purposes, option.key)"
-          (checkedChange)="setPurpose(option.key, $event)"
-        />
-        @if (option.hint) {
-          <p class="choice-hint">{{ option.hint }}</p>
-        }
-      </div>
-    }
+    <cp-choice-group
+      label="What are you creating for?"
+      idPrefix="cp-goals-purpose-"
+      [options]="purposeChoices"
+      [multiple]="true"
+      [value]="answers().purposes"
+      (valueChange)="setPurposes($event)"
+    />
     @if (has(answers().purposes, 'other')) {
-      <cp-field label="Tell us more (optional)" forId="cp-goals-purpose-note">
+      <cp-field label="Tell us more" forId="cp-goals-purpose-note">
         <input id="cp-goals-purpose-note" type="text" [maxLength]="noteMax" [value]="answers().purposeNote" (input)="setText('purposeNote', $event)" />
       </cp-field>
     }
-  </div>
   </cp-form-section>
 
   <cp-form-section heading="Who are you writing for?" intro="Pick the closest match. You can change it later.">
-    <div class="group" role="radiogroup" aria-label="Who are you writing for?">
-    @for (option of audienceOptions; track option.key) {
-      <label class="radio" [attr.for]="'cp-goals-audience-' + option.key">
-        <input
-          type="radio"
-          name="cp-goals-audience"
-          [id]="'cp-goals-audience-' + option.key"
-          [value]="option.key"
-          [checked]="answers().audience === option.key"
-          (change)="setAudience(option.key)"
-        />
-        <span class="radio-text">
-          <span class="radio-label">{{ option.label }}</span>
-          @if (option.hint) {
-            <span class="choice-hint">{{ option.hint }}</span>
-          }
-        </span>
-      </label>
-    }
+    <cp-choice-group
+      label="Who are you writing for?"
+      idPrefix="cp-goals-audience-"
+      [options]="audienceChoices"
+      [value]="[answers().audience]"
+      (valueChange)="setAudience($event)"
+    />
     @if (answers().audience === 'other') {
-      <cp-field label="Tell us more (optional)" forId="cp-goals-audience-note">
+      <cp-field label="Tell us more" forId="cp-goals-audience-note">
         <input id="cp-goals-audience-note" type="text" [maxLength]="noteMax" [value]="answers().audienceNote" (input)="setText('audienceNote', $event)" />
       </cp-field>
     }
-  </div>
   </cp-form-section>
 
   <cp-form-section heading="Where will you share it?" intro="Pick all that apply.">
-    <div class="group" role="group" aria-label="Where will you share it?">
-    <div class="channels">
-      @for (option of channelOptions; track option.key) {
-        <cp-checkbox
-          [label]="option.label"
-          [inputId]="'cp-goals-channel-' + option.key"
-          [checked]="has(answers().channels, option.key)"
-          (checkedChange)="setChannel(option.key, $event)"
-        />
-      }
-    </div>
+    <cp-choice-group
+      label="Where will you share it?"
+      idPrefix="cp-goals-channel-"
+      layout="fit"
+      [options]="channelChoices"
+      [multiple]="true"
+      [value]="answers().channels"
+      (valueChange)="setChannels($event)"
+    />
     @if (has(answers().channels, 'other')) {
-      <cp-field label="Where? (optional)" forId="cp-goals-channel-note">
+      <cp-field label="Where?" forId="cp-goals-channel-note">
         <input id="cp-goals-channel-note" type="text" [maxLength]="noteMax" [value]="answers().channelNote" (input)="setText('channelNote', $event)" />
       </cp-field>
     }
-  </div>
   </cp-form-section>
 
-  <cp-form-section heading="More details" intro="All optional. Skip anything you like.">
-  <details class="more" [open]="hasDetails()">
-    <summary>Add more details</summary>
+  <!-- A disclosure rather than a fourth section: these are extras, and a section whose whole content is one
+       collapsed control is a heading with nothing under it. The examples step's "More options" is the same shape. -->
+  <details class="cp-disclosure" [open]="hasDetails()">
+    <summary>More details</summary>
     <div class="more-body">
       <cp-field label="What makes your food different?" forId="cp-goals-different" hint="A sentence is plenty.">
         <textarea id="cp-goals-different" [maxLength]="differentMax" [value]="answers().different" (input)="setText('different', $event)"></textarea>
@@ -94,9 +72,10 @@
       </cp-field>
     </div>
   </details>
-  </cp-form-section>
 
   @if (!complete() && !websiteError()) {
-    <p class="needs" [attr.role]="touched() ? 'status' : null">Pick at least one thing you're creating for and one place you'll share, then press Continue.</p>
+    <p class="cp-muted" [attr.role]="touched() ? 'status' : null">
+      Pick at least one thing you're creating for and one place you'll share, then press Continue.
+    </p>
   }
 </form>

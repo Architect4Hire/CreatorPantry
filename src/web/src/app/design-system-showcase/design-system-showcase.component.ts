@@ -9,6 +9,9 @@ import {
   CpAnchorNavComponent,
   CpAnchorNavItem,
   CpCheckboxComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpNoticeComponent,
   CpComboboxComponent,
   CpComboboxOption,
   CpDiffLegendComponent,
@@ -64,6 +67,8 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpUploaderComponent,
     CpAnchorNavComponent,
     CpCheckboxComponent,
+    CpChoiceGroupComponent,
+    CpNoticeComponent,
     CpComboboxComponent,
     CpDiffLegendComponent,
     CpToastRegionComponent,
@@ -202,6 +207,30 @@ export class DesignSystemShowcaseComponent {
   ];
   readonly tagText = signal('');
   readonly tag = signal<CpComboboxOption | null>(null);
+
+  readonly voiceChoices: readonly CpChoiceOption[] = [
+    { value: 'warm', label: 'Warm friend', hint: 'Like chatting in the kitchen', example: '“Trust me on this one.”' },
+    { value: 'teacher', label: 'Calm teacher', hint: 'Steady, one step at a time', example: '“Brown the sausage until no pink remains.”' },
+    { value: 'pro', label: 'Expert pro', hint: 'Precise, for cooks who want the why', example: '“Brown it thoroughly to build a deeper base.”' },
+  ];
+
+  readonly toneChoices: readonly CpChoiceOption[] = [
+    { value: 'cozy', label: 'Cozy and comforting' },
+    { value: 'upbeat', label: 'Upbeat and energetic' },
+    { value: 'calm', label: 'Calm and reassuring' },
+    { value: 'confident', label: 'Confident and direct' },
+  ];
+
+  readonly channelChoices: readonly CpChoiceOption[] = [
+    { value: 'blog', label: 'Blog' },
+    { value: 'instagram', label: 'Instagram' },
+    { value: 'pinterest', label: 'Pinterest' },
+    { value: 'newsletter', label: 'Newsletter' },
+  ];
+
+  readonly showcaseVoice = signal<readonly string[]>(['warm']);
+  readonly showcaseTones = signal<readonly string[]>(['cozy', 'calm']);
+  readonly showcaseChannels = signal<readonly string[]>(['blog']);
 
   readonly showcaseOptional = signal(false);
   readonly showcaseAbbreviate = signal(true);

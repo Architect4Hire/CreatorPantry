@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, effect, input, output, signal } from '@angular/core';
-import { CpCheckboxComponent, CpFieldComponent, CpFormSectionComponent } from '@creator-pantry/ui';
+import { CpChoiceGroupComponent, CpChoiceOption, CpFieldComponent, CpFormSectionComponent } from '@creator-pantry/ui';
 
 import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/brand-setup.models';
 import {
@@ -12,9 +12,32 @@ import {
   TONES_MAX,
   decodeStyle,
   sameStyle,
-  withChoice,
   withNote,
 } from './brand-setup-style';
+
+/**
+ * Each question's options in the shape the library's choice group takes, built once.
+ *
+ * A single-answer question ends with a real "Not sure yet" tile. A radio cannot be unticked by clicking it, so
+ * without one an answer given by mistake could not be taken back — and every question here is optional, which
+ * has to mean answerable with "no answer" rather than only skippable by never touching it. It stands for the
+ * empty answer and is never stored: see {@link UNSURE}.
+ */
+const UNSURE = 'unsure';
+
+const CHOICES: ReadonlyMap<StyleQuestionKey, readonly CpChoiceOption[]> = new Map(
+  STYLE_QUESTIONS.map((question) => [
+    question.key,
+    [
+      ...question.choices.map((choice) => ({
+        value: choice.key,
+        label: choice.label,
+        example: choice.example || undefined,
+      })),
+      ...(question.multiple ? [] : [{ value: UNSURE, label: 'Not sure yet' }]),
+    ],
+  ]),
+);
 
 /**
  * Step 2 of "Create my voice": how the creator likes to sound, asked as a short run of pick-the-one-that-sounds-
@@ -24,7 +47,7 @@ import {
 @Component({
   selector: 'cp-brand-setup-style-step',
   standalone: true,
-  imports: [CpCheckboxComponent, CpFieldComponent, CpFormSectionComponent],
+  imports: [CpChoiceGroupComponent, CpFieldComponent, CpFormSectionComponent],
   templateUrl: './brand-setup-style-step.component.html',
   styleUrl: './brand-setup-style-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,21 +88,20 @@ export class BrandSetupStyleStepComponent implements OnInit {
     this.ready = true;
   }
 
-  protected picked(question: StyleQuestion, key: string): boolean {
-    return this.answers().choices[question.key].includes(key);
+  protected choicesFor(question: StyleQuestion): readonly CpChoiceOption[] {
+    return CHOICES.get(question.key) ?? [];
   }
 
-  protected none(question: StyleQuestion): boolean {
-    return this.answers().choices[question.key].length === 0;
+  /** What the group shows as picked: the stored answer, or "Not sure yet" when a single question has none. */
+  protected shown(question: StyleQuestion): readonly string[] {
+    const stored = this.answers().choices[question.key];
+    return stored.length === 0 && !question.multiple ? [UNSURE] : stored;
   }
 
-  /** At the cap, the remaining tones are disabled rather than silently dropped. */
-  protected atCap(question: StyleQuestion, key: string): boolean {
-    return question.multiple && this.answers().choices[question.key].length >= TONES_MAX && !this.picked(question, key);
-  }
-
-  protected choose(question: StyleQuestion, key: string | null, on = true): void {
-    this.answers.update((a) => withChoice(a, question, key, on));
+  protected setChoices(question: StyleQuestion, picked: readonly string[]): void {
+    // "Not sure yet" is the empty answer, so it is stored as one rather than as a choice of its own.
+    const next = picked.filter((value) => value !== UNSURE);
+    this.answers.update((a) => ({ ...a, choices: { ...a.choices, [question.key]: next } }));
   }
 
   protected setNote(key: StyleQuestionKey, event: Event): void {

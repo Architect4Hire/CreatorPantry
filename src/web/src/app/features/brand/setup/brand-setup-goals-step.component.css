@@ -2,76 +2,11 @@
   display: block;
 }
 
+/* Sections a space-8 apart, as every form in the app stacks them. */
 .goals {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-8);
-}
-
-.group {
-  display: grid;
-  gap: var(--cp-space-2);
-  min-inline-size: 0;
-  max-inline-size: var(--cp-measure-field);
-}
-
-.choice-hint,
-.needs {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-}
-
-.choice {
-  display: grid;
-  gap: 0;
-}
-
-.choice .choice-hint {
-  padding-inline-start: var(--cp-space-10, 2.5rem);
-}
-
-.radio {
-  display: flex;
-  gap: var(--cp-space-3);
-  align-items: flex-start;
-  min-block-size: 2.5rem;
-  padding-block: var(--cp-space-1);
-  cursor: pointer;
-}
-
-.radio input {
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  margin-block-start: 0.4rem;
-  accent-color: var(--cp-primary);
-  flex: none;
-}
-
-.radio:has(input:focus-visible) .radio-label {
-  outline: 3px solid var(--cp-focus);
-  outline-offset: 2px;
-}
-
-.radio-text {
-  display: grid;
-}
-
-.radio-label {
-  font-weight: 600;
-}
-
-.channels {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
-  gap: var(--cp-space-1) var(--cp-space-4);
-}
-
-.more summary {
-  min-block-size: 2.5rem;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-weight: 600;
 }
 
 .more-body {

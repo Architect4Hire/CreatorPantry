@@ -253,6 +253,16 @@ describe('BrandSetupShellComponent', () => {
       expect(live?.textContent).toBe('Step 2 of 7: How you sound');
     });
 
+    it('states what the step needs once, above its sections, rather than field by field', async () => {
+      await create();
+      const legend = root().querySelector('.legend');
+      expect(legend?.textContent).toContain("Tell us what you're creating for");
+
+      // One per step, and the step's own body never repeats optionality on a field.
+      expect(root().querySelectorAll('.legend').length).toBe(1);
+      expect(text()).not.toMatch(/\(optional\)/);
+    });
+
     it('offers plain-language help for the step in a disclosure', async () => {
       await create();
       const help = root().querySelector('details.help');
@@ -624,7 +634,7 @@ describe('BrandSetupShellComponent', () => {
 
     it('keeps the creator edits on screen and offers Reload or Keep mine', async () => {
       await conflict();
-      const alert = root().querySelector('.conflict');
+      const alert = root().querySelector('cp-notice[tone="warning"]');
       expect(alert?.getAttribute('role')).toBe('alert');
       expect(button('Keep mine')).not.toBeNull();
       expect(button('Reload')).not.toBeNull();
