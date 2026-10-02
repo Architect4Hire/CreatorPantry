@@ -44,20 +44,24 @@ The Foundry-Azure parameters (`foundry-endpoint`, `foundry-key`, `foundry-chat-d
 you, and each developer supplies their own. They only exist as parameters — and so only get created at all —
 when `Foundry:Azure` is `true`, and that flag itself **cannot** be set through the dashboard: it decides which
 resources exist before the app model (and therefore the dashboard) is built, so there is no way to prompt for
-it. It is the one required non-interactive step, once per machine, for a developer pointing at a real Azure
-resource rather than Foundry Local:
+it. It therefore defaults to `true` in the AppHost's `appsettings.json`, so a new machine is prompted without
+any setup. The API and Worker wait on those values, so two non-interactive switches remain, each once per
+machine and only for the developer who needs it:
 
 ```
-dotnet user-secrets set "Foundry:Azure" "true" --project src/CreatorPantry.AppHost
+# No model account: start without one. The API and Worker register model clients that throw.
+dotnet user-secrets set "Foundry:Azure" "false" --project src/CreatorPantry.AppHost
 
-# Only if the resource is Azure OpenAI rather than Azure AI Foundry — changes the endpoint's URL shape:
-dotnet user-secrets set "Foundry:AzureOpenAI" "true" --project src/CreatorPantry.AppHost
+# The resource is Azure AI Foundry rather than Azure OpenAI (the default) — changes the endpoint's URL shape:
+dotnet user-secrets set "Foundry:AzureOpenAI" "false" --project src/CreatorPantry.AppHost
 ```
 
-With that flag set, `aspire run` creates the four parameters for real, and the normal dashboard flow works as
-intended: it prompts for endpoint, key, and both deployment names, and checking *Save to user secret* on each
-writes it to that developer's own machine — no further setup, and the developer never has to hand their key to
-anyone else or paste it into a shared script.
+A machine that already supplies a deployment — `ConnectionStrings:chat` or `ConnectionStrings:embeddings`, or
+`Foundry:LocalCli` — is not prompted; those take precedence over the default.
+
+On first `aspire run` the dashboard prompts for endpoint, key, and both deployment names, and checking *Save to
+user secret* on each writes it to that developer's own machine — no further setup, and the developer never has
+to hand their key to anyone else or paste it into a shared script.
 
 That prompt does have a reproduced failure mode worth knowing about: its login URL carries a single-use token
 (`Login to the dashboard at https://localhost:.../login?t=...`), and a browser reload after that token is spent

@@ -105,16 +105,15 @@ var worker = builder.AddProject<Projects.CreatorPantry_Worker>("worker")
 // swapped and traced independently — the API and Worker consume them as "chat" and "embeddings", the names
 // CreatorPantry.AiProvider's AiModelConnections declares.
 //
-// Opt-in, because RunAsFoundryLocal() drives the Foundry CLI on this machine: with Foundry:Enabled off, the
-// API and Worker register the unconfigured clients instead and `aspire run` still starts on a clean clone
-// with no Foundry install and no model account. Turning it on costs a one-time model download on first run,
-// which is why the dependents WaitFor the deployments rather than racing them.
+// Foundry:Enabled is opt-in, because RunAsFoundryLocal() drives the Foundry CLI on this machine. Turning it
+// on costs a one-time model download on first run, which is why the dependents WaitFor the deployments rather
+// than racing them.
 //
-// Three states, not two. A developer with no Foundry install and no model account gets the unconfigured
-// clients; one running Foundry Local gets deployments this AppHost owns; one pointing at deployments that
-// already exist — an Azure Foundry resource, a shared team endpoint — supplies their connection strings and
-// gets those. The third case exists because RunAsFoundryLocal() is a per-machine install, and requiring it
-// of somebody who already has a model account would be asking them to download a model twice.
+// Three states, not two. One running Foundry Local gets deployments this AppHost owns; one with an Azure
+// resource — the default, Foundry:Azure — is prompted for it in the dashboard; one who has supplied connection
+// strings or uses Foundry:LocalCli gets those passed through. With Foundry:Azure set to false and nothing
+// supplied, the API and Worker register the unconfigured clients instead and `aspire run` starts with no
+// Foundry install and no model account.
 if (builder.Configuration.GetValue("Foundry:Enabled", false))
 {
     var foundry = builder.AddFoundry("foundry").RunAsFoundryLocal();
@@ -127,8 +126,13 @@ if (builder.Configuration.GetValue("Foundry:Enabled", false))
     worker.WithReference(chat).WaitFor(chat)
         .WithReference(embeddings).WaitFor(embeddings);
 }
-else if (builder.Configuration.GetValue("Foundry:Azure", false))
+else if (builder.Configuration.GetValue("Foundry:Azure", false) && !HasSuppliedDeployment())
 {
+    // On by default (appsettings.json), so this is the branch a brand new machine lands in: the flag decides
+    // which resources exist before the dashboard is built, so nothing could prompt for the flag itself, and
+    // with it off a clean clone started with no model and no indication why. A developer who has already
+    // supplied a deployment another way — see HasSuppliedDeployment — is not asked for a second one.
+    //
     // These four are real Azure values — an endpoint, a key, two deployment names — so unlike the generated
     // secrets above, a human has to supply them; there is nothing to auto-generate. The Aspire dashboard offers
     // an "Enter values" form for unresolved parameters with a "Save to user secret" checkbox, and
@@ -313,11 +317,20 @@ IResourceBuilder<FoundryDeploymentResource> AddConfiguredDeployment(
             $"'{configurationSection}:{key}' is required when Foundry:Enabled is true.");
 }
 
+// True when this machine already names a deployment without the dashboard prompt: a connection string for
+// either one, or the Foundry Local CLI route. Those take precedence over Foundry:Azure now that it defaults on,
+// so turning the default on did not take a working setup away from anyone.
+bool HasSuppliedDeployment() =>
+    !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("chat"))
+    || !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("embeddings"))
+    || builder.Configuration.GetValue("Foundry:LocalCli", false);
+
 // Passes a model deployment that already exists through to the API and Worker under the name they read it
 // back under. Two sources, in this order: a connection string the configuration supplies, which is an Azure
 // Foundry resource or any compatible endpoint; or, when Foundry:LocalCli is on, a local Foundry Local install
 // driven through its own CLI. Neither present, nothing is registered and both hosts fall back to their
-// unconfigured clients — the clean-clone case, so this is silent by design rather than a configuration error.
+// unconfigured clients — the Foundry:Azure=false case, so this is silent by design rather than a configuration
+// error.
 void AddExternalDeployment(string connectionName, string modelSection)
 {
     var configured = builder.Configuration.GetConnectionString(connectionName);

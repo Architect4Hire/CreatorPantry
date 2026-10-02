@@ -300,10 +300,11 @@ none of.
   `CreatorPantry.AiProvider` is the single assembly permitted to name a provider SDK — it consumes the
   deployments through `Aspire.Azure.AI.Inference` — and `DomainReferenceTests` fails if one reaches
   `CreatorPantry.Domain`.
-- **Foundry is opt-in locally** (`Foundry:Enabled`, default off), because `RunAsFoundryLocal()` drives the
-  Foundry CLI on the developer's machine. With it off, the API and Worker register clients that throw
-  rather than answer, so a clean clone starts with no Foundry install and no model account, and nothing can
-  mistake a stub for a generation.
+- **Foundry Local is opt-in** (`Foundry:Enabled`, default off), because `RunAsFoundryLocal()` drives the
+  Foundry CLI on the developer's machine. **An Azure deployment is prompted for by default** (`Foundry:Azure`,
+  default on): a clean clone asks in the dashboard for endpoint, key and both deployment names, and the API
+  and Worker wait for them. A developer with no model account sets `Foundry:Azure` to false; the API and
+  Worker then register clients that throw rather than answer, so nothing can mistake a stub for a generation.
 
 **Options considered:** an OpenAI-compatible endpoint via `Aspire.Hosting.OpenAI` (stable rather than
 preview, and redirectable at Ollama or LM Studio with `WithEndpoint`) was rejected because it fixes both

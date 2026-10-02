@@ -132,8 +132,11 @@ Normalized reference data may enrich creator content, but it never destructively
 
 8. Run `aspire run` for the complete local application, and `dotnet run --project src/CreatorPantry.Tests` plus the frontend commands above for verification. Note that `dotnet test` does **not** work on this solution — it reports "Zero tests ran" for an upstream reason recorded in `CreatorPantry.Tests.csproj`.
 
-9. Optionally enable local models. The model provider (B-15) is off by default so the application starts
-   without it; with it off, the API and Worker register model clients that throw rather than answer.
+9. Supply a model. By default (`Foundry:Azure` is `true` in the AppHost's `appsettings.json`) the dashboard
+   prompts on first run for an Azure endpoint, key and two deployment names, and the API and Worker wait for
+   them — see *Azure OpenAI, entered through the dashboard* below. To start with no model account, run
+   `aspire secret set Foundry:Azure false`; the API and Worker then register model clients that throw rather
+   than answer. Setting `Foundry:LocalCli` or either connection string below also skips the prompt.
 
    **`Foundry:Enabled` does not currently work.** Aspire.Hosting.Foundry 13.5.4-preview's
    `RunAsFoundryLocal()` starts the Foundry service successfully — it comes up healthy and serves requests —
@@ -177,37 +180,34 @@ Normalized reference data may enrich creator content, but it never destructively
    Which models run is `Foundry:ChatModel` and `Foundry:EmbeddingModel` in the AppHost's `appsettings.json`.
    No API key is needed — the local service authenticates nobody.
 
-   **Azure AI Foundry, entered through the dashboard.** The least error-prone route, and the one that keeps
-   the key out of your shell history:
+   **Azure OpenAI, entered through the dashboard.** The default, the least error-prone route, and the one
+   that keeps the key out of your shell history. Nothing to set first:
 
    ```bash
-   aspire secret set Foundry:Azure true
    aspire run
    ```
 
-   The dashboard then shows *Unresolved parameters* with an **Enter values** form asking for the Foundry
-   endpoint and key, each with a description of where to find it in Azure. Tick **Save to user secret** and
-   you are not asked again — it writes to the same AppHost user-secrets store `aspire secret set` uses. The
-   deployments are assumed to be named `chat` and `embeddings`; override with `Foundry:ChatModel:Deployment`
-   and `Foundry:EmbeddingModel:Deployment` if yours differ.
+   The dashboard then shows *Unresolved parameters* with an **Enter values** form asking for the endpoint,
+   key and both deployment names, each with a description of where to find it in Azure. Tick **Save to user
+   secret** and you are not asked again — it writes to the same AppHost user-secrets store `aspire secret
+   set` uses.
 
-   In Azure you need one **AI Foundry resource** (`kind: AIServices`) with two deployments — a chat model that
-   supports tool calling, such as `gpt-4o-mini`, and an embedding model such as `text-embedding-3-small`. The
-   endpoint is the **Models** one, ending in `/models`.
+   In Azure you need one **Azure OpenAI resource** with two deployments — a chat model that supports tool
+   calling, such as `gpt-4o-mini`, and an embedding model such as `text-embedding-3-small`. Supply only the
+   base URL, `https://<resource>.openai.azure.com`: an Azure OpenAI resource puts the deployment in the path,
+   so the `/openai/deployments/<deployment>` part is appended per deployment.
 
-   **An Azure OpenAI resource works too**, and its URL shape is different: it puts the deployment in the path,
-   so each deployment is its own endpoint. Set `Foundry:AzureOpenAI` and supply only the base URL — the
-   `/openai/deployments/<deployment>` part is appended per deployment:
+   **An Azure AI Foundry resource works too** (`kind: AIServices`), and its URL shape is different: one
+   **Models** endpoint, ending in `/models`, serves every deployment. Turn the default shape off and supply
+   that endpoint instead:
 
    ```bash
-   aspire secret set Foundry:Azure true
-   aspire secret set Foundry:AzureOpenAI true
-   aspire secret set Foundry:Endpoint "https://<resource>.openai.azure.com"
+   aspire secret set Foundry:AzureOpenAI false
    ```
 
    Everything else is asked for in the dashboard: the endpoint, the key, and both **deployment names**. Only
-   the two switches above are configuration, because which shape the connection string takes has to be decided
-   while the application model is built — before any dialog can be shown. `Foundry:Endpoint`,
+   `Foundry:Azure` and `Foundry:AzureOpenAI` are configuration, because which shape the connection string
+   takes has to be decided while the application model is built — before any dialog can be shown. `Foundry:Endpoint`,
    `Foundry:ChatModel:Deployment` and `Foundry:EmbeddingModel:Deployment` are optional and only pre-fill those
    prompts, so the dialog becomes a confirmation rather than a transcription.
 
@@ -216,7 +216,8 @@ Normalized reference data may enrich creator content, but it never destructively
    request rather than as a startup error.
 
    Or, if you already have model deployments and would rather set the connection strings directly, leave
-   `Foundry:Enabled` and `Foundry:Azure` off and name them. The AppHost passes them through under the same two
+   `Foundry:Enabled` off and name them; a supplied connection string takes precedence over the dashboard
+   prompt. The AppHost passes them through under the same two
    names, so nothing downstream can tell which way they arrived:
 
    ```bash
