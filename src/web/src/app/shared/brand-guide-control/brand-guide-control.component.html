@@ -1,0 +1,145 @@
+<section class="control" [attr.aria-labelledby]="headingId" [attr.aria-busy]="status() === 'loading' ? 'true' : null">
+  <header class="head">
+    <h3 [id]="headingId">Brand voice</h3>
+
+    @if (status() === 'ready') {
+      <cp-status-pill [tone]="pill().tone">{{ pill().label }}</cp-status-pill>
+    }
+  </header>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="summary" role="status">Checking your brand voice…</p>
+    }
+
+    @case ('error') {
+      <div class="notice" data-kind="error" role="alert">
+        <p>We could not load your brand voice. Nothing you have typed has been lost.</p>
+        <button cpButton variant="secondary" size="sm" type="button" (click)="retry.emit()">Try again</button>
+      </div>
+    }
+
+    @default {
+      <!-- Polite status: the sentence that changes when the creator picks something else. -->
+      <p class="summary" role="status">{{ summary() }}</p>
+
+      <!--
+        Warnings are newly inserted alerts rather than a role switched on an existing node, which a screen
+        reader does not reliably announce (the same reason AiAllowanceNotice has two blocks).
+      -->
+      @if (staleBlocked()) {
+        <div class="notice" data-kind="stale" role="alert">
+          <strong>This guide may be out of date</strong>
+          <p>{{ staleReason() }}</p>
+          <div class="actions">
+            <button cpButton variant="secondary" size="sm" type="button" (click)="reviewGuide.emit()">
+              Review guide
+            </button>
+            <button cpButton variant="ghost" size="sm" type="button" (click)="continueAnyway()">Continue anyway</button>
+          </div>
+        </div>
+      } @else if (staleAccepted()) {
+        <div class="notice" data-kind="stale-accepted" role="status">
+          <p>You are continuing with an out-of-date guide.</p>
+          <button cpButton variant="text" size="sm" type="button" (click)="undoContinue()">Undo</button>
+        </div>
+      }
+
+      @if (use().kind === 'unavailable') {
+        <div class="notice" data-kind="error" role="alert">
+          <strong>Choose a guide to continue</strong>
+          <p>Pick another guide, or write without a brand voice.</p>
+        </div>
+      }
+
+      @if (use().kind === 'none' && choices().length === 0 && activeGuide() === null) {
+        <div class="actions">
+          <button cpButton variant="secondary" size="sm" type="button" (click)="setUpGuide.emit()">
+            Set up my brand voice
+          </button>
+        </div>
+      }
+
+      <div class="actions">
+        <button
+          #changeButton
+          cpButton
+          variant="text"
+          size="sm"
+          type="button"
+          [attr.aria-expanded]="changing()"
+          [attr.aria-controls]="selectId + '-wrap'"
+          (click)="toggleChange()"
+        >
+          Change
+        </button>
+      </div>
+
+      @if (changing()) {
+        <div class="picker" [id]="selectId + '-wrap'">
+          <cp-field label="Guide for this piece" [forId]="selectId" hint="Applies to this piece only.">
+            <select #guideSelect [id]="selectId" [value]="selectValue()" (change)="onSelect($event)">
+              <option value="default">{{ defaultLabel() }}</option>
+              @for (choice of otherChoices(); track choiceKey(choice)) {
+                <option [value]="choiceKey(choice)">
+                  {{ choice.name }}, version {{ choice.versionNumber }}{{ choice.isStale ? ' (may be out of date)' : '' }}
+                </option>
+              }
+              <option value="none">No brand voice</option>
+              @if (unavailableKey(); as missing) {
+                <option [value]="missing" disabled>A guide that is no longer available</option>
+              }
+            </select>
+          </cp-field>
+        </div>
+      }
+
+      @if (guide(); as shown) {
+        <div class="rules">
+          <h4>How this will sound</h4>
+
+          @switch (rulesStatus()) {
+            @case ('loading') {
+              <p class="muted" role="status">Loading…</p>
+            }
+            @case ('error') {
+              <p class="muted" role="status">We could not load the rules for this channel. Your guide still applies.</p>
+            }
+            @default {
+              @if (rules().length === 0) {
+                <p class="muted">No channel-specific rules, so your general voice applies.</p>
+              } @else {
+                <ul>
+                  @for (rule of rules(); track rule.channel) {
+                    <li>
+                      <strong>{{ rule.channel }}</strong>
+                      <span>{{ rule.summary }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            }
+          }
+        </div>
+
+        <details class="details" [id]="detailsId">
+          <summary>Guide details</summary>
+          <dl>
+            <dt>Guide</dt>
+            <dd>{{ shown.name }}</dd>
+            <dt>Version</dt>
+            <dd>{{ shown.versionNumber }}</dd>
+            @if (approvedOn(); as approved) {
+              <dt>Approved</dt>
+              <dd>{{ approved }}</dd>
+            }
+            @if (shown.appliedSections?.length) {
+              <dt>Used for this piece</dt>
+              <dd>{{ shown.appliedSections!.join(', ') }}</dd>
+            }
+          </dl>
+        </details>
+      }
+    }
+  }
+</section>

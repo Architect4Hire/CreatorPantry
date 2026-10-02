@@ -132,7 +132,8 @@ public sealed record BrandActiveStyleGuideRead(
     BrandStyleGuide Guide,
     BrandStyleGuideVersionRead Version,
     DateTimeOffset ActivatedAt,
-    string? ActivationReason);
+    string? ActivationReason,
+    int StaleSourceCount = 0);
 
 public interface IBrandStyleGuideDataLayer
 {
@@ -437,6 +438,9 @@ internal sealed class BrandStyleGuideDataLayer(
 
         var citations = await guides.FindCitationsAsync([version.Id], cancellationToken);
 
+        // The same count the version history publishes, so "stale" means one thing wherever a creator meets it.
+        var stale = await guides.StaleSourceCountsAsync([version.Id], cancellationToken);
+
         return new BrandActiveStyleGuideRead(
             guide,
             new BrandStyleGuideVersionRead(
@@ -451,7 +455,8 @@ internal sealed class BrandStyleGuideDataLayer(
                 await guides.FindApprovalAsync(version.Id, cancellationToken),
                 [.. citations.Select(citation => (citation.DocumentId, citation.VersionNumber))]),
             active.ActivatedAt,
-            active.Reason);
+            active.Reason,
+            stale.TryGetValue(version.Id, out var staleCount) ? staleCount : 0);
     }
 
     public async Task<BrandStyleGuideProposalTargetRead?> ReadForProposalAsync(

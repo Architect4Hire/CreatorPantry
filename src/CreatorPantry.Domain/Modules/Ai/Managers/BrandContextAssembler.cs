@@ -373,7 +373,7 @@ internal sealed class BrandContextAssembler(
     /// derivable by the caller from the task and what arrived.
     /// </para>
     /// </remarks>
-    private static List<BrandContextGuidance> SelectGuidance(
+    internal static List<BrandContextGuidance> SelectGuidance(
         AiTaskType taskType,
         string? channelKey,
         BrandStyleGuideVersionDetailServiceModel? version,

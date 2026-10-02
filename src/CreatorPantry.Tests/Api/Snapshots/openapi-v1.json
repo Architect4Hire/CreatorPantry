@@ -3546,6 +3546,109 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-writing-guide": {
+      "get": {
+        "tags": [
+          "BrandWritingGuide"
+        ],
+        "summary": "Reads which brand guide a writing screen would use, and what it would ask for \u2014 before anything is\ngenerated.",
+        "description": "Any member may read. Answers for the workspace\u0027s **active** guide only \u2014 the \u0022use my brand voice\u0022\ndefault; naming another guide is not offered. \u0060activeGuide\u0060 is null when the workspace has activated\nnone, which is an answer rather than an error.\n\n\u0060isStale\u0060 is true when any source the active version cites has since been replaced\n(\u0060staleSourceCount\u0060 says how many, and is the version history\u0027s own figure). The guide is still the\nactive one \u2014 staleness is reported, never acted on: this route changes nothing.\n\n\u0060rules\u0060 is what the guide would contribute to this task and channel, by the same selection rules\ngeneration uses, in the creator\u0027s own words shortened to a line each. It contains no prompt text,\nretrieved passage or section key. A task that is grounded in no brand context is refused with \u0060400\nai.brandWritingGuide.invalid_request\u0060 rather than answered as though it were. A channel the catalogue\ndoes not know is refused the same way.\n\nNo model is called and no passages are retrieved. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task",
+            "in": "query",
+            "description": "editorial-package or seo-package.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "description": "Optional content-channel key.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandWritingGuide"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandWritingGuide"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandWritingGuide"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -12983,6 +13086,99 @@
           }
         }
       },
+      "BrandWritingGuide": {
+        "required": [
+          "activeGuide",
+          "rules"
+        ],
+        "type": "object",
+        "properties": {
+          "activeGuide": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandWritingGuideActive"
+              }
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandWritingGuideRule"
+            }
+          }
+        }
+      },
+      "BrandWritingGuideActive": {
+        "required": [
+          "guideId",
+          "name",
+          "versionNumber",
+          "approvedAt",
+          "isStale",
+          "staleSourceCount",
+          "appliedSections"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "approvedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isStale": {
+            "type": "boolean"
+          },
+          "staleSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "appliedSections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BrandWritingGuideRule": {
+        "required": [
+          "label",
+          "summary"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      },
       "ChangePassword": {
         "type": "object",
         "properties": {
@@ -18626,6 +18822,9 @@
     },
     {
       "name": "BrandStyleGuides"
+    },
+    {
+      "name": "BrandWritingGuide"
     },
     {
       "name": "EditorialPackageRequests"

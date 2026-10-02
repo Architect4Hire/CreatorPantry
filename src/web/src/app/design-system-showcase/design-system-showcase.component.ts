@@ -35,6 +35,9 @@ import {
   CpUploaderComponent,
 } from '@creator-pantry/ui';
 
+import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '../models/brand-guide-control.models';
+import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
+
 type QuickActionTone = Exclude<CpTone, 'neutral'>;
 
 @Component({
@@ -62,6 +65,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpComboboxComponent,
     CpDiffLegendComponent,
     CpToastRegionComponent,
+    BrandGuideControlComponent,
   ],
   templateUrl: './design-system-showcase.component.html',
   styleUrl: './design-system-showcase.component.css',
@@ -200,6 +204,30 @@ export class DesignSystemShowcaseComponent {
   readonly showcaseAbbreviate = signal(true);
 
   readonly toasts = signal<CpToast[]>([]);
+
+  readonly brandGuide: BrandGuideChoice = {
+    guideId: 'g1',
+    name: 'Warm kitchen voice',
+    versionNumber: 3,
+    isStale: false,
+    approvedAt: '2026-03-14T10:00:00Z',
+    appliedSections: ['Tone', 'Vocabulary', 'Point of view'],
+  };
+  readonly brandGuideStale: BrandGuideChoice = {
+    ...this.brandGuide,
+    isStale: true,
+    staleReason: 'A source document was replaced after this version was approved.',
+  };
+  readonly brandGuideChoices: readonly BrandGuideChoice[] = [
+    { guideId: 'g2', name: 'Weeknight voice', versionNumber: 2, isStale: false },
+    { guideId: 'g3', name: 'Holiday baking', versionNumber: 1, isStale: true },
+  ];
+  readonly brandRules: readonly BrandGuideChannelRule[] = [
+    { channel: 'Blog', summary: 'Conversational and first person, with a story before the recipe.' },
+    { channel: 'Instagram', summary: 'Short and playful, no more than five hashtags.' },
+  ];
+  readonly brandSelection = signal<BrandGuideSelection>({ kind: 'default' });
+  readonly brandStaleAck = signal(false);
   private toastCounter = 0;
 
   pushToast(severity: CpToastSeverity): void {

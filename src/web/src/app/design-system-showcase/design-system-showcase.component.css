@@ -174,3 +174,9 @@ code {
   gap: var(--cp-space-8);
   min-width: 0;
 }
+
+.brand-guide-states {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--cp-space-4);
+}

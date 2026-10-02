@@ -499,6 +499,42 @@
   </div>
 </cp-dialog>
 
+<section aria-labelledby="brand-guide-heading" class="showcase-brand-guide">
+  <h2 id="brand-guide-heading">Brand guide control</h2>
+  <p class="section-note">
+    One small control for editorial, SEO and social setup screens: which brand guide this piece will use, in a
+    sentence. A stale guide must be continued or reviewed explicitly — it is never used silently — and the
+    advanced detail stays behind <em>Guide details</em>. App-level (<code>app/shared</code>), not part of
+    <code>@creator-pantry/ui</code>.
+  </p>
+
+  <h3>Interactive</h3>
+  <cp-brand-guide-control
+    [activeGuide]="brandGuide"
+    [choices]="brandGuideChoices"
+    [selection]="brandSelection()"
+    [staleAcknowledged]="brandStaleAck()"
+    [rules]="brandRules"
+    (selectionChange)="brandSelection.set($event)"
+    (staleAcknowledgedChange)="brandStaleAck.set($event)"
+  />
+
+  <h3>States</h3>
+  <div class="brand-guide-states">
+    <cp-brand-guide-control [activeGuide]="brandGuide" [rules]="brandRules" />
+    <cp-brand-guide-control
+      [activeGuide]="brandGuide"
+      [choices]="brandGuideChoices"
+      [selection]="{ kind: 'override', guideId: 'g2', versionNumber: 2 }"
+    />
+    <cp-brand-guide-control [activeGuide]="brandGuide" [selection]="{ kind: 'none' }" />
+    <cp-brand-guide-control [activeGuide]="brandGuideStale" [rules]="brandRules" />
+    <cp-brand-guide-control [activeGuide]="null" />
+    <cp-brand-guide-control status="loading" />
+    <cp-brand-guide-control status="error" />
+  </div>
+</section>
+
 <cp-dialog [open]="dialogOpen() === 'long'" title="Long dialog, no description" (closed)="closeDialog()">
   @for (paragraph of [1, 2, 3, 4, 5, 6, 7, 8]; track paragraph) {
     <p>

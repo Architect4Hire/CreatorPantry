@@ -85,12 +85,17 @@ public sealed record BrandStyleGuideDetailServiceModel(
 /// The guide's own state. An archived guide can still hold the default — archiving is a shelf and does not
 /// deactivate — so a caller that cares has to be able to see it.
 /// </param>
+/// <param name="StaleSourceCount">
+/// How many of the active version's cited sources have since been replaced — the version history's own
+/// <c>staleSourceCount</c>, so the two cannot disagree. Zero means every cited source is still current.
+/// </param>
 public sealed record BrandActiveStyleGuideServiceModel(
     Guid GuideId,
     string DisplayName,
     string? Purpose,
     BrandStyleGuideStatus Status,
-    BrandStyleGuideVersionDetailServiceModel Version);
+    BrandStyleGuideVersionDetailServiceModel Version,
+    int StaleSourceCount = 0);
 
 /// <summary>The creator's input after blanks were dropped: what will actually be written.</summary>
 public sealed record BrandStyleGuideDraft(

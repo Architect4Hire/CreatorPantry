@@ -222,6 +222,19 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the brand-guide preview a writing screen reads before it generates (11A.21a): a read of the
+    /// active guide and what it would contribute to a task. Needs the brand module and the channel catalogue.
+    /// </summary>
+    public static IServiceCollection AddBrandWritingGuideSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IBrandWritingGuideBusiness, BrandWritingGuideBusiness>();
+        services.AddScoped<IBrandWritingGuideFacade, BrandWritingGuideFacade>();
+        services.AddScoped<IValidator<BrandWritingGuideViewModel>, BrandWritingGuideViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers the request seam for RCPUB-001's editorial package.
     /// </summary>
     /// <remarks>

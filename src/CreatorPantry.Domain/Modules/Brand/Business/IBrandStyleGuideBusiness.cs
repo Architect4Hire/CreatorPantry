@@ -160,7 +160,8 @@ internal sealed class BrandStyleGuideBusiness(
             read.Guide.DisplayName,
             read.Guide.Purpose,
             read.Guide.Status,
-            Map(read.Version, new BrandStyleGuideActivationServiceModel(read.ActivatedAt, read.ActivationReason))));
+            Map(read.Version, new BrandStyleGuideActivationServiceModel(read.ActivatedAt, read.ActivationReason)),
+            read.StaleSourceCount));
     }
 
     public async Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
