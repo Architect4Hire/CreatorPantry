@@ -107,4 +107,18 @@ public enum AiChangeTargetKind
     /// stored row to a recipe edit. It becomes content only when a creator accepts a <c>ContentRevision</c>.
     /// </summary>
     ContentSection = 13,
+
+    /// <summary>
+    /// One proposed brand-guide section, rule, conflict or uncertainty (11A.17), flattened the same way as
+    /// <see cref="ContentSection"/>: the dimension, the citations and the evidence basis travel as
+    /// <see cref="AiChangeKind.Set"/> rows beside the item's own text.
+    /// </summary>
+    /// <remarks>
+    /// Absent from <see cref="AiChangeApplicability"/> and answering <c>null</c> in
+    /// <see cref="AiChangeTargetPolicy"/> deliberately and permanently — both by omission, since each falls
+    /// through to nothing. A brand guide is not a recipe and a proposal is not a guide: the creator reads these
+    /// rows, writes their own guide version from what they agree with, and approves and activates that. There
+    /// is no code path from a stored row to either.
+    /// </remarks>
+    BrandGuideSection = 14,
 }

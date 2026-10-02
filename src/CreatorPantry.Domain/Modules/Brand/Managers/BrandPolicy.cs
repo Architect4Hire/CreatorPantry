@@ -282,6 +282,29 @@ public static class BrandPolicy
     public const int EmbeddingMaintenanceBatchSize = 50;
 
     /// <summary>
+    /// How many source document versions one grounded answer may be built from.
+    /// </summary>
+    /// <remarks>
+    /// A bound on how much creator text one request assembles, and on how many rows it has to resolve before a
+    /// provider is called. Ten is more evidence than a brand guide needs and far less than a library holds.
+    /// </remarks>
+    public const int MaxGroundingSourceVersions = 10;
+
+    /// <summary>How many passages one document version may contribute to a grounded answer.</summary>
+    public const int MaxGroundingPassagesPerVersion = 12;
+
+    /// <summary>
+    /// How many passages one grounded answer may be built from in total, across every version it names.
+    /// </summary>
+    /// <remarks>
+    /// Below <see cref="MaxGroundingSourceVersions"/> times <see cref="MaxGroundingPassagesPerVersion"/> on
+    /// purpose: the per-version cap keeps one long document from being the whole answer, and this one keeps a
+    /// wide selection from assembling a prompt nothing can read. Forty passages at
+    /// <see cref="ChunkTargetLength"/> is roughly sixteen thousand tokens of reference material.
+    /// </remarks>
+    public const int MaxGroundingPassages = 40;
+
+    /// <summary>
     /// Doubling backoff before a requeued embedding is claimable again: 30s, 60s, 120s, capped at ten minutes,
     /// spread by up to a fifth either way so a provider recovering from a rate limit is not met by every
     /// requeued operation at the same instant.

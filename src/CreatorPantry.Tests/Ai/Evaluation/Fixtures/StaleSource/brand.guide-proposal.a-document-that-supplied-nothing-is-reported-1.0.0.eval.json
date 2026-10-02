@@ -1,0 +1,22 @@
+{
+  "id": "brand.guide-proposal.a-document-that-supplied-nothing-is-reported",
+  "version": "1.0.0",
+  "category": "StaleSource",
+  "kind": "BrandGuideOutputValidation",
+  "description": "A selected document whose text is not extracted or indexed yet contributes nothing. That is not an error in the request, so it travels -- but the creator is told, because a proposal drawn from two of four documents must not read like one drawn from all four.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm and plain.\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"11111111-1111-1111-1111-111111111111\"}]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [
+      { "passageId": "11111111-1111-1111-1111-111111111111", "text": "alpha beta gamma delta" },
+      { "passageId": "22222222-2222-2222-2222-222222222222", "text": "epsilon zeta eta theta" },
+      { "passageId": "33333333-3333-3333-3333-333333333333", "text": "iota kappa lambda mu" },
+      { "passageId": "44444444-4444-4444-4444-444444444444", "text": "nu xi omicron pi" }
+    ],
+    "unavailableSources": 2
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "findings": ["brandGuide.source_unavailable"]
+  }
+}

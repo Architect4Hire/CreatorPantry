@@ -1,0 +1,17 @@
+{
+  "id": "brand.guide-proposal.a-sources-claim-without-a-citation-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandGuideOutputValidation",
+  "description": "Guidance that says it rests on the creator's source documents must name a passage. An answer that claims the sources and cites nothing is the failure the citation contract exists to prevent, so it is refused rather than relabelled as an assumption.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm and direct.\",\"evidence\":\"Sources\",\"citations\":[]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "We write like a friend who happens to cook." }]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.brand_guide_citation_invalid",
+    "category": "DomainInvalid"
+  }
+}

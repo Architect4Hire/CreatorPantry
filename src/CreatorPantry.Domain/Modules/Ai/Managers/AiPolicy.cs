@@ -344,6 +344,75 @@ public static class AiPolicy
 
     public const int SeoReasonMaxLength = 300;
 
+    /// <summary>
+    /// How many source documents one brand-guide proposal request may name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>This module's own cap, deliberately duplicating the brand module's.</strong> The brand module caps
+    /// what its grounding read will <em>supply</em>; this caps what a request may <em>ask for</em>, and it is
+    /// part of this route's contract — a client is told the limit before it sends. Naming the brand module's
+    /// constant here would reach across a module boundary for a value that belongs to a different decision, which
+    /// <c>ModuleBoundaryTests</c> refuses, and rightly: the two could legitimately differ.
+    /// </para>
+    /// <para>
+    /// If they do differ, nothing is lost silently. The grounding read reports every selection it could not
+    /// supply, including ones it trimmed for its own budget, and the proposal carries that as a finding.
+    /// </para>
+    /// </remarks>
+    public const int BrandGuideMaxSourceDocuments = 10;
+
+    /// <summary>The longest body one brand-guide dimension's guidance may be.</summary>
+    /// <remarks>
+    /// Inside <see cref="ChangeValueMaxLength"/>, because the handler stores a body as one
+    /// <c>AiStructuredChange.AfterValue</c> and a proposal refused at persistence has already cost a provider
+    /// call.
+    /// </remarks>
+    public const int BrandGuideBodyMaxLength = 2000;
+
+    /// <summary>The longest one brand-guide do/don't rule may be.</summary>
+    public const int BrandGuideRuleMaxLength = 500;
+
+    /// <summary>The longest one conflict or uncertainty summary may be.</summary>
+    public const int BrandGuideSummaryMaxLength = 500;
+
+    /// <summary>How many do/don't rules one brand-guide proposal may offer.</summary>
+    public const int BrandGuideMaxRules = 30;
+
+    /// <summary>How many conflicts or uncertainties one brand-guide proposal may report.</summary>
+    public const int BrandGuideMaxFindings = 20;
+
+    /// <summary>How many passages one section, rule or conflict may cite.</summary>
+    public const int BrandGuideMaxCitationsPerItem = 8;
+
+    /// <summary>
+    /// The longest run of consecutive words a brand-guide answer may share with a cited passage.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The enforceable form of "do not copy long source passages". Measured in words rather than characters
+    /// because that is the unit a reader recognises as a quotation, and compared case- and
+    /// punctuation-insensitively so reformatting does not evade it.
+    /// </para>
+    /// <para>
+    /// Twelve is long enough that ordinary overlap — a brand's own recurring phrase, a product name, a short
+    /// idiom the guidance is explicitly about — passes, and short enough that a reproduced sentence does not.
+    /// The creator's distinctive vocabulary is exactly what a guide is supposed to name, so a floor much lower
+    /// than this would refuse correct answers.
+    /// </para>
+    /// </remarks>
+    public const int BrandGuideMaxQuotedWordRun = 12;
+
+    /// <summary>
+    /// How few passages make a brand-guide proposal's evidence thin enough for the server to say so.
+    /// </summary>
+    /// <remarks>
+    /// A floor on the grounding, not on the answer. Below it the handler attaches a
+    /// <see cref="AiWarningKind.Limitation"/> warning whatever the model returned, because "do not hide thin
+    /// evidence" cannot be left to the thing whose answer looks better without it.
+    /// </remarks>
+    public const int BrandGuideSparseEvidenceFloor = 4;
+
     /// <summary>How many of a workspace's own recipes are offered to the model as internal-link candidates.</summary>
     public const int MaxSeoLinkCandidates = 40;
 

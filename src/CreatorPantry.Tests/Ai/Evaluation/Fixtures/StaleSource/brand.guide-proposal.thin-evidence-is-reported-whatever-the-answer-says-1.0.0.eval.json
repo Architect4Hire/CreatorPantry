@@ -1,0 +1,17 @@
+{
+  "id": "brand.guide-proposal.thin-evidence-is-reported-whatever-the-answer-says",
+  "version": "1.0.0",
+  "category": "StaleSource",
+  "kind": "BrandGuideOutputValidation",
+  "description": "An answer looks better without admitting its evidence was thin, so the admission cannot be the answer's to make. One passage is below the floor, and the server reports it even though this answer carries no warning of its own and claims the sources confidently.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Confident, warm, assured.\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"11111111-1111-1111-1111-111111111111\"}]}],\"warnings\":[]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "alpha beta gamma delta" }],
+    "unavailableSources": 0
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "findings": ["brandGuide.sparse_evidence"]
+  }
+}

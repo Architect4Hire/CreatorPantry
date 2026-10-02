@@ -1,0 +1,15 @@
+{
+  "id": "brand.guide-proposal.a-short-characteristic-phrase-is-allowed",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandGuideOutputValidation",
+  "description": "The other side of the quotation rule, which matters as much: naming a creator's own recurring phrase is the point of a language guideline, so a short overlap passes. A floor low enough to refuse this would refuse correct answers.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Language\",\"body\":\"The phrase 'a friend who happens to cook' recurs and is worth keeping.\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"11111111-1111-1111-1111-111111111111\"}]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "we write like a friend who happens to cook and we never talk down to anyone ever" }]
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

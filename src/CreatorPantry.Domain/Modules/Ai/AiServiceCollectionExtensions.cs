@@ -254,6 +254,27 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for 11A.17's brand-guide proposal.
+    /// </summary>
+    /// <remarks>
+    /// Its prerequisite is the <strong>brand</strong> module rather than the recipe one, which no earlier seam
+    /// here can say: the guide, the selected documents and the passages it grounds on are all the brand module's,
+    /// and this capability reads no recipe at all. <c>AddContentChannelCatalog</c> comes with that module, and
+    /// the channel keys a request may offer are checked against it.
+    /// </remarks>
+    public static IServiceCollection AddAiBrandGuideProposalRequestSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiBrandGuideProposalRequestBusiness, AiBrandGuideProposalRequestBusiness>();
+        services.AddScoped<IAiBrandGuideProposalRequestFacade, AiBrandGuideProposalRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestBrandGuideProposalViewModel>,
+            RequestBrandGuideProposalViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers the request seam for AIREC-008's explanation of an existing proposal.
     /// </summary>
     /// <remarks>
@@ -298,6 +319,7 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, AiProposalExplanationAiTaskHandler>(AiTaskType.ProposalExplanation);
         services.AddKeyedScoped<IAiTaskHandler, EditorialPackageAiTaskHandler>(AiTaskType.EditorialPackage);
         services.AddKeyedScoped<IAiTaskHandler, SeoPackageAiTaskHandler>(AiTaskType.SeoPackage);
+        services.AddKeyedScoped<IAiTaskHandler, BrandGuideProposalAiTaskHandler>(AiTaskType.BrandGuideProposal);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

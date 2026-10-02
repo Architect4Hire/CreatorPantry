@@ -1,0 +1,17 @@
+{
+  "id": "brand.guide-proposal.a-citation-without-a-sources-claim-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandGuideOutputValidation",
+  "description": "The converse: an answer that cites a passage while declaring it rests only on the questionnaire misreports where its guidance came from, which makes the evidence basis useless to a creator deciding how much to trust it.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm and direct.\",\"evidence\":\"Questionnaire\",\"citations\":[{\"passageId\":\"11111111-1111-1111-1111-111111111111\"}]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "We write like a friend who happens to cook." }]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.brand_guide_citation_invalid",
+    "category": "DomainInvalid"
+  }
+}

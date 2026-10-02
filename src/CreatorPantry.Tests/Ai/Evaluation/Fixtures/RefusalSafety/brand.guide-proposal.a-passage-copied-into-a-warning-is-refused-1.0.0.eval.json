@@ -1,0 +1,17 @@
+{
+  "id": "brand.guide-proposal.a-passage-copied-into-a-warning-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandGuideOutputValidation",
+  "description": "A warning is free prose a creator reads like any other field, so it is scanned like one. Without this, the quotation rule would have left exactly one field where a reproduced passage could sit unexamined.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"The source says: we write like a friend who happens to cook and we never talk down to anyone ever.\"}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "we write like a friend who happens to cook and we never talk down to anyone ever" }]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.brand_guide_passage_copied",
+    "category": "DomainInvalid"
+  }
+}

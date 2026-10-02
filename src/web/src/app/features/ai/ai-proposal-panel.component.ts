@@ -188,6 +188,9 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // Likewise. RCPUB-001's editorial sections are content a creator accepts separately, not a diff to the
   // recipe, and have no review surface here yet; the label exists so the map stays exhaustive.
   ContentSection: 'Editorial section',
+  // Likewise. 11A.17's brand guide items are a proposal a creator writes their own guide version from, not a
+  // diff to anything, and have no review surface here yet; the label exists so the map stays exhaustive.
+  BrandGuideSection: 'Brand guidance',
 };
 
 /**

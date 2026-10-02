@@ -212,4 +212,78 @@ public sealed class BrandStyleGuidesController(IBrandStyleGuideFacade guides) : 
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
+
+    /// <summary>Makes one approved brand style guide version this workspace's default.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="guideId">
+    /// The guide whose version to activate. Constrained to a Guid, so a malformed id answers 404 at routing —
+    /// the same status as an unknown guide and as another workspace's.
+    /// </param>
+    /// <param name="versionNumber">
+    /// Which of the guide's versions, by number as the history lists them. Constrained to an int, which is
+    /// what keeps this route distinct from the literal `compare` segment above.
+    /// </param>
+    /// <param name="model">The confirmation, the expected current active version, and an optional reason.</param>
+    /// <param name="idempotencyKey">
+    /// Required. Replaying a request with the same key returns the activation the first one recorded, with
+    /// `Idempotency-Replayed: true`, and writes nothing further; the same key with a different body is refused.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// **Owner only**, above the Editor that creates and edits a guide: there is one default per workspace and
+    /// it governs what every later generation is grounded on.
+    ///
+    /// `confirmed` must be `true` — a well-formed body is not by itself a decision. `expectedActiveVersionId`
+    /// is the version the caller believes holds the default now, from `activeVersion.id` on the guide read or
+    /// the history row whose `isActive` is true; **omit it only to assert the workspace has no default**, which
+    /// is checked rather than assumed, so forgetting the field cannot replace a default the caller never saw. A
+    /// mismatch answers `409 brand.guide.activation.conflict` and names what actually holds it in
+    /// `activeGuideId`, `activeVersionId` and `activeVersionNumber` — each null when the workspace has none.
+    ///
+    /// Nothing in the guide is edited: the version is immutable and this writes only the workspace's one
+    /// activation decision, its audit entry, and nothing else. `200 OK` rather than `201`, because the default
+    /// is a singleton being repointed and not a new subresource. Activating the version that already holds it
+    /// is a success that writes nothing and answers `alreadyActive: true`, with the original `activatedAt` and
+    /// activator rather than this request's.
+    ///
+    /// Four refusals are about the version named and will not read differently after a re-read, so they are
+    /// answered before the expectation is checked: a version with no approval is `409
+    /// brand.guide.version.unapproved.conflict`; one citing a source document that has been replaced since is
+    /// `409 brand.guide.version.stale.conflict`, with `staleSourceCount`; one with no sections and no rules is
+    /// `409 brand.guide.version.empty.conflict`; and a version of an archived guide is `409
+    /// brand.guide.archived.conflict`. There is no override: lifting one of these is a policy decision rather
+    /// than a field on a request.
+    ///
+    /// An unknown guide and another workspace's both answer `404 brand.guide.not_found`. A version number this
+    /// guide does not have answers `404 brand.guide.version.not_found`.
+    /// </remarks>
+    [HttpPost("{guideId:guid}/versions/{versionNumber:int}/activation")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceOwner)]
+    [ProducesResponseType<BrandStyleGuideActivationResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    // ValidationProblemDetails on the 404 for the reason CompareVersions records: a version number this guide
+    // does not have names the route segment at fault in `errors`, and that naming is the only reason
+    // brand.guide.version.not_found is worth telling apart from brand.guide.not_found.
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> Activate(
+        string workspaceSlug,
+        Guid guideId,
+        int versionNumber,
+        [FromBody] ActivateBrandStyleGuideVersionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await guides.ActivateVersionAsync(
+            userId, guideId, versionNumber, model, idempotencyKey, cancellationToken);
+
+        // No Location: the activation is not a resource of its own, and the guide read already reports it.
+        return this.IdempotentResult(outcome, Ok);
+    }
 }

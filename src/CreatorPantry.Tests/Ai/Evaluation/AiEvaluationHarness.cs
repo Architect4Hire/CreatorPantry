@@ -50,6 +50,7 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new EditorialPackageOutputValidationCase(),
             new SeoPackageOutputValidationCase(),
             new SeoSlugDerivationCase(),
+            new BrandGuideOutputValidationCase(),
         }.ToDictionary(evaluationCase => evaluationCase.Kind);
 
     public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(store, Cases);

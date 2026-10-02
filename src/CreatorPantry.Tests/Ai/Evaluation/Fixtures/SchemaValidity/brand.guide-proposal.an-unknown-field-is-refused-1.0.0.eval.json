@@ -1,0 +1,15 @@
+{
+  "id": "brand.guide-proposal.an-unknown-field-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandGuideOutputValidation",
+  "description": "The document is the schema, so a field it does not declare is refused rather than ignored. A quotation field is the one worth proving: there is deliberately nowhere in this contract to put reproduced source text.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm.\",\"evidence\":\"None\",\"citations\":[],\"excerpt\":\"We write like a friend who happens to cook.\"}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

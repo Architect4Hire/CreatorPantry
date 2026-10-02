@@ -210,6 +210,62 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         Assert.Equal(14, await RowCountAsync(db, cancellation));
     }
 
+    /// <summary>
+    /// What the activation route's conflict rests on, and the one thing SQLite cannot show: the server bumps
+    /// <c>BrandStyleGuideDefaults.RowVersion</c> on update, so of two activations composed against the same
+    /// read exactly one commits.
+    /// </summary>
+    /// <remarks>
+    /// Under SQLite the column gets a value on insert and nothing changes it afterwards, so the losing save
+    /// would succeed there and the endpoint tests cover the expectation check instead. This is the mechanism
+    /// behind <c>BrandStyleGuideDataLayer.ActivateAsync</c>'s concurrency branch.
+    /// </remarks>
+    [Fact]
+    public async Task Two_activations_composed_against_one_read_resolve_to_a_single_winner()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var seeded = await SeedEverythingAsync(WorkspaceA);
+
+        // Version 2 needs an approval before it can legally hold the default at all.
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.BrandStyleGuideApprovals.Add(new BrandStyleGuideApproval
+            {
+                WorkspaceId = WorkspaceA,
+                BrandStyleGuideVersionId = seeded.DraftVersionId,
+                ApprovedByMembershipId = Guid.NewGuid(),
+                ApprovedAt = Now,
+            });
+            await db.SaveChangesAsync(cancellation);
+        }
+
+        await using var firstScope = ScopeFor(WorkspaceA);
+        await using var secondScope = ScopeFor(WorkspaceA);
+        var first = firstScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var second = secondScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        // Both read the same row version, as two activators reading the same guide would.
+        var firstRow = await first.BrandStyleGuideDefaults.SingleAsync(cancellation);
+        var secondRow = await second.BrandStyleGuideDefaults.SingleAsync(cancellation);
+
+        firstRow.BrandStyleGuideVersionId = seeded.DraftVersionId;
+        firstRow.ActivatedAt = Now.AddMinutes(1);
+        await first.SaveChangesAsync(cancellation);
+
+        secondRow.Reason = "Mine instead";
+        secondRow.ActivatedAt = Now.AddMinutes(2);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync(cancellation));
+
+        // The winner's activation stands whole: the loser wrote neither its version nor its reason.
+        await using var after = ScopeFor(WorkspaceA);
+        var stored = await after.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .BrandStyleGuideDefaults.AsNoTracking().SingleAsync(cancellation);
+        Assert.Equal(seeded.DraftVersionId, stored.BrandStyleGuideVersionId);
+        Assert.Null(stored.Reason);
+    }
+
     [Fact]
     public async Task The_server_refuses_a_draft_default_a_second_voice_section_and_a_url_object_key()
     {

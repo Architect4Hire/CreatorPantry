@@ -1,0 +1,21 @@
+{
+  "id": "brand.guide-proposal.an-unsupported-rule-is-flagged-as-an-assumption",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandGuideOutputValidation",
+  "description": "A rule resting on nothing is as unsupported as a section resting on nothing, and is shown to the creator the same way. Covering only sections would leave a \"never do X\" suggestion looking like something found in the creator's own material.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[],\"rules\":[{\"kind\":\"Dont\",\"text\":\"Do not open with a rhetorical question.\",\"evidence\":\"None\",\"citations\":[]}]}",
+    "expectedSchemaVersion": "brand.guide-proposal.v1",
+    "passages": [
+      { "passageId": "11111111-1111-1111-1111-111111111111", "text": "alpha beta gamma delta" },
+      { "passageId": "22222222-2222-2222-2222-222222222222", "text": "epsilon zeta eta theta" },
+      { "passageId": "33333333-3333-3333-3333-333333333333", "text": "iota kappa lambda mu" },
+      { "passageId": "44444444-4444-4444-4444-444444444444", "text": "nu xi omicron pi" }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "findings": ["brandGuide.unsupported_guidance"]
+  }
+}

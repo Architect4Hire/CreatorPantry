@@ -51,16 +51,34 @@ public interface IBrandStyleGuideFacade
         CreateBrandStyleGuideViewModel model,
         string? idempotencyKey,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Makes one approved version of one guide the workspace's default. Owner only. Retryable with an
+    /// idempotency key: a replay returns the activation the first request recorded.
+    /// </summary>
+    /// <param name="guideId">The guide, from the route. Never from the body.</param>
+    /// <param name="versionNumber">Which of its versions, from the route. Never from the body.</param>
+    /// <param name="model">The confirmation, the expected current active version, and an optional reason.</param>
+    Task<IdempotentOutcome<BrandStyleGuideActivationResultServiceModel>> ActivateVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        ActivateBrandStyleGuideVersionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class BrandStyleGuideFacade(
     IValidator<CreateBrandStyleGuideViewModel> validator,
     IValidator<BrandStyleGuideVersionComparisonViewModel> comparisonValidator,
+    IValidator<ActivateBrandStyleGuideVersionViewModel> activationValidator,
     IBrandStyleGuideBusiness business,
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IBrandStyleGuideFacade
 {
     private const string CreateOperation = "brand.guide.create";
+
+    private const string ActivateOperation = "brand.guide.activate";
 
     public Task<OperationResult<BrandStyleGuideDetailServiceModel>> GetAsync(
         Guid guideId, CancellationToken cancellationToken) =>
@@ -133,6 +151,70 @@ internal sealed class BrandStyleGuideFacade(
             token => business.CreateAsync(userId, draft, token),
             cancellationToken);
     }
+
+    public async Task<IdempotentOutcome<BrandStyleGuideActivationResultServiceModel>> ActivateVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        ActivateBrandStyleGuideVersionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        // Owner, above the Editor that creates and edits a guide. Activation is the workspace's one
+        // brand-voice decision and it governs what every later generation is grounded on, so it sits with the
+        // operations auth.md keeps behind an explicit policy and an audit event rather than with authoring.
+        if (workspace.Role < WorkspaceRole.Owner)
+        {
+            return RefusedActivation(new OperationError(
+                BrandErrorCodes.GuideForbidden,
+                "You do not have permission to change this workspace's default brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var validation = await activationValidator.ValidateAsync(model, cancellationToken);
+
+        if (!validation.IsValid)
+        {
+            return RefusedActivation(OperationError.Validation(
+                BrandErrorCodes.GuideInvalidRequest,
+                "This brand style guide version could not be activated.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        return await idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId,
+                workspace.WorkspaceId,
+                ActivateOperation,
+                idempotencyKey,
+                Fingerprint(guideId, versionNumber, model)),
+            token => business.ActivateVersionAsync(
+                userId, guideId, versionNumber, model.ExpectedActiveVersionId, model.Reason, token),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// What makes two activations the same request: the version named, the state expected, and the reason
+    /// recorded.
+    /// </summary>
+    /// <remarks>
+    /// <c>confirmed</c> is left out deliberately. It is the only value here a request cannot vary and still
+    /// be accepted — the validator refuses anything but <c>true</c> — so including it could not distinguish
+    /// two requests, and leaving it out keeps the fingerprint to the things that actually differ.
+    /// </remarks>
+    private static object Fingerprint(
+        Guid guideId, int versionNumber, ActivateBrandStyleGuideVersionViewModel model) =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["guideId"] = guideId,
+            ["versionNumber"] = versionNumber,
+            ["expectedActiveVersionId"] = model.ExpectedActiveVersionId,
+            ["reason"] = model.Reason,
+        };
+
+    private static IdempotentOutcome<BrandStyleGuideActivationResultServiceModel> RefusedActivation(
+        OperationError error) =>
+        new(OperationResult<BrandStyleGuideActivationResultServiceModel>.Failure(error), Replayed: false);
 
     // The draft rather than the request, so two requests that differ only in blanks are the same request.
     private static object Fingerprint(BrandStyleGuideDraft draft) =>

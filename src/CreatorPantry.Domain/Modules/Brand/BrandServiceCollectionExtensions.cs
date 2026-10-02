@@ -51,10 +51,19 @@ public static class BrandServiceCollectionExtensions
         services.AddScoped<
             IValidator<BrandStyleGuideVersionComparisonViewModel>,
             BrandStyleGuideVersionComparisonViewModelValidator>();
+        services.AddScoped<
+            IValidator<ActivateBrandStyleGuideVersionViewModel>,
+            ActivateBrandStyleGuideVersionViewModelValidator>();
         services.AddScoped<IBrandStyleGuideRepository, BrandStyleGuideRepository>();
         services.AddScoped<IBrandStyleGuideDataLayer, BrandStyleGuideDataLayer>();
         services.AddScoped<IBrandStyleGuideBusiness, BrandStyleGuideBusiness>();
         services.AddScoped<IBrandStyleGuideFacade, BrandStyleGuideFacade>();
+        // The grounding read over what the embedding worker produced. Registered with the module rather than
+        // with the worker, because its caller is an AI task running in the Worker host and the API host alike.
+        services.AddScoped<IBrandSourcePassageRepository, BrandSourcePassageRepository>();
+        services.AddScoped<IBrandSourcePassageDataLayer, BrandSourcePassageDataLayer>();
+        services.AddScoped<IBrandSourcePassageBusiness, BrandSourcePassageBusiness>();
+        services.AddScoped<IBrandSourcePassageFacade, BrandSourcePassageFacade>();
         services.AddScoped<IBrandSourceEmbeddingRepository, BrandSourceEmbeddingRepository>();
         services.AddScoped<IBrandSourceEmbeddingDataLayer, BrandSourceEmbeddingDataLayer>();
         services.AddScoped<IBrandSourceEmbeddingBusiness, BrandSourceEmbeddingBusiness>();

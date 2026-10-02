@@ -16,6 +16,7 @@ internal sealed record BrandStyleGuideCitation(Guid GuideVersionId, Guid Documen
 internal sealed record BrandStyleGuideActiveRecord(
     Guid VersionId, DateTimeOffset ActivatedAt, string? ActivationReason);
 
+
 internal interface IBrandStyleGuideRepository
 {
     Task<BrandStyleGuide?> FindGuideAsync(Guid guideId, CancellationToken cancellationToken);
@@ -75,6 +76,29 @@ internal interface IBrandStyleGuideRepository
 
     Task<IReadOnlyList<BrandStyleGuideCitation>> FindCitationsAsync(
         IReadOnlyCollection<Guid> guideVersionIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The resolved workspace's default guide version, with the guide and number it belongs to, or null when
+    /// the workspace has none.
+    /// </summary>
+    /// <remarks>
+    /// No workspace argument: <c>WorkspaceId</c> is the table's whole primary key and the global query filter
+    /// supplies it, so this cannot read another workspace's decision and there is nothing here to pass wrong.
+    /// </remarks>
+    Task<BrandStyleGuideWorkspaceDefault?> FindWorkspaceDefaultAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The resolved workspace's default row, tracked, for an activation that is about to repoint it.
+    /// </summary>
+    /// <remarks>
+    /// Tracked where every other read here is <c>AsNoTracking</c>, because this one is read to be written: the
+    /// entity's <c>RowVersion</c> becomes the <c>WHERE</c> clause of the update, which is what makes two
+    /// simultaneous activations resolve to one winner rather than to whichever wrote last.
+    /// </remarks>
+    Task<BrandStyleGuideDefault?> TrackWorkspaceDefaultAsync(CancellationToken cancellationToken);
+
+    /// <summary>Stages the workspace's first default. Nothing is saved.</summary>
+    void AddDefault(BrandStyleGuideDefault workspaceDefault);
 
     /// <summary>Stages a new guide with its first version. Nothing is saved.</summary>
     void Add(BrandStyleGuide guide, BrandStyleGuideVersion version);
@@ -217,6 +241,27 @@ internal sealed class BrandStyleGuideRepository(CreatorPantryDbContext context) 
                where guideVersionIds.Contains(link.BrandStyleGuideVersionId)
                select new BrandStyleGuideCitation(link.BrandStyleGuideVersionId, version.BrandSourceDocumentId, version.VersionNumber))
             .ToListAsync(cancellationToken);
+
+    public Task<BrandStyleGuideWorkspaceDefault?> FindWorkspaceDefaultAsync(CancellationToken cancellationToken) =>
+        (from active in context.BrandStyleGuideDefaults.AsNoTracking()
+         join version in context.BrandStyleGuideVersions.AsNoTracking()
+             on active.BrandStyleGuideVersionId equals version.Id
+         select new BrandStyleGuideWorkspaceDefault(
+             version.BrandStyleGuideId,
+             version.Id,
+             version.VersionNumber,
+             active.ActivatedAt,
+             active.ActivatedByMembershipId,
+             active.Reason))
+        .FirstOrDefaultAsync(cancellationToken);
+
+    // No predicate at all: the workspace is the key and the query filter supplies it, so at most one row is
+    // visible here however many the table holds.
+    public Task<BrandStyleGuideDefault?> TrackWorkspaceDefaultAsync(CancellationToken cancellationToken) =>
+        context.BrandStyleGuideDefaults.FirstOrDefaultAsync(cancellationToken);
+
+    public void AddDefault(BrandStyleGuideDefault workspaceDefault) =>
+        context.BrandStyleGuideDefaults.Add(workspaceDefault);
 
     public void Add(BrandStyleGuide guide, BrandStyleGuideVersion version)
     {
