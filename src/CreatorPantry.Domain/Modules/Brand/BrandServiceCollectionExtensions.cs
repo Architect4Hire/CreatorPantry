@@ -48,6 +48,9 @@ public static class BrandServiceCollectionExtensions
         // upload and the replacement stage a queued operation through it, in the same save as the version —
         // which is the whole reason a committed version always has work queued for it.
         services.AddScoped<IValidator<CreateBrandStyleGuideViewModel>, CreateBrandStyleGuideViewModelValidator>();
+        services.AddScoped<
+            IValidator<BrandStyleGuideVersionComparisonViewModel>,
+            BrandStyleGuideVersionComparisonViewModelValidator>();
         services.AddScoped<IBrandStyleGuideRepository, BrandStyleGuideRepository>();
         services.AddScoped<IBrandStyleGuideDataLayer, BrandStyleGuideDataLayer>();
         services.AddScoped<IBrandStyleGuideBusiness, BrandStyleGuideBusiness>();

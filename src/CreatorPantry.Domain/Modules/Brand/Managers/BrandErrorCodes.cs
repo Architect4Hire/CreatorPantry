@@ -144,4 +144,15 @@ public static class BrandErrorCodes
     /// learn that a guide exists somewhere the caller cannot see it (tenancy.md).
     /// </remarks>
     public const string GuideNotFound = "brand.guide.not_found";
+
+    /// <summary>
+    /// The guide exists, but does not have a version number the request named. Maps to 404.
+    /// </summary>
+    /// <remarks>
+    /// Worth telling apart from <see cref="GuideNotFound"/> only because it names the parameter at fault in
+    /// <c>errors</c> — a caller who mistyped <c>from</c> is told which side was wrong, and one who mistyped
+    /// both is told both rather than being sent round the loop twice. It discloses nothing: the guide is
+    /// already known to be readable before any version number is looked up.
+    /// </remarks>
+    public const string GuideVersionNotFound = "brand.guide.version.not_found";
 }

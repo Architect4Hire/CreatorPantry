@@ -11,9 +11,9 @@
     <!-- The blob client the private object store reads brand source documents through. This host has had
          .WithReference(blobs) since the AppHost declared it; document extraction is the first work here that
          actually opens one. -->
-    <PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.5.4" />
-    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.5.4" />
-    <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.5.4" />
+    <PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.6.0" />
+    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.6.0" />
+    <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.6.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

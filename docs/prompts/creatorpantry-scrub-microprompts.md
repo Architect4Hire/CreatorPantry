@@ -2771,7 +2771,7 @@ RESTRICTION: No list, compare, activation, or mutation. Unknown and cross-worksp
 BEHAVIOR: Plan ServiceModel, wait for approval, implement current/active/empty/isolation tests.
 ```
 
-### 11A.16a List brand-guide versions **Pick Up Here**
+### 11A.16a List brand-guide versions 
 
 ```text
 SCOPE: Implement only paged brand-guide version metadata with version, status, source count, actor, reason,

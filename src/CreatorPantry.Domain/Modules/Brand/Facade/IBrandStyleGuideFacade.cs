@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Brand.Business;
@@ -16,6 +17,32 @@ public interface IBrandStyleGuideFacade
     Task<OperationResult<BrandStyleGuideDetailServiceModel>> GetAsync(Guid guideId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// One page of a guide's version history, newest version first. Any member of the workspace may read.
+    /// Metadata only: no section, rule or body, and nothing is written.
+    /// </summary>
+    /// <param name="guideId">The guide, from the route. Never from the query string or the body.</param>
+    /// <param name="model">Cursor and page size. Carries no workspace and no guide.</param>
+    /// <remarks>
+    /// Not cached. A page's key would have to carry the cursor, and no write to a version, an approval or the
+    /// workspace default could then enumerate which pages to invalidate — the same reasoning as the source
+    /// library's list.
+    /// </remarks>
+    Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
+        Guid guideId, BrandStyleGuideVersionListViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Compares two of one guide's versions and returns what differs. Any member of the workspace may read.
+    /// </summary>
+    /// <param name="guideId">The guide, from the route. Never from the query string or the body.</param>
+    /// <param name="model">Which two versions, by number. Carries no workspace and no guide.</param>
+    /// <remarks>
+    /// Read-only in the strongest sense: the comparison is calculated from two immutable versions, nothing is
+    /// written, and no model is called. Not cached, for the reason the guide's other reads give.
+    /// </remarks>
+    Task<OperationResult<BrandStyleGuideVersionComparisonServiceModel>> CompareVersionsAsync(
+        Guid guideId, BrandStyleGuideVersionComparisonViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Creates a guide and its version 1 from a questionnaire, structured sections and cited sources. Retryable
     /// with an idempotency key: a replay returns the guide the first request created.
     /// </summary>
@@ -28,6 +55,7 @@ public interface IBrandStyleGuideFacade
 
 internal sealed class BrandStyleGuideFacade(
     IValidator<CreateBrandStyleGuideViewModel> validator,
+    IValidator<BrandStyleGuideVersionComparisonViewModel> comparisonValidator,
     IBrandStyleGuideBusiness business,
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IBrandStyleGuideFacade
@@ -37,6 +65,41 @@ internal sealed class BrandStyleGuideFacade(
     public Task<OperationResult<BrandStyleGuideDetailServiceModel>> GetAsync(
         Guid guideId, CancellationToken cancellationToken) =>
         business.GetAsync(guideId, cancellationToken);
+
+    public Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
+        Guid guideId, BrandStyleGuideVersionListViewModel model, CancellationToken cancellationToken)
+    {
+        // The workspace comes from the resolved context and the guide from the route. The model has a field
+        // for neither, and both are bound into the cursor's scope rather than trusted from it.
+        if (!BrandStyleGuideVersionListQueryFactory.TryCreate(
+                model, workspace.WorkspaceId, guideId, out var criteria, out var error))
+        {
+            return Task.FromResult(
+                OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>.Failure(error!));
+        }
+
+        // Every member may read, as for the single-guide read: no role gate beyond the route's policy.
+        return business.ListVersionsAsync(criteria!, cancellationToken);
+    }
+
+    public async Task<OperationResult<BrandStyleGuideVersionComparisonServiceModel>> CompareVersionsAsync(
+        Guid guideId, BrandStyleGuideVersionComparisonViewModel model, CancellationToken cancellationToken)
+    {
+        var validation = await comparisonValidator.ValidateAsync(model, cancellationToken);
+
+        if (!validation.IsValid)
+        {
+            return OperationResult<BrandStyleGuideVersionComparisonServiceModel>.Failure(OperationError.Validation(
+                BrandErrorCodes.GuideInvalidRequest,
+                "Those versions could not be compared.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        // Non-null past the validator, which requires both. The guide comes from the route; the workspace
+        // reaches the query through the resolved context, and the model has a field for neither.
+        return await business.CompareVersionsAsync(
+            guideId, model.From!.Value, model.To!.Value, cancellationToken);
+    }
 
     public async Task<IdempotentOutcome<BrandStyleGuideServiceModel>> CreateAsync(
         string userId,

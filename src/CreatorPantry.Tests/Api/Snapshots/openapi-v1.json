@@ -2830,6 +2830,208 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions": {
+      "get": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Lists one brand style guide\u0027s versions, newest first.",
+        "description": "Any member may read. Metadata only: a row says which version it is, whether it is \u0060Draft\u0060 or\n\u0060Approved\u0060, how many sources it cites, who wrote it and why, when, and whether it is the workspace\u0027s\nactive version. **No section, rule or body is returned** \u2014 read the guide itself for what a version\nsays. Nothing is written: listing a version does not approve it or activate it.\n\n\u0060staleSourceCount\u0060 is how many of the version\u0027s citations name a source document version the document\nhas since been replaced past; \u00600\u0060 means every cited source is still its document\u0027s current version. A\ncited document the workspace has archived or removed is not counted \u2014 shelving a document does not\nchange what the guide was written from.\n\n\u0060isActive\u0060 marks the one version the workspace default points at, and is false on every row when the\ndefault is another guide\u0027s or the workspace has none. There is no fallback to the latest approved\nversion. \u0060createdByMembershipId\u0060 is a membership id, never a name or an address.\n\nOrdering is fixed at version number descending and there are no filters, so paging is \u0060limit\u0060 plus the\nprevious page\u0027s \u0060nextCursor\u0060, until \u0060nextCursor\u0060 is null. A cursor is bound to the workspace and the\nguide it was issued for: replaying one against another guide answers \u0060400\nbrand.guide.invalid_request\u0060 rather than a plausible page of the wrong history. An out-of-range\n\u0060limit\u0060 is clamped rather than refused.\n\nAn unknown id and another workspace\u0027s guide both answer \u0060404 brand.guide.not_found\u0060, deliberately\nindistinguishable. An archived guide lists normally. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose history to list. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the\nsame status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions/compare": {
+      "get": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Compares two of one brand style guide\u0027s versions and returns what differs between them.",
+        "description": "Any member may read. The comparison is calculated on the server from the two immutable versions and is\nthe only one \u2014 a client renders it rather than deriving a second diff of its own, which is why the two\nversions\u0027 content is not returned alongside it. Nothing is written: comparing leaves no record that it\nhappened, approves nothing and activates nothing, and no model is called.\n\n\u0060from\u0060 and \u0060to\u0060 are version numbers as the history lists them, not version ids: a number is unique only\nwithin its guide, so a number naming another guide\u0027s version matches nothing rather than being refused\nby a check. Either order is allowed \u2014 reading the newer version as \u0060from\u0060 is what weighing a revert\nlooks like \u2014 and \u0060from\u0060 equal to \u0060to\u0060 answers a comparison with no changes in it.\n\nEach part reports every item either version holds, including the unchanged ones, so a client renders a\nstable frame. \u0060sections\u0060 are keyed by section key and channel and report \u0060Added\u0060, \u0060Removed\u0060, \u0060Changed\u0060\nor \u0060Unchanged\u0060, never \u0060Moved\u0060, because sections have no order. \u0060rules\u0060 are identified by their kind and\ntheir own text, so they report \u0060Added\u0060, \u0060Removed\u0060, \u0060Moved\u0060 or \u0060Unchanged\u0060 and **never \u0060Changed\u0060**: a\nreworded rule is one removal and one addition, and its position is reported as a rank among rules of\nthe same kind rather than as a stored sort order. \u0060sources\u0060 are keyed by document, so re-pinning a\ncitation to another version of the same document is one \u0060Changed\u0060.\n\nThe guide\u0027s name, purpose and archived state are not compared: they belong to the guide rather than to\nany version of it.\n\nAn unknown guide and another workspace\u0027s guide both answer \u0060404 brand.guide.not_found\u0060. A version\nnumber this guide does not have answers \u0060404 brand.guide.version.not_found\u0060, naming the parameter at\nfault \u2014 both parameters when both are wrong. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose versions to compare. Constrained to a Guid, so a malformed id answers 404 at routing \u2014\nthe same status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Required. The version number whose content is reported as the \u0027from\u0027 side, as the history lists it.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Required. The version number reported as the \u0027to\u0027 side. It may be lower than \u0027from\u0027, which reverses the reading, and it may equal it.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionComparison"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionComparison"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionComparison"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -11060,6 +11262,77 @@
           }
         }
       },
+      "BrandStyleGuideComparison": {
+        "required": [
+          "sections",
+          "rules",
+          "sources"
+        ],
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSectionComparison"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideRuleComparison"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSourceComparison"
+            }
+          },
+          "hasChanges": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrandStyleGuideComparisonSide": {
+        "required": [
+          "versionId",
+          "versionNumber",
+          "status",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersionStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BrandStyleGuideComparisonState": {
+        "enum": [
+          "Unchanged",
+          "Added",
+          "Removed",
+          "Changed",
+          "Moved"
+        ],
+        "type": "string"
+      },
       "BrandStyleGuideDetail": {
         "required": [
           "id",
@@ -11192,6 +11465,45 @@
           }
         }
       },
+      "BrandStyleGuideRuleComparison": {
+        "required": [
+          "kind",
+          "text",
+          "state",
+          "fromRank",
+          "toRank"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/BrandStyleGuideRuleKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonState"
+          },
+          "fromRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "BrandStyleGuideRuleKind": {
         "enum": [
           "Do",
@@ -11218,6 +11530,42 @@
           },
           "body": {
             "type": "string"
+          }
+        }
+      },
+      "BrandStyleGuideSectionComparison": {
+        "required": [
+          "sectionKey",
+          "channelKey",
+          "state",
+          "fromBody",
+          "toBody"
+        ],
+        "type": "object",
+        "properties": {
+          "sectionKey": {
+            "$ref": "#/components/schemas/BrandStyleGuideSectionKey"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonState"
+          },
+          "fromBody": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "toBody": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -11286,6 +11634,42 @@
           "versionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BrandStyleGuideSourceComparison": {
+        "required": [
+          "documentId",
+          "state",
+          "fromVersionNumber",
+          "toVersionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonState"
+          },
+          "fromVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "toVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
               "integer",
               "string"
             ],
@@ -11375,6 +11759,25 @@
           }
         }
       },
+      "BrandStyleGuideVersionComparison": {
+        "required": [
+          "from",
+          "to",
+          "comparison"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonSide"
+          },
+          "to": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparisonSide"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/BrandStyleGuideComparison"
+          }
+        }
+      },
       "BrandStyleGuideVersionDetail": {
         "required": [
           "id",
@@ -11458,6 +11861,98 @@
             "items": {
               "$ref": "#/components/schemas/BrandStyleGuideSource"
             }
+          }
+        }
+      },
+      "BrandStyleGuideVersionStatus": {
+        "enum": [
+          "Draft",
+          "Approved"
+        ],
+        "type": "string"
+      },
+      "BrandStyleGuideVersionSummary": {
+        "required": [
+          "id",
+          "versionNumber",
+          "status",
+          "sourceCount",
+          "staleSourceCount",
+          "createdByMembershipId",
+          "changeReason",
+          "createdAt",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersionStatus"
+          },
+          "sourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "staleSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "changeReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrandStyleGuideVersionSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideVersionSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

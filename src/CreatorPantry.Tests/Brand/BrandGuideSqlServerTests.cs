@@ -125,6 +125,28 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         return new Seeded(document.Id, source.Id, guide.Id, draft.Id, approved.Id);
     }
 
+    /// <summary>
+    /// Adds a second version to a document, as a replacement does, which supersedes every citation of
+    /// version 1 without touching the version-1 row or the citations themselves.
+    /// </summary>
+    private async Task SupersedeAsync(Guid workspaceId, Guid documentId)
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        await using var scope = ScopeFor(workspaceId);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.BrandSourceDocumentVersions.Add(new BrandSourceDocumentVersion
+        {
+            Id = Guid.NewGuid(), BrandSourceDocumentId = documentId, VersionNumber = 2, MediaType = "application/pdf",
+            SizeBytes = 2048, ContentChecksum = "sha256:" + new string('4', 64), OriginalFileName = "house-style-v2.pdf",
+            ObjectKey = $"brand-sources/{documentId:N}/2", CreatedByMembershipId = Guid.NewGuid(), CreatedAt = Now,
+        });
+
+        var document = await db.BrandSourceDocuments.SingleAsync(row => row.Id == documentId, cancellation);
+        document.CurrentVersionNumber = 2;
+        await db.SaveChangesAsync(cancellation);
+    }
+
     private static async Task<int> RowCountAsync(CreatorPantryDbContext db, CancellationToken cancellation) =>
         await db.BrandSourceDocuments.CountAsync(cancellation)
         + await db.BrandSourceDocumentVersions.CountAsync(cancellation)
@@ -317,5 +339,61 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         var tagNames = await repository.TagNamesAsync([.. walked], cancellation);
         Assert.InRange(tagNames.Count, 2, 3);
         Assert.Equal(2, tagNames.Values.Count(names => names.SequenceEqual(["Seasonal"])));
+    }
+
+    [Fact]
+    public async Task The_version_history_query_runs_on_sql_server_with_its_counts_and_markers()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var seeded = await SeedEverythingAsync(WorkspaceA);
+        var inB = await SeedEverythingAsync(WorkspaceB);
+
+        // Both workspaces replace their cited document, so each one's version 1 now has exactly one stale
+        // citation. Superseding only A's would have made the cross-workspace assertion below unfailable:
+        // B's row would have been absent for having nothing stale rather than for being B's.
+        await SupersedeAsync(WorkspaceA, seeded.DocumentId);
+        await SupersedeAsync(WorkspaceB, inB.DocumentId);
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var repository = new CreatorPantry.Domain.Modules.Brand.Data.BrandStyleGuideRepository(db);
+
+        var first = await repository.ListVersionsAsync(
+            new BrandStyleGuideVersionListCriteria(seeded.GuideId, "scope", RequestedLimit: 1), cancellation);
+        var second = await repository.ListVersionsAsync(
+            new BrandStyleGuideVersionListCriteria(
+                seeded.GuideId, "scope", new BrandStyleGuideVersionListPosition(first.Rows[^1].VersionNumber), RequestedLimit: 1),
+            cancellation);
+
+        // Newest first, one page at a time, and the keyset resumes without repeating.
+        Assert.True(first.HasMore);
+        Assert.False(second.HasMore);
+        Assert.Equal(seeded.DraftVersionId, Assert.Single(first.Rows).Id);
+        Assert.Equal(seeded.ApprovedVersionId, Assert.Single(second.Rows).Id);
+
+        // The draft cites nothing and is not the default; version 1 is approved and is what the workspace
+        // writes with.
+        Assert.False(first.Rows[0].IsApproved);
+        Assert.False(first.Rows[0].IsActive);
+        Assert.Equal(0, first.Rows[0].SourceCount);
+        Assert.True(second.Rows[0].IsApproved);
+        Assert.True(second.Rows[0].IsActive);
+        Assert.Equal(1, second.Rows[0].SourceCount);
+
+        var stale = await repository.StaleSourceCountsAsync(
+            [seeded.ApprovedVersionId, seeded.DraftVersionId, inB.ApprovedVersionId], cancellation);
+
+        // Keyed only where there is something stale: A's version 1 has one superseded citation, A's draft
+        // cites nothing, and B's version 1 has a superseded citation of its own that the filter must keep
+        // out — without it this would be two entries, not one.
+        Assert.Equal(1, Assert.Single(stale).Value);
+        Assert.Equal(seeded.ApprovedVersionId, stale.Keys.Single());
+
+        // Nothing of B's is reachable from a scope resolved to A.
+        Assert.True(await repository.GuideExistsAsync(seeded.GuideId, cancellation));
+        Assert.False(await repository.GuideExistsAsync(inB.GuideId, cancellation));
+        var acrossB = await repository.ListVersionsAsync(
+            new BrandStyleGuideVersionListCriteria(inB.GuideId, "scope"), cancellation);
+        Assert.Empty(acrossB.Rows);
     }
 }
