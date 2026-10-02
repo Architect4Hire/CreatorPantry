@@ -209,4 +209,35 @@ public static class BrandErrorCodes
     /// caller whose default lives in another guide has no route to the value this precondition requires.
     /// </remarks>
     public const string GuideActivationConflict = "brand.guide.activation.conflict";
+
+    /// <summary>
+    /// The guide's working version is not the one the caller composed against. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Raised by the proposal-acceptance write (11A.18), where the caller reviewed guidance explained by one
+    /// version of the creator's own answers and the guide has been edited since. Laying the accepted sections
+    /// over the newer working version would be a rebase onto content nobody compared them with, and branching
+    /// from the older one would discard the edit that happened in between — so neither is done and nothing is
+    /// written.
+    /// </para>
+    /// <para>
+    /// Told apart from <see cref="GuideVersionStaleConflict"/>, which is about a version's <em>citations</em>
+    /// having been superseded: that one is answered at activation and the remedy is to write a new version;
+    /// this one is answered at the moment of writing and the remedy is to ask for the proposal again.
+    /// </para>
+    /// </remarks>
+    public const string GuideWorkingVersionConflict = "brand.guide.workingVersion.conflict";
+
+    /// <summary>
+    /// The version a write would produce exceeds one of the guide's own limits. Falls through to 400.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="GuideInvalidRequest"/> because the request may be perfectly well formed and
+    /// still land here: accepting thirty proposed rules onto a guide that already holds forty exceeds
+    /// <see cref="BrandPolicy.MaxStyleGuideRules"/> without any single part of the request being wrong. Refused
+    /// rather than truncated — a cap enforced by dropping the tail would discard guidance the creator ticked
+    /// and report success.
+    /// </remarks>
+    public const string GuideVersionLimitExceeded = "brand.guide.version.limit.invalid_request";
 }

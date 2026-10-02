@@ -98,6 +98,12 @@ public static class WorkerHostRegistration
         builder.Services.AddBrandSourceExtractionWorker();
         builder.Services.AddBrandSourceEmbeddingWorker();
 
+        // 11A.19's brand-context assembler. Here rather than in the API because its callers are task handlers,
+        // which run in this host, and after AddBrandModule because every read it makes goes through that
+        // module's facades. Nothing injects it yet — the handlers take it one at a time in 11A.20 — and
+        // registering it now is what has the container prove the dependency graph resolves.
+        builder.Services.AddAiBrandContext();
+
         // The one host that sweeps every workspace's execution metadata looking for attempts the account
         // ledger never received (USAGE-002). Registered here rather than in the API for the same reason the
         // queue is: it is background work, and it belongs where background work runs.

@@ -257,19 +257,52 @@ public static class AiServiceCollectionExtensions
     /// Registers the request seam for 11A.17's brand-guide proposal.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Its prerequisite is the <strong>brand</strong> module rather than the recipe one, which no earlier seam
     /// here can say: the guide, the selected documents and the passages it grounds on are all the brand module's,
     /// and this capability reads no recipe at all. <c>AddContentChannelCatalog</c> comes with that module, and
     /// the channel keys a request may offer are checked against it.
+    /// </para>
+    /// <para>
+    /// 11A.18's acceptance is registered here too, with the request it decides. It deepens that same
+    /// prerequisite rather than adding one: requesting a proposal only reads the brand module, and accepting one
+    /// writes a guide version through <c>IBrandStyleGuideFacade</c>.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddAiBrandGuideProposalRequestSeam(this IServiceCollection services)
     {
         AddRequestQuotaGate(services);
         services.AddScoped<IAiBrandGuideProposalRequestBusiness, AiBrandGuideProposalRequestBusiness>();
+        services.AddScoped<IAiBrandGuideAcceptanceBusiness, AiBrandGuideAcceptanceBusiness>();
         services.AddScoped<IAiBrandGuideProposalRequestFacade, AiBrandGuideProposalRequestFacade>();
         services.AddScoped<
             IValidator<RequestBrandGuideProposalViewModel>,
             RequestBrandGuideProposalViewModelValidator>();
+        services.AddScoped<
+            IValidator<AcceptBrandGuideProposalViewModel>,
+            AcceptBrandGuideProposalViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers 11A.19's brand-context assembler, which grounds a generation in the workspace's brand voice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="AddAiBrandGuideProposalRequestSeam"/> because the callers differ: that one
+    /// serves an HTTP route, and this serves task handlers in the worker. A host that runs generations needs
+    /// this and not that.
+    /// </para>
+    /// <para>
+    /// Its prerequisite is the <strong>brand</strong> module — the profile, the active guide, the source library
+    /// and the indexed passages are all read through its facades — and <c>AddContentChannelCatalog</c>, which
+    /// comes with that module and is what a requested channel key is checked against.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddAiBrandContext(this IServiceCollection services)
+    {
+        services.AddScoped<IBrandContextAssembler, BrandContextAssembler>();
 
         return services;
     }

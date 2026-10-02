@@ -46,7 +46,8 @@ public static class AiProposalAssembler
         AiOutputDocument output,
         IReadOnlyList<AiResolvedChange> diff,
         AiProposalProvenance provenance,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        BrandContextPackage? brandContext = null)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(diff);
@@ -79,6 +80,11 @@ public static class AiProposalAssembler
             ModelName = provenance.ModelName,
             ModelDeployment = provenance.ModelDeployment,
             CreatedAt = createdAt,
+
+            // Null when the generation asked for no brand context — a task that grounds in nothing, or a creator
+            // who turned brand voice off. A package that came back empty is still recorded, because "there was
+            // nothing to use" is a different fact from "none was wanted". See BrandContextProvenance.
+            BrandContext = brandContext is null ? null : BrandContextProvenance.Record(workspaceId, brandContext),
         };
 
         var changes = diff

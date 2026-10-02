@@ -48,3 +48,25 @@ public sealed record BrandSourcePassageServiceModel(
 public sealed record BrandSourcePassageSetServiceModel(
     IReadOnlyList<BrandSourcePassageServiceModel> Passages,
     IReadOnlyList<BrandSourcePassageSelector> Unavailable);
+
+/// <summary>
+/// Which source document version one passage came from, with no passage text.
+/// </summary>
+/// <remarks>
+/// <para>
+/// What a citation has to be turned into before it can be stored as provenance. A citation names a passage — a
+/// chunk row — and a guide version's <c>BrandStyleGuideSourceLink</c> names a document <em>version</em>, so
+/// something has to map between them, and only this module can: the chunk tables are its own.
+/// </para>
+/// <para>
+/// <strong>No text, deliberately.</strong> The caller already has the passage text if it needs it; what this
+/// answers is a provenance question, and reading bodies to answer it would make a cheap read expensive and put
+/// creator prose where none is wanted.
+/// </para>
+/// <para>
+/// A passage the resolved workspace does not own is simply absent from the answer, for the reason
+/// <see cref="BrandSourcePassageSetServiceModel.Unavailable"/> gives: a caller that could tell "not yours" from
+/// "never existed" could learn that a passage exists somewhere it cannot see it.
+/// </para>
+/// </remarks>
+public sealed record BrandSourcePassageOriginServiceModel(Guid PassageId, Guid DocumentId, int VersionNumber);

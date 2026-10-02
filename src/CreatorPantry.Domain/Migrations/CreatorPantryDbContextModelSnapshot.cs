@@ -537,6 +537,131 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("AiProposals", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandContext", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AssembledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Audience")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("AudienceOrigin")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("BrandGuideId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BrandGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("BrandGuideVersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BrandProfileRevision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ChannelKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("EstimatedTokens")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GuidanceSectionCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("GuideWasActiveVersion")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RuleCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_AiProposalBrandContexts_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId")
+                        .IsUnique();
+
+                    b.HasIndex("WorkspaceId", "BrandGuideVersionId")
+                        .HasDatabaseName("IX_AiProposalBrandContexts_Workspace_GuideVersion");
+
+                    b.HasIndex("WorkspaceId", "Checksum")
+                        .HasDatabaseName("IX_AiProposalBrandContexts_Workspace_Checksum");
+
+                    b.ToTable("AiProposalBrandContexts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiProposalBrandContexts_Active_Requires_Guide", "BrandGuideId IS NOT NULL OR GuideWasActiveVersion = CAST(0 AS bit)");
+
+                            t.HasCheckConstraint("CK_AiProposalBrandContexts_AudienceOrigin_Declared", "AudienceOrigin IS NULL OR AudienceOrigin <> 0");
+
+                            t.HasCheckConstraint("CK_AiProposalBrandContexts_Audience_HasOrigin", "(Audience IS NULL AND AudienceOrigin IS NULL) OR (Audience IS NOT NULL AND AudienceOrigin IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AiProposalBrandContexts_Counts_NonNegative", "(BrandProfileRevision IS NULL OR BrandProfileRevision > 0) AND EstimatedTokens >= 0 AND GuidanceSectionCount >= 0 AND RuleCount >= 0");
+
+                            t.HasCheckConstraint("CK_AiProposalBrandContexts_Guide_AllOrNone", "(BrandGuideId IS NULL AND BrandGuideVersionId IS NULL AND BrandGuideVersionNumber IS NULL) OR (BrandGuideId IS NOT NULL AND BrandGuideVersionId IS NOT NULL AND BrandGuideVersionNumber IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandSource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiProposalBrandContextId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BrandSourcePassageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DocumentVersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "BrandSourceDocumentId")
+                        .HasDatabaseName("IX_AiProposalBrandSources_Workspace_Document");
+
+                    b.HasIndex("WorkspaceId", "AiProposalBrandContextId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AiProposalBrandSources_Context_SortOrder");
+
+                    b.ToTable("AiProposalBrandSources", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiProposalBrandSources_Positions", "DocumentVersionNumber > 0 AND Ordinal >= 0 AND SortOrder >= 0");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalFeedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4510,6 +4635,26 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandContext", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithOne("BrandContext")
+                        .HasForeignKey("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandContext", "WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", "WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandSource", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandContext", null)
+                        .WithMany("Sources")
+                        .HasForeignKey("WorkspaceId", "AiProposalBrandContextId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalFeedback", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
@@ -5422,11 +5567,18 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", b =>
                 {
+                    b.Navigation("BrandContext");
+
                     b.Navigation("Changes");
 
                     b.Navigation("Feedback");
 
                     b.Navigation("Warnings");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalBrandContext", b =>
+                {
+                    b.Navigation("Sources");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandProfile", b =>

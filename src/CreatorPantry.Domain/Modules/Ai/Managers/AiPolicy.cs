@@ -413,6 +413,63 @@ public static class AiPolicy
     /// </remarks>
     public const int BrandGuideSparseEvidenceFloor = 4;
 
+    /// <summary>
+    /// The ceiling, in estimated tokens, on one assembled <see cref="BrandContextPackage"/> (11A.19).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A bound on how much brand material one generation carries, which is what "bounded" means in that
+    /// prompt's own words. Three thousand is roughly a page and a half of guidance plus a dozen short excerpts:
+    /// enough for a filled-in guide with its rules and evidence, and far short of a context window, so the task
+    /// inputs and the recipe a generation is actually about still have room.
+    /// </para>
+    /// <para>
+    /// Measured with <see cref="BrandContextSelection.EstimateTokens"/>, which is an estimate rather than a
+    /// tokenizer's count — so this is a budget, not a guarantee about any provider's accounting. It is deliberately
+    /// generous for that reason: a limit enforced against an approximation should fail on content that is
+    /// obviously too long, not on content near the line.
+    /// </para>
+    /// </remarks>
+    public const int BrandContextMaxEstimatedTokens = 3_000;
+
+    /// <summary>
+    /// How many source documents one brand-context assembly may draw excerpts from.
+    /// </summary>
+    /// <remarks>
+    /// Matches <see cref="BrandGuideMaxSourceDocuments"/> in value and not by reference, for the reason that
+    /// constant's own remarks give about the brand module's grounding cap: two separate decisions that happen to
+    /// agree. A request naming more is refused rather than trimmed, because a caller that asked for twelve
+    /// documents and silently got ten would believe it had read all twelve.
+    /// </remarks>
+    public const int BrandContextMaxSourceDocuments = 10;
+
+    /// <summary>
+    /// How many documents the assembler picks for itself when a request names none.
+    /// </summary>
+    /// <remarks>
+    /// Lower than <see cref="BrandContextMaxSourceDocuments"/> on purpose. A caller naming documents has made a
+    /// choice and gets the full allowance; relevance matching is a guess the server is making on the creator's
+    /// behalf, and a guess should spend less of the budget than an instruction.
+    /// </remarks>
+    public const int BrandContextMaxSelectedSourceDocuments = 4;
+
+    /// <summary>
+    /// The longest channel key a recorded brand context may carry.
+    /// </summary>
+    /// <remarks>
+    /// This module's own number, deliberately not the brand module's <c>ChannelKeyMaxLength</c>: a policy never
+    /// crosses a module boundary and <c>ModuleBoundaryTests</c> is what says so. The two agree today because a
+    /// key that fits one side has to fit the other; the day they disagree, a provenance row quietly truncating a
+    /// key it was handed is the failure to avoid, so the column refuses it instead.
+    /// </remarks>
+    public const int BrandContextChannelKeyMaxLength = 64;
+
+    /// <summary>
+    /// The longest audience a recorded brand context may carry. See <see cref="BrandContextChannelKeyMaxLength"/>
+    /// for why this module states its own length rather than reading the brand module's.
+    /// </summary>
+    public const int BrandContextAudienceMaxLength = 500;
+
     /// <summary>How many of a workspace's own recipes are offered to the model as internal-link candidates.</summary>
     public const int MaxSeoLinkCandidates = 40;
 

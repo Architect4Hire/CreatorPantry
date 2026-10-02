@@ -1006,6 +1006,146 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-guide-proposal-requests/{requestId}/acceptance": {
+      "post": {
+        "tags": [
+          "BrandGuideProposalRequests"
+        ],
+        "summary": "Accepts reviewed brand guidance into a new draft version of the guide, or records that it was rejected.",
+        "description": "**Editor or above**, unlike the \u0060POST\u0060 that asks for a proposal: asking produces something to read, and\nthis writes a version of the workspace\u0027s own brand voice.\n\n**The only step that turns proposed guidance into a brand guide.** \u0060acceptedChangeIds\u0060 names the\n\u0060changeId\u0060 of each item\u0027s text row; the rows describing it \u2014 its dimension, channel, evidence basis and\ncitations \u2014 are accepted with it, and naming one of those on its own is a \u0060400\u0060. \u0060acceptAll\u0060 must name\nevery item: a well-formed body is not by itself a confirmation that the guidance was reviewed.\n\n**The new version is a draft, laid over the guide\u0027s working version.** Accepted sections replace the same\nsection key and are added where the guide had none; accepted rules are appended, and one the guide already\nheld is reported in \u0060rulesAlreadyPresent\u0060 rather than duplicated; citations are added to what the working\nversion already cited. Everything the proposal did not speak to travels through untouched. **Nothing is\napproved and nothing is activated** \u2014 the workspace default still needs an approval and an Owner.\n\n**A guide edited since the proposal was composed is \u0060409 brand.guide.workingVersion.conflict\u0060**, naming\nboth version numbers. Laying the guidance over a version nobody compared it with would be the one thing\nacceptance must not do, and there is no override: ask for the proposal again. An archived guide is \u0060409\nbrand.guide.archived.conflict\u0060, and guidance that would take the guide past its rule, channel-variant or\nsource caps is \u0060400 brand.guide.version.limit.invalid_request\u0060 \u2014 refused rather than truncated.\n\n**A cited source document replaced since is not an error.** The citation is written at the version the\nproposal actually read and is never re-pointed at the newer text, and \u0060written.staleSourceCount\u0060 reports\nhow many are now behind \u2014 which is what decides whether the version can be activated as it stands.\n\n\u0060written\u0060 is null in three cases, and the reply separates them: a rejection (see \u0060status\u0060), a retry of a\ndecision already recorded (see \u0060replayed\u0060), and an acceptance whose guidance already matched the guide\nword for word, which writes no version for the same reason a creator\u0027s own no-op edit writes none.\nAccepted items that are reported conflicts or uncertainties produce no guidance at all and are counted in\n\u0060droppedItemCount\u0060.\n\n**No idempotency key, and retrying is safe without one.** A proposal that has already been decided is\nrecognised inside the acceptance transaction and answered with \u0060replayed: true\u0060, never a second version.\nA retry asking for a *different* decision is a \u0060409\u0060. A retry that carries rewrites is also refused:\nnothing stores what the creator\u0027s words were, so \u0022already done\u0022 would discard the words in this request\nwhile reporting success.\n\nThe version, the per-item decisions, the feedback and this request\u0027s terminal status commit together or\nnot at all \u2014 guidance the guide\u0027s own rules refuse leaves nothing behind, not even the decision. \u0060200\u0060\nrather than \u0060201\u0060: the reply is the decision, which names the version it wrote.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The proposal request being decided. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBrandGuideProposal"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBrandGuideProposal"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBrandGuideProposal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiBrandGuideAcceptance"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiBrandGuideAcceptance"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiBrandGuideAcceptance"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-profile": {
       "get": {
         "tags": [
@@ -10127,6 +10267,51 @@
   },
   "components": {
     "schemas": {
+      "AcceptBrandGuideProposal": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/AiDispositionDecision"
+          },
+          "acceptedChangeIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "edits": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AiBrandGuideEdit"
+            }
+          },
+          "changeReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "wasHelpful": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AccountAiUsage": {
         "required": [
           "period",
@@ -10336,6 +10521,182 @@
         ],
         "type": "string"
       },
+      "AiBrandGuideAcceptance": {
+        "required": [
+          "aiProposalRequestId",
+          "status",
+          "guideId",
+          "written",
+          "acceptedItemCount",
+          "rejectedItemCount",
+          "rewrittenItemCount",
+          "droppedItemCount",
+          "replayed",
+          "decidedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "aiProposalRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AiOperationStatus"
+          },
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "written": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiBrandGuideVersion"
+              }
+            ]
+          },
+          "acceptedItemCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rejectedItemCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rewrittenItemCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "droppedItemCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AiBrandGuideEdit": {
+        "type": "object",
+        "properties": {
+          "changeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AiBrandGuideVersion": {
+        "required": [
+          "guideVersionId",
+          "guideVersionNumber",
+          "parentVersionNumber",
+          "sectionsAdded",
+          "sectionsReplaced",
+          "rulesAdded",
+          "rulesAlreadyPresent",
+          "citedSourceCount",
+          "staleSourceCount"
+        ],
+        "type": "object",
+        "properties": {
+          "guideVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "guideVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "parentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionsAdded": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionsReplaced": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rulesAdded": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rulesAlreadyPresent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "citedSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "staleSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "AiChangeDisposition": {
         "enum": [
           "Pending",
@@ -10371,6 +10732,15 @@
           "ProposalExplanationItem",
           "ContentSection",
           "BrandGuideSection"
+        ],
+        "type": "string"
+      },
+      "AiDispositionDecision": {
+        "enum": [
+          "Unspecified",
+          "AcceptAll",
+          "AcceptSelected",
+          "Reject"
         ],
         "type": "string"
       },
@@ -10497,6 +10867,156 @@
         ],
         "type": "string"
       },
+      "AiProposalBrandContext": {
+        "required": [
+          "channelKey",
+          "audience",
+          "audienceOrigin",
+          "brandProfileRevision",
+          "guideId",
+          "guideVersionId",
+          "guideVersionNumber",
+          "guideWasActiveVersion",
+          "checksum",
+          "estimatedTokens",
+          "guidanceSectionCount",
+          "ruleCount",
+          "sources",
+          "assembledAt"
+        ],
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audienceOrigin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandContextOrigin"
+              }
+            ]
+          },
+          "brandProfileRevision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "guideId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "guideVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "guideVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "guideWasActiveVersion": {
+            "type": "boolean"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "estimatedTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "guidanceSectionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ruleCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiProposalBrandSource"
+            }
+          },
+          "assembledAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AiProposalBrandSource": {
+        "required": [
+          "documentId",
+          "documentVersionNumber",
+          "passageId",
+          "ordinal"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "passageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordinal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "AiProposalDetail": {
         "required": [
           "proposalId",
@@ -10508,7 +11028,8 @@
           "modelName",
           "createdAt",
           "changes",
-          "warnings"
+          "warnings",
+          "brandContext"
         ],
         "type": "object",
         "properties": {
@@ -10549,6 +11070,16 @@
             "items": {
               "$ref": "#/components/schemas/AiProposalWarning"
             }
+          },
+          "brandContext": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiProposalBrandContext"
+              }
+            ]
           }
         }
       },
@@ -10865,6 +11396,15 @@
             ]
           }
         }
+      },
+      "BrandContextOrigin": {
+        "enum": [
+          "Request",
+          "GuideChannelVariant",
+          "GuideSection",
+          "BrandProfile"
+        ],
+        "type": "string"
       },
       "BrandLink": {
         "required": [

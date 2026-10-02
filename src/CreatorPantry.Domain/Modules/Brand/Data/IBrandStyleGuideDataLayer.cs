@@ -98,6 +98,42 @@ public enum BrandStyleGuideActivationWrite
     Conflict = 1,
 }
 
+/// <summary>
+/// The guide and the working version an accepted proposal is about to be laid over.
+/// </summary>
+/// <param name="Working">
+/// The highest-numbered version with its sections and rules. Never null: a guide always has version 1.
+/// </param>
+/// <param name="Citations">What that version already cites, by document and pinned version number.</param>
+/// <param name="WorkingStaleSourceCount">
+/// How many of those the owning document has since replaced.
+/// </param>
+/// <remarks>
+/// <strong><paramref name="WorkingStaleSourceCount"/> is read here rather than only after a write</strong>
+/// because accepting guidance identical to what the guide already says writes no version at all, and the reply
+/// still has to be able to say how stale the citations of the version that stands are. Computed with the same
+/// query the version history and the activation check use.
+/// </remarks>
+public sealed record BrandStyleGuideProposalTargetRead(
+    BrandStyleGuide Guide,
+    BrandStyleGuideVersion Working,
+    IReadOnlyList<(Guid DocumentId, int VersionNumber)> Citations,
+    int WorkingStaleSourceCount);
+
+/// <summary>
+/// The workspace's active guide version, with the guide it belongs to and when it was activated.
+/// </summary>
+/// <remarks>
+/// Narrower than <see cref="BrandStyleGuideRead"/>: there is no working version here, because a caller asking
+/// what the workspace writes in is asking about the version that was activated, not the one someone is still
+/// editing.
+/// </remarks>
+public sealed record BrandActiveStyleGuideRead(
+    BrandStyleGuide Guide,
+    BrandStyleGuideVersionRead Version,
+    DateTimeOffset ActivatedAt,
+    string? ActivationReason);
+
 public interface IBrandStyleGuideDataLayer
 {
     /// <summary>
@@ -204,6 +240,62 @@ public interface IBrandStyleGuideDataLayer
         DateTimeOffset now,
         AuditEntry audit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one guide of the resolved workspace with the working version an accepted proposal will be laid
+    /// over, or null if there is none — which is also what another workspace's guide looks like.
+    /// </summary>
+    /// <remarks>
+    /// Narrower than <see cref="ReadAsync"/>: no approval, no activation, no parent version number, and the
+    /// active version is not resolved. None of them bears on what a new version should say, and each is a
+    /// further query inside a transaction another module is holding open.
+    /// </remarks>
+    Task<BrandStyleGuideProposalTargetRead?> ReadForProposalAsync(
+        Guid guideId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes one further version of a guide with its sections, rules and source links, plus the audit entry,
+    /// and reports how many of its citations are stale.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>No transaction of its own, and that is the point.</strong> This is called from inside the
+    /// transaction the AI module's acceptance seam opened, so the version, the proposal's per-change
+    /// dispositions, the operation's terminal status and both audit entries commit together or none of them do.
+    /// Opening a second transaction here would throw on the nesting; committing one would break the atomicity
+    /// the caller exists to provide.
+    /// </para>
+    /// <para>
+    /// <strong>It saves rather than merely staging</strong>, for the same reason the recipe module's
+    /// proposal create does: the caller needs the rows to exist before it reads back what they imply — here the
+    /// stale-citation count, which is computed with the identical query the version history and the activation
+    /// check use, so three routes cannot disagree about what "stale" means.
+    /// </para>
+    /// <para>
+    /// The change tracker is cleared on failure and left alone on success: the caller has its own entities
+    /// staged in this same scope and still to save, so clearing on the way out would discard them.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// How many of the new version's cited source versions the owning document has since replaced. Zero when
+    /// every citation is still its document's current version.
+    /// </returns>
+    Task<int> AddVersionAsync(
+        BrandStyleGuideVersion version, AuditEntry audit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The guide version this workspace has made its default, whichever guide holds it, or null when it has
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Keyed on the workspace rather than on a guide, which is what makes it new.</strong>
+    /// <see cref="ReadAsync"/> answers "this guide, and its active version if the default happens to be one of
+    /// its own" — a caller that does not already know which guide holds the default cannot use it, and an
+    /// assembler reaching for the workspace's brand voice is exactly that caller. No fallback to a latest
+    /// approved version: a workspace with no activation has no active guide, and saying otherwise would ground a
+    /// generation on something nobody chose.
+    /// </remarks>
+    Task<BrandActiveStyleGuideRead?> ReadActiveAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class BrandStyleGuideDataLayer(
@@ -330,6 +422,86 @@ internal sealed class BrandStyleGuideDataLayer(
             context.ChangeTracker.Clear();
             throw;
         }
+    }
+
+    public async Task<BrandActiveStyleGuideRead?> ReadActiveAsync(CancellationToken cancellationToken)
+    {
+        // The workspace's one activation decision. No predicate: WorkspaceId is that table's whole primary key
+        // and the query filter supplies it, so there is nothing here to pass wrong.
+        if (await guides.FindWorkspaceDefaultAsync(cancellationToken) is not { } active
+            || await guides.FindGuideAsync(active.GuideId, cancellationToken) is not { } guide
+            || await guides.FindVersionAsync(active.VersionId, cancellationToken) is not { } version)
+        {
+            return null;
+        }
+
+        var citations = await guides.FindCitationsAsync([version.Id], cancellationToken);
+
+        return new BrandActiveStyleGuideRead(
+            guide,
+            new BrandStyleGuideVersionRead(
+                version,
+                version.ParentVersionId is { } parent
+                    ? await guides.FindVersionNumberAsync(parent, cancellationToken)
+                    : null,
+
+                // Read rather than assumed. Activation requires an approval, so this is never null in practice —
+                // and a caller deciding whether to ground a generation on this version should be told what is
+                // recorded rather than what the write path promised.
+                await guides.FindApprovalAsync(version.Id, cancellationToken),
+                [.. citations.Select(citation => (citation.DocumentId, citation.VersionNumber))]),
+            active.ActivatedAt,
+            active.Reason);
+    }
+
+    public async Task<BrandStyleGuideProposalTargetRead?> ReadForProposalAsync(
+        Guid guideId, CancellationToken cancellationToken)
+    {
+        // The guide and its working version, both or neither. A guide always has version 1, so a guide with no
+        // working version is a broken row rather than a state to handle — and reporting absence is still the
+        // right answer, because the caller's only move either way is to refuse.
+        if (await guides.FindGuideAsync(guideId, cancellationToken) is not { } guide
+            || await guides.FindWorkingVersionAsync(guideId, cancellationToken) is not { } working)
+        {
+            return null;
+        }
+
+        var citations = await guides.FindCitationsAsync([working.Id], cancellationToken);
+        var stale = await guides.StaleSourceCountsAsync([working.Id], cancellationToken);
+
+        return new BrandStyleGuideProposalTargetRead(
+            guide,
+            working,
+            [.. citations.Select(citation => (citation.DocumentId, citation.VersionNumber))],
+            stale.TryGetValue(working.Id, out var count) ? count : 0);
+    }
+
+    public async Task<int> AddVersionAsync(
+        BrandStyleGuideVersion version, AuditEntry audit, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(version);
+
+        guides.AddVersion(version);
+        auditWriter.Record(audit);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Nothing may stay staged for a later save on this scope to commit. The transaction the caller holds
+            // rolls back on its own; this is about what is left in memory afterwards.
+            context.ChangeTracker.Clear();
+            throw;
+        }
+
+        // After the save, so the rows this version's links were written as are visible to the query — and it is
+        // the same query the version history and the activation check use, which is what keeps three routes from
+        // disagreeing about which citations are stale.
+        var stale = await guides.StaleSourceCountsAsync([version.Id], cancellationToken);
+
+        return stale.TryGetValue(version.Id, out var count) ? count : 0;
     }
 
     public async Task<BrandStyleGuideActivationRead?> ReadForActivationAsync(

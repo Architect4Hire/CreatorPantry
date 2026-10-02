@@ -104,6 +104,17 @@ internal interface IBrandStyleGuideRepository
     void Add(BrandStyleGuide guide, BrandStyleGuideVersion version);
 
     /// <summary>
+    /// Stages one further version of an existing guide, with its sections, rules and source links. Nothing is
+    /// saved.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Add"/> rather than an overload taking a null guide: that one creates a guide and
+    /// this one does not touch the guide row at all, and a single method with an optional parent would be one
+    /// <c>if</c> away from inserting a second guide or from leaving a version parentless.
+    /// </remarks>
+    void AddVersion(BrandStyleGuideVersion version);
+
+    /// <summary>
     /// The versions of the named documents that exist in the resolved workspace and are not removed. The query
     /// filter supplies the workspace, so another workspace's document is simply absent.
     /// </summary>
@@ -268,6 +279,9 @@ internal sealed class BrandStyleGuideRepository(CreatorPantryDbContext context) 
         context.BrandStyleGuides.Add(guide);
         context.BrandStyleGuideVersions.Add(version);
     }
+
+    public void AddVersion(BrandStyleGuideVersion version) =>
+        context.BrandStyleGuideVersions.Add(version);
 
     public async Task<IReadOnlyList<BrandStyleGuideSourceCandidate>> FindSourceVersionsAsync(
         IReadOnlyCollection<Guid> documentIds, CancellationToken cancellationToken) =>

@@ -114,11 +114,21 @@ public enum AiChangeTargetKind
     /// <see cref="AiChangeKind.Set"/> rows beside the item's own text.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Absent from <see cref="AiChangeApplicability"/> and answering <c>null</c> in
     /// <see cref="AiChangeTargetPolicy"/> deliberately and permanently — both by omission, since each falls
-    /// through to nothing. A brand guide is not a recipe and a proposal is not a guide: the creator reads these
-    /// rows, writes their own guide version from what they agree with, and approves and activates that. There
-    /// is no code path from a stored row to either.
+    /// through to nothing. A brand guide is not a recipe, so <strong>there is no code path from one of these
+    /// rows to a recipe</strong>, and those two omissions are the guarantee.
+    /// </para>
+    /// <para>
+    /// <strong>There is exactly one path to a guide, and 11A.18 is it.</strong> A creator accepts items of the
+    /// proposal and <c>AiBrandGuideAcceptanceBusiness</c> writes them, through the brand module's facade, as one
+    /// new <em>draft</em> version laid over the guide's working version. It is not an exception to the two
+    /// omissions above: nothing is applied to anything by a target policy, the mapping from a dimension to a
+    /// section key is its own translation, the creator names every item, a guide edited in the meantime is
+    /// refused rather than written over, and the version that results approves nothing and activates nothing.
+    /// Becoming what generations are grounded on still needs an approval and an Owner.
+    /// </para>
     /// </remarks>
     BrandGuideSection = 14,
 }

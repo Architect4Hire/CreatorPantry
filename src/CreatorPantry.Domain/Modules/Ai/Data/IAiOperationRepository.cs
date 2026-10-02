@@ -137,6 +137,13 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
         var proposal = await context.AiProposals.AsNoTracking()
             .Include(candidate => candidate.Changes)
             .Include(candidate => candidate.Warnings)
+
+            // The brand provenance too, because this is the read the published detail is mapped from and a block
+            // that silently reported "no brand context" for a generation that had one would be worse than absent.
+            // Deliberately not added to GetForDispositionAsync: accepting or rejecting changes never consults it,
+            // and a write path should not carry a join it does not use.
+            .Include(candidate => candidate.BrandContext!)
+                .ThenInclude(brandContext => brandContext.Sources)
             .FirstOrDefaultAsync(candidate => candidate.AiOperationId == operationId, cancellationToken);
 
         return new AiOperationWithProposal(operation, proposal);

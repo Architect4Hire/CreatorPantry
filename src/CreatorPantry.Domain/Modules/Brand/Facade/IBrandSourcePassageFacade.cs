@@ -36,6 +36,30 @@ public interface IBrandSourcePassageFacade
     /// </param>
     Task<BrandSourcePassageSetServiceModel> ListPassagesAsync(
         IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which source document version each of the named passages came from. No passage text is read.
+    /// </summary>
+    /// <param name="passageIds">
+    /// Passage ids, as <see cref="BrandSourcePassageServiceModel.PassageId"/> published them. Deduplicated and
+    /// capped server-side; one this workspace cannot read is simply absent from the answer, and the reason is
+    /// not reported.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// Exists so a caller holding citations can store provenance: 11A.18 turns the passages an accepted
+    /// proposal cited into the <c>BrandStyleGuideSourceLink</c> rows of the guide version it writes, and a link
+    /// names a document version rather than a passage. Only this module can answer it, because the chunk tables
+    /// are its own — which is why it is a facade method and not something the AI module works out for itself.
+    /// </para>
+    /// <para>
+    /// A read, so no role is checked, for the reason <see cref="ListPassagesAsync"/> gives. It resolves
+    /// superseded sets as well as current ones: a citation pinned to the version it was read from has to stay
+    /// resolvable after the document is replaced, or pinning would be pointless.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(
+        IReadOnlyList<Guid> passageIds, CancellationToken cancellationToken);
 }
 
 internal sealed class BrandSourcePassageFacade(IBrandSourcePassageBusiness business) : IBrandSourcePassageFacade
@@ -43,4 +67,8 @@ internal sealed class BrandSourcePassageFacade(IBrandSourcePassageBusiness busin
     public Task<BrandSourcePassageSetServiceModel> ListPassagesAsync(
         IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken) =>
         business.ListPassagesAsync(selectors, cancellationToken);
+
+    public Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(
+        IReadOnlyList<Guid> passageIds, CancellationToken cancellationToken) =>
+        business.ResolveOriginsAsync(passageIds, cancellationToken);
 }

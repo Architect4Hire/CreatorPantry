@@ -79,4 +79,14 @@ public class AiProposal : IWorkspaceOwned, IImmutableRecord
     public ICollection<AiWarning> Warnings { get; set; } = [];
 
     public ICollection<AiProposalFeedback> Feedback { get; set; } = [];
+
+    /// <summary>
+    /// The brand context this output was grounded on, or null when none was asked for.
+    /// </summary>
+    /// <remarks>
+    /// Null carries meaning and is not merely an absence: the task grounds in nothing, or the creator turned
+    /// brand voice off for this request. A generation that asked and got nothing back still has a row, holding
+    /// the omissions that say why. See <see cref="AiProposalBrandContext"/>.
+    /// </remarks>
+    public AiProposalBrandContext? BrandContext { get; set; }
 }

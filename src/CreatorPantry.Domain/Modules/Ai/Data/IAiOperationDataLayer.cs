@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Brand.Managers;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.Domain.Modules.Ai.Data;
@@ -123,6 +124,37 @@ internal sealed record AiDraftAcceptanceWrite(
     AiDispositionOutcome Outcome,
     Guid? RecipeId = null,
     int? RecipeVersionNumber = null,
+    OperationError? Error = null);
+
+/// <summary>What accepting brand guidance wrote (11A.18).</summary>
+/// <param name="Written">
+/// The guide version the accepted guidance produced, or <c>null</c> when it produced none — a rejection, a
+/// replay, or guidance that already matched the guide word for word.
+/// </param>
+/// <param name="Error">The brand domain's refusal, on <see cref="AiDispositionOutcome.ApplyRefused"/>.</param>
+/// <remarks>
+/// <para>
+/// <strong>A replay names no version, unlike <see cref="AiDraftAcceptanceWrite"/>.</strong> That one has to:
+/// a creator retrying a draft acceptance does not yet know their recipe's id, so an answer without it would
+/// send them looking for a recipe they cannot find. Here the caller named the guide in the request that started
+/// the proposal, so the version is one read away — and recording which guide version an operation produced
+/// would mean a column on <c>AiOperation</c> pointing into the brand module for a value nobody needs from here.
+/// </para>
+/// <para>
+/// <strong>It carries the brand module's ServiceModel where <see cref="AiDraftAcceptanceWrite"/> wraps the
+/// recipe module's in <see cref="AiCreatedRecipe"/>, and the asymmetry is deliberate.</strong> That wrapper
+/// exists because the AI module needed two fields of <c>CreatedRecipeServiceModel</c> and had no use for the
+/// rest; here every field of <see cref="BrandStyleGuideVersionCreatedServiceModel"/> is wanted, so an
+/// identically-shaped local copy would be duplication with a mapper attached and two places to edit whenever a
+/// count is added. A ServiceModel a facade returns is one of the three things permitted to cross a module
+/// boundary, and the translation into this module's own HTTP shape still happens — once, in
+/// <c>AiBrandGuideAcceptanceBusiness.Describe</c>, which is why this route publishes
+/// <c>AiBrandGuideVersion</c> rather than a brand type.
+/// </para>
+/// </remarks>
+internal sealed record AiBrandGuideAcceptanceWrite(
+    AiDispositionOutcome Outcome,
+    BrandStyleGuideVersionCreatedServiceModel? Written = null,
     OperationError? Error = null);
 
 /// <summary>Composes the persistence operations the AI worker and facade need.</summary>
@@ -262,6 +294,55 @@ internal interface IAiOperationDataLayer
         Guid operationId,
         AiDispositionInstruction instruction,
         Func<CancellationToken, Task<OperationResult<AiCreatedRecipe?>>> createRecipe,
+        bool carriesEdits,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records a decided brand-guide proposal, writing the guide version it was accepted into in the same
+    /// transaction (11A.18).
+    /// </summary>
+    /// <param name="createVersion">
+    /// Writes the new guide version and returns what it wrote, or <c>null</c> when nothing was written — a
+    /// rejection, or accepted guidance that matched the guide already. Supplied by Business because it calls the
+    /// brand module's facade, which is the only route a module may take into another, and passed as a delegate
+    /// so the call happens inside this transaction rather than beside it.
+    /// </param>
+    /// <param name="carriesEdits">
+    /// Whether the creator rewrote any of the guidance. Decides what a replay may answer — see the remarks.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong>The same atomic boundary <see cref="AcceptDraftAsync"/> owns, over a different module.</strong>
+    /// The guide version with its sections, rules and source links, the per-item dispositions, the feedback row,
+    /// the operation's terminal status and both audit entries commit together or none of them do. They span two
+    /// modules and can be one transaction because both write on the same request-scoped <c>DbContext</c>, so the
+    /// brand facade's own save enlists in the transaction opened here rather than committing on its own.
+    /// </para>
+    /// <para>
+    /// <strong>This is the one path from a stored <c>AiStructuredChange</c> to a brand guide, and it reaches a
+    /// draft.</strong> <see cref="AiChangeTargetKind.BrandGuideSection"/> is still absent from
+    /// <see cref="AiChangeApplicability"/> and still answers <c>null</c> in <see cref="AiChangeTargetPolicy"/>,
+    /// so there is no path from one of these rows to a <em>recipe</em> and never was. What this adds is a route
+    /// to a guide version that the creator selected item by item, that approves nothing, and that activates
+    /// nothing.
+    /// </para>
+    /// <para>
+    /// <strong>Replay is the operation's own status, not an idempotency record</strong>, as for an accepted
+    /// draft: an operation that has left <see cref="AiOperationStatus.Proposed"/> is re-read inside the
+    /// transaction, and if the same decision was already recorded, nothing is written a second time. That is what
+    /// stops a retried acceptance producing a second guide version. A replay that carried rewrites is refused
+    /// instead — nothing stores what the creator's words were, only that some were theirs, so answering "already
+    /// done" would discard the words in this request while reporting success.
+    /// </para>
+    /// <para>
+    /// <strong>No provider call happens in here</strong>, and nothing in this type could make one — see the
+    /// remarks on the interface.
+    /// </para>
+    /// </remarks>
+    Task<AiBrandGuideAcceptanceWrite> AcceptBrandGuideProposalAsync(
+        Guid operationId,
+        AiDispositionInstruction instruction,
+        Func<CancellationToken, Task<OperationResult<BrandStyleGuideVersionCreatedServiceModel?>>> createVersion,
         bool carriesEdits,
         CancellationToken cancellationToken);
 }
@@ -560,17 +641,7 @@ internal sealed class AiOperationDataLayer(
 
             var now = clock.UtcNow;
 
-            foreach (var change in changes)
-            {
-                change.Disposition = instruction.AcceptedChangeIds.Contains(change.Id)
-                    ? AiChangeDisposition.Accepted
-                    : AiChangeDisposition.Rejected;
-
-                // All three columns move together, and a check constraint says so. A decided change with no
-                // actor would make the record unable to answer who took the creator's own content.
-                change.DecidedAt = now;
-                change.DecidedByMembershipId = instruction.DecidedByMembershipId;
-            }
+            StampDispositions(changes, instruction, now);
 
             operation.Status = instruction.Status;
             operation.StatusChangedAt = now;
@@ -699,15 +770,7 @@ internal sealed class AiOperationDataLayer(
 
             var now = clock.UtcNow;
 
-            foreach (var change in changes)
-            {
-                change.Disposition = instruction.AcceptedChangeIds.Contains(change.Id)
-                    ? AiChangeDisposition.Accepted
-                    : AiChangeDisposition.Rejected;
-
-                change.DecidedAt = now;
-                change.DecidedByMembershipId = instruction.DecidedByMembershipId;
-            }
+            StampDispositions(changes, instruction, now);
 
             operation.Status = instruction.Status;
             operation.StatusChangedAt = now;
@@ -744,6 +807,145 @@ internal sealed class AiOperationDataLayer(
             return new AiDraftAcceptanceWrite(
                 AiDispositionOutcome.Applied, created?.RecipeId, created?.VersionNumber);
         });
+    }
+
+    public async Task<AiBrandGuideAcceptanceWrite> AcceptBrandGuideProposalAsync(
+        Guid operationId,
+        AiDispositionInstruction instruction,
+        Func<CancellationToken, Task<OperationResult<BrandStyleGuideVersionCreatedServiceModel?>>> createVersion,
+        bool carriesEdits,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(instruction);
+        ArgumentNullException.ThrowIfNull(createVersion);
+
+        // The pattern DispositionAsync, AcceptDraftAsync and IdempotencyDataLayer all use: a retrying execution
+        // strategy re-runs the whole unit, so each attempt has to start from a clean tracker.
+        return await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            context.ChangeTracker.Clear();
+
+            await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+            // Re-read inside the transaction. The read Business decided from was taken outside it, and between
+            // the two another request may have decided this proposal — which is exactly the replay case.
+            var loaded = await operations.GetForDispositionAsync(operationId, cancellationToken);
+
+            if (loaded?.Proposal is null)
+            {
+                return new AiBrandGuideAcceptanceWrite(AiDispositionOutcome.NotFound);
+            }
+
+            var operation = loaded.Operation;
+            var changes = loaded.Proposal.Changes;
+
+            if (operation.Status is not AiOperationStatus.Proposed)
+            {
+                var decided = Decided(operation, changes, instruction);
+
+                // A replay that carried rewrites cannot be proven identical to the one that was recorded, for
+                // the reason AcceptDraftAsync records: nothing stores what the creator's words were, only that
+                // some were theirs. The retry is refused rather than answered "already done", which would
+                // discard the words in this request while reporting success.
+                return decided.Outcome is AiDispositionOutcome.Replayed && carriesEdits
+                    ? new AiBrandGuideAcceptanceWrite(AiDispositionOutcome.NotAwaitingDecision)
+                    : new AiBrandGuideAcceptanceWrite(decided.Outcome);
+            }
+
+            // Written first, and the order is load-bearing for the reason DispositionAsync records: a data layer
+            // that clears the change tracker when it refuses would discard dispositions staged before the call,
+            // and the save below would then commit a status change with no decisions under it.
+            //
+            // Always invoked. Whether an acceptance writes a version is the caller's decision and it has already
+            // made it: a rejection hands over a delegate that answers null. Checking an accepted count here
+            // would be this layer deciding what an accepted change id means.
+            OperationResult<BrandStyleGuideVersionCreatedServiceModel?> outcome;
+
+            try
+            {
+                outcome = await createVersion(cancellationToken);
+            }
+            catch
+            {
+                // The transaction rolls back on its own, but the tracker would be left holding a half-built
+                // guide version. Nothing commits it today, and that should not depend on the host.
+                context.ChangeTracker.Clear();
+
+                throw;
+            }
+
+            if (!outcome.Succeeded)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+
+                return new AiBrandGuideAcceptanceWrite(AiDispositionOutcome.ApplyRefused, Error: outcome.Error);
+            }
+
+            var now = clock.UtcNow;
+
+            StampDispositions(changes, instruction, now);
+
+            operation.Status = instruction.Status;
+            operation.StatusChangedAt = now;
+            operation.CompletedAt = now;
+
+            // Nothing is stamped onto the operation, unlike an accepted draft. There is no RecipeId to set — this
+            // task names no recipe — and no guide column to set either, deliberately: see
+            // AiBrandGuideAcceptanceWrite's own remarks.
+            if (instruction.Feedback is not null)
+            {
+                operations.AddFeedback(instruction.Feedback);
+            }
+
+            auditWriter.Record(instruction.Audit);
+
+            try
+            {
+                await operations.SaveAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Two acceptances arrived together and the operation's row version decided between them. The
+                // loser writes nothing; whether the winner made the same decision is answered by re-reading.
+                await transaction.RollbackAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+
+                return new AiBrandGuideAcceptanceWrite(AiDispositionOutcome.NotAwaitingDecision);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return new AiBrandGuideAcceptanceWrite(AiDispositionOutcome.Applied, outcome.Value);
+        });
+    }
+
+    /// <summary>
+    /// Marks every change of a proposal accepted or rejected, with who decided and when.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every change, not only the accepted ones: a proposal leaves review with nothing still
+    /// <see cref="AiChangeDisposition.Pending"/>, because "pending" on a terminal operation would mean nobody
+    /// ever decided.
+    /// </para>
+    /// <para>
+    /// All three columns move together and a check constraint says so — a decided change with no actor would
+    /// make the record unable to answer who took the creator's own content.
+    /// </para>
+    /// </remarks>
+    private static void StampDispositions(
+        IEnumerable<AiStructuredChange> changes, AiDispositionInstruction instruction, DateTimeOffset now)
+    {
+        foreach (var change in changes)
+        {
+            change.Disposition = instruction.AcceptedChangeIds.Contains(change.Id)
+                ? AiChangeDisposition.Accepted
+                : AiChangeDisposition.Rejected;
+
+            change.DecidedAt = now;
+            change.DecidedByMembershipId = instruction.DecidedByMembershipId;
+        }
     }
 
     /// <summary>

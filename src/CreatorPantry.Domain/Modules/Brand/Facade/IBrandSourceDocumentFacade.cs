@@ -102,6 +102,40 @@ public interface IBrandSourceDocumentFacade
         BrandSourceDocumentListViewModel model, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Up to <paramref name="limit"/> of the workspace's documents worth grounding a generation in, as exact
+    /// document versions, most relevant first.
+    /// </summary>
+    /// <param name="purposes">What the caller can use a document as evidence of. Empty selects nothing.</param>
+    /// <param name="channelKey">The channel being written for, or null. A ranking signal, not a filter.</param>
+    /// <param name="audience">Who is being written for, or null. A ranking signal, not a filter.</param>
+    /// <param name="limit">The most to return. The caller's budget, not this module's.</param>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not exposed over HTTP, and it takes no view model.</strong> Its caller is 11A.19's brand-context
+    /// assembler, which needs "a few documents worth reading for this job" and has no business building a
+    /// library query — the facts a document is ranked on, its purpose, channel and audience, are this module's.
+    /// A view model crossing the boundary would be a defect <c>ModuleBoundaryTests</c> refuses, and rightly: it
+    /// is an HTTP shape, not a contract between modules.
+    /// </para>
+    /// <para>
+    /// <strong>Active documents only, ranked rather than filtered, and bounded.</strong> A document carrying no
+    /// channel is the brand's general writing and ranks above one tagged for a different channel; nothing is
+    /// excluded on a tag, because a creator who wanted an exact document names it. Candidates come from one page
+    /// of the library, so the read stays bounded however large it is.
+    /// </para>
+    /// <para>
+    /// Role is deliberately not checked, as on the passage read: the material is the workspace's own documents,
+    /// which any member may read, and the caller is a background task running under a resolved workspace.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(
+        IReadOnlyCollection<BrandSourcePurpose> purposes,
+        string? channelKey,
+        string? audience,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Shelves a document, brings it back, soft-deletes it, or restores a soft-deleted one.
     /// </summary>
     /// <param name="command">Which command was asked for. Set by the route, never by the caller's body.</param>
@@ -285,6 +319,14 @@ internal sealed class BrandSourceDocumentFacade(
         return OperationResult<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>>.Success(
             await business.ListAsync(criteria!, cancellationToken));
     }
+
+    public Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(
+        IReadOnlyCollection<BrandSourcePurpose> purposes,
+        string? channelKey,
+        string? audience,
+        int limit,
+        CancellationToken cancellationToken) =>
+        business.ListGroundingCandidatesAsync(purposes, channelKey, audience, limit, cancellationToken);
 
     // What makes two uploads the same request: the same description of the same bytes under the same name.
     // The generated identifiers are deliberately absent; they differ on every attempt.

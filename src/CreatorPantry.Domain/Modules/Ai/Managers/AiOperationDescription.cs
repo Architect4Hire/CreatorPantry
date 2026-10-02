@@ -71,5 +71,36 @@ internal static class AiOperationDescription
             [.. proposal.Warnings
                 .OrderBy(warning => warning.SortOrder)
                 .Select(warning => new AiProposalWarningServiceModel(
-                    warning.Kind, warning.Message, warning.AiStructuredChangeId))]);
+                    warning.Kind, warning.Message, warning.AiStructuredChangeId))],
+            Describe(proposal.BrandContext));
+
+    /// <remarks>
+    /// Null in two cases that look alike from here and are not: the generation asked for no brand context, or this
+    /// proposal was read without it loaded. Only one read publishes a detail model and it includes the rows, so
+    /// the second case is a mapping defect rather than a state a caller can reach.
+    /// </remarks>
+    private static AiProposalBrandContextServiceModel? Describe(AiProposalBrandContext? context) =>
+        context is null
+            ? null
+            : new AiProposalBrandContextServiceModel(
+                context.ChannelKey,
+                context.Audience,
+                context.AudienceOrigin,
+                context.BrandProfileRevision,
+                context.BrandGuideId,
+                context.BrandGuideVersionId,
+                context.BrandGuideVersionNumber,
+                context.GuideWasActiveVersion,
+                context.Checksum,
+                context.EstimatedTokens,
+                context.GuidanceSectionCount,
+                context.RuleCount,
+                [.. context.Sources
+                    .OrderBy(source => source.SortOrder)
+                    .Select(source => new AiProposalBrandSourceServiceModel(
+                        source.BrandSourceDocumentId,
+                        source.DocumentVersionNumber,
+                        source.BrandSourcePassageId,
+                        source.Ordinal))],
+                context.AssembledAt);
 }

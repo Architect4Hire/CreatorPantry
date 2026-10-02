@@ -71,6 +71,44 @@ public interface IBrandStyleGuideBusiness
         Guid? expectedActiveVersionId,
         string? reason,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes one further draft version of a guide from guidance a creator accepted out of an AI proposal
+    /// (11A.18), laid over the guide's working version.
+    /// </summary>
+    /// <returns>
+    /// The version written — or the fact that none was, when the accepted guidance already matched — or the
+    /// first refusal that applies: <c>brand.guide.not_found</c>, <c>brand.guide.archived.conflict</c>,
+    /// <c>brand.guide.workingVersion.conflict</c>, <c>brand.guide.invalid_request</c>,
+    /// <c>brand.guide.source.unprocessable</c>, or <c>brand.guide.version.limit.invalid_request</c>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Everything a creator-typed version obeys, this obeys.</strong> Section and rule lengths, the
+    /// rule cap, the channel-variant cap, the source cap, and the requirement that every cited pointer resolve
+    /// to an exact version this workspace owns — all checked here, because they are this module's invariants and
+    /// a model's output may not reach a guide by a shorter route.
+    /// </para>
+    /// <para>
+    /// <strong>It approves nothing and activates nothing.</strong> No <c>BrandStyleGuideApproval</c> is written
+    /// and the workspace default is not touched, so the version is a draft like any other and becoming the
+    /// default still needs an approval and an Owner.
+    /// </para>
+    /// <para>
+    /// <strong>The guide row is deliberately left alone.</strong> A version is the guide's content; the guide row
+    /// carries its name, purpose and archived state, none of which this writes. Touching <c>UpdatedAt</c> would
+    /// bump the row version and invalidate a concurrency token a client is holding for fields this change did
+    /// not alter.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<BrandStyleGuideVersionCreatedServiceModel>> CreateVersionFromProposalAsync(
+        string userId,
+        Guid guideId,
+        BrandStyleGuideProposalApplication application,
+        CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="Facade.IBrandStyleGuideFacade.GetActiveAsync"/>
+    Task<OperationResult<BrandActiveStyleGuideServiceModel?>> GetActiveAsync(CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IBrandStyleGuideBusiness"/>
@@ -105,6 +143,24 @@ internal sealed class BrandStyleGuideBusiness(
             read.Active is null
                 ? null
                 : Map(read.Active, new BrandStyleGuideActivationServiceModel(read.ActivatedAt!.Value, read.ActivationReason))));
+    }
+
+    public async Task<OperationResult<BrandActiveStyleGuideServiceModel?>> GetActiveAsync(
+        CancellationToken cancellationToken)
+    {
+        // Null in success, not a failure: a workspace that has activated nothing has no active guide, and that
+        // is an answer a caller acts on rather than an error it recovers from.
+        if (await dataLayer.ReadActiveAsync(cancellationToken) is not { } read)
+        {
+            return OperationResult<BrandActiveStyleGuideServiceModel?>.Success(null);
+        }
+
+        return OperationResult<BrandActiveStyleGuideServiceModel?>.Success(new BrandActiveStyleGuideServiceModel(
+            read.Guide.Id,
+            read.Guide.DisplayName,
+            read.Guide.Purpose,
+            read.Guide.Status,
+            Map(read.Version, new BrandStyleGuideActivationServiceModel(read.ActivatedAt, read.ActivationReason))));
     }
 
     public async Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
@@ -503,6 +559,310 @@ internal sealed class BrandStyleGuideBusiness(
                     : new BrandStyleGuideActivatedVersionServiceModel(
                         previous.GuideId, previous.VersionId, previous.VersionNumber)));
     }
+
+    public async Task<OperationResult<BrandStyleGuideVersionCreatedServiceModel>> CreateVersionFromProposalAsync(
+        string userId,
+        Guid guideId,
+        BrandStyleGuideProposalApplication application,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(application);
+
+        if (await dataLayer.ReadForProposalAsync(guideId, cancellationToken) is not { } read)
+        {
+            // Answered identically to a guide that was never created (tenancy.md).
+            return CannotWrite(new OperationError(
+                BrandErrorCodes.GuideNotFound,
+                "There is no such brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (read.Guide.Status is BrandStyleGuideStatus.Archived)
+        {
+            // A shelved guide stays readable and comparable; what it does not do is take new content. The
+            // remedy is one a client can act on, which is why this is a conflict rather than an absence.
+            return CannotWrite(new OperationError(
+                BrandErrorCodes.GuideArchivedConflict,
+                "This brand style guide is archived, so a new version cannot be written to it. Restore it first.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var working = read.Working;
+
+        // The check that stops a silent rebase, and it is here rather than only in the caller because here is
+        // inside the transaction: the caller's own copy of this was read before the transaction opened, and an
+        // edit landing in between is exactly the case worth refusing. Both numbers are stated — they are version
+        // numbers of the caller's own guide, not secrets, and a creator told only "it moved" cannot tell whether
+        // they are one edit or ten behind.
+        if (working.VersionNumber != application.ExpectedWorkingVersionNumber)
+        {
+            return CannotWrite(new OperationError(
+                BrandErrorCodes.GuideWorkingVersionConflict,
+                $"This guide has been edited since that guidance was composed (composed against version "
+                    + $"{application.ExpectedWorkingVersionNumber}, the guide is now on {working.VersionNumber}). "
+                    + "Read it again and decide from there.",
+                new Dictionary<string, string[]>(),
+                new Dictionary<string, object?>
+                {
+                    ["expectedWorkingVersionNumber"] = application.ExpectedWorkingVersionNumber,
+                    ["workingVersionNumber"] = working.VersionNumber,
+                }));
+        }
+
+        if (ProposalInputFailures(application).ToList() is { Count: > 0 } failures)
+        {
+            return CannotWrite(OperationError.Validation(
+                BrandErrorCodes.GuideInvalidRequest,
+                "That guidance could not be written to this guide.",
+                failures));
+        }
+
+        var merged = BrandStyleGuideVersionMerge.Merge(
+            [
+                .. working.Sections.Select(section => new BrandStyleGuideSectionServiceModel(
+                    section.SectionKey,
+                    section.ChannelKey.Length == 0 ? null : section.ChannelKey,
+                    section.Body)),
+            ],
+            [
+                .. working.Rules
+                    .OrderBy(rule => rule.SortOrder)
+                    .Select(rule => new BrandStyleGuideRuleServiceModel(rule.Kind, rule.Text)),
+            ],
+            [
+                .. read.Citations
+                    .Select(citation => new BrandStyleGuideSourceServiceModel(citation.DocumentId, citation.VersionNumber)),
+            ],
+            application);
+
+        // The caps are checked on the merge rather than on the request, because that is where they can be
+        // exceeded: thirty accepted rules are legitimate and forty stored ones are legitimate, and only the sum
+        // is not. Refused rather than truncated — dropping the tail would discard guidance the creator ticked
+        // and report success.
+        if (LimitFailures(merged).ToList() is { Count: > 0 } exceeded)
+        {
+            return CannotWrite(OperationError.Validation(
+                BrandErrorCodes.GuideVersionLimitExceeded,
+                "That guidance would take this guide past one of its limits.",
+                exceeded));
+        }
+
+        if (!merged.Changed)
+        {
+            // The accepted guidance says what the guide already said. No version is written — the same no-op
+            // rule a creator's own edit follows — and the caller still records the decision, because the creator
+            // did make one.
+            return OperationResult<BrandStyleGuideVersionCreatedServiceModel>.Success(
+                new BrandStyleGuideVersionCreatedServiceModel(
+                    read.Guide.Id,
+                    VersionId: null,
+                    VersionNumber: null,
+                    working.VersionNumber,
+                    merged.SectionsAdded,
+                    merged.SectionsReplaced,
+                    merged.RulesAdded,
+                    merged.RulesAlreadyPresent,
+                    merged.Sources.Count,
+                    read.WorkingStaleSourceCount));
+        }
+
+        // Every citation has to resolve to an exact version this workspace owns before anything is written, the
+        // way creation resolves its own. A pointer is never trusted for having come from a stored proposal: the
+        // document could have been removed since the proposal ran.
+        var sources = merged.Sources
+            .Select(source => new BrandStyleGuideSourceInput
+            {
+                DocumentId = source.DocumentId,
+                VersionNumber = source.VersionNumber,
+            })
+            .ToList();
+
+        var resolved = await dataLayer.ResolveSourceVersionsAsync(sources, cancellationToken);
+        var unusable = Enumerable.Range(0, resolved.Count).Where(index => resolved[index] is null).ToList();
+
+        if (unusable.Count > 0)
+        {
+            return CannotWrite(OperationError.Validation(
+                BrandErrorCodes.GuideSourceUnprocessable,
+                "A source document version this guidance cites could not be used.",
+                unusable.Select(index => ($"CitedSources[{index}]", "This document version could not be used."))));
+        }
+
+        var now = clock.UtcNow;
+        var workspaceId = workspace.WorkspaceId;
+        var membershipId = workspace.MembershipId;
+
+        var version = new BrandStyleGuideVersion
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            BrandStyleGuideId = read.Guide.Id,
+            VersionNumber = working.VersionNumber + 1,
+            ParentVersionId = working.Id,
+            ChangeReason = application.ChangeReason,
+            CreatedByMembershipId = membershipId,
+            CreatedAt = now,
+            Sections =
+            [
+                .. merged.Sections.Select(section => new BrandStyleGuideSection
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    BrandStyleGuideVersionId = Guid.Empty,
+                    SectionKey = section.SectionKey,
+                    ChannelKey = section.ChannelKey ?? string.Empty,
+                    Body = section.Body,
+                }),
+            ],
+            Rules =
+            [
+                .. merged.Rules.Select((rule, order) => new BrandStyleGuideRule
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    BrandStyleGuideVersionId = Guid.Empty,
+                    Kind = rule.Kind,
+                    Text = rule.Text,
+                    SortOrder = order,
+                }),
+            ],
+            SourceLinks =
+            [
+                .. resolved.Select(versionId => new BrandStyleGuideSourceLink
+                {
+                    WorkspaceId = workspaceId,
+                    BrandStyleGuideVersionId = Guid.Empty,
+                    BrandSourceDocumentVersionId = versionId!.Value,
+                }),
+            ],
+        };
+
+        // As on creation: the children name their parent through the collections, and setting the key too keeps
+        // the rows right however the tracker orders its fix-up.
+        foreach (var section in version.Sections) { section.BrandStyleGuideVersionId = version.Id; }
+        foreach (var rule in version.Rules) { rule.BrandStyleGuideVersionId = version.Id; }
+        foreach (var link in version.SourceLinks) { link.BrandStyleGuideVersionId = version.Id; }
+
+        // Ids and counts. The proposal id is what makes this row answer "where did this guidance come from"
+        // later; no section body and no rule text, because an audit summary is not where a private guide's words
+        // belong — and these words were a model's, which makes it worse rather than better.
+        var audit = new AuditEntry(
+            userId,
+            BrandAuditActions.StyleGuideVersionCreatedFromProposal,
+            BrandAuditActions.StyleGuideResourceType,
+            read.Guide.Id.ToString("D"),
+            CorrelationId(),
+            $"Wrote version {version.VersionNumber} from accepted AI proposal {application.AiProposalId:D}: "
+                + $"{merged.SectionsAdded} section(s) added, {merged.SectionsReplaced} replaced, "
+                + $"{merged.RulesAdded} rule(s) added, {merged.SourcesAdded} source(s) newly cited.",
+            BeforeReference: Pointer(read.Guide.Id, working.VersionNumber),
+            AfterReference: Pointer(read.Guide.Id, version.VersionNumber));
+
+        var staleSourceCount = await dataLayer.AddVersionAsync(version, audit, cancellationToken);
+
+        return OperationResult<BrandStyleGuideVersionCreatedServiceModel>.Success(
+            new BrandStyleGuideVersionCreatedServiceModel(
+                read.Guide.Id,
+                version.Id,
+                version.VersionNumber,
+                working.VersionNumber,
+                merged.SectionsAdded,
+                merged.SectionsReplaced,
+                merged.RulesAdded,
+                merged.RulesAlreadyPresent,
+                version.SourceLinks.Count,
+                staleSourceCount));
+    }
+
+    /// <summary>
+    /// What is wrong with the accepted guidance itself, before anything is merged.
+    /// </summary>
+    /// <remarks>
+    /// The same bounds <c>BrandStyleGuideInput.Failures</c> applies to a creator's own typing, applied to text
+    /// that arrived through acceptance. A proposal's own limits are tighter than these on a body, so in practice
+    /// only a creator's rewrite can exceed one — <c>AiPolicy.ChangeValueMaxLength</c> is four thousand
+    /// characters and a rule may hold five hundred. That is exactly why the check is here and not assumed
+    /// upstream.
+    /// </remarks>
+    private static IEnumerable<(string Field, string Message)> ProposalInputFailures(
+        BrandStyleGuideProposalApplication application)
+    {
+        for (var index = 0; index < application.Sections.Count; index++)
+        {
+            var section = application.Sections[index];
+            var path = $"Sections[{index}]";
+
+            if (!BrandStyleGuideInput.Has(section.Body))
+            {
+                yield return ($"{path}.Body", "A section cannot be blank.");
+            }
+            else if (section.Body.Length > BrandPolicy.StyleGuideSectionBodyMaxLength)
+            {
+                yield return ($"{path}.Body",
+                    $"A section can be at most {BrandPolicy.StyleGuideSectionBodyMaxLength} characters.");
+            }
+
+            if (section.SectionKey is BrandStyleGuideSectionKey.ChannelVariant)
+            {
+                if (!BrandStyleGuideInput.Has(section.ChannelKey)
+                    || !BrandProfileInputChecks.IsChannelKey(section.ChannelKey!))
+                {
+                    yield return ($"{path}.ChannelKey", "A channel variant needs a channel key, such as instagram.");
+                }
+            }
+            else if (BrandStyleGuideInput.Has(section.ChannelKey))
+            {
+                yield return ($"{path}.ChannelKey", "Only a channel variant names a channel.");
+            }
+        }
+
+        for (var index = 0; index < application.Rules.Count; index++)
+        {
+            var rule = application.Rules[index];
+
+            if (!BrandStyleGuideInput.Has(rule.Text))
+            {
+                yield return ($"Rules[{index}].Text", "A rule cannot be blank.");
+            }
+            else if (rule.Text.Length > BrandPolicy.StyleGuideRuleTextMaxLength)
+            {
+                yield return ($"Rules[{index}].Text",
+                    $"A rule can be at most {BrandPolicy.StyleGuideRuleTextMaxLength} characters.");
+            }
+        }
+    }
+
+    /// <summary>Which of the guide's own ceilings the merged version would exceed.</summary>
+    private static IEnumerable<(string Field, string Message)> LimitFailures(
+        BrandStyleGuideVersionMergeResult merged)
+    {
+        if (merged.Rules.Count > BrandPolicy.MaxStyleGuideRules)
+        {
+            yield return (nameof(BrandStyleGuideProposalApplication.Rules),
+                $"This guide would have {merged.Rules.Count} do and don't rules, and can have at most "
+                    + $"{BrandPolicy.MaxStyleGuideRules}.");
+        }
+
+        var variants = merged.Sections
+            .Count(section => section.SectionKey is BrandStyleGuideSectionKey.ChannelVariant);
+
+        if (variants > BrandPolicy.MaxStyleGuideChannelVariants)
+        {
+            yield return (nameof(BrandStyleGuideProposalApplication.Sections),
+                $"This guide would have {variants} channel variants, and can have at most "
+                    + $"{BrandPolicy.MaxStyleGuideChannelVariants}.");
+        }
+
+        if (merged.Sources.Count > BrandPolicy.MaxStyleGuideSourceLinks)
+        {
+            yield return (nameof(BrandStyleGuideProposalApplication.CitedSources),
+                $"This version would cite {merged.Sources.Count} source documents, and can cite at most "
+                    + $"{BrandPolicy.MaxStyleGuideSourceLinks}.");
+        }
+    }
+
+    private static OperationResult<BrandStyleGuideVersionCreatedServiceModel> CannotWrite(OperationError error) =>
+        OperationResult<BrandStyleGuideVersionCreatedServiceModel>.Failure(error);
 
     /// <summary>A guide version as an audit reference: the guide, because the default may move between them.</summary>
     private static string Pointer(Guid guideId, int versionNumber) =>

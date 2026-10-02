@@ -76,4 +76,17 @@ public static class BrandAuditActions
     /// audit summary is not where free text about a private guide belongs.
     /// </remarks>
     public const string StyleGuideActivated = "brand.guide.activated";
+
+    /// <summary>
+    /// A new draft version was written from guidance a creator accepted out of an AI proposal (11A.18).
+    /// </summary>
+    /// <remarks>
+    /// Its own action rather than a shared "version created", because the provenance is the point: this is the
+    /// one way generated text enters a guide, and an audit trail that could not distinguish it from a version
+    /// the creator typed would be unable to answer the only question worth asking about the row later. Names the
+    /// actor — a creator accepted it, so it is a person's decision and not a machine's. The summary carries the
+    /// proposal id and counts; no section body, no rule text, and nothing the model wrote, for the reason
+    /// <see cref="StyleGuideCreated"/> gives.
+    /// </remarks>
+    public const string StyleGuideVersionCreatedFromProposal = "brand.guide.version.created_from_proposal";
 }

@@ -2813,7 +2813,57 @@ BEHAVIOR: Show schema/template/retrieval/citation/evaluation plan, wait for appr
 provider plus sparse-source/conflicting-source/injection/schema/isolation tests; ai-safety-reviewer.
 ```
 
-### 11A.18 Accept or partially accept a brand-guide proposal
+### 11A.18 Accept or partially accept a brand-guide proposal - done
+
+*Delivery note, in four parts.*
+
+*First, the gap this had to fill. 11A.15 — edit a guide and create a new version — was never implemented, so
+`IBrandStyleGuideFacade` had `Get`/`ListVersions`/`CompareVersions`/`Create`/`ActivateVersion` and no way to
+write a second version of anything. Acceptance therefore introduced one:
+`CreateVersionFromProposalAsync`, the brand analogue of `IRecipeFacade.CreateFromProposalAsync`, taking a
+`BrandStyleGuideProposalApplication` and deliberately not wrapped in `IIdempotentCommandExecutor` — that opens a
+transaction of its own, which would nest and throw, and clears the change tracker, which would discard the
+dispositions staged above it. It is proposal-only and not exposed over HTTP, so 11A.15's creator-typed edit can
+land beside it rather than inherit a shape bent around AI.*
+
+*Second, what "accept" means here, which the restriction did not settle. The handler flattens one piece of
+guidance into an `Add` row carrying its text plus `Set` rows for its dimension, channel, evidence and citations,
+so the unit a creator sees is the item and not the row: `acceptedChangeIds` names text rows, Business expands
+the selection onto their companions before recording anything, and naming a companion alone is a `400`. Without
+the expansion the stored record would have said a section was taken and its own dimension declined. `acceptAll`
+still has to name every item, which is what keeps it a confirmation. The new version is the working version with
+the accepted guidance laid over it — sections replace by `(SectionKey, ChannelKey)`, rules append and
+deduplicate the way the create validator matches them, citations union — so everything the proposal did not speak
+to survives; `BrandStyleGuideVersionMerge` is that rule and is unit-tested on its own. A conflict or an
+uncertainty is a finding about the creator's own material, so it stays selectable, produces nothing, and is
+counted in `droppedItemCount`. Accepted guidance identical to what the guide already said writes **no version at
+all**, the same no-op rule a creator's own edit follows.*
+
+*Third, the two stalenesses, which get different answers. A guide edited since the proposal was composed is
+refused with `brand.guide.workingVersion.conflict`, checked inside the transaction and naming both version
+numbers: laying the guidance over the newer version is the rebase the restriction forbids, and branching from
+the pinned one would discard the edit in between. A cited source document replaced since is **not** refused —
+the citation is written at the version the proposal actually read, never re-pointed, and `staleSourceCount`
+reports it, which is what activation already gates on. The mapping from a citation to that provenance is the
+brand module's, through a new `IBrandSourcePassageFacade.ResolveOriginsAsync` that reads superseded chunk sets
+too, because a pinned version has to stay resolvable after the document moves on.*
+
+*Fourth, two things found rather than planned. The OpenAPI snapshot caught a real defect:
+`OpenApiDocumentation.StripLayerSuffix` drops `ViewModel` and `ServiceModel` alike, so a request called
+`AiBrandGuideAcceptanceViewModel` beside `AiBrandGuideAcceptanceServiceModel` claimed one schema id and the
+published document described the **reply's** shape as the request body. The request is `AcceptBrandGuideProposalViewModel`
+for that reason, matching the verb-first spelling the brand module's own request models use. **The identical
+collision exists today on `AiDraftAcceptance`** — 8.12/8.14's acceptance route publishes its reply as its request
+body and emits no schema for `AiDraftFieldEditViewModel` — and it is not fixed here, because correcting it edits
+a shipped contract document and belongs to its own change. Separately, `IAiOperationDataLayer` now holds three
+decision methods with the same execution-strategy/transaction/re-read/replay shape; only the identical
+`StampDispositions` loop was extracted, because rewriting two tested seams inside a change about a third is the
+regression risk `CLAUDE.md`'s atomicity rule argues against. A fourth decision seam should unify them.*
+
+*No migration: no new entity, column or index. `AiChangeTargetKind.BrandGuideSection` remains absent from
+`AiChangeApplicability` and still answers `null` in `AiChangeTargetPolicy` — there is still no path from one of
+these rows to a recipe — and the remarks on both, and on `AiTaskType.BrandGuideProposal`, were amended rather
+than left to read as still true. See [B-23](../architecture-decisions/baseline.md#b-23-brand-guide-proposal-acceptance).*
 
 ```text
 SCOPE: Reuse the proposal diff/disposition pattern to accept all or selected brand-guide sections into
@@ -2825,7 +2875,53 @@ BEHAVIOR: Plan section selection/transaction, wait for approval, implement full/
 replay/rollback/isolation tests.
 ```
 
-### 11A.19 Deterministic BrandContextPackage assembler
+### 11A.19 Deterministic BrandContextPackage assembler - done, unconsumed
+
+*Delivery note, in four parts.*
+
+*First, one correction to the scope. It lists "workspace" as an input; it is not one. The workspace reaches
+every read through the resolved `IWorkspaceContext`, and `BrandContextRequest` has no field for it — a
+`workspaceId` argument on a seam the worker calls is exactly the AI-supplied workspace tenancy.md forbids, with
+no route policy in the way. `BrandContextPackageShapeTests` asserts the request's property list, so the field
+cannot reappear quietly.*
+
+*Second, what "relevant" and "bounded" were made to mean, since the prompt sets both as requirements rather
+than rules. Relevance is a table — `BrandContextSelection.SectionKeysFor` — and the entries that matter most are
+the empty ones: `IngredientSubstitution`, `RecipeReview`, `RecipeRevision` and `RecipeAdaptation` get no brand
+context at all, by an early return rather than by filtering, because style rules may not alter canonical recipe
+facts or safety and a filter is one populated field away from leaking. `BrandGuideProposal` is excluded as
+circular and `UserNotes` from every task, being the creator's notes to themselves. Boundedness is two caps: a
+named document list is refused above `BrandContextMaxSourceDocuments` rather than trimmed, while an unnamed one
+is ranked on purpose, channel and audience and capped lower, because a guess the server makes on the creator's
+behalf should spend less of the budget than an instruction.*
+
+*Third, three judgement calls worth knowing about. **Precedence is per field, not per source** — a channel
+variant silent on audience must not shadow the profile's default, which is the bug a per-source rule would ship.
+**A conflict is only ever checkable**: nothing here reads prose for meaning, so semantic contradiction between
+two sections is deliberately not detected and the enum says so, the same honesty 11A.17's handler already
+records. **The token figure is an estimate and is labelled one everywhere it surfaces** — four characters per
+token, rounded up; the domain holds no tokenizer and should not, since a real count depends on the provider's
+vocabulary and would make a package's content vary by deployment, while the exact count already arrives
+afterwards through `AccountAiUsageEntry`.*
+
+*Fourth, three things the work changed on contact. **The relevance ranking moved into the brand module**, and
+`ModuleBoundaryTests` is what moved it: the assembler first built a library query itself, which meant naming
+`BrandSourceDocumentListViewModel` across a module boundary, and a module's view models never cross. The rank
+now belongs to `IBrandSourceDocumentFacade.ListGroundingCandidatesAsync`, which is the better home anyway — the
+facts a document is ranked on are the library's — and the AI module supplies only the budget. One brand read was
+missing and had to be added:
+`IBrandStyleGuideFacade.GetActiveAsync`, keyed on the workspace, because `GetAsync` answers "this guide, and its
+active version if the default happens to be its own" and a caller that does not know which guide holds the
+default cannot use it. And a `SourceVersionSuperseded` conflict was written and then removed as unreachable —
+the assembler pins each document's current version itself, so no assembly can cite one the document has moved
+past; a guide version whose own citations are stale is a different fact, published by the history as
+`staleSourceCount`. The enum keeps a comment where the member was rather than silently reusing the number.*
+
+*Nothing consumes a package yet, and that is the prompt's boundary: 11A.20 wires task handlers one at a time and
+is what records the checksum and provenance against a generation. The assembler is registered in the Worker so
+the container proves its dependency graph resolves now rather than at the first handler. No migration — nothing
+here is persisted. See
+[B-24](../architecture-decisions/baseline.md#b-24-deterministic-brand-context-for-generation).*
 
 ```text
 SCOPE: Build a server-side assembler that takes workspace, task type, channel, audience, optional guide

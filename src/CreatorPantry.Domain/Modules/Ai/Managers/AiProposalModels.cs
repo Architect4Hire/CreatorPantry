@@ -90,7 +90,58 @@ public sealed record AiProposalDetailServiceModel(
     string ModelName,
     DateTimeOffset CreatedAt,
     IReadOnlyList<AiProposedChangeServiceModel> Changes,
-    IReadOnlyList<AiProposalWarningServiceModel> Warnings);
+    IReadOnlyList<AiProposalWarningServiceModel> Warnings,
+    AiProposalBrandContextServiceModel? BrandContext);
+
+/// <summary>
+/// Which brand guide version, profile revision and writing samples one proposal was grounded on (11A.20).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Null means no brand context was asked for</strong> — the task grounds in nothing, or the creator turned
+/// brand voice off. A generation that asked and got nothing back publishes this block with its guide fields null,
+/// and the proposal's warnings say why.
+/// </para>
+/// <para>
+/// <strong>The guide is named, not described.</strong> There is no display name here: resolving the guide through
+/// the brand routes gives a caller its current name, while a name copied in at generation time would be a second
+/// place a brand's names live and would go stale on the first rename.
+/// </para>
+/// </remarks>
+/// <param name="EstimatedTokens">
+/// An estimate, at four characters per token, and labelled one wherever it is shown. The domain holds no tokenizer
+/// and should not: a real count depends on the provider's vocabulary, and the exact figure arrives afterwards
+/// through usage accounting.
+/// </param>
+public sealed record AiProposalBrandContextServiceModel(
+    string? ChannelKey,
+    string? Audience,
+    BrandContextOrigin? AudienceOrigin,
+    int? BrandProfileRevision,
+    Guid? GuideId,
+    Guid? GuideVersionId,
+    int? GuideVersionNumber,
+    bool GuideWasActiveVersion,
+    string Checksum,
+    int EstimatedTokens,
+    int GuidanceSectionCount,
+    int RuleCount,
+    IReadOnlyList<AiProposalBrandSourceServiceModel> Sources,
+    DateTimeOffset AssembledAt);
+
+/// <summary>
+/// One writing sample a generation was grounded on, by identifier.
+/// </summary>
+/// <remarks>
+/// No text, deliberately: these point at creator content that is readable through the brand routes, and a
+/// proposal response is not the place to re-serve it. A passage whose extraction was later corrected keeps its id
+/// while its words change, so the parent's checksum — not this row — is what proves which words were used.
+/// </remarks>
+public sealed record AiProposalBrandSourceServiceModel(
+    Guid DocumentId,
+    int DocumentVersionNumber,
+    Guid PassageId,
+    int Ordinal);
 
 /// <param name="BeforeValue">Computed by the server from the pinned version, never supplied by the model.</param>
 public sealed record AiProposedChangeServiceModel(

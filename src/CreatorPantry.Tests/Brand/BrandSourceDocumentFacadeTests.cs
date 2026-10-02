@@ -366,6 +366,14 @@ public sealed class BrandSourceDocumentFacadeTests
             BrandSourceDocumentListCriteria criteria, CancellationToken cancellationToken) =>
             throw new NotSupportedException("An upload has no business listing the library.");
 
+        public Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(
+            IReadOnlyCollection<BrandSourcePurpose> purposes,
+            string? channelKey,
+            string? audience,
+            int limit,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException("An upload has no business selecting grounding material.");
+
         // These tests are about what the upload facade does around an upload. The two reads pass straight
         // through the facade, so there is nothing for a stub of them to observe.
         public Task<OperationResult<BrandSourceDocumentDetailServiceModel>> GetAsync(

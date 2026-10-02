@@ -159,10 +159,16 @@ public enum AiTaskType
     /// <para>
     /// <strong>A proposal, never an active guide.</strong> <see cref="AiChangeTargetKind.BrandGuideSection"/> is
     /// absent from <see cref="AiChangeApplicability"/> and answers <c>null</c> in
-    /// <see cref="AiChangeTargetPolicy"/>, so no stored row can become a guide edit; a guide version is
-    /// immutable and nothing in the brand module reads an <c>AiStructuredChange</c>; and becoming the
-    /// workspace's default additionally needs an approval and an Owner. The creator reads the proposal, writes
-    /// their own version from what they agree with, and approves and activates that.
+    /// <see cref="AiChangeTargetPolicy"/>, so no stored row can reach a recipe; a guide version is immutable, so
+    /// nothing here edits one; and nothing in the brand module reads an <c>AiStructuredChange</c>.
+    /// </para>
+    /// <para>
+    /// <strong>What a creator may do with it is accept it (11A.18), and that writes a draft.</strong> They name
+    /// the items they agree with, rewriting any whose wording they would rather own, and the acceptance seam
+    /// writes one new version through the brand module's facade — subject to every rule a version they typed
+    /// would obey, refused outright if the guide has been edited since the proposal was composed, and citing
+    /// each source at the version the proposal actually read. The version is a draft: becoming the workspace's
+    /// default still needs an approval and an Owner, which are separate decisions on separate routes.
     /// </para>
     /// <para>
     /// <strong>Every claim is cited or it is not stored.</strong> Grounding is the passages of the selected

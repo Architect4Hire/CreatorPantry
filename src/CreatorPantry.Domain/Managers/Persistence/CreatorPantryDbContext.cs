@@ -266,6 +266,20 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <remarks>Write-once and append-only: a creator who changes their mind leaves another row.</remarks>
     public DbSet<AiProposalFeedback> AiProposalFeedback => Set<AiProposalFeedback>();
 
+    /// <inheritdoc cref="AiStructuredChanges"/>
+    /// <remarks>
+    /// Write-once. Which brand guide version, profile revision and cited passages one proposal was grounded on.
+    /// At most one row per proposal, and none at all when the generation asked for no brand context.
+    /// </remarks>
+    public DbSet<AiProposalBrandContext> AiProposalBrandContexts => Set<AiProposalBrandContext>();
+
+    /// <inheritdoc cref="AiProposalBrandContexts"/>
+    /// <remarks>
+    /// Write-once. One row per cited passage, holding identifiers and no text: the parent's checksum is what
+    /// pins the words.
+    /// </remarks>
+    public DbSet<AiProposalBrandSource> AiProposalBrandSources => Set<AiProposalBrandSource>();
+
     /// <remarks>
     /// One write-once row per provider attempt, hanging off the operation rather than the proposal because a
     /// failed attempt produces no proposal. Holds no prompt body, response, or provider payload.

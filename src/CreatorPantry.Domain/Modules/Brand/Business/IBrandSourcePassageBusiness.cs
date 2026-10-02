@@ -8,6 +8,10 @@ public interface IBrandSourcePassageBusiness
     /// <inheritdoc cref="Facade.IBrandSourcePassageFacade.ListPassagesAsync"/>
     Task<BrandSourcePassageSetServiceModel> ListPassagesAsync(
         IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="Facade.IBrandSourcePassageFacade.ResolveOriginsAsync"/>
+    Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(
+        IReadOnlyList<Guid> passageIds, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IBrandSourcePassageBusiness"/>
@@ -45,6 +49,25 @@ internal sealed class BrandSourcePassageBusiness(IBrandSourcePassageDataLayer da
         var unavailable = asked.Where(selector => !supplied.Contains(selector)).ToList();
 
         return new BrandSourcePassageSetServiceModel(passages, unavailable);
+    }
+
+    public async Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(
+        IReadOnlyList<Guid> passageIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(passageIds);
+
+        // Deduplicated and capped the way the passage read is, and against the same ceiling: a citation list can
+        // be no longer than the passages one proposal was allowed to be grounded in, so a caller asking about
+        // more than that is asking about passages no request of ours could have offered.
+        var wanted = passageIds
+            .Where(passageId => passageId != Guid.Empty)
+            .Distinct()
+            .Take(BrandPolicy.MaxGroundingPassages)
+            .ToList();
+
+        return wanted.Count == 0
+            ? []
+            : await dataLayer.ResolveOriginsAsync(wanted, cancellationToken);
     }
 
     /// <summary>

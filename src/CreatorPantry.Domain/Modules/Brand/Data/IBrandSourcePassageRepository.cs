@@ -22,6 +22,14 @@ internal sealed record BrandSourcePassageRecord(
     int Ordinal,
     string Text);
 
+/// <summary>Where one passage came from, with no text. <inheritdoc cref="BrandSourcePassageRecord" path="/param[@name='WorkspaceId']"/></summary>
+/// <remarks><inheritdoc cref="BrandSourcePassageRecord" path="/remarks"/></remarks>
+internal sealed record BrandSourcePassageOriginRecord(
+    Guid WorkspaceId,
+    Guid PassageId,
+    Guid DocumentId,
+    int VersionNumber);
+
 internal interface IBrandSourcePassageRepository
 {
     /// <summary>
@@ -51,6 +59,24 @@ internal interface IBrandSourcePassageRepository
         IReadOnlyCollection<BrandSourcePassageSelector> selectors,
         int perVersion,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which document version each of the named passages belongs to. Projected in SQL; no text and no vector.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Any chunk set, not only a <see cref="BrandSourceChunkSetStatus.Current"/> one. A citation stored against a
+    /// proposal has to stay resolvable after the document is replaced and its set superseded — that is the whole
+    /// point of pinning the version it was read from — so restricting this to current sets would make exactly the
+    /// case the pinning exists for unanswerable.
+    /// </para>
+    /// <para>
+    /// A passage id this workspace does not own matches nothing: the query filter scopes the chunks, their sets
+    /// and the document versions alike, so there is no workspace to pass and nothing to pass wrong.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<BrandSourcePassageOriginRecord>> ResolveOriginsAsync(
+        IReadOnlyCollection<Guid> passageIds, CancellationToken cancellationToken);
 }
 
 internal sealed class BrandSourcePassageRepository(CreatorPantryDbContext context) : IBrandSourcePassageRepository
@@ -108,5 +134,29 @@ internal sealed class BrandSourcePassageRepository(CreatorPantryDbContext contex
                 .GroupBy(row => (row.DocumentId, row.VersionNumber))
                 .SelectMany(group => group.Take(perVersion)),
         ];
+    }
+
+    public async Task<IReadOnlyList<BrandSourcePassageOriginRecord>> ResolveOriginsAsync(
+        IReadOnlyCollection<Guid> passageIds, CancellationToken cancellationToken)
+    {
+        if (passageIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await (from chunk in context.BrandSourceChunks.AsNoTracking()
+                      join set in context.BrandSourceChunkSets.AsNoTracking()
+                          on chunk.BrandSourceChunkSetId equals set.Id
+                      join version in context.BrandSourceDocumentVersions.AsNoTracking()
+                          on set.BrandSourceDocumentVersionId equals version.Id
+                      where passageIds.Contains(chunk.Id)
+
+                          // The same guard ListCurrentPassagesAsync carries, and for the same reason: nothing in
+                          // the schema forces the set's document reference and the version's to agree, and a
+                          // mismatch here would attribute a citation to a document the creator never selected.
+                          && version.BrandSourceDocumentId == set.BrandSourceDocumentId
+                      select new BrandSourcePassageOriginRecord(
+                          chunk.WorkspaceId, chunk.Id, set.BrandSourceDocumentId, version.VersionNumber))
+            .ToListAsync(cancellationToken);
     }
 }

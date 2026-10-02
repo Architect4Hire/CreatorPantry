@@ -125,6 +125,14 @@ public interface IBrandSourceDocumentBusiness
     Task<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>> ListAsync(
         BrandSourceDocumentListCriteria criteria, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="Facade.IBrandSourceDocumentFacade.ListGroundingCandidatesAsync"/>
+    Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(
+        IReadOnlyCollection<BrandSourcePurpose> purposes,
+        string? channelKey,
+        string? audience,
+        int limit,
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// One source document as a client reads it on its own.
     /// </summary>
@@ -600,6 +608,91 @@ internal sealed class BrandSourceDocumentBusiness(
                 BrandConcurrencyToken.From(row.RowVersion))));
     }
 
+
+    public async Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(
+        IReadOnlyCollection<BrandSourcePurpose> purposes,
+        string? channelKey,
+        string? audience,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(purposes);
+
+        if (purposes.Count == 0 || limit <= 0)
+        {
+            return [];
+        }
+
+        // Active documents only, and deliberately not filtered by channel: a document carrying no channel is
+        // the brand's general writing and applies to every channel, so filtering on one would throw away the
+        // documents most likely to be relevant. The channel is a ranking signal below instead.
+        var criteria = new BrandSourceDocumentListCriteria(
+            new BrandSourceDocumentListFilters(
+                BrandSourceDocumentStatus.Active, DocumentType: null, ChannelKey: null, TagNames: [], Search: null),
+
+            // A scope this read never issues a cursor for. It is required by the criteria and unused here,
+            // because one page is all a grounding selection considers.
+            Scope: GroundingScope,
+            Position: null,
+            RequestedLimit: CandidatePageSize);
+
+        var page = await dataLayer.ListAsync(criteria, cancellationToken);
+
+        return
+        [
+            .. page.Rows
+                .Where(document => purposes.Contains(document.Purpose))
+                .OrderByDescending(document => Specificity(document, channelKey, audience))
+                .ThenByDescending(document => document.UpdatedAt)
+
+                // A total order, so two documents updated in the same instant rank the same way twice and the
+                // selection is reproducible.
+                .ThenBy(document => document.Id)
+                .Take(limit)
+                .Select(document => new BrandSourcePassageSelector(document.Id, document.VersionNumber)),
+        ];
+    }
+
+    /// <summary>
+    /// How well one document matches what is being written, as a rank rather than a filter.
+    /// </summary>
+    /// <remarks>
+    /// Ranked so that a library whose documents carry no channel or audience tags still supplies evidence. A
+    /// document tagged for this channel beats one tagged for none, which beats one tagged for another — and
+    /// nothing is excluded, because a creator who wanted an exact document names it instead.
+    /// </remarks>
+    private static int Specificity(
+        BrandSourceDocumentSummaryRecord document, string? channelKey, string? audience)
+    {
+        var score = 0;
+
+        if (channelKey is not null)
+        {
+            score += string.Equals(document.ChannelKey, channelKey, StringComparison.Ordinal) ? 4
+                : document.ChannelKey is null ? 2
+                : 0;
+        }
+
+        if (audience is not null)
+        {
+            score += string.Equals(document.Audience, audience, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        }
+
+        return score;
+    }
+
+    /// <summary>
+    /// How many of the library's recent documents a grounding selection considers.
+    /// </summary>
+    /// <remarks>
+    /// One page, so the read stays bounded however large the library is: a workspace with hundreds of documents
+    /// draws from its most recently updated ones, and a creator who wants a particular older document names it.
+    /// Deliberately not "every document scored".
+    /// </remarks>
+    private const int CandidatePageSize = ReferencePolicy.DefaultPageSize;
+
+    /// <summary>A scope string for a read that issues no cursor. Distinct, so it can never resolve one.</summary>
+    private const string GroundingScope = "brand-source-documents:grounding";
 
     public async Task<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>> ListAsync(
         BrandSourceDocumentListCriteria criteria, CancellationToken cancellationToken)

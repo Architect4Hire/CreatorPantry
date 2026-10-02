@@ -66,6 +66,63 @@ public interface IBrandStyleGuideFacade
         ActivateBrandStyleGuideVersionViewModel model,
         string? idempotencyKey,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes one further draft version of a guide from guidance a creator accepted out of an AI proposal
+    /// (11A.18). Editor only.
+    /// </summary>
+    /// <param name="guideId">The guide, resolved by the caller from the proposal's own stored inputs. Never from a request body.</param>
+    /// <param name="application">
+    /// The accepted guidance in this module's vocabulary, with the working version it was composed against.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not exposed over HTTP, and no view model.</strong> Its caller is the AI module's acceptance seam,
+    /// which composes <see cref="BrandStyleGuideProposalApplication"/> from rows this server wrote and the
+    /// creator's own rewrites. There is nothing here a client names: not the workspace, not the version number,
+    /// not the citations.
+    /// </para>
+    /// <para>
+    /// <strong>No idempotency wrapper, deliberately — and not an omission.</strong> This runs inside the
+    /// transaction the caller has already opened, and <c>IIdempotentCommandExecutor</c> opens one of its own,
+    /// which would throw on the nesting, and clears the change tracker, which would discard what the caller has
+    /// staged. Replay is the caller's to recognise, from the AI operation's own terminal status, which is a
+    /// stronger guarantee than a key: it survives the idempotency record expiring. This is the same split
+    /// <c>IRecipeFacade.CreateFromProposalAsync</c> records against <c>CreateAsync</c>.
+    /// </para>
+    /// <para>
+    /// <strong>Editor, the role that creates and edits a guide</strong> — above the Contributor who may ask for
+    /// a proposal, because asking produces something to read and this produces a version of the creator's own
+    /// brand voice. Checked here as well as by the caller: this boundary is reached by a worker and by an AI
+    /// plugin, which no MVC policy protects.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<BrandStyleGuideVersionCreatedServiceModel>> CreateVersionFromProposalAsync(
+        string userId,
+        Guid guideId,
+        BrandStyleGuideProposalApplication application,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The guide version this workspace has made its default, in full, or <c>null</c> when it has none. Any
+    /// member of the workspace may read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Takes no guide id, which is the whole point: a caller assembling brand context knows the workspace and
+    /// not which of its guides holds the default. <see cref="GetAsync"/> answers the other question.
+    /// </para>
+    /// <para>
+    /// <strong>Null is a success, and there is no fallback.</strong> A workspace that has activated nothing has
+    /// no active guide; answering with the newest approved version instead would ground a generation on
+    /// something the creator never chose, which is the hidden fallback 11A.19 forbids.
+    /// </para>
+    /// <para>
+    /// Not cached, for the reason this facade's other reads give. No role gate beyond the caller having a
+    /// resolved workspace: it is a read of the workspace's own guide.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<BrandActiveStyleGuideServiceModel?>> GetActiveAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class BrandStyleGuideFacade(
@@ -83,6 +140,10 @@ internal sealed class BrandStyleGuideFacade(
     public Task<OperationResult<BrandStyleGuideDetailServiceModel>> GetAsync(
         Guid guideId, CancellationToken cancellationToken) =>
         business.GetAsync(guideId, cancellationToken);
+
+    public Task<OperationResult<BrandActiveStyleGuideServiceModel?>> GetActiveAsync(
+        CancellationToken cancellationToken) =>
+        business.GetActiveAsync(cancellationToken);
 
     public Task<OperationResult<CursorPageServiceModel<BrandStyleGuideVersionSummaryServiceModel>>> ListVersionsAsync(
         Guid guideId, BrandStyleGuideVersionListViewModel model, CancellationToken cancellationToken)
@@ -191,6 +252,27 @@ internal sealed class BrandStyleGuideFacade(
             token => business.ActivateVersionAsync(
                 userId, guideId, versionNumber, model.ExpectedActiveVersionId, model.Reason, token),
             cancellationToken);
+    }
+
+    public async Task<OperationResult<BrandStyleGuideVersionCreatedServiceModel>> CreateVersionFromProposalAsync(
+        string userId,
+        Guid guideId,
+        BrandStyleGuideProposalApplication application,
+        CancellationToken cancellationToken)
+    {
+        // Editor, as for creating a guide: this writes a version of it. Authorization first, so a caller who may
+        // not do this learns that rather than which of their citations failed to resolve.
+        if (workspace.Role < WorkspaceRole.Editor)
+        {
+            return OperationResult<BrandStyleGuideVersionCreatedServiceModel>.Failure(new OperationError(
+                BrandErrorCodes.GuideForbidden,
+                "You do not have permission to write brand style guide versions in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // No validator: the application is composed server-side from stored rows, so there is no request shape
+        // to check. Its bounds are this module's invariants, and Business owns those.
+        return await business.CreateVersionFromProposalAsync(userId, guideId, application, cancellationToken);
     }
 
     /// <summary>

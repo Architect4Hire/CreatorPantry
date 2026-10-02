@@ -67,6 +67,31 @@ public sealed record BrandStyleGuideDetailServiceModel(
     BrandStyleGuideVersionDetailServiceModel WorkingVersion,
     BrandStyleGuideVersionDetailServiceModel? ActiveVersion);
 
+/// <summary>
+/// The guide version this workspace has made its default, whichever guide holds it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// What a caller gets when it asks what the workspace writes in without already knowing which guide answers
+/// that. <see cref="BrandStyleGuideDetailServiceModel"/> cannot: it is keyed on a guide and reports an active
+/// version only when the default happens to belong to the guide that was asked about.
+/// </para>
+/// <para>
+/// There is no working version here. A generation is grounded on what the creator activated, never on the
+/// version somebody is still editing — and offering both would invite picking the wrong one.
+/// </para>
+/// </remarks>
+/// <param name="Status">
+/// The guide's own state. An archived guide can still hold the default — archiving is a shelf and does not
+/// deactivate — so a caller that cares has to be able to see it.
+/// </param>
+public sealed record BrandActiveStyleGuideServiceModel(
+    Guid GuideId,
+    string DisplayName,
+    string? Purpose,
+    BrandStyleGuideStatus Status,
+    BrandStyleGuideVersionDetailServiceModel Version);
+
 /// <summary>The creator's input after blanks were dropped: what will actually be written.</summary>
 public sealed record BrandStyleGuideDraft(
     string DisplayName,
