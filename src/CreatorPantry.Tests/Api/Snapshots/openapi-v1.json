@@ -3546,6 +3546,101 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-visual-guide": {
+      "get": {
+        "tags": [
+          "BrandVisualGuide"
+        ],
+        "summary": "Reads which visual style an image setup screen would use, and which references it could name \u2014 before\nanything is generated.",
+        "description": "Any member may read. Answers for the workspace\u0027s **active** guide only. \u0060activeGuide\u0060 is null when none has\nbeen activated, which is an answer rather than an error; \u0060hasVisualGuidance\u0060 is false when the active guide\ndescribes no look for this task.\n\n\u0060styleLines\u0060 is the look in the creator\u0027s own words, one shortened line each; \u0060negativeGuidance\u0060 is what the\nguide says to keep out of the picture. The guide\u0027s Do/Don\u0027t rules are never included \u2014 an image task does not\nreceive them. \u0060isStale\u0060 and \u0060staleSourceCount\u0060 are reported, never acted on.\n\n\u0060references\u0060 lists the workspace\u0027s active visual-reference documents (those typed as visual references or\ngiven the visual-direction purpose), each with \u0060usable\u0060 \u2014 whether text from it would reach a generation \u2014\nand a plain \u0060unusableReason\u0060 when not. It is empty when no guide is active, because without one the server\nnames no documents. A title, an id and a boolean: no file name, storage location, image byte or extracted\ntext is ever returned. \u0060referencesTruncated\u0060 is true when the library held more than are listed, and \u0060referencesAvailable\u0060 is false when\nthe library could not be read \u2014 an empty list is then \u0022could not load\u0022, not \u0022you have none\u0022.\n\nA task that is not grounded in the brand\u0027s look is refused with \u0060400 ai.brandVisualGuide.invalid_request\u0060.\nNo model is called and nothing is embedded. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "task",
+            "in": "query",
+            "description": "photography-concept or image-prompt.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandVisualGuide"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandVisualGuide"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandVisualGuide"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-writing-guide": {
       "get": {
         "tags": [
@@ -11415,7 +11510,9 @@
           "ProposalExplanation",
           "EditorialPackage",
           "SeoPackage",
-          "BrandGuideProposal"
+          "BrandGuideProposal",
+          "PhotographyConcept",
+          "ImagePrompt"
         ],
         "type": "string"
       },
@@ -13079,6 +13176,84 @@
             }
           },
           "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandVisualGuide": {
+        "required": [
+          "activeGuide",
+          "hasVisualGuidance",
+          "styleLines",
+          "negativeGuidance",
+          "references",
+          "referencesTruncated",
+          "referencesAvailable"
+        ],
+        "type": "object",
+        "properties": {
+          "activeGuide": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandWritingGuideActive"
+              }
+            ]
+          },
+          "hasVisualGuidance": {
+            "type": "boolean"
+          },
+          "styleLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandWritingGuideRule"
+            }
+          },
+          "negativeGuidance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandVisualReference"
+            }
+          },
+          "referencesTruncated": {
+            "type": "boolean"
+          },
+          "referencesAvailable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BrandVisualReference": {
+        "required": [
+          "documentId",
+          "title",
+          "usable",
+          "unusableReason"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "usable": {
+            "type": "boolean"
+          },
+          "unusableReason": {
             "type": [
               "null",
               "string"
@@ -18822,6 +18997,9 @@
     },
     {
       "name": "BrandStyleGuides"
+    },
+    {
+      "name": "BrandVisualGuide"
     },
     {
       "name": "BrandWritingGuide"

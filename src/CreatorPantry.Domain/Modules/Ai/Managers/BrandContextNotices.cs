@@ -53,6 +53,8 @@ public static class BrandContextNotices
 
     public const string GuideSectionOverBudget = "brand_context.guide_section_over_budget";
 
+    public const string NoVisualReferenceText = "brand_context.no_visual_reference_text";
+
     /// <summary>
     /// The conflicts this translator deliberately does not surface, and which are recorded instead.
     /// </summary>
@@ -91,7 +93,7 @@ public static class BrandContextNotices
 
         foreach (var omission in package.Omissions)
         {
-            var (kind, code, message) = Describe(omission);
+            var (kind, code, message) = Describe(omission, package.TaskType);
 
             warnings.Add(Warning(kind, code, message));
         }
@@ -159,9 +161,31 @@ public static class BrandContextNotices
             "A brand-context conflict has no notice and is not listed as deliberately silent."),
     };
 
-    private static (AiWarningKind Kind, string Code, string Message) Describe(BrandContextOmission omission) =>
+    private static (AiWarningKind Kind, string Code, string Message) Describe(
+        BrandContextOmission omission, AiTaskType taskType) =>
         omission switch
         {
+            // The image tasks read the guide's visual sections, so the writing-voice wording would mislead.
+            BrandContextOmission.NoActiveGuide when BrandContextSelection.IsVisual(taskType) => (
+                AiWarningKind.Limitation,
+                NoActiveGuide,
+                "Your workspace has no active brand style guide, so this was composed without your visual direction."),
+
+            BrandContextOmission.GuideSectionMissing when BrandContextSelection.IsVisual(taskType) => (
+                AiWarningKind.Limitation,
+                GuideSectionMissing,
+                "Your brand style guide does not cover every part of its visual direction that this task would have used."),
+
+            BrandContextOmission.NoSourceExcerpts when BrandContextSelection.IsVisual(taskType) => (
+                AiWarningKind.Limitation,
+                NoSourceExcerpts,
+                "No visual references from your source library were used, so the look rests on your guide alone."),
+
+            BrandContextOmission.NoVisualReferenceText => (
+                AiWarningKind.Limitation,
+                NoVisualReferenceText,
+                "A visual reference you named has no text we could use, so it was not used. Its image was not sent."),
+
             BrandContextOmission.NoActiveGuide => (
                 AiWarningKind.Limitation,
                 NoActiveGuide,

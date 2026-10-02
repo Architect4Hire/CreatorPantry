@@ -99,7 +99,11 @@ export type AiTaskType =
   /** RCPUB-002's SEO package for one approved recipe version. Reads a recipe; changes nothing in it. */
   | 'SeoPackage'
   /** 11A.17's brand guide proposal. Reads a style guide and source documents; changes neither. */
-  | 'BrandGuideProposal';
+  | 'BrandGuideProposal'
+  /** IMG-001's photography concept. Reserved: its handler lands in Phase 12. */
+  | 'PhotographyConcept'
+  /** IMG-002's editable image prompt. Reserved: its handler lands in Phase 12. */
+  | 'ImagePrompt';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -115,6 +119,8 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'EditorialPackage',
   'SeoPackage',
   'BrandGuideProposal',
+  'PhotographyConcept',
+  'ImagePrompt',
 ]);
 
 /**
@@ -163,6 +169,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And brand guide proposals through brand-guide-proposal-requests, which is not nested under a recipe at all:
   // this task names a style guide, so there is no recipe segment for this generic route to supply.
   BrandGuideProposal: null,
+  // Image tasks are not asked for through this generic route; each gets its own when its handler lands (Phase 12).
+  PhotographyConcept: null,
+  ImagePrompt: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */

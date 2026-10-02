@@ -38,6 +38,16 @@ public interface IBrandSourcePassageFacade
         IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Which of these documents' current versions have indexed text a generation could read — their ids only.
+    /// </summary>
+    /// <remarks>
+    /// For deciding whether a document would be used, never for using it: no passage text leaves, and the list is
+    /// read in as many batches as it needs rather than cut at the grounding limit.
+    /// </remarks>
+    Task<IReadOnlyList<Guid>> ListDocumentsWithTextAsync(
+        IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Which source document version each of the named passages came from. No passage text is read.
     /// </summary>
     /// <param name="passageIds">
@@ -67,6 +77,10 @@ internal sealed class BrandSourcePassageFacade(IBrandSourcePassageBusiness busin
     public Task<BrandSourcePassageSetServiceModel> ListPassagesAsync(
         IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken) =>
         business.ListPassagesAsync(selectors, cancellationToken);
+
+    public Task<IReadOnlyList<Guid>> ListDocumentsWithTextAsync(
+        IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken) =>
+        business.ListDocumentsWithTextAsync(selectors, cancellationToken);
 
     public Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(
         IReadOnlyList<Guid> passageIds, CancellationToken cancellationToken) =>

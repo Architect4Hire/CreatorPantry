@@ -107,6 +107,7 @@ builder.Services.AddAiAdaptationRequestSeam();
 builder.Services.AddAiReviewRequestSeam();
 builder.Services.AddAiEditorialPackageRequestSeam();
 builder.Services.AddBrandWritingGuideSeam();
+builder.Services.AddBrandVisualGuideSeam();
 builder.Services.AddAiSeoPackageRequestSeam();
 
 // AIREC-008's. No recipe-module prerequisite -- it explains an existing proposal, not a recipe.

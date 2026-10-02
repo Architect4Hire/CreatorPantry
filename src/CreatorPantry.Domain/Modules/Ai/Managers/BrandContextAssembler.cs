@@ -110,7 +110,9 @@ internal sealed class BrandContextAssembler(
         }
 
         var guidance = SelectGuidance(request.TaskType, channelKey, guide.Version, conflicts, omissions);
-        var rules = guide.Version is { } version
+        // Guide rules are guide-wide Do/Don't lines written for the brand's voice, with no section to say otherwise,
+        // so an image task does not receive them: its negative guidance is the NegativeVisualGuidance section.
+        var rules = guide.Version is { } version && !BrandContextSelection.IsVisual(request.TaskType)
             ? version.Rules.Select(rule => new BrandContextRule(rule.Kind, rule.Text)).ToList()
             : [];
 
@@ -461,7 +463,7 @@ internal sealed class BrandContextAssembler(
 
         var selectors = named.Count > 0
             ? await PinNamedAsync(named, channelKey, audience, conflicts, omissions, cancellationToken)
-            : await PinRelevantAsync(channelKey, audience, cancellationToken);
+            : await PinRelevantAsync(taskType, channelKey, audience, cancellationToken);
 
         if (selectors.Count == 0)
         {
@@ -472,7 +474,19 @@ internal sealed class BrandContextAssembler(
 
         var supplied = await passages.ListPassagesAsync(selectors, cancellationToken);
 
-        if (supplied.Unavailable.Count > 0)
+        // A visual reference the creator named is used through its indexed text only. One that is readable but has
+        // none — an image the extractor cannot read — is reported as such, and instead of the generic
+        // "unavailable" notice, so the creator hears one thing. Its bytes are never sent in place of the text.
+        var unsupplied = BrandContextSelection.IsVisual(taskType) && named.Count > 0
+            ? selectors.Where(selector => supplied.Passages.All(passage => passage.DocumentId != selector.DocumentId)).ToList()
+            : [];
+
+        if (unsupplied.Count > 0)
+        {
+            omissions.Add(BrandContextOmission.NoVisualReferenceText);
+        }
+
+        if (supplied.Unavailable.Any(gone => unsupplied.All(item => item.DocumentId != gone.DocumentId)))
         {
             omissions.Add(BrandContextOmission.SourceDocumentUnavailable);
         }
@@ -554,28 +568,13 @@ internal sealed class BrandContextAssembler(
     /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<BrandSourcePassageSelector>> PinRelevantAsync(
-        string? channelKey, string? audience, CancellationToken cancellationToken) =>
+        AiTaskType taskType, string? channelKey, string? audience, CancellationToken cancellationToken) =>
         await documents.ListGroundingCandidatesAsync(
-            WritingPurposes,
+            BrandContextSelection.PurposesFor(taskType),
             channelKey,
             audience,
             AiPolicy.BrandContextMaxSelectedSourceDocuments,
             cancellationToken);
-
-    /// <summary>
-    /// What a writing task can use a document as evidence of.
-    /// </summary>
-    /// <remarks>
-    /// <c>VisualDirection</c> is absent: an image reference is not evidence of how the brand writes, and the
-    /// visual tasks that want it arrive with 11A.21 — which will pass its own purposes rather than widening
-    /// this list, since the two sets are different questions.
-    /// </remarks>
-    private static readonly BrandSourcePurpose[] WritingPurposes =
-    [
-        BrandSourcePurpose.Voice,
-        BrandSourcePurpose.WritingStyle,
-        BrandSourcePurpose.Background,
-    ];
 
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

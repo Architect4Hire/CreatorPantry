@@ -98,9 +98,27 @@ public static class BrandContextSelection
         // prose. The recipe's facts come from the brief, not from here.
         AiTaskType.RecipeFirstDraft => Voice,
 
+        // Image tasks: the brand's look, never its voice, so a style rule cannot reach recipe facts (11A.21).
+        AiTaskType.PhotographyConcept or AiTaskType.ImagePrompt => VisualOnly,
+
         // Everything else: no brand context. Named above rather than left to a reader to work out.
         _ => [],
     };
+
+    /// <summary>Whether a task is an image task, grounded in the brand's look rather than its voice.</summary>
+    public static bool IsVisual(AiTaskType taskType) =>
+        taskType is AiTaskType.PhotographyConcept or AiTaskType.ImagePrompt;
+
+    /// <summary>
+    /// Which source-document purposes ground a task: visual direction for image tasks, writing purposes otherwise.
+    /// </summary>
+    public static IReadOnlyList<BrandSourcePurpose> PurposesFor(AiTaskType taskType) =>
+        IsVisual(taskType) ? VisualPurposes : WritingPurposes;
+
+    private static readonly BrandSourcePurpose[] VisualPurposes = [BrandSourcePurpose.VisualDirection];
+
+    private static readonly BrandSourcePurpose[] WritingPurposes =
+        [BrandSourcePurpose.Voice, BrandSourcePurpose.WritingStyle, BrandSourcePurpose.Background];
 
     /// <summary>Whether a task is grounded in brand context at all.</summary>
     public static bool AppliesTo(AiTaskType taskType) => SectionKeysFor(taskType).Count > 0;

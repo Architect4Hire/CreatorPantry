@@ -370,4 +370,31 @@ public sealed class BrandContextSelectionTests
 
     private static BrandContextExcerpt Excerpt(string text, Guid? passageId = null) =>
         new(passageId ?? Guid.Parse("33333333-3333-3333-3333-333333333333"), DocumentId, 1, 1, text);
+
+    [Theory]
+    [InlineData(AiTaskType.PhotographyConcept)]
+    [InlineData(AiTaskType.ImagePrompt)]
+    public void An_image_task_is_grounded_in_the_visual_sections_only(AiTaskType taskType)
+    {
+        var keys = BrandContextSelection.SectionKeysFor(taskType);
+
+        Assert.Equal(
+            [
+                BrandStyleGuideSectionKey.VisualIdentity,
+                BrandStyleGuideSectionKey.PhotographyDirection,
+                BrandStyleGuideSectionKey.ImagePromptGuidance,
+                BrandStyleGuideSectionKey.NegativeVisualGuidance,
+            ],
+            keys);
+        Assert.True(BrandContextSelection.IsVisual(taskType));
+        Assert.Equal([BrandSourcePurpose.VisualDirection], BrandContextSelection.PurposesFor(taskType));
+    }
+
+    [Fact]
+    public void A_writing_task_is_not_visual_and_reads_the_writing_purposes()
+    {
+        Assert.False(BrandContextSelection.IsVisual(AiTaskType.EditorialPackage));
+        Assert.DoesNotContain(
+            BrandSourcePurpose.VisualDirection, BrandContextSelection.PurposesFor(AiTaskType.EditorialPackage));
+    }
 }

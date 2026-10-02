@@ -34,6 +34,8 @@ const TASK_LABELS: Record<AiTaskType, string> = {
   EditorialPackage: 'Editorial packages',
   SeoPackage: 'SEO packages',
   BrandGuideProposal: 'Brand guide proposals',
+  PhotographyConcept: 'Photography concepts',
+  ImagePrompt: 'Image prompts',
 };
 
 /** A workspace the account has left keeps its spend and loses its name (USAGE-008). */

@@ -374,6 +374,10 @@ public sealed class BrandSourceDocumentFacadeTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException("An upload has no business selecting grounding material.");
 
+        public Task<BrandSourceVisualReferenceListServiceModel> ListVisualReferencesAsync(
+            int limit, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("An upload has no business listing visual references.");
+
         // These tests are about what the upload facade does around an upload. The two reads pass straight
         // through the facade, so there is nothing for a stub of them to observe.
         public Task<OperationResult<BrandSourceDocumentDetailServiceModel>> GetAsync(

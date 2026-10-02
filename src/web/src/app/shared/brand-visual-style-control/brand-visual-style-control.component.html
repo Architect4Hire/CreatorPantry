@@ -1,0 +1,214 @@
+<section class="control" [attr.aria-labelledby]="headingId" [attr.aria-busy]="status() === 'loading' ? 'true' : null">
+  <header class="head">
+    <h3 [id]="headingId">Visual style</h3>
+
+    @if (status() === 'ready') {
+      <cp-status-pill [tone]="pill().tone">{{ pill().label }}</cp-status-pill>
+    }
+  </header>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="summary" role="status">Checking your visual style…</p>
+    }
+
+    @case ('error') {
+      <div class="notice" data-kind="error" role="alert">
+        <p>We could not load your visual style. Nothing you have typed has been lost.</p>
+        <button cpButton variant="secondary" size="sm" type="button" (click)="retry.emit()">Try again</button>
+      </div>
+    }
+
+    @default {
+      <p class="summary" role="status">{{ summary() }}</p>
+
+      <!-- Newly inserted alerts, not a role switched on an existing node: see cp-brand-guide-control. -->
+      @if (staleBlocked()) {
+        <div class="notice" data-kind="stale" role="alert">
+          <strong>This guide may be out of date</strong>
+          <p>{{ staleReason() }}</p>
+          <div class="actions">
+            <button cpButton variant="secondary" size="sm" type="button" (click)="reviewGuide.emit()">
+              Review guide
+            </button>
+            <button cpButton variant="ghost" size="sm" type="button" (click)="staleAcknowledgedChange.emit(true)">
+              Continue anyway
+            </button>
+          </div>
+        </div>
+      } @else if (staleAccepted()) {
+        <div class="notice" data-kind="stale-accepted" role="status">
+          <p>You are continuing with an out-of-date guide.</p>
+          <button cpButton variant="text" size="sm" type="button" (click)="staleAcknowledgedChange.emit(false)">
+            Undo
+          </button>
+        </div>
+      }
+
+      @if (use().kind === 'unavailable') {
+        <div class="notice" data-kind="error" role="alert">
+          <strong>Choose a guide to continue</strong>
+          <p>Pick another guide, or make this without a visual style.</p>
+        </div>
+      }
+
+      @if (use().kind === 'no-visual-guide') {
+        <div class="notice" data-kind="info" role="status">
+          <p>Add visual sections to your guide to give pictures a consistent look.</p>
+          <button cpButton variant="secondary" size="sm" type="button" (click)="reviewGuide.emit()">Open guide</button>
+        </div>
+      }
+
+      @if (use().kind === 'none' && activeGuide() === null && choices().length === 0) {
+        <div class="actions">
+          <button cpButton variant="secondary" size="sm" type="button" (click)="setUpGuide.emit()">
+            Set up my brand style guide
+          </button>
+        </div>
+      }
+
+      @if (conflicts().length > 0) {
+        <div class="notice" data-kind="conflict" role="status">
+          <strong>Before you continue</strong>
+          <ul class="conflicts">
+            @for (conflict of conflicts(); track $index) {
+              <li>
+                <span>{{ conflictText(conflict) }}</span>
+                @if (conflict.kind === 'reference-unusable' || conflict.kind === 'reference-missing') {
+                  <button
+                    cpButton
+                    variant="text"
+                    size="sm"
+                    type="button"
+                    (click)="removeReference(conflict.documentId)"
+                  >
+                    Remove
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+      <div class="actions">
+        <button
+          #changeButton
+          cpButton
+          variant="text"
+          size="sm"
+          type="button"
+          [attr.aria-expanded]="changing()"
+          [attr.aria-controls]="selectId + '-wrap'"
+          (click)="toggleChange()"
+        >
+          Change
+        </button>
+      </div>
+
+      @if (changing()) {
+        <div class="picker" [id]="selectId + '-wrap'">
+          <cp-field label="Visual style for this piece" [forId]="selectId" hint="Applies to this piece only.">
+            <select #guideSelect [id]="selectId" [value]="selectValue()" (change)="onSelect($event)">
+              <option value="default">{{ defaultLabel() }}</option>
+              @for (choice of otherChoices(); track choiceKey(choice)) {
+                <option [value]="choiceKey(choice)">
+                  {{ choice.name }}, version {{ choice.versionNumber }}{{ choice.isStale ? ' (may be out of date)' : '' }}
+                </option>
+              }
+              <option value="none">No visual style</option>
+              @if (unavailableKey(); as missing) {
+                <option [value]="missing" disabled>A guide that is no longer available</option>
+              }
+            </select>
+          </cp-field>
+        </div>
+      }
+
+      @if (use().kind === 'guide' && styleLines().length > 0) {
+        <div class="block">
+          <h4>The look</h4>
+          <ul class="lines">
+            @for (line of styleLines(); track line.label) {
+              <li>
+                <strong>{{ line.label }}</strong>
+                <span>{{ line.summary }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+      @if (use().kind === 'guide' && negativeGuidance(); as avoid) {
+        <div class="block">
+          <h4>Kept out of the picture</h4>
+          <p class="muted">{{ avoid }}</p>
+        </div>
+      }
+
+      <fieldset class="references" [attr.aria-describedby]="countId" [disabled]="!referencesUsed()">
+        <legend>Reference examples</legend>
+
+        @switch (referencesStatus()) {
+          @case ('loading') {
+            <p class="muted" role="status">Loading your references…</p>
+          }
+          @case ('error') {
+            <p class="muted" role="status">We could not load your references. You can still continue without them.</p>
+          }
+          @default {
+            @if (references().length === 0) {
+              <p class="muted">You have no visual references yet.</p>
+            } @else {
+              <ul class="reference-list">
+                @for (reference of references(); track reference.documentId) {
+                  <li>
+                    <cp-checkbox
+                      [label]="reference.title + (reference.usable ? '' : ' (no readable text)')"
+                      [checked]="isSelected(reference.documentId)"
+                      [disabled]="isLocked(reference)"
+                      (checkedChange)="toggleReference(reference.documentId, $event)"
+                    />
+                  </li>
+                }
+              </ul>
+            }
+          }
+        }
+
+        <p class="muted" [id]="countId" role="status">
+          @if (!referencesUsed()) {
+            References are not used when you make this without your visual style.
+          } @else {
+            {{ selectedReferenceIds().length }} of {{ maxReferences }} chosen.
+            @if (atLimit()) {
+              That is the most you can use at once.
+            }
+          }
+        </p>
+
+        <div class="actions">
+          <button cpButton variant="text" size="sm" type="button" [disabled]="!referencesUsed()" (click)="addReference.emit()">
+            Add a reference
+          </button>
+        </div>
+      </fieldset>
+
+      @if (guide(); as shown) {
+        <details class="details">
+          <summary>Guide details</summary>
+          <dl>
+            <dt>Guide</dt>
+            <dd>{{ shown.name }}</dd>
+            <dt>Version</dt>
+            <dd>{{ shown.versionNumber }}</dd>
+            @if (shown.appliedSections?.length) {
+              <dt>Used for this piece</dt>
+              <dd>{{ shown.appliedSections!.join(', ') }}</dd>
+            }
+          </dl>
+        </details>
+      }
+    }
+  }
+</section>

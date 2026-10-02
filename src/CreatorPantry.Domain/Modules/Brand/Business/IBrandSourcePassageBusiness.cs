@@ -9,6 +9,9 @@ public interface IBrandSourcePassageBusiness
     Task<BrandSourcePassageSetServiceModel> ListPassagesAsync(
         IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Guid>> ListDocumentsWithTextAsync(
+        IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="Facade.IBrandSourcePassageFacade.ResolveOriginsAsync"/>
     Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(
         IReadOnlyList<Guid> passageIds, CancellationToken cancellationToken);
@@ -49,6 +52,26 @@ internal sealed class BrandSourcePassageBusiness(IBrandSourcePassageDataLayer da
         var unavailable = asked.Where(selector => !supplied.Contains(selector)).ToList();
 
         return new BrandSourcePassageSetServiceModel(passages, unavailable);
+    }
+
+    public async Task<IReadOnlyList<Guid>> ListDocumentsWithTextAsync(
+        IReadOnlyList<BrandSourcePassageSelector> selectors, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(selectors);
+
+        var withText = new HashSet<Guid>();
+
+        // In batches of the number of versions one read may take, so the read's round-robin budget gives every
+        // version with any indexed text at least one passage: "appears in the answer" is then exact, and a long
+        // list is not silently cut at the first batch.
+        foreach (var batch in selectors.Distinct().Chunk(BrandPolicy.MaxGroundingSourceVersions))
+        {
+            var supplied = await ListPassagesAsync(batch, cancellationToken);
+
+            withText.UnionWith(supplied.Passages.Select(passage => passage.DocumentId));
+        }
+
+        return [.. withText];
     }
 
     public async Task<IReadOnlyList<BrandSourcePassageOriginServiceModel>> ResolveOriginsAsync(

@@ -144,6 +144,12 @@ public enum BrandContextOmission
 
     /// <summary>A guide section was dropped to stay inside the token budget.</summary>
     GuideSectionOverBudget = 7,
+
+    /// <summary>
+    /// A visual reference the creator named has no indexed text, so nothing of it was used. Its bytes are
+    /// never sent in its place: a vision read is IMG-004's own explicit, per-request path.
+    /// </summary>
+    NoVisualReferenceText = 8,
 }
 
 /// <summary>One piece of guidance that applied, with where it came from.</summary>

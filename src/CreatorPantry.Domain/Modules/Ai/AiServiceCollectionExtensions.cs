@@ -222,6 +222,19 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the visual-style preview an image setup screen reads before it generates (11A.21b). Needs the brand
+    /// module's guide, source-document and passage facades.
+    /// </summary>
+    public static IServiceCollection AddBrandVisualGuideSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IBrandVisualGuideBusiness, BrandVisualGuideBusiness>();
+        services.AddScoped<IBrandVisualGuideFacade, BrandVisualGuideFacade>();
+        services.AddScoped<IValidator<BrandVisualGuideViewModel>, BrandVisualGuideViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers the brand-guide preview a writing screen reads before it generates (11A.21a): a read of the
     /// active guide and what it would contribute to a task. Needs the brand module and the channel catalogue.
     /// </summary>

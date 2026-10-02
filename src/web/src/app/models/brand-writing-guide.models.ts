@@ -49,7 +49,7 @@ function decodeStrings(value: unknown): string[] | null {
   return items;
 }
 
-function decodeActive(value: unknown): BrandWritingGuideActive | null {
+export function decodeBrandWritingGuideActive(value: unknown): BrandWritingGuideActive | null {
   if (!isRecord(value)) return null;
 
   const { guideId, name, versionNumber, approvedAt, isStale, staleSourceCount } = value;
@@ -85,7 +85,7 @@ export function decodeBrandWritingGuide(value: unknown): BrandWritingGuide | nul
 
   if (raw === null) return { activeGuide: null, rules };
 
-  const activeGuide = decodeActive(raw);
+  const activeGuide = decodeBrandWritingGuideActive(raw);
 
   return activeGuide === null ? null : { activeGuide, rules };
 }

@@ -136,6 +136,18 @@ public interface IBrandSourceDocumentFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// The workspace's active documents that could be named as visual references: those typed as visual references
+    /// or given the visual-direction purpose, most recently updated first, at most <paramref name="limit"/>.
+    /// </summary>
+    /// <remarks>
+    /// The facts a document is selected on are this module's, so the selection lives here rather than in a caller
+    /// that would have to name a view model across the boundary. Only the most recent page of the library is
+    /// considered; <c>Truncated</c> says when that, or the limit, left some out.
+    /// </remarks>
+    Task<BrandSourceVisualReferenceListServiceModel> ListVisualReferencesAsync(
+        int limit, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Shelves a document, brings it back, soft-deletes it, or restores a soft-deleted one.
     /// </summary>
     /// <param name="command">Which command was asked for. Set by the route, never by the caller's body.</param>
@@ -327,6 +339,10 @@ internal sealed class BrandSourceDocumentFacade(
         int limit,
         CancellationToken cancellationToken) =>
         business.ListGroundingCandidatesAsync(purposes, channelKey, audience, limit, cancellationToken);
+
+    public Task<BrandSourceVisualReferenceListServiceModel> ListVisualReferencesAsync(
+        int limit, CancellationToken cancellationToken) =>
+        business.ListVisualReferencesAsync(limit, cancellationToken);
 
     // What makes two uploads the same request: the same description of the same bytes under the same name.
     // The generated identifiers are deliberately absent; they differ on every attempt.

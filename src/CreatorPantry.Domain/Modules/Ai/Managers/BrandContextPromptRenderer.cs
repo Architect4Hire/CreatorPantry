@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Brand.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -89,7 +90,12 @@ public static class BrandContextPromptRenderer
 
         if (package.Guidance.Count > 0)
         {
-            payload["voice"] = package.Guidance
+            var visual = BrandContextSelection.IsVisual(package.TaskType);
+
+            // Negative visual guidance is what imagery avoids, so an image task gets it as its own list rather
+            // than as one more thing to emulate.
+            var described = package.Guidance
+                .Where(item => !visual || item.SectionKey is not BrandStyleGuideSectionKey.NegativeVisualGuidance)
                 .Select(item => new
                 {
                     section = item.SectionKey.ToString(),
@@ -101,6 +107,20 @@ public static class BrandContextPromptRenderer
                     text = item.Body,
                 })
                 .ToArray();
+
+            if (described.Length > 0)
+            {
+                payload[visual ? "visual" : "voice"] = described;
+            }
+
+            if (visual
+                && package.Guidance
+                    .Where(item => item.SectionKey is BrandStyleGuideSectionKey.NegativeVisualGuidance)
+                    .Select(item => item.Body)
+                    .ToArray() is { Length: > 0 } avoid)
+            {
+                payload["avoid"] = avoid;
+            }
         }
 
         if (package.Rules.Count > 0)

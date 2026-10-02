@@ -229,6 +229,39 @@ public sealed class BrandSourcePassageTests : IDisposable
             [new BrandSourcePassageSelector(Guid.NewGuid(), 1)], TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Documents_with_text_are_found_across_batches_and_only_their_ids_are_returned()
+    {
+        // More versions than one grounding read may take, so a single read would silently stop at the first ten.
+        var withText = new List<SeededDocument>();
+
+        for (var i = 0; i < BrandPolicy.MaxGroundingSourceVersions + 5; i++)
+        {
+            withText.Add(await SeedAsync(A, versionNumber: 1, chunks: 2));
+        }
+
+        var without = await SeedAsync(A, versionNumber: 1, chunks: 0);
+        var selectors = withText.Append(without).Select(document => new BrandSourcePassageSelector(document.DocumentId, 1)).ToList();
+
+        var found = await ListDocumentsWithTextAsync(A, selectors);
+
+        Assert.Equal(withText.Select(document => document.DocumentId).Order(), found.Order());
+        Assert.DoesNotContain(without.DocumentId, found);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_documents_are_never_reported_as_having_text()
+    {
+        var mine = await SeedAsync(A, versionNumber: 1, chunks: 1);
+        var theirs = await SeedAsync(B, versionNumber: 1, chunks: 1);
+
+        var found = await ListDocumentsWithTextAsync(
+            A,
+            [new BrandSourcePassageSelector(mine.DocumentId, 1), new BrandSourcePassageSelector(theirs.DocumentId, 1)]);
+
+        Assert.Equal([mine.DocumentId], found);
+    }
+
     // ---- Harness ----
 
     private sealed record SeededDocument(Guid DocumentId, Guid VersionId);
@@ -249,6 +282,20 @@ public sealed class BrandSourcePassageTests : IDisposable
                 scope.ServiceProvider.GetRequiredService<IWorkspaceContext>())));
 
         return await facade.ListPassagesAsync(selectors, TestContext.Current.CancellationToken);
+    }
+
+    private async Task<IReadOnlyList<Guid>> ListDocumentsWithTextAsync(
+        Guid workspaceId, IReadOnlyList<BrandSourcePassageSelector> selectors)
+    {
+        await using var scope = _fixture.ScopeFor(workspaceId);
+        var db = RecipeAggregateFixture.Db(scope);
+
+        IBrandSourcePassageFacade facade = new BrandSourcePassageFacade(
+            new BrandSourcePassageBusiness(new BrandSourcePassageDataLayer(
+                new BrandSourcePassageRepository(db),
+                scope.ServiceProvider.GetRequiredService<IWorkspaceContext>())));
+
+        return await facade.ListDocumentsWithTextAsync(selectors, TestContext.Current.CancellationToken);
     }
 
     /// <summary>Seeds a document, one version, its extraction, and a chunk set with <paramref name="chunks"/> passages.</summary>

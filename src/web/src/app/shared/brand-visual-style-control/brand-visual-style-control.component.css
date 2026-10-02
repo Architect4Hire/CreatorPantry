@@ -1,0 +1,190 @@
+:host {
+  display: block;
+}
+
+.control {
+  display: grid;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2);
+}
+
+h3,
+h4 {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+h4 {
+  font-size: var(--cp-font-size-sm);
+}
+
+.summary,
+.muted,
+.notice p {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.muted {
+  color: var(--cp-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* Tint is the quieter half of what the words and the pill already say (WCAG 1.4.1). */
+.notice {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.notice[data-kind='stale'] {
+  border-color: var(--cp-purple);
+  background: var(--cp-purple-soft);
+}
+
+.notice[data-kind='error'] {
+  border-color: var(--cp-danger);
+  background: var(--cp-danger-soft);
+}
+
+.picker {
+  max-width: var(--cp-measure-field);
+}
+
+.block {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+ul {
+  display: grid;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  display: grid;
+  gap: var(--cp-space-1);
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+li span {
+  color: var(--cp-text-muted);
+}
+
+.details summary {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--cp-space-1) var(--cp-space-3);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+dt {
+  color: var(--cp-text-muted);
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 30rem) {
+  dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+.notice[data-kind='info'],
+.notice[data-kind='conflict'] {
+  border-color: var(--cp-orange);
+  background: var(--cp-orange-soft);
+}
+
+.lines {
+  display: grid;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conflicts {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cp-font-size-sm);
+}
+
+.conflicts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  overflow-wrap: anywhere;
+}
+
+.references {
+  display: grid;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.references legend {
+  padding: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+.reference-list {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+/* A conflict is something to act on, so it keeps full contrast rather than the muted body style li span gets. */
+.conflicts li span {
+  color: var(--cp-text);
+}

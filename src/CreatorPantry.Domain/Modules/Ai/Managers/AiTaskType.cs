@@ -178,4 +178,10 @@ public enum AiTaskType
     /// </para>
     /// </remarks>
     BrandGuideProposal = 11,
+
+    /// <summary>IMG-001: a structured photography concept. Handler lands in Phase 12; brand visual context (11A.21) is ready for it.</summary>
+    PhotographyConcept = 12,
+
+    /// <summary>IMG-002: an editable final image prompt. Handler lands in Phase 12.</summary>
+    ImagePrompt = 13,
 }

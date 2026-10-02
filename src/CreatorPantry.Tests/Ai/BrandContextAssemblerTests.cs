@@ -635,6 +635,230 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
         Assert.Contains(BrandContextOmission.NoBrandProfile, package.Omissions);
     }
 
+
+    // ---- 11A.21: visual context for image tasks --------------------------------------------------------
+
+    [Theory]
+    [InlineData(AiTaskType.PhotographyConcept)]
+    [InlineData(AiTaskType.ImagePrompt)]
+    public async Task An_image_task_gets_the_visual_sections_and_no_voice_sections(AiTaskType taskType)
+    {
+        await SeedAsync(WorkspaceA);
+
+        var package = await AssembleAsync(WorkspaceA, Request(taskType));
+
+        var keys = package.Guidance.Select(item => item.SectionKey).ToList();
+
+        Assert.Contains(BrandStyleGuideSectionKey.VisualIdentity, keys);
+        Assert.Contains(BrandStyleGuideSectionKey.PhotographyDirection, keys);
+        Assert.Contains(BrandStyleGuideSectionKey.ImagePromptGuidance, keys);
+        Assert.Contains(BrandStyleGuideSectionKey.NegativeVisualGuidance, keys);
+        Assert.DoesNotContain(BrandStyleGuideSectionKey.Voice, keys);
+        Assert.DoesNotContain(BrandStyleGuideSectionKey.Tone, keys);
+        Assert.DoesNotContain(BrandStyleGuideSectionKey.Storytelling, keys);
+    }
+
+    /// <summary>Guide rules are written for the voice and carry no section, so an image task is not sent them.</summary>
+    [Fact]
+    public async Task An_image_task_does_not_receive_the_voice_rules()
+    {
+        await SeedAsync(WorkspaceA);
+
+        var package = await AssembleAsync(WorkspaceA, Request(AiTaskType.ImagePrompt));
+
+        Assert.Empty(package.Rules);
+    }
+
+    [Fact]
+    public async Task A_writing_task_is_not_sent_the_visual_sections()
+    {
+        await SeedAsync(WorkspaceA);
+
+        var package = await AssembleAsync(WorkspaceA, Request(AiTaskType.EditorialPackage));
+
+        Assert.DoesNotContain(package.Guidance, item => item.SectionKey is BrandStyleGuideSectionKey.VisualIdentity
+            or BrandStyleGuideSectionKey.PhotographyDirection
+            or BrandStyleGuideSectionKey.ImagePromptGuidance
+            or BrandStyleGuideSectionKey.NegativeVisualGuidance);
+    }
+
+    [Fact]
+    public async Task An_image_task_with_no_active_guide_is_grounded_in_nothing_and_says_so()
+    {
+        await SeedAsync(WorkspaceA, withDocument: false, activate: false);
+
+        var package = await AssembleAsync(WorkspaceA, Request(AiTaskType.PhotographyConcept));
+
+        Assert.Empty(package.Guidance);
+        Assert.Null(package.GuideId);
+        Assert.Contains(BrandContextOmission.NoActiveGuide, package.Omissions);
+    }
+
+    [Fact]
+    public async Task A_guide_with_no_visual_sections_reports_them_missing()
+    {
+        await SeedAsync(WorkspaceA, withVisual: false);
+
+        var package = await AssembleAsync(WorkspaceA, Request(AiTaskType.ImagePrompt));
+
+        Assert.DoesNotContain(package.Guidance, item => item.Origin is BrandContextOrigin.GuideSection);
+        Assert.Contains(BrandContextOmission.GuideSectionMissing, package.Omissions);
+    }
+
+    /// <summary>An image task reads visual-direction documents, not the writing samples a post is grounded on.</summary>
+    [Fact]
+    public async Task An_image_task_selects_visual_direction_documents_only()
+    {
+        var seeded = await SeedAsync(WorkspaceA);
+        var visual = await AddDocumentAsync(
+            WorkspaceA, "Mood board notes", BrandSourcePurpose.VisualDirection,
+            documentType: BrandSourceDocumentType.VisualReference);
+
+        var package = await AssembleAsync(WorkspaceA, Request(AiTaskType.ImagePrompt));
+
+        Assert.NotEmpty(package.Excerpts);
+        Assert.All(package.Excerpts, excerpt => Assert.Equal(visual, excerpt.DocumentId));
+        Assert.DoesNotContain(package.Excerpts, excerpt => excerpt.DocumentId == seeded.DocumentId);
+    }
+
+    [Fact]
+    public async Task A_named_visual_reference_with_indexed_text_is_used_and_cited()
+    {
+        await SeedAsync(WorkspaceA);
+        var reference = await AddDocumentAsync(
+            WorkspaceA, "Linen board", BrandSourcePurpose.VisualDirection,
+            documentType: BrandSourceDocumentType.VisualReference, mediaType: "image/png");
+
+        var package = await AssembleAsync(
+            WorkspaceA, Request(AiTaskType.PhotographyConcept, sourceDocumentIds: [reference]));
+
+        Assert.All(package.Excerpts, excerpt =>
+        {
+            Assert.Equal(reference, excerpt.DocumentId);
+            Assert.Equal(1, excerpt.VersionNumber);
+        });
+        Assert.DoesNotContain(BrandContextOmission.NoVisualReferenceText, package.Omissions);
+    }
+
+    /// <summary>
+    /// An image with no indexed text contributes nothing — and the package has no member that could carry its bytes,
+    /// so there is no path by which it could be sent instead.
+    /// </summary>
+    [Fact]
+    public async Task A_named_image_with_no_indexed_text_is_omitted_and_not_sent_as_bytes()
+    {
+        await SeedAsync(WorkspaceA);
+        var image = await AddDocumentAsync(
+            WorkspaceA, "Unreviewed shot", BrandSourcePurpose.VisualDirection,
+            documentType: BrandSourceDocumentType.VisualReference, mediaType: "image/jpeg", withSummary: false);
+
+        var package = await AssembleAsync(
+            WorkspaceA, Request(AiTaskType.ImagePrompt, sourceDocumentIds: [image]));
+
+        Assert.Empty(package.Excerpts);
+        Assert.Contains(BrandContextOmission.NoVisualReferenceText, package.Omissions);
+        Assert.DoesNotContain(
+            typeof(BrandContextPackage).GetProperties(),
+            property => property.PropertyType == typeof(byte[]) || property.PropertyType == typeof(ReadOnlyMemory<byte>));
+    }
+
+    [Fact]
+    public async Task A_visual_reference_for_another_channel_is_reported_not_dropped()
+    {
+        await SeedAsync(WorkspaceA);
+        var reference = await AddDocumentAsync(
+            WorkspaceA, "Pinterest board", BrandSourcePurpose.VisualDirection, channelKey: "pinterest",
+            documentType: BrandSourceDocumentType.VisualReference);
+
+        var package = await AssembleAsync(
+            WorkspaceA, Request(AiTaskType.ImagePrompt, channelKey: "instagram", sourceDocumentIds: [reference]));
+
+        Assert.Contains(BrandContextConflict.SourceDocumentChannelMismatch, package.Conflicts);
+        Assert.NotEmpty(package.Excerpts);
+    }
+
+    [Fact]
+    public async Task A_non_active_guide_version_is_flagged_for_an_image_task_too()
+    {
+        var seeded = await SeedAsync(WorkspaceA, activate: false);
+
+        var package = await AssembleAsync(
+            WorkspaceA, Request(AiTaskType.ImagePrompt, guide: new BrandGuideSelection(seeded.GuideId, 1)));
+
+        Assert.Contains(BrandContextConflict.GuideVersionNotActive, package.Conflicts);
+        Assert.False(package.GuideIsActiveVersion);
+    }
+
+    [Fact]
+    public async Task The_visual_package_pins_the_guide_version_and_a_stable_checksum()
+    {
+        var seeded = await SeedAsync(WorkspaceA);
+
+        var first = await AssembleAsync(WorkspaceA, Request(AiTaskType.ImagePrompt));
+        var second = await AssembleAsync(WorkspaceA, Request(AiTaskType.ImagePrompt));
+        var concept = await AssembleAsync(WorkspaceA, Request(AiTaskType.PhotographyConcept));
+
+        Assert.Equal(seeded.GuideVersionId, first.GuideVersionId);
+        Assert.Equal(first.Checksum, second.Checksum);
+        Assert.NotEqual(first.Checksum, concept.Checksum);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_visual_guide_and_references_never_reach_an_image_task()
+    {
+        await SeedAsync(WorkspaceA);
+        var theirs = await AddDocumentAsync(
+            WorkspaceA, "A's board", BrandSourcePurpose.VisualDirection,
+            documentType: BrandSourceDocumentType.VisualReference);
+        await SeedAsync(WorkspaceB, brandName: "Other Kitchen", withDocument: false, withVisual: false);
+
+        var package = await AssembleAsync(
+            WorkspaceB, Request(AiTaskType.ImagePrompt, sourceDocumentIds: [theirs]));
+
+        Assert.Empty(package.Excerpts);
+        Assert.DoesNotContain(package.Guidance, item => item.Body.Contains("sage and cream", StringComparison.Ordinal));
+        Assert.Contains(BrandContextOmission.SourceDocumentUnavailable, package.Omissions);
+    }
+
+    /// <summary>
+    /// The unnamed path 11A.21 added: no ids supplied, so the assembler finds candidates itself. Each workspace
+    /// must see only its own visual documents and its own guide's visual text.
+    /// </summary>
+    [Fact]
+    public async Task Unnamed_visual_selection_stays_inside_each_workspace()
+    {
+        await SeedAsync(WorkspaceA, withDocument: false);
+        await SeedAsync(WorkspaceB, brandName: "Other Kitchen", withDocument: false);
+        var aBoard = await AddDocumentAsync(
+            WorkspaceA, "A board", BrandSourcePurpose.VisualDirection,
+            documentType: BrandSourceDocumentType.VisualReference);
+        var bBoard = await AddDocumentAsync(
+            WorkspaceB, "B board", BrandSourcePurpose.VisualDirection,
+            documentType: BrandSourceDocumentType.VisualReference);
+
+        var a = await AssembleAsync(WorkspaceA, Request(AiTaskType.ImagePrompt));
+        var b = await AssembleAsync(WorkspaceB, Request(AiTaskType.ImagePrompt));
+
+        Assert.NotEmpty(a.Excerpts);
+        Assert.NotEmpty(b.Excerpts);
+        Assert.All(a.Excerpts, excerpt => Assert.Equal(aBoard, excerpt.DocumentId));
+        Assert.All(b.Excerpts, excerpt => Assert.Equal(bBoard, excerpt.DocumentId));
+        Assert.NotEqual(a.GuideId, b.GuideId);
+    }
+
+    /// <summary>A reference that cannot be read is unavailable, not "unsummarised" as well.</summary>
+    [Fact]
+    public async Task An_unreadable_named_reference_is_not_also_called_unsummarised()
+    {
+        await SeedAsync(WorkspaceA);
+
+        var package = await AssembleAsync(
+            WorkspaceA, Request(AiTaskType.ImagePrompt, sourceDocumentIds: [Guid.NewGuid()]));
+
+        Assert.Contains(BrandContextOmission.SourceDocumentUnavailable, package.Omissions);
+        Assert.DoesNotContain(BrandContextOmission.NoVisualReferenceText, package.Omissions);
+    }
+
     // ---- helpers ---------------------------------------------------------------------------------------
 
     private static BrandContextRequest Request(
@@ -695,7 +919,8 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
         bool withDocument = true,
         bool withAudienceSection = true,
         bool approve = true,
-        bool activate = true)
+        bool activate = true,
+        bool withVisual = true)
     {
         using var scope = _provider.CreateScope();
         Resolve(scope, workspaceId);
@@ -764,6 +989,14 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
         if (withAudienceSection)
         {
             sections.Add(Section(BrandStyleGuideSectionKey.Audience, "Confident home bakers."));
+        }
+
+        if (withVisual)
+        {
+            sections.Add(Section(BrandStyleGuideSectionKey.VisualIdentity, "Warm linen, soft window light, sage and cream palette."));
+            sections.Add(Section(BrandStyleGuideSectionKey.PhotographyDirection, "Overhead and 45-degree, shallow depth, matte ceramic props."));
+            sections.Add(Section(BrandStyleGuideSectionKey.ImagePromptGuidance, "Describe the scene, then the light, then the props."));
+            sections.Add(Section(BrandStyleGuideSectionKey.NegativeVisualGuidance, "No neon colour, no plastic props, no flash."));
         }
 
         var version = new BrandStyleGuideVersion
@@ -839,7 +1072,10 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
         BrandSourcePurpose purpose,
         string? channelKey = null,
         int passageLength = 60,
-        int passages = 2)
+        int passages = 2,
+        BrandSourceDocumentType documentType = BrandSourceDocumentType.WritingSample,
+        string mediaType = "application/pdf",
+        bool withSummary = true)
     {
         using var scope = _provider.CreateScope();
         Resolve(scope, workspaceId);
@@ -851,7 +1087,7 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
             Id = Guid.NewGuid(),
             WorkspaceId = workspaceId,
             Title = title,
-            DocumentType = BrandSourceDocumentType.WritingSample,
+            DocumentType = documentType,
             Purpose = purpose,
             ChannelKey = channelKey,
             CurrentVersionNumber = 1,
@@ -867,7 +1103,7 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
             WorkspaceId = workspaceId,
             BrandSourceDocumentId = document.Id,
             VersionNumber = 1,
-            MediaType = "application/pdf",
+            MediaType = mediaType,
             SizeBytes = 1024,
             ContentChecksum = Checksum,
             OriginalFileName = "sample.pdf",
@@ -908,6 +1144,15 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
 
         db.BrandSourceDocuments.Add(document);
         db.BrandSourceDocumentVersions.Add(version);
+
+        // An image no one has indexed text for: no extraction, so no chunk set and no passages.
+        if (!withSummary)
+        {
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+            return document.Id;
+        }
+
         db.BrandSourceExtractions.Add(extraction);
         db.BrandSourceChunkSets.Add(set);
 

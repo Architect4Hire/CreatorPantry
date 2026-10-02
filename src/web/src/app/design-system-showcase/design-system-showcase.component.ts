@@ -37,6 +37,8 @@ import {
 
 import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '../models/brand-guide-control.models';
 import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
+import { BrandVisualStyleControlComponent } from '../shared/brand-visual-style-control/brand-visual-style-control.component';
+import { BrandVisualReference, BrandVisualStyleLine } from '../models/brand-visual-style-control.models';
 
 type QuickActionTone = Exclude<CpTone, 'neutral'>;
 
@@ -66,6 +68,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpDiffLegendComponent,
     CpToastRegionComponent,
     BrandGuideControlComponent,
+    BrandVisualStyleControlComponent,
   ],
   templateUrl: './design-system-showcase.component.html',
   styleUrl: './design-system-showcase.component.css',
@@ -228,6 +231,19 @@ export class DesignSystemShowcaseComponent {
   ];
   readonly brandSelection = signal<BrandGuideSelection>({ kind: 'default' });
   readonly brandStaleAck = signal(false);
+
+  readonly visualLines: readonly BrandVisualStyleLine[] = [
+    { label: 'Visual identity', summary: 'Warm, honest, never staged.' },
+    { label: 'Photography direction', summary: 'Soft window light from the left, shallow depth of field.' },
+  ];
+  readonly visualReferences: readonly BrandVisualReference[] = [
+    { documentId: 'ref-spring', title: 'Spring moodboard', usable: true },
+    { documentId: 'ref-table', title: 'Table settings I love', usable: true },
+    { documentId: 'ref-scan', title: 'Scanned inspiration board', usable: false },
+  ];
+  readonly visualSelection = signal<BrandGuideSelection>({ kind: 'default' });
+  readonly visualStaleAck = signal(false);
+  readonly visualReferenceIds = signal<readonly string[]>(['ref-spring']);
   private toastCounter = 0;
 
   pushToast(severity: CpToastSeverity): void {

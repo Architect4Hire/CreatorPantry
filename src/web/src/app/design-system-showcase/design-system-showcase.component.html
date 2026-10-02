@@ -535,6 +535,55 @@
   </div>
 </section>
 
+<section aria-labelledby="brand-visual-heading" class="showcase-brand-guide">
+  <h2 id="brand-visual-heading">Brand visual-style control</h2>
+  <p class="section-note">
+    The photography and image-prompt sibling of the brand guide control: the active visual style and its exact
+    version, the look in the creator's words, what is kept out of the picture, and reference examples chosen from
+    the library. It says before submit what would otherwise be reported afterwards — a reference with no readable
+    text, a guide that is not the active one — and never uploads or activates anything. App-level
+    (<code>app/shared</code>), not part of <code>@creator-pantry/ui</code>.
+  </p>
+
+  <h3>Interactive</h3>
+  <cp-brand-visual-style-control
+    [activeGuide]="brandGuide"
+    [choices]="brandGuideChoices"
+    [selection]="visualSelection()"
+    [staleAcknowledged]="visualStaleAck()"
+    [styleLines]="visualLines"
+    negativeGuidance="No flash, no neon colours, no hands in frame."
+    [references]="visualReferences"
+    [selectedReferenceIds]="visualReferenceIds()"
+    (selectionChange)="visualSelection.set($event)"
+    (staleAcknowledgedChange)="visualStaleAck.set($event)"
+    (selectedReferenceIdsChange)="visualReferenceIds.set($event)"
+  />
+
+  <h3>States</h3>
+  <div class="brand-guide-states">
+    <cp-brand-visual-style-control [activeGuide]="brandGuide" [styleLines]="visualLines" [references]="visualReferences" />
+    <cp-brand-visual-style-control
+      [activeGuide]="brandGuide"
+      [choices]="brandGuideChoices"
+      [selection]="{ kind: 'override', guideId: 'g2', versionNumber: 2 }"
+      [styleLines]="visualLines"
+    />
+    <cp-brand-visual-style-control
+      [activeGuide]="brandGuide"
+      [styleLines]="visualLines"
+      [references]="visualReferences"
+      [selectedReferenceIds]="['ref-scan']"
+    />
+    <cp-brand-visual-style-control [activeGuide]="brandGuide" [hasVisualGuidance]="false" />
+    <cp-brand-visual-style-control [activeGuide]="brandGuide" [selection]="{ kind: 'none' }" [references]="visualReferences" />
+    <cp-brand-visual-style-control [activeGuide]="brandGuideStale" [styleLines]="visualLines" />
+    <cp-brand-visual-style-control [activeGuide]="null" />
+    <cp-brand-visual-style-control status="loading" />
+    <cp-brand-visual-style-control status="error" />
+  </div>
+</section>
+
 <cp-dialog [open]="dialogOpen() === 'long'" title="Long dialog, no description" (closed)="closeDialog()">
   @for (paragraph of [1, 2, 3, 4, 5, 6, 7, 8]; track paragraph) {
     <p>

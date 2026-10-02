@@ -161,6 +161,20 @@ public sealed class BrandContextNoticeTests
         Assert.All(all, warning => Assert.True(warning.Message.Length <= AiPolicy.MessageMaxLength));
     }
 
+    [Fact]
+    public void An_image_task_reads_visual_wording_and_the_new_omission_has_a_notice()
+    {
+        var package = Package(omissions:
+            [BrandContextOmission.NoActiveGuide, BrandContextOmission.NoVisualReferenceText])
+            with { TaskType = AiTaskType.ImagePrompt };
+
+        var warnings = BrandContextNotices.For(package);
+
+        Assert.Contains(warnings, w => w.Message.Contains("visual direction", StringComparison.Ordinal));
+        Assert.Contains(warnings, w => w.Message.Contains(BrandContextNotices.NoVisualReferenceText, StringComparison.Ordinal));
+        Assert.All(warnings, w => Assert.True(w.Message.Length <= AiPolicy.MessageMaxLength));
+    }
+
     private static BrandContextPackage Package(
         IReadOnlyList<BrandContextConflict>? conflicts = null,
         IReadOnlyList<BrandContextOmission>? omissions = null,

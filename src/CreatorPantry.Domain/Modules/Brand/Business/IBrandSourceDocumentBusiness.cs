@@ -133,6 +133,9 @@ public interface IBrandSourceDocumentBusiness
         int limit,
         CancellationToken cancellationToken);
 
+    Task<BrandSourceVisualReferenceListServiceModel> ListVisualReferencesAsync(
+        int limit, CancellationToken cancellationToken);
+
     /// <summary>
     /// One source document as a client reads it on its own.
     /// </summary>
@@ -653,6 +656,39 @@ internal sealed class BrandSourceDocumentBusiness(
         ];
     }
 
+    public async Task<BrandSourceVisualReferenceListServiceModel> ListVisualReferencesAsync(
+        int limit, CancellationToken cancellationToken)
+    {
+        if (limit <= 0)
+        {
+            return new BrandSourceVisualReferenceListServiceModel([], false);
+        }
+
+        var criteria = new BrandSourceDocumentListCriteria(
+            new BrandSourceDocumentListFilters(
+                BrandSourceDocumentStatus.Active, DocumentType: null, ChannelKey: null, TagNames: [], Search: null),
+            Scope: VisualReferenceScope,
+            Position: null,
+            RequestedLimit: CandidatePageSize);
+
+        var page = await dataLayer.ListAsync(criteria, cancellationToken);
+
+        var matches = page.Rows
+            .Where(document => document.Purpose == BrandSourcePurpose.VisualDirection
+                || document.DocumentType == BrandSourceDocumentType.VisualReference)
+            .OrderByDescending(document => document.UpdatedAt)
+            .ThenBy(document => document.Id)
+            .ToList();
+
+        return new BrandSourceVisualReferenceListServiceModel(
+            [.. matches.Take(limit).Select(document => new BrandSourceVisualReferenceServiceModel(
+                document.Id,
+                document.Title,
+                document.VersionNumber,
+                Extraction(document.ExtractionStatus, document.ExtractionOrigin, document.ExtractionAt).State))],
+            page.HasMore || matches.Count > limit);
+    }
+
     /// <summary>
     /// How well one document matches what is being written, as a rank rather than a filter.
     /// </summary>
@@ -693,6 +729,9 @@ internal sealed class BrandSourceDocumentBusiness(
 
     /// <summary>A scope string for a read that issues no cursor. Distinct, so it can never resolve one.</summary>
     private const string GroundingScope = "brand-source-documents:grounding";
+
+    /// <summary>A scope this read never issues a cursor for, required by the criteria and unused.</summary>
+    private const string VisualReferenceScope = "brand-source-documents:visual-references";
 
     public async Task<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>> ListAsync(
         BrandSourceDocumentListCriteria criteria, CancellationToken cancellationToken)
