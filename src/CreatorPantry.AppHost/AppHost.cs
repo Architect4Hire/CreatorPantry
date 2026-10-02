@@ -21,8 +21,10 @@ var internalTokenSigningKey = builder.AddParameter(
     "internal-token-signing-key", new EcdsaP256PrivateKeyDefault(), secret: true, persist: true);
 
 // Keys the HMAC of idempotent request fingerprints, so stored hashes cannot be tested against guessed payloads.
+// The API and Worker require base64 of at least 32 bytes, which a generated password is not (see
+// Base64KeyDefault).
 var idempotencyFingerprintKey = builder.AddParameter(
-    "idempotency-fingerprint-key", new GenerateParameterDefault(), secret: true, persist: true);
+    "idempotency-fingerprint-key", new Base64KeyDefault(), secret: true, persist: true);
 
 // The platform operator's machine credential (baseline B-14): a hashed, rotatable key accepted only on
 // /api/v1/ops/*. Only the migration service sees it, and only to store its hash — the API verifies against
