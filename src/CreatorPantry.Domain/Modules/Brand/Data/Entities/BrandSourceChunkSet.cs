@@ -93,6 +93,17 @@ public class BrandSourceChunkSet : IWorkspaceOwned
     public DateTimeOffset? EmbeddedAt { get; set; }
 
     /// <summary>
+    /// When the set was replaced. Null unless <see cref="Status"/> is
+    /// <see cref="BrandSourceChunkSetStatus.Superseded"/>, and also null on a superseded set written before this
+    /// was recorded — which the sweep treats as due for deletion immediately.
+    /// </summary>
+    /// <remarks>
+    /// What gives the retention window its clock: a reader that selected the old set a moment before the swap
+    /// still has a few minutes of rows to read, and then the sweep deletes them.
+    /// </remarks>
+    public DateTimeOffset? SupersededAt { get; set; }
+
+    /// <summary>
     /// Optimistic concurrency token. Not for collaborative editing — for competing workers, as on
     /// <see cref="BrandSourceExtractionOperation.RowVersion"/>: two runs completing at once must not both
     /// believe they became the current set.

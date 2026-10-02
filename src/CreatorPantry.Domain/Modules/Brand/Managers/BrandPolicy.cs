@@ -243,4 +243,57 @@ public static class BrandPolicy
 
         return TimeSpan.FromSeconds(seconds);
     }
+
+    /// <summary>How many passages one embedding request carries. Bounded so a failure costs one batch, not a run.</summary>
+    /// <remarks>
+    /// Sixteen passages is roughly 6,400 tokens at the chunker's target — far under every embedding model's
+    /// per-request limit, and small enough that a rate-limited or failed call wastes little to repeat.
+    /// </remarks>
+    public const int EmbeddingBatchSize = 16;
+
+    /// <summary>How many times an embedding operation may be claimed before it is abandoned for good.</summary>
+    public const int EmbeddingMaxAttempts = 4;
+
+    /// <summary>How many due embedding operations one claim pass reads at once.</summary>
+    public const int EmbeddingClaimBatchSize = 10;
+
+    /// <summary>
+    /// How long an embedding claim holds before another worker may take the operation. Each written batch
+    /// renews it, so the lease only has to outlast one provider call rather than the whole document.
+    /// </summary>
+    public static readonly TimeSpan EmbeddingLeaseDuration = TimeSpan.FromMinutes(5);
+
+    /// <summary>How often the Worker's embedding loop looks for work.</summary>
+    public static readonly TimeSpan EmbeddingPollingInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>How often lapsed embedding leases are recovered and stale chunk sets are retired.</summary>
+    public static readonly TimeSpan EmbeddingMaintenanceInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// How long a superseded chunk set is kept before it is deleted, so a reader that selected it a moment
+    /// before the swap is not stranded.
+    /// </summary>
+    public static readonly TimeSpan SupersededSetRetention = TimeSpan.FromHours(1);
+
+    /// <summary>How long a set may stay <c>Building</c> before the sweep treats it as abandoned.</summary>
+    public static readonly TimeSpan AbandonedBuildAge = TimeSpan.FromDays(1);
+
+    /// <summary>How many identifiers one maintenance step reads at once.</summary>
+    public const int EmbeddingMaintenanceBatchSize = 50;
+
+    /// <summary>
+    /// Doubling backoff before a requeued embedding is claimable again: 30s, 60s, 120s, capped at ten minutes,
+    /// spread by up to a fifth either way so a provider recovering from a rate limit is not met by every
+    /// requeued operation at the same instant.
+    /// </summary>
+    /// <param name="attempts">How many times the operation has been claimed.</param>
+    /// <param name="jitter">A value in [0, 1). Supplied rather than drawn here so a test can pin it.</param>
+    public static TimeSpan EmbeddingBackoffFor(int attempts, double jitter)
+    {
+        var exponent = Math.Max(0, attempts - 1);
+        var seconds = Math.Min(30 * Math.Pow(2, exponent), TimeSpan.FromMinutes(10).TotalSeconds);
+        var spread = 1 + ((Math.Clamp(jitter, 0, 0.999999) * 0.4) - 0.2);
+
+        return TimeSpan.FromSeconds(seconds * spread);
+    }
 }

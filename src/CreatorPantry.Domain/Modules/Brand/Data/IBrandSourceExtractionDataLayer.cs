@@ -459,6 +459,14 @@ internal sealed class BrandSourceExtractionDataLayer(
 
         extractions.Add(extraction);
 
+        // Staged in the same save as the text it will embed, so an artifact with nothing queued to embed it is
+        // not a state that can exist — and a worker that dies after committing cannot lose the request.
+        if (extraction.Status is BrandSourceExtractionStatus.Succeeded)
+        {
+            extractions.EnqueueEmbedding(
+                BrandSourceEmbeddingQueue.For(workspace.WorkspaceId, target.DocumentId, extraction, now));
+        }
+
         operation.Status = BrandSourceExtractionOperationStatus.Completed;
         operation.BrandSourceExtractionId = extraction.Id;
         operation.ExtractorId = extractorId;
@@ -745,6 +753,11 @@ internal sealed class BrandSourceExtractionDataLayer(
         };
 
         extractions.Add(extraction);
+
+        // A correction is always text, so it always has something to embed — and the artifact it replaces is
+        // retired only after this one's set is current, never here.
+        extractions.EnqueueEmbedding(
+            BrandSourceEmbeddingQueue.For(workspace.WorkspaceId, correction.DocumentId, extraction, now));
 
         auditWriter.Record(new AuditEntry(
 

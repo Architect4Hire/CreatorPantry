@@ -2635,6 +2635,201 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides": {
+      "post": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Creates a brand style guide and its first version.",
+        "description": "Editor or above. Everything but \u0060displayName\u0060 is optional, and a blank answer creates nothing: a guide\nis only what its creator wrote. Questionnaire answers and \u0060sections\u0060 are two ways to write the same\nsection rows, so naming one section in both is a \u0060400\u0060. Text is stored exactly as typed.\n\n\u0060sourceDocuments\u0060 cites exact versions by document id and version number. A pointer that does not\nresolve \u2014 never issued, another workspace\u0027s, removed, or a version the document does not have \u2014 answers\n\u0060422 brand.guide.source.unprocessable\u0060, identically for every cause, and nothing is created. Archived\ndocuments and versions whose text has not been extracted can be cited.\n\nThe new version is number 1, has no parent, and is not approved and not the workspace default; both\ncome later. No model is called. The response carries the \u0060concurrencyToken\u0060 an edit will have to quote.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Replaying a request with the same key returns the guide the first one created, with\n\u0060Idempotency-Replayed: true\u0060; the same key with a different body is refused.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandStyleGuide"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandStyleGuide"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandStyleGuide"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuide"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuide"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuide"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}": {
+      "get": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Reads one brand style guide: its working version and its active version.",
+        "description": "Any member may read. \u0060workingVersion\u0060 is the guide\u0027s highest version number \u2014 the one an edit builds\non, approved or not. \u0060activeVersion\u0060 is the workspace\u0027s default version, and is present only when that\ndefault is one of this guide\u0027s versions; otherwise it is null, with no fallback to the latest approved\none. Both carry their sections, do and don\u0027t rules and cited source versions in full, so they repeat\nwhen the working version is the active one. Authors and approvers are not returned.\n\nAn unknown id and another workspace\u0027s guide both answer \u0060404 brand.guide.not_found\u0060, deliberately\nindistinguishable. An archived guide reads normally. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide to read. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status as\nan unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -10782,6 +10977,490 @@
         ],
         "type": "string"
       },
+      "BrandStyleGuide": {
+        "required": [
+          "id",
+          "displayName",
+          "purpose",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersion"
+          }
+        }
+      },
+      "BrandStyleGuideActivation": {
+        "required": [
+          "activatedAt",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "activatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandStyleGuideApproval": {
+        "required": [
+          "approvedAt",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandStyleGuideDetail": {
+        "required": [
+          "id",
+          "displayName",
+          "purpose",
+          "status",
+          "archivedAt",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken",
+          "workingVersion",
+          "activeVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideStatus"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "workingVersion": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersionDetail"
+          },
+          "activeVersion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleGuideVersionDetail"
+              }
+            ]
+          }
+        }
+      },
+      "BrandStyleGuideQuestionnaire": {
+        "type": "object",
+        "properties": {
+          "voice": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "audience": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vocabulary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alwaysDo": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "neverDo": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BrandStyleGuideRule": {
+        "required": [
+          "kind",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/BrandStyleGuideRuleKind"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandStyleGuideRuleKind": {
+        "enum": [
+          "Do",
+          "Dont"
+        ],
+        "type": "string"
+      },
+      "BrandStyleGuideSection": {
+        "required": [
+          "sectionKey",
+          "channelKey",
+          "body"
+        ],
+        "type": "object",
+        "properties": {
+          "sectionKey": {
+            "$ref": "#/components/schemas/BrandStyleGuideSectionKey"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandStyleGuideSectionInput": {
+        "type": "object",
+        "properties": {
+          "sectionKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleGuideSectionKey"
+              }
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BrandStyleGuideSectionKey": {
+        "enum": [
+          "Voice",
+          "Tone",
+          "Tenor",
+          "WritingStyle",
+          "Audience",
+          "PointOfView",
+          "Vocabulary",
+          "SentenceRhythm",
+          "Formatting",
+          "Storytelling",
+          "CallsToAction",
+          "ChannelVariant",
+          "BlogGuidance",
+          "SocialGuidance",
+          "VisualIdentity",
+          "PhotographyDirection",
+          "ImagePromptGuidance",
+          "NegativeVisualGuidance",
+          "UserNotes"
+        ],
+        "type": "string"
+      },
+      "BrandStyleGuideSource": {
+        "required": [
+          "documentId",
+          "versionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BrandStyleGuideSourceInput": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BrandStyleGuideStatus": {
+        "enum": [
+          "Active",
+          "Archived"
+        ],
+        "type": "string"
+      },
+      "BrandStyleGuideVersion": {
+        "required": [
+          "id",
+          "versionNumber",
+          "changeReason",
+          "createdAt",
+          "sections",
+          "rules",
+          "sourceDocuments"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "changeReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSection"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideRule"
+            }
+          },
+          "sourceDocuments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSource"
+            }
+          }
+        }
+      },
+      "BrandStyleGuideVersionDetail": {
+        "required": [
+          "id",
+          "versionNumber",
+          "parentVersionNumber",
+          "changeReason",
+          "createdAt",
+          "approval",
+          "activation",
+          "sections",
+          "rules",
+          "sourceDocuments"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "parentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "changeReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approval": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleGuideApproval"
+              }
+            ]
+          },
+          "activation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleGuideActivation"
+              }
+            ]
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSection"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideRule"
+            }
+          },
+          "sourceDocuments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSource"
+            }
+          }
+        }
+      },
       "ChangePassword": {
         "type": "object",
         "properties": {
@@ -11055,6 +11734,51 @@
             ],
             "items": {
               "$ref": "#/components/schemas/BrandAssetInput"
+            }
+          }
+        }
+      },
+      "CreateBrandStyleGuide": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "questionnaire": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleGuideQuestionnaire"
+              }
+            ]
+          },
+          "sections": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSectionInput"
+            }
+          },
+          "sourceDocuments": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSourceInput"
             }
           }
         }
@@ -16337,6 +17061,9 @@
     },
     {
       "name": "BrandSourceDocuments"
+    },
+    {
+      "name": "BrandStyleGuides"
     },
     {
       "name": "EditorialPackageRequests"

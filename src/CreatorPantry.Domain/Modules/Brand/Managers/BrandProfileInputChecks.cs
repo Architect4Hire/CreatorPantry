@@ -16,6 +16,10 @@ internal static partial class BrandProfileInputChecks
     private static partial Regex ChannelKeyPattern();
 
     /// <summary>Trimmed, and null when nothing is left. The form every optional text field is stored in.</summary>
+    /// <summary>Whether <paramref name="key"/> is shaped like a channel key. Opaque: no catalog is consulted.</summary>
+    public static bool IsChannelKey(string key) =>
+        key.Length <= BrandPolicy.ChannelKeyMaxLength && ChannelKeyPattern().IsMatch(key);
+
     public static string? Normalize(string? value)
     {
         var trimmed = value?.Trim();

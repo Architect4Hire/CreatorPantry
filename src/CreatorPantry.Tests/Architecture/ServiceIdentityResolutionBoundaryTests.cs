@@ -15,11 +15,11 @@ namespace CreatorPantry.Tests.Architecture;
 /// point. Located from this file's own path so it keeps working when the build output is redirected.
 /// </para>
 /// <para>
-/// Both callers today take their workspace id from a row committed in the same transaction as the thing it is
-/// about — an outbox message beside a recipe version, an extraction operation beside a document version. The
-/// second is the reason the summary above says "a committed row" rather than "a committed outbox row": the
-/// property that matters is that no client chose the value, not which table it was read from. Both also deserve
-/// the <em>service</em> resolver rather than the operation one, because neither may stop working when the member
+/// Every caller today takes its workspace id from a row committed in the same transaction as the thing it is
+/// about — an outbox message beside a recipe version, an extraction operation beside a document version, an
+/// embedding operation beside the extraction it names. The second is the reason the summary above says "a committed row" rather than "a committed outbox row": the
+/// property that matters is that no client chose the value, not which table it was read from. All also deserve
+/// the <em>service</em> resolver rather than the operation one, because none may stop working when the member
 /// who caused it leaves the workspace.
 /// </para>
 /// </remarks>
@@ -28,6 +28,7 @@ public sealed class ServiceIdentityResolutionBoundaryTests
     /// <summary>Files outside Tenancy that may call the service-identity resolver, by path below <c>src/</c>.</summary>
     private static readonly string[] PermittedCallers =
     [
+        "CreatorPantry.Domain/Modules/Brand/Managers/BrandSourceEmbeddingWorker.cs",
         "CreatorPantry.Domain/Modules/Brand/Managers/BrandSourceExtractionWorker.cs",
         "CreatorPantry.Domain/Modules/Recipes/Managers/RecipeVersionChangedOutboxHandler.cs",
     ];

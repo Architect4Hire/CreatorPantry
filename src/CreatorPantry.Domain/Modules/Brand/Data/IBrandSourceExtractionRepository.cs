@@ -84,6 +84,9 @@ internal interface IBrandSourceExtractionRepository
     /// <summary>Stages one extraction row. Nothing is saved.</summary>
     void Add(BrandSourceExtraction extraction);
 
+    /// <summary>Stages the embedding of a succeeded extraction, to commit in the same save as that extraction.</summary>
+    void EnqueueEmbedding(BrandSourceEmbeddingOperation operation);
+
     /// <summary>
     /// One numbered version of one document in the resolved workspace, or null when there is no such pair.
     /// </summary>
@@ -115,6 +118,9 @@ internal sealed class BrandSourceExtractionRepository(CreatorPantryDbContext con
         context.BrandSourceExtractionOperations.Add(operation);
 
     public void Add(BrandSourceExtraction extraction) => context.BrandSourceExtractions.Add(extraction);
+
+    public void EnqueueEmbedding(BrandSourceEmbeddingOperation operation) =>
+        context.BrandSourceEmbeddingOperations.Add(operation);
 
     public Task<BrandSourceExtractionTargetRecord?> FindTargetAsync(
         Guid operationId, CancellationToken cancellationToken) =>

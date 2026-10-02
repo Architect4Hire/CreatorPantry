@@ -54,4 +54,12 @@ public static class BrandAuditActions
     /// belongs.
     /// </remarks>
     public const string SourceDocumentTextCorrected = "brand.source.extraction.corrected";
+
+    /// <summary>A chunk set built from a document's extracted text became the one retrieval reads.</summary>
+    public const string SourceDocumentEmbedded = "brand.source.embedded";
+
+    public const string StyleGuideResourceType = "BrandStyleGuide";
+
+    /// <summary>A brand style guide and its first version were created.</summary>
+    public const string StyleGuideCreated = "brand.guide.created";
 }

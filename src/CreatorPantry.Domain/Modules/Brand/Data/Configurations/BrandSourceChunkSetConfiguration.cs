@@ -37,6 +37,11 @@ internal sealed class BrandSourceChunkSetConfiguration : IEntityTypeConfiguratio
                 $"(Status = {(int)BrandSourceChunkSetStatus.Building} AND EmbeddedAt IS NULL) OR "
                     + $"(Status <> {(int)BrandSourceChunkSetStatus.Building} AND EmbeddedAt IS NOT NULL)");
 
+            // A replacement time can only belong to a replaced set.
+            table.HasCheckConstraint(
+                "CK_BrandSourceChunkSets_SupersededAt_Matches_Status",
+                $"SupersededAt IS NULL OR Status = {(int)BrandSourceChunkSetStatus.Superseded}");
+
             // An empty set cannot be the one retrieval reads: it would answer every query with nothing and look
             // like a corpus with no matches rather than a run that failed.
             table.HasCheckConstraint(

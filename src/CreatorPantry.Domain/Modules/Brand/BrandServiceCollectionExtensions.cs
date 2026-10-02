@@ -31,6 +31,7 @@ public static class BrandServiceCollectionExtensions
         // a host with no storage and fails loudly only if an object is actually reached for.
         services.AddPrivateObjectStorage();
         services.AddScoped<IBrandSourceObjectGateway, BrandSourceObjectGateway>();
+        services.AddScoped<IBrandSourceEmbeddingGateway, BrandSourceEmbeddingGateway>();
 
         // Likewise the scanner that clears nothing: without a real one, uploads are refused rather than
         // accepted unscanned.
@@ -46,6 +47,15 @@ public static class BrandServiceCollectionExtensions
         // The extraction seam. The repository is registered here rather than only in the Worker because the
         // upload and the replacement stage a queued operation through it, in the same save as the version —
         // which is the whole reason a committed version always has work queued for it.
+        services.AddScoped<IValidator<CreateBrandStyleGuideViewModel>, CreateBrandStyleGuideViewModelValidator>();
+        services.AddScoped<IBrandStyleGuideRepository, BrandStyleGuideRepository>();
+        services.AddScoped<IBrandStyleGuideDataLayer, BrandStyleGuideDataLayer>();
+        services.AddScoped<IBrandStyleGuideBusiness, BrandStyleGuideBusiness>();
+        services.AddScoped<IBrandStyleGuideFacade, BrandStyleGuideFacade>();
+        services.AddScoped<IBrandSourceEmbeddingRepository, BrandSourceEmbeddingRepository>();
+        services.AddScoped<IBrandSourceEmbeddingDataLayer, BrandSourceEmbeddingDataLayer>();
+        services.AddScoped<IBrandSourceEmbeddingBusiness, BrandSourceEmbeddingBusiness>();
+        services.AddScoped<IBrandSourceEmbeddingFacade, BrandSourceEmbeddingFacade>();
         services.AddScoped<IBrandSourceExtractionRepository, BrandSourceExtractionRepository>();
         services.AddScoped<IBrandSourceExtractionDataLayer, BrandSourceExtractionDataLayer>();
         services.AddScoped<IBrandSourceExtractionBusiness, BrandSourceExtractionBusiness>();
@@ -72,6 +82,20 @@ public static class BrandServiceCollectionExtensions
     {
         services.AddScoped<BrandSourceExtractionClaimRepository>();
         services.AddScoped<IBrandSourceExtractionWorker, BrandSourceExtractionWorker>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the embedding queue driver. For the Worker host alone, for the reason
+    /// <see cref="AddBrandSourceExtractionWorker"/> gives: a host that cannot claim cannot accidentally embed a
+    /// creator's document inside a request. The module must also be registered, and the host must register an
+    /// <c>IEmbeddingGenerator</c> — this adds the driver, not the provider.
+    /// </summary>
+    public static IServiceCollection AddBrandSourceEmbeddingWorker(this IServiceCollection services)
+    {
+        services.AddScoped<BrandSourceEmbeddingClaimRepository>();
+        services.AddScoped<IBrandSourceEmbeddingWorker, BrandSourceEmbeddingWorker>();
 
         return services;
     }

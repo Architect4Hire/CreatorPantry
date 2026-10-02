@@ -119,4 +119,29 @@ public static class BrandErrorCodes
     /// allowed; history is readable.
     /// </remarks>
     public const string SourceExtractionSupersededConflict = "brand.source.extraction.superseded.conflict";
+
+    /// <summary>The caller's role is below Editor, so they cannot create a brand style guide. Maps to 403.</summary>
+    public const string GuideForbidden = "brand.guide.forbidden";
+
+    /// <summary>The guide's name, questionnaire, sections, rules or source list failed validation. Falls through to 400.</summary>
+    public const string GuideInvalidRequest = "brand.guide.invalid_request";
+
+    /// <summary>
+    /// A selected source document version cannot be used. Maps to 422.
+    /// </summary>
+    /// <remarks>
+    /// One code for every way a pointer can fail to resolve — an id never issued, another workspace's document,
+    /// a removed one, a version number the document does not have — so a caller cannot use the refusal to
+    /// learn that a document exists somewhere they cannot see it (tenancy.md).
+    /// </remarks>
+    public const string GuideSourceUnprocessable = "brand.guide.source.unprocessable";
+
+    /// <summary>
+    /// No such brand style guide in the resolved workspace. Maps to 404.
+    /// </summary>
+    /// <remarks>
+    /// One code for an id that was never issued and for another workspace's guide, so a read cannot be used to
+    /// learn that a guide exists somewhere the caller cannot see it (tenancy.md).
+    /// </remarks>
+    public const string GuideNotFound = "brand.guide.not_found";
 }

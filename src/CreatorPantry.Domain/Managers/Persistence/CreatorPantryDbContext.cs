@@ -382,6 +382,14 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
 
     /// <inheritdoc cref="BrandSourceDocuments"/>
     /// <remarks>
+    /// The embedding queue: one row per request to chunk and embed an extracted artifact, staged in the same
+    /// save as the extraction it names and claimed by the Worker. Mutable, as a queue must be.
+    /// </remarks>
+    public DbSet<BrandSourceEmbeddingOperation> BrandSourceEmbeddingOperations =>
+        Set<BrandSourceEmbeddingOperation>();
+
+    /// <inheritdoc cref="BrandSourceDocuments"/>
+    /// <remarks>
     /// One embedding run over one extracted artifact, and the unit of replacement for what retrieval reads.
     /// Mutable: its status is what moves a freshly built set into use and the one it replaces out.
     /// </remarks>

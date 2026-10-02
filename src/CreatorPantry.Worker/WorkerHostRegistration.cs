@@ -96,6 +96,7 @@ public static class WorkerHostRegistration
         builder.AddCreatorPantryObjectStorage();
         builder.Services.AddBrandModule();
         builder.Services.AddBrandSourceExtractionWorker();
+        builder.Services.AddBrandSourceEmbeddingWorker();
 
         // The one host that sweeps every workspace's execution metadata looking for attempts the account
         // ledger never received (USAGE-002). Registered here rather than in the API for the same reason the
@@ -110,6 +111,8 @@ public static class WorkerHostRegistration
         builder.Services.AddHostedService<AiUsageReconciliationHostedService>();
         builder.Services.AddHostedService<BrandSourceExtractionWorkerHostedService>();
         builder.Services.AddHostedService<BrandSourceExtractionMaintenanceHostedService>();
+        builder.Services.AddHostedService<BrandSourceEmbeddingWorkerHostedService>();
+        builder.Services.AddHostedService<BrandSourceEmbeddingMaintenanceHostedService>();
 
         return builder;
     }

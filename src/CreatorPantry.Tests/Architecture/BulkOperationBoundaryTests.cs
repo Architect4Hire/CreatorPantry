@@ -88,11 +88,18 @@ public sealed class BulkOperationBoundaryTests
     /// validates the workspace through <c>IWorkspaceResolutionFacade</c> before it reads even the operation row,
     /// which is itself workspace-owned and unreachable without a resolved context.
     /// </para>
+    /// <para>
+    /// The brand-source embedding claim (11A.13) is the fourth, in the same category and under the same two
+    /// conditions: <c>BrandSourceEmbeddingClaim</c>, <c>BrandSourceRetirableSet</c> and
+    /// <c>BrandSourceEmbeddingBackfill</c> carry identifiers and nothing else, and every write they lead to is
+    /// made by a facade in a scope whose workspace the Worker has resolved and validated first.
+    /// </para>
     /// </remarks>
     private static readonly string[] Exemptions =
     [
         "Modules/Ai/Data/AiOperationClaimRepository.cs",
         "Modules/Ai/Data/AiUsageReconciliationRepository.cs",
+        "Modules/Brand/Data/BrandSourceEmbeddingClaimRepository.cs",
         "Modules/Brand/Data/BrandSourceExtractionClaimRepository.cs",
     ];
 
