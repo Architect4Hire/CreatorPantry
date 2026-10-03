@@ -1846,7 +1846,7 @@
           "BrandSourceDocuments"
         ],
         "summary": "Lists the workspace\u0027s brand source documents, filtered and paged.",
-        "description": "Any member may read. Newest edit first, and that is the only ordering. Cursor-paged: follow \u0060nextCursor\u0060\nuntil it is null. A cursor is bound to the workspace and filters it was issued for, so changing a\nfilter means starting again without one. \u0060limit\u0060 is clamped rather than refused. \u0060status\u0060 is \u0060Active\u0060\nunless \u0060Archived\u0060 is asked for; removed documents are never listed. Filters combine with AND, except\nthat repeated \u0060tag\u0060 values match a document carrying any one of them. A filter naming a channel or tag\nnothing carries is an empty page, not an error; a malformed filter or a cursor from another filter set\nanswers \u0060400 brand.source.invalid_request\u0060.\n\nEach item carries the document\u0027s description, its current version\u0027s metadata and \u0060extraction.state\u0060:\n\u0060NotExtracted\u0060 until a first attempt, then how the latest attempt ended. It never carries the file,\nextracted text, a checksum or a storage location. The response is \u0060no-store\u0060.",
+        "description": "Any member may read. Newest edit first, and that is the only ordering. Cursor-paged: follow \u0060nextCursor\u0060\nuntil it is null. A cursor is bound to the workspace and filters it was issued for, so changing a\nfilter means starting again without one. \u0060limit\u0060 is clamped rather than refused. \u0060status\u0060 is \u0060Active\u0060\nunless \u0060Archived\u0060 is asked for; removed documents are never listed. Filters combine with AND, except\nthat repeated \u0060tag\u0060 values match a document carrying any one of them. Any filter that nothing matches\nis an empty page, not an error; a malformed filter, a filter given a list where it takes one value, or\na cursor from another filter set answers \u0060400 brand.source.invalid_request\u0060.\n\nEach item carries the document\u0027s description, its current version\u0027s metadata and \u0060extraction.state\u0060:\n\u0060NotExtracted\u0060 until a first attempt, then how the latest attempt ended. \u0060extractionState\u0060 filters on\nthat same fact, so a filtered page never holds a row reporting a different one \u2014 and because it is\njudged against the *current* version, replacing a file returns a document to \u0060NotExtracted\u0060 even though\nthe superseded version\u0027s text is still on record. An item never carries the file, extracted text, a\nchecksum or a storage location. The response is \u0060no-store\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1882,9 +1882,25 @@
             }
           },
           {
+            "name": "purpose",
+            "in": "query",
+            "description": "What the creator offers the document as evidence of: Voice, WritingStyle, VisualDirection, Background or NotMyVoice.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "channelKey",
             "in": "query",
             "description": "The channel a document exemplifies, as its key. A key no document carries matches nothing.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "extractionState",
+            "in": "query",
+            "description": "Where the current version\u0027s text stands: NotExtracted, Succeeded, Unsupported or Failed. Judged on the latest attempt against the current version, so replacing a file returns a document to NotExtracted.",
             "schema": {
               "type": "string"
             }
@@ -2318,13 +2334,13 @@
         ]
       }
     },
-    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions/{versionNumber}/content": {
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions": {
       "get": {
         "tags": [
           "BrandSourceDocuments"
         ],
-        "summary": "Downloads one version of a brand source document, as it was uploaded.",
-        "description": "Any member may read. The body is the original file, byte for byte, streamed rather than buffered.\n\u0060Content-Type\u0060 is the media type **established from the file\u0027s bytes at upload**, never the one the\nclient declared, and \u0060Content-Disposition: attachment\u0060 names it \u0060{title-slug}-v{n}.{ext}\u0060 where the\nextension also comes from that media type \u2014 so a file uploaded as \u0060hero.jpeg\u0060 downloads as \u0060.jpg\u0060,\nbecause one version has one name. The name is ASCII \u0060a-z0-9\u0060 and hyphens by construction and carries no\nid, workspace or storage location; the creator\u0027s own filename is in the metadata above, for display,\nand is never put in a header.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set. A version is immutable, so the\nresponse carries a strong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 and \u0060If-None-Match\u0060 answers 304.\nAn unknown document, another workspace\u0027s, a removed one, and a version number this document does not\nhave all answer \u0060404 brand.source.not_found\u0060, so a version number cannot be used to count a document\u0027s\nhistory. Metadata that exists whose bytes cannot be read answers \u0060503\nbrand.source.storage.unavailable\u0060 rather than 404: the document is there, and retrying is the remedy.\nNo range requests, and no URL is ever issued for the object.",
+        "summary": "Lists one brand source document\u0027s versions, newest first.",
+        "description": "Any member may read. **The history a replacement builds up**: every version a document has had, each\nwith the file\u0027s own metadata, who added it, whether it is the one in force, and where *its* text\nstands \u2014 text stays attached to the version it was read from, so an older version keeps the text it\nhad while a newer one reads \u0060NotExtracted\u0060 until something reads it.\n\nNewest version first, and that is the only ordering. Cursor-paged like the library: follow\n\u0060nextCursor\u0060 until it is null, and a cursor is bound to the workspace and document it was issued for,\nso replaying one against another document answers \u0060400 brand.source.invalid_request\u0060. \u0060limit\u0060 is\nclamped rather than refused.\n\nAn **archived** document\u0027s history reads normally. An unknown id, another workspace\u0027s document and one\nthis workspace has removed all answer \u0060404 brand.source.not_found\u0060, deliberately indistinguishable \u2014\nso this route cannot be used to learn that a document exists where the caller cannot see it. A row\nnever carries the file, extracted text or a storage location; \u0060/versions/{n}/content\u0060 is how a version\nis downloaded. The response is \u0060no-store\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -2338,7 +2354,7 @@
           {
             "name": "documentId",
             "in": "path",
-            "description": "The document the version belongs to. Constrained to a Guid.",
+            "description": "The document whose history to list. Constrained to a Guid.",
             "required": true,
             "schema": {
               "type": "string",
@@ -2346,36 +2362,45 @@
             }
           },
           {
-            "name": "versionNumber",
-            "in": "path",
-            "description": "The version to download, as the document\u0027s metadata numbers it. Constrained to an int, so a\nnon-numeric segment answers 404 at routing.",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
-          },
-          "304": {
-            "description": "Not Modified"
-          },
-          "404": {
-            "description": "Not Found",
+            "description": "OK",
             "content": {
-              "application/problem\u002Bjson": {
+              "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/BrandSourceDocumentVersionSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentVersionSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandSourceDocumentVersionSummaryPage"
                 }
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable",
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -2400,9 +2425,7 @@
             "bffSession": []
           }
         ]
-      }
-    },
-    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions": {
+      },
       "post": {
         "tags": [
           "BrandSourceDocuments"
@@ -2532,6 +2555,90 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-source-documents/{documentId}/versions/{versionNumber}/content": {
+      "get": {
+        "tags": [
+          "BrandSourceDocuments"
+        ],
+        "summary": "Downloads one version of a brand source document, as it was uploaded.",
+        "description": "Any member may read. The body is the original file, byte for byte, streamed rather than buffered.\n\u0060Content-Type\u0060 is the media type **established from the file\u0027s bytes at upload**, never the one the\nclient declared, and \u0060Content-Disposition: attachment\u0060 names it \u0060{title-slug}-v{n}.{ext}\u0060 where the\nextension also comes from that media type \u2014 so a file uploaded as \u0060hero.jpeg\u0060 downloads as \u0060.jpg\u0060,\nbecause one version has one name. The name is ASCII \u0060a-z0-9\u0060 and hyphens by construction and carries no\nid, workspace or storage location; the creator\u0027s own filename is in the metadata above, for display,\nand is never put in a header.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set. A version is immutable, so the\nresponse carries a strong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 and \u0060If-None-Match\u0060 answers 304.\nAn unknown document, another workspace\u0027s, a removed one, and a version number this document does not\nhave all answer \u0060404 brand.source.not_found\u0060, so a version number cannot be used to count a document\u0027s\nhistory. Metadata that exists whose bytes cannot be read answers \u0060503\nbrand.source.storage.unavailable\u0060 rather than 404: the document is there, and retrying is the remedy.\nNo range requests, and no URL is ever issued for the object.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "The document the version belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version to download, as the document\u0027s metadata numbers it. Constrained to an int, so a\nnon-numeric segment answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -13022,6 +13129,87 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "BrandSourceDocumentVersionSummary": {
+        "required": [
+          "id",
+          "versionNumber",
+          "mediaType",
+          "sizeBytes",
+          "originalFileName",
+          "contentChecksum",
+          "createdByMembershipId",
+          "createdAt",
+          "isCurrent",
+          "extraction"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "originalFileName": {
+            "type": "string"
+          },
+          "contentChecksum": {
+            "type": "string"
+          },
+          "createdByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isCurrent": {
+            "type": "boolean"
+          },
+          "extraction": {
+            "$ref": "#/components/schemas/BrandSourceExtractionSummary"
+          }
+        }
+      },
+      "BrandSourceDocumentVersionSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandSourceDocumentVersionSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

@@ -63,6 +63,29 @@ public interface IBrandSourceDocumentRepository
     Task<BrandSourceDocumentStatus?> FindStatusAsync(Guid documentId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// One page of a document's version history, newest version first, projected in SQL: each version's
+    /// metadata and its own latest extraction's outcome.
+    /// </summary>
+    /// <remarks>
+    /// No entity is materialised and <strong>no object key is selected</strong>. Takes no workspace id and no
+    /// status: the query filter scopes it, and whether a removed document's history may be read is Business's
+    /// to decide — which is why the context read below is asked first.
+    /// </remarks>
+    Task<(IReadOnlyList<BrandSourceDocumentVersionSummaryRecord> Rows, bool HasMore)> ListVersionsAsync(
+        BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The status and current version number of one document of the resolved workspace, or null when there is
+    /// no such document.
+    /// </summary>
+    /// <remarks>
+    /// Two columns, for the history read: one decides whether the document may be read at all, and the other
+    /// is what marks a row current without a correlated subquery per row.
+    /// </remarks>
+    Task<BrandSourceDocumentVersionListContextRecord?> FindVersionListContextAsync(
+        Guid documentId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Where one numbered version of one document keeps its bytes, or null when the workspace has no such
     /// document or the document has no such version.
     /// </summary>
@@ -289,6 +312,72 @@ internal sealed class BrandSourceDocumentRepository(CreatorPantryDbContext conte
             .Select(document => (BrandSourceDocumentStatus?)document.Status)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<(IReadOnlyList<BrandSourceDocumentVersionSummaryRecord> Rows, bool HasMore)> ListVersionsAsync(
+        BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken)
+    {
+        var versions = context.BrandSourceDocumentVersions
+            .AsNoTracking()
+            .Where(version => version.BrandSourceDocumentId == criteria.DocumentId);
+
+        if (criteria.Position is { } position)
+        {
+            // Strict, and on one column: a version number is unique within its document, so resuming after
+            // one can neither skip a sibling nor return it twice.
+            versions = versions.Where(version => version.VersionNumber < position.VersionNumber);
+        }
+
+        // The page is cut from the versions alone, so the limit bounds the work before anything is correlated.
+        var page = versions
+            .OrderByDescending(version => version.VersionNumber)
+
+            // One row past the limit: how the page learns whether another follows, without a count.
+            .Take(criteria.Limit + 1);
+
+        var fetched = await page
+            // Stated again over the rows that survived the cut: the outer query of a Take has no order of
+            // its own.
+            .OrderByDescending(version => version.VersionNumber)
+            .Select(version => new BrandSourceDocumentVersionSummaryRecord(
+                version.Id,
+                version.VersionNumber,
+                version.MediaType,
+                version.SizeBytes,
+                version.OriginalFileName,
+                version.ContentChecksum,
+                version.CreatedByMembershipId,
+                version.CreatedAt,
+
+                // This version's own current extraction, which is its highest ordinal — the same three index
+                // seeks the library's row makes, against this version rather than the document's current one.
+                context.BrandSourceExtractions
+                    .Where(extraction => extraction.BrandSourceDocumentVersionId == version.Id)
+                    .OrderByDescending(extraction => extraction.Ordinal)
+                    .Select(extraction => (BrandSourceExtractionStatus?)extraction.Status)
+                    .FirstOrDefault(),
+                context.BrandSourceExtractions
+                    .Where(extraction => extraction.BrandSourceDocumentVersionId == version.Id)
+                    .OrderByDescending(extraction => extraction.Ordinal)
+                    .Select(extraction => (BrandSourceExtractionOrigin?)extraction.Origin)
+                    .FirstOrDefault(),
+                context.BrandSourceExtractions
+                    .Where(extraction => extraction.BrandSourceDocumentVersionId == version.Id)
+                    .OrderByDescending(extraction => extraction.Ordinal)
+                    .Select(extraction => (DateTimeOffset?)extraction.CreatedAt)
+                    .FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+
+        return fetched.ToPage(criteria.Limit);
+    }
+
+    public async Task<BrandSourceDocumentVersionListContextRecord?> FindVersionListContextAsync(
+        Guid documentId, CancellationToken cancellationToken) =>
+        await context.BrandSourceDocuments
+            .AsNoTracking()
+            .Where(document => document.Id == documentId)
+            .Select(document => new BrandSourceDocumentVersionListContextRecord(
+                document.Status, document.CurrentVersionNumber))
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<BrandSourceVersionObjectRecord?> FindVersionObjectAsync(
         Guid documentId, int versionNumber, CancellationToken cancellationToken) =>
         context.BrandSourceDocumentVersions
@@ -423,9 +512,19 @@ internal sealed class BrandSourceDocumentRepository(CreatorPantryDbContext conte
             documents = documents.Where(document => document.DocumentType == documentType);
         }
 
+        if (filters.Purpose is { } purpose)
+        {
+            documents = documents.Where(document => document.Purpose == purpose);
+        }
+
         if (filters.ChannelKey is { } channelKey)
         {
             documents = documents.Where(document => document.ChannelKey == channelKey);
+        }
+
+        if (filters.ExtractionState is { } extractionState)
+        {
+            documents = WithExtractionState(documents, extractionState);
         }
 
         if (filters.TagNames is { Count: > 0 } tagNames)
@@ -449,6 +548,60 @@ internal sealed class BrandSourceDocumentRepository(CreatorPantryDbContext conte
         }
 
         return documents;
+    }
+
+    /// <summary>
+    /// Narrows to the documents whose <strong>current version's latest</strong> extraction reads as this
+    /// state — the same fact the projection selects, so a filtered page cannot contain a row that reports
+    /// something else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>NotExtracted</c> is the absence of any attempt against the current version, so it is a
+    /// <c>NOT EXISTS</c> rather than a status comparison. Replacing a file therefore returns a document to
+    /// this state even though the superseded version's text is still on record.
+    /// </para>
+    /// <para>
+    /// The other three ask for an attempt with no later-ordinal attempt beside it. Written as correlated
+    /// <c>EXISTS</c>/<c>NOT EXISTS</c> rather than as a top-one subquery, because <c>APPLY</c> is what the
+    /// latter translates to and SQLite — which several of this module's tests run on — has no equivalent.
+    /// </para>
+    /// <para>
+    /// <c>Failed</c> is every status that is neither success nor an unreadable format, mirroring the read
+    /// model's catch-all arm: a status added later is then described the same way by the filter and by the
+    /// row, instead of being filterable under a name it is never shown under.
+    /// </para>
+    /// </remarks>
+    private IQueryable<BrandSourceDocument> WithExtractionState(
+        IQueryable<BrandSourceDocument> documents, BrandSourceExtractionState state)
+    {
+        if (state == BrandSourceExtractionState.NotExtracted)
+        {
+            return documents.Where(document => !context.BrandSourceExtractions.Any(extraction =>
+                context.BrandSourceDocumentVersions.Any(version =>
+                    version.Id == extraction.BrandSourceDocumentVersionId
+                    && version.BrandSourceDocumentId == document.Id
+                    && version.VersionNumber == document.CurrentVersionNumber)));
+        }
+
+        BrandSourceExtractionStatus[] statuses = state switch
+        {
+            BrandSourceExtractionState.Succeeded => [BrandSourceExtractionStatus.Succeeded],
+            BrandSourceExtractionState.Unsupported => [BrandSourceExtractionStatus.Unsupported],
+            _ => Enum.GetValues<BrandSourceExtractionStatus>()
+                .Where(status => status is not (BrandSourceExtractionStatus.Succeeded or BrandSourceExtractionStatus.Unsupported))
+                .ToArray(),
+        };
+
+        return documents.Where(document => context.BrandSourceExtractions.Any(extraction =>
+            statuses.Contains(extraction.Status)
+            && context.BrandSourceDocumentVersions.Any(version =>
+                version.Id == extraction.BrandSourceDocumentVersionId
+                && version.BrandSourceDocumentId == document.Id
+                && version.VersionNumber == document.CurrentVersionNumber)
+            && !context.BrandSourceExtractions.Any(later =>
+                later.BrandSourceDocumentVersionId == extraction.BrandSourceDocumentVersionId
+                && later.Ordinal > extraction.Ordinal)));
     }
 
     /// <summary>Resumes after the previous page's last row. Must name the ordering's two columns and directions.</summary>

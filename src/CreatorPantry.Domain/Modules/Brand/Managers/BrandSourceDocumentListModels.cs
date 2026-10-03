@@ -12,7 +12,7 @@ namespace CreatorPantry.Domain.Modules.Brand.Managers;
 /// route and the caller's membership, and reaches the query through the global filter.
 /// </summary>
 /// <remarks>
-/// The two enum filters are strings so that this module names their accepted values in the refusal, as the
+/// The four enum filters are strings so that this module names their accepted values in the refusal, as the
 /// recipe library's do.
 /// </remarks>
 public sealed record BrandSourceDocumentListViewModel(
@@ -25,9 +25,15 @@ public sealed record BrandSourceDocumentListViewModel(
     [property: FromQuery(Name = "documentType")]
     [property: Description("What the creator classified the document as: StyleGuide, WritingSample, PublishedPost, Newsletter, SocialSample, VisualReference or Other.")]
     string? DocumentType = null,
+    [property: FromQuery(Name = "purpose")]
+    [property: Description("What the creator offers the document as evidence of: Voice, WritingStyle, VisualDirection, Background or NotMyVoice.")]
+    string? Purpose = null,
     [property: FromQuery(Name = "channelKey")]
     [property: Description("The channel a document exemplifies, as its key. A key no document carries matches nothing.")]
     string? ChannelKey = null,
+    [property: FromQuery(Name = "extractionState")]
+    [property: Description("Where the current version's text stands: NotExtracted, Succeeded, Unsupported or Failed. Judged on the latest attempt against the current version, so replacing a file returns a document to NotExtracted.")]
+    string? ExtractionState = null,
     [property: FromQuery(Name = "tag")]
     [property: Description("A tag name; repeat the parameter for several. A document matches if it carries any one of them.")]
     IReadOnlyList<string?>? Tag = null,
@@ -80,12 +86,25 @@ public sealed record BrandSourceDocumentSummaryServiceModel(
 /// <param name="Status">Always one status, so the status-and-recency index both filters and orders.</param>
 /// <param name="TagNames">Normalized tag names, sorted; a document matches on any one. Empty for no tag filter.</param>
 /// <param name="Search">Lowered, at least two characters, or null.</param>
+/// <param name="Purpose">What the document is offered as evidence of, or null for any.</param>
+/// <param name="ExtractionState">
+/// Where the current version's text must stand, or null for any. The one filter not answered by a column on
+/// the document: it is the latest extraction against the current version, which is the same fact the row
+/// reports, so the two cannot disagree.
+/// </param>
+/// <remarks>
+/// <paramref name="Purpose"/> and <paramref name="ExtractionState"/> are trailing and optional so that the
+/// three readers which ask for a whole unfiltered page — the grounding selection, the visual-reference read
+/// and the library itself — keep naming only the filters they care about.
+/// </remarks>
 public sealed record BrandSourceDocumentListFilters(
     BrandSourceDocumentStatus Status,
     BrandSourceDocumentType? DocumentType,
     string? ChannelKey,
     IReadOnlyList<string> TagNames,
-    string? Search);
+    string? Search,
+    BrandSourcePurpose? Purpose = null,
+    BrandSourceExtractionState? ExtractionState = null);
 
 /// <summary>The last row of the previous page: where the next one resumes.</summary>
 public sealed record BrandSourceDocumentListPosition(DateTimeOffset UpdatedAt, Guid DocumentId);
@@ -153,7 +172,9 @@ public static class BrandSourceDocumentListQueryFactory
 
         var status = Status(model.Status, errors);
         var documentType = DocumentType(model.DocumentType, errors);
+        var purpose = Purpose(model.Purpose, errors);
         var channelKey = ChannelKey(model.ChannelKey, errors);
+        var extractionState = ExtractionState(model.ExtractionState, errors);
         var tagNames = Tags(model.Tag, errors);
         var search = Search(model.Search, errors);
 
@@ -165,14 +186,20 @@ public static class BrandSourceDocumentListQueryFactory
             return false;
         }
 
-        var filters = new BrandSourceDocumentListFilters(status, documentType, channelKey, tagNames, search);
+        var filters = new BrandSourceDocumentListFilters(
+            status, documentType, channelKey, tagNames, search, purpose, extractionState);
+
+        // Every filter is named here, so a cursor issued under one set is refused under any other rather than
+        // resuming in a position that belongs to a different ordered set.
         var scope = string.Join(
             ScopeSeparator,
             "brand-source-documents",
             workspaceId.ToString("N"),
             (int)status,
             (int?)documentType,
+            (int?)purpose,
             channelKey,
+            (int?)extractionState,
             string.Join('\u001F', tagNames),
             search);
 
@@ -247,6 +274,45 @@ public static class BrandSourceDocumentListQueryFactory
         return null;
     }
 
+    private static BrandSourcePurpose? Purpose(string? value, List<(string, string)> errors)
+    {
+        if (BrandProfileInputChecks.Normalize(value) is not { } text)
+        {
+            return null;
+        }
+
+        if (TryName<BrandSourcePurpose>(text, out var purpose))
+        {
+            return purpose;
+        }
+
+        errors.Add(("purpose", $"Use one of: {string.Join(", ", Enum.GetNames<BrandSourcePurpose>())}."));
+
+        return null;
+    }
+
+    /// <summary>
+    /// The one filter whose values are a read model's rather than an entity's: <c>NotExtracted</c> is the
+    /// absence of a row, not a stored status, so it is accepted here by the name the row reports and turned
+    /// into a predicate by the repository.
+    /// </summary>
+    private static BrandSourceExtractionState? ExtractionState(string? value, List<(string, string)> errors)
+    {
+        if (BrandProfileInputChecks.Normalize(value) is not { } text)
+        {
+            return null;
+        }
+
+        if (TryName<BrandSourceExtractionState>(text, out var state))
+        {
+            return state;
+        }
+
+        errors.Add(("extractionState", $"Use one of: {string.Join(", ", Enum.GetNames<BrandSourceExtractionState>())}."));
+
+        return null;
+    }
+
     private static string? ChannelKey(string? value, List<(string, string)> errors)
     {
         var key = BrandProfileInputChecks.Normalize(value);
@@ -292,12 +358,27 @@ public static class BrandSourceDocumentListQueryFactory
         return string.IsNullOrEmpty(term) || term.Length < ReferencePolicy.MinSearchLength ? null : term;
     }
 
-    /// <summary>A declared name, in any case. Never a number: <c>status=3</c> is not a way to say Removed.</summary>
+    /// <summary>
+    /// One declared name, in any case. Never a number — <c>status=3</c> is not a way to say Removed — and
+    /// never a list.
+    /// </summary>
+    /// <remarks>
+    /// The comma is refused because <see cref="Enum.TryParse{TEnum}(string, bool, out TEnum)"/> reads a
+    /// comma-separated list as a combination of flags and happily succeeds, even for an enum that declares
+    /// none. Two names can then OR together into a third declared value and pass <see cref="Enum.IsDefined"/>
+    /// — <c>purpose=Voice,Background</c> is <c>NotMyVoice</c>, <c>documentType=StyleGuide,WritingSample</c> is
+    /// <c>PublishedPost</c> — so the list would be answered, quietly, as a filter nobody asked for. These are
+    /// single-valued filters, so a list is refused by field instead.
+    /// </remarks>
     private static bool TryName<TEnum>(string text, out TEnum value)
         where TEnum : struct, Enum
     {
         value = default;
 
-        return !char.IsAsciiDigit(text[0]) && text[0] != '-' && Enum.TryParse(text, ignoreCase: true, out value) && Enum.IsDefined(value);
+        return !char.IsAsciiDigit(text[0])
+            && text[0] != '-'
+            && !text.Contains(',')
+            && Enum.TryParse(text, ignoreCase: true, out value)
+            && Enum.IsDefined(value);
     }
 }

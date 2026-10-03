@@ -159,6 +159,20 @@ public interface IBrandSourceDocumentBusiness
         Guid documentId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// One page of a document's version history, newest version first.
+    /// </summary>
+    /// <returns>
+    /// The page, or <c>brand.source.not_found</c> for an id that was never issued, another workspace's
+    /// document, or one this workspace has removed — the same three cases the single read answers as one.
+    /// </returns>
+    /// <remarks>
+    /// No role gate: the history says no more about the document than the read does, and Viewer is the lowest
+    /// role. An <strong>archived</strong> document's history reads normally, like its metadata.
+    /// </remarks>
+    Task<OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>> ListVersionsAsync(
+        BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Opens one numbered version's original bytes for download.
     /// </summary>
     /// <returns>
@@ -755,6 +769,46 @@ internal sealed class BrandSourceDocumentBusiness(
             Extraction(row.ExtractionStatus, row.ExtractionOrigin, row.ExtractionAt),
             row.CreatedAt,
             row.UpdatedAt));
+    }
+
+    public async Task<OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>> ListVersionsAsync(
+        BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        // Asked first, so an unknown document, another workspace's and a removed one are one answer rather
+        // than an empty page — and a document always has version 1, so "no rows" could only ever mean a
+        // document that is not there. It also says which version is current, without a column per row.
+        //
+        // Two reads without a transaction between them: a document removed in the gap still has its history
+        // answered for this one request. Left as it is deliberately — the rows are the caller's own
+        // workspace's either way, a read is not a write, and a transaction here would cost every history
+        // read to close a window whose only effect is one stale page.
+        var context = await dataLayer.FindVersionListContextAsync(criteria.DocumentId, cancellationToken);
+
+        if (context is null || context.Status == BrandSourceDocumentStatus.Removed)
+        {
+            return OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>.Failure(NotFound());
+        }
+
+        var page = await dataLayer.ListVersionsAsync(criteria, cancellationToken);
+
+        // The cursor is minted here, where the scope is known: a repository is handed a predicate, not a route.
+        return OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>.Success(
+            PageBuilder.Build(page.Rows, page.HasMore, criteria.Scope, row => new BrandSourceDocumentVersionSummaryServiceModel(
+                row.Id,
+                row.VersionNumber,
+                row.MediaType,
+                row.SizeBytes,
+                row.OriginalFileName,
+                row.ContentChecksum,
+                row.CreatedByMembershipId,
+                row.CreatedAt,
+                row.VersionNumber == context.CurrentVersionNumber,
+
+                // The same mapping the library row and the single read use, so one version is never described
+                // two ways by two screens.
+                Extraction(row.ExtractionStatus, row.ExtractionOrigin, row.ExtractionAt))));
     }
 
     public async Task<OperationResult<BrandSourceDocumentDetailServiceModel>> GetAsync(

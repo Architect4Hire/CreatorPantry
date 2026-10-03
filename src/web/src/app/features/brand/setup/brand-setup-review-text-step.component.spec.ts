@@ -43,6 +43,14 @@ function detail(id: string, overrides: Partial<BrandSourceDocumentDetail> = {}):
     mediaType: 'application/pdf',
     versionNumber: 1,
     concurrencyToken: `tok-${id}`,
+    channelKey: null,
+    audience: null,
+    tags: [],
+    extraction: { state: 'NotExtracted', origin: null, at: null },
+    contentChecksum: 'sha256:0',
+    archivedAt: null,
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z',
     ...overrides,
   };
 }

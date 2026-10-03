@@ -1,0 +1,123 @@
+@switch (read().status) {
+  @case ('loading') {
+    <p class="state" role="status" aria-live="polite">Reading the text…</p>
+  }
+  @case ('missing') {
+    <p class="state" role="alert">This version could not be found. It may have been removed.</p>
+  }
+  @case ('error') {
+    <p class="state" role="alert">The text couldn’t be loaded right now.</p>
+    <button cpButton variant="secondary" type="button" (click)="reload()">Try again</button>
+  }
+  @default {
+    @if (extraction(); as text) {
+      <div class="standing">
+        <cp-status-pill [tone]="tone()">{{ stateLabels[text.state] }}</cp-status-pill>
+
+        @if (text.origin === 'Corrected') {
+          <cp-status-pill tone="neutral">Typed in by a creator</cp-status-pill>
+        }
+        @if (text.isReading) {
+          <cp-status-pill tone="progress">Reading now</cp-status-pill>
+        }
+      </div>
+
+      <!-- The server's own word on why there is no text, or that only the beginning was kept. Never invented
+           here: it is shown exactly when the API sent one. -->
+      @if (text.reason) {
+        <cp-notice tone="warning" role="status">{{ text.reason }}</cp-notice>
+      }
+
+      @if (failure()) {
+        <cp-notice tone="error" role="alert">{{ failure() }}</cp-notice>
+      }
+
+      @if (text.text) {
+        <!-- Read-only and focusable, so a keyboard reader can scroll it. Untrusted creator material: shown
+             as text, never as markup. -->
+        <div
+          class="text"
+          tabindex="0"
+          role="region"
+          aria-label="The text read from this version"
+        >{{ text.text }}</div>
+      } @else {
+        <p class="state">There is no text on record for this version.</p>
+      }
+
+      @if (whyNoActions()) {
+        <p class="why" role="status">{{ whyNoActions() }}</p>
+      }
+
+      @if (canRetry() || canCorrect()) {
+        <div class="actions">
+          @if (canRetry()) {
+            <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="retry()">
+              {{ busy() === 'retry' ? 'Asking…' : 'Try reading again' }}
+            </button>
+          }
+          @if (canCorrect()) {
+            <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="openCorrect()">
+              Correct the text
+            </button>
+          }
+        </div>
+      }
+    }
+  }
+}
+
+<cp-dialog
+  [open]="correctOpen()"
+  title="Correct the text"
+  description="Your words replace what was read. The earlier version of the text stays on record."
+  titleId="brand-source-correct-title"
+  (closed)="closeCorrect()"
+>
+  <cp-form-section heading="The text" [problem]="failure()">
+    <cp-field
+      label="Text"
+      forId="brand-source-correct-text"
+      [required]="true"
+      [error]="draftError()"
+      hint="What this file actually says. For a scan or an image, this is how it becomes usable at all."
+    >
+      <textarea
+        id="brand-source-correct-text"
+        rows="16"
+        [required]="true"
+        [value]="draft()"
+        [disabled]="busy() === 'correct'"
+        (input)="onDraft($event)"
+      ></textarea>
+    </cp-field>
+
+    <cp-field
+      label="Why you changed it"
+      forId="brand-source-correct-reason"
+      [required]="true"
+      [error]="reasonError()"
+      hint="One line, so a later reader knows where this text came from."
+    >
+      <input
+        id="brand-source-correct-reason"
+        type="text"
+        [required]="true"
+        [attr.maxlength]="reasonMax"
+        autocomplete="off"
+        [value]="reason()"
+        [disabled]="busy() === 'correct'"
+        (input)="onReason($event)"
+      />
+    </cp-field>
+  </cp-form-section>
+
+  <div cpDialogActions>
+    <button cpButton variant="secondary" type="button" [disabled]="busy() === 'correct'" (click)="closeCorrect()">
+      Close
+    </button>
+    <button cpButton type="button" [disabled]="busy() === 'correct'" (click)="save()">
+      {{ busy() === 'correct' ? 'Saving…' : 'Save the text' }}
+    </button>
+  </div>
+</cp-dialog>

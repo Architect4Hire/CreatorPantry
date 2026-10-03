@@ -55,6 +55,11 @@ export const FAILURE_COPY: Readonly<Record<BrandSourceAddFailure, string>> = {
   not_found: "We couldn't find this workspace. Go back to your brand settings and try again.",
   key_reused: "That didn't go through. Remove it and add it again.",
   cancelled: 'Stopped.',
+
+  // Neither can reach the wizard, which only ever adds examples. Worded because the vocabulary is shared
+  // with the replacement, and an unworded case would reach a creator as a blank.
+  conflict: 'That example changed while you were adding it. Open your brand library to see where it stands.',
+  archived_conflict: 'That example is on the shelf. Bring it back from your brand library first.',
   unavailable: "We couldn't add that right now. Try again in a moment.",
 };
 

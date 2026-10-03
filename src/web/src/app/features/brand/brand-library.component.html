@@ -1,0 +1,188 @@
+<cp-toolbar ariaLabel="Brand library filters" [loading]="state().status === 'loading'">
+  <label class="search-field" cpToolbarSearch>
+    <span class="cp-sr-only">Search examples by name or filename</span>
+    <input
+      type="search"
+      name="search"
+      placeholder="Search examples"
+      autocomplete="off"
+      [value]="searchText()"
+      (input)="onSearchInput($event)"
+    />
+  </label>
+
+  <div class="filter-group" cpToolbarFilters role="group" aria-label="Filter by status">
+    @for (option of statusOptions; track option) {
+      <button
+        type="button"
+        class="chip"
+        [class.chip--on]="isStatusSelected(option)"
+        [attr.aria-pressed]="isStatusSelected(option)"
+        (click)="setStatus(option)"
+      >
+        {{ option }}
+      </button>
+    }
+  </div>
+
+  <div class="filter-group" cpToolbarFilters>
+    <label class="select-field">
+      <span class="cp-sr-only">Filter by kind of example</span>
+      <select name="documentType" [value]="documentType()" (change)="setDocumentType($event)">
+        <option value="">Any kind</option>
+        @for (type of documentTypeOptions; track type) {
+          <option [value]="type">{{ typeLabels[type] }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="select-field">
+      <span class="cp-sr-only">Filter by what the example is evidence of</span>
+      <select name="purpose" [value]="purpose()" (change)="setPurpose($event)">
+        <option value="">Any evidence</option>
+        @for (option of purposeOptions; track option) {
+          <option [value]="option">{{ purposeLabels[option] }}</option>
+        }
+      </select>
+    </label>
+
+    <!-- Rendered only when the catalog could be read. A channel filter with nothing in it is a dead end, and
+         the rest of the library works without it. -->
+    @if (channels().length > 0) {
+      <label class="select-field">
+        <span class="cp-sr-only">Filter by channel</span>
+        <select name="channelKey" [value]="channelKey()" (change)="setChannel($event)">
+          <option value="">Any channel</option>
+          @for (channel of channels(); track channel.key) {
+            <option [value]="channel.key">{{ channel.displayName }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    <label class="select-field">
+      <span class="cp-sr-only">Filter by whether the text has been read</span>
+      <select name="extractionState" [value]="extractionState()" (change)="setExtractionState($event)">
+        <option value="">Any text state</option>
+        @for (option of extractionStateOptions; track option) {
+          <option [value]="option">{{ extractionLabels[option] }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  @if (hasActiveFilters()) {
+    <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
+  }
+</cp-toolbar>
+
+<cp-list-shell
+  heading="Brand library"
+  [state]="listShellState()"
+  [errorMessage]="errorMessage()"
+  emptyMessage="No examples yet."
+>
+  <!-- Adding an example has nothing to do with whether this list could be read, so a failed load offers the
+       retry *beside* it rather than instead of it. Retry first: it is the secondary action, and it is what
+       someone reading "Couldn't load" reaches for. -->
+  <div cpListShellActions>
+    @if (state().status === 'error') {
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+    }
+    <button cpButton type="button" (click)="openUpload()">Upload example</button>
+  </div>
+
+  <div cpListShellEmpty>
+    @if (hasActiveFilters()) {
+      <cp-empty-state
+        title="No examples match these filters"
+        description="Try a different search, or clear the filters to see your whole library."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="No examples yet"
+        description="Add a piece of your own writing, a style guide, or an image that looks like your brand. The library learns your voice from what you put here."
+        variant="first-use"
+        icon="◆"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton type="button" (click)="openUpload()">Upload example</button>
+        </div>
+      </cp-empty-state>
+    }
+  </div>
+
+  @for (row of rows(); track row.id) {
+    <cp-card [interactive]="true" class="example-row">
+      <div class="example">
+        <h3 class="title">
+          <!-- The whole row is not the link: the title is, so the badges and pills below stay readable
+               rather than becoming part of one very long accessible name. -->
+          <a [routerLink]="[row.id]">{{ row.title }}</a>
+        </h3>
+
+        <p class="classification">
+          <cp-badge tone="purple">{{ typeLabels[row.documentType] }}</cp-badge>
+          <cp-badge tone="blue">{{ purposeLabels[row.purpose] }}</cp-badge>
+          @if (row.channelKey) {
+            <cp-badge tone="pink">{{ channelLabel(row.channelKey) }}</cp-badge>
+          }
+        </p>
+
+        <p class="state">
+          <cp-status-pill [tone]="row.status === 'Archived' ? 'stale' : 'neutral'">{{ row.status }}</cp-status-pill>
+          <cp-status-pill tone="neutral">v{{ row.versionNumber }}</cp-status-pill>
+          <cp-status-pill [tone]="extractionTone(row.extraction.state)">
+            {{ extractionLabels[row.extraction.state] }}
+          </cp-status-pill>
+        </p>
+
+        <p class="file">
+          <span class="filename">{{ row.fileName }}</span>
+          <span class="separator" aria-hidden="true">·</span>
+          <span>{{ fileSize(row.sizeBytes) }}</span>
+          <span class="separator" aria-hidden="true">·</span>
+          <span class="updated">Updated {{ row.updatedAt | date: 'mediumDate' }}</span>
+        </p>
+
+        @if (row.tags.length > 0) {
+          <p class="tags">
+            <span class="cp-sr-only">Tags:</span>
+            @for (tag of row.tags; track tag) {
+              <cp-badge tone="neutral">{{ tag }}</cp-badge>
+            }
+          </p>
+        }
+      </div>
+    </cp-card>
+  }
+
+  <div cpListShellPagination class="pager">
+    <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>
+
+    @if (hasPreviousPage() || hasNextPage()) {
+      <nav class="pager-actions" aria-label="Brand library pages">
+        <button cpButton variant="secondary" type="button" [disabled]="!hasPreviousPage()" (click)="previousPage()">
+          Previous
+        </button>
+        <span class="page-number">Page {{ pageNumber() }}</span>
+        <button cpButton variant="secondary" type="button" [disabled]="!hasNextPage()" (click)="nextPage()">
+          Next
+        </button>
+      </nav>
+    }
+  </div>
+</cp-list-shell>
+
+<cp-brand-library-upload
+  [open]="uploadOpen()"
+  [workspaceSlug]="workspaceSlug"
+  (closed)="closeUpload()"
+  (uploaded)="onUploaded()"
+/>

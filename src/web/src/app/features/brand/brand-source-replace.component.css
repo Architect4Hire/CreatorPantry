@@ -1,0 +1,22 @@
+/* The section owns the stack, the gap and the reading measure. Nothing here redraws any of that. */
+
+.standing {
+  max-width: var(--cp-measure-prose);
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* The file picker is not a `cp-field`, so the section does not cap it. */
+cp-uploader {
+  display: block;
+  max-width: var(--cp-measure-field);
+}
+
+/* The file's own problem, adjacent to the picker it belongs to. Field-level, not the section's `problem`. */
+.file-error {
+  margin: 0;
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+}

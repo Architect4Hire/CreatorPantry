@@ -104,6 +104,10 @@
   margin: 0 0 var(--cp-space-3);
 }
 
+/* Two destinations now, so they wrap rather than overflow on a narrow screen. */
 .create-voice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
   margin: var(--cp-space-4) 0 0;
 }

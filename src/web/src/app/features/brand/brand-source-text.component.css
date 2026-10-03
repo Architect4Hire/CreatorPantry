@@ -1,0 +1,57 @@
+:host {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.standing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.state,
+.why {
+  max-width: var(--cp-measure-prose);
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/*
+ * The creator's own material, shown as text. `pre-wrap` because extracted text carries its own line breaks
+ * and those are part of what was read — reflowing it would misrepresent the file. The body face, not a
+ * monospace one: this is prose, and there is no mono token to reach for.
+ *
+ * Scrolls rather than growing without bound: four megabytes of text in the page flow would make everything
+ * below it unreachable.
+ */
+.text {
+  max-height: 28rem;
+  overflow: auto;
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+  font: 400 var(--cp-font-size-sm) / var(--cp-leading-normal) var(--cp-font-sans);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.text:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+cp-notice {
+  display: block;
+  max-width: var(--cp-measure-prose);
+}

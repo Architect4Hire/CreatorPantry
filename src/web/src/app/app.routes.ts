@@ -25,6 +25,14 @@ const SECTION_ROUTES: Routes = [
     path: 'brand',
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand' } },
+      // The examples this workspace has given the brand. Under 'brand' so the Brand nav item stays active.
+      {
+        path: 'library',
+        children: [
+          { path: '', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-library.component').then((m) => m.BrandLibraryComponent), data: { title: 'Brand library' } },
+          { path: ':documentId', loadComponent: () => import('./features/brand/brand-source-detail.component').then((m) => m.BrandSourceDetailComponent), data: { title: 'Brand example' } },
+        ],
+      },
       // The "Create my voice" wizard. Everything under 'brand' keeps the Brand nav item active
       // (RouterLinkActive matches the subtree), so the section never appears to be left mid-setup.
       {

@@ -452,4 +452,62 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
             new BrandStyleGuideVersionListCriteria(inB.GuideId, "scope"), cancellation);
         Assert.Empty(acrossB.Rows);
     }
+
+    /// <summary>
+    /// A source document's version history, read at the repository rather than through the route.
+    /// </summary>
+    /// <remarks>
+    /// The endpoint tests prove the route answers 404 for another workspace's document, but that refusal is
+    /// Business's — it reads the document's status first and stops there. This pins the layer underneath:
+    /// the versions query names no <c>WorkspaceId</c> of its own, so if the global filter were ever dropped
+    /// from <c>BrandSourceDocumentVersion</c> or <c>BrandSourceExtraction</c>, only a test at this level
+    /// would notice. The same reasoning, and the same shape, as the guide-version assertions above.
+    /// </remarks>
+    [Fact]
+    public async Task A_source_documents_version_history_is_scoped_to_its_own_workspace()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var seeded = await SeedEverythingAsync(WorkspaceA);
+        var inB = await SeedEverythingAsync(WorkspaceB);
+
+        // Both sides get a second version, so neither history is a single row and the extraction attached to
+        // version 1 is a superseded version's on both sides.
+        await SupersedeAsync(WorkspaceA, seeded.DocumentId);
+        await SupersedeAsync(WorkspaceB, inB.DocumentId);
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var repository = new CreatorPantry.Domain.Modules.Brand.Data.BrandSourceDocumentRepository(db);
+
+        var mine = await repository.ListVersionsAsync(
+            new BrandSourceDocumentVersionListCriteria(seeded.DocumentId, "scope"), cancellation);
+
+        // Newest first, and each version's own file.
+        Assert.Equal([2, 1], mine.Rows.Select(row => row.VersionNumber));
+        Assert.Equal("house-style-v2.pdf", mine.Rows[0].OriginalFileName);
+        Assert.Equal("house-style.pdf", mine.Rows[1].OriginalFileName);
+
+        // The extraction belongs to version 1, so the replacement is unread and version 1 keeps its text.
+        Assert.Null(mine.Rows[0].ExtractionStatus);
+        Assert.Equal(BrandSourceExtractionStatus.Succeeded, mine.Rows[1].ExtractionStatus);
+
+        // B's document, asked for from a scope resolved to A. No rows, and no context either — which is what
+        // turns into one 404 a layer above.
+        var acrossB = await repository.ListVersionsAsync(
+            new BrandSourceDocumentVersionListCriteria(inB.DocumentId, "scope"), cancellation);
+        Assert.Empty(acrossB.Rows);
+        Assert.Null(await repository.FindVersionListContextAsync(inB.DocumentId, cancellation));
+
+        // And A's own context is found, with the number that marks a row current.
+        var context = await repository.FindVersionListContextAsync(seeded.DocumentId, cancellation);
+        Assert.Equal(2, context!.CurrentVersionNumber);
+        Assert.Equal(BrandSourceDocumentStatus.Active, context.Status);
+
+        // The keyset resumes inside A's history and still cannot reach B's.
+        var page = await repository.ListVersionsAsync(
+            new BrandSourceDocumentVersionListCriteria(
+                seeded.DocumentId, "scope", new BrandSourceDocumentVersionListPosition(2)),
+            cancellation);
+        Assert.Equal([1], page.Rows.Select(row => row.VersionNumber));
+    }
 }

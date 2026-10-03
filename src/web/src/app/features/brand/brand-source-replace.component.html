@@ -1,0 +1,40 @@
+<cp-dialog
+  [open]="open()"
+  title="Replace this file"
+  description="The new file becomes the next version. Nothing already here is overwritten."
+  titleId="brand-source-replace-title"
+  (closed)="cancel()"
+>
+  <cp-form-section heading="The new file" [problem]="failure()">
+    <!-- Said plainly, because "replace" sounds like loss and is not: the server keeps every earlier version's
+         row, bytes, download and extracted text. -->
+    <p class="standing">
+      Version {{ currentVersionNumber() }} is
+      <strong>{{ currentFileName() || 'the file on record' }}</strong>. It stays downloadable, and keeps the text
+      read from it. The file you choose becomes version {{ nextVersionNumber() }}.
+    </p>
+
+    <cp-uploader
+      label="Choose the replacement"
+      hint="PDF, Word, Markdown, plain text, HTML, PNG, JPEG or WebP. Up to 20 MB, or 5 MB for text, Markdown and HTML."
+      [accept]="accept"
+      [items]="uploadItems()"
+      (filesSelected)="onFilesSelected($event)"
+      (remove)="onRemoveFile()"
+      (cancel)="onCancelItem()"
+      (retry)="replace()"
+    />
+
+    @if (fileError()) {
+      <p class="file-error" role="alert">{{ fileError() }}</p>
+    }
+  </cp-form-section>
+
+  <div cpDialogActions>
+    <!-- "Close", not "Cancel": the uploader's own per-item control is already labelled Cancel. -->
+    <button cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="cancel()">Close</button>
+    <button cpButton type="button" [disabled]="isUploading()" (click)="replace()">
+      {{ isUploading() ? 'Replacing…' : 'Add as version ' + nextVersionNumber() }}
+    </button>
+  </div>
+</cp-dialog>

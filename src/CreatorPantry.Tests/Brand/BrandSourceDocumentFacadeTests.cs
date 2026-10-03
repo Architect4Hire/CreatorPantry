@@ -367,6 +367,10 @@ public sealed class BrandSourceDocumentFacadeTests
             BrandSourceDocumentListCriteria criteria, CancellationToken cancellationToken) =>
             throw new NotSupportedException("An upload has no business listing the library.");
 
+        public Task<OperationResult<CreatorPantry.Domain.Managers.Paging.CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>> ListVersionsAsync(
+            BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("An upload has no business listing a document's history.");
+
         public Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(
             IReadOnlyCollection<BrandSourcePurpose> purposes,
             string? channelKey,

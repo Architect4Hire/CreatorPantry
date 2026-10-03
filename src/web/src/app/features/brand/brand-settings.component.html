@@ -4,6 +4,9 @@
     <p class="lede">The facts about your brand that every piece of work in this workspace starts from.</p>
     <p class="create-voice">
       <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'setup']">Create my voice</a>
+      <!-- The way into the examples this brand is built from. A sibling of the wizard rather than a step in
+           it: the library is where a creator goes back to, long after setup. -->
+      <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'library']">Brand library</a>
     </p>
   </header>
 

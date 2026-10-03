@@ -112,6 +112,10 @@ public interface IBrandSourceDocumentFacade
     Task<OperationResult<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>>> ListAsync(
         BrandSourceDocumentListViewModel model, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="Business.IBrandSourceDocumentBusiness.ListVersionsAsync"/>
+    Task<OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>> ListVersionsAsync(
+        Guid documentId, BrandSourceDocumentVersionListViewModel model, CancellationToken cancellationToken);
+
     /// <summary>
     /// Up to <paramref name="limit"/> of the workspace's documents worth grounding a generation in, as exact
     /// document versions, most relevant first.
@@ -396,6 +400,22 @@ internal sealed class BrandSourceDocumentFacade(
 
         return OperationResult<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>>.Success(
             await business.ListAsync(criteria!, cancellationToken));
+    }
+
+    public Task<OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>> ListVersionsAsync(
+        Guid documentId, BrandSourceDocumentVersionListViewModel model, CancellationToken cancellationToken)
+    {
+        // The workspace comes from the resolved context and the document from the route. The model has a
+        // field for neither, and both are bound into the cursor's scope rather than trusted from it.
+        if (!BrandSourceDocumentVersionListQueryFactory.TryCreate(
+                model, workspace.WorkspaceId, documentId, out var criteria, out var error))
+        {
+            return Task.FromResult(
+                OperationResult<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>.Failure(error!));
+        }
+
+        // Every member may read, as for the single-document read: no role gate beyond the route's policy.
+        return business.ListVersionsAsync(criteria!, cancellationToken);
     }
 
     public Task<IReadOnlyList<BrandSourcePassageSelector>> ListGroundingCandidatesAsync(

@@ -30,13 +30,16 @@ public sealed class BrandSourceDocumentsController(
     /// until it is null. A cursor is bound to the workspace and filters it was issued for, so changing a
     /// filter means starting again without one. `limit` is clamped rather than refused. `status` is `Active`
     /// unless `Archived` is asked for; removed documents are never listed. Filters combine with AND, except
-    /// that repeated `tag` values match a document carrying any one of them. A filter naming a channel or tag
-    /// nothing carries is an empty page, not an error; a malformed filter or a cursor from another filter set
-    /// answers `400 brand.source.invalid_request`.
+    /// that repeated `tag` values match a document carrying any one of them. Any filter that nothing matches
+    /// is an empty page, not an error; a malformed filter, a filter given a list where it takes one value, or
+    /// a cursor from another filter set answers `400 brand.source.invalid_request`.
     ///
     /// Each item carries the document's description, its current version's metadata and `extraction.state`:
-    /// `NotExtracted` until a first attempt, then how the latest attempt ended. It never carries the file,
-    /// extracted text, a checksum or a storage location. The response is `no-store`.
+    /// `NotExtracted` until a first attempt, then how the latest attempt ended. `extractionState` filters on
+    /// that same fact, so a filtered page never holds a row reporting a different one — and because it is
+    /// judged against the *current* version, replacing a file returns a document to `NotExtracted` even though
+    /// the superseded version's text is still on record. An item never carries the file, extracted text, a
+    /// checksum or a storage location. The response is `no-store`.
     /// </remarks>
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
@@ -204,6 +207,54 @@ public sealed class BrandSourceDocumentsController(
         CancellationToken cancellationToken)
     {
         var result = await documents.GetAsync(documentId, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        Response.Headers.CacheControl = "no-store";
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>Lists one brand source document's versions, newest first.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="documentId">The document whose history to list. Constrained to a Guid.</param>
+    /// <param name="query">The cursor and page size. Carries no workspace, no document and no filters.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. **The history a replacement builds up**: every version a document has had, each
+    /// with the file's own metadata, who added it, whether it is the one in force, and where *its* text
+    /// stands — text stays attached to the version it was read from, so an older version keeps the text it
+    /// had while a newer one reads `NotExtracted` until something reads it.
+    ///
+    /// Newest version first, and that is the only ordering. Cursor-paged like the library: follow
+    /// `nextCursor` until it is null, and a cursor is bound to the workspace and document it was issued for,
+    /// so replaying one against another document answers `400 brand.source.invalid_request`. `limit` is
+    /// clamped rather than refused.
+    ///
+    /// An **archived** document's history reads normally. An unknown id, another workspace's document and one
+    /// this workspace has removed all answer `404 brand.source.not_found`, deliberately indistinguishable —
+    /// so this route cannot be used to learn that a document exists where the caller cannot see it. A row
+    /// never carries the file, extracted text or a storage location; `/versions/{n}/content` is how a version
+    /// is downloaded. The response is `no-store`.
+    /// </remarks>
+    [HttpGet("{documentId:guid}/versions")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<CursorPageServiceModel<BrandSourceDocumentVersionSummaryServiceModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> ListVersions(
+        string workspaceSlug,
+        Guid documentId,
+        [FromQuery] BrandSourceDocumentVersionListViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await documents.ListVersionsAsync(documentId, query, cancellationToken);
 
         if (!result.Succeeded)
         {

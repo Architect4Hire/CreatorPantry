@@ -1,0 +1,283 @@
+<nav class="crumb" aria-label="Back to the library">
+  <a [routerLink]="['/', workspaceSlug, 'brand', 'library']">← Brand library</a>
+</nav>
+
+@switch (state().status) {
+  @case ('loading') {
+    <cp-card>
+      <p class="state" role="status" aria-live="polite">Loading this example…</p>
+    </cp-card>
+  }
+  @case ('missing') {
+    <cp-card>
+      <!-- One answer for three cases, because the API gives one: unknown, another workspace's, and removed. -->
+      <h1 class="missing-title">We couldn’t find this example</h1>
+      <p class="state">
+        It may have been removed, or the link may be wrong. Your brand library shows everything this workspace has.
+      </p>
+      <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'library']">Back to the library</a>
+    </cp-card>
+  }
+  @case ('error') {
+    <cp-card>
+      <p class="state" role="alert">{{ errorMessage() }}</p>
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+    </cp-card>
+  }
+  @default {
+    @if (document(); as doc) {
+      <header class="page-header">
+        <div class="heading">
+          <h1>{{ doc.title }}</h1>
+
+          <div class="header-actions">
+            @if (isArchived()) {
+              <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
+                {{ busy() === 'archive' ? 'Working…' : 'Bring it back' }}
+              </button>
+            } @else {
+              <button cpButton variant="secondary" type="button" (click)="openReplace()">Replace file</button>
+              <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
+                {{ busy() === 'archive' ? 'Working…' : 'Put on the shelf' }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <p class="classification">
+          <cp-badge tone="purple">{{ typeLabels[doc.documentType] }}</cp-badge>
+          <cp-badge tone="blue">{{ purposeLabels[doc.purpose] }}</cp-badge>
+          @if (doc.channelKey) {
+            <cp-badge tone="pink">{{ channelLabel(doc.channelKey) }}</cp-badge>
+          }
+          @for (tag of doc.tags; track tag) {
+            <cp-badge tone="neutral">{{ tag }}</cp-badge>
+          }
+        </p>
+
+        <p class="standing">
+          <cp-status-pill [tone]="isArchived() ? 'stale' : 'neutral'">{{ doc.status }}</cp-status-pill>
+          <cp-status-pill tone="neutral">v{{ doc.versionNumber }}</cp-status-pill>
+          <cp-status-pill [tone]="extractionTone(doc.extraction.state)">
+            {{ extractionLabels[doc.extraction.state] }}
+          </cp-status-pill>
+        </p>
+
+        @if (isArchived()) {
+          <!-- Said plainly: archiving is a shelf. The controls it removes are absent above rather than
+               present and refusing. -->
+          <cp-notice tone="warning" role="status">
+            This example is on the shelf. It still reads and still downloads, but it is not offered as grounding and
+            takes no new file until you bring it back.
+          </cp-notice>
+        }
+
+        @if (notice()) {
+          <cp-notice tone="neutral" role="status">{{ notice() }}</cp-notice>
+        }
+      </header>
+
+      <cp-tabs [tabs]="tabs()" ariaLabel="This example" [(selectedId)]="selectedTabId">
+        <cp-tab-panel id="details">
+          <cp-card>
+            <dl class="facts">
+              <div>
+                <dt>File</dt>
+                <dd>{{ doc.fileName }}</dd>
+              </div>
+              <div>
+                <dt>Kind of file</dt>
+                <dd>{{ doc.mediaType }}</dd>
+              </div>
+              <div>
+                <dt>Size</dt>
+                <dd>{{ fileSize(doc.sizeBytes) }}</dd>
+              </div>
+              <div>
+                <dt>Current version</dt>
+                <dd>{{ doc.versionNumber }}</dd>
+              </div>
+              @if (doc.audience) {
+                <div>
+                  <dt>Audience</dt>
+                  <dd>{{ doc.audience }}</dd>
+                </div>
+              }
+              <div>
+                <dt>Added</dt>
+                <dd>{{ doc.createdAt | date: 'medium' }}</dd>
+              </div>
+              <div>
+                <dt>Last changed</dt>
+                <dd>{{ doc.updatedAt | date: 'medium' }}</dd>
+              </div>
+              @if (doc.archivedAt) {
+                <div>
+                  <dt>Put on the shelf</dt>
+                  <dd>{{ doc.archivedAt | date: 'medium' }}</dd>
+                </div>
+              }
+              <div class="wide">
+                <dt>Checksum</dt>
+                <!-- Published because it is the download's entity tag: a creator holding a file can tell
+                     whether it is still these bytes. It is not an address. -->
+                <dd class="checksum">{{ doc.contentChecksum }}</dd>
+              </div>
+            </dl>
+
+            <div class="download">
+              @if (downloadUrl(doc.versionNumber); as href) {
+                <a cpButton variant="secondary" [href]="href" download>
+                  Download version {{ doc.versionNumber }}
+                </a>
+              } @else {
+                <button cpButton variant="secondary" type="button" disabled>Download version {{ doc.versionNumber }}</button>
+                <p class="state">Downloads aren’t available right now. Reload the page and try again.</p>
+              }
+            </div>
+          </cp-card>
+        </cp-tab-panel>
+
+        <cp-tab-panel id="text">
+          <cp-card>
+            @if (!isViewingCurrent()) {
+              <p class="viewing" role="status">
+                Showing the text of version {{ viewedVersion() }}.
+                <button cpButton variant="text" type="button" (click)="viewVersionText(doc.versionNumber)">
+                  Show the current version instead
+                </button>
+              </p>
+            }
+
+            <cp-brand-source-text
+              [workspaceSlug]="workspaceSlug"
+              [documentId]="documentId"
+              [versionNumber]="viewedVersion()"
+              [isCurrentVersion]="isViewingCurrent()"
+              [isArchived]="isArchived()"
+              (changed)="onTextChanged()"
+            />
+          </cp-card>
+        </cp-tab-panel>
+
+        <cp-tab-panel id="versions">
+          <cp-card>
+            @if (versionsDegraded()) {
+              <p class="state" role="alert">
+                The version history couldn’t be loaded. Everything else on this page is up to date.
+              </p>
+              <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+            } @else if (versions().length === 0) {
+              <p class="state" role="status">Loading the history…</p>
+            } @else {
+              <!-- Each version keeps its own file and its own text. That is what this list is for. -->
+              <ul class="versions">
+                @for (version of versions(); track version.id) {
+                  <li class="version">
+                    <div class="version-text">
+                      <p class="version-heading">
+                        <strong>Version {{ version.versionNumber }}</strong>
+                        @if (version.isCurrent) {
+                          <cp-status-pill tone="success">Current</cp-status-pill>
+                        }
+                        <cp-status-pill [tone]="extractionTone(version.extraction.state)">
+                          {{ extractionLabels[version.extraction.state] }}
+                        </cp-status-pill>
+                      </p>
+                      <p class="version-file">
+                        <span class="filename">{{ version.originalFileName }}</span>
+                        <span class="separator" aria-hidden="true">·</span>
+                        <span>{{ fileSize(version.sizeBytes) }}</span>
+                        <span class="separator" aria-hidden="true">·</span>
+                        <span>{{ version.createdAt | date: 'medium' }}</span>
+                      </p>
+                    </div>
+
+                    <div class="version-actions">
+                      <button cpButton variant="ghost" size="sm" type="button" (click)="viewVersionText(version.versionNumber)">
+                        View text<span class="cp-sr-only"> of version {{ version.versionNumber }}</span>
+                      </button>
+
+                      @if (downloadUrl(version.versionNumber); as href) {
+                        <a cpButton variant="ghost" size="sm" [href]="href" download>
+                          Download<span class="cp-sr-only"> version {{ version.versionNumber }}</span>
+                        </a>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+
+              @if (hasMoreVersions()) {
+                <button cpButton variant="secondary" type="button" (click)="loadMoreVersions()">Show earlier versions</button>
+              }
+            }
+          </cp-card>
+        </cp-tab-panel>
+
+        <cp-tab-panel id="usage">
+          <cp-card>
+            @if (usageDegraded()) {
+              <p class="state" role="alert">
+                What points at this example couldn’t be loaded. Everything else on this page is up to date.
+              </p>
+              <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+            } @else if (usage(); as use) {
+              <p class="usage-summary">
+                {{ use.versionCount }} {{ use.versionCount === 1 ? 'version' : 'versions' }}, holding
+                {{ fileSize(use.storedBytes) }}.
+              </p>
+
+              @if (use.isHeld) {
+                <cp-notice tone="neutral" role="status">
+                  An approved style guide was written from this example, so it is kept on record.
+                </cp-notice>
+              }
+
+              @if (hasSupersededHolds()) {
+                <!-- Stated as the fact it is. Whether a guide should be rewritten is the guide's own state
+                     and the server's decision; this only says what was written from what. -->
+                <cp-notice tone="warning" role="status">
+                  Something here was written from an earlier version of this file. It still points at that exact
+                  version, which is still on record — but it has not seen the file you have now.
+                </cp-notice>
+              }
+
+              @if (use.holds.length === 0) {
+                <p class="state">Nothing points at this example yet.</p>
+              } @else {
+                <ul class="holds">
+                  @for (hold of use.holds; track hold.holderId) {
+                    <li>
+                      <span>{{ holdLabel(hold) }}</span>
+                      <cp-status-pill [tone]="hold.isApproved ? 'success' : 'neutral'">
+                        {{ hold.isApproved ? 'Approved' : 'Draft' }}
+                      </cp-status-pill>
+                      @if (citesSupersededVersion(hold)) {
+                        <cp-status-pill tone="stale">Since replaced</cp-status-pill>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <p class="state" role="status">Loading…</p>
+            }
+          </cp-card>
+        </cp-tab-panel>
+      </cp-tabs>
+
+      <cp-brand-source-replace
+        [open]="replaceOpen()"
+        [workspaceSlug]="workspaceSlug"
+        [documentId]="documentId"
+        [concurrencyToken]="doc.concurrencyToken"
+        [currentFileName]="doc.fileName"
+        [currentVersionNumber]="doc.versionNumber"
+        (closed)="closeReplace()"
+        (replaced)="onReplaced()"
+        (conflicted)="onReplaceConflict()"
+      />
+    }
+  }
+}

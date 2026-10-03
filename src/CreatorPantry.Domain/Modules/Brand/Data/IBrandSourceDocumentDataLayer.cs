@@ -100,6 +100,14 @@ public interface IBrandSourceDocumentDataLayer
     /// <inheritdoc cref="IBrandSourceDocumentRepository.FindStatusAsync"/>
     Task<BrandSourceDocumentStatus?> FindStatusAsync(Guid documentId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IBrandSourceDocumentRepository.ListVersionsAsync"/>
+    Task<(IReadOnlyList<BrandSourceDocumentVersionSummaryRecord> Rows, bool HasMore)> ListVersionsAsync(
+        BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IBrandSourceDocumentRepository.FindVersionListContextAsync"/>
+    Task<BrandSourceDocumentVersionListContextRecord?> FindVersionListContextAsync(
+        Guid documentId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Opens one numbered version's stored bytes.
     /// </summary>
@@ -453,6 +461,14 @@ internal sealed class BrandSourceDocumentDataLayer(
 
     public Task<BrandSourceDocumentStatus?> FindStatusAsync(Guid documentId, CancellationToken cancellationToken) =>
         documents.FindStatusAsync(documentId, cancellationToken);
+
+    public Task<(IReadOnlyList<BrandSourceDocumentVersionSummaryRecord> Rows, bool HasMore)> ListVersionsAsync(
+        BrandSourceDocumentVersionListCriteria criteria, CancellationToken cancellationToken) =>
+        documents.ListVersionsAsync(criteria, cancellationToken);
+
+    public Task<BrandSourceDocumentVersionListContextRecord?> FindVersionListContextAsync(
+        Guid documentId, CancellationToken cancellationToken) =>
+        documents.FindVersionListContextAsync(documentId, cancellationToken);
 
     public async Task<BrandSourceDownloadResult> OpenVersionAsync(
         Guid documentId, int versionNumber, CancellationToken cancellationToken)

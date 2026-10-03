@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { firstValueFrom } from 'rxjs';
 
 import { RuntimeConfigService } from '../core/runtime-config.service';
 import { BrandSourceDocumentService } from './brand-source-document.service';
@@ -16,7 +17,17 @@ const DOC = {
   audience: null,
   tags: [],
   status: 'Active',
-  currentVersion: { id: 'v', versionNumber: 1, mediaType: 'text/plain', sizeBytes: '42', originalFileName: 'Lasagna post.txt', createdAt: 'x' },
+  currentVersion: {
+    id: 'v',
+    versionNumber: 1,
+    mediaType: 'text/plain',
+    sizeBytes: '42',
+    originalFileName: 'Lasagna post.txt',
+    contentChecksum: 'sha256:abc',
+    createdAt: 'x',
+  },
+  extraction: { state: 'Succeeded', origin: 'Extracted', at: 'x' },
+  archivedAt: null,
   createdAt: 'x',
   updatedAt: 'x',
   concurrencyToken: 't',
@@ -177,5 +188,115 @@ describe('BrandSourceDocumentService', () => {
     during.abort();
     expect(await result).toEqual({ status: 'failed', reason: 'cancelled' });
     expect(req.cancelled).toBeTrue();
+  });
+
+  // ---- The Brand Library list ----
+
+  describe('searchLibrary', () => {
+    /** A row with no extraction: this client cannot say what state it is in, so it does not guess. */
+    const UNREADABLE = { ...DOC, extraction: undefined };
+
+    const ALL_FILTERS = {
+      search: '  house  ',
+      status: 'Archived',
+      documentType: 'StyleGuide',
+      purpose: 'WritingStyle',
+      channelKey: 'instagram',
+      extractionState: 'Failed',
+      cursor: 'abc==',
+      limit: 50,
+    } as const;
+
+    it('sends every filter in force, trimming the search term', async () => {
+      const result = firstValueFrom(service.searchLibrary('w', ALL_FILTERS));
+      const req = http.expectOne((r) => r.url === BASE);
+      const params = req.request.params;
+
+      expect(params.get('search')).toBe('house');
+      expect(params.get('status')).toBe('Archived');
+      expect(params.get('documentType')).toBe('StyleGuide');
+      expect(params.get('purpose')).toBe('WritingStyle');
+      expect(params.get('channelKey')).toBe('instagram');
+      expect(params.get('extractionState')).toBe('Failed');
+      expect(params.get('limit')).toBe('50');
+
+      // Verbatim: a re-encoded cursor is a different position, and the server refuses one it did not issue.
+      expect(params.get('cursor')).toBe('abc==');
+      expect(req.request.withCredentials).toBeTrue();
+
+      req.flush({ items: [], nextCursor: null });
+      await result;
+    });
+
+    it('leaves out the filters that are not set, rather than sending empty values', async () => {
+      const result = firstValueFrom(
+        service.searchLibrary('w', {
+          search: '   ',
+          status: 'Active',
+          documentType: null,
+          purpose: null,
+          channelKey: null,
+          extractionState: null,
+          cursor: null,
+          limit: 25,
+        }),
+      );
+
+      const req = http.expectOne((r) => r.url === BASE);
+      expect(req.request.params.keys().sort()).toEqual(['limit', 'status']);
+
+      req.flush({ items: [], nextCursor: null });
+      await result;
+    });
+
+    it('decodes a page and leaves out a row it cannot read', async () => {
+      const result = firstValueFrom(service.searchLibrary('w', ALL_FILTERS));
+
+      http.expectOne((r) => r.url === BASE).flush({ items: [DOC, UNREADABLE], nextCursor: 'next==' });
+
+      const outcome = await result;
+      expect(outcome.status).toBe('ok');
+      if (outcome.status !== 'ok') return;
+
+      expect(outcome.page.items.length).toBe(1);
+      expect(outcome.page.items[0]).toEqual(
+        jasmine.objectContaining({
+          title: 'Lasagna post',
+          versionNumber: 1,
+          extraction: { state: 'Succeeded', origin: 'Extracted', at: 'x' },
+        }),
+      );
+      expect(outcome.page.nextCursor).toBe('next==');
+    });
+
+    it('tells a refused cursor apart from a refused filter, because the remedies differ', async () => {
+      let result = firstValueFrom(service.searchLibrary('w', ALL_FILTERS));
+      http
+        .expectOne((r) => r.url === BASE)
+        .flush(
+          { code: 'brand.source.invalid_request', errors: { cursor: ['Start the list again without a cursor.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
+      expect((await result).status).toBe('cursor_expired');
+
+      result = firstValueFrom(service.searchLibrary('w', ALL_FILTERS));
+      http
+        .expectOne((r) => r.url === BASE)
+        .flush(
+          { code: 'brand.source.invalid_request', errors: { purpose: ['Use one of: Voice, WritingStyle.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
+      expect((await result).status).toBe('invalid_request');
+    });
+
+    it('reports anything else as unavailable, including a body it cannot read', async () => {
+      let result = firstValueFrom(service.searchLibrary('w', ALL_FILTERS));
+      http.expectOne((r) => r.url === BASE).flush({}, { status: 404, statusText: 'Not Found' });
+      expect((await result).status).toBe('unavailable');
+
+      result = firstValueFrom(service.searchLibrary('w', ALL_FILTERS));
+      http.expectOne((r) => r.url === BASE).flush({ nonsense: true });
+      expect((await result).status).toBe('unavailable');
+    });
   });
 });

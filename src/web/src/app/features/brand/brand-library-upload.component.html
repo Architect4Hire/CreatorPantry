@@ -1,0 +1,91 @@
+<cp-dialog
+  [open]="open()"
+  title="Add an example"
+  description="A piece of your own work the library can learn your voice from."
+  titleId="brand-library-upload-title"
+  (closed)="cancel()"
+>
+  <!-- Said once, here, rather than on each field: one of the four is optional, and marking it would make the
+       other three read as optional by contrast. -->
+  <p class="required-legend">
+    Fields marked <span aria-hidden="true">*</span><span class="cp-sr-only">with an asterisk</span> are required.
+    Everything else is optional.
+  </p>
+
+  <!-- The form's one section. `problem` carries the server's word on the whole part, which the section shows
+       as an alert and describes itself by — so a refusal reads as the heading and then the reason. -->
+  <cp-form-section heading="Example details" [problem]="failure()">
+    <cp-uploader
+      label="Choose a file"
+      hint="PDF, Word, Markdown, plain text, HTML, PNG, JPEG or WebP. Up to 20 MB, or 5 MB for text, Markdown and HTML."
+      [accept]="accept"
+      [items]="uploadItems()"
+      (filesSelected)="onFilesSelected($event)"
+      (remove)="onRemoveFile()"
+      (cancel)="onCancelItem()"
+      (retry)="add()"
+    />
+
+    @if (fileError()) {
+      <p class="file-error" role="alert">{{ fileError() }}</p>
+    }
+
+    <cp-field label="Name" forId="brand-example-title" [required]="true" [error]="titleError()" hint="How you will recognise this example in the library.">
+      <input
+        id="brand-example-title"
+        type="text"
+        [required]="true"
+        [attr.maxlength]="titleMax"
+        autocomplete="off"
+        [value]="title()"
+        [disabled]="isUploading()"
+        (input)="onTitle($event)"
+      />
+    </cp-field>
+
+    <cp-field label="Kind of example" forId="brand-example-type" [required]="true" [error]="typeError()">
+      <select id="brand-example-type" [required]="true" [value]="documentType()" [disabled]="isUploading()" (change)="onDocumentType($event)">
+        <option value="">Choose a kind</option>
+        @for (type of documentTypes; track type) {
+          <option [value]="type">{{ typeLabels[type] }}</option>
+        }
+      </select>
+    </cp-field>
+
+    <cp-field
+      label="Evidence of"
+      forId="brand-example-purpose"
+      [required]="true"
+      [error]="purposeError()"
+      hint="What this example shows about your brand. Choose &quot;Doesn't sound like me&quot; to keep it as something to avoid."
+    >
+      <select id="brand-example-purpose" [required]="true" [value]="purpose()" [disabled]="isUploading()" (change)="onPurpose($event)">
+        <option value="">Choose what it shows</option>
+        @for (option of purposes; track option) {
+          <option [value]="option">{{ purposeLabels[option] }}</option>
+        }
+      </select>
+    </cp-field>
+
+    <cp-field label="Audience" forId="brand-example-audience" [error]="audienceError()" hint="Who this piece was written for, if it matters.">
+      <input
+        id="brand-example-audience"
+        type="text"
+        [attr.maxlength]="audienceMax"
+        autocomplete="off"
+        [value]="audience()"
+        [disabled]="isUploading()"
+        (input)="onAudience($event)"
+      />
+    </cp-field>
+  </cp-form-section>
+
+  <div cpDialogActions>
+    <!-- "Close", not "Cancel": the uploader's own per-item control is already labelled Cancel, and two
+         buttons with the same accessible name doing different things is ambiguous for everyone. -->
+    <button cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="cancel()">Close</button>
+    <button cpButton type="button" [disabled]="isUploading()" (click)="add()">
+      {{ isUploading() ? 'Adding…' : 'Add example' }}
+    </button>
+  </div>
+</cp-dialog>

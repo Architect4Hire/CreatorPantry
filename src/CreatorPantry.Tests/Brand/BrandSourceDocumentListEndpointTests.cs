@@ -57,7 +57,11 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
         string[]? Tags = null,
         string FileName = "document.pdf",
         int Versions = 1,
-        (BrandSourceExtractionStatus Status, BrandSourceExtractionOrigin Origin)[]? Extractions = null);
+        (BrandSourceExtractionStatus Status, BrandSourceExtractionOrigin Origin)[]? Extractions = null,
+        BrandSourcePurpose Purpose = BrandSourcePurpose.Voice,
+
+        /// <summary>Attaches the extractions to version 1 instead of the current one. Needs two versions.</summary>
+        bool ExtractSupersededVersion = false);
 
     /// <summary>Writes documents, their versions, tags and extraction history from the workspace's own scope.</summary>
     private async Task SeedAsync(SeededWorkspace workspace, params Seed[] seeds)
@@ -78,7 +82,7 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
                 WorkspaceId = workspace.Id,
                 Title = seed.Title,
                 DocumentType = seed.Type,
-                Purpose = BrandSourcePurpose.Voice,
+                Purpose = seed.Purpose,
                 ChannelKey = seed.Channel,
                 Status = seed.Status,
                 CurrentVersionNumber = seed.Versions,
@@ -113,6 +117,10 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
                 document.Versions.Add(current);
             }
 
+            // Where the extraction history hangs. Version 1 when the seed says so, which is how a document
+            // whose file was replaced after its text was read is written.
+            var extracted = seed.ExtractSupersededVersion ? document.Versions.First(version => version.VersionNumber == 1) : current;
+
             foreach (var name in seed.Tags ?? [])
             {
                 var normalized = NameNormalization.NormalizeName(name);
@@ -135,12 +143,12 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
                 {
                     Id = Guid.NewGuid(),
                     WorkspaceId = workspace.Id,
-                    BrandSourceDocumentVersionId = current.Id,
+                    BrandSourceDocumentVersionId = extracted.Id,
                     Ordinal = index + 1,
                     Status = extraction.Status,
                     Origin = extraction.Origin,
                     ExtractedTextObjectKey = succeeded
-                        ? BrandSourceObjectKey.ForExtractedText(workspace.Id, document.Id, current.Id, index + 1)
+                        ? BrandSourceObjectKey.ForExtractedText(workspace.Id, document.Id, extracted.Id, index + 1)
                         : null,
                     ContentChecksum = succeeded ? "sha256:" + new string('1', 64) : null,
                     CreatedByMembershipId = extraction.Origin == BrandSourceExtractionOrigin.Corrected ? member : null,
@@ -155,12 +163,34 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
     /// <summary>A library that exercises every filter at once.</summary>
     private Task SeedLibraryAsync(SeededWorkspace workspace) => SeedAsync(
         workspace,
-        new Seed("House Style", 1, Tags: ["Launch", "Evergreen"], FileName: "Brand-Guide.pdf", Versions: 2),
+        new Seed("House Style", 1, Tags: ["Launch", "Evergreen"], FileName: "Brand-Guide.pdf", Versions: 2,
+            Purpose: BrandSourcePurpose.WritingStyle),
         new Seed("Autumn newsletter", 2, BrandSourceDocumentType.Newsletter, Tags: ["Launch"], FileName: "autumn.md"),
         new Seed("Reel captions", 3, BrandSourceDocumentType.SocialSample, Channel: "instagram", Tags: ["Holiday"]),
-        new Seed("Pin descriptions", 4, BrandSourceDocumentType.SocialSample, Channel: "pinterest"),
-        new Seed("Old house style", 5, Status: BrandSourceDocumentStatus.Archived, Tags: ["Launch"]),
+        new Seed("Pin descriptions", 4, BrandSourceDocumentType.SocialSample, Channel: "pinterest",
+            Purpose: BrandSourcePurpose.VisualDirection),
+        new Seed("Old house style", 5, Status: BrandSourceDocumentStatus.Archived, Tags: ["Launch"],
+            Purpose: BrandSourcePurpose.WritingStyle),
         new Seed("Withdrawn sample", 6, Status: BrandSourceDocumentStatus.Removed));
+
+    /// <summary>A library whose documents differ only in how their current version's text turned out.</summary>
+    private Task SeedExtractionsAsync(SeededWorkspace workspace) => SeedAsync(
+        workspace,
+
+        // A failure then a success: the latest attempt is what either reads or filters.
+        new Seed("Retried", 1, Extractions:
+        [
+            (BrandSourceExtractionStatus.Failed, BrandSourceExtractionOrigin.Extracted),
+            (BrandSourceExtractionStatus.Succeeded, BrandSourceExtractionOrigin.Extracted),
+        ]),
+        new Seed("Scanned", 2, Extractions: [(BrandSourceExtractionStatus.Unsupported, BrandSourceExtractionOrigin.Extracted)]),
+        new Seed("Broken", 3, Extractions: [(BrandSourceExtractionStatus.Failed, BrandSourceExtractionOrigin.Extracted)]),
+
+        // Read once, then its file was replaced. The text on record belongs to version 1, so the current
+        // version has not been extracted — the state is about the file that is there now.
+        new Seed("Replaced", 4, Versions: 2, ExtractSupersededVersion: true,
+            Extractions: [(BrandSourceExtractionStatus.Succeeded, BrandSourceExtractionOrigin.Extracted)]),
+        new Seed("Untouched", 5));
 
     // ---- Shape ----
 
@@ -241,11 +271,74 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
 
     // ---- Filters ----
 
+    /// <summary>
+    /// The extraction filter and the extraction each row reports are the same fact, so a filtered page can
+    /// never hold a row that describes itself as something else. Asserted together for that reason: the
+    /// expected titles and the state every one of them reports are checked in the same pass.
+    /// </summary>
+    [Theory]
+    [InlineData("Succeeded", "Retried")]
+    [InlineData("succeeded", "Retried")]
+    [InlineData("Unsupported", "Scanned")]
+    [InlineData("Failed", "Broken")]
+    [InlineData("NotExtracted", "Replaced|Untouched")]
+    public async Task The_extraction_filter_selects_the_current_versions_latest_attempt(string state, string expected)
+    {
+        using var client = await OwnerOf(_fixture.WorkspaceA);
+        await SeedExtractionsAsync(_fixture.WorkspaceA);
+
+        var page = await ListAsync(client, _fixture.WorkspaceA, $"?extractionState={state}");
+
+        Assert.Equal(expected.Split('|', StringSplitOptions.RemoveEmptyEntries), Titles(page));
+
+        foreach (var item in page.GetProperty("items").EnumerateArray())
+        {
+            Assert.Equal(
+                state,
+                item.GetProperty("extraction").GetProperty("state").GetString(),
+                ignoreCase: true);
+        }
+    }
+
+    [Fact]
+    public async Task The_extraction_filter_combines_with_the_others_and_every_state_accounts_for_every_document()
+    {
+        using var client = await OwnerOf(_fixture.WorkspaceA);
+        await SeedExtractionsAsync(_fixture.WorkspaceA);
+        var states = new[] { "Succeeded", "Unsupported", "Failed", "NotExtracted" };
+
+        var everyState = new List<Guid>();
+        foreach (var state in states)
+        {
+            var page = await ListAsync(client, _fixture.WorkspaceA, $"?extractionState={state}");
+            everyState.AddRange(page.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetGuid()));
+        }
+
+        // The four states partition the library: every document matches exactly one of them.
+        var whole = await ListAsync(client, _fixture.WorkspaceA, "?limit=100");
+        var all = whole.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetGuid()).ToList();
+        Assert.Equal(5, all.Count);
+        Assert.Equal(all.Count, everyState.Distinct().Count());
+        Assert.Empty(all.Except(everyState));
+
+        // And it narrows alongside a filter answered by a column on the document itself.
+        Assert.Equal(["Retried"], Titles(await ListAsync(client, _fixture.WorkspaceA, "?extractionState=Succeeded&search=retr")));
+        Assert.Empty(Titles(await ListAsync(client, _fixture.WorkspaceA, "?extractionState=Succeeded&purpose=VisualDirection")));
+        Assert.Empty(Titles(await ListAsync(client, _fixture.WorkspaceA, "?extractionState=Failed&status=Archived")));
+    }
+
     [Theory]
     [InlineData("?status=Archived", "Old house style")]
     [InlineData("?status=active&documentType=socialSample", "Reel captions|Pin descriptions")]
     [InlineData("?documentType=Newsletter", "Autumn newsletter")]
     [InlineData("?channelKey=instagram", "Reel captions")]
+    [InlineData("?purpose=WritingStyle", "House Style")]
+    [InlineData("?purpose=writingstyle&status=Archived", "Old house style")]
+    [InlineData("?purpose=Voice", "Autumn newsletter|Reel captions")]
+    [InlineData("?purpose=VisualDirection", "Pin descriptions")]
+    [InlineData("?purpose=NotMyVoice", "")]
+    [InlineData("?purpose=Voice&documentType=SocialSample", "Reel captions")]
+    [InlineData("?purpose=WritingStyle&documentType=Newsletter", "")]
     [InlineData("?tag=Launch", "House Style|Autumn newsletter")]
     [InlineData("?tag=LAUNCH&tag=holiday", "House Style|Autumn newsletter|Reel captions")]
     [InlineData("?tag=launch&tag=evergreen", "House Style|Autumn newsletter")]
@@ -275,6 +368,17 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
     [InlineData("?status=Active,Archived", "status")]
     [InlineData("?documentType=Spreadsheet", "documentType")]
     [InlineData("?documentType=1", "documentType")]
+
+    // Two names that OR into a third declared value. Refused as the list it is, not answered as PublishedPost.
+    [InlineData("?documentType=StyleGuide,WritingSample", "documentType")]
+    [InlineData("?purpose=Loud", "purpose")]
+    [InlineData("?purpose=1", "purpose")]
+    [InlineData("?purpose=Voice,Background", "purpose")]
+    [InlineData("?extractionState=Pending", "extractionState")]
+    [InlineData("?extractionState=Extracted", "extractionState")]
+
+    // NotExtracted is zero, and a number is never a way to name a state.
+    [InlineData("?extractionState=0", "extractionState")]
     public async Task A_filter_value_that_is_not_one_of_its_names_is_refused_by_field(string query, string field)
     {
         using var client = await OwnerOf(_fixture.WorkspaceA);
@@ -383,7 +487,7 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
         // The same position still works under the filters it was issued for, at any page size and tag order.
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(SourcesIn(_fixture.WorkspaceA, $"?limit=2&status=Active&cursor={cursor}"), cancellation)).StatusCode);
 
-        foreach (var query in new[] { $"?documentType=Newsletter&cursor={cursor}", $"?status=Archived&cursor={cursor}", $"?search=house&cursor={cursor}", $"?tag=Launch&cursor={cursor}", "?cursor=not-a-cursor", "?cursor=%00" })
+        foreach (var query in new[] { $"?documentType=Newsletter&cursor={cursor}", $"?status=Archived&cursor={cursor}", $"?search=house&cursor={cursor}", $"?tag=Launch&cursor={cursor}", $"?purpose=Voice&cursor={cursor}", $"?extractionState=NotExtracted&cursor={cursor}", "?cursor=not-a-cursor", "?cursor=%00" })
         {
             var response = await client.GetAsync(SourcesIn(_fixture.WorkspaceA, query), cancellation);
 
@@ -405,7 +509,7 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
         using var viewerB = await _fixture.SignInAsync(_fixture.WorkspaceB.MemberEmail, cancellationToken: cancellation);
 
         // The same titles, tag, channel and filename on both sides, so nothing but ownership tells them apart.
-        // Only A's has been extracted, and only B has a third document.
+        // Each workspace's copy stands somewhere different with its text, and only B has a third document.
         await SeedAsync(
             _fixture.WorkspaceA,
             new Seed("House Style", 1, Channel: "instagram", Tags: ["Launch"], FileName: "guide.pdf",
@@ -413,11 +517,22 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
             new Seed("Newsletter", 2, Tags: ["Launch"]));
         await SeedAsync(
             _fixture.WorkspaceB,
-            new Seed("House Style", 1, Channel: "instagram", Tags: ["Launch"], FileName: "guide.pdf"),
-            new Seed("Newsletter", 2, Tags: ["Launch"]),
+
+            // B's copy also holds a Succeeded row, but a later attempt failed. Its state is Failed, so a
+            // `Succeeded` filter that ignored the later-ordinal check would return it — in either workspace.
+            new Seed("House Style", 1, Channel: "instagram", Tags: ["Launch"], FileName: "guide.pdf", Extractions:
+            [
+                (BrandSourceExtractionStatus.Succeeded, BrandSourceExtractionOrigin.Extracted),
+                (BrandSourceExtractionStatus.Failed, BrandSourceExtractionOrigin.Extracted),
+            ]),
+            new Seed("Newsletter", 2, Tags: ["Launch"],
+                Extractions: [(BrandSourceExtractionStatus.Unsupported, BrandSourceExtractionOrigin.Extracted)]),
             new Seed("Only in B", 3, Tags: ["Launch", "Private"]));
 
-        foreach (var query in new[] { string.Empty, "?tag=launch", "?search=house", "?channelKey=instagram", "?search=guide.pdf" })
+        // `?extractionState=Succeeded` is the sharpest of these: both workspaces hold a Succeeded extraction,
+        // but only A's is its document's latest, so a filter whose subqueries reached across the boundary —
+        // or ignored the later-ordinal check — would return B's identically named document as well.
+        foreach (var query in new[] { string.Empty, "?tag=launch", "?search=house", "?channelKey=instagram", "?search=guide.pdf", "?purpose=Voice", "?extractionState=Succeeded" })
         {
             var inA = await ListAsync(ownerA, _fixture.WorkspaceA, query);
             var inB = await ListAsync(ownerB, _fixture.WorkspaceB, query);
@@ -433,7 +548,23 @@ public sealed class BrandSourceDocumentListEndpointTests : IAsyncLifetime
         var houseA = (await ListAsync(ownerA, _fixture.WorkspaceA, "?search=house")).GetProperty("items")[0];
         var houseB = (await ListAsync(ownerB, _fixture.WorkspaceB, "?search=house")).GetProperty("items")[0];
         Assert.Equal("Succeeded", houseA.GetProperty("extraction").GetProperty("state").GetString());
-        Assert.Equal("NotExtracted", houseB.GetProperty("extraction").GetProperty("state").GetString());
+        Assert.Equal("Failed", houseB.GetProperty("extraction").GetProperty("state").GetString());
+
+        // Every state, both ways round: each workspace's answer is about its own rows only. B's superseded
+        // Succeeded row must not answer a Succeeded filter in either workspace, and A's unread Newsletter must
+        // not be pulled in by B's Unsupported one.
+        foreach (var (state, inA, inB) in new[]
+        {
+            ("Succeeded", (string[])["House Style"], (string[])[]),
+            ("Failed", [], ["House Style"]),
+            ("Unsupported", [], ["Newsletter"]),
+            ("NotExtracted", ["Newsletter"], ["Only in B"]),
+        })
+        {
+            Assert.Equal(inA, Titles(await ListAsync(ownerA, _fixture.WorkspaceA, $"?extractionState={state}")));
+            Assert.Equal(inB, Titles(await ListAsync(ownerB, _fixture.WorkspaceB, $"?extractionState={state}")));
+        }
+
         Assert.Empty(Titles(await ListAsync(ownerA, _fixture.WorkspaceA, "?tag=Private")));
         Assert.Equal(new[] { "Only in B" }, Titles(await ListAsync(ownerB, _fixture.WorkspaceB, "?tag=Private")));
 
