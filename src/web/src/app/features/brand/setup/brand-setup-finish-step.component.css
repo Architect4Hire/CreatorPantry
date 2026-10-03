@@ -1,0 +1,37 @@
+:host {
+  display: block;
+}
+
+/* Sections a space-8 apart, as every form in the app stacks them. */
+.finish {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+.parts {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parts li {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+/* The creator's own words, kept as they wrote them and bounded so one long part cannot run away with the page. */
+.parts span {
+  max-block-size: 7rem;
+  overflow: auto;
+  max-inline-size: var(--cp-measure-prose);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

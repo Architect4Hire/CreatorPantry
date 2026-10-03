@@ -70,6 +70,20 @@ public static class BrandAuditActions
     public const string StyleGuideCreated = "brand.guide.created";
 
     /// <summary>
+    /// One guide version was approved: marked finished, which is what makes it activatable.
+    /// </summary>
+    /// <remarks>
+    /// Audited separately from <see cref="StyleGuideActivated"/> because they are two decisions by possibly
+    /// two people — an Editor settles the wording, an Owner makes it the workspace default — and the approval
+    /// is the one that cannot be undone: <c>BrandStyleGuideApproval</c> is never withdrawn, so every
+    /// generation that cites this version is traceable to this row. The after reference is the version
+    /// approved, as <c>{guideId:N}:{versionNumber}</c>, matching activation's. There is no before reference:
+    /// nothing was moved off. Ids and numbers only; the approver's stated reason stays on the approval row,
+    /// because an audit summary is not where free text about a private guide belongs.
+    /// </remarks>
+    public const string StyleGuideVersionApproved = "brand.guide.version.approved";
+
+    /// <summary>
     /// One approved guide version became the workspace's default.
     /// </summary>
     /// <remarks>

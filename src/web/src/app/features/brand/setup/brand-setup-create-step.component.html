@@ -1,0 +1,109 @@
+<div class="create">
+  <cp-form-section heading="What your guide starts from" intro="Your answers from the earlier steps, plus the examples you added.">
+    @if (noSources()) {
+      <cp-notice role="status">
+        You didn't add any examples, so your guide will be built from your answers alone. You can go back a step to add
+        some.
+      </cp-notice>
+    } @else {
+      @if (!loaded()) {
+        <p class="cp-muted" role="status">Looking up your examples…</p>
+      }
+      @if (unreachableCount() > 0) {
+        <cp-notice tone="warning" role="status">
+          We couldn't show {{ unreachableCount() === 1 ? 'one of your examples' : 'some of your examples' }} just now.
+          They're still saved, and they'll still be used.
+          <button cpButton type="button" variant="secondary" size="sm" [disabled]="retrying()" (click)="retry()">
+            {{ retrying() ? 'Trying…' : 'Try again' }}
+          </button>
+        </cp-notice>
+      }
+
+      @for (entry of entries(); track entry.row.documentId) {
+        <cp-brand-setup-example
+          [title]="titleOf(entry.row)"
+          [meta]="metaOf(entry.row)"
+          [tone]="toneOf(entry.state)"
+          [status]="statusOf(entry.state)"
+          [note]="noteOf(entry.state)"
+        />
+      }
+
+      @if (loaded() && summary()) {
+        <p class="cp-muted">{{ summary() }}</p>
+      }
+    }
+
+    <!-- Provenance in words, one disclosure away: which of the creator's own things are used, and nothing
+         about how. No context, no chunks, no prompt, and no model to choose — advanced or otherwise. -->
+    <details class="cp-disclosure">
+      <summary>What exactly gets used</summary>
+      <div class="detail-body">
+        <p>Your answers from the earlier steps of this setup.</p>
+        @if (usedTitles().length > 0) {
+          <p>These examples, by name:</p>
+          <ul>
+            @for (title of usedTitles(); track $index) {
+              <li>{{ title }}</li>
+            }
+          </ul>
+          <p>The words you checked are used exactly as you left them.</p>
+        } @else {
+          <p>No examples, so your answers are all your guide is built from.</p>
+        }
+        <p>Nothing else from your workspace is used, and nothing you have saved is changed.</p>
+      </div>
+    </details>
+  </cp-form-section>
+
+  <cp-form-section heading="How should your guide get written?">
+    <cp-choice-group
+      label="How should your guide get written?"
+      idPrefix="cp-create-method-"
+      [options]="choices()"
+      [value]="picked()"
+      (valueChange)="setMethod($event)"
+    />
+
+    <!-- Says nothing while the allowance is healthy, or while we have not read it. It is here rather than
+         inside the draft branch because it is also what explains a drafting choice that cannot be picked. -->
+    <cp-ai-allowance-notice [allowance]="allowance()" />
+
+    @if (method() === 'draft') {
+      <div class="result">
+        <p>
+          A first draft with a section for each part of your voice, and a note of which example each part came from.
+          It's a draft: nothing is switched on, and your edits always win.
+        </p>
+        @if (!draftBlocked()) {
+          <p>Writing the draft uses a little of your monthly AI allowance.</p>
+          <cp-checkbox
+            inputId="cp-create-cost-ack"
+            label="Yes, use some of my AI allowance to write the draft"
+            [checked]="acknowledged()"
+            (checkedChange)="setAcknowledged($event)"
+          />
+          @if (needsAck()) {
+            <p class="cp-muted" role="status">Tick the box above, then press Continue.</p>
+          }
+        } @else {
+          <!-- Only reachable for a choice saved earlier: the tile itself is disabled while this is true. -->
+          <cp-notice tone="warning" role="status">
+            Your allowance can't write a draft just now, so choose "I'll write it myself" to carry on. You can ask for
+            a draft another time.
+          </cp-notice>
+        }
+      </div>
+    } @else if (method() === 'myself') {
+      <div class="result">
+        <p>Empty sections you fill in, in your own words. No AI is used, and nothing is spent.</p>
+      </div>
+    } @else {
+      <p class="cp-muted" [attr.role]="touched() ? 'status' : null">Pick one of the two, then press Continue.</p>
+    }
+
+    @if (nextLine()) {
+      <p class="cp-muted">{{ nextLine() }}</p>
+    }
+  </cp-form-section>
+</div>

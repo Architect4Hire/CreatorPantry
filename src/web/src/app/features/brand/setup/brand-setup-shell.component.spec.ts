@@ -12,6 +12,7 @@ import {
   BrandSetupSessionService,
   BrandSetupSessionWriteOutcome,
 } from '../../../services/brand-setup-session.service';
+import { BrandStyleGuideService } from '../../../services/brand-style-guide.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../../services/workspace-membership.service';
 import { BRAND_SETUP_AUTOSAVE_MS, BrandSetupShellComponent } from './brand-setup-shell.component';
 import { brandSetupCanDeactivateGuard } from './brand-setup.guard';
@@ -52,6 +53,40 @@ function memberships(role: WorkspaceRole, slugs: readonly string[]) {
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const SLUG = 'sams-kitchen';
+
+/** Enough of the guide client for the last step to get past its decision. */
+const guideWrites = {
+  create: () =>
+    Promise.resolve({
+      status: 'created' as const,
+      guide: { guideId: 'g-1', displayName: 'My voice', versionId: 'v-1', versionNumber: 1 },
+    }),
+  approve: () =>
+    Promise.resolve({
+      status: 'approved' as const,
+      approval: { guideId: 'g-1', versionId: 'v-1', versionNumber: 1, approvedAt: '2026-10-03T10:00:00Z', alreadyApproved: false },
+    }),
+  activate: () =>
+    Promise.resolve({
+      status: 'activated' as const,
+      activation: {
+        guideId: 'g-1',
+        versionId: 'v-1',
+        versionNumber: 1,
+        activatedAt: '2026-10-03T10:00:01Z',
+        alreadyActive: false,
+        replacedVersionNumber: null,
+      },
+    }),
+};
+
+/** A draft whose last two steps have something in them, for the specs that reach the end of the wizard. */
+const FINISHABLE_DRAFT = JSON.stringify({
+  goals: { purposes: ['blog'], audience: 'home-cooks', channels: ['blog'] },
+  edit: {
+    sections: [{ id: 'voice', body: 'I write like a warm friend.', origin: 'answers', edited: false, citedDocumentIds: [] }],
+  },
+});
 
 let harness: RouterTestingHarness;
 let shell: BrandSetupShellComponent;
@@ -120,6 +155,8 @@ async function create(
       { provide: BrandSetupSessionService, useValue: { getSession: get, saveSession: save, completeSession: complete, deleteSession: del } },
       { provide: WorkspaceMembershipService, useValue: memberships(options.role ?? 'Editor', options.slugs ?? [SLUG]) },
       { provide: ConfirmService, useValue: { confirm } },
+      // The last step writes a guide through this. Stubbed here so the shell's own specs are about the shell.
+      { provide: BrandStyleGuideService, useValue: guideWrites },
     ],
   }).compileComponents();
 
@@ -215,6 +252,61 @@ describe('BrandSetupShellComponent', () => {
     it('does not let a fresh setup skip ahead', async () => {
       await create({ url: `/${SLUG}/brand/setup/create` });
       expect(router.url).toBe(`/${SLUG}/brand/setup/goals`);
+    });
+
+    it('mounts the guide editor, and its Save draft writes through the shell', async () => {
+      const draftJson = JSON.stringify({
+        goals: { purposes: ['blog'], audience: 'home-cooks', channels: ['blog'] },
+        style: { choices: { voice: ['warm-friend'] }, notes: {} },
+        create: { method: 'myself', costAcknowledged: false },
+      });
+      await create({
+        sessions: { [SLUG]: session({ currentStep: 'edit', furthestStep: 'edit', draftJson }) },
+        url: `/${SLUG}/brand/setup/edit`,
+      });
+      await click('Continue'); // resume panel
+      expect(heading().textContent).toBe('Review your guide');
+      expect(text()).toContain('How you come across');
+
+      const voice = root().querySelector('#cp-guide-body-voice') as HTMLTextAreaElement;
+      expect(voice.value).toContain('warm friend');
+      voice.value = 'I sound like me.';
+      voice.dispatchEvent(new Event('input'));
+      await settle();
+
+      await click('Save draft');
+      const written = JSON.parse(save.calls.mostRecent().args[1].draftJson) as Record<string, unknown>;
+      const sections = (written['edit'] as { sections: { id: string; body: string; edited: boolean }[] }).sections;
+      expect(sections.find((each) => each.id === 'voice')).toEqual(
+        jasmine.objectContaining({ body: 'I sound like me.', edited: true }),
+      );
+      expect(text()).toContain('Saved at');
+    });
+
+    it('mounts the guide-building step and saves the choice it reports', async () => {
+      const draftJson = JSON.stringify({
+        examples: { items: [{ documentId: 'd1', kind: 'sounds-like-me' }] },
+        'review-text': { confirmed: [{ documentId: 'd1', extractionId: 'x1' }] },
+      });
+      await create({
+        sessions: { [SLUG]: session({ currentStep: 'create', furthestStep: 'create', draftJson }) },
+        url: `/${SLUG}/brand/setup/create`,
+      });
+      await click('Continue'); // resume panel
+      expect(heading().textContent).toBe('Build your guide');
+      expect(text()).toContain('How should your guide get written?');
+      expect(button('Continue')?.disabled).toBeTrue();
+
+      (root().querySelector('#cp-create-method-myself') as HTMLInputElement).click();
+      await settle();
+      expect(button('Continue')?.disabled).toBeFalse();
+
+      await click('Continue');
+      const written = JSON.parse(save.calls.mostRecent().args[1].draftJson) as Record<string, unknown>;
+      expect(written['create']).toEqual({ method: 'myself', costAcknowledged: false });
+      // The earlier steps' answers are handed to it and handed back untouched.
+      expect(written['examples']).toEqual({ items: [{ documentId: 'd1', kind: 'sounds-like-me' }] });
+      expect(router.url).toBe(`/${SLUG}/brand/setup/edit`);
     });
   });
 
@@ -680,18 +772,26 @@ describe('BrandSetupShellComponent', () => {
             furthestStep: 'finish',
             completedSteps: ['goals', 'style', 'create', 'edit'],
             skippedSteps: ['examples', 'review-text'],
+            draftJson: FINISHABLE_DRAFT,
           }),
         },
       });
       await click('Continue');
       expect(button('Finish setup')).not.toBeNull();
       expect(button('Continue')).toBeNull();
+
+      // The last step gates it: finishing before deciding what happens to the guide would leave it nowhere.
+      expect(button('Finish setup')?.disabled).toBeTrue();
+      await click('Keep it as a draft');
+      expect(button('Finish setup')?.disabled).toBeFalse();
+
       await click('Finish setup');
 
       expect(complete).toHaveBeenCalledTimes(1);
       expect(complete.calls.mostRecent().args[1]).toBeTruthy();
-      expect(root().querySelector('h2')?.textContent).toContain('Nothing is active yet');
-      expect(text()).toContain('not being used for anything');
+      // It no longer claims nothing is active: the last step is where that was decided and said.
+      expect(root().querySelector('h2')?.textContent).toContain('Setup finished');
+      expect(text()).toContain('brand settings');
       const words = Array.from(root().querySelectorAll('.summary ol li .word')).map((w) => w.textContent);
       expect(words).toEqual(['Done', 'Done', 'Skipped', 'Skipped', 'Done', 'Done', 'Done']);
     });
@@ -703,8 +803,11 @@ describe('BrandSetupShellComponent', () => {
     });
 
     it('does not claim completion when the complete call fails', async () => {
-      await create({ sessions: { [SLUG]: session({ currentStep: 'finish', furthestStep: 'finish' }) } });
+      await create({
+        sessions: { [SLUG]: session({ currentStep: 'finish', furthestStep: 'finish', draftJson: FINISHABLE_DRAFT }) },
+      });
       await click('Continue');
+      await click('Keep it as a draft');
       complete.and.resolveTo({ status: 'unavailable' });
       await click('Finish setup');
       expect(root().querySelector('.summary')).toBeNull();

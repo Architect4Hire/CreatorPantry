@@ -1,0 +1,96 @@
+<div class="finish">
+  <cp-form-section heading="What you've written" intro="The parts of your guide that have words in them. Use Back if you want to change anything first.">
+    @if (parts().length === 0) {
+      <cp-notice tone="warning" role="status">
+        Your guide has nothing in it yet. Go back a step and write at least one part.
+      </cp-notice>
+    } @else {
+      <ul class="parts">
+        @for (part of parts(); track part.definition.id) {
+          <li>
+            <strong>{{ part.definition.label }}</strong>
+            <span class="cp-muted">{{ part.body }}</span>
+          </li>
+        }
+      </ul>
+    }
+
+    <cp-field label="Call it" forId="cp-finish-name" hint="You'll see this name wherever your voice is used.">
+      <input
+        id="cp-finish-name"
+        type="text"
+        [maxLength]="nameMax"
+        [value]="state().name"
+        [disabled]="state().guideId !== null"
+        (input)="setName($event)"
+      />
+    </cp-field>
+    @if (state().guideId !== null) {
+      <p class="cp-muted">Your guide is saved, so its name is set here. You can rename it in your brand settings.</p>
+    }
+  </cp-form-section>
+
+  <cp-form-section heading="What happens next">
+    @switch (outcome()) {
+      @case ('activated') {
+        <cp-notice tone="success" role="status">
+          <strong>Your voice is on.</strong>
+          Every new blog post, caption and newsletter now starts from it. Nothing you have already written has
+          changed, and you can switch to another voice in your brand settings whenever you like.
+        </cp-notice>
+      }
+      @case ('kept') {
+        <cp-notice role="status">
+          <strong>Saved as a draft. Nothing is switched on.</strong>
+          Your guide is in your brand settings, where it can be switched on when you're ready.
+        </cp-notice>
+      }
+      @default {
+        @if (isOwner()) {
+          <p>
+            Switching it on makes it what this workspace writes with: every new blog post, caption and newsletter
+            starts from it. Keeping it as a draft saves it and changes nothing.
+          </p>
+        } @else {
+          <p>
+            Your guide will be saved and ready. An Owner of this workspace makes it the voice everything is
+            written with — that decision isn't yours to make here.
+          </p>
+        }
+      }
+    }
+
+    @if (problem()) {
+      <cp-notice tone="error" role="alert">
+        {{ problem() }}
+        @if (retryable()) {
+          <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy() !== ''" (click)="retry()">
+            Try again
+          </button>
+        }
+      </cp-notice>
+    }
+
+    @if (outcome() === 'undecided') {
+      <div class="cp-actions">
+        @if (isOwner()) {
+          <button cpButton type="button" variant="primary" [disabled]="busy() !== '' || parts().length === 0" (click)="activate()">
+            {{ busy() === 'activate' ? 'Switching it on…' : 'Switch my voice on' }}
+          </button>
+        }
+        <button
+          cpButton
+          type="button"
+          [variant]="isOwner() ? 'secondary' : 'primary'"
+          [disabled]="busy() !== '' || parts().length === 0"
+          (click)="keepAsDraft()"
+        >
+          {{ busy() === 'keep' ? 'Saving…' : 'Keep it as a draft' }}
+        </button>
+      </div>
+      <p class="cp-muted" role="status">Choose one of these, then press Finish setup.</p>
+    }
+  </cp-form-section>
+
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+</div>

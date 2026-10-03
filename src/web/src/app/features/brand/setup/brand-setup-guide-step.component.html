@@ -1,0 +1,63 @@
+<div class="guide">
+  <div class="top">
+    @if (awaitingDraft()) {
+      <cp-notice role="status">
+        You asked us to draft your guide. It isn't written yet, so each part below starts from what you told us
+        earlier. Change anything, or write your own.
+      </cp-notice>
+    }
+
+    <p class="count cp-muted" role="status" aria-live="polite" aria-atomic="true">{{ summary() }}</p>
+
+    @if (unreachableCitations() > 0) {
+      <cp-notice tone="warning" role="status">
+        We couldn't look up every example your guide was written from. Your guide is unchanged.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retryCitations()">Try again</button>
+      </cp-notice>
+    }
+
+    <cp-anchor-nav
+      ariaLabel="Parts of your guide"
+      [items]="anchors()"
+      [activeTargetId]="active()"
+      (activated)="jump($event)"
+    />
+  </div>
+
+  @for (view of views(); track view.definition.id) {
+    <cp-form-section [heading]="view.definition.label" [sectionId]="view.anchorId">
+      <div class="where">
+        <cp-status-pill [tone]="view.tone">{{ view.pill }}</cp-status-pill>
+        <p class="marker cp-muted">
+          {{ view.marker }}
+          @if (view.citation) {
+            {{ view.citation }}
+          }
+        </p>
+      </div>
+
+      <details class="cp-disclosure">
+        <summary>What goes in this part?</summary>
+        <p class="cp-muted">{{ view.definition.help }}</p>
+      </details>
+
+      <cp-field label="In your words" [forId]="'cp-guide-body-' + view.definition.id" [hint]="view.definition.hint">
+        <textarea
+          [id]="'cp-guide-body-' + view.definition.id"
+          class="body"
+          [maxLength]="bodyMax"
+          [value]="view.section.body"
+          (input)="setBody(view.definition.id, $event)"
+        ></textarea>
+      </cp-field>
+    </cp-form-section>
+  }
+
+  <div class="cp-actions">
+    <button cpButton type="button" variant="secondary" (click)="save()">Save draft</button>
+  </div>
+
+  @if (written() === 0) {
+    <p class="cp-muted" role="status">Write at least one part of your guide, then press Continue.</p>
+  }
+</div>

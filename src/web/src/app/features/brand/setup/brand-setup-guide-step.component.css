@@ -1,0 +1,37 @@
+:host {
+  display: block;
+}
+
+/* Parts a space-8 apart, as every form in the app stacks its sections. */
+.guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+.top {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.count {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Where a part's words came from: the pill and the sentence read as one line, wrapping when there is no room. */
+.where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.marker {
+  margin: 0;
+  max-inline-size: var(--cp-measure-prose);
+}
+
+.body {
+  min-block-size: 7rem;
+}

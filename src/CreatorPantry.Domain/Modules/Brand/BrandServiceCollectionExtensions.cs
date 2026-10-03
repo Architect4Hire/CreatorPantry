@@ -59,6 +59,9 @@ public static class BrandServiceCollectionExtensions
             IValidator<BrandStyleGuideVersionComparisonViewModel>,
             BrandStyleGuideVersionComparisonViewModelValidator>();
         services.AddScoped<
+            IValidator<ApproveBrandStyleGuideVersionViewModel>,
+            ApproveBrandStyleGuideVersionViewModelValidator>();
+        services.AddScoped<
             IValidator<ActivateBrandStyleGuideVersionViewModel>,
             ActivateBrandStyleGuideVersionViewModelValidator>();
         services.AddScoped<IBrandStyleGuideRepository, BrandStyleGuideRepository>();

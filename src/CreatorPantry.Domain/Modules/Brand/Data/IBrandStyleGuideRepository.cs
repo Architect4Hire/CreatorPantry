@@ -100,6 +100,15 @@ internal interface IBrandStyleGuideRepository
     /// <summary>Stages the workspace's first default. Nothing is saved.</summary>
     void AddDefault(BrandStyleGuideDefault workspaceDefault);
 
+    /// <summary>Stages one version's approval. Nothing is saved.</summary>
+    /// <remarks>
+    /// There is no update and no delete beside it. The row is the whole record of the decision — its existence
+    /// is what "approved" means — and the entity states that an approval is never withdrawn, so a repository
+    /// method to undo one would be a way to make an activated version unapproved behind the default's own
+    /// foreign key.
+    /// </remarks>
+    void AddApproval(BrandStyleGuideApproval approval);
+
     /// <summary>Stages a new guide with its first version. Nothing is saved.</summary>
     void Add(BrandStyleGuide guide, BrandStyleGuideVersion version);
 
@@ -273,6 +282,9 @@ internal sealed class BrandStyleGuideRepository(CreatorPantryDbContext context) 
 
     public void AddDefault(BrandStyleGuideDefault workspaceDefault) =>
         context.BrandStyleGuideDefaults.Add(workspaceDefault);
+
+    public void AddApproval(BrandStyleGuideApproval approval) =>
+        context.BrandStyleGuideApprovals.Add(approval);
 
     public void Add(BrandStyleGuide guide, BrandStyleGuideVersion version)
     {

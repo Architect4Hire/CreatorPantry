@@ -39,7 +39,10 @@ import {
 } from '../../../models/brand-setup.models';
 import { BrandSetupSessionService } from '../../../services/brand-setup-session.service';
 import { WorkspaceMembershipService } from '../../../services/workspace-membership.service';
+import { BrandSetupCreateStepComponent } from './brand-setup-create-step.component';
 import { BrandSetupExamplesStepComponent } from './brand-setup-examples-step.component';
+import { BrandSetupFinishStepComponent } from './brand-setup-finish-step.component';
+import { BrandSetupGuideStepComponent } from './brand-setup-guide-step.component';
 import { BrandSetupGoalsStepComponent } from './brand-setup-goals-step.component';
 import { BrandSetupStyleStepComponent } from './brand-setup-style-step.component';
 import { BrandSetupReviewTextStepComponent } from './brand-setup-review-text-step.component';
@@ -135,6 +138,9 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
     CpCardComponent,
     CpNoticeComponent,
     CpProgressComponent,
+    BrandSetupCreateStepComponent,
+    BrandSetupFinishStepComponent,
+    BrandSetupGuideStepComponent,
     BrandSetupExamplesStepComponent,
     BrandSetupReviewTextStepComponent,
     BrandSetupGoalsStepComponent,
@@ -213,6 +219,20 @@ export class BrandSetupShellComponent {
 
   /** The examples step's saved slice, which the text-checking step reads to know which examples to check. */
   readonly examplesDraft = computed(() => this.data().draft['examples'] ?? null);
+
+  /** The text-checking step's saved slice, which the guide-building step reads to say which text was checked. */
+  readonly reviewTextDraft = computed(() => this.data().draft['review-text'] ?? null);
+
+  /**
+   * The slices the guide editor starts a part from, addressed by step the way the two above are. The shell
+   * still looks inside none of them: it hands a step another step's slice whole and reads nothing in it.
+   */
+  readonly goalsDraft = computed(() => this.data().draft['goals'] ?? null);
+  readonly styleDraft = computed(() => this.data().draft['style'] ?? null);
+  readonly createDraft = computed(() => this.data().draft['create'] ?? null);
+
+  /** The editor's saved slice: the guide the last step writes, approves and may switch on. */
+  readonly editDraft = computed(() => this.data().draft['edit'] ?? null);
 
   readonly stepNumber = computed(() => (this.currentIndex() ?? 0) + 1);
   readonly progressText = computed(() => `Step ${this.stepNumber()} of ${TOTAL}`);
@@ -571,6 +591,16 @@ export class BrandSetupShellComponent {
     await this.flush();
   }
 
+  /**
+   * A step's own Save: writes now rather than at the end of the autosave debounce. It is the same write — the
+   * status line, the failure notice and the conflict panel below report it — so a step never grows a second
+   * account of whether the creator's work is saved.
+   */
+  async saveNow(): Promise<void> {
+    if (this.busy() !== '') return;
+    await this.retry();
+  }
+
   // ---- Actions ----
 
   back(): void {
@@ -752,7 +782,7 @@ export class BrandSetupShellComponent {
         this.rowVersion = outcome.session.rowVersion;
         this.serverSession.set(outcome.session);
         this.phase.set('completed');
-        this.announcement.set('Setup finished. Nothing is active yet.');
+        this.announcement.set('Setup finished.');
         break;
       case 'conflict':
         this.indicator.set({ kind: 'conflict', finished: false });

@@ -10,6 +10,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Modules.Auth;
 using CreatorPantry.Domain.Modules.Auth.Managers;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Modules.Auth.Gateways;
@@ -139,6 +140,13 @@ else
     throw new InvalidOperationException(
         "No account message delivery is configured. Register an IAccountMessageSender provider adapter.");
 }
+
+// Uploads are scanned before they are stored, and no scanner is configured anywhere yet — so the fail-closed
+// one the brand module registers refuses every upload, which is correct for a deployment and makes the whole
+// source library unusable locally. Development gets the stand-in that clears everything but the EICAR test
+// file; the extension itself registers nothing outside Development, so this cannot leak by a missing guard.
+// Registering a real adapter is still a prerequisite for deploying anywhere (media.md).
+builder.Services.AddDevelopmentMalwareScanning(builder.Environment);
 
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
 {

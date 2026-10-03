@@ -1,0 +1,41 @@
+:host {
+  display: block;
+}
+
+/* Sections a space-8 apart, as every form in the app stacks them. */
+.create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+/* What the picked answer gives you, and what it costs: read as prose, so held to the prose measure. */
+.result {
+  display: grid;
+  gap: var(--cp-space-3);
+  max-inline-size: var(--cp-measure-prose);
+}
+
+.result p {
+  margin: 0;
+}
+
+.detail-body {
+  display: grid;
+  gap: var(--cp-space-2);
+  max-inline-size: var(--cp-measure-prose);
+  padding-block-start: var(--cp-space-2);
+}
+
+.detail-body p {
+  margin: 0;
+}
+
+.detail-body ul {
+  margin: 0;
+  padding-inline-start: var(--cp-space-5);
+}
+
+.detail-body li {
+  overflow-wrap: anywhere;
+}

@@ -71,10 +71,12 @@
     @case ('completed') {
       <cp-card>
         <section class="summary" aria-labelledby="summary-heading">
-          <h2 id="summary-heading" tabindex="-1">Setup finished. Nothing is active yet.</h2>
+          <h2 id="summary-heading" tabindex="-1">Setup finished.</h2>
+          <!-- It no longer says whether the voice is on. The last step owns that: it is where the creator chose,
+               and it is the only part of this screen that knows which way they chose. -->
           <p>
-            Your answers are saved, but your voice is not being used for anything. Switching it on is a separate step
-            that you choose.
+            Your answers are saved. Whether your voice is switched on, and switching it over to another one, live in
+            your brand settings.
             @if (completedAt()) {
               Finished {{ completedAt() }}.
             }
@@ -147,6 +149,38 @@
                       (reported)="onStepReport($event)"
                     />
                   }
+                  @case ('finish') {
+                    <cp-brand-setup-finish-step
+                      [step]="step"
+                      [draft]="currentStepDraft()"
+                      [goals]="goalsDraft()"
+                      [guide]="editDraft()"
+                      [workspaceSlug]="workspaceSlug()"
+                      (reported)="onStepReport($event)"
+                    />
+                  }
+                  @case ('edit') {
+                    <cp-brand-setup-guide-step
+                      [step]="step"
+                      [draft]="currentStepDraft()"
+                      [goals]="goalsDraft()"
+                      [style]="styleDraft()"
+                      [choice]="createDraft()"
+                      [workspaceSlug]="workspaceSlug()"
+                      (reported)="onStepReport($event)"
+                      (saveRequested)="saveNow()"
+                    />
+                  }
+                  @case ('create') {
+                    <cp-brand-setup-create-step
+                      [step]="step"
+                      [draft]="currentStepDraft()"
+                      [sources]="examplesDraft()"
+                      [checked]="reviewTextDraft()"
+                      [workspaceSlug]="workspaceSlug()"
+                      (reported)="onStepReport($event)"
+                    />
+                  }
                   @case ('examples') {
                     <cp-brand-setup-examples-step [step]="step" [draft]="currentStepDraft()" [workspaceSlug]="workspaceSlug()" (reported)="onStepReport($event)" />
                   }
@@ -212,7 +246,9 @@
                   <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="skip()">Skip for now</button>
                 }
                 @if (isLast()) {
-                  <button cpButton type="button" variant="primary" [disabled]="busy() !== ''" (click)="finish()">
+                  <!-- Gated on the step's report exactly as Continue is: the last step has a decision of its own
+                       to settle, and finishing before it was made would leave the creator's guide nowhere. -->
+                  <button cpButton type="button" variant="primary" [disabled]="!report().canContinue || busy() !== ''" (click)="finish()">
                     {{ busy() === 'complete' ? 'Finishing…' : 'Finish setup' }}
                   </button>
                 } @else {

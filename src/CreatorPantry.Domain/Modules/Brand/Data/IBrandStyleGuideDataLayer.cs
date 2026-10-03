@@ -86,6 +86,39 @@ public sealed record BrandStyleGuideActivationRead(
     int StaleSourceCount,
     BrandStyleGuideWorkspaceDefault? CurrentDefault);
 
+/// <summary>
+/// Everything an approval has to decide on, read before anything is written.
+/// </summary>
+/// <param name="Version">
+/// The named version with its sections and rules, or null when the guide has no version of that number. The
+/// guide itself is known to exist by the time this is returned.
+/// </param>
+/// <param name="Approval">
+/// The version's existing approval, or null. Not a bool, unlike
+/// <see cref="BrandStyleGuideActivationRead.IsApproved"/>: approving an approved version answers with the
+/// original approver, time and words rather than this request's.
+/// </param>
+/// <remarks>
+/// The workspace default is deliberately absent. Approval says a version is finished and does not look at, or
+/// touch, which version the workspace writes with — that is activation's one decision.
+/// </remarks>
+public sealed record BrandStyleGuideApprovalRead(
+    BrandStyleGuide Guide,
+    BrandStyleGuideVersion? Version,
+    BrandStyleGuideApproval? Approval);
+
+/// <summary>Why an approval was not written. <see cref="None"/> means it was.</summary>
+public enum BrandStyleGuideApprovalWrite
+{
+    None = 0,
+
+    /// <summary>
+    /// Another request approved the same version between this one's read and its save. The caller is asked to
+    /// read again and decide, and a retry finds the version approved.
+    /// </summary>
+    Conflict = 1,
+}
+
 /// <summary>Why an activation was not written. <see cref="None"/> means it was.</summary>
 public enum BrandStyleGuideActivationWrite
 {
@@ -198,6 +231,57 @@ public interface IBrandStyleGuideDataLayer
     /// workspace has none.
     /// </summary>
     Task<BrandStyleGuideWorkspaceDefault?> ReadWorkspaceDefaultAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the guide, the named version and any approval it already has: everything an approval decides on.
+    /// </summary>
+    /// <returns>
+    /// <c>null</c> when the resolved workspace has no such guide — which is also what another workspace's
+    /// guide looks like.
+    /// </returns>
+    Task<BrandStyleGuideApprovalRead?> ReadForApprovalAsync(
+        Guid guideId, int versionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes one version's approval and the audit entry, in one save.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The transaction boundary for an approval. The approval row and the audit entry commit together or
+    /// neither does, and so does the idempotency record the facade's executor staged on this same
+    /// <c>DbContext</c> — which is what stops a replay from returning a response for a write that rolled back.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing of the version is touched.</strong> A version is immutable and stays so: this adds a
+    /// row beside it, which is what makes "approved" a fact about the version rather than a column somebody
+    /// could flip back.
+    /// </para>
+    /// <para>
+    /// Two requests approving the same version at once is the one race, and the primary key on
+    /// <c>(WorkspaceId, BrandStyleGuideVersionId)</c> decides it. Only requests carrying *different*
+    /// idempotency keys can reach it: the executor's own record claims one scope at a time.
+    /// </para>
+    /// <para>
+    /// <strong>The loser is refused rather than handed the winner's approval</strong>, although the version is
+    /// approved either way, and that is deliberate. Recovering from the failed insert means clearing the
+    /// change tracker, which detaches the idempotency record the executor staged on this scope — so a success
+    /// returned after it would commit a record whose stored result was never written, and a later replay of
+    /// that key would answer from it. A conflict rolls the whole attempt back instead, and the retry it asks
+    /// for finds the version approved and answers with the original approver.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// <see cref="BrandStyleGuideApprovalWrite.None"/> on success, or
+    /// <see cref="BrandStyleGuideApprovalWrite.Conflict"/> when another request approved the same version
+    /// under this one.
+    /// </returns>
+    Task<BrandStyleGuideApprovalWrite> ApproveAsync(
+        Guid versionId,
+        string? reason,
+        Guid membershipId,
+        DateTimeOffset now,
+        AuditEntry audit,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Repoints the workspace default at <paramref name="versionId"/> and records the audit entry, in one
@@ -543,6 +627,74 @@ internal sealed class BrandStyleGuideDataLayer(
 
     public Task<BrandStyleGuideWorkspaceDefault?> ReadWorkspaceDefaultAsync(CancellationToken cancellationToken) =>
         guides.FindWorkspaceDefaultAsync(cancellationToken);
+
+    public async Task<BrandStyleGuideApprovalRead?> ReadForApprovalAsync(
+        Guid guideId, int versionNumber, CancellationToken cancellationToken)
+    {
+        // The guide first, and on its own, so "no such guide" stays a different answer from "no such version"
+        // — and so an archived guide is recognised as archived rather than as absent.
+        if (await guides.FindGuideAsync(guideId, cancellationToken) is not { } guide)
+        {
+            return null;
+        }
+
+        // By number within the route's guide, which is what makes another guide's version unreachable here
+        // rather than merely refused.
+        var version = (await guides.FindVersionsByNumberAsync(guideId, [versionNumber], cancellationToken))
+            .FirstOrDefault();
+
+        return version is null
+            ? new BrandStyleGuideApprovalRead(guide, null, null)
+            : new BrandStyleGuideApprovalRead(guide, version, await guides.FindApprovalAsync(version.Id, cancellationToken));
+    }
+
+    public async Task<BrandStyleGuideApprovalWrite> ApproveAsync(
+        Guid versionId,
+        string? reason,
+        Guid membershipId,
+        DateTimeOffset now,
+        AuditEntry audit,
+        CancellationToken cancellationToken)
+    {
+        // WorkspaceId is left to WorkspaceOwnershipInterceptor, as on every other workspace-owned insert: a
+        // server-stamped value cannot be the one a request supplied.
+        guides.AddApproval(new BrandStyleGuideApproval
+        {
+            BrandStyleGuideVersionId = versionId,
+            Reason = reason,
+            ApprovedByMembershipId = membershipId,
+            ApprovedAt = now,
+        });
+
+        auditWriter.Record(audit);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Nothing committed, and nothing may stay staged for the next save on this scope to commit.
+            context.ChangeTracker.Clear();
+
+            // The row is write-once with the version as its key, so the only insert this loses is to another
+            // approval of the same version. Asked by looking, because an insert has no row version to check
+            // and a primary-key refusal is indistinguishable by type from a schema one.
+            if (await guides.FindApprovalAsync(versionId, cancellationToken) is not null)
+            {
+                return BrandStyleGuideApprovalWrite.Conflict;
+            }
+
+            throw;
+        }
+        catch
+        {
+            context.ChangeTracker.Clear();
+            throw;
+        }
+
+        return BrandStyleGuideApprovalWrite.None;
+    }
 
     public async Task<BrandStyleGuideActivationWrite> ActivateAsync(
         BrandStyleGuideWorkspaceDefault? current,

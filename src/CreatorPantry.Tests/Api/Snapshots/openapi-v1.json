@@ -4039,6 +4039,165 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions/{versionNumber}/approval": {
+      "post": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Approves one brand style guide version: marks it finished, so an Owner may activate it.",
+        "description": "**Editor or above**, the role that creates and edits a guide \u2014 and deliberately below the Owner that\nactivation asks for. Saying a version is finished is the authoring decision; choosing what the whole\nworkspace writes with is not, and keeping them apart is what lets an Editor hand finished work over\nwithout repointing the workspace default themselves.\n\n\u0060confirmed\u0060 must be \u0060true\u0060 \u2014 a well-formed body is not by itself a decision. There is no expected-state\nfield: an approval is write-once and names one version, so there is nothing it could be racing to\nreplace. **And there is no unapprove.** An approval is never withdrawn, so every generation that cited\na version stays traceable to a version that was approved when it was used; moving off one means\napproving and activating another.\n\nNothing in the guide is edited \u2014 the version is immutable and this adds a row beside it \u2014 and **nothing\nis activated**: the workspace default still needs an Owner and a separate request. Approving a version\nthat is already approved is a success that writes nothing and answers \u0060alreadyApproved: true\u0060, with the\noriginal \u0060approvedAt\u0060 and approver rather than this request\u0027s.\n\nTwo refusals are about the version named: a version of an archived guide is \u0060409\nbrand.guide.archived.conflict\u0060, and one with no sections and no rules is \u0060409\nbrand.guide.version.empty.conflict\u0060. **Stale citations are not among them** \u2014 a version citing a source\ndocument replaced since can be approved, because approval is about the wording being finished; it is\nactivation that refuses to ground a workspace on it. Two requests approving the same version at once\nanswer \u0060409 brand.guide.version.approval.conflict\u0060 to the one that lost; asking again reports the\napproval that was recorded.\n\nAn unknown guide and another workspace\u0027s both answer \u0060404 brand.guide.not_found\u0060. A version number this\nguide does not have answers \u0060404 brand.guide.version.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose version to approve. Constrained to a Guid, so a malformed id answers 404 at routing \u2014\nthe same status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "Which of the guide\u0027s versions, by number as the history lists them. Constrained to an int, which is\nwhat keeps this route distinct from the literal \u0060compare\u0060 segment above.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Replaying a request with the same key returns the approval the first one recorded, with\n\u0060Idempotency-Replayed: true\u0060, and writes nothing further; the same key with a different body answers\n\u0060422 idempotency.key_reused\u0060. The key is scoped to the workspace, so the same one in another workspace\nis another request rather than a replay.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBrandStyleGuideVersion"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBrandStyleGuideVersion"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBrandStyleGuideVersion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideApprovalResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideApprovalResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideApprovalResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions/{versionNumber}/activation": {
       "post": {
         "tags": [
@@ -12172,6 +12331,25 @@
         ],
         "type": "string"
       },
+      "ApproveBrandStyleGuideVersion": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Must be true. States that a person confirmed this approval; a request without it is refused."
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why this version is being approved, in the caller\u0027s own words. Stored on the approval."
+          }
+        }
+      },
       "BrandAsset": {
         "required": [
           "mediaAssetId",
@@ -13192,6 +13370,53 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BrandStyleGuideApprovalResult": {
+        "required": [
+          "guideId",
+          "versionId",
+          "versionNumber",
+          "approvedAt",
+          "approvedByMembershipId",
+          "reason",
+          "alreadyApproved"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "approvedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "alreadyApproved": {
+            "type": "boolean"
           }
         }
       },

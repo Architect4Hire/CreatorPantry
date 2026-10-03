@@ -213,6 +213,85 @@ public sealed class BrandStyleGuidesController(IBrandStyleGuideFacade guides) : 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>Approves one brand style guide version: marks it finished, so an Owner may activate it.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="guideId">
+    /// The guide whose version to approve. Constrained to a Guid, so a malformed id answers 404 at routing —
+    /// the same status as an unknown guide and as another workspace's.
+    /// </param>
+    /// <param name="versionNumber">
+    /// Which of the guide's versions, by number as the history lists them. Constrained to an int, which is
+    /// what keeps this route distinct from the literal `compare` segment above.
+    /// </param>
+    /// <param name="model">The confirmation and an optional reason.</param>
+    /// <param name="idempotencyKey">
+    /// Required. Replaying a request with the same key returns the approval the first one recorded, with
+    /// `Idempotency-Replayed: true`, and writes nothing further; the same key with a different body answers
+    /// `422 idempotency.key_reused`. The key is scoped to the workspace, so the same one in another workspace
+    /// is another request rather than a replay.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// **Editor or above**, the role that creates and edits a guide — and deliberately below the Owner that
+    /// activation asks for. Saying a version is finished is the authoring decision; choosing what the whole
+    /// workspace writes with is not, and keeping them apart is what lets an Editor hand finished work over
+    /// without repointing the workspace default themselves.
+    ///
+    /// `confirmed` must be `true` — a well-formed body is not by itself a decision. There is no expected-state
+    /// field: an approval is write-once and names one version, so there is nothing it could be racing to
+    /// replace. **And there is no unapprove.** An approval is never withdrawn, so every generation that cited
+    /// a version stays traceable to a version that was approved when it was used; moving off one means
+    /// approving and activating another.
+    ///
+    /// Nothing in the guide is edited — the version is immutable and this adds a row beside it — and **nothing
+    /// is activated**: the workspace default still needs an Owner and a separate request. Approving a version
+    /// that is already approved is a success that writes nothing and answers `alreadyApproved: true`, with the
+    /// original `approvedAt` and approver rather than this request's.
+    ///
+    /// Two refusals are about the version named: a version of an archived guide is `409
+    /// brand.guide.archived.conflict`, and one with no sections and no rules is `409
+    /// brand.guide.version.empty.conflict`. **Stale citations are not among them** — a version citing a source
+    /// document replaced since can be approved, because approval is about the wording being finished; it is
+    /// activation that refuses to ground a workspace on it. Two requests approving the same version at once
+    /// answer `409 brand.guide.version.approval.conflict` to the one that lost; asking again reports the
+    /// approval that was recorded.
+    ///
+    /// An unknown guide and another workspace's both answer `404 brand.guide.not_found`. A version number this
+    /// guide does not have answers `404 brand.guide.version.not_found`.
+    /// </remarks>
+    [HttpPost("{guideId:guid}/versions/{versionNumber:int}/approval")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
+    [ProducesResponseType<BrandStyleGuideApprovalResultServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    // ValidationProblemDetails on the 404 for the reason CompareVersions records: a version number this guide
+    // does not have names the route segment at fault in `errors`.
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    // Declared because this route can return it: the same key with a different body is `idempotency.key_reused`,
+    // as the source library's routes document. A client has to be able to tell that from the 409s above, which
+    // are about the version rather than about the request having already been used for something else.
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> Approve(
+        string workspaceSlug,
+        Guid guideId,
+        int versionNumber,
+        [FromBody] ApproveBrandStyleGuideVersionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await guides.ApproveVersionAsync(
+            userId, guideId, versionNumber, model, idempotencyKey, cancellationToken);
+
+        // No Location: an approval has no read route of its own, and the guide read already reports it.
+        return this.IdempotentResult(outcome, Ok);
+    }
+
     /// <summary>Makes one approved brand style guide version this workspace's default.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the

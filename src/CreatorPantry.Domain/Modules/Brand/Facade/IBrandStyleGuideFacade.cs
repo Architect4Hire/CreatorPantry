@@ -53,6 +53,27 @@ public interface IBrandStyleGuideFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Approves one version of one guide, which is what lets an Owner make it the workspace default. Editor
+    /// only. Retryable with an idempotency key: a replay returns the approval the first request recorded.
+    /// </summary>
+    /// <param name="guideId">The guide, from the route. Never from the body.</param>
+    /// <param name="versionNumber">Which of its versions, from the route. Never from the body.</param>
+    /// <param name="model">The confirmation and an optional reason.</param>
+    /// <remarks>
+    /// <strong>Editor, the role that creates and edits a guide</strong>, and deliberately below the Owner that
+    /// activation requires: saying a version is finished is the authoring decision, and choosing what the
+    /// whole workspace writes with is not. Two roles for two decisions, which is also what lets an Editor
+    /// hand finished work over without being able to repoint the workspace default themselves.
+    /// </remarks>
+    Task<IdempotentOutcome<BrandStyleGuideApprovalResultServiceModel>> ApproveVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        ApproveBrandStyleGuideVersionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Makes one approved version of one guide the workspace's default. Owner only. Retryable with an
     /// idempotency key: a replay returns the activation the first request recorded.
     /// </summary>
@@ -129,11 +150,14 @@ internal sealed class BrandStyleGuideFacade(
     IValidator<CreateBrandStyleGuideViewModel> validator,
     IValidator<BrandStyleGuideVersionComparisonViewModel> comparisonValidator,
     IValidator<ActivateBrandStyleGuideVersionViewModel> activationValidator,
+    IValidator<ApproveBrandStyleGuideVersionViewModel> approvalValidator,
     IBrandStyleGuideBusiness business,
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IBrandStyleGuideFacade
 {
     private const string CreateOperation = "brand.guide.create";
+
+    private const string ApproveOperation = "brand.guide.approve";
 
     private const string ActivateOperation = "brand.guide.activate";
 
@@ -210,6 +234,46 @@ internal sealed class BrandStyleGuideFacade(
         return await idempotency.ExecuteAsync(
             new IdempotentCommand(userId, workspace.WorkspaceId, CreateOperation, idempotencyKey, Fingerprint(draft)),
             token => business.CreateAsync(userId, draft, token),
+            cancellationToken);
+    }
+
+    public async Task<IdempotentOutcome<BrandStyleGuideApprovalResultServiceModel>> ApproveVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        ApproveBrandStyleGuideVersionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        // Editor, as for creating and editing a guide: approving says the authoring is finished. Activation
+        // asks for Owner because it repoints what every later generation is grounded on, which is a different
+        // decision and stays a different gate.
+        if (workspace.Role < WorkspaceRole.Editor)
+        {
+            return RefusedApproval(new OperationError(
+                BrandErrorCodes.GuideForbidden,
+                "You do not have permission to approve brand style guide versions in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var validation = await approvalValidator.ValidateAsync(model, cancellationToken);
+
+        if (!validation.IsValid)
+        {
+            return RefusedApproval(OperationError.Validation(
+                BrandErrorCodes.GuideInvalidRequest,
+                "This brand style guide version could not be approved.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        return await idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId,
+                workspace.WorkspaceId,
+                ApproveOperation,
+                idempotencyKey,
+                Fingerprint(guideId, versionNumber, model)),
+            token => business.ApproveVersionAsync(userId, guideId, versionNumber, model.Reason, token),
             cancellationToken);
     }
 
@@ -297,6 +361,26 @@ internal sealed class BrandStyleGuideFacade(
     private static IdempotentOutcome<BrandStyleGuideActivationResultServiceModel> RefusedActivation(
         OperationError error) =>
         new(OperationResult<BrandStyleGuideActivationResultServiceModel>.Failure(error), Replayed: false);
+
+    /// <summary>
+    /// What an approval's replay is recognised by: the version named and the words stored with it.
+    /// </summary>
+    /// <remarks>
+    /// <c>confirmed</c> is left out for the reason the activation fingerprint gives: the validator accepts
+    /// only <c>true</c>, so it cannot distinguish two requests.
+    /// </remarks>
+    private static object Fingerprint(
+        Guid guideId, int versionNumber, ApproveBrandStyleGuideVersionViewModel model) =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["guideId"] = guideId,
+            ["versionNumber"] = versionNumber,
+            ["reason"] = model.Reason,
+        };
+
+    private static IdempotentOutcome<BrandStyleGuideApprovalResultServiceModel> RefusedApproval(
+        OperationError error) =>
+        new(OperationResult<BrandStyleGuideApprovalResultServiceModel>.Failure(error), Replayed: false);
 
     // The draft rather than the request, so two requests that differ only in blanks are the same request.
     private static object Fingerprint(BrandStyleGuideDraft draft) =>

@@ -45,6 +45,34 @@ public interface IBrandStyleGuideBusiness
         string userId, BrandStyleGuideDraft draft, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Approves one version of one guide: marks it finished, which is what makes it activatable. Nothing in
+    /// the guide is edited, and nothing is activated.
+    /// </summary>
+    /// <returns>
+    /// The approval, or the first refusal that applies: <c>brand.guide.not_found</c>,
+    /// <c>brand.guide.version.not_found</c>, <c>brand.guide.archived.conflict</c>,
+    /// <c>brand.guide.version.empty.conflict</c>, or <c>brand.guide.version.approval.conflict</c>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Stale citations are not a refusal here</strong>, although they are one for activation. Approval
+    /// says the wording is finished, which stays true when a cited document is replaced afterwards — and since
+    /// a document can be replaced at any time after an approval, refusing on it here would not remove the case
+    /// activation has to handle anyway. One rule, in the one place it decides something.
+    /// </para>
+    /// <para>
+    /// An already-approved version is a success that writes nothing, reporting the original approver, time and
+    /// words rather than this request's.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<BrandStyleGuideApprovalResultServiceModel>> ApproveVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        string? reason,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Makes one approved version of one guide the workspace's default. Nothing in the guide is edited: the
     /// version is immutable and this writes only the workspace's one activation decision.
     /// </summary>
@@ -423,6 +451,100 @@ internal sealed class BrandStyleGuideBusiness(
                 [.. draft.Rules],
                 [.. draft.Sources.Select(source => new BrandStyleGuideSourceServiceModel(
                     source.DocumentId!.Value, source.VersionNumber!.Value))])));
+    }
+
+    public async Task<OperationResult<BrandStyleGuideApprovalResultServiceModel>> ApproveVersionAsync(
+        string userId,
+        Guid guideId,
+        int versionNumber,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        if (await dataLayer.ReadForApprovalAsync(guideId, versionNumber, cancellationToken) is not { } read)
+        {
+            // Answered identically to a guide that was never created (tenancy.md).
+            return RefuseApproval(new OperationError(
+                BrandErrorCodes.GuideNotFound,
+                "There is no such brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (read.Version is not { } version)
+        {
+            // The guide is already known to be readable, so naming the route's segment discloses nothing.
+            return RefuseApproval(OperationError.Validation(
+                BrandErrorCodes.GuideVersionNotFound,
+                "There is no such version of this brand style guide.",
+                [("versionNumber", $"This guide has no version {versionNumber}.")]));
+        }
+
+        // Already approved, so there is nothing to write. Reported as a success rather than a conflict: the
+        // caller asked for a state the version is already in, and approval is never withdrawn, so this answer
+        // cannot go out of date. The original approver and words, not this request's.
+        if (read.Approval is { } existing)
+        {
+            return OperationResult<BrandStyleGuideApprovalResultServiceModel>.Success(
+                new BrandStyleGuideApprovalResultServiceModel(
+                    read.Guide.Id,
+                    version.Id,
+                    version.VersionNumber,
+                    existing.ApprovedAt,
+                    existing.ApprovedByMembershipId,
+                    existing.Reason,
+                    AlreadyApproved: true));
+        }
+
+        if (read.Guide.Status is BrandStyleGuideStatus.Archived)
+        {
+            return RefuseApproval(new OperationError(
+                BrandErrorCodes.GuideArchivedConflict,
+                "This brand style guide is archived, so its versions cannot be approved. Restore it first.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (version.Sections.Count == 0 && version.Rules.Count == 0)
+        {
+            return RefuseApproval(new OperationError(
+                BrandErrorCodes.GuideVersionEmptyConflict,
+                "This version has nothing in it yet, so there is nothing to approve.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var now = clock.UtcNow;
+        var membershipId = workspace.MembershipId;
+
+        // Ids and version numbers only, as activation's does. No before reference: an approval moves nothing
+        // off, it adds a fact about one version.
+        var audit = new AuditEntry(
+            userId,
+            BrandAuditActions.StyleGuideVersionApproved,
+            BrandAuditActions.StyleGuideResourceType,
+            read.Guide.Id.ToString("D"),
+            CorrelationId(),
+            $"Approved version {version.VersionNumber} of this brand style guide.",
+            null,
+            Pointer(read.Guide.Id, version.VersionNumber));
+
+        var write = await dataLayer.ApproveAsync(version.Id, reason, membershipId, now, audit, cancellationToken);
+
+        if (write is BrandStyleGuideApprovalWrite.Conflict)
+        {
+            return RefuseApproval(new OperationError(
+                BrandErrorCodes.GuideVersionApprovalConflict,
+                "Another request approved this version at the same moment, so this one changed nothing. Ask "
+                    + "again to see the approval that was recorded.",
+                new Dictionary<string, string[]>()));
+        }
+
+        return OperationResult<BrandStyleGuideApprovalResultServiceModel>.Success(
+            new BrandStyleGuideApprovalResultServiceModel(
+                read.Guide.Id,
+                version.Id,
+                version.VersionNumber,
+                now,
+                membershipId,
+                reason,
+                AlreadyApproved: false));
     }
 
     public async Task<OperationResult<BrandStyleGuideActivationResultServiceModel>> ActivateVersionAsync(
@@ -895,6 +1017,9 @@ internal sealed class BrandStyleGuideBusiness(
 
     private static OperationResult<BrandStyleGuideActivationResultServiceModel> Refuse(OperationError error) =>
         OperationResult<BrandStyleGuideActivationResultServiceModel>.Failure(error);
+
+    private static OperationResult<BrandStyleGuideApprovalResultServiceModel> RefuseApproval(OperationError error) =>
+        OperationResult<BrandStyleGuideApprovalResultServiceModel>.Failure(error);
 
     private static Guid CorrelationId()
     {

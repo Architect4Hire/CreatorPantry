@@ -184,6 +184,19 @@ public static class BrandErrorCodes
     public const string GuideVersionUnapprovedConflict = "brand.guide.version.unapproved.conflict";
 
     /// <summary>
+    /// Another request approved the same version at the same moment, so this one wrote nothing. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// A narrow race, and only between requests carrying different idempotency keys: the primary key on
+    /// <c>BrandStyleGuideApprovals</c> is the version, so one of the two inserts loses. The version is
+    /// approved either way, and the remedy is simply to ask again — a retry reads the winner's approval and
+    /// answers <c>alreadyApproved</c>. It is a refusal rather than that answer directly because recovering
+    /// inside the failed save would discard the idempotency record the attempt staged; see
+    /// <c>IBrandStyleGuideDataLayer.ApproveAsync</c>.
+    /// </remarks>
+    public const string GuideVersionApprovalConflict = "brand.guide.version.approval.conflict";
+
+    /// <summary>
     /// The version cites a source document version that document has since superseded. Maps to 409.
     /// </summary>
     /// <remarks>
