@@ -125,6 +125,26 @@ public enum AiEvaluationKind
     /// person-reference findings are demonstrated.
     /// </remarks>
     BrandGuideOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiBrandStyleSamplesOutputValidator.Validate"/>
+    /// directly, for 11A.24's own document — one half of a style test drive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A fixture declares one payload, because the validator's job is one half of the comparison and both halves
+    /// are held to the same rules. That symmetry is itself the thing worth fixing in place: a fixture asserting
+    /// that a rule applies is asserting it applies to the column written without the guide as well as the one
+    /// written with it.
+    /// </para>
+    /// <para>
+    /// What a fixture can show is deterministic — the length floor and ceiling on each of the three samples, the
+    /// hashtag that belongs only in a caption, the handle that belongs nowhere, and a warning that imitates a
+    /// server finding. Whether the guided column actually sounds more like the creator is not deterministic, and
+    /// no fixture here claims it is; that is what naming the applied rules and citations is for.
+    /// </para>
+    /// </remarks>
+    BrandStyleSamplesOutputValidation,
 }
 
 /// <summary>

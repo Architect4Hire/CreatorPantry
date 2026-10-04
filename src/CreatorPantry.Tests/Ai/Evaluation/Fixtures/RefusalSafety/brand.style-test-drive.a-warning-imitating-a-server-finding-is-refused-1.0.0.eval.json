@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-warning-imitating-a-server-finding-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "A model may caution the creator in its own words. It may not dress a caution as one of the server’s own findings, which carry different weight on screen because a deterministic check produced them.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}},\"warnings\":[{\"kind\":\"UnverifiedClaim\",\"message\":\"[brand.sparse_evidence] Your guide cites very little.\"}]}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.domain_invalid"
+  }
+}

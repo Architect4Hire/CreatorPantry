@@ -435,6 +435,45 @@ describe('BrandGuideHistoryComponent', () => {
 
   // ---- Activation: offered only where the server would accept it ----
 
+  /**
+   * 11A.24's entry point. Offered on every row, draft included: trying a version out is what makes a draft
+   * worth approving, and the test drive writes nothing either way — so unlike activation it carries no role
+   * bar and no status bar.
+   */
+  it('offers a test drive on every version, naming the version it would try', async () => {
+    service.versions = {
+      status: 'ok',
+      page: { items: [row(2, { status: 'Approved' }), row(1)], nextCursor: null },
+    };
+    await create();
+
+    const links = [...(harness.routeNativeElement as HTMLElement).querySelectorAll('a')].filter((link) =>
+      (link.textContent ?? '').includes('Test my style'),
+    );
+
+    expect(links.length).toBe(2);
+    expect(links[0].getAttribute('href')).toContain('/test-drive');
+    expect(links[0].getAttribute('href')).toContain('version=2');
+    expect(links[0].getAttribute('aria-label')).toBe('Test my style with version 2');
+  });
+
+  /** A Viewer may read a guide and may try it out; only activation is the Owner's. */
+  it('offers the test drive to a role that cannot activate', async () => {
+    memberships.state.set({ status: 'ready', memberships: [membership('Viewer')] });
+    service.versions = {
+      status: 'ok',
+      page: { items: [row(2, { status: 'Approved' }), row(1)], nextCursor: null },
+    };
+    await create();
+
+    expect(maybeButton('Write with this version…')).toBeNull();
+    expect(
+      [...(harness.routeNativeElement as HTMLElement).querySelectorAll('a')].some((link) =>
+        (link.textContent ?? '').includes('Test my style'),
+      ),
+    ).toBeTrue();
+  });
+
   it('offers the decision on an approved version that cites nothing stale', async () => {
     service.versions = {
       status: 'ok',

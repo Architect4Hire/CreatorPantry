@@ -204,6 +204,29 @@ describe('BrandLibraryComponent', () => {
     expect(queries().length).toBe(2);
   });
 
+  /**
+   * The degraded state (audit 11A.24a). A first read that fails has nothing to keep and is an error; a later
+   * one does, and replacing the rows a creator is reading with a full-width error loses work they can still
+   * use. `frontend.md` requires this state of every data surface; the version history already had it.
+   */
+  it('keeps the rows it already had when a later read fails, and says only that', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
+      ok(TWO_EXAMPLES),
+      of<BrandLibraryOutcome>({ status: 'unavailable' }),
+    );
+    await create();
+    await settle();
+
+    expect(text()).toContain('House Style');
+
+    // A second read, from changing a filter, which fails.
+    await choose('purpose', 'Voice');
+
+    expect(text()).toContain("Couldn't load the newest results");
+    expect(text()).toContain('House Style');
+    expect(button('Try again')).toBeTruthy();
+  });
+
   it('keeps Upload example available while a failed read is on screen', async () => {
     searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(of<BrandLibraryOutcome>({ status: 'unavailable' }));
     await create();

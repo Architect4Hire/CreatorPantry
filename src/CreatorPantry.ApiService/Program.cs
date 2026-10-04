@@ -117,6 +117,12 @@ builder.Services.AddAiProposalExplanationRequestSeam();
 // 11A.17's. The brand module is its prerequisite rather than the recipe one: the guide it proposes for, the
 // documents it grounds in and the channel catalogue it checks keys against are all that module's.
 builder.Services.AddAiBrandGuideProposalRequestSeam();
+
+// 11A.24. The assembler goes in here as well as in the worker: the test-drive seam asks it whether the named
+// guide version resolves and holds anything before queueing a request, and asks it again on the read to name
+// the rules behind the guided column. See AddAiBrandContext.
+builder.Services.AddAiBrandContext();
+builder.Services.AddAiBrandStyleTestDriveSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

@@ -63,6 +63,35 @@ public static class BrandContextSelection
     ];
 
     /// <summary>
+    /// The voice <em>and</em> the look, for the one task that demonstrates both (11A.24).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The only entry in this table that unions a writing list with the visual one</strong>, and the
+    /// reason is that a test drive writes three pieces in one pass: a blog introduction and a social caption,
+    /// which are the brand's voice, and an image prompt, which is its look. Splitting it into two packages
+    /// would mean two checksums, two provenance rows and two conflict lists for one thing a creator asked for
+    /// once — and either package would have had to record a <see cref="AiTaskType"/> it was not assembled for.
+    /// </para>
+    /// <para>
+    /// It is a union rather than a widening of either list: <see cref="BrandStyleGuideSectionKey.UserNotes"/>
+    /// stays out, as it does everywhere, and no task that writes recipe facts gains a section because this one
+    /// exists.
+    /// </para>
+    /// <para>
+    /// <see cref="BrandStyleGuideSectionKey.SocialGuidance"/> appears here and in no other entry, because the
+    /// social caption is the first sample any task writes. It is the guide's general social guidance and not a
+    /// channel variant — see <see cref="SectionKeysFor"/> on why a test drive passes no channel.
+    /// </para>
+    /// </remarks>
+    private static readonly BrandStyleGuideSectionKey[] VoiceAndLook =
+    [
+        .. LongForm,
+        BrandStyleGuideSectionKey.SocialGuidance,
+        .. VisualOnly,
+    ];
+
+    /// <summary>
     /// Which guide sections one task is grounded on, in section-key order.
     /// </summary>
     /// <remarks>
@@ -101,6 +130,12 @@ public static class BrandContextSelection
         // Image tasks: the brand's look, never its voice, so a style rule cannot reach recipe facts (11A.21).
         AiTaskType.PhotographyConcept or AiTaskType.ImagePrompt => VisualOnly,
 
+        // The test drive writes prose and an image prompt in one pass, so it is the one task that gets both.
+        // It passes no channel: one package grounds a blog introduction and a social caption together, and a
+        // channel key would pull a social variant over the long-form guidance the introduction needs. The
+        // caption therefore demonstrates the guide's general social guidance, which the screen states.
+        AiTaskType.BrandStyleTestDrive => VoiceAndLook,
+
         // Everything else: no brand context. Named above rather than left to a reader to work out.
         _ => [],
     };
@@ -110,15 +145,30 @@ public static class BrandContextSelection
         taskType is AiTaskType.PhotographyConcept or AiTaskType.ImagePrompt;
 
     /// <summary>
-    /// Which source-document purposes ground a task: visual direction for image tasks, writing purposes otherwise.
+    /// Which source-document purposes ground a task: visual direction for image tasks, both for the test drive,
+    /// writing purposes otherwise.
     /// </summary>
-    public static IReadOnlyList<BrandSourcePurpose> PurposesFor(AiTaskType taskType) =>
-        IsVisual(taskType) ? VisualPurposes : WritingPurposes;
+    /// <remarks>
+    /// A switch rather than the two-way choice this was, because <see cref="AiTaskType.BrandStyleTestDrive"/>
+    /// is neither an image task nor purely a writing one — it is grounded in both, for the reason
+    /// <see cref="VoiceAndLook"/> gives. <see cref="IsVisual"/> stays false for it: it demonstrates the look
+    /// but it generates no image, and the visual-reference rules that turn on <see cref="IsVisual"/> are about
+    /// generating one.
+    /// </remarks>
+    public static IReadOnlyList<BrandSourcePurpose> PurposesFor(AiTaskType taskType) => taskType switch
+    {
+        AiTaskType.PhotographyConcept or AiTaskType.ImagePrompt => VisualPurposes,
+        AiTaskType.BrandStyleTestDrive => WritingAndVisualPurposes,
+        _ => WritingPurposes,
+    };
 
     private static readonly BrandSourcePurpose[] VisualPurposes = [BrandSourcePurpose.VisualDirection];
 
     private static readonly BrandSourcePurpose[] WritingPurposes =
         [BrandSourcePurpose.Voice, BrandSourcePurpose.WritingStyle, BrandSourcePurpose.Background];
+
+    private static readonly BrandSourcePurpose[] WritingAndVisualPurposes =
+        [.. WritingPurposes, BrandSourcePurpose.VisualDirection];
 
     /// <summary>Whether a task is grounded in brand context at all.</summary>
     public static bool AppliesTo(AiTaskType taskType) => SectionKeysFor(taskType).Count > 0;

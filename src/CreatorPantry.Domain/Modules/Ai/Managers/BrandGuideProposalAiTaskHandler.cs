@@ -286,14 +286,24 @@ internal sealed class BrandGuideProposalAiTaskHandler(
     /// The creator's own answers, as the guide's working version holds them.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Section keys and bodies only. No guide name, no purpose, no actor, no timestamps: none of them is
     /// evidence about how the creator writes, and a prompt carries what the task needs and nothing more.
+    /// </para>
+    /// <para>
+    /// <strong><see cref="BrandStyleGuideSectionKey.UserNotes"/> is excluded</strong> (audit 11A.24a, S2). It is
+    /// the creator's own scratch area on the guide — notes to themselves <em>about</em> the guide, not an answer
+    /// about how they write — so sending it would turn a private reminder into evidence, and into something a
+    /// proposal could cite back at them. <see cref="BrandContextSelection"/> excludes it from every generation
+    /// task for the same reason; this path read the whole section list and so did not.
+    /// </para>
     /// </remarks>
     private static string RenderGuideAnswers(BrandStyleGuideVersionDetailServiceModel version) =>
         JsonSerializer.Serialize(
             new
             {
                 answers = version.Sections
+                    .Where(section => section.SectionKey is not BrandStyleGuideSectionKey.UserNotes)
                     .Select(section => new
                     {
                         key = section.SectionKey.ToString(),

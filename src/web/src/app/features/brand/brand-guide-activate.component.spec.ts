@@ -152,10 +152,26 @@ describe('BrandGuideActivateComponent', () => {
   it('says what activating changes, and what it leaves alone', async () => {
     await render();
 
-    expect(text()).toContain('Version 4 becomes the voice this workspace writes');
+    expect(text()).toContain("Version 4 becomes this workspace's default voice");
     expect(text()).toContain('replaces version 2');
     expect(text()).toContain('stays exactly where it is in the history');
     expect(text()).toContain('Nothing is published anywhere');
+  });
+
+  /**
+   * Audit 11A.24a, B1. This dialog used to say "the voice this workspace writes and makes pictures with" and
+   * "everything generated from now on is grounded on it". No writing handler reads a guide yet (11A.20) and
+   * there is no image generation at all (11A.21), so the one place an active guide has any effect is "Test my
+   * style". Asserting the absence as well as the presence is what stops the promise drifting back in before
+   * those two prompts land.
+   */
+  it('does not promise that writing or pictures use the guide yet', async () => {
+    await render();
+
+    expect(text()).toContain('Test my style');
+    expect(text()).toContain('does not read it yet');
+    expect(text()).not.toContain('makes pictures with');
+    expect(text()).not.toContain('Everything generated from now on');
   });
 
   it('says nothing is being replaced when the workspace has no default yet', async () => {

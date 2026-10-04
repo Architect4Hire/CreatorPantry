@@ -134,8 +134,9 @@ cp-notice {
   font-size: var(--cp-font-size-sm);
 }
 
-/* The row's one command, kept under the metadata rather than beside the version number: the number is what a
-   creator scans, and a button in that line would compete with it on every row. */
+/* The row's commands, kept under the metadata rather than beside the version number: the number is what a
+   creator scans, and a button in that line would compete with it on every row. Two of them now — trying a
+   version out, which anyone may do, and writing with it, which only an Owner may. */
 .version-actions {
   display: flex;
   flex-wrap: wrap;

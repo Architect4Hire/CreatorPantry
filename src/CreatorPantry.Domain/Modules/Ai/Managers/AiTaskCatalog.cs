@@ -68,6 +68,9 @@ public static class AiTaskCatalog
     /// <summary>11A.17: the brand-guide analysis for one of the workspace's own style guides.</summary>
     public const string BrandGuideProposal = "brand.guide-proposal";
 
+    /// <summary>11A.24: the read-only comparison of samples written without and with one selected guide version.</summary>
+    public const string BrandStyleTestDrive = "brand.style-test-drive";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -81,6 +84,7 @@ public static class AiTaskCatalog
         [EditorialPackage] = AiTaskType.EditorialPackage,
         [SeoPackage] = AiTaskType.SeoPackage,
         [BrandGuideProposal] = AiTaskType.BrandGuideProposal,
+        [BrandStyleTestDrive] = AiTaskType.BrandStyleTestDrive,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -148,12 +152,21 @@ public static class AiTaskCatalog
     /// <see cref="AiOperationScope.NotApplicable"/>; and it names no recipe at all, so the recipe-nested route
     /// would stamp a <c>RecipeId</c> onto a row whose whole subject is a brand guide.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.BrandStyleTestDrive"/> needs it for the same three reasons, and adds a fourth of
+    /// its own: the guide version it is testing is <strong>required</strong> rather than optional, so there is
+    /// no reading of a request without it that would still be a test drive of anything. The other three hold as
+    /// they do for <see cref="AiTaskType.BrandGuideProposal"/> — the guide, the version and the subject have
+    /// nowhere to travel on the generic contract, the scope is the server's to fix at
+    /// <see cref="AiOperationScope.NotApplicable"/>, and it names no recipe.
+    /// </para>
     /// </remarks>
     public static bool RequiresTaskInputs(AiTaskType task) =>
         task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
             or AiTaskType.ProposalExplanation or AiTaskType.RecipeConcepts or AiTaskType.RecipeFirstDraft
             or AiTaskType.RecipeRevision or AiTaskType.EditorialPackage
-            or AiTaskType.SeoPackage or AiTaskType.BrandGuideProposal;
+            or AiTaskType.SeoPackage or AiTaskType.BrandGuideProposal
+            or AiTaskType.BrandStyleTestDrive;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

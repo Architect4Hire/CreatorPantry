@@ -191,6 +191,11 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // Likewise. 11A.17's brand guide items are a proposal a creator writes their own guide version from, not a
   // diff to anything, and have no review surface here yet; the label exists so the map stays exhaustive.
   BrandGuideSection: 'Brand guidance',
+  // Likewise, and emphatically: 11A.24's samples are read on the test-drive screen, which pairs them into
+  // columns. Nothing about one is a change to anything, and there is no route that would accept one — the
+  // labels exist so the map stays exhaustive over the wire enum.
+  BrandStyleSampleWithoutGuide: 'Sample without your guide',
+  BrandStyleSampleWithGuide: 'Sample with your guide',
 };
 
 /**

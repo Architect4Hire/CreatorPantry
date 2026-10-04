@@ -8,10 +8,18 @@
   (closed)="close()"
 >
   <!-- What changes, in the creator's terms. "Activate" is a word about a record; this is about what the
-       product will sound like from now on. -->
+       product will sound like from now on.
+
+       REVISIT WITH 11A.20/11A.21 (audit 11A.24a, B1). This said "becomes the voice this workspace writes and
+       makes pictures with. Everything generated from now on is grounded on it." Neither is true yet: no
+       writing handler requests a BrandContextPackage and there is no image generation at all, so the only
+       place an active guide has any effect is "Test my style". Promising more was concealing the absence of an
+       activation effect from the one person making a workspace-wide decision. Restore the fuller wording when
+       those two prompts land, and not before. -->
   <p class="explain">
-    Version {{ version().versionNumber }} becomes the voice this workspace writes and makes pictures with.
-    Everything generated from now on is grounded on it.
+    Version {{ version().versionNumber }} becomes this workspace's default voice, and the one
+    <strong>Test my style</strong> writes from. Blog, caption and newsletter generation does not read it yet,
+    so nothing you generate today changes.
   </p>
 
   @if (replacing(); as previous) {

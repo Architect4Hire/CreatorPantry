@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-line-break-in-an-image-prompt-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "An image prompt is one line, because that is what a prompt is. A blog introduction and a caption may break into paragraphs; this one may not.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken.\\nSoft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

@@ -821,6 +821,80 @@ nullable `brandContext` block — additive, and the OpenAPI snapshot was regener
 control that will surface this is 11A.21a.
 **Rules:** `ai.md`, `content.md`, `tenancy.md`, `backend.md`, `api-contract.md`.
 
+### B-26 A read-only comparison is two provider calls
+
+*Recorded 2026-10-04 by microprompt 11A.24, the read-only "Test my style" test drive. It is the first consumer
+of [B-24](#b-24-deterministic-brand-context-for-generation)'s assembler in a generation path, and the first to
+populate [B-25](#b-25-brand-context-recorded-against-a-generation)'s provenance rows.*
+
+- **Two provider calls for one operation, and that is the capability.** One call writes the three samples with
+  no brand context at all; the second writes them from the guide version the creator named. A single call
+  holding the guide while writing both halves would produce a column labelled "without your guide" that was
+  written with it — the one claim this screen must not make. The calls differ in exactly one respect: the second
+  carries the package's `PREFERENCES` and `REFERENCES` segments. Same template, same output schema, same
+  validator, same subject. `AiTaskHandlerOutcome.Attempts` was already a list and `AiExecutionMetadata` already
+  one row per attempt, so nothing was invented to hold the second call; the lease is renewed between them.
+- **The consequence nobody can configure away: a test drive costs twice.** `Ai:Quota:TaskEstimates` gains a
+  `BrandStyleTestDrive` entry at twice the default per-call estimate, in **both** hosts — the API refuses at the
+  edge and the worker takes the hold, and the two must agree about what one costs. Leaving it to
+  `DefaultTaskEstimate` would have under-reserved every run by half, which settlement would have recorded
+  honestly and admission would have let through.
+- **An empty guide version is refused before anything is spent, twice over.** The request seam asks the
+  assembler whether the named version resolves and holds any guidance — assembly makes no provider call, so the
+  refusal is free — and the handler checks again in case the guide was emptied in between. Two identical columns
+  are not a comparison, and a creator should not pay to discover that.
+- **The version is required and never defaulted.** Every other brand-grounded seam falls back to the workspace's
+  active version; this one cannot, because trying a draft out before activating it is the point. A request that
+  silently tested the active guide would answer a question the creator did not ask.
+- **Which rules applied is the server's answer, never the model's.** The output document has no field for an
+  attribution, so the model has nowhere to claim one: a model-supplied "I followed your voice rule" is exactly
+  the unfalsifiable "this sounds more like you" the prompt's RESTRICTION names. The screen lists what
+  `BrandContextSelection` selected, in the creator's own words, and the passages the package carried.
+- **Those rule labels are re-derived on the read rather than stored, and the trade is published.** A guide
+  version's sections are immutable — `BrandStyleGuideSection` is an `IImmutableRecord` — so the wording named
+  beside the samples *is* the wording that produced them. What can still move is the brand profile and the
+  example library, so the read compares a freshly assembled package's checksum with the one recorded against the
+  proposal and publishes `groundingChangedSince`. A child table of applied section keys was the alternative, and
+  was rejected as a migration bought to remove a drift the immutability of a version already removes.
+- **Both halves or neither.** A second call that fails fails the whole operation, with both attempts recorded.
+  A stored one-sided result would be rendered as a comparison, and a creator would read a column labelled "with
+  your guide" that was never written.
+- **One package, unioning the voice and the look.** `BrandStyleTestDrive` is the only entry in the relevance
+  table that unions a writing list with the visual one, because it writes a blog introduction, a caption and an
+  image prompt in one pass. Two packages would mean two checksums, two provenance rows and two conflict lists
+  for one thing a creator asked for once — and either would have recorded a task type it was not assembled for.
+  It passes **no channel**, for the reason B-25 gives: one package grounds the introduction and the caption
+  together, so a channel key could only pull a social variant over the long-form guidance. The caption therefore
+  demonstrates the guide's general social guidance, and the screen says so.
+- **The samples are stored as two change-target kinds, not as a before and an after.**
+  `BrandStyleSampleWithoutGuide` and `BrandStyleSampleWithGuide` carry three `Set` rows each, with the sample
+  name in `FieldName` and `BeforeValue` null throughout. Reading the plain column as the "before" of the guided
+  one was the tempting shape and is wrong: that column is documented, and asserted by `AiProposalAssembler`, as
+  a value the server read from a pinned source and never one the model supplied. Both kinds are absent from
+  `AiChangeApplicability` and answer null in `AiChangeTargetPolicy`, and there is no acceptance route at all —
+  unlike `BrandGuideSection`, which has one.
+- **The subject is a declared field capped at 120 characters, and reaches both calls unchanged.** It exists so a
+  creator sees their voice on their own food rather than on the platform's example; a field long enough to hold
+  instructions would be a way to steer a generation the request has no other way to steer. A comparison whose
+  subject moved between the calls would be measuring the subject.
+- **Hashtags are allowed in the caption and nowhere else; handles nowhere.** A hashtag names nothing and is part
+  of how a caption reads, so refusing it would make the social sample a poor demonstration of a social voice. A
+  handle names a real account, which is the unverified claim the editorial and SEO validators refuse links for.
+- **No migration.** Neither `AiOperations.TaskType` nor `AiStructuredChanges.TargetKind` has an enumerated check
+  constraint, and B-25's provenance tables already exist.
+
+**Options considered:** one call returning both halves (rejected above); three samples as three calls (rejected
+— the cost triples for no gain, since one call writing three short pieces from one subject is the same
+comparison); a `BeforeValue` holding the plain column (rejected above); a stored table of applied section keys
+(rejected above); and a fixed-only subject with no creator field (rejected as a worse demonstration, with the
+cap and the shared-subject rule as the mitigation).
+**Consequences:** `AiTaskType`, `AiChangeTargetKind`, the TypeScript mirrors of both, the OpenAPI snapshot and
+`AddAiBrandContext` in the API host all changed additively; the API now registers the assembler as the worker
+already did. The capability ships dark like every other and is enabled in development only. The screen is
+reachable from every row of a guide's version history, including a draft, and from the setup wizard once a guide
+exists.
+**Rules:** `ai.md`, `content.md`, `tenancy.md`, `backend.md`, `api-contract.md`, `frontend.md`.
+
 ## Open items
 
 ### B-12 Unmapped DEC items — DECIDE

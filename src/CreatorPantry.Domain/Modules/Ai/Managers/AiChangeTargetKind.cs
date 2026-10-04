@@ -131,4 +131,43 @@ public enum AiChangeTargetKind
     /// </para>
     /// </remarks>
     BrandGuideSection = 14,
+
+    /// <summary>
+    /// One sample of <see cref="AiTaskType.BrandStyleTestDrive"/>'s left-hand column (11A.24): a blog
+    /// introduction, a social caption or an image prompt written with no brand context whatsoever.
+    /// <see cref="Data.Entities.AiStructuredChange.FieldName"/> says which of the three it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The variant is an enum member rather than a suffix on the field name</strong>, because which
+    /// half of a comparison a row belongs to is the whole point of the row and a reader of the table should
+    /// not have to parse a string to find out.
+    /// </para>
+    /// <para>
+    /// <strong><see cref="Data.Entities.AiStructuredChange.BeforeValue"/> is null on these rows, deliberately.</strong> It is
+    /// tempting to read "without the guide" as the before of "with the guide" and store one row per sample —
+    /// but that column is documented, and asserted by <c>AiProposalAssembler</c>, as a value the server read
+    /// from the pinned source and never one the model supplied. A test drive pins no source and both halves
+    /// come from the model, so it carries two rows and no before.
+    /// </para>
+    /// <para>
+    /// Absent from <see cref="AiChangeApplicability"/> and answering <c>null</c> in
+    /// <see cref="AiChangeTargetPolicy"/>, both by omission, as <see cref="RecipeReviewFinding"/> is. There is
+    /// no acceptance route for a test drive at all, so unlike <see cref="BrandGuideSection"/> there is not even
+    /// a separate seam that writes one of these anywhere.
+    /// </para>
+    /// </remarks>
+    BrandStyleSampleWithoutGuide = 15,
+
+    /// <summary>
+    /// One sample of <see cref="AiTaskType.BrandStyleTestDrive"/>'s right-hand column (11A.24): the same three
+    /// pieces, written from the guide version the creator selected.
+    /// </summary>
+    /// <remarks>
+    /// Identical in every structural respect to <see cref="BrandStyleSampleWithoutGuide"/> — same field names,
+    /// same null before value, same two omissions — and separate from it only so that which prompt produced a
+    /// row is recorded rather than inferred. The guide version itself is recorded once, on the proposal's
+    /// <c>AiProposalBrandContext</c>.
+    /// </remarks>
+    BrandStyleSampleWithGuide = 16,
 }

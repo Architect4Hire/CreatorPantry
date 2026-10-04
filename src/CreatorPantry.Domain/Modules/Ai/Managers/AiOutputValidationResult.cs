@@ -264,6 +264,18 @@ public static class AiOutputReason
     /// </remarks>
     public const string BrandGuidePassageCopied = "ai.output.brand_guide_passage_copied";
 
+    // ---- 11A.24: the read-only style test drive ----
+
+    /// <summary>One of the three samples is empty, or is shorter than a sample can be and still be one.</summary>
+    /// <remarks>
+    /// All three are required and none is repaired. The value of the screen is two comparable columns, and a
+    /// column the server padded out would be the server's writing presented as the model's.
+    /// </remarks>
+    public const string StyleSampleMissing = "ai.output.style_sample_missing";
+
+    /// <summary>A sample is longer than its own limit — a whole article where an opening was asked for.</summary>
+    public const string StyleSampleLengthOutOfRange = "ai.output.style_sample_length_out_of_range";
+
     // There is deliberately no reason code for naming a person or inferring a trait. Both are detected by a
     // best-effort heuristic (AiBrandGuideClaimScanner), which warns rather than refuses, so a rejection code for
     // either would be dead and would imply an enforcement this capability does not have. The warnings carry

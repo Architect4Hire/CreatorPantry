@@ -184,4 +184,45 @@ public enum AiTaskType
 
     /// <summary>IMG-002: an editable final image prompt. Handler lands in Phase 12.</summary>
     ImagePrompt = 13,
+
+    /// <summary>
+    /// 11A.24: two short samples each of a blog introduction, a social caption and an image prompt — one set
+    /// written with no brand context at all, one grounded in a guide version the creator selected — so a
+    /// creator can see what their guide does before they rely on it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The first task that calls the provider twice for one operation</strong>, and the comparison is
+    /// the reason. One call holding the guide while writing both halves would produce a "without your guide"
+    /// sample written with it, and the screen would then be claiming something untrue about its own left-hand
+    /// column. <see cref="AiTaskHandlerOutcome.Attempts"/> is already a list and
+    /// <see cref="Data.Entities.AiExecutionMetadata"/> is already one row per attempt, so both calls record
+    /// themselves against this operation without anything being invented to hold them.
+    /// </para>
+    /// <para>
+    /// <strong>The first task that consumes a <see cref="BrandContextPackage"/>.</strong> 11A.19 built the
+    /// assembler and nothing used it. This names a guide and a version number through
+    /// <see cref="BrandContextRequestInputs"/>, so the guided half is grounded on the exact version the creator
+    /// chose — and a selection that does not resolve is refused rather than quietly replaced by the active
+    /// guide. An unapproved or non-active version is a legitimate thing to try out, and arrives as a
+    /// <see cref="BrandContextConflict"/> rather than a refusal.
+    /// </para>
+    /// <para>
+    /// <strong>It writes nothing, and can write nothing.</strong> Like <see cref="BrandGuideProposal"/> it
+    /// names no recipe, so the scope is <see cref="AiOperationScope.NotApplicable"/>; unlike it, there is no
+    /// acceptance seam at all. <see cref="AiChangeTargetKind.BrandStyleSampleWithoutGuide"/> and
+    /// <see cref="AiChangeTargetKind.BrandStyleSampleWithGuide"/> are both absent from
+    /// <see cref="AiChangeApplicability"/> and both answer <c>null</c> in
+    /// <see cref="AiChangeTargetPolicy"/>, and no route accepts, disposes of or applies one. A sample is
+    /// something to read.
+    /// </para>
+    /// <para>
+    /// <strong>Which rules applied is the server's answer, never the model's.</strong> The guidance that
+    /// reached the prompt is what <see cref="BrandContextSelection.SectionKeysFor"/> selected, and the passages
+    /// cited are the ones the package carried. Asking the model which of the creator's rules it had followed
+    /// would invite exactly the unfalsifiable "this sounds more like you" that this capability exists to
+    /// replace.
+    /// </para>
+    /// </remarks>
+    BrandStyleTestDrive = 14,
 }

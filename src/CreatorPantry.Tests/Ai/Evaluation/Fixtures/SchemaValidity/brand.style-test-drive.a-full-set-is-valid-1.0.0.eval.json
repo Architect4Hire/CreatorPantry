@@ -1,0 +1,14 @@
+{
+  "id": "brand.style-test-drive.a-full-set-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "The shape both halves of a test drive return: three samples, each within its own length rules, and no warnings. The baseline every other fixture varies one thing from.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

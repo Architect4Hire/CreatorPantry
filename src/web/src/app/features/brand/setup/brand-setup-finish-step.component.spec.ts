@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { ConfirmService } from '../../../core/confirm.service';
 import { WorkspaceRole } from '../../../models/auth.models';
@@ -136,6 +137,8 @@ interface MountOptions {
 async function mount(options: MountOptions = {}): Promise<void> {
   TestBed.configureTestingModule({
     providers: [
+      // The step links to the test drive once the guide exists (11A.24), so it needs a router.
+      provideRouter([]),
       { provide: BrandStyleGuideService, useValue: guides },
       { provide: WorkspaceMembershipService, useValue: memberships(options.role ?? 'Owner') },
       { provide: ConfirmService, useValue: { confirm } },
@@ -196,7 +199,9 @@ describe('BrandSetupFinishStepComponent', () => {
       expect(text()).toContain('Your blog posts');
       // An empty part is not shown and is not sent.
       expect(text()).not.toContain('Anything else');
-      expect(text()).toContain('what this workspace writes with');
+      // Audit 11A.24a, B1: what switching on actually does today, and what it does not.
+      expect(text()).toContain("this workspace's default voice");
+      expect(text()).toContain('does not read it yet');
     });
 
     it('offers neither action when the guide is empty', async () => {
@@ -205,6 +210,46 @@ describe('BrandSetupFinishStepComponent', () => {
       expect(button('Switch my voice on')?.disabled).toBeTrue();
       expect(button('Keep it as a draft')?.disabled).toBeTrue();
       expect(last().canContinue).toBeFalse();
+    });
+  });
+
+  /**
+   * 11A.24's entry point. Only once the guide exists: before that there is no version to try, and the link
+   * would lead to a screen that could only say so. It is optional, it spends nothing until confirmed on that
+   * screen, and the wording here has to say so — a creator who has just chosen not to switch their voice on
+   * should not be surprised by a charge.
+   */
+  describe('trying it out', () => {
+    it('offers nothing to try before the guide has been written', async () => {
+      await mount();
+
+      // The link, not the phrase: since audit 11A.24a reworded the activation copy, "Test my style" is named
+      // in the explanatory prose on every render, and asserting on the words would pass for the wrong reason.
+      const link = [...(fixture.nativeElement as HTMLElement).querySelectorAll('a')].find((candidate) =>
+        (candidate.textContent ?? '').includes('Test my style'),
+      );
+
+      expect(link).toBeUndefined();
+    });
+
+    it('offers it once the guide is saved, naming the version and what it costs', async () => {
+      await mount();
+      await click('Keep it as a draft');
+
+      expect(text()).toContain('Test my style');
+      expect(text()).toContain('uses a little of your AI allowance');
+      expect(text()).toContain('saves nothing');
+
+      const link = [...(fixture.nativeElement as HTMLElement).querySelectorAll('a')].find((candidate) =>
+        (candidate.textContent ?? '').includes('Test my style'),
+      );
+
+      expect(link?.getAttribute('href')).toContain('/test-drive');
+      expect(link?.getAttribute('href')).toContain('version=1');
+
+      // A new tab, so a creator who has not pressed Finish setup does not lose the wizard's own state.
+      expect(link?.getAttribute('target')).toBe('_blank');
+      expect(link?.getAttribute('rel')).toBe('noopener');
     });
   });
 
@@ -261,7 +306,10 @@ describe('BrandSetupFinishStepComponent', () => {
 
       expect(confirm).toHaveBeenCalledTimes(1);
       const asked = confirm.calls.mostRecent().args[0] as { message: string; confirmLabel: string };
-      expect(asked.message).toContain('becomes what this workspace writes with');
+      // Audit 11A.24a, B1: this promised that every new blog post, caption and newsletter would start from the
+      // guide. No writing handler reads one yet, so the dialog now says what is true and the assertion pins it.
+      expect(asked.message).toContain("becomes this workspace's default voice");
+      expect(asked.message).toContain('does not read it yet');
       expect(asked.confirmLabel).toBe('Switch it on');
 
       expect(guides.createCalls.length).toBe(1);

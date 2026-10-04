@@ -1,0 +1,17 @@
+{
+  "id": "brand.style-test-drive.a-safety-claim-the-guide-asked-for-is-still-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "The prompt forbids a safety, allergen, dietary or health claim and tells the model the creator’s guidance does not relax that. This is the server net for when a guide rule talks it into one anyway: the answer is well formed, so it validates, and the claim is reported beside the sample that made it rather than passed on in silence.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"This one is completely gluten-free and perfectly safe for toddlers, which is why it is on the table most weeks.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "findings": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

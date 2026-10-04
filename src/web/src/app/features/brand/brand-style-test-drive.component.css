@@ -1,0 +1,171 @@
+/* container-type, not a viewport media query, for the reason the history screen's own stylesheet gives: this
+   screen answers to the space it has, so it responds identically to a narrowed window and to 200% zoom, and a
+   test can set this host's width and assert the result. */
+:host {
+  display: block;
+  container: cp-style-test-drive / inline-size;
+}
+
+.page {
+  display: grid;
+  gap: var(--cp-space-8);
+}
+
+header {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-2xl);
+  font-weight: 400;
+  color: var(--cp-text);
+}
+
+h2 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  font-weight: 400;
+  color: var(--cp-text);
+}
+
+h3 {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  color: var(--cp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lede,
+.back,
+.muted,
+.waiting,
+.generated {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.ask {
+  display: grid;
+  gap: var(--cp-space-5);
+}
+
+.ask-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-3);
+}
+
+/* The one field on the page keeps the shared field measure, so it does not stretch to the comparison's width. */
+cp-field {
+  max-width: var(--cp-measure-field);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+.degraded {
+  display: block;
+  margin-top: var(--cp-space-1);
+}
+
+.result,
+.why {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.generated {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+/*
+ * Two columns where there is room and a stack where there is not. Each column keeps its own heading either
+ * way, so a narrow screen never shows two samples with nothing saying which is which.
+ */
+.columns {
+  display: grid;
+  gap: var(--cp-space-5);
+  margin-top: var(--cp-space-4);
+  grid-template-columns: 1fr;
+}
+
+@container cp-style-test-drive (min-width: 52rem) {
+  .columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.columns article {
+  display: grid;
+  gap: var(--cp-space-2);
+  align-content: start;
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.sample {
+  margin: 0;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+}
+
+.notes,
+.citations,
+.notices {
+  display: grid;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.notes li,
+.citations li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.rules {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+}
+
+.rules dt {
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  color: var(--cp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rules dd {
+  margin: var(--cp-space-1) 0 0;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}

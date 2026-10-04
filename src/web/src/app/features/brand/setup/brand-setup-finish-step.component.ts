@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../../core/confirm.service';
@@ -39,7 +40,7 @@ type Outcome = 'undecided' | 'kept' | 'activated';
 @Component({
   selector: 'cp-brand-setup-finish-step',
   standalone: true,
-  imports: [CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
   templateUrl: './brand-setup-finish-step.component.html',
   styleUrl: './brand-setup-finish-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,6 +70,18 @@ export class BrandSetupFinishStepComponent implements OnInit {
   private ready = false;
 
   protected readonly parts = computed(() => writtenParts(this.goals(), this.guide()));
+
+  /**
+   * The version a test drive could be run against, or null while there is nothing saved to try (11A.24).
+   *
+   * Both halves are needed: an id with no version number names no version, and a version number with no id
+   * names no guide. Null hides the link rather than offering one that could only lead to a screen saying so.
+   */
+  protected readonly testDriveVersion = computed(() => {
+    const state = this.state();
+
+    return state.guideId !== null && state.versionNumber !== null ? state.versionNumber : null;
+  });
 
   protected readonly outcome = computed<Outcome>(() => {
     const state = this.state();
@@ -130,9 +143,11 @@ export class BrandSetupFinishStepComponent implements OnInit {
     const agreed = await this.confirmService.confirm({
       title: 'Switch your voice on?',
       message:
-        `"${this.state().name.trim() || 'Your guide'}" becomes what this workspace writes with: every new blog post, ` +
-        'caption and newsletter starts from it. Nothing you have already written changes, and you can switch to ' +
-        'another voice later.',
+        // REVISIT WITH 11A.20/11A.21 (audit 11A.24a, B1): this promised that every new blog post, caption and
+        // newsletter would start from the guide. No writing handler reads one yet.
+        `"${this.state().name.trim() || 'Your guide'}" becomes this workspace's default voice, and the one ` +
+        '"Test my style" writes from. Blog, caption and newsletter generation does not read it yet, so nothing '
+        + 'you generate today changes. You can switch to another voice later.',
       confirmLabel: 'Switch it on',
       cancelLabel: 'Not yet',
       tone: 'neutral',

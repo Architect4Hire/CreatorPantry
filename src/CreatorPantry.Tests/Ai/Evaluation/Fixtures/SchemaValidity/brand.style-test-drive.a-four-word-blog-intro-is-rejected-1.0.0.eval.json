@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-four-word-blog-intro-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "The floor, and why it is a refusal rather than a repair: two columns are only comparable if both are samples, and padding one out would make the server the author of writing shown as the model’s.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"A quick weeknight dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.style_sample_missing"
+  }
+}

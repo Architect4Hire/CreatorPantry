@@ -41,6 +41,9 @@ const SECTION_ROUTES: Routes = [
         children: [
           { path: ':guideId', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-guide-editor.component').then((m) => m.BrandGuideEditorComponent), canDeactivate: [brandGuideEditorCanDeactivateGuard], data: { title: 'Edit voice guide' } },
           { path: ':guideId/history', loadComponent: () => import('./features/brand/brand-guide-history.component').then((m) => m.BrandGuideHistoryComponent), data: { title: 'Guide history' } },
+          // 11A.24. The version is a query parameter rather than a segment: it is the one thing a creator
+          // changes without leaving, and the history links here per row.
+          { path: ':guideId/test-drive', loadComponent: () => import('./features/brand/brand-style-test-drive.component').then((m) => m.BrandStyleTestDriveComponent), data: { title: 'Test my style' } },
         ],
       },
       // The "Create my voice" wizard. Everything under 'brand' keeps the Brand nav item active

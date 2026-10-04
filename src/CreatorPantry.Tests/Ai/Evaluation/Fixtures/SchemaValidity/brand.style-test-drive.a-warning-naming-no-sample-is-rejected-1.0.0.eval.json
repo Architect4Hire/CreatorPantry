@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-warning-naming-no-sample-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "A warning is about one sample or about the whole answer. Declaring the field and leaving it undeclared is neither, and would render against nothing.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}},\"warnings\":[{\"kind\":\"Assumption\",\"message\":\"Assumed a bone-in thigh, which the subject did not say.\",\"sample\":\"Unspecified\"}]}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

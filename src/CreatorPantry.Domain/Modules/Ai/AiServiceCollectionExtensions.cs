@@ -312,13 +312,38 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// 11A.24's read-only style test drive: the request seam, and the read that pairs the two columns.
+    /// </summary>
+    /// <remarks>
+    /// Separate from the proposal seam above although both are brand-grounded, because they are separate
+    /// capabilities with separate task discriminators — a deployment may switch one on and not the other, and a
+    /// combined registration would imply otherwise. It needs <see cref="AddAiBrandContext"/>, which is why the
+    /// API registers that now as well as the worker: this seam asks the assembler whether the named version
+    /// resolves and holds anything, before the request is queued, and asks it again on the read to name the
+    /// rules behind the right-hand column.
+    /// </remarks>
+    public static IServiceCollection AddAiBrandStyleTestDriveSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiBrandStyleTestDriveBusiness, AiBrandStyleTestDriveBusiness>();
+        services.AddScoped<IAiBrandStyleTestDriveFacade, AiBrandStyleTestDriveFacade>();
+        services.AddScoped<
+            IValidator<RequestBrandStyleTestDriveViewModel>,
+            RequestBrandStyleTestDriveViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers 11A.19's brand-context assembler, which grounds a generation in the workspace's brand voice.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Separate from <see cref="AddAiBrandGuideProposalRequestSeam"/> because the callers differ: that one
-    /// serves an HTTP route, and this serves task handlers in the worker. A host that runs generations needs
-    /// this and not that.
+    /// Separate from <see cref="AddAiBrandGuideProposalRequestSeam"/> because the two are needed independently:
+    /// a host that runs generations needs this and not that. Both hosts register this one — the worker because
+    /// every brand-grounded handler assembles a package, and the API because
+    /// <see cref="AddAiBrandStyleTestDriveSeam"/> asks the assembler whether a named guide version resolves
+    /// before queueing anything, and asks it again on the read.
     /// </para>
     /// <para>
     /// Its prerequisite is the <strong>brand</strong> module — the profile, the active guide, the source library
@@ -379,6 +404,7 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, EditorialPackageAiTaskHandler>(AiTaskType.EditorialPackage);
         services.AddKeyedScoped<IAiTaskHandler, SeoPackageAiTaskHandler>(AiTaskType.SeoPackage);
         services.AddKeyedScoped<IAiTaskHandler, BrandGuideProposalAiTaskHandler>(AiTaskType.BrandGuideProposal);
+        services.AddKeyedScoped<IAiTaskHandler, BrandStyleTestDriveAiTaskHandler>(AiTaskType.BrandStyleTestDrive);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

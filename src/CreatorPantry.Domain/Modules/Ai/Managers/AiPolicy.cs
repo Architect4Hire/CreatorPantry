@@ -470,6 +470,58 @@ public static class AiPolicy
     /// </summary>
     public const int BrandContextAudienceMaxLength = 500;
 
+    // ---- 11A.24: the read-only style test drive ----
+
+    /// <summary>
+    /// The longest subject a creator may name for their own test drive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Short on purpose, and the shortest free-text field any capability accepts. The subject exists so a
+    /// creator sees the comparison on their own food rather than on
+    /// <c>BrandStyleTestDriveSubject.Default</c>; it is not a brief, and a field long enough to hold
+    /// instructions would be a way to steer a generation the request has no other way to steer.
+    /// </para>
+    /// <para>
+    /// It is also the <em>only</em> thing that differs between the two calls' task material — both halves
+    /// receive the same subject, because a comparison in which the subject moved would be measuring the
+    /// subject.
+    /// </para>
+    /// </remarks>
+    public const int StyleSampleSubjectMaxLength = 120;
+
+    /// <summary>The longest a sample blog introduction may be.</summary>
+    /// <remarks>
+    /// A sample, not a post. Each of the three limits below is roughly what the piece runs to in practice, so a
+    /// model that writes a whole article instead of an opening is refused rather than shown in a panel it does
+    /// not fit.
+    /// </remarks>
+    public const int StyleSampleBlogIntroMaxLength = 900;
+
+    /// <inheritdoc cref="StyleSampleBlogIntroMaxLength"/>
+    public const int StyleSampleSocialCaptionMaxLength = 400;
+
+    /// <inheritdoc cref="StyleSampleBlogIntroMaxLength"/>
+    public const int StyleSampleImagePromptMaxLength = 600;
+
+    /// <summary>
+    /// The shortest a sample may be and still be one.
+    /// </summary>
+    /// <remarks>
+    /// A floor rather than a repair: four words is not a blog introduction, and the whole value of the screen
+    /// is that the two columns are comparable. An answer below this is refused, because padding it would make
+    /// the server the author of something the creator is being shown as the model's work.
+    /// </remarks>
+    public const int StyleSampleMinLength = 40;
+
+    /// <summary>How many warnings one half of a test drive may carry.</summary>
+    /// <remarks>
+    /// Far below the twenty every other capability allows, because there are three short samples here rather
+    /// than a package of sections — and because both halves' warnings land on one proposal, so the ceiling is
+    /// effectively twice this.
+    /// </remarks>
+    public const int MaxStyleSampleWarnings = 6;
+
     /// <summary>How many of a workspace's own recipes are offered to the model as internal-link candidates.</summary>
     public const int MaxSeoLinkCandidates = 40;
 

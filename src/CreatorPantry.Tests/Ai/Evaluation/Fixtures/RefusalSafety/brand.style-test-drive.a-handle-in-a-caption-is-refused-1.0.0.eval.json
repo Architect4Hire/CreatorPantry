@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-handle-in-a-caption-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "A handle names a real account. A hashtag is allowed in a caption and a handle is not, because one names nothing and the other makes a claim about somebody who never agreed to appear in a sample.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight. Inspired by @somebodyelse.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

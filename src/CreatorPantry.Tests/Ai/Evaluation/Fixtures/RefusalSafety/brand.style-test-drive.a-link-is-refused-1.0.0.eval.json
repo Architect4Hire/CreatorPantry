@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-link-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "Plain text is enforced, not merely asked for. A link in a sample is an unverified claim about somewhere else, and a creator reading a demonstration of their own voice has no reason to be checking URLs.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner. Full method at https://example.com/lemon-chicken.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

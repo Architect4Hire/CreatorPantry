@@ -88,6 +88,43 @@ public static partial class AiEditorialClaimScanner
         return [.. findings.Select(finding => (finding.Kind, finding.Code, finding.Message))];
     }
 
+    /// <summary>
+    /// The safety, allergen, dietary and health check alone, over one piece of prose that has no recipe behind
+    /// it at all (11A.24's style samples).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Why only this one of the four.</strong> A style sample is written about a short subject phrase,
+    /// not about a recipe, so there is no source for a figure to agree with — and running
+    /// <see cref="CheckFigures"/> against nothing would flag "one pan" and "a couple of lemons" on almost every
+    /// sample, which is noise that would bury the finding that matters. The storage and provenance checks are
+    /// about a recipe's own notes and have nothing to compare against either.
+    /// </para>
+    /// <para>
+    /// This check needs no source: a sample may not assure anyone that anything is safe, allergen-free, healthy
+    /// or suitable for a diet, whatever the creator's guidance asks for, so every match is a finding.
+    /// </para>
+    /// <para>
+    /// <strong>Still a net, not a proof</strong> — see the type's own remarks. A clean scan means nothing in
+    /// this one shape was found, and never that a sample is safe to publish.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<(AiWarningKind Kind, string Code, string Message)> ScanTextForSafetyClaims(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var findings = new List<AiEditorialFinding>();
+
+        CheckSafety(
+            findings,
+            AiEditorialSection.Headnote,
+            null,
+            AiEditorialProse.Canonicalize(text),
+            AiEditorialSourceFacts.Of([], prose: null, storageNotes: null));
+
+        return [.. findings.Select(finding => (finding.Kind, finding.Code, finding.Message))];
+    }
+
     public static IReadOnlyList<AiEditorialFinding> Scan(AiEditorialSections sections, AiEditorialSourceFacts source)
     {
         ArgumentNullException.ThrowIfNull(sections);

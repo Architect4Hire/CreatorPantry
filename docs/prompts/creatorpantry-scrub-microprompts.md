@@ -3109,7 +3109,50 @@ RESTRICTION: UI does not calculate diff or activate Draft/stale version outside 
 BEHAVIOR: Show interaction/confirmation, wait for approval, implement component/contract/a11y tests.
 ```
 
-### 11A.24 Voice and visual style test-drive
+### 11A.24 Voice and visual style test-drive - done
+
+*Delivery note, in four parts.*
+
+*First, what "comparing neutral versus guide-informed" was made to mean, since the prompt sets it as a scope
+rather than a mechanism. **It is two provider calls, not one.** One call writes the three samples with no brand
+context whatsoever; the second writes them from the selected version. A single call holding the guide while
+writing both halves would produce a left-hand column labelled "without your guide" that was written with it,
+and the screen would be asserting the one thing it must not. The two calls differ in exactly one respect — the
+second carries the package's `PREFERENCES` and `REFERENCES` segments — so same template, same schema, same
+validator, same subject. The cost is the honest consequence and is published rather than absorbed: the
+confirmation says two pieces of work, and `Ai:Quota:TaskEstimates` carries a `BrandStyleTestDrive` entry at
+twice the per-call default in both hosts, because the API refuses at the edge and the worker takes the hold.*
+
+*Second, how "identify guide rules/citations used" was held rather than claimed. **The output document has no
+field for an attribution**, so the model has nowhere to say which of the creator's rules it followed — that
+claim is unfalsifiable and is the "sounds more like you" the RESTRICTION names. The screen lists what
+`BrandContextSelection` actually selected, in the creator's own words, beside the passages the package carried.
+Those labels are re-derived on the read rather than stored, which is safe for a reason worth writing down: a
+guide version's sections are immutable (`BrandStyleGuideSection` is an `IImmutableRecord`), so the wording named
+beside the samples **is** the wording that produced them. What can still move is the brand profile and the
+example library, so the read compares a freshly assembled checksum against the recorded one and publishes
+`groundingChangedSince`. A stored table of applied section keys was written into the plan and dropped: it was a
+migration bought to remove a drift the version's immutability already removes.*
+
+*Third, three judgement calls. **An empty guide version is refused before anything is spent** — twice, at the
+edge and again in the handler — because two identical columns are not a comparison and a creator should not pay
+to find that out; assembly makes no provider call, so the refusal is free. **The version is required and never
+defaulted**, unlike every other brand-grounded seam: trying a draft out before activating it is the point, and
+falling back to the active guide would answer a question nobody asked. **The samples are two target kinds, not
+a before and an after.** Reading the plain column as the "before" of the guided one was tempting and wrong —
+`AiStructuredChange.BeforeValue` is documented, and asserted by `AiProposalAssembler`, as a value the server
+read from a pinned source and never one the model supplied — so it is null on all six rows and the variant is
+an enum member instead.*
+
+*Fourth, what the work changed on contact. **`BrandStyleTestDrive` is the only entry in the relevance table
+that unions a writing list with the visual one**, because it writes prose and an image prompt in one pass;
+`PurposesFor` became a switch to match, and it passes no channel for the reason B-25 gives. **The API now
+registers `AddAiBrandContext`**, which only the worker did: this seam asks the assembler whether a named version
+resolves before queueing anything, and asks it again on the read. No migration — neither `TaskType` nor
+`TargetKind` has an enumerated check constraint, and 11A.20's provenance tables already exist. The screen is
+reachable from every row of a guide's version history, draft included, and from the setup wizard once a guide
+exists. See
+[B-26](../architecture-decisions/baseline.md#b-26-a-read-only-comparison-is-two-provider-calls).*
 
 ```text
 SCOPE: Add a read-only “Test my style” experience comparing neutral versus guide-informed sample blog
@@ -3120,7 +3163,64 @@ used rather than merely claiming the output “sounds more like you.”
 BEHAVIOR: Plan comparison/cost confirmation, wait for approval, implement fake-provider/a11y tests.
 ```
 
-### 11A.24a Brand voice and style audit
+### 11A.24a Brand voice and style audit - done
+
+*Delivery note, in four parts.*
+
+*First, the finding that matters most, and it is structural rather than a defect in any one file. **The brand
+guide is authored end to end and wired into nothing that writes.** 11A.20 is unimplemented:
+`grep -c BrandContext` is 0 in both `EditorialPackageAiTaskHandler` and `SeoPackageAiTaskHandler`, which send
+the brand **profile's** name, audience and locale and nothing from the style guide — not voice, tone, tenor,
+writing style, point of view, vocabulary, rhythm, formatting, storytelling, calls to action, blog guidance, or
+any uploaded example. 11A.21 has no image handlers at all. 11A.21a/b shipped their endpoints and their
+TypeScript models and no screen consumes either. 11A.22e offers "Draft it for me" and nothing drafts. So "Test
+my style" is currently the only place in the product where an active guide has any effect. Fixing that is
+11A.20 and 11A.21's own work and was not attempted here.*
+
+*Second, the two blockers, both of which were about telling the creator something untrue. **B1: the activation
+screens promised what does not happen** — "becomes the voice this workspace writes and makes pictures with.
+Everything generated from now on is grounded on it", and the wizard's "every new blog post, caption and
+newsletter starts from it". An Owner was making a workspace-wide decision on a false premise, which is the
+audit's own RESTRICTION inverted: it concealed the absence of an activation effect. All three places now say
+what is true today and carry a `REVISIT WITH 11A.20/11A.21` marker, and the specs assert the absence as well as
+the presence so the promise cannot drift back in before those prompts land. **B2: the test-drive prompt banned
+food-safety claims the server never checked.** The prompt forbids a quantity, a time, a temperature, a safety
+assurance and an allergen label; the validator checked only lengths, hygiene, links and warning labels, and
+nothing stated that the creator's guidance does not outrank that ban — which
+`BrandContextPromptRenderer`'s own remarks say belongs in each task template. A guide rule saying "always
+reassure readers it's allergen-free" would have produced exactly that, shown as a demonstration of the
+creator's voice. The prompt now states the precedence and the handler runs a server-side net over both halves.*
+
+*Third, three judgement calls in the B2 fix worth knowing about. **The net is the editorial one, not a second
+copy** — `AiEditorialClaimScanner` already maintains that phrase list and calls itself a net rather than a
+proof; two nets would drift. **Only its safety check runs, not its figure check**: a style sample has no recipe
+behind it, so running the figure check against nothing flagged "one pan" and "one lemon" on almost every
+sample, and noise is what makes a real finding easy to ignore — so `ScanTextForSafetyClaims` was added for the
+no-source case and the number ban stays a prompt rule that nothing enforces, which is stated rather than
+implied. **Findings warn rather than refuse**: nothing on that screen can be accepted or published, so refusing
+the whole comparison over one phrase would cost the creator the demonstration they paid for and tell them less
+than a warning does.*
+
+*Fourth, one approved item was implemented against its own wording, and deliberately. **S5 asked for the actual
+cost on the test-drive result**, but `AiProposalDetailServiceModel` documents the opposite decision — "latency,
+tokens and cost are operational, and putting them in a creator-facing reply would be answering a question
+nobody asked" — and the allowance screen already exists for them. So the cost is disclosed where it is
+actionable instead: the confirmation now states the ceiling ("two short pieces of AI work — up to four if an
+answer comes back malformed") before anything is spent, and the result points at the allowance rather than
+becoming a second, partial account of the same figures. Three audit findings were deliberately **not** fixed
+and remain open as their own prompts: S1 (accepted AI guidance loses its origin, evidence basis and
+uncertainties, then returns to the model as the creator's own answers — likely a schema change), S3 (naming a
+living writer only warns), and S7 (the assembler publishes no stale-source notice). Also open:
+`WireEnumMirrorTests` does not cover `BrandAssetRole` or `BrandSetupSessionStatus`.*
+
+*Verification: 6535 backend tests pass, with the three documented `BulkOperationBoundaryTests` failures that
+occur whenever the build output is redirected around a live `aspire run`; 176 + 2451 frontend tests pass; the
+OpenAPI snapshot is unchanged by this pass. The `design-review` reviewer returned "PASSED, no changes required"
+across all fourteen easy-as-pie bullets and was not relied on: it misidentified the display font and dismissed
+the brand-library degraded gap that was then confirmed and fixed. Two other reviewer claims were checked and
+rejected — that a failed second provider call stores a half-written proposal (it does not; the handler returns
+before the assembler and a test asserts it), and that `AiTaskType` is missing from `WireEnumMirrorTests` (it is
+not).*
 
 ```text
 SCOPE: Audit the complete brand document, extraction, embedding, guide, context assembly, writing/image

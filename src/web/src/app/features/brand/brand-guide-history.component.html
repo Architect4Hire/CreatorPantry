@@ -124,8 +124,21 @@
             <p class="version-reason">{{ version.changeReason }}</p>
           }
 
-          @if (canActivateVersion(version)) {
-            <p class="version-actions">
+          <p class="version-actions">
+            <!-- 11A.24. Offered on every version, including a draft: trying one out before it governs anything
+                 is what the screen is for, and it writes nothing either way. -->
+            <a
+              cpButton
+              variant="ghost"
+              size="sm"
+              [attr.aria-label]="'Test my style with version ' + version.versionNumber"
+              [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'test-drive']"
+              [queryParams]="{ version: version.versionNumber }"
+            >
+              Test my style…
+            </a>
+
+            @if (canActivateVersion(version)) {
               <button
                 cpButton
                 variant="secondary"
@@ -136,8 +149,10 @@
               >
                 Write with this version…
               </button>
-            </p>
-          } @else if (activationBlockedReason(version); as blocked) {
+            }
+          </p>
+
+          @if (!canActivateVersion(version) && activationBlockedReason(version); as blocked) {
             <!-- Only for someone who could otherwise activate: it explains an absent button, and to anyone
                  without the role there is no absence to explain. -->
             <p class="version-blocked">{{ blocked }}</p>

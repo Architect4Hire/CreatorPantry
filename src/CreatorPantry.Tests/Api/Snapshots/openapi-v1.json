@@ -4947,6 +4947,231 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-test-drives": {
+      "post": {
+        "tags": [
+          "BrandStyleTestDrives"
+        ],
+        "summary": "Asks for a test drive of one guide version. Returns 202 with the request to follow.",
+        "description": "Contributor or above, as for every other generation request. The work runs in the background: this\nanswers \u0060202\u0060 with a request id, and the \u0060GET\u0060 below reports where it got to.\n\n**The version is required and is never defaulted.** Trying a draft out before activating it is the point\nof this route, so a request that named no version would be answered about a different guide than the one\nthe creator is looking at. A guide or version that does not resolve answers \u0060404\u0060 identically for every\ncause, including one belonging to another workspace.\n\n**A version with nothing written in it is \u0060400\u0060**, before any model is called. Both columns would come\nback the same, and a creator should not spend two generations to discover that.\n\n\u0060subject\u0060 is optional and short: it is what the samples are about, and it reaches both halves unchanged,\nbecause a comparison whose subject moved between the two calls would be measuring the subject. Omitting\nit uses the platform\u0027s own example.\n\n**Nothing returned here is saved to the creator\u0027s content.** There is no acceptance route, no\ndisposition, and no path from a stored sample to a guide, a recipe, a draft or a publication. A test\ndrive is read and then it is history.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A test drive is two generations against the caller\u0027s allowance, so a retried request returns\nthe first answer rather than buying a second pair; the same key with a different body is refused.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBrandStyleTestDrive"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBrandStyleTestDrive"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBrandStyleTestDrive"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleTestDrive"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleTestDrive"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleTestDrive"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-test-drives/{requestId}": {
+      "get": {
+        "tags": [
+          "BrandStyleTestDrives"
+        ],
+        "summary": "Reports where one test drive got to, and the comparison once there is one.",
+        "description": "Any member may read. An unknown id, another workspace\u0027s request, and a request that ran a different task\nall answer \u0060404\u0060 identically.\n\n\u0060comparison\u0060 is null until the work has produced one, and when it failed. Once present it carries the\nthree samples as pairs, the guide version that produced the right-hand column, and\n**\u0060appliedRules\u0060: what that guide asks for, in the creator\u0027s own words**, selected by the same rules the\ngeneration used \u2014 so the screen names the guidance behind the writing rather than asserting that it\nsounds more like them. \u0060citations\u0060 names the passages of their own examples that were sent, as recorded\nat generation time.\n\n\u0060appliedRules\u0060 describes the guide **as it reads now**, because which sections apply is recomputed from\nthe stored version rather than copied. \u0060groundingChangedSince\u0060 is \u0060true\u0060 when the guide, the brand\nprofile or the examples have moved since the samples were written, or when they cannot be read at all;\nthe samples themselves are never re-derived.\n\nThe response is \u0060no-store\u0060: it carries creator content and is personal to the caller\u0027s workspace.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The request to follow, as the \u0060POST\u0060 returned it.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleTestDrive"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleTestDrive"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleTestDrive"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-visual-guide": {
       "get": {
         "tags": [
@@ -12330,7 +12555,9 @@
           "RecipeReviewFinding",
           "ProposalExplanationItem",
           "ContentSection",
-          "BrandGuideSection"
+          "BrandGuideSection",
+          "BrandStyleSampleWithoutGuide",
+          "BrandStyleSampleWithGuide"
         ],
         "type": "string"
       },
@@ -12913,7 +13140,8 @@
           "SeoPackage",
           "BrandGuideProposal",
           "PhotographyConcept",
-          "ImagePrompt"
+          "ImagePrompt",
+          "BrandStyleTestDrive"
         ],
         "type": "string"
       },
@@ -13886,6 +14114,48 @@
           "NotMyVoice"
         ],
         "type": "string"
+      },
+      "BrandStyleCitation": {
+        "required": [
+          "documentId",
+          "title",
+          "documentVersionNumber",
+          "passageId",
+          "ordinal"
+        ],
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "documentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "passageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordinal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
       },
       "BrandStyleGuide": {
         "required": [
@@ -15075,6 +15345,173 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BrandStyleSampleNote": {
+        "required": [
+          "withGuide",
+          "kind",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "withGuide": {
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AiWarningKind"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandStyleSamplePair": {
+        "required": [
+          "sample",
+          "withoutGuide",
+          "withGuide",
+          "notes"
+        ],
+        "type": "object",
+        "properties": {
+          "sample": {
+            "type": "string"
+          },
+          "withoutGuide": {
+            "type": "string"
+          },
+          "withGuide": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleSampleNote"
+            }
+          }
+        }
+      },
+      "BrandStyleTestDrive": {
+        "required": [
+          "requestId",
+          "status",
+          "failureCategory",
+          "requestedAt",
+          "statusChangedAt",
+          "comparison"
+        ],
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AiOperationStatus"
+          },
+          "failureCategory": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiFailureCategory"
+              }
+            ]
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statusChangedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "comparison": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BrandStyleTestDriveComparison"
+              }
+            ]
+          }
+        }
+      },
+      "BrandStyleTestDriveComparison": {
+        "required": [
+          "subject",
+          "guideId",
+          "guideVersionNumber",
+          "guideVersionWasActive",
+          "modelName",
+          "promptTemplateVersion",
+          "generatedAt",
+          "samples",
+          "appliedRules",
+          "citations",
+          "notices",
+          "groundingChangedSince"
+        ],
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "guideVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "guideVersionWasActive": {
+            "type": "boolean"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "promptTemplateVersion": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleSamplePair"
+            }
+          },
+          "appliedRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandWritingGuideRule"
+            }
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleCitation"
+            }
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiProposalWarning"
+            }
+          },
+          "groundingChangedSince": {
+            "type": "boolean"
           }
         }
       },
@@ -19141,6 +19578,30 @@
           }
         }
       },
+      "RequestBrandStyleTestDrive": {
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What the samples are about. Optional; a short phrase, not a brief."
+          }
+        }
+      },
       "RequestEditorialPackage": {
         "type": "object",
         "properties": {
@@ -21085,6 +21546,9 @@
     },
     {
       "name": "BrandStyleGuides"
+    },
+    {
+      "name": "BrandStyleTestDrives"
     },
     {
       "name": "BrandVisualGuide"

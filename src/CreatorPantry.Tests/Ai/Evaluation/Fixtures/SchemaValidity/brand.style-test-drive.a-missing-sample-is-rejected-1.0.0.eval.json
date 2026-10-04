@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.a-missing-sample-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "All three samples are required. Every other prose capability lets the request choose its sections; here a missing one leaves a column of the comparison empty for no reason a creator could act on.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

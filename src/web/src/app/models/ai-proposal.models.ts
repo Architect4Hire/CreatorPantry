@@ -49,7 +49,8 @@ export type AiOperationStatus =
   | 'Failed'
   | 'Expired';
 
-const AI_OPERATION_STATUS_VALUES: ReadonlySet<string> = new Set<AiOperationStatus>([
+/** Exported for the same reason `AI_TASK_TYPE_VALUES` is: a second mirror of one enum is one that drifts. */
+export const AI_OPERATION_STATUS_VALUES: ReadonlySet<string> = new Set<AiOperationStatus>([
   'Requested',
   'Running',
   'Proposed',
@@ -103,7 +104,9 @@ export type AiTaskType =
   /** IMG-001's photography concept. Reserved: its handler lands in Phase 12. */
   | 'PhotographyConcept'
   /** IMG-002's editable image prompt. Reserved: its handler lands in Phase 12. */
-  | 'ImagePrompt';
+  | 'ImagePrompt'
+  /** 11A.24's read-only style test drive. Reads a guide version; writes nothing anywhere. */
+  | 'BrandStyleTestDrive';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -121,6 +124,7 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'BrandGuideProposal',
   'PhotographyConcept',
   'ImagePrompt',
+  'BrandStyleTestDrive',
 ]);
 
 /**
@@ -172,6 +176,10 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // Image tasks are not asked for through this generic route; each gets its own when its handler lands (Phase 12).
   PhotographyConcept: null,
   ImagePrompt: null,
+  // And test drives through brand-style-test-drives, which names a guide version rather than a recipe. Null
+  // for a second reason too: asking again means naming that version, and a generic ask-again would quietly
+  // test whichever guide is active instead.
+  BrandStyleTestDrive: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -226,7 +234,8 @@ export type AiFailureCategory =
   | 'LeaseAbandoned'
   | 'AccountSuspended';
 
-const AI_FAILURE_CATEGORY_VALUES: ReadonlySet<string> = new Set<AiFailureCategory>([
+/** Exported for the same reason `AI_OPERATION_STATUS_VALUES` is. */
+export const AI_FAILURE_CATEGORY_VALUES: ReadonlySet<string> = new Set<AiFailureCategory>([
   'Unspecified',
   'Validation',
   'Quota',
@@ -274,7 +283,11 @@ export type AiChangeTargetKind =
   /** RCPUB-001's editorial package sections. Never an edit to the recipe: content a creator accepts separately. */
   | 'ContentSection'
   /** 11A.17's brand guide proposal items. Never an edit to the guide: the creator writes their own version. */
-  | 'BrandGuideSection';
+  | 'BrandGuideSection'
+  /** 11A.24's left-hand column: a sample written with no brand context at all. Nothing can accept one. */
+  | 'BrandStyleSampleWithoutGuide'
+  /** 11A.24's right-hand column: the same sample written from the selected guide version. */
+  | 'BrandStyleSampleWithGuide';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -292,6 +305,8 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'ProposalExplanationItem',
   'ContentSection',
   'BrandGuideSection',
+  'BrandStyleSampleWithoutGuide',
+  'BrandStyleSampleWithGuide',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */
@@ -334,7 +349,8 @@ export type AiWarningKind =
    */
   | 'Limitation';
 
-const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
+/** Exported for the same reason `AI_OPERATION_STATUS_VALUES` is. */
+export const AI_WARNING_KIND_VALUES: ReadonlySet<string> = new Set<AiWarningKind>([
   'Unspecified',
   'Assumption',
   'CulinaryCaution',

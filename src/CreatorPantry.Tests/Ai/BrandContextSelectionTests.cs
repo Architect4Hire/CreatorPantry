@@ -94,6 +94,7 @@ public sealed class BrandContextSelectionTests
     [Theory]
     [InlineData(AiTaskType.EditorialPackage)]
     [InlineData(AiTaskType.SeoPackage)]
+    [InlineData(AiTaskType.BrandStyleTestDrive)]
     public void A_tasks_section_keys_are_distinct_and_stable(AiTaskType taskType)
     {
         var first = BrandContextSelection.SectionKeysFor(taskType);
@@ -396,5 +397,90 @@ public sealed class BrandContextSelectionTests
         Assert.False(BrandContextSelection.IsVisual(AiTaskType.EditorialPackage));
         Assert.DoesNotContain(
             BrandSourcePurpose.VisualDirection, BrandContextSelection.PurposesFor(AiTaskType.EditorialPackage));
+    }
+
+    // ---- the test drive, which is the one task grounded in both the voice and the look (11A.24) ---------
+
+    /// <summary>
+    /// A test drive writes a blog introduction, a social caption and an image prompt in one pass, so it is the
+    /// only entry in the table that unions a writing list with the visual one.
+    /// </summary>
+    [Fact]
+    public void The_test_drive_is_grounded_in_the_voice_and_the_look_together()
+    {
+        var keys = BrandContextSelection.SectionKeysFor(AiTaskType.BrandStyleTestDrive);
+
+        Assert.Equal(
+            [
+                BrandStyleGuideSectionKey.Voice,
+                BrandStyleGuideSectionKey.Tone,
+                BrandStyleGuideSectionKey.Tenor,
+                BrandStyleGuideSectionKey.WritingStyle,
+                BrandStyleGuideSectionKey.Audience,
+                BrandStyleGuideSectionKey.PointOfView,
+                BrandStyleGuideSectionKey.Vocabulary,
+                BrandStyleGuideSectionKey.SentenceRhythm,
+                BrandStyleGuideSectionKey.Formatting,
+                BrandStyleGuideSectionKey.Storytelling,
+                BrandStyleGuideSectionKey.CallsToAction,
+                BrandStyleGuideSectionKey.BlogGuidance,
+                BrandStyleGuideSectionKey.SocialGuidance,
+                BrandStyleGuideSectionKey.VisualIdentity,
+                BrandStyleGuideSectionKey.PhotographyDirection,
+                BrandStyleGuideSectionKey.ImagePromptGuidance,
+                BrandStyleGuideSectionKey.NegativeVisualGuidance,
+            ],
+            keys);
+        Assert.True(BrandContextSelection.AppliesTo(AiTaskType.BrandStyleTestDrive));
+    }
+
+    /// <summary>
+    /// The social caption is the first sample any task writes, so the test drive is the only task the guide's
+    /// social guidance reaches. A second entry gaining it would be a capability change, not a tidy-up.
+    /// </summary>
+    [Fact]
+    public void Only_the_test_drive_is_grounded_in_the_guides_social_guidance()
+    {
+        foreach (var taskType in Enum.GetValues<AiTaskType>().Where(type => type != AiTaskType.BrandStyleTestDrive))
+        {
+            Assert.DoesNotContain(
+                BrandStyleGuideSectionKey.SocialGuidance,
+                BrandContextSelection.SectionKeysFor(taskType));
+        }
+    }
+
+    /// <summary>
+    /// It reads both sets of examples, because it demonstrates both — and it is still not an image task: it
+    /// generates no image, and the visual-reference rules that turn on <c>IsVisual</c> are about generating one.
+    /// </summary>
+    [Fact]
+    public void The_test_drive_reads_both_sets_of_examples_without_being_an_image_task()
+    {
+        var purposes = BrandContextSelection.PurposesFor(AiTaskType.BrandStyleTestDrive);
+
+        Assert.Equal(
+            [
+                BrandSourcePurpose.Voice,
+                BrandSourcePurpose.WritingStyle,
+                BrandSourcePurpose.Background,
+                BrandSourcePurpose.VisualDirection,
+            ],
+            purposes);
+        Assert.False(BrandContextSelection.IsVisual(AiTaskType.BrandStyleTestDrive));
+    }
+
+    /// <summary>
+    /// Unioning two lists must not have widened either of them. The image tasks and the long-form writing task
+    /// keep exactly the sections they had.
+    /// </summary>
+    [Fact]
+    public void The_union_did_not_widen_the_lists_it_was_built_from()
+    {
+        Assert.DoesNotContain(
+            BrandStyleGuideSectionKey.VisualIdentity,
+            BrandContextSelection.SectionKeysFor(AiTaskType.EditorialPackage));
+        Assert.DoesNotContain(
+            BrandStyleGuideSectionKey.Voice,
+            BrandContextSelection.SectionKeysFor(AiTaskType.ImagePrompt));
     }
 }

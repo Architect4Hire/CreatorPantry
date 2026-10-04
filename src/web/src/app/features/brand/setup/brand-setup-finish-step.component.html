@@ -35,8 +35,9 @@
       @case ('activated') {
         <cp-notice tone="success" role="status">
           <strong>Your voice is on.</strong>
-          Every new blog post, caption and newsletter now starts from it. Nothing you have already written has
-          changed, and you can switch to another voice in your brand settings whenever you like.
+          It is this workspace's default, and <strong>Test my style</strong> writes from it. Blog, caption and
+          newsletter generation does not read it yet. Nothing you have already written has changed, and you can
+          switch to another voice in your brand settings whenever you like.
         </cp-notice>
       }
       @case ('kept') {
@@ -48,8 +49,9 @@
       @default {
         @if (isOwner()) {
           <p>
-            Switching it on makes it what this workspace writes with: every new blog post, caption and newsletter
-            starts from it. Keeping it as a draft saves it and changes nothing.
+            Switching it on makes it this workspace's default voice, and the one <strong>Test my style</strong>
+            writes from. Blog, caption and newsletter generation does not read it yet. Keeping it as a draft
+            saves it and changes nothing.
           </p>
         } @else {
           <p>
@@ -91,6 +93,29 @@
       <p class="cp-muted" role="status">Choose one of these, then press Finish setup.</p>
     }
   </cp-form-section>
+
+  <!-- 11A.24. Only once the guide exists: before that there is no version to try, and the link would lead to a
+       screen that could only say so. It opens in a new tab so the wizard's own draft is not navigated away
+       from — and it spends nothing until the creator confirms it there. -->
+  @if (testDriveVersion(); as version) {
+    <cp-form-section
+      heading="See what it does"
+      intro="Optional. Writes a blog opening, a caption and a photo direction twice — once with no guidance and once from your guide — so you can read the difference. It uses a little of your AI allowance, and saves nothing."
+    >
+      <p>
+        <a
+          cpButton
+          variant="secondary"
+          target="_blank"
+          rel="noopener"
+          [routerLink]="['/', workspaceSlug(), 'brand', 'style-guide', state().guideId, 'test-drive']"
+          [queryParams]="{ version }"
+        >
+          Test my style…
+        </a>
+      </p>
+    </cp-form-section>
+  }
 
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
 </div>

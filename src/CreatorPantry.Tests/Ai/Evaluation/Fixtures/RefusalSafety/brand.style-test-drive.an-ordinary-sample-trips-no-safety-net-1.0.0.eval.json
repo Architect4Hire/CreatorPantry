@@ -1,0 +1,15 @@
+{
+  "id": "brand.style-test-drive.an-ordinary-sample-trips-no-safety-net",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "BrandStyleSamplesOutputValidation",
+  "description": "The other half of the same rule. Only the safety, allergen, dietary and health check runs over a sample — the figure, storage and provenance checks need a recipe to compare against, and running them against nothing would flag \"one pan\" on almost every sample and bury the finding that matters.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"brand.style-test-drive.v1\",\"samples\":{\"blogIntro\":{\"text\":\"There is a particular kind of weeknight when the oven feels like too much effort and the pan on the stove has to do all of it. This is that dinner.\"},\"socialCaption\":{\"text\":\"One pan, one lemon, and a dinner that asks nothing else of you tonight.\"},\"imagePrompt\":{\"text\":\"Overhead shot of a shallow cast-iron pan of lemon chicken on a weathered oak table, soft window light from the left, matte ceramic plates.\"}}}",
+    "expectedSchemaVersion": "brand.style-test-drive.v1"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "findings": []
+  }
+}

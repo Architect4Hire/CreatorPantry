@@ -40,6 +40,9 @@ namespace CreatorPantry.Tests.Ai.EditorialPackage;
 /// </remarks>
 public sealed class BrandGuideProposalAiTaskHandlerTests : IAsyncDisposable
 {
+    /// <summary>The creator's notes to themselves. Seeded on every guide; must never reach a prompt.</summary>
+    private const string PrivateNote = "Remind me to ask the lawyer about the competitor comparison wording.";
+
     private const string Version = "brand.guide-proposal.v1";
     private const string Checksum = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -105,6 +108,30 @@ public sealed class BrandGuideProposalAiTaskHandlerTests : IAsyncDisposable
 
         // No recipe, and nothing pinned to one: this proposal is not about a recipe at all.
         Assert.Null(proposal.SourceRecipeVersionId);
+    }
+
+    /// <summary>
+    /// The creator's scratch notes on their own guide are notes to themselves, not an answer about how they
+    /// write. They never reach the provider (audit 11A.24a, S2).
+    /// </summary>
+    [Fact]
+    public async Task The_creators_private_notes_never_reach_the_prompt()
+    {
+        var seeded = await SeedAsync(WorkspaceA, passages: 4);
+        var client = FakeChatClient.Returning(Answer(seeded));
+
+        var outcome = await Run(client, seeded);
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.NotNull(client.LastMessages);
+
+        var sent = string.Join("\n", client.LastMessages!.Select(message => message.Text));
+
+        Assert.DoesNotContain(PrivateNote, sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserNotes", sent, StringComparison.Ordinal);
+
+        // And the answers that should travel still do, so this is an exclusion rather than an empty segment.
+        Assert.Contains("Warm, direct, never fussy.", sent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -598,6 +625,18 @@ public sealed class BrandGuideProposalAiTaskHandlerTests : IAsyncDisposable
             SectionKey = BrandStyleGuideSectionKey.Voice,
             ChannelKey = string.Empty,
             Body = "Warm, direct, never fussy.",
+        });
+
+        // The creator's own scratch area, seeded on every guide so the exclusion below is exercised by every
+        // test in this class rather than only by the one that names it (audit 11A.24a, S2).
+        version.Sections.Add(new BrandStyleGuideSection
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            BrandStyleGuideVersionId = version.Id,
+            SectionKey = BrandStyleGuideSectionKey.UserNotes,
+            ChannelKey = string.Empty,
+            Body = PrivateNote,
         });
 
         db.BrandStyleGuides.Add(guide);

@@ -10,6 +10,7 @@ import {
   CpEmptyStateComponent,
   CpListShellComponent,
   CpListShellState,
+  CpNoticeComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpToolbarComponent,
@@ -38,6 +39,15 @@ import { BrandLibraryUploadComponent } from './brand-library-upload.component';
 type LibraryState =
   | { readonly status: 'loading' }
   | { readonly status: 'error'; readonly message: string }
+  /**
+   * The last page that loaded, still on screen, after a later read failed (audit 11A.24a).
+   *
+   * Without this a creator who had the library open and then changed a filter, typed in the search box or
+   * paged lost the rows they were reading to a full-width error — the degraded state `frontend.md` requires of
+   * every data surface, and the one the version history already has as `pagingDegraded`. What they are looking
+   * at is real and still theirs to use; what failed is the newest read, and only that is said.
+   */
+  | { readonly status: 'degraded'; readonly page: BrandLibraryPage; readonly message: string }
   | { readonly status: 'ready'; readonly page: BrandLibraryPage };
 
 /**
@@ -67,6 +77,10 @@ function filtered<T extends string>(value: T | ''): T | null {
 
 const COULD_NOT_LOAD = "Couldn't load your brand library. Check your connection and try again.";
 const FILTER_REJECTED = 'That combination of filters could not be applied. Clearing them will start again.';
+
+/** The degraded message (audit 11A.24a): what failed, and that what is on screen is still good. */
+const COULD_NOT_REFRESH =
+  "Couldn't load the newest results. These are the ones from a moment ago, and they're still yours to open.";
 
 /**
  * The Brand Library route (`:workspaceSlug/brand/library`): every example this workspace has given the brand,
@@ -98,6 +112,7 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
     CpCardComponent,
     CpEmptyStateComponent,
     CpListShellComponent,
+    CpNoticeComponent,
     CpStatusPillComponent,
     CpToolbarComponent,
   ],
@@ -260,7 +275,9 @@ export class BrandLibraryComponent {
 
   hasNextPage(): boolean {
     const state = this.stateSignal();
-    return state.status === 'ready' && state.page.nextCursor !== null;
+    // Degraded included: the page on screen is real, so its cursor is still a place to go next, and a failed
+    // read should not take paging away from a creator who can see rows in front of them.
+    return (state.status === 'ready' || state.status === 'degraded') && state.page.nextCursor !== null;
   }
 
   hasPreviousPage(): boolean {
@@ -269,7 +286,7 @@ export class BrandLibraryComponent {
 
   nextPage(): void {
     const state = this.stateSignal();
-    if (state.status !== 'ready' || state.page.nextCursor === null) return;
+    if ((state.status !== 'ready' && state.status !== 'degraded') || state.page.nextCursor === null) return;
 
     this.history.update((visited) => [...visited, this.cursor()]);
     this.cursor.set(state.page.nextCursor);
@@ -289,9 +306,21 @@ export class BrandLibraryComponent {
 
   listShellState(): CpListShellState {
     const state = this.stateSignal();
-    if (state.status === 'ready') return state.page.items.length === 0 ? 'empty' : 'ready';
+
+    // Degraded renders as ready, with its own notice above the rows: the shell's error state is full-width and
+    // would replace the very rows this state exists to keep.
+    if (state.status === 'ready' || state.status === 'degraded') {
+      return state.page.items.length === 0 ? 'empty' : 'ready';
+    }
 
     return state.status;
+  }
+
+  /** The message beside the rows when the newest read failed, or empty when nothing has. */
+  degradedMessage(): string {
+    const state = this.stateSignal();
+
+    return state.status === 'degraded' ? state.message : '';
   }
 
   errorMessage(): string {
@@ -301,7 +330,8 @@ export class BrandLibraryComponent {
 
   rows(): readonly BrandLibraryRow[] {
     const state = this.stateSignal();
-    return state.status === 'ready' ? state.page.items : [];
+
+    return state.status === 'ready' || state.status === 'degraded' ? state.page.items : [];
   }
 
   extractionTone(state: BrandSourceExtractionState): CpStatusPillTone {
@@ -374,9 +404,13 @@ export class BrandLibraryComponent {
     }
   }
 
+  /** The newest page that loaded, kept so a later failed read can degrade rather than blank the list. */
+  private lastPage: BrandLibraryPage | null = null;
+
   private apply(outcome: BrandLibraryOutcome): void {
     switch (outcome.status) {
       case 'ok':
+        this.lastPage = outcome.page;
         this.stateSignal.set({ status: 'ready', page: outcome.page });
         return;
 
@@ -389,12 +423,30 @@ export class BrandLibraryComponent {
         return;
 
       case 'invalid_request':
+        // Forgotten deliberately: those rows answered a question the server has just refused, so they must not
+        // come back as a degraded view of filters it would not apply.
+        this.lastPage = null;
+        // The filters, not the connection: the rows on screen were found under filters the server has just
+        // refused, so keeping them beside this message would be showing results for a question it would not
+        // answer.
         this.stateSignal.set({ status: 'error', message: FILTER_REJECTED });
         return;
 
       default:
-        this.stateSignal.set({ status: 'error', message: COULD_NOT_LOAD });
+        this.stateSignal.set(this.degradeOrFail());
     }
+  }
+
+  /**
+   * Keeps the page that is already on screen and says the newest read failed, or fails outright when there is
+   * nothing to keep.
+   */
+  private degradeOrFail(): LibraryState {
+    // The last page that loaded, not the current state: every read sets 'loading' first, so by the time a
+    // failure arrives the page is no longer on the state to read back off it.
+    return this.lastPage === null
+      ? { status: 'error', message: COULD_NOT_LOAD }
+      : { status: 'degraded', page: this.lastPage, message: COULD_NOT_REFRESH };
   }
 
   /**

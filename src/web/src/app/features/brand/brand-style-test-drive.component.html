@@ -1,0 +1,215 @@
+<section class="page" aria-labelledby="cp-style-test-drive-heading">
+  <header>
+    <h1 id="cp-style-test-drive-heading">Test my style</h1>
+    <p class="lede">
+      @if (hasVersion()) {
+        See what version {{ versionNumber }} of your guide does to writing, next to the same writing with no
+        guidance at all.
+      } @else {
+        This page needs to know which version of your guide to try.
+      }
+    </p>
+    <p class="back">
+      <a [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'history']">
+        Back to version history
+      </a>
+    </p>
+  </header>
+
+  <!-- Always in the DOM, and empty until there is something to say: a live region inserted already populated
+       is not reliably announced. -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ statusMessage() }}</p>
+
+  @if (!hasVersion()) {
+    <cp-empty-state
+      variant="no-results"
+      title="No version chosen"
+      description="Open this from a row in your guide's version history, so it is clear which version is being tried."
+    >
+      <a
+        cpEmptyStateActions
+        cpButton
+        variant="secondary"
+        [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'history']"
+      >
+        Choose a version
+      </a>
+    </cp-empty-state>
+  } @else {
+    <cp-card>
+      <div class="ask">
+        <div class="ask-head">
+          <h2>What the samples should be about</h2>
+          <cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill>
+        </div>
+
+        <cp-field
+          label="Subject"
+          forId="cp-style-test-drive-subject"
+          hint="Optional. A short phrase — a dish, not a brief. Left empty, we use our own example."
+        >
+          <input
+            id="cp-style-test-drive-subject"
+            type="text"
+            [value]="subject()"
+            [attr.maxlength]="subjectMax"
+            [disabled]="working()"
+            (input)="setSubject($event)"
+          />
+        </cp-field>
+
+        <cp-notice tone="neutral">
+          Both versions are written about the same subject, so the only difference between them is your guide.
+          Nothing on this page is saved to your recipes, posts or guide.
+        </cp-notice>
+
+        <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+        @if (refusal()) {
+          <cp-notice tone="error">{{ refusal() }}</cp-notice>
+        }
+
+        @if (rolesKnown() && !canRequest()) {
+          <cp-notice tone="neutral">
+            Your role in this workspace can read this page but cannot ask for samples.
+          </cp-notice>
+        }
+
+        <div class="actions">
+          @if (comparison() === null && !working()) {
+            <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+              Write both versions
+            </button>
+          }
+          @if (comparison() !== null || failed()) {
+            <button cpButton type="button" variant="secondary" (click)="startAnother()">Try it again</button>
+          }
+        </div>
+      </div>
+    </cp-card>
+
+    @if (working()) {
+      <cp-card>
+        <p class="waiting">
+          Writing one version without your guide and one with it. This usually takes a few seconds.
+          @if (connectionDegraded()) {
+            <span class="degraded">The connection is slow, so this page is checking less often.</span>
+          }
+        </p>
+      </cp-card>
+    }
+
+    @if (failed()) {
+      <cp-notice tone="error">{{ failureMessage() }}</cp-notice>
+    }
+
+    @if (comparison(); as result) {
+      <section class="result" aria-labelledby="cp-style-test-drive-result-heading">
+        <h2 id="cp-style-test-drive-result-heading">Both versions</h2>
+        <p class="generated">
+          <cp-badge tone="purple">Written by AI</cp-badge>
+          Samples about “{{ result.subject }}”, from version {{ result.guideVersionNumber }} of your guide.
+          @if (!result.guideVersionWasActive) {
+            This is not the version this workspace writes with yet.
+          }
+        </p>
+
+        <cp-tabs [tabs]="tabs()" ariaLabel="Which sample to read">
+          @for (pair of result.samples; track pair.sample) {
+            <cp-tab-panel [id]="'cp-style-sample-' + pair.sample">
+              <div class="columns">
+                <article aria-labelledby="cp-plain-{{ pair.sample }}">
+                  <h3 id="cp-plain-{{ pair.sample }}">Without your guide</h3>
+                  <p class="sample">{{ pair.withoutGuide }}</p>
+                </article>
+                <article aria-labelledby="cp-guided-{{ pair.sample }}">
+                  <h3 id="cp-guided-{{ pair.sample }}">With your guide</h3>
+                  <p class="sample">{{ pair.withGuide }}</p>
+                </article>
+              </div>
+
+              @if (pair.notes.length > 0) {
+                <ul class="notes">
+                  @for (note of pair.notes; track $index) {
+                    <li>
+                      <cp-status-pill tone="warning">
+                        {{ note.withGuide ? 'With your guide' : 'Without your guide' }}
+                      </cp-status-pill>
+                      {{ note.message }}
+                    </li>
+                  }
+                </ul>
+              }
+            </cp-tab-panel>
+          }
+        </cp-tabs>
+      </section>
+
+      <section class="why" aria-labelledby="cp-style-test-drive-why-heading">
+        <h2 id="cp-style-test-drive-why-heading">What your guide asked for</h2>
+
+        @if (result.groundingChangedSince) {
+          <cp-notice [tone]="groundingNoticeTone()">
+            Your guide or your examples have changed since these samples were written, so the list below is how
+            your guide reads now. The samples are unchanged.
+          </cp-notice>
+        }
+
+        @if (result.appliedRules.length > 0) {
+          <dl class="rules">
+            @for (rule of result.appliedRules; track $index) {
+              <div>
+                <dt>{{ rule.label }}</dt>
+                <dd>{{ rule.summary }}</dd>
+              </div>
+            }
+          </dl>
+        } @else {
+          <p class="muted">We could not read your guide's wording just now, so these are not listed.</p>
+        }
+
+        @if (result.citations.length > 0) {
+          <h3>Written from your own examples</h3>
+          <ul class="citations">
+            @for (citation of result.citations; track citation.passageId) {
+              <li>
+                @if (citation.title) {
+                  <a [routerLink]="['/', workspaceSlug, 'brand', 'library', citation.documentId]">
+                    {{ citation.title }}
+                  </a>
+                } @else {
+                  <span>An example you have since removed</span>
+                }
+                <span class="muted">version {{ citation.documentVersionNumber }}</span>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="muted">These were written from your guide alone, not from one of your examples.</p>
+        }
+
+        @if (result.notices.length > 0) {
+          <ul class="notices">
+            @for (notice of result.notices; track $index) {
+              <li>{{ notice.message }}</li>
+            }
+          </ul>
+        }
+
+        <p class="muted">
+          Written by {{ result.modelName }} using guidance template {{ result.promptTemplateVersion }}. These
+          are examples of what your guide does, not a measurement of it.
+        </p>
+
+        <!-- Audit 11A.24a, S5: what this run spent is not repeated here. Tokens, latency and cost are
+             operational figures and AiProposalDetailServiceModel deliberately carries none of them to a
+             creator-facing reply; the allowance screen is where they legitimately live, so this points there
+             rather than making this screen a second, partial account of the same numbers. -->
+        <p class="muted">
+          This used some of your AI allowance.
+          <a [routerLink]="['/app', 'ai-usage']">See what you have left</a>.
+        </p>
+      </section>
+    }
+  }
+</section>
