@@ -21,6 +21,15 @@ public interface IVocabularyBusiness
 
     Task<CursorPageServiceModel<CookingTechniqueServiceModel>> ListTechniquesAsync(ReferenceQuery query, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Vocabulary.Facade.IVocabularyFacade.ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCuisinesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Vocabulary.Facade.IVocabularyFacade.ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCoursesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Vocabulary.Facade.IVocabularyFacade.ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<CookingTechniqueServiceModel>> ListActiveTechniquesAsync(CancellationToken cancellationToken);
+
     Task<CursorPageServiceModel<ReferenceEntryServiceModel>> ListEquipmentTypesAsync(ReferenceQuery query, CancellationToken cancellationToken);
 
     Task<CursorPageServiceModel<DescribedReferenceEntryServiceModel>> ListDietaryProfilesAsync(ReferenceQuery query, CancellationToken cancellationToken);

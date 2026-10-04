@@ -25,5 +25,14 @@ public interface IVocabularyDataLayer
     Task<(IReadOnlyList<DescribedReferenceEntryRecord> Rows, bool HasMore)> ListDietaryProfilesAsync(ReferenceQuery query, CancellationToken cancellationToken);
 
     Task<(IReadOnlyList<DescribedReferenceEntryRecord> Rows, bool HasMore)> ListAllergensAsync(ReferenceQuery query, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IControlledVocabularyRepository.ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCuisinesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IControlledVocabularyRepository.ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCoursesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IControlledVocabularyRepository.ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<CookingTechniqueRecord>> ListActiveTechniquesAsync(CancellationToken cancellationToken);
 }
 

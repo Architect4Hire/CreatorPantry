@@ -2384,6 +2384,16 @@ public sealed class RecipeFacadeTests
         public Task<string?> GetDisplayNameAsync(VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<string?>(null);
 
+        // Whole-catalogue reads: the content-seed generator's, never a recipe's.
+        public Task<IReadOnlyList<Domain.Modules.Vocabulary.Managers.ReferenceEntryServiceModel>>
+            ListActiveCuisinesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<Domain.Modules.Vocabulary.Managers.ReferenceEntryServiceModel>>
+            ListActiveCoursesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<Domain.Modules.Vocabulary.Managers.CookingTechniqueServiceModel>>
+            ListActiveTechniquesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<MeasurementDimension?> FindUsableUnitDimensionAsync(Guid unitId, CancellationToken cancellationToken)
         {
             UnitLookups++;

@@ -312,6 +312,12 @@ public sealed class RecipeJsonLdExportTests
         public Task<OperationResult<CursorPageServiceModel<DescribedReferenceEntryServiceModel>>> ListDietaryProfilesAsync(ReferenceQueryViewModel model, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<OperationResult<CursorPageServiceModel<DescribedReferenceEntryServiceModel>>> ListAllergensAsync(ReferenceQueryViewModel model, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCuisinesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCoursesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<CookingTechniqueServiceModel>> ListActiveTechniquesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class StubSeoFacade(OperationResult<AcceptedSeoServiceModel?> result) : IContentSeoFacade

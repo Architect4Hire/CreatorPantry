@@ -2774,6 +2774,170 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.PromptRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChannelKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DamAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("GeneratedImageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("GeneratedText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("ImageKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptTemplateBodyChecksum")
+                        .HasMaxLength(71)
+                        .HasColumnType("nvarchar(71)");
+
+                    b.Property<string>("PromptTemplateId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptTemplateVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId");
+
+                    b.HasIndex("WorkspaceId", "GeneratedImageId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PromptRecords_Workspace_GeneratedImage")
+                        .HasFilter("GeneratedImageId IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "CreatedAt", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_PromptRecords_Workspace_Created");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeVersionId");
+
+                    b.HasIndex("WorkspaceId", "ChannelKey", "CreatedAt", "Id")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_PromptRecords_Workspace_Channel_Created");
+
+                    b.ToTable("PromptRecords", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PromptRecords_AiProposal_Source", "(AiProposalId IS NOT NULL AND Source <> 0) OR (AiProposalId IS NULL AND Source = 0)");
+
+                            t.HasCheckConstraint("CK_PromptRecords_ChannelKey_NotBlank", "trim(ChannelKey) <> ''");
+
+                            t.HasCheckConstraint("CK_PromptRecords_GeneratedText_Source", "(GeneratedText IS NULL AND Source = 0) OR (GeneratedText IS NOT NULL AND Source <> 0)");
+
+                            t.HasCheckConstraint("CK_PromptRecords_ImageKind_Range", "ImageKind >= 0 AND ImageKind <= 7");
+
+                            t.HasCheckConstraint("CK_PromptRecords_RecipeVersion_RequiresRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_PromptRecords_Source_Range", "Source >= 0 AND Source <= 3");
+
+                            t.HasCheckConstraint("CK_PromptRecords_Template_Generated", "(Source = 0 AND PromptTemplateId IS NULL AND PromptTemplateVersion IS NULL AND PromptTemplateBodyChecksum IS NULL) OR (Source <> 0 AND PromptTemplateId IS NOT NULL AND PromptTemplateVersion IS NOT NULL AND PromptTemplateBodyChecksum IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_PromptRecords_Text_NotBlank", "trim(Text) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.WorkspaceWeeklyTheme", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("RetiredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "Day")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkspaceWeeklyThemes_Workspace_Day")
+                        .HasFilter("RetiredAt IS NULL");
+
+                    b.HasIndex("WorkspaceId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkspaceWeeklyThemes_Workspace_Key");
+
+                    b.ToTable("WorkspaceWeeklyThemes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkspaceWeeklyThemes_Day_Range", "Day >= 0 AND Day <= 6");
+
+                            t.HasCheckConstraint("CK_WorkspaceWeeklyThemes_DisplayName_NotBlank", "trim(DisplayName) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkspaceWeeklyThemes_Key_NotBlank", "trim([Key]) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkspaceWeeklyThemes_Revision_Positive", "Revision >= 1");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5200,6 +5364,42 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
                         .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.PromptRecord", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.WorkspaceWeeklyTheme", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

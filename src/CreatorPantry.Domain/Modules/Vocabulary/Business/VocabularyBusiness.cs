@@ -49,6 +49,21 @@ internal sealed class VocabularyBusiness(IVocabularyDataLayer dataLayer) : IVoca
         ReferenceQuery query, CancellationToken cancellationToken) =>
         Described(await dataLayer.ListAllergensAsync(query, cancellationToken), query.Scope);
 
+    public async Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCuisinesAsync(CancellationToken cancellationToken) =>
+        Active(await dataLayer.ListActiveCuisinesAsync(cancellationToken));
+
+    public async Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCoursesAsync(CancellationToken cancellationToken) =>
+        Active(await dataLayer.ListActiveCoursesAsync(cancellationToken));
+
+    public async Task<IReadOnlyList<CookingTechniqueServiceModel>> ListActiveTechniquesAsync(CancellationToken cancellationToken) =>
+    [
+        .. (await dataLayer.ListActiveTechniquesAsync(cancellationToken)).Select(row =>
+            new CookingTechniqueServiceModel(row.Id, row.Code, row.DisplayName, row.RequiresSafetyCaution)),
+    ];
+
+    private static IReadOnlyList<ReferenceEntryServiceModel> Active(IReadOnlyList<ReferenceEntryRecord> rows) =>
+        [.. rows.Select(row => new ReferenceEntryServiceModel(row.Id, row.Code, row.DisplayName))];
+
     private static CursorPageServiceModel<ReferenceEntryServiceModel> Entries(
         (IReadOnlyList<ReferenceEntryRecord> Rows, bool HasMore) page, string scope) =>
         PageBuilder.Build(page.Rows, page.HasMore, scope,

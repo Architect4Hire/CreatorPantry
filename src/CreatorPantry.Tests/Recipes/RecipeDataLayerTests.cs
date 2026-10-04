@@ -301,8 +301,16 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
 
         second.Recipe.Recipe.Title = "Second writer loses";
         second.Recipe.Recipe.Headnote = "And this must not survive either.";
+
+        // The tag name belongs to this test alone, and has to: the whole class shares one WorkspaceA, so the
+        // vocabulary row asserted absent below would be found if any other test in the class created a tag of
+        // the same name — which is what "citrus" did, in A_replaced_tag_set_adds_removes_and_reuses_in_one_unit.
         var loser = await DataLayer(secondScope).UpdateAsync(
-            second, NextVersion, [new RecipeTagName("Citrus", "citrus")], null, TestContext.Current.CancellationToken);
+            second,
+            NextVersion,
+            [new RecipeTagName("Contested citrus", "contested citrus")],
+            null,
+            TestContext.Current.CancellationToken);
 
         Assert.True(loser.Conflicted);
 
@@ -322,7 +330,7 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         Assert.Equal(
             0,
             await SqlServerRecipeFixture.Db(readScope).WorkspaceTags
-                .CountAsync(tag => tag.NormalizedName == "citrus", TestContext.Current.CancellationToken));
+                .CountAsync(tag => tag.NormalizedName == "contested citrus", TestContext.Current.CancellationToken));
     }
 
     [Fact]

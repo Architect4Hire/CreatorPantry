@@ -35,6 +35,23 @@ public interface IControlledVocabularyRepository
     /// <summary>Techniques carry their own safety-caution flag, so they have their own record type.</summary>
     Task<(IReadOnlyList<CookingTechniqueRecord> Rows, bool HasMore)> ListTechniquesAsync(
         ReferenceQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every active cuisine, unpaged and unsearched, ordered by code.
+    /// </summary>
+    /// <remarks>
+    /// For a caller that needs the whole catalogue as a set to choose from rather than a page to show — the
+    /// content-seed generator is the first. Unpaged is safe because these tables are small and bounded by seed
+    /// data, and ordered by code rather than display name because a caller picking from the set needs a stable
+    /// order, not a readable one.
+    /// </remarks>
+    Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCuisinesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCoursesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<CookingTechniqueRecord>> ListActiveTechniquesAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class ControlledVocabularyRepository(CreatorPantryDbContext context) : IControlledVocabularyRepository
@@ -111,6 +128,28 @@ internal sealed class ControlledVocabularyRepository(CreatorPantryDbContext cont
 
         return fetched.ToPage(query.Limit);
     }
+
+    public async Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCuisinesAsync(CancellationToken cancellationToken) =>
+        await ActiveEntries(context.Cuisines).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCoursesAsync(CancellationToken cancellationToken) =>
+        await ActiveEntries(context.Courses).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<CookingTechniqueRecord>> ListActiveTechniquesAsync(CancellationToken cancellationToken) =>
+        await context.CookingTechniques
+            .AsNoTracking()
+            .Where(technique => technique.IsActive)
+            .OrderBy(technique => technique.Code)
+            .Select(technique => new CookingTechniqueRecord(
+                technique.Id, technique.Code, technique.DisplayName, technique.RequiresSafetyCaution))
+            .ToListAsync(cancellationToken);
+
+    private static IQueryable<ReferenceEntryRecord> ActiveEntries<TVocabulary>(DbSet<TVocabulary> source)
+        where TVocabulary : ControlledVocabulary =>
+        source.AsNoTracking()
+            .Where(entry => entry.IsActive)
+            .OrderBy(entry => entry.Code)
+            .Select(entry => new ReferenceEntryRecord(entry.Id, entry.Code, entry.DisplayName));
 
     /// <summary>Active entries, matching the search, resumed after the cursor.</summary>
     private static IQueryable<TVocabulary> Filtered<TVocabulary, TAlias>(

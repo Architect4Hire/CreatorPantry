@@ -9,11 +9,11 @@ namespace CreatorPantry.Tests.Brand;
 public sealed class ContentChannelCatalogTests
 {
     [Fact]
-    public void The_default_catalogue_has_six_unique_lowercase_keys()
+    public void The_default_catalogue_has_eight_unique_lowercase_keys()
     {
         var catalog = new ContentChannelCatalog();
 
-        Assert.Equal(6, catalog.All.Count);
+        Assert.Equal(8, catalog.All.Count);
         Assert.Equal(catalog.All.Count, catalog.All.Select(channel => channel.Key).Distinct(StringComparer.Ordinal).Count());
         Assert.All(catalog.All, channel =>
         {
@@ -29,6 +29,7 @@ public sealed class ContentChannelCatalogTests
         var catalog = new ContentChannelCatalog();
 
         Assert.Equal("Instagram", catalog.Find("instagram")?.DisplayName);
+        Assert.Equal("Newsletter", catalog.Find("newsletter")?.DisplayName);
         Assert.Null(catalog.Find("Instagram"));
         Assert.Null(catalog.Find("myspace"));
     }
@@ -60,7 +61,7 @@ public sealed class ContentChannelEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellation);
         Assert.Equal(
-            ["instagram", "tiktok", "pinterest", "facebook", "x", "threads"],
+            ["blog", "newsletter", "instagram", "tiktok", "pinterest", "facebook", "x", "threads"],
             body.EnumerateArray().Select(channel => channel.GetProperty("key").GetString()));
         Assert.All(body.EnumerateArray(), channel => Assert.True(channel.GetProperty("isActive").GetBoolean()));
     }

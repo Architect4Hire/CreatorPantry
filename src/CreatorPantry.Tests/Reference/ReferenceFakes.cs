@@ -78,6 +78,19 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog catalog, Guid id, CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
 
+    // Whole-catalogue reads, for the content-seed generator. Counted, unlike the two lookups above: these do go
+    // through a cache, and a test that wanted to prove it stops repeat reads would need them in the count.
+    public Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCuisinesAsync(CancellationToken cancellationToken) =>
+        Count<IReadOnlyList<ReferenceEntryServiceModel>>([new ReferenceEntryServiceModel(Guid.Empty, "thai", "Thai")]);
+
+    public Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCoursesAsync(CancellationToken cancellationToken) =>
+        Count<IReadOnlyList<ReferenceEntryServiceModel>>(
+            [new ReferenceEntryServiceModel(Guid.Empty, "main-course", "Main Course")]);
+
+    public Task<IReadOnlyList<CookingTechniqueServiceModel>> ListActiveTechniquesAsync(CancellationToken cancellationToken) =>
+        Count<IReadOnlyList<CookingTechniqueServiceModel>>(
+            [new CookingTechniqueServiceModel(Guid.Empty, "stir-fry", "Stir-Fry", RequiresSafetyCaution: false)]);
+
     // The Ingredients module's own version of the same check, used by the recipe facade for a submitted
     // ingredient reference. Uncounted for the same reason the vocabulary one is.
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>

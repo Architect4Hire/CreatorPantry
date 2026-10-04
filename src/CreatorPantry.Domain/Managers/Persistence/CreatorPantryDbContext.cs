@@ -489,6 +489,20 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <remarks>Write-once record of every move a proposal made.</remarks>
     public DbSet<ContentProposalTransition> ContentProposalTransitions => Set<ContentProposalTransition>();
 
+    /// <remarks>
+    /// The creator's own editorial week, at most one theme per day. Workspace-owned, never a platform list:
+    /// other records store a theme's <c>Key</c> as a weak reference, so retiring or deleting one cannot break
+    /// them.
+    /// </remarks>
+    public DbSet<WorkspaceWeeklyTheme> WorkspaceWeeklyThemes => Set<WorkspaceWeeklyTheme>();
+
+    /// <remarks>
+    /// The creator's prompt library. Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and
+    /// delete — because a record is the evidence of what produced an image that may already be published. Private
+    /// creator content: the prompt bodies are never logged.
+    /// </remarks>
+    public DbSet<PromptRecord> PromptRecords => Set<PromptRecord>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

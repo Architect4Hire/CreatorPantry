@@ -3235,7 +3235,7 @@ approved blockers in atomic turns, and rerun evaluations.
 
 ## Phase 12 — Creative production, generated images, and DAM
 
-### 12.1 Content channel and weekly-theme configuration - channels done, themes open
+### 12.1 Content channel and weekly-theme configuration - channels done, themes rescoped as 12.1a
 
 ```text
 SCOPE: Add validated application configuration or reference data for the six content channels and seven
@@ -3252,14 +3252,110 @@ brand-profile unknown-key, and retired-key tests.
 
 *Delivery note: the channel half is built as code-owned configuration (`ContentChannelCatalog`, shared kernel),
 with a facade, `GET /api/v1/reference/content-channels`, and brand-profile validation that refuses unknown keys
-and refuses newly choosing a retired one while leaving a retired key a profile already stores alone. **The six
+and refuses newly choosing a retired one while leaving a retired key a profile already stores alone. **The eight
 channels are provisional**: the requirement text behind DATA-RQ-001 to 003 is not in the repository, so they are
-the SOC-001 social platforms (Instagram, TikTok, Pinterest, Facebook, X, Threads). Confirm or correct them in
-`ContentChannels.cs` and `ContentChannelCatalogTests` before anything else stores these keys. **The seven weekly
-themes are not built**: nothing in the repository names them, so supply the list, then add them beside the
-channels and close this prompt.*
+the SOC-001 social platforms (Instagram, TikTok, Pinterest, Facebook, X, Threads) plus the two channels the
+creator owns outright, `blog` and `newsletter`. The owned pair was added on 2026-10-04 because
+`BrandSourceDocument.ChannelKey` records the channel a sample exemplifies and a blog post and a newsletter are
+the likeliest samples a food blogger has — without those keys there was nothing to tag them with, while
+`BrandProfileInputChecks.Channels` was already offering "blog or newsletter" as its example keys. Owned channels
+lead the display order; order is presentation only, since every consumer resolves a key through `Find` rather
+than by position. Correcting the list further is an edit to `ContentChannels.cs` plus
+`ContentChannelCatalogTests`.*
 
-### 12.2 Content-seed generator
+*Note that the brand wizard's `CHANNEL_OPTIONS` (`brand-setup-goals.ts`) is a **separate** answer vocabulary
+that merely overlaps: it also offers `youtube` and `other`, and the wizard draft is opaque JSON the server never
+interprets, so those answers are not channel keys and never reach `channelDefaults`. Reconciling the two lists
+is not this prompt's.*
+
+*The **weekly-theme half moved out**. The themes are creator-managed — a creator writes their own, up to seven
+and often fewer — which is user-managed configuration, so this prompt's own RESTRICTION applies: it stops
+implementation and takes separate ILF/function-point scope, now written as 12.1a. No platform theme catalogue
+exists or should be built, and that includes 12.2: its `day/theme` must come from the workspace's own themes
+through a facade, and must degrade to no theme for a workspace that has none. Both were delivered on 2026-10-04 and
+12.2 does exactly that, through `IWorkspaceWeeklyThemeFacade`.*
+
+### 12.1a Creator-managed weekly themes - done
+
+```text
+SCOPE: Add the workspace-owned weekly theme the creator writes themselves — at most one per day of the week,
+so at most seven and fewer is normal — with a stable key, the creator's own display name and description,
+retirement, and the read and write surface they manage them through.
+CONSTRAINT: DATA-RQ-001 through 003 and SEED-001; .claude/rules/tenancy.md and .claude/rules/content.md;
+add-workspace-entity and add-content-feature skills.
+RESTRICTION: A theme is creator intellectual property, not reference data: workspace-scoped with a global
+query filter, never global, never deduplicated across workspaces, and never seeded server-side. One day holds
+at most one theme (unique WorkspaceId + Day). Do not reintroduce a platform theme catalogue beside
+ContentChannelCatalog. A theme a workspace has retired or deleted must not break a record that already stores
+its key.
+BEHAVIOR: Show the entity, indexes, write shape, and what retirement and deletion do to stored keys; wait for
+approval; implement configuration and migration, review and apply it, and test one-theme-per-day uniqueness,
+unknown-key rejection, retirement, deletion with a stored key, and two-workspace isolation.
+```
+
+*Scope note — why this is its own prompt. 12.1's RESTRICTION says that choosing user-managed configuration
+stops implementation and takes separate ILF/function-point scope. On 2026-10-04 the creator-managed answer was
+chosen deliberately: a creator invents their own week, so the platform cannot own the list. The themes are
+therefore an ILF rather than two more lines of configuration, and the function-point scope is:*
+
+| Function | Type | Complexity | FP |
+| --- | --- | --- | --- |
+| `WorkspaceWeeklyTheme` — Id, WorkspaceId, Day, Key, DisplayName, Description, RetiredAt, Revision, CreatedAt, UpdatedAt; one RET | ILF | Low | 7 |
+| `PUT /api/v1/workspaces/{workspaceSlug}/weekly-themes` — replace the week in one idempotent write | EI | Average | 4 |
+| `GET /api/v1/workspaces/{workspaceSlug}/weekly-themes` | EQ | Low | 3 |
+| | | **Total** | **14** |
+
+*Recommended write shape: one write that replaces the whole set, not per-theme CRUD. At most seven day-keyed
+rows make the week a single value, which keeps the write idempotent, lets a creator clear a day by omitting it,
+and keeps "one theme per day" an invariant of one transaction instead of a race between three endpoints.*
+
+*Starter suggestions — `meat-free-monday`, `taco-tuesday`, `one-pan-wednesday`, `throwback-thursday`,
+`fakeaway-friday`, `baking-saturday`, `sunday-supper` — belong to the UI as prefill the creator edits or
+discards, never to a server-side default, which would make the themes platform configuration again. Whether to
+offer them at all is part of this prompt's approval. The display name is the creator's own words and the server
+does not police it; "Meatless Monday" being a registered mark of The Monday Campaigns is a reason not to
+**suggest** it, not a reason to validate what a creator types.*
+
+*Delivery note (2026-10-04). Built in the **content** module as `WorkspaceWeeklyTheme` over the full seam, with
+the three decisions above approved as recommended: omission retires, concurrency is last-write-wins, and no
+starter suggestions reach the server. The delivered scope is therefore **17 FP**, the table's 14 plus the
+Owner-only `DELETE .../weekly-themes/{key}` (EI, low, 3).*
+
+*Two indexes carry the rules, and the split between them is the design.
+`UX_WorkspaceWeeklyThemes_Workspace_Day` is unique and **filtered to `RetiredAt IS NULL`** — one theme per live
+day, filtered because an unfiltered index would make a day unusable forever once its first theme retired.
+`UX_WorkspaceWeeklyThemes_Workspace_Key` is unique and **unfiltered**, so a key is never reused in a workspace
+and a key some other record stored resolves to exactly one theme or to nothing. Nothing holds a foreign key to a
+theme row: a consumer stores the `Key` string as a weak reference, which is what makes retirement and deletion
+safe. Retiring keeps the row, so a stored key still resolves and is reported with `retiredAt`; deleting removes
+it, so the key resolves to nothing and the consumer keeps the creator's text with no theme detail, never an
+error and never a cascade. A deleted key may be written again later.*
+
+*One thing to know before touching the write. A replace reaches the database as **two ordered statement
+batches** — release every day that is changing hands, then place the week — because a day changing hands would
+otherwise be claimed before its old theme let go, and the live-day index is what makes that an error rather than
+a silent second Monday. Swapping two themes between two days is the same problem with two updates and no
+statement ordering to appeal to. So `WorkspaceWeeklyThemeDataLayer.ReplaceAsync` joins the idempotency
+transaction when there is one and opens its own when there is not, and
+`WeeklyThemeWeekPlan`/`WeeklyThemeChange` are plain values rather than staged mutations precisely so a retrying
+execution strategy can re-run the write from a clean change tracker. `ExecuteUpdateAsync` was deliberately not
+used: `BulkOperationBoundaryTests` forbids it in domain code and this is none of tenancy.md's carve-outs, so the
+exemption list is unchanged.*
+
+*A failed save is **classified, not assumed**. `LostToAnotherWriterAsync` re-reads the committed week and asks
+whether another writer took a key this attempt was inserting or a live day it was claiming; only then is it a
+conflict, and anything else — a deadlock victim, a command timeout — keeps being an error rather than becoming
+"reload and try again", which would send a caller round a loop that cannot end differently. The `MaxThemes` cap
+is checked against Business's pre-transaction read, so it is a bound on growth rather than an invariant and two
+racing replaces can overshoot it by a row or two; one-theme-per-day and one-row-per-key are the real invariants
+and they are unique indexes.*
+
+*For 12.2: read the week through `IWorkspaceWeeklyThemeFacade`. `GetAsync` returns the live week Monday-first
+then the retired themes, and `FindAsync(key)` is the seam a consumer validates a stored key against — an unknown
+key, another workspace's key and a deleted key are deliberately one answer. A workspace with no themes answers
+`200` with an empty list, never `404`, which is the degrade-to-no-theme path 12.1 asked for.*
+
+### 12.2 Content-seed generator - done
 
 ```text
 SCOPE: Implement SEED-001 deterministic/randomized seed selection returning cuisine, dish type, method,
@@ -3270,7 +3366,77 @@ BEHAVIOR: Plan selection weights and reproducibility, wait for approval, impleme
 invalid/seeded-random tests and expose the endpoint through the full seam.
 ```
 
-### 12.3 Prompt library entities
+*Delivery note (2026-10-04). `GET /api/v1/workspaces/{workspaceSlug}/content-seeds`, Viewer and above,
+`no-store`, through Controller → Facade → Business. **It has no data layer or repository, because it owns no
+table** — Business composes the vocabulary and brand facades, this module's weekly themes, and three code-owned
+catalogues. A deliberate deviation from the standard seam, recorded here rather than left to be discovered.*
+
+*Where the eight facets come from. Cuisine is `Cuisine`; **dish type is `Course`**, which already documents itself
+as covering "course, meal type, and dish type", so no table was added; method is `CookingTechnique`; channel is
+`ContentChannelCatalog`; day/theme is 12.1a's `IWorkspaceWeeklyThemeFacade`. **Photography style and occasion are
+new** — `PhotographyStyleCatalog` (10) and `OccasionCatalog` (12) beside `ContentChannels.cs`, both **provisional**
+for the reason the channels are: SEED-001's requirement text is not in the repository. Description is the eighth
+and is **assembled, not selected**: `ContentSeedDescription` writes one line out of the facets' own display names
+and fixed connecting text, so it reads as a prompt to the creator ("Develop a Thai main course…") and never as a
+judgement about a dish nobody has cooked.*
+
+*The boundary to keep. `BrandStyleGuideSectionKey.PhotographyDirection` is the sole source of truth for how a
+workspace's photography looks, and it is prose the creator wrote. The seed's photography facet is a **shot type**,
+the way `CookingTechnique` is a method — craft vocabulary, never a statement about a brand. The seed does not read
+the guide and must never grow fields that would make it a second source for it;
+`SeedFacetCatalogTests.A_photography_style_is_not_a_brand_statement` fails on a new property. The residual risk,
+accepted: a seed can suggest "dark and moody" to a brand whose guide says "bright and airy". Every facet is
+replaceable, which is what makes that acceptable for an idea generator.*
+
+*Reproducibility, which is the part worth reading before changing anything. The response always carries the
+`token` that produced it, and sending that token back returns the same seed. `IContentSeedTokenSource` is the
+**only** randomness in the generator; everything after a token is a pure function of it, so a fixed token fixes
+the whole result — where injecting a shared `Random` would have made each facet depend on the order the others
+drew from it. `ContentSeedSelector` uses **rendezvous hashing**, scoring every candidate as
+`SHA-256(token ␟ facet ␟ key)` and taking the lowest, rather than indexing into a sorted list: adding one entry to
+a list of n moves that facet for about 1 token in n+1, where indexing would shift every pick the moment a row was
+inserted and silently break every shared seed link. The documented limit: a token reproduces against a given
+catalogue state and a given week, not forever — retiring the entry it selected changes that facet, as does
+rewriting the theme for its day.*
+
+*Weights, since the BEHAVIOR asks for them. **Uniform over active entries, deliberately.** Nothing in the
+repository says one cuisine deserves to come up more often, and per-entry weights would be the fabricated
+editorial metric content.md forbids. The one grounded exception is the channel: a workspace that listed
+`BrandChannelDefault` has said where it publishes, so seeds draw from those and fall back to the catalogue
+otherwise — the creator's own answer honoured rather than a preference guessed. The weighting a creator would most
+feel, not repeating last week, needs a history this endpoint is forbidden to keep; `ContentSeedSelector` records
+how weighted rendezvous would be added without a contract change.*
+
+*Refusals and degrading are opposite on purpose. A **pinned** facet naming nothing, or naming a retired entry,
+answers `400 content.seed.invalid` with a field error — a caller who pinned Thai and silently got Korean would
+have no way to tell, and the code-owned catalogues keep retired entries so they can say "no longer available"
+rather than "unknown". An **absent** facet is never an error: an empty catalogue or a day with no theme yields a
+seed with fewer parts. That path is real rather than theoretical — `SqliteApiHost` does not run the reference
+seeder, so the first endpoint test got a three-facet seed instead of a failure.*
+
+*`method` carries `requiresSafetyCaution` through to the response rather than the eight flagged techniques being
+excluded from selection. That flag's own documentation says it exists as the structured hook generation and review
+paths read, so this uses it as designed, and `false` still means only that none has been attached, never that a
+technique is safe. **The caution is also in the `description`**, as fixed text about following tested, authoritative
+guidance — not only in the flag beside it. That was a defect found in review and it mattered: the description is
+the sentence a creator reads, copies and shares, so a client that forgot to render the flag would have handed
+someone "Develop a dessert using the pressure canning method" with nothing attached. Note for whoever revisits
+this: **8 of 30 techniques are flagged**, so roughly a quarter of unpinned draws land on one, and excluding them
+from random selection while still allowing a creator to pin one remains a defensible alternative.*
+
+*The description's clause forms are chosen to read for **every** entry in each catalogue, not for the tidiest
+example. An earlier version appended the method as a bare noun and the occasion after "for", which produced "a main
+course, stir-fry" and "for budget"; "using the … method" and "with … in mind" read for every entry, and the shot
+style is a label (`Shot: Dark and moody.`) because no preposition reads for both an angle and a mood.
+`ContentSeedDescriptionTests` asserts the clause shape over every shipped entry, which a fixture holding two of
+each would not have caught.*
+
+*One thing to know before feeding a seed to a model: `Description` can contain the creator's own words, because a
+weekly theme's display name is free text they wrote. It is creator content, so a prompt including it must delimit
+it as untrusted source material (ai.md). Nothing calls a model today, which is why that is a note on
+`ContentSeedServiceModel` rather than a rule being broken.*
+
+### 12.3 Prompt library entities - done
 
 ```text
 SCOPE: Add workspace-owned PromptRecord with channel, text, label, source type/ID, recipe/version lineage,
@@ -3282,6 +3448,68 @@ BEHAVIOR: Show data model/indexes/retention, wait for approval, implement config
 review/apply it, and test workspace scoping.
 ```
 
+*Delivery note (2026-10-04). `PromptRecord` in the **content** module as `ContentRevision`'s sibling, which is the
+closest analogue in the repository: both store a generated artifact together with the exact sources it was produced
+from. Entity, configuration, migration and tests only — **no DbSet-adjacent seam, no facade, no endpoints**, because
+nothing may read it yet and a facade with no caller is a guess about 12.3a's shape. Moving the type to a media
+module when 12.6/12.9 arrive is a namespace change, not a schema one, as long as the table name stays.*
+
+*Three shapes were copied from `ContentRevision` rather than invented. The **template pin is a triple** —
+`PromptTemplateId` + `PromptTemplateVersion` + `PromptTemplateBodyChecksum` — because a version string alone is a
+claim: a template body can change under a version, and a record pinned by version alone then cannot say what wrote
+it. **Asset lineage is a bare Guid with no foreign key**, since `GeneratedImage` (12.6) and `DamAsset` (12.9) do not
+exist; that is the documented path `ContentRevision.BrandStyleGuideVersionId` and `RecipeVersion.AiProposalId` each
+took, and these gain their key the same way. **Recipe lineage does get real keys**, workspace-paired on
+`(WorkspaceId, RecipeId, RecipeVersionId)` with `Restrict`, so one workspace's prompt pinned to another's recipe —
+or to a version of a different recipe — is unrepresentable rather than merely refused.*
+
+*The three decisions put to approval, all taken as recommended. **"Content type" is editorial**, a `PromptImageKind`
+(hero, process step, ingredient layout, styled scene, social tile, pin graphic, detail shot, other): a prompt holds
+no bytes, so a MIME type here would describe a file the asset rows own authoritatively, and a copy could only
+disagree. **The record is immutable** (`IImmutableRecord`), because it is the evidence of what produced an image that
+may already be published; the cost, tested and stated rather than discovered later, is that even `Label` cannot be
+changed, so reorganising a library needs its own annotation row. **Source is an enum with a typed FK** —
+`PromptRecordSource` plus a workspace-paired `AiProposalId`, tied by check constraint — since all three AI sources
+are proposals and `AiProposal` already has the alternate key.*
+
+*"Creator edits" is **two columns, not a flag**: `GeneratedText` holds the model's draft beside the authoritative
+`Text`. A flag would record that an edit happened and lose what it was; this answers "what did the creator change"
+for as long as the row exists, which is the same reason a recipe keeps the creator's own words beside the normalised
+reference.*
+
+*Indexes: `(WorkspaceId, CreatedAt DESC, Id)` for PRM-002's newest-first default and its keyset cursor,
+`(WorkspaceId, ChannelKey, CreatedAt DESC, Id)` for its channel filter, and a **filtered unique**
+`(WorkspaceId, GeneratedImageId)`. That last one is load-bearing: it makes 12.3a's "no duplicate prompt records on
+DAM retry" a property of the schema rather than something a worker has to remember — a retry loses the index. An
+explicit `(WorkspaceId, RecipeId)` index was written and then **removed on reviewing the generated migration**: the
+recipe-version foreign key already creates `(WorkspaceId, RecipeId, RecipeVersionId)`, whose leading columns answer
+the same question, so it would have cost every insert a second write for nothing.*
+
+*Retention: **none, and that is the decision**. No expiry and no soft-delete column. This row is a few kilobytes of
+text and is the provenance of a possibly-live asset; 12.6 gives staged *images* retention deadlines because bytes are
+expensive, which is not an argument that reaches text. Workspace deletion cascades. Soft-versus-hard delete belongs
+to whichever later prompt actually adds a delete capability, with a use case in hand.*
+
+*Privacy: `Text` and `GeneratedText` are prompt bodies and are never logged or put in an audit summary (ai.md).
+**There is no URL, path or byte column anywhere**, and `PromptRecordModelShapeTests` fails on a property named like
+one — a rule about what must not be added, which no ordinary test would notice breaking. It also pins the absence of
+`UpdatedAt`/`RowVersion` (a write-once row with an updated timestamp would tell two stories about itself) and the
+absence of a `WasEdited` flag.*
+
+*Two things review changed. **Immutability creates a validation obligation** nobody else can discharge: the two
+unkeyed lineage ids cannot be checked by the schema and cannot be corrected once written, so 12.3a must resolve them
+in the workspace before inserting or 12.6's foreign key becomes unaddable. That is now written into 12.3a and 12.6
+rather than living in a code comment. And **erasure ordering was an open question worth answering**: this row
+cascades from `Workspace` while holding `Restrict` pins to a recipe, a version and a proposal that cascade from the
+same workspace, so if SQL Server checked those mid-cascade a workspace holding a prompt could never be deleted —
+and immutability would prevent clearing the way through EF.
+`PromptRecordSqlServerTests.Deleting_a_workspace_still_succeeds_with_a_fully_pinned_prompt_in_it` proves it does
+work. It reasoned sound beforehand; it is the kind of reasoning worth a test.*
+
+*What this commit does **not** establish, stated so the entity-only scope is not mistaken for more: tenancy.md's full
+isolation list — mutation through a facade, cache, search, background processing, AI retrieval — cannot be tested
+here because no seam exists to test. It is owed to 12.3a and PRM-002, and is noted in 12.3a.*
+
 ### 12.3a Save prompt record
 
 ```text
@@ -3291,6 +3519,16 @@ CONSTRAINT: add-content-feature, add-media-feature, and add-endpoint skills.
 RESTRICTION: Do not create duplicate prompt records on DAM retry. No list/detail/download in this prompt.
 BEHAVIOR: Plan transaction linkage to DAM-001, wait for approval, implement replay/rollback/isolation tests.
 ```
+
+*Carried forward from 12.3 (2026-10-04), and **not optional**: `PromptRecord.GeneratedImageId` and `DamAssetId` have
+no foreign key, because their tables arrive in 12.6 and 12.9. This write seam must therefore **resolve both ids
+inside the resolved workspace, through the owning facade, before inserting**. Nothing in the schema can check them,
+and the row is `IImmutableRecord`, so a value written wrongly can never be corrected — a record left holding another
+workspace's id would make 12.6's composite foreign key impossible to add without an erasure carve-out. Duplicate
+prevention is already structural: `UX_PromptRecords_Workspace_GeneratedImage` is unique and filtered, so a retry
+loses the index rather than relying on this seam remembering. `CreatedByMembershipId` is stamped from the resolved
+membership, never from input. And the isolation coverage tenancy.md asks for — mutation, cache, search, background
+and AI retrieval — is **owed here**, because 12.3 could only test the schema.*
 
 ### 12.3b List/search prompts
 
@@ -3375,6 +3613,12 @@ Rejected images are not DAM assets.
 BEHAVIOR: Show lifecycle/retention/index design, wait for approval, implement configuration/migration,
 review/apply it, and test workspace ownership.
 ```
+
+*Note from 12.3 (2026-10-04): `PromptRecord.GeneratedImageId` is waiting for this table and should gain a
+**composite** `(WorkspaceId, GeneratedImageId)` foreign key when it arrives, so give `GeneratedImage` the
+workspace-paired alternate key that needs. Add the key in the same change, and expect the migration to fail if any
+stored id is wrong — `PromptRecord` is immutable, so a bad row cannot be repaired, only erased. 12.3a is required to
+validate the id before insert for exactly this reason.*
 
 ### 12.7 Image-provider gateway and generation worker
 

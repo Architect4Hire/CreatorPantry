@@ -5370,6 +5370,137 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/content-seeds": {
+      "get": {
+        "tags": [
+          "ContentSeeds"
+        ],
+        "summary": "Returns one content idea for the workspace.",
+        "description": "A starting point for a piece of content, assembled from platform vocabulary \u2014 cuisine, dish type, method,\nphotography style, channel, occasion \u2014 plus the workspace\u0027s own weekly theme for the chosen day. **Nothing\nis written and no model is called.** The seed is a suggestion, not a record: there is no seed to fetch\nlater, and \u0060GET\u0060 is the whole feature.\n\n\u0060token\u0060 is what makes a seed reproducible. The response always carries the token that produced it; sending\nthat token back returns the same seed. Reproducibility holds against the same catalogue state and the same\nweek, not forever \u2014 retiring the entry a token selected changes that facet, as does rewriting the theme for\nthe chosen day. Adding an entry usually changes nothing, because each candidate is scored independently\nrather than selected by position. A token of your own is fine: any run of up to 64 letters, digits, hyphens\nor underscores works, so \u0060spring-bakes\u0060 is a valid seed.\n\nAny facet can be pinned and the rest are chosen around it. A pinned key that no catalogue has, or that\nnames a retired entry, answers \u0060400 content.seed.invalid\u0060 with a field error rather than quietly choosing\nsomething else. Facets are otherwise uniform over active entries \u2014 there is no popularity data to weight\nthem by and inventing some would be a fabricated metric \u2014 with one exception: when the workspace\u0027s brand\nprofile lists default channels, the channel is drawn from those, because the creator has already said where\nthey publish.\n\nA facet can be absent from the response. A workspace with no theme on the chosen day is the normal case and\nyields a day with no theme, never an error. \u0060method\u0060 carries \u0060requiresSafetyCaution\u0060: \u0060true\u0060 means a client\nshowing this seed must show an explicit caution, and \u0060false\u0060 means only that no caution has been attached \u2014\nit is never a statement that a technique is safe. Every member including a Viewer may read. The response is\n\u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Token",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Cuisine",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "DishType",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Method",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "PhotographyStyle",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Channel",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Day",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "$ref": "#/components/schemas/DayOfWeek"
+            }
+          },
+          {
+            "name": "Occasion",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSeed"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSeed"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSeed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -11855,6 +11986,286 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/weekly-themes": {
+      "get": {
+        "tags": [
+          "WeeklyThemes"
+        ],
+        "summary": "Returns the workspace\u0027s weekly themes.",
+        "description": "The creator\u0027s own editorial week \u2014 at most one theme per day, so at most seven, and fewer is normal. These\nare not a platform list: a creator writes their own, nothing is seeded, and no two workspaces share a\ntheme.\n\nThe live week comes first in a creator\u0027s reading order, Monday through Sunday, followed by retired themes.\nA retired theme is reported rather than hidden, with \u0060retiredAt\u0060 set, because its \u0060key\u0060 may already be\nstored by other records and because a client may offer to bring it back. A workspace with no themes\nanswers \u0060200\u0060 with an empty list, not \u0060404\u0060: an empty week is where every workspace starts, and a consumer\nreading it simply has no theme for the day. Every member including a Viewer may read. The response is\n\u0060no-store\u0060: it is workspace-private and editable.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "WeeklyThemes"
+        ],
+        "summary": "Replaces the workspace\u0027s weekly themes.",
+        "description": "Editor or above. One write for the whole week rather than per-theme CRUD: at most seven day-keyed entries\nmake the week a single value, which keeps the write idempotent, lets a creator clear a day by leaving it\nout, and keeps \u0022one theme per day\u0022 an invariant of one transaction instead of a race between endpoints.\n\nA theme is recognised by its \u0060key\u0060, which is stable and is what other records store. Submitting a key the\nworkspace already has keeps that theme \u2014 its \u0060day\u0060, \u0060displayName\u0060 and \u0060description\u0060 are updated, and it is\nbrought back if it was retired. Submitting a new key creates a theme at \u0060revision\u0060 1. A live theme whose\nkey is *absent* is retired, not deleted: its row and its key survive, so a record that already named it\nkeeps resolving, and its day is freed. A request asking for the week the workspace already has writes\nnothing and bumps no revision.\n\n\u0060displayName\u0060 is the creator\u0027s own words and the server does not police them. \u0060key\u0060 must be lowercase and\nmatch \u0060^[a-z0-9][a-z0-9-]*$\u0060; each \u0060day\u0060 and each \u0060key\u0060 may appear once. Two creators saving at the same\ntime is last-write-wins by design \u2014 the week is one value, so there is no field-level merge to lose \u2014 and\na genuine collision between two concurrent replaces answers \u0060409 content.weekly_themes.conflict\u0060. A\nworkspace already holding the maximum number of rows, retired ones included, answers\n\u0060422 content.weekly_themes.limit.unprocessable\u0060; the remedy is to delete a retired theme.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same body returns the original response with\n\u0060Idempotent-Replayed: true\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceWeeklyThemes"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceWeeklyThemes"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceWeeklyThemes"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/weekly-themes/{key}": {
+      "delete": {
+        "tags": [
+          "WeeklyThemes"
+        ],
+        "summary": "Deletes one weekly theme outright.",
+        "description": "Owner only, and audited. This is not how a creator clears a day \u2014 leaving a theme out of \u0060PUT\u0060 retires it,\nwhich is reversible and keeps its key resolving for anything that stored it. This deletes the row, so the\nkey resolves to nothing afterwards and a record that stored it keeps only the creator\u0027s text. It exists for\na theme written by mistake, and because the retired tail is what the per-workspace row limit counts.\n\nThe response is the remaining week, exactly as a read returns it. A key this workspace does not have\nanswers \u0060404 content.weekly_theme.not_found\u0060 \u2014 as does another workspace\u0027s key, so one workspace\u0027s themes\nare never disclosed to another. Creating a theme under a deleted key again later is allowed, and it then\nresolves again, to whatever the creator has written under it now.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "description": "The theme\u0027s stable key.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and body returns the original response.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyThemeWeek"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces": {
       "post": {
         "tags": [
@@ -15741,6 +16152,159 @@
           }
         }
       },
+      "ContentSeed": {
+        "required": [
+          "token",
+          "cuisine",
+          "dishType",
+          "method",
+          "photographyStyle",
+          "channel",
+          "day",
+          "occasion",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "cuisine": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedFacet"
+              }
+            ]
+          },
+          "dishType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedFacet"
+              }
+            ]
+          },
+          "method": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedMethod"
+              }
+            ]
+          },
+          "photographyStyle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedFacet"
+              }
+            ]
+          },
+          "channel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedFacet"
+              }
+            ]
+          },
+          "day": {
+            "$ref": "#/components/schemas/ContentSeedDay"
+          },
+          "occasion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedFacet"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "ContentSeedDay": {
+        "required": [
+          "day",
+          "pinned",
+          "theme"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "theme": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedFacet"
+              }
+            ]
+          }
+        }
+      },
+      "ContentSeedFacet": {
+        "required": [
+          "key",
+          "displayName",
+          "pinned"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContentSeedMethod": {
+        "required": [
+          "key",
+          "displayName",
+          "pinned",
+          "requiresSafetyCaution"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "requiresSafetyCaution": {
+            "type": "boolean"
+          }
+        }
+      },
       "ConvertTemperature": {
         "required": [
           "sourceVersionNumber",
@@ -16457,6 +17021,18 @@
           }
         },
         "description": "Cursor-paginated collection envelope, and the shape every \u0060*Page\u0060 schema in this document follows. Pass \u0060nextCursor\u0060 back as \u0060cursor\u0060; null means no more items."
+      },
+      "DayOfWeek": {
+        "enum": [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday"
+        ],
+        "type": "string"
       },
       "DescribedReferenceEntry": {
         "required": [
@@ -19523,6 +20099,20 @@
           }
         }
       },
+      "ReplaceWeeklyThemes": {
+        "type": "object",
+        "properties": {
+          "themes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WeeklyThemeInput"
+            }
+          }
+        }
+      },
       "RequestAiProposal": {
         "type": "object",
         "properties": {
@@ -21278,6 +21868,106 @@
           }
         }
       },
+      "WeeklyTheme": {
+        "required": [
+          "day",
+          "key",
+          "displayName",
+          "description",
+          "retiredAt",
+          "revision",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "key": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retiredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WeeklyThemeInput": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "key": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "WeeklyThemeWeek": {
+        "required": [
+          "themes"
+        ],
+        "type": "object",
+        "properties": {
+          "themes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyTheme"
+            }
+          }
+        }
+      },
       "Workspace": {
         "required": [
           "workspaceId",
@@ -21557,6 +22247,9 @@
       "name": "BrandWritingGuide"
     },
     {
+      "name": "ContentSeeds"
+    },
+    {
       "name": "EditorialPackageRequests"
     },
     {
@@ -21606,6 +22299,9 @@
     },
     {
       "name": "SeoPackageRequests"
+    },
+    {
+      "name": "WeeklyThemes"
     },
     {
       "name": "Workspaces"

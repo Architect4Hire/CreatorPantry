@@ -44,4 +44,13 @@ internal sealed class VocabularyDataLayer(
     public Task<(IReadOnlyList<DescribedReferenceEntryRecord> Rows, bool HasMore)> ListAllergensAsync(
         ReferenceQuery query, CancellationToken cancellationToken) =>
         catalog.ListAllergensAsync(query, cancellationToken);
+
+    public Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCuisinesAsync(CancellationToken cancellationToken) =>
+        vocabularies.ListActiveCuisinesAsync(cancellationToken);
+
+    public Task<IReadOnlyList<ReferenceEntryRecord>> ListActiveCoursesAsync(CancellationToken cancellationToken) =>
+        vocabularies.ListActiveCoursesAsync(cancellationToken);
+
+    public Task<IReadOnlyList<CookingTechniqueRecord>> ListActiveTechniquesAsync(CancellationToken cancellationToken) =>
+        vocabularies.ListActiveTechniquesAsync(cancellationToken);
 }

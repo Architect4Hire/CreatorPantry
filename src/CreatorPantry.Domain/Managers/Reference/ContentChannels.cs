@@ -38,20 +38,31 @@ public interface IContentChannelCatalog
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Provisional list.</strong> The six channels are the social platforms of SOC-001 — Instagram,
-/// TikTok, Pinterest, Facebook, X and Threads — because the requirement text behind DATA-RQ-001 to 003 is not
-/// in the repository. "Blog Intro", the seventh SOC-001 output, is a derivative written for the creator's own
-/// blog rather than a channel. Correcting the list is an edit here plus <c>ContentChannelCatalogTests</c>; no
-/// stored data exists under these keys yet.
+/// <strong>Provisional list.</strong> The requirement text behind DATA-RQ-001 to 003 is not in the repository,
+/// so the eight are the social platforms of SOC-001 — Instagram, TikTok, Pinterest, Facebook, X and Threads —
+/// plus the two channels the creator owns outright, their blog and their newsletter. The owned pair is here
+/// because <c>BrandSourceDocument.ChannelKey</c> records the channel a sample exemplifies, and a food
+/// blogger's likeliest samples are a blog post and a newsletter: without these keys there is nothing to tag
+/// them with. <c>BrandProfileInputChecks.Channels</c> already offers "blog or newsletter" as its example
+/// keys. Correcting the list is an edit here plus <c>ContentChannelCatalogTests</c>.
 /// </para>
 /// <para>
-/// Weekly themes, the other half of 12.1, are deliberately absent: nothing in the repository names them.
+/// Owned channels lead the display order: the creator's own blog is where canonical content lands, and the
+/// social six repurpose from it. Order is presentation only — <c>BrandChannelDefault</c> keeps the creator's
+/// own ordering, and every other consumer looks a key up by <see cref="Find"/> rather than by position.
+/// </para>
+/// <para>
+/// Weekly themes, the other half of 12.1, are not here and will not be: they are creator-managed rather than
+/// platform configuration, which makes them a workspace-owned entity with its own scope (prompt 12.1a), not a
+/// second list in this file.
 /// </para>
 /// </remarks>
 public sealed class ContentChannelCatalog : IContentChannelCatalog
 {
     private static readonly ContentChannel[] Default =
     [
+        new("blog", "Blog"),
+        new("newsletter", "Newsletter"),
         new("instagram", "Instagram"),
         new("tiktok", "TikTok"),
         new("pinterest", "Pinterest"),

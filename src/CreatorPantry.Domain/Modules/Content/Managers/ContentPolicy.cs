@@ -13,4 +13,25 @@ public static class ContentPolicy
     public const int ChecksumMaxLength = 71;
 
     public const int MachineVersionMaxLength = 32;
+
+    /// <summary>
+    /// A <c>ContentChannel.Key</c> as a workspace-owned record stores it. Matches the catalogue's own keys; this
+    /// module keeps its own constant rather than reaching for another module's policy type, which would not cross
+    /// the boundary.
+    /// </summary>
+    public const int ChannelKeyMaxLength = 64;
+
+    /// <summary>
+    /// A saved image prompt.
+    /// </summary>
+    /// <remarks>
+    /// Bounded rather than <c>nvarchar(max)</c>: an image prompt is a paragraph or two, well under this, and a
+    /// bounded column can be validated at the edge and searched by PRM-002 without the cost a MAX column brings.
+    /// Raise it if a real prompt ever approaches it; do not quietly switch the column to MAX, which would make the
+    /// search PRM-002 needs considerably worse.
+    /// </remarks>
+    public const int PromptTextMaxLength = 4000;
+
+    /// <summary>The creator's own short name for a prompt.</summary>
+    public const int PromptLabelMaxLength = 200;
 }

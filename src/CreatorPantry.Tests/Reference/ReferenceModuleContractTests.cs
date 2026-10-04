@@ -225,7 +225,7 @@ public sealed class ReferenceModuleContractTests
             : Domain.Managers.Results.OperationResult<bool>.Failure(result.Error!);
 
     private IVocabularyFacade Vocabulary() =>
-        new VocabularyFacade(new ReferenceQueryViewModelValidator(), _business, new CachedPageReader(_cache));
+        new VocabularyFacade(new ReferenceQueryViewModelValidator(), _business, new CachedPageReader(_cache), _cache);
 
     private IMeasurementFacade Measurement() =>
         new MeasurementFacade(new MeasurementUnitQueryViewModelValidator(), _business, _cache, new CachedPageReader(_cache));

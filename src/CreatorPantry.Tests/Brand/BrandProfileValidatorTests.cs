@@ -210,7 +210,9 @@ public sealed class BrandProfileValidatorTests
     [InlineData("", false)]
     [InlineData("instagram", true)]
     [InlineData("x", true)]
-    [InlineData("blog", false)]
+    [InlineData("blog", true)]
+    [InlineData("newsletter", true)]
+    [InlineData("youtube", false)]
     public void Channel_keys_must_be_well_formed_and_known(string key, bool valid) =>
         Assert.Equal(valid, Create.Validate(new CreateBrandProfileViewModel
         {

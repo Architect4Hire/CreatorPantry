@@ -49,4 +49,31 @@ public interface IVocabularyFacade
 
     Task<OperationResult<CursorPageServiceModel<DescribedReferenceEntryServiceModel>>> ListAllergensAsync(
         ReferenceQueryViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every active cuisine as one set, ordered by code, for a caller that needs the catalogue to choose from
+    /// rather than a page to show.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Unpaged and unsearched, deliberately: the content-seed generator picks one entry out of the whole
+    /// catalogue, and a cursor page would make its answer depend on which page it happened to read. These tables
+    /// are small and bounded by seed data, so reading all of one is cheaper than the paging would be.
+    /// </para>
+    /// <para>
+    /// Cached on a global key with no workspace in it — this is platform reference data, shared by every
+    /// workspace (tenancy.md), and a workspace-scoped key here would be both wrong and wasteful.
+    /// </para>
+    /// <para>
+    /// Retired entries are absent, so a caller cannot newly choose one. A caller resolving an entry it already
+    /// stores uses <see cref="GetDisplayNameAsync"/>, which still answers for a retired row.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCuisinesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<ReferenceEntryServiceModel>> ListActiveCoursesAsync(CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ListActiveCuisinesAsync"/>
+    Task<IReadOnlyList<CookingTechniqueServiceModel>> ListActiveTechniquesAsync(CancellationToken cancellationToken);
 }
