@@ -62,12 +62,24 @@ public static class BrandServiceCollectionExtensions
             IValidator<ApproveBrandStyleGuideVersionViewModel>,
             ApproveBrandStyleGuideVersionViewModelValidator>();
         services.AddScoped<
+            IValidator<SaveBrandStyleGuideVersionViewModel>,
+            SaveBrandStyleGuideVersionViewModelValidator>();
+        services.AddScoped<
             IValidator<ActivateBrandStyleGuideVersionViewModel>,
             ActivateBrandStyleGuideVersionViewModelValidator>();
         services.AddScoped<IBrandStyleGuideRepository, BrandStyleGuideRepository>();
         services.AddScoped<IBrandStyleGuideDataLayer, BrandStyleGuideDataLayer>();
         services.AddScoped<IBrandStyleGuideBusiness, BrandStyleGuideBusiness>();
         services.AddScoped<IBrandStyleGuideFacade, BrandStyleGuideFacade>();
+
+        // The editor's autosave target (11A.15 / 11A.23b): one creator's unsaved edit of one guide.
+        services.AddScoped<
+            IValidator<SaveBrandStyleGuideEditSessionViewModel>,
+            SaveBrandStyleGuideEditSessionViewModelValidator>();
+        services.AddScoped<IBrandStyleGuideEditSessionRepository, BrandStyleGuideEditSessionRepository>();
+        services.AddScoped<IBrandStyleGuideEditSessionDataLayer, BrandStyleGuideEditSessionDataLayer>();
+        services.AddScoped<IBrandStyleGuideEditSessionBusiness, BrandStyleGuideEditSessionBusiness>();
+        services.AddScoped<IBrandStyleGuideEditSessionFacade, BrandStyleGuideEditSessionFacade>();
         // The grounding read over what the embedding worker produced. Registered with the module rather than
         // with the worker, because its caller is an AI task running in the Worker host and the API host alike.
         services.AddScoped<IBrandSourcePassageRepository, BrandSourcePassageRepository>();

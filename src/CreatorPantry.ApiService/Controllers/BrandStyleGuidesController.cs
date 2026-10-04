@@ -41,7 +41,9 @@ public sealed class BrandStyleGuidesController(IBrandStyleGuideFacade guides) : 
     /// documents and versions whose text has not been extracted can be cited.
     ///
     /// The new version is number 1, has no parent, and is not approved and not the workspace default; both
-    /// come later. No model is called. The response carries the `concurrencyToken` an edit will have to quote.
+    /// come later. No model is called. The response carries the guide's `concurrencyToken`, which covers the
+    /// guide row — its name, purpose and archived state. An **edit quotes `expectedWorkingVersionNumber`**
+    /// instead, because writing a version deliberately leaves that row alone and so never moves its token.
     /// </remarks>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
@@ -147,6 +149,89 @@ public sealed class BrandStyleGuidesController(IBrandStyleGuideFacade guides) : 
         var result = await guides.ListVersionsAsync(guideId, query, cancellationToken);
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Saves a creator's edit of a brand style guide as one further immutable version.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="guideId">
+    /// The guide to write to. Constrained to a Guid, so a malformed id answers 404 at routing — the same status
+    /// as an unknown guide and as another workspace's.
+    /// </param>
+    /// <param name="model">
+    /// The submitted change: the working version it was made against, an optional reason, and the sections,
+    /// rules and citations to set, clear or drop. Carries no workspace, no guide and no version to write.
+    /// </param>
+    /// <param name="idempotencyKey">
+    /// Required. Replaying a request with the same key returns the version the first one wrote, with
+    /// `Idempotency-Replayed: true`, and writes nothing further; the same key with a different body answers
+    /// `422 idempotency.key_reused`.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// **Editor or above**, the role that creates a guide. Approving the version this writes, and making it the
+    /// workspace default, remain separate decisions behind their own gates — this one approves nothing and
+    /// activates nothing, and no model is called.
+    ///
+    /// **A submitted change, not a replacement guide.** An omitted collection is untouched, so a request naming
+    /// one section says nothing about the others. A section is set or replaced by being named with text, and
+    /// **cleared by being named with none** — the one difference from creation, where a blank answer is simply
+    /// no answer. `rules` is whole-list, because a rule has no identity beyond its own text and the order is the
+    /// creator's: send `items` in full to replace them, an empty array to clear them, or leave `rules` out to
+    /// keep them. `rules: {}` without `items` is a `400` rather than a way to delete them all. Citations are
+    /// added and dropped by exact `(documentId, versionNumber)`, so re-pinning one to a document's newer version
+    /// is an `uncite` and a `cite` in the same request. A request that asks for nothing at all is a `400`.
+    ///
+    /// **`expectedWorkingVersionNumber` is the concurrency guard**, checked inside the writing transaction
+    /// against the guide as it actually stands: a mismatch answers `409 brand.guide.workingVersion.conflict`
+    /// and names both numbers in `expectedWorkingVersionNumber` and `workingVersionNumber`. It is not the
+    /// guide's `concurrencyToken` — that covers the guide row, which a version write deliberately leaves alone.
+    ///
+    /// **A change that changes nothing writes nothing**: `200 OK` with `versionId` and `versionNumber` null,
+    /// reporting the version that still stands, and no audit entry. A version written answers `201 Created`
+    /// with its number. Text is stored exactly as typed, and the parent version is untouched — editing an
+    /// approved version leaves its approval intact and writes a new draft beside it.
+    ///
+    /// Three refusals are about what the request would produce: past one of the guide's ceilings is `400
+    /// brand.guide.version.limit.invalid_request`, naming which; a cited document version that cannot be used —
+    /// never issued, another workspace's, removed, or one the document does not have — is `422
+    /// brand.guide.source.unprocessable`, identically for every cause, listing each in `unusableSources`
+    /// (including a citation inherited from the working version, which is why they are named by document and
+    /// version rather than by request index); and a version of an archived guide is `409
+    /// brand.guide.archived.conflict`. An unknown guide and another workspace's both answer `404
+    /// brand.guide.not_found`.
+    /// </remarks>
+    [HttpPost("{guideId:guid}/versions")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
+    [ProducesResponseType<BrandStyleGuideVersionSavedServiceModel>(StatusCodes.Status201Created)]
+    // The no-op, and declared because it is a success a client has to be able to tell from a write: nothing
+    // changed, so there is no version and nothing to approve.
+    [ProducesResponseType<BrandStyleGuideVersionSavedServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    // ValidationProblemDetails on the 409 for the reason Activate records: the working-version conflict names
+    // the field at fault in `errors`' sibling extensions and is the refusal a client acts on.
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> SaveVersion(
+        string workspaceSlug,
+        Guid guideId,
+        [FromBody] SaveBrandStyleGuideVersionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+
+        var outcome = await guides.SaveVersionAsync(userId, guideId, model, idempotencyKey, cancellationToken);
+
+        // No Location on either answer: the module has no per-version read route, and the guide read reports
+        // the working version in full.
+        return this.IdempotentResult(
+            outcome,
+            saved => saved.VersionId is null ? Ok(saved) : StatusCode(StatusCodes.Status201Created, saved));
     }
 
     /// <summary>Compares two of one brand style guide's versions and returns what differs between them.</summary>

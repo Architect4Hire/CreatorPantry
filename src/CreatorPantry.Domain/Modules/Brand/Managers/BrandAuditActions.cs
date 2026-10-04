@@ -110,6 +110,16 @@ public static class BrandAuditActions
     /// </remarks>
     public const string StyleGuideVersionCreatedFromProposal = "brand.guide.version.created_from_proposal";
 
+    /// <summary>A creator edited a guide, which wrote a new draft version from their own words (11A.15).</summary>
+    /// <remarks>
+    /// Deliberately distinct from <see cref="StyleGuideVersionCreatedFromProposal"/>, which is the same shape of
+    /// write with a different provenance: this row says the words are the creator's. The summary carries the two
+    /// version numbers and counts of what moved — no section body, no rule text and no change reason, for the
+    /// reason <see cref="StyleGuideCreated"/> gives. A save that changed nothing writes no version and no row:
+    /// there is nothing to audit about a guide that still says what it said.
+    /// </remarks>
+    public const string StyleGuideVersionEdited = "brand.guide.version.edited";
+
     public const string SetupSessionResourceType = "BrandSetupSession";
 
     /// <summary>A creator started a "Create my voice" session. The summary never carries the draft.</summary>

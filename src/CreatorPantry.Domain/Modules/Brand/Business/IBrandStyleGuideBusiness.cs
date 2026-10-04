@@ -45,6 +45,33 @@ public interface IBrandStyleGuideBusiness
         string userId, BrandStyleGuideDraft draft, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Applies a creator's own edit to the guide's working version and writes the result as one further
+    /// immutable version (11A.15). No model is called, and nothing is approved or activated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The working-version check is the whole guard, and it belongs here.</strong> The caller read the
+    /// guide before the transaction opened; this reads it inside, so an edit that landed in between is refused
+    /// rather than applied to words the creator never saw. Both numbers are stated in the refusal — they are
+    /// version numbers of the caller's own guide, not secrets, and a creator told only "it moved" cannot tell
+    /// whether they are one edit or ten behind.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing differing writes nothing.</strong> A save whose result matches the working version word
+    /// for word produces no version and no audit entry, and reports the version that still stands — the same
+    /// no-op rule accepted AI guidance follows.
+    /// </para>
+    /// <para>
+    /// <strong>The guide row is deliberately left alone</strong>, as on the proposal path: a version is the
+    /// guide's content, while the row carries its name, purpose and archived state. Touching <c>UpdatedAt</c>
+    /// would bump the row version and invalidate a concurrency token a client is holding for fields this change
+    /// did not alter.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<BrandStyleGuideVersionSavedServiceModel>> SaveVersionAsync(
+        string userId, Guid guideId, BrandStyleGuideEditDraft edit, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Approves one version of one guide: marks it finished, which is what makes it activatable. Nothing in
     /// the guide is edited, and nothing is activated.
     /// </summary>
@@ -453,6 +480,156 @@ internal sealed class BrandStyleGuideBusiness(
                     source.DocumentId!.Value, source.VersionNumber!.Value))])));
     }
 
+    public async Task<OperationResult<BrandStyleGuideVersionSavedServiceModel>> SaveVersionAsync(
+        string userId, Guid guideId, BrandStyleGuideEditDraft edit, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(edit);
+
+        if (await dataLayer.ReadForVersionWriteAsync(guideId, cancellationToken) is not { } read)
+        {
+            // Answered identically to a guide that was never created (tenancy.md).
+            return CannotSave(new OperationError(
+                BrandErrorCodes.GuideNotFound,
+                "There is no such brand style guide.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (read.Guide.Status is BrandStyleGuideStatus.Archived)
+        {
+            // A shelved guide stays readable and comparable; what it does not do is take new content. The
+            // remedy is one a client can act on, which is why this is a conflict rather than an absence.
+            return CannotSave(new OperationError(
+                BrandErrorCodes.GuideArchivedConflict,
+                "This brand style guide is archived, so a new version cannot be written to it. Restore it first.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var working = read.Working;
+
+        // Inside the transaction, which is the whole point: the client read the guide before this request
+        // started, and an edit landing in between is exactly the case worth refusing rather than rebasing.
+        if (working.VersionNumber != edit.ExpectedWorkingVersionNumber)
+        {
+            return CannotSave(new OperationError(
+                BrandErrorCodes.GuideWorkingVersionConflict,
+                $"This guide has been edited since it was opened (this edit was made against version "
+                    + $"{edit.ExpectedWorkingVersionNumber}, and the guide is now on {working.VersionNumber}). "
+                    + "Read it again and decide from there.",
+                new Dictionary<string, string[]>(),
+                new Dictionary<string, object?>
+                {
+                    ["expectedWorkingVersionNumber"] = edit.ExpectedWorkingVersionNumber,
+                    ["workingVersionNumber"] = working.VersionNumber,
+                }));
+        }
+
+        var applied = BrandStyleGuideEditApply.Apply(
+            SectionsOf(working), RulesOf(working), CitationsOf(read), edit);
+
+        // The caps are checked on the result rather than on the request, because that is where they can be
+        // exceeded: a request adding ten rules is legitimate and a guide holding forty-five is legitimate, and
+        // only the sum is not. Refused rather than truncated.
+        if (LimitFailures(
+                applied.Rules,
+                applied.Sections,
+                applied.Sources,
+                nameof(SaveBrandStyleGuideVersionViewModel.SourceDocuments)).ToList() is { Count: > 0 } exceeded)
+        {
+            return CannotSave(OperationError.Validation(
+                BrandErrorCodes.GuideVersionLimitExceeded,
+                "That change would take this guide past one of its limits.",
+                exceeded));
+        }
+
+        if (!applied.Changed)
+        {
+            // The edit says what the guide already said — a creator who re-saved without changing anything, or
+            // typed a word and typed it back. No version is written and no audit row is recorded; the reply
+            // reports the version that still stands.
+            return OperationResult<BrandStyleGuideVersionSavedServiceModel>.Success(Saved(
+                read.Guide.Id,
+                working.VersionNumber,
+                applied,
+                versionId: null,
+                versionNumber: null,
+                read.WorkingStaleSourceCount));
+        }
+
+        // Every citation is resolved again, including the ones travelling through from the working version: a
+        // document cited when that version was written may have been removed since, and a pointer is never
+        // trusted for having once been good.
+        var resolved = await dataLayer.ResolveSourceVersionsAsync(
+            [
+                .. applied.Sources.Select(source => new BrandStyleGuideSourceInput
+                {
+                    DocumentId = source.DocumentId,
+                    VersionNumber = source.VersionNumber,
+                }),
+            ],
+            cancellationToken);
+
+        var unusable = Enumerable.Range(0, resolved.Count).Where(index => resolved[index] is null).ToList();
+
+        if (unusable.Count > 0)
+        {
+            // Named by document and version rather than by index, because the index is into the applied result
+            // and not into anything the request listed: the citation at fault may be one the creator inherited
+            // from the working version, in which case pointing at their own request would be a lie. The
+            // extension is how an editor marks the rows the creator has to drop before they can save.
+            return CannotSave(new OperationError(
+                BrandErrorCodes.GuideSourceUnprocessable,
+                "A source document version this guide cites could not be used.",
+                new Dictionary<string, string[]>
+                {
+                    ["sourceDocuments"] =
+                    [
+                        unusable.Count == 1
+                            ? "One cited document version could not be used."
+                            : $"{unusable.Count} cited document versions could not be used.",
+                    ],
+                },
+                new Dictionary<string, object?>
+                {
+                    ["unusableSources"] = unusable.Select(index => applied.Sources[index]).ToArray(),
+                }));
+        }
+
+        var version = NextVersion(
+            read.Guide.Id, working, applied.Sections, applied.Rules, resolved, edit.ChangeReason);
+
+        // The creator's unsaved copy of this guide goes with the version, in the same save: once their words
+        // are a version, "you have unsaved changes" is no longer true, and if this write rolls back the draft
+        // they composed from is still there. Staged before the save below rather than deleted after it, which
+        // would be a second unit of work able to fail on its own.
+        // `workspace.AccountId` rather than the `userId` passed in for the audit row: it is the same account,
+        // and taking it from the resolved context is what the edit-session seam writes drafts under, so there
+        // is one source for "whose draft" rather than two that could disagree.
+        await dataLayer.StageEditSessionRemovalAsync(read.Guide.Id, workspace.AccountId, cancellationToken);
+
+        // Ids and counts, and the creator's change reason is deliberately not among them: it is free text about
+        // a private guide, and an audit summary is not where that belongs — the same rule the approval and
+        // activation reasons follow. The row says the words are the creator's own, which is what tells it apart
+        // from a version written from accepted AI guidance.
+        var audit = new AuditEntry(
+            userId,
+            BrandAuditActions.StyleGuideVersionEdited,
+            BrandAuditActions.StyleGuideResourceType,
+            read.Guide.Id.ToString("D"),
+            CorrelationId(),
+            $"Edited version {working.VersionNumber} into version {version.VersionNumber}: "
+                + $"{applied.SectionsAdded} section(s) added, {applied.SectionsReplaced} replaced, "
+                + $"{applied.SectionsCleared} cleared, {applied.RulesAdded} rule(s) added, "
+                + $"{applied.RulesRemoved} removed, {applied.SourcesCited} source(s) newly cited, "
+                + $"{applied.SourcesUncited} no longer cited.",
+            BeforeReference: Pointer(read.Guide.Id, working.VersionNumber),
+            AfterReference: Pointer(read.Guide.Id, version.VersionNumber));
+
+        var staleSourceCount = await dataLayer.AddVersionAsync(version, audit, cancellationToken);
+
+        return OperationResult<BrandStyleGuideVersionSavedServiceModel>.Success(Saved(
+            read.Guide.Id, working.VersionNumber, applied, version.Id, version.VersionNumber, staleSourceCount));
+    }
+
     public async Task<OperationResult<BrandStyleGuideApprovalResultServiceModel>> ApproveVersionAsync(
         string userId,
         Guid guideId,
@@ -691,7 +868,7 @@ internal sealed class BrandStyleGuideBusiness(
     {
         ArgumentNullException.ThrowIfNull(application);
 
-        if (await dataLayer.ReadForProposalAsync(guideId, cancellationToken) is not { } read)
+        if (await dataLayer.ReadForVersionWriteAsync(guideId, cancellationToken) is not { } read)
         {
             // Answered identically to a guide that was never created (tenancy.md).
             return CannotWrite(new OperationError(
@@ -811,60 +988,10 @@ internal sealed class BrandStyleGuideBusiness(
                 unusable.Select(index => ($"CitedSources[{index}]", "This document version could not be used."))));
         }
 
-        var now = clock.UtcNow;
-        var workspaceId = workspace.WorkspaceId;
-        var membershipId = workspace.MembershipId;
-
-        var version = new BrandStyleGuideVersion
-        {
-            Id = Guid.NewGuid(),
-            WorkspaceId = workspaceId,
-            BrandStyleGuideId = read.Guide.Id,
-            VersionNumber = working.VersionNumber + 1,
-            ParentVersionId = working.Id,
-            ChangeReason = application.ChangeReason,
-            CreatedByMembershipId = membershipId,
-            CreatedAt = now,
-            Sections =
-            [
-                .. merged.Sections.Select(section => new BrandStyleGuideSection
-                {
-                    Id = Guid.NewGuid(),
-                    WorkspaceId = workspaceId,
-                    BrandStyleGuideVersionId = Guid.Empty,
-                    SectionKey = section.SectionKey,
-                    ChannelKey = section.ChannelKey ?? string.Empty,
-                    Body = section.Body,
-                }),
-            ],
-            Rules =
-            [
-                .. merged.Rules.Select((rule, order) => new BrandStyleGuideRule
-                {
-                    Id = Guid.NewGuid(),
-                    WorkspaceId = workspaceId,
-                    BrandStyleGuideVersionId = Guid.Empty,
-                    Kind = rule.Kind,
-                    Text = rule.Text,
-                    SortOrder = order,
-                }),
-            ],
-            SourceLinks =
-            [
-                .. resolved.Select(versionId => new BrandStyleGuideSourceLink
-                {
-                    WorkspaceId = workspaceId,
-                    BrandStyleGuideVersionId = Guid.Empty,
-                    BrandSourceDocumentVersionId = versionId!.Value,
-                }),
-            ],
-        };
-
-        // As on creation: the children name their parent through the collections, and setting the key too keeps
-        // the rows right however the tracker orders its fix-up.
-        foreach (var section in version.Sections) { section.BrandStyleGuideVersionId = version.Id; }
-        foreach (var rule in version.Rules) { rule.BrandStyleGuideVersionId = version.Id; }
-        foreach (var link in version.SourceLinks) { link.BrandStyleGuideVersionId = version.Id; }
+        // The same shape a creator's own edit writes, through the same builder: what differs between the two
+        // paths is how the content was arrived at, never how a version is put together.
+        var version = NextVersion(
+            read.Guide.Id, working, merged.Sections, merged.Rules, resolved, application.ChangeReason);
 
         // Ids and counts. The proposal id is what makes this row answer "where did this guidance come from"
         // later; no section body and no rule text, because an audit summary is not where a private guide's words
@@ -957,17 +1084,34 @@ internal sealed class BrandStyleGuideBusiness(
 
     /// <summary>Which of the guide's own ceilings the merged version would exceed.</summary>
     private static IEnumerable<(string Field, string Message)> LimitFailures(
-        BrandStyleGuideVersionMergeResult merged)
+        BrandStyleGuideVersionMergeResult merged) =>
+        LimitFailures(
+            merged.Rules,
+            merged.Sections,
+            merged.Sources,
+            nameof(BrandStyleGuideProposalApplication.CitedSources));
+
+    /// <summary>
+    /// Which of the guide's own ceilings a composed version would exceed, whoever composed it.
+    /// </summary>
+    /// <param name="sourcesField">
+    /// What the caller's own request calls its citations, so the refusal names a field the client sent rather
+    /// than one from the other write path.
+    /// </param>
+    private static IEnumerable<(string Field, string Message)> LimitFailures(
+        IReadOnlyList<BrandStyleGuideRuleServiceModel> rules,
+        IReadOnlyList<BrandStyleGuideSectionServiceModel> sections,
+        IReadOnlyList<BrandStyleGuideSourceServiceModel> sources,
+        string sourcesField)
     {
-        if (merged.Rules.Count > BrandPolicy.MaxStyleGuideRules)
+        if (rules.Count > BrandPolicy.MaxStyleGuideRules)
         {
             yield return (nameof(BrandStyleGuideProposalApplication.Rules),
-                $"This guide would have {merged.Rules.Count} do and don't rules, and can have at most "
+                $"This guide would have {rules.Count} do and don't rules, and can have at most "
                     + $"{BrandPolicy.MaxStyleGuideRules}.");
         }
 
-        var variants = merged.Sections
-            .Count(section => section.SectionKey is BrandStyleGuideSectionKey.ChannelVariant);
+        var variants = sections.Count(section => section.SectionKey is BrandStyleGuideSectionKey.ChannelVariant);
 
         if (variants > BrandPolicy.MaxStyleGuideChannelVariants)
         {
@@ -976,13 +1120,136 @@ internal sealed class BrandStyleGuideBusiness(
                     + $"{BrandPolicy.MaxStyleGuideChannelVariants}.");
         }
 
-        if (merged.Sources.Count > BrandPolicy.MaxStyleGuideSourceLinks)
+        if (sources.Count > BrandPolicy.MaxStyleGuideSourceLinks)
         {
-            yield return (nameof(BrandStyleGuideProposalApplication.CitedSources),
-                $"This version would cite {merged.Sources.Count} source documents, and can cite at most "
+            yield return (sourcesField,
+                $"This version would cite {sources.Count} source documents, and can cite at most "
                     + $"{BrandPolicy.MaxStyleGuideSourceLinks}.");
         }
     }
+
+    /// <summary>
+    /// One further version of a guide, built from its working version: the rows, and their parent key set both
+    /// ways.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the two write paths — a creator's own edit and accepted AI guidance — because how a version is
+    /// assembled is not where they differ. The children name their parent through the collections, and setting
+    /// the key as well keeps the rows right however the change tracker orders its fix-up, as on creation.
+    /// </remarks>
+    private BrandStyleGuideVersion NextVersion(
+        Guid guideId,
+        BrandStyleGuideVersion working,
+        IReadOnlyList<BrandStyleGuideSectionServiceModel> sections,
+        IReadOnlyList<BrandStyleGuideRuleServiceModel> rules,
+        IReadOnlyList<Guid?> resolvedSourceVersionIds,
+        string? changeReason)
+    {
+        var workspaceId = workspace.WorkspaceId;
+
+        var version = new BrandStyleGuideVersion
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            BrandStyleGuideId = guideId,
+            VersionNumber = working.VersionNumber + 1,
+            ParentVersionId = working.Id,
+            ChangeReason = changeReason,
+            CreatedByMembershipId = workspace.MembershipId,
+            CreatedAt = clock.UtcNow,
+            Sections =
+            [
+                .. sections.Select(section => new BrandStyleGuideSection
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    BrandStyleGuideVersionId = Guid.Empty,
+                    SectionKey = section.SectionKey,
+                    ChannelKey = section.ChannelKey ?? string.Empty,
+                    Body = section.Body,
+                }),
+            ],
+            Rules =
+            [
+                .. rules.Select((rule, order) => new BrandStyleGuideRule
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    BrandStyleGuideVersionId = Guid.Empty,
+                    Kind = rule.Kind,
+                    Text = rule.Text,
+                    SortOrder = order,
+                }),
+            ],
+            SourceLinks =
+            [
+                .. resolvedSourceVersionIds.Select(versionId => new BrandStyleGuideSourceLink
+                {
+                    WorkspaceId = workspaceId,
+                    BrandStyleGuideVersionId = Guid.Empty,
+                    BrandSourceDocumentVersionId = versionId!.Value,
+                }),
+            ],
+        };
+
+        foreach (var section in version.Sections) { section.BrandStyleGuideVersionId = version.Id; }
+        foreach (var rule in version.Rules) { rule.BrandStyleGuideVersionId = version.Id; }
+        foreach (var link in version.SourceLinks) { link.BrandStyleGuideVersionId = version.Id; }
+
+        return version;
+    }
+
+    /// <summary>A version's sections as this module's models, with the stored empty channel back to null.</summary>
+    private static IReadOnlyList<BrandStyleGuideSectionServiceModel> SectionsOf(BrandStyleGuideVersion version) =>
+        [
+            .. version.Sections.Select(section => new BrandStyleGuideSectionServiceModel(
+                section.SectionKey,
+                section.ChannelKey.Length == 0 ? null : section.ChannelKey,
+                section.Body)),
+        ];
+
+    /// <summary>A version's rules in their stored order, which is the creator's own.</summary>
+    private static IReadOnlyList<BrandStyleGuideRuleServiceModel> RulesOf(BrandStyleGuideVersion version) =>
+        [
+            .. version.Rules
+                .OrderBy(rule => rule.SortOrder)
+                .Select(rule => new BrandStyleGuideRuleServiceModel(rule.Kind, rule.Text)),
+        ];
+
+    private static IReadOnlyList<BrandStyleGuideSourceServiceModel> CitationsOf(
+        BrandStyleGuideVersionWriteTarget read) =>
+        [
+            .. read.Citations.Select(citation => new BrandStyleGuideSourceServiceModel(
+                citation.DocumentId, citation.VersionNumber)),
+        ];
+
+    /// <summary>What a save reports, whether it wrote a version or found nothing to write.</summary>
+    private static BrandStyleGuideVersionSavedServiceModel Saved(
+        Guid guideId,
+        int parentVersionNumber,
+        BrandStyleGuideEditResult applied,
+        Guid? versionId,
+        int? versionNumber,
+        int staleSourceCount) =>
+        new(
+            guideId,
+            versionId,
+            versionNumber,
+            parentVersionNumber,
+            applied.SectionsAdded,
+            applied.SectionsReplaced,
+            applied.SectionsCleared,
+            applied.RulesAdded,
+            applied.RulesRemoved,
+            applied.SourcesCited,
+            applied.SourcesUncited,
+            applied.Sections.Count,
+            applied.Rules.Count,
+            applied.Sources.Count,
+            staleSourceCount);
+
+    private static OperationResult<BrandStyleGuideVersionSavedServiceModel> CannotSave(OperationError error) =>
+        OperationResult<BrandStyleGuideVersionSavedServiceModel>.Failure(error);
 
     private static OperationResult<BrandStyleGuideVersionCreatedServiceModel> CannotWrite(OperationError error) =>
         OperationResult<BrandStyleGuideVersionCreatedServiceModel>.Failure(error);

@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
+import { brandGuideEditorCanDeactivateGuard } from './features/brand/brand-guide-editor.guard';
 import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
 import { brandSetupCanDeactivateGuard } from './features/brand/setup/brand-setup.guard';
 import { recipeFirstDraftReviewCanDeactivateGuard } from './features/ai/recipe-first-draft-review.guard';
@@ -31,6 +32,15 @@ const SECTION_ROUTES: Routes = [
         children: [
           { path: '', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-library.component').then((m) => m.BrandLibraryComponent), data: { title: 'Brand library' } },
           { path: ':documentId', loadComponent: () => import('./features/brand/brand-source-detail.component').then((m) => m.BrandSourceDetailComponent), data: { title: 'Brand example' } },
+        ],
+      },
+      // One guide's version history, the comparison built from it, and the Owner's activation decision.
+      // Under 'brand' for the same reason the library is: the Brand nav item stays active throughout.
+      {
+        path: 'style-guide',
+        children: [
+          { path: ':guideId', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-guide-editor.component').then((m) => m.BrandGuideEditorComponent), canDeactivate: [brandGuideEditorCanDeactivateGuard], data: { title: 'Edit voice guide' } },
+          { path: ':guideId/history', loadComponent: () => import('./features/brand/brand-guide-history.component').then((m) => m.BrandGuideHistoryComponent), data: { title: 'Guide history' } },
         ],
       },
       // The "Create my voice" wizard. Everything under 'brand' keeps the Brand nav item active

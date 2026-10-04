@@ -117,7 +117,15 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
             CreatedByMembershipId = member, CreatedAt = Now,
         };
 
-        db.AddRange(document, source, extraction, tag, guide, approved, draft);
+        // One creator's unsaved edit of the guide: scratch, and the row that proves erasing a workspace takes
+        // its drafts even though the guide edge restricts (11A.15's autosave target).
+        var editSession = new BrandStyleGuideEditSession
+        {
+            Id = Guid.NewGuid(), BrandStyleGuideId = guide.Id, UserId = $"account-{workspaceId:N}",
+            BaselineVersionNumber = 2, DraftJson = "{\"sections\":[]}", CreatedUtc = Now, UpdatedUtc = Now,
+        };
+
+        db.AddRange(document, source, extraction, tag, guide, approved, draft, editSession);
         db.BrandStyleGuideApprovals.Add(new BrandStyleGuideApproval { BrandStyleGuideVersionId = approved.Id, ApprovedByMembershipId = member, ApprovedAt = Now });
         db.BrandStyleGuideDefaults.Add(new BrandStyleGuideDefault { WorkspaceId = workspaceId, BrandStyleGuideVersionId = approved.Id, ActivatedByMembershipId = member, ActivatedAt = Now });
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -159,7 +167,8 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         + await db.BrandStyleGuideRules.CountAsync(cancellation)
         + await db.BrandStyleGuideSourceLinks.CountAsync(cancellation)
         + await db.BrandStyleGuideApprovals.CountAsync(cancellation)
-        + await db.BrandStyleGuideDefaults.CountAsync(cancellation);
+        + await db.BrandStyleGuideDefaults.CountAsync(cancellation)
+        + await db.BrandStyleGuideEditSessions.CountAsync(cancellation);
 
     [Fact]
     public async Task Erasing_a_workspace_removes_every_brand_row_and_leaves_the_other_workspace_whole()
@@ -174,8 +183,8 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
             before = await RowCountAsync(scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>(), cancellation);
         }
 
-        // Fourteen rows: one per table, plus the second guide version and the second section.
-        Assert.Equal(14, before);
+        // Fifteen rows: one per table, plus the second guide version and the second section.
+        Assert.Equal(15, before);
 
         await using (var scope = ScopeFor(WorkspaceA))
         {
@@ -207,7 +216,9 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<Exception>(() => db.Database.ExecuteSqlAsync($"DELETE FROM BrandStyleGuideVersions WHERE Id = {seeded.ApprovedVersionId}", cancellation));
         await Assert.ThrowsAnyAsync<Exception>(() => db.Database.ExecuteSqlAsync($"DELETE FROM BrandStyleGuideApprovals WHERE BrandStyleGuideVersionId = {seeded.ApprovedVersionId}", cancellation));
 
-        Assert.Equal(14, await RowCountAsync(db, cancellation));
+        // Fifteen, counting the creator's unsaved edit: its foreign key restricts too, so an ordinary delete
+        // of the guide is refused while a draft of it exists — and the draft is still there afterwards.
+        Assert.Equal(15, await RowCountAsync(db, cancellation));
     }
 
     /// <summary>
@@ -264,6 +275,51 @@ public sealed class BrandGuideSqlServerTests : IAsyncLifetime
             .BrandStyleGuideDefaults.AsNoTracking().SingleAsync(cancellation);
         Assert.Equal(seeded.DraftVersionId, stored.BrandStyleGuideVersionId);
         Assert.Null(stored.Reason);
+    }
+
+    /// <summary>
+    /// The editor's autosave against a real row version: the second of two tabs loses, and the words the
+    /// winner kept are still what is stored.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than in the endpoint tests because SQLite does not move a native row version on update
+    /// (see <c>SqliteModelCustomizer</c>), so a token spent by a real save is only spent against a real
+    /// server. The route compares the quoted token in application code, which is why the gateway tests can
+    /// still prove a *wrong* token is refused — but not this.
+    /// </remarks>
+    [Fact]
+    public async Task An_autosave_quoting_a_token_a_later_one_has_spent_loses_and_keeps_the_stored_draft()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var seeded = await SeedEverythingAsync(WorkspaceA);
+
+        await using var firstScope = ScopeFor(WorkspaceA);
+        await using var secondScope = ScopeFor(WorkspaceA);
+        var first = firstScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var second = secondScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        // Both tabs read the same draft, and so the same row version.
+        var firstTab = await first.BrandStyleGuideEditSessions.SingleAsync(cancellation);
+        var secondTab = await second.BrandStyleGuideEditSessions.SingleAsync(cancellation);
+        var readWith = firstTab.RowVersion;
+
+        firstTab.DraftJson = "{\"sections\":[{\"sectionKey\":\"Voice\",\"body\":\"Kept.\"}]}";
+        firstTab.UpdatedUtc = Now.AddMinutes(1);
+        await first.SaveChangesAsync(cancellation);
+
+        secondTab.DraftJson = "{\"sections\":[{\"sectionKey\":\"Voice\",\"body\":\"Lost.\"}]}";
+        secondTab.UpdatedUtc = Now.AddMinutes(2);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync(cancellation));
+
+        await using var after = ScopeFor(WorkspaceA);
+        var stored = await after.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .BrandStyleGuideEditSessions.AsNoTracking().SingleAsync(cancellation);
+
+        Assert.Contains("Kept.", stored.DraftJson);
+        // The token moved, which is the whole mechanism the route's If-Match check rests on.
+        Assert.NotEqual(readWith, stored.RowVersion);
+        Assert.Equal(seeded.GuideId, stored.BrandStyleGuideId);
     }
 
     [Fact]

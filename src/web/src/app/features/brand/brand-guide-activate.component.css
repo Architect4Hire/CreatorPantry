@@ -1,0 +1,25 @@
+/* The dialog's own chrome — surface, backdrop, focus, footer layout — belongs to CpDialogComponent, and the
+   tone fills belong to CpNoticeComponent. Only what this dialog puts inside it is styled here. */
+
+.explain {
+  margin: 0 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+  color: var(--cp-text);
+}
+
+cp-notice {
+  display: block;
+  margin: 0 0 var(--cp-space-3);
+}
+
+cp-field {
+  margin-bottom: var(--cp-space-4);
+}
+
+/* Long content and 200% zoom: the dialog scrolls rather than the reason box growing past the viewport, and
+   the textarea keeps its own resize handle for a creator who wants more room. */
+textarea {
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-font-size-sm);
+}

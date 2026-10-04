@@ -3749,13 +3749,340 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/edit-session": {
+      "get": {
+        "tags": [
+          "BrandStyleGuideEditSession"
+        ],
+        "summary": "Returns the caller\u0027s own unsaved edit of this guide.",
+        "description": "**Editor or above**, the same bar as saving a version: a draft is only of use to someone who could keep\nit, and this is one creator\u0027s own unsaved work rather than part of the guide.\n\nEach creator has at most one draft per guide and sees only their own \u2014 there is no route, filter or role\nthat returns somebody else\u0027s. \u0060204 No Content\u0060 means the caller has none, which is the ordinary state\nbefore they have typed anything.\n\n\u0060isStale\u0060 is the server\u0027s answer to whether the guide has gained a version since the draft was started.\nA stale draft is still returned in full: the creator\u0027s words are theirs, and what they need is to be\ntold before they try to save. The response is \u0060no-store\u0060 and carries \u0060ETag\u0060, the same value as\n\u0060rowVersion\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide the draft belongs to. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the\nsame status as an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "BrandStyleGuideEditSession"
+        ],
+        "summary": "Keeps the caller\u0027s unsaved edit of this guide, creating it on first save.",
+        "description": "**Editor or above.** Without \u0060If-Match\u0060, creates the draft (\u0060201\u0060). Once one exists \u0060If-Match\u0060 is\nrequired: a missing or stale one answers \u0060409 brand.guide.editSession.conflict\u0060 and the stored draft is\nuntouched \u2014 one creator in two tabs, or an autosave that overlapped a discard.\n\n**Writes nothing the guide says.** This is scratch: no version, no approval, no activation, no audit\nentry, and no model call. The version a creator means to keep is written by\n\u0060POST .../brand-style-guides/{guideId}/versions\u0060, and **that write clears this draft** so \u0022saved as\nversion 4\u0022 and \u0022you have unsaved changes\u0022 cannot both be true.\n\n**A draft is never refused for being behind.** \u0060baselineVersionNumber\u0060 is stored as sent; if the guide\nhas gained a version since, the reply says \u0060isStale\u0060 rather than rejecting the request, because losing\nwhat a creator typed is the worse failure. The refusal that matters at the moment of writing belongs to\nthe versions route, which quotes the same number.\n\n\u0060draftJson\u0060 must be a JSON object of at most 512 KB \u2014 the guide\u0027s own ceilings allow over 300 KB of\nsection text, so the cap sits above what a legitimate guide can hold. It is stored exactly as sent,\nnever interpreted and never logged.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide being edited. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The \u0060rowVersion\u0060 (or \u0060ETag\u0060) of the draft this save was composed against. Omit it only to create.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandStyleGuideEditSession"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandStyleGuideEditSession"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandStyleGuideEditSession"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideEditSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "BrandStyleGuideEditSession"
+        ],
+        "summary": "Discards the caller\u0027s own unsaved edit of this guide.",
+        "description": "**Editor or above.** Deletes only the caller\u0027s own draft row: every version of the guide, the guide\nitself and every other creator\u0027s draft are untouched. Answers \u0060204\u0060 whether or not a draft existed,\nbecause what the request asked for is true either way.\n\n\u0060409 brand.guide.editSession.conflict\u0060 if concurrent autosaves kept the draft alive through the delete,\nin which case nothing was removed and the call can be repeated.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide whose draft to discard. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-style-guides": {
       "post": {
         "tags": [
           "BrandStyleGuides"
         ],
         "summary": "Creates a brand style guide and its first version.",
-        "description": "Editor or above. Everything but \u0060displayName\u0060 is optional, and a blank answer creates nothing: a guide\nis only what its creator wrote. Questionnaire answers and \u0060sections\u0060 are two ways to write the same\nsection rows, so naming one section in both is a \u0060400\u0060. Text is stored exactly as typed.\n\n\u0060sourceDocuments\u0060 cites exact versions by document id and version number. A pointer that does not\nresolve \u2014 never issued, another workspace\u0027s, removed, or a version the document does not have \u2014 answers\n\u0060422 brand.guide.source.unprocessable\u0060, identically for every cause, and nothing is created. Archived\ndocuments and versions whose text has not been extracted can be cited.\n\nThe new version is number 1, has no parent, and is not approved and not the workspace default; both\ncome later. No model is called. The response carries the \u0060concurrencyToken\u0060 an edit will have to quote.",
+        "description": "Editor or above. Everything but \u0060displayName\u0060 is optional, and a blank answer creates nothing: a guide\nis only what its creator wrote. Questionnaire answers and \u0060sections\u0060 are two ways to write the same\nsection rows, so naming one section in both is a \u0060400\u0060. Text is stored exactly as typed.\n\n\u0060sourceDocuments\u0060 cites exact versions by document id and version number. A pointer that does not\nresolve \u2014 never issued, another workspace\u0027s, removed, or a version the document does not have \u2014 answers\n\u0060422 brand.guide.source.unprocessable\u0060, identically for every cause, and nothing is created. Archived\ndocuments and versions whose text has not been extracted can be cited.\n\nThe new version is number 1, has no parent, and is not approved and not the workspace default; both\ncome later. No model is called. The response carries the guide\u0027s \u0060concurrencyToken\u0060, which covers the\nguide row \u2014 its name, purpose and archived state. An **edit quotes \u0060expectedWorkingVersionNumber\u0060**\ninstead, because writing a version deliberately leaves that row alone and so never moves its token.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -4015,6 +4342,172 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "Saves a creator\u0027s edit of a brand style guide as one further immutable version.",
+        "description": "**Editor or above**, the role that creates a guide. Approving the version this writes, and making it the\nworkspace default, remain separate decisions behind their own gates \u2014 this one approves nothing and\nactivates nothing, and no model is called.\n\n**A submitted change, not a replacement guide.** An omitted collection is untouched, so a request naming\none section says nothing about the others. A section is set or replaced by being named with text, and\n**cleared by being named with none** \u2014 the one difference from creation, where a blank answer is simply\nno answer. \u0060rules\u0060 is whole-list, because a rule has no identity beyond its own text and the order is the\ncreator\u0027s: send \u0060items\u0060 in full to replace them, an empty array to clear them, or leave \u0060rules\u0060 out to\nkeep them. \u0060rules: {}\u0060 without \u0060items\u0060 is a \u0060400\u0060 rather than a way to delete them all. Citations are\nadded and dropped by exact \u0060(documentId, versionNumber)\u0060, so re-pinning one to a document\u0027s newer version\nis an \u0060uncite\u0060 and a \u0060cite\u0060 in the same request. A request that asks for nothing at all is a \u0060400\u0060.\n\n**\u0060expectedWorkingVersionNumber\u0060 is the concurrency guard**, checked inside the writing transaction\nagainst the guide as it actually stands: a mismatch answers \u0060409 brand.guide.workingVersion.conflict\u0060\nand names both numbers in \u0060expectedWorkingVersionNumber\u0060 and \u0060workingVersionNumber\u0060. It is not the\nguide\u0027s \u0060concurrencyToken\u0060 \u2014 that covers the guide row, which a version write deliberately leaves alone.\n\n**A change that changes nothing writes nothing**: \u0060200 OK\u0060 with \u0060versionId\u0060 and \u0060versionNumber\u0060 null,\nreporting the version that still stands, and no audit entry. A version written answers \u0060201 Created\u0060\nwith its number. Text is stored exactly as typed, and the parent version is untouched \u2014 editing an\napproved version leaves its approval intact and writes a new draft beside it.\n\nThree refusals are about what the request would produce: past one of the guide\u0027s ceilings is \u0060400\nbrand.guide.version.limit.invalid_request\u0060, naming which; a cited document version that cannot be used \u2014\nnever issued, another workspace\u0027s, removed, or one the document does not have \u2014 is \u0060422\nbrand.guide.source.unprocessable\u0060, identically for every cause, listing each in \u0060unusableSources\u0060\n(including a citation inherited from the working version, which is why they are named by document and\nversion rather than by request index); and a version of an archived guide is \u0060409\nbrand.guide.archived.conflict\u0060. An unknown guide and another workspace\u0027s both answer \u0060404\nbrand.guide.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guideId",
+            "in": "path",
+            "description": "The guide to write to. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown guide and as another workspace\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Replaying a request with the same key returns the version the first one wrote, with\n\u0060Idempotency-Replayed: true\u0060, and writes nothing further; the same key with a different body answers\n\u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandStyleGuideVersion"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandStyleGuideVersion"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBrandStyleGuideVersion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSaved"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSaved"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSaved"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSaved"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSaved"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandStyleGuideVersionSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -13743,6 +14236,58 @@
           }
         }
       },
+      "BrandStyleGuideEditSession": {
+        "required": [
+          "guideId",
+          "baselineVersionNumber",
+          "workingVersionNumber",
+          "isStale",
+          "draftJson",
+          "createdUtc",
+          "updatedUtc",
+          "rowVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baselineVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "workingVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isStale": {
+            "type": "boolean"
+          },
+          "draftJson": {
+            "type": "string"
+          },
+          "createdUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rowVersion": {
+            "type": "string"
+          }
+        }
+      },
       "BrandStyleGuideQuestionnaire": {
         "type": "object",
         "properties": {
@@ -13850,12 +14395,50 @@
           }
         }
       },
+      "BrandStyleGuideRuleEdit": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Do or Dont.",
+                "$ref": "#/components/schemas/BrandStyleGuideRuleKind"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The rule, stored verbatim. A blank rule is refused rather than dropped."
+          }
+        }
+      },
       "BrandStyleGuideRuleKind": {
         "enum": [
           "Do",
           "Dont"
         ],
         "type": "string"
+      },
+      "BrandStyleGuideRulesEdit": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideRuleEdit"
+            },
+            "description": "The complete ordered list. An empty array clears every rule; the field itself is required here."
+          }
+        }
       },
       "BrandStyleGuideSection": {
         "required": [
@@ -13912,6 +14495,36 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BrandStyleGuideSectionEdit": {
+        "type": "object",
+        "properties": {
+          "sectionKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Which section this is. Required.",
+                "$ref": "#/components/schemas/BrandStyleGuideSectionKey"
+              }
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The channel, for a channel variant only. It identifies which variant, so a variant needs it even to be cleared."
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The section\u0027s text, stored verbatim. Null or blank clears the section."
           }
         }
       },
@@ -14020,6 +14633,31 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "BrandStyleGuideSourceEdit": {
+        "type": "object",
+        "properties": {
+          "cite": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSourceInput"
+            },
+            "description": "Source document versions to start citing. Already-cited versions are not duplicated."
+          },
+          "uncite": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSourceInput"
+            },
+            "description": "Source document versions to stop citing. One the version does not cite is not an error."
           }
         }
       },
@@ -14207,6 +14845,144 @@
             "items": {
               "$ref": "#/components/schemas/BrandStyleGuideSource"
             }
+          }
+        }
+      },
+      "BrandStyleGuideVersionSaved": {
+        "required": [
+          "guideId",
+          "versionId",
+          "versionNumber",
+          "parentVersionNumber",
+          "sectionsAdded",
+          "sectionsReplaced",
+          "sectionsCleared",
+          "rulesAdded",
+          "rulesRemoved",
+          "sourcesCited",
+          "sourcesUncited",
+          "sectionCount",
+          "ruleCount",
+          "sourceCount",
+          "staleSourceCount"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "parentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionsAdded": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionsReplaced": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionsCleared": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rulesAdded": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rulesRemoved": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sourcesCited": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sourcesUncited": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ruleCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "staleSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -18783,6 +19559,82 @@
           }
         }
       },
+      "SaveBrandStyleGuideEditSession": {
+        "type": "object",
+        "properties": {
+          "baselineVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "The working version number this draft was composed against. Stored, and reported back as stale when the guide has moved past it.",
+            "format": "int32"
+          },
+          "draftJson": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The in-progress edit as an opaque JSON object, at most 512 KB. Stored exactly as sent."
+          }
+        }
+      },
+      "SaveBrandStyleGuideVersion": {
+        "type": "object",
+        "properties": {
+          "expectedWorkingVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "The working version number this edit was made against, from the guide read. A mismatch is refused.",
+            "format": "int32"
+          },
+          "changeReason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why this change was made, in the creator\u0027s own words. Stored on the new version."
+          },
+          "sections": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/BrandStyleGuideSectionEdit"
+            },
+            "description": "Sections to set or clear. Omit the field to leave every section alone."
+          },
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The complete ordered rule list, replacing the one the working version holds. Omit to keep it.",
+                "$ref": "#/components/schemas/BrandStyleGuideRulesEdit"
+              }
+            ]
+          },
+          "sourceDocuments": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Source document versions to cite and to stop citing. Omit the field to leave citations alone.",
+                "$ref": "#/components/schemas/BrandStyleGuideSourceEdit"
+              }
+            ]
+          }
+        }
+      },
       "ScaleRecipe": {
         "required": [
           "sourceVersionNumber",
@@ -20227,6 +21079,9 @@
     },
     {
       "name": "BrandSourceDocuments"
+    },
+    {
+      "name": "BrandStyleGuideEditSession"
     },
     {
       "name": "BrandStyleGuides"

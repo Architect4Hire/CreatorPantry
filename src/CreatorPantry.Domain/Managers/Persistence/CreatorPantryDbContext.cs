@@ -464,6 +464,14 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <remarks>The approved guide version a workspace writes with by default; at most one row per workspace.</remarks>
     public DbSet<BrandStyleGuideDefault> BrandStyleGuideDefaults => Set<BrandStyleGuideDefault>();
 
+    /// <inheritdoc cref="BrandStyleGuides"/>
+    /// <remarks>
+    /// One creator's unsaved edit of one guide — scratch, not brand. Non-canonical and never grounded on, the
+    /// same division <see cref="BrandSetupSessions"/> draws for the wizard: a guide version says what the
+    /// guide is, and this says what somebody is in the middle of typing.
+    /// </remarks>
+    public DbSet<BrandStyleGuideEditSession> BrandStyleGuideEditSessions => Set<BrandStyleGuideEditSession>();
+
     /// <remarks>
     /// One derivative package per recipe and kind, and where it stands in review. The mutable root of the
     /// content module; its content lives on the immutable revisions below.

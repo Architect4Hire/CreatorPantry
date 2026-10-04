@@ -1,0 +1,472 @@
+<!-- Always in the DOM, never created alongside its own text: a live region inserted already populated is not
+     reliably announced, so a creator would hear nothing when an autosave landed. -->
+<p class="status" role="status">{{ statusMessage() }}</p>
+
+<nav class="back" aria-label="Back">
+  <a [routerLink]="['/', workspaceSlug, 'brand']">Brand</a>
+</nav>
+
+@switch (loadState().status) {
+  @case ('loading') {
+    <p class="loading">Loading this guide…</p>
+  }
+  @case ('not_found') {
+    <cp-notice tone="error" role="alert">This guide could not be found.</cp-notice>
+  }
+  @case ('forbidden') {
+    <cp-notice tone="warning" role="alert">
+      Editing this workspace's voice needs the Editor role. You can still read the guide's history.
+      <a [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'history']">See the history</a>
+    </cp-notice>
+  }
+  @case ('unavailable') {
+    <cp-notice tone="error" role="alert">
+      Couldn't load this guide. Check your connection and try again.
+      <button cpButton variant="secondary" size="sm" type="button" (click)="load()">Try again</button>
+    </cp-notice>
+  }
+  @case ('ready') {
+    @if (guide(); as guide) {
+      <header class="head">
+        <h1 class="title">{{ guide.displayName }}</h1>
+
+        <p class="marks">
+          <span class="version">Version {{ baseVersion() }}</span>
+
+          @if (isActiveVersion()) {
+            <cp-status-pill tone="success" icon="●">Writing with this</cp-status-pill>
+          }
+
+          @if (row(); as row) {
+            <cp-status-pill [tone]="statusTone()" [icon]="row.status === 'Approved' ? '✓' : '✎'">
+              {{ row.status }}
+            </cp-status-pill>
+          }
+
+          @if (staleSourceCount() > 0) {
+            <cp-status-pill tone="stale" icon="!">
+              {{ staleSourceCount() === 1 ? 'An example it used has been replaced' : staleSourceCount() + ' examples it used have been replaced' }}
+            </cp-status-pill>
+          }
+        </p>
+
+        <p class="head-links">
+          <a [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'history']">
+            Version history and comparison
+          </a>
+        </p>
+      </header>
+
+      @if (guide.workingVersion.isApproved) {
+        <!-- Editing an approved version does not change it: the approval stays with the version it was given
+             to, and saving writes a draft beside it. Said before they type, not after they save. -->
+        <cp-notice tone="neutral">
+          Version {{ baseVersion() }} is approved. Editing it writes a new version — this one keeps its
+          approval and stays exactly where it is.
+        </cp-notice>
+      }
+
+      @if (isArchived()) {
+        <cp-notice tone="warning">
+          This guide is archived, so it cannot take a new version. Bring it back before editing it.
+        </cp-notice>
+      }
+
+      @if (resumed()) {
+        <cp-notice [tone]="resumedStale() ? 'warning' : 'neutral'" role="status">
+          @if (resumedStale()) {
+            Picked up where you left off — and version {{ baseVersion() }} has been saved since you started,
+            so your changes will be applied on top of it.
+          } @else {
+            Picked up where you left off. Nothing is part of the guide until you save a new version.
+          }
+          <button cpButton variant="text" size="sm" type="button" (click)="discardDraft()">
+            Discard my unsaved changes
+          </button>
+        </cp-notice>
+      }
+
+      <!-- Autosave, reported as its own line because it answers a different question from "did my version
+           save": this one is "are my words safe if I close the tab". -->
+      <cp-notice
+        [tone]="keepState().status === 'failed' || keepState().status === 'conflict' ? 'warning' : 'neutral'"
+        [quiet]="keepState().status === 'idle'"
+        role="status"
+      >
+        @switch (keepState().status) {
+          @case ('keeping') {
+            Keeping your changes…
+          }
+          @case ('kept') {
+            Your changes are kept. They become part of the guide when you save a new version.
+          }
+          @case ('failed') {
+            Couldn't keep your changes just now — they are still on screen.
+            <button cpButton variant="text" size="sm" type="button" (click)="keepNow()">Try again</button>
+          }
+          @case ('conflict') {
+            Your unsaved copy of this guide changed somewhere else — another tab, or a version saved from it.
+            <button cpButton variant="text" size="sm" type="button" (click)="useKeptCopy()">
+              Use the copy that was kept
+            </button>
+          }
+        }
+      </cp-notice>
+
+      <!-- The outcome of a save, which is about the guide rather than about the draft. -->
+      @switch (saveState().status) {
+        @case ('saved') {
+          <cp-notice tone="success" role="alert">
+            Saved as version {{ savedVersionNumber() }}. It is a draft version:
+            approving it and choosing what the workspace writes with are decisions on the history screen.
+          </cp-notice>
+        }
+        @case ('unchanged') {
+          <cp-notice tone="neutral" role="alert">
+            Nothing had changed, so no new version was written.
+          </cp-notice>
+        }
+        @case ('rebase_needed') {
+          <cp-notice tone="warning" role="alert">
+            Someone saved a new version of this guide while you were editing, so nothing was written. Your
+            changes are still here, and they name only the parts you touched — applying them on top of the
+            newer version keeps both.
+            <button cpButton variant="secondary" size="sm" type="button" (click)="rebase()">
+              Apply my changes to the newer version
+            </button>
+          </cp-notice>
+        }
+        @case ('unusable_sources') {
+          <cp-notice tone="error" role="alert">
+            One of the examples this guide cites can't be used any more — it may have been removed from your
+            library. Stop citing it below, then save again.
+          </cp-notice>
+        }
+        @case ('archived') {
+          <cp-notice tone="error" role="alert">
+            This guide is archived, so no version was written. Bring it back first.
+          </cp-notice>
+        }
+        @case ('limit') {
+          <cp-notice tone="error" role="alert">
+            That would take this guide past one of its limits, so nothing was written. Remove something and
+            try again.
+          </cp-notice>
+        }
+        @case ('forbidden') {
+          <cp-notice tone="error" role="alert">Saving a version needs the Editor role in this workspace.</cp-notice>
+        }
+        @case ('not_found') {
+          <cp-notice tone="error" role="alert">
+            This guide can't be found any more, so nothing was written. Your changes are still on screen —
+            copy anything you need before leaving.
+          </cp-notice>
+        }
+        @case ('key_reused') {
+          <cp-notice tone="error" role="alert">
+            That save was already submitted with different changes. Reload the guide and try again.
+          </cp-notice>
+        }
+        @case ('invalid') {
+          <cp-notice tone="error" role="alert">
+            Something in this guide can't be saved as it stands. Check the parts you have changed.
+          </cp-notice>
+        }
+        @case ('unavailable') {
+          <cp-notice tone="error" role="alert">
+            Couldn't save a new version. Check your connection and try again.
+          </cp-notice>
+        }
+      }
+
+      <cp-card>
+        <form class="editor" (submit)="$event.preventDefault()">
+          <p class="legend">
+            Every part is optional — write what sounds like you and leave the rest. Nothing here is part of the
+            guide until you save a new version.
+          </p>
+
+          <div class="layout" [class.layout--navigable]="anchors().length >= 2">
+            @if (anchors().length >= 2) {
+              <div class="nav">
+                <cp-anchor-nav
+                  ariaLabel="Parts of this guide"
+                  [items]="anchors()"
+                  (activated)="jump($event)"
+                />
+              </div>
+            }
+
+            <div class="parts">
+              @for (part of parts(); track part.anchorId) {
+                <cp-form-section [heading]="part.label" [sectionId]="part.anchorId">
+                  <cp-field
+                    [label]="part.label"
+                    [forId]="part.anchorId + '-body'"
+                    hint="Your own words. Stored exactly as you type them."
+                  >
+                    <textarea
+                      [id]="part.anchorId + '-body'"
+                      rows="5"
+                      [disabled]="isArchived()"
+                      [ngModel]="part.section.body"
+                      (ngModelChange)="setSectionBody(part.section.sectionKey, part.section.channelKey, $event)"
+                      [name]="part.anchorId"
+                    ></textarea>
+                  </cp-field>
+
+                  <p class="part-actions">
+                    <button
+                      cpButton
+                      variant="text"
+                      size="sm"
+                      type="button"
+                      [disabled]="isArchived()"
+                      [attr.aria-label]="'Remove ' + part.label"
+                      (click)="clearSection(part.section.sectionKey, part.section.channelKey)"
+                    >
+                      Remove this part
+                    </button>
+                  </p>
+                </cp-form-section>
+              }
+
+              <cp-form-section
+                heading="Add a part"
+                intro="Pick a part this guide doesn't have yet. A channel part also needs the channel it is for."
+                sectionId="cp-guide-add-part"
+              >
+                <!-- A combobox rather than nineteen tiles: this is a long supplied list, and the library's
+                     own reference for that is a type-ahead composed inside the field. `restricted`, because
+                     only a key the server defines is an answer. -->
+                <cp-field label="Which part" forId="cp-guide-add-part-key">
+                  <cp-combobox
+                    inputId="cp-guide-add-part-key"
+                    placeholder="Choose a part…"
+                    [options]="addableOptions()"
+                    [selected]="selectedPart()"
+                    (selectedChange)="choosePart($event)"
+                    [disabled]="isArchived()"
+                  />
+                </cp-field>
+
+                @if (addingVariant()) {
+                  <cp-field
+                    label="Which channel"
+                    forId="cp-guide-add-part-channel"
+                    hint="Lowercase, like instagram or newsletter."
+                  >
+                    <input
+                      id="cp-guide-add-part-channel"
+                      type="text"
+                      [disabled]="isArchived()"
+                      [ngModel]="channelToAdd()"
+                      (ngModelChange)="channelToAdd.set($event)"
+                      name="channelToAdd"
+                    />
+                  </cp-field>
+                }
+
+                <p class="part-actions">
+                  <button
+                    cpButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    [disabled]="isArchived() || partToAdd().length === 0"
+                    (click)="addSection()"
+                  >
+                    Add this part
+                  </button>
+                </p>
+              </cp-form-section>
+
+              <cp-form-section
+                heading="Do and don't rules"
+                intro="Short rules the writing follows. Their order is yours."
+                sectionId="cp-guide-rules"
+              >
+                @if (state().rules.length === 0) {
+                  <p class="empty">No rules yet.</p>
+                }
+
+                <ul class="rules" role="list">
+                  @for (rule of state().rules; track $index) {
+                    <li class="rule">
+                      <cp-field [label]="'Rule ' + ($index + 1)" [forId]="'cp-guide-rule-' + $index">
+                        <input
+                          [id]="'cp-guide-rule-' + $index"
+                          type="text"
+                          [disabled]="isArchived()"
+                          [ngModel]="rule.text"
+                          (ngModelChange)="setRuleText($index, $event)"
+                          [name]="'ruleText' + $index"
+                        />
+                      </cp-field>
+
+                      <!-- Two short answers, so tiles laid out to fit: the shape DESIGN-SYSTEM.md asks for
+                           whenever a form asks the creator to choose rather than to type. -->
+                      <cp-choice-group
+                        [label]="'Is rule ' + ($index + 1) + ' an always or a never?'"
+                        [options]="ruleKindOptions"
+                        layout="fit"
+                        [idPrefix]="'cp-guide-rule-kind-' + $index + '-'"
+                        [value]="[rule.kind]"
+                        (valueChange)="setRuleKind($index, $event[0])"
+                      />
+
+                      <p class="rule-actions">
+                        <button
+                          cpButton
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          [disabled]="isArchived() || $index === 0"
+                          [attr.aria-label]="'Move rule ' + ($index + 1) + ' up'"
+                          (click)="moveRule($index, -1)"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          cpButton
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          [disabled]="isArchived() || $index === state().rules.length - 1"
+                          [attr.aria-label]="'Move rule ' + ($index + 1) + ' down'"
+                          (click)="moveRule($index, 1)"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          cpButton
+                          variant="text"
+                          size="sm"
+                          type="button"
+                          [disabled]="isArchived()"
+                          [attr.aria-label]="'Remove rule ' + ($index + 1)"
+                          (click)="removeRule($index)"
+                        >
+                          Remove
+                        </button>
+                      </p>
+                    </li>
+                  }
+                </ul>
+
+                <p class="part-actions">
+                  <button
+                    cpButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    [disabled]="isArchived()"
+                    (click)="addRule()"
+                  >
+                    Add a rule
+                  </button>
+                </p>
+              </cp-form-section>
+
+              <cp-form-section
+                heading="Examples this guide cites"
+                intro="The exact versions of your examples this guide was written from."
+                sectionId="cp-guide-citations"
+              >
+                @if (citationViews().length === 0) {
+                  <p class="empty">
+                    This guide cites none of your examples — it is written from your own answers.
+                  </p>
+                }
+
+                <ul class="citations" role="list">
+                  @for (citation of citationViews(); track citation.documentId + ':' + citation.versionNumber) {
+                    <li class="citation">
+                      <span class="citation-title">{{ citation.title }}</span>
+                      <span class="citation-version">version {{ citation.versionNumber }}</span>
+
+                      @if (citation.isStale) {
+                        <cp-status-pill tone="stale" icon="!">Replaced since</cp-status-pill>
+                      }
+
+                      <span class="citation-actions">
+                        @if (citation.isStale && citation.currentVersionNumber !== null) {
+                          <button
+                            cpButton
+                            variant="secondary"
+                            size="sm"
+                            type="button"
+                            [disabled]="isArchived()"
+                            [attr.aria-label]="'Cite version ' + citation.currentVersionNumber + ' of ' + citation.title + ' instead'"
+                            (click)="repin(citation)"
+                          >
+                            Use version {{ citation.currentVersionNumber }} instead
+                          </button>
+                        }
+
+                        <button
+                          cpButton
+                          variant="text"
+                          size="sm"
+                          type="button"
+                          [disabled]="isArchived()"
+                          [attr.aria-label]="'Stop citing ' + citation.title"
+                          (click)="uncite(citation)"
+                        >
+                          Stop citing it
+                        </button>
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </cp-form-section>
+
+              <cp-form-section
+                heading="Why this change"
+                intro="A note stored on the version you save, in your own words."
+                sectionId="cp-guide-reason"
+              >
+                <cp-field label="Why this change" forId="cp-guide-reason-text" hint="Optional.">
+                  <textarea
+                    id="cp-guide-reason-text"
+                    rows="2"
+                    [disabled]="isArchived()"
+                    [ngModel]="state().changeReason"
+                    (ngModelChange)="setChangeReason($event)"
+                    name="changeReason"
+                  ></textarea>
+                </cp-field>
+              </cp-form-section>
+            </div>
+          </div>
+
+          <div class="cp-actions save-actions">
+            <button
+              cpButton
+              type="button"
+              [disabled]="isArchived() || saveState().status === 'saving' || !dirty()"
+              [attr.aria-busy]="saveState().status === 'saving'"
+              (click)="save()"
+            >
+              {{ saveState().status === 'saving' ? 'Saving…' : 'Save new version' }}
+            </button>
+
+            <button
+              cpButton
+              variant="secondary"
+              type="button"
+              [disabled]="isArchived() || !dirty()"
+              (click)="keepNow()"
+            >
+              Keep my changes now
+            </button>
+
+            @if (dirty()) {
+              <button cpButton variant="text" type="button" (click)="discardDraft()">Discard my changes</button>
+            }
+          </div>
+        </form>
+      </cp-card>
+    }
+  }
+}

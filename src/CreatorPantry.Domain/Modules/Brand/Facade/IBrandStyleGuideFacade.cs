@@ -53,6 +53,34 @@ public interface IBrandStyleGuideFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Writes one further version of a guide from a creator's own submitted edit (11A.15). Editor only.
+    /// Retryable with an idempotency key: a replay returns the version the first request wrote.
+    /// </summary>
+    /// <param name="guideId">The guide, from the route. Never from the body.</param>
+    /// <param name="model">
+    /// The submitted change: the version it was made against, an optional reason, and the sections, rules and
+    /// citations to set, clear or drop. Carries no workspace and no guide.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong>Editor</strong>, the role that creates a guide: this writes the creator's own brand voice.
+    /// Approving and activating the version it writes remain separate decisions with their own gates.
+    /// </para>
+    /// <para>
+    /// <strong>Wrapped in the idempotency executor, unlike <see cref="CreateVersionFromProposalAsync"/>.</strong>
+    /// This is a top-level request with no transaction above it, so the executor's own is the transaction the
+    /// working-version check needs to sit inside — and a creator's retry after a dropped response has no AI
+    /// operation status to recognise itself by, which is exactly what a key is for.
+    /// </para>
+    /// </remarks>
+    Task<IdempotentOutcome<BrandStyleGuideVersionSavedServiceModel>> SaveVersionAsync(
+        string userId,
+        Guid guideId,
+        SaveBrandStyleGuideVersionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Approves one version of one guide, which is what lets an Owner make it the workspace default. Editor
     /// only. Retryable with an idempotency key: a replay returns the approval the first request recorded.
     /// </summary>
@@ -151,11 +179,14 @@ internal sealed class BrandStyleGuideFacade(
     IValidator<BrandStyleGuideVersionComparisonViewModel> comparisonValidator,
     IValidator<ActivateBrandStyleGuideVersionViewModel> activationValidator,
     IValidator<ApproveBrandStyleGuideVersionViewModel> approvalValidator,
+    IValidator<SaveBrandStyleGuideVersionViewModel> editValidator,
     IBrandStyleGuideBusiness business,
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IBrandStyleGuideFacade
 {
     private const string CreateOperation = "brand.guide.create";
+
+    private const string SaveVersionOperation = "brand.guide.version.save";
 
     private const string ApproveOperation = "brand.guide.approve";
 
@@ -234,6 +265,41 @@ internal sealed class BrandStyleGuideFacade(
         return await idempotency.ExecuteAsync(
             new IdempotentCommand(userId, workspace.WorkspaceId, CreateOperation, idempotencyKey, Fingerprint(draft)),
             token => business.CreateAsync(userId, draft, token),
+            cancellationToken);
+    }
+
+    public async Task<IdempotentOutcome<BrandStyleGuideVersionSavedServiceModel>> SaveVersionAsync(
+        string userId,
+        Guid guideId,
+        SaveBrandStyleGuideVersionViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        // Editor, as for creating a guide: this writes a version of the creator's own brand voice.
+        if (workspace.Role < WorkspaceRole.Editor)
+        {
+            return RefusedSave(new OperationError(
+                BrandErrorCodes.GuideForbidden,
+                "You do not have permission to edit brand style guides in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var validation = await editValidator.ValidateAsync(model, cancellationToken);
+
+        if (!validation.IsValid)
+        {
+            return RefusedSave(OperationError.Validation(
+                BrandErrorCodes.GuideInvalidRequest,
+                "This change could not be saved.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        var edit = BrandStyleGuideEditInput.Compose(model);
+
+        return await idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId, workspace.WorkspaceId, SaveVersionOperation, idempotencyKey, Fingerprint(guideId, edit)),
+            token => business.SaveVersionAsync(userId, guideId, edit, token),
             cancellationToken);
     }
 
@@ -381,6 +447,42 @@ internal sealed class BrandStyleGuideFacade(
     private static IdempotentOutcome<BrandStyleGuideApprovalResultServiceModel> RefusedApproval(
         OperationError error) =>
         new(OperationResult<BrandStyleGuideApprovalResultServiceModel>.Failure(error), Replayed: false);
+
+    /// <summary>
+    /// What makes two saves the same request: the guide, the version the edit was made against, and every part
+    /// of the change itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The composed edit rather than the request, as on creation, so two requests differing only in blanks are
+    /// one request — and so a retry that re-serialises the same change in a different shape is still a replay.
+    /// </para>
+    /// <para>
+    /// <c>expectedWorkingVersionNumber</c> is in it deliberately. The same words saved against version 3 and
+    /// against version 4 are two different edits, and a key reused across them has to be refused rather than
+    /// answered with the first one's version.
+    /// </para>
+    /// <para>
+    /// A null rule list is distinguished from an empty one: leaving rules alone and clearing every rule are not
+    /// the same request, and a fingerprint that flattened both to "no rules" would let one replay as the other.
+    /// </para>
+    /// </remarks>
+    private static object Fingerprint(Guid guideId, BrandStyleGuideEditDraft edit) =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["guideId"] = guideId,
+            ["expectedWorkingVersionNumber"] = edit.ExpectedWorkingVersionNumber,
+            ["changeReason"] = edit.ChangeReason,
+            ["sections"] = edit.Sections
+                .Select(section => new object?[] { section.SectionKey, section.ChannelKey, section.Body })
+                .ToArray(),
+            ["rules"] = edit.Rules?.Select(rule => new object?[] { rule.Kind, rule.Text }).ToArray(),
+            ["cite"] = edit.Cite.Select(source => new object?[] { source.DocumentId, source.VersionNumber }).ToArray(),
+            ["uncite"] = edit.Uncite.Select(source => new object?[] { source.DocumentId, source.VersionNumber }).ToArray(),
+        };
+
+    private static IdempotentOutcome<BrandStyleGuideVersionSavedServiceModel> RefusedSave(OperationError error) =>
+        new(OperationResult<BrandStyleGuideVersionSavedServiceModel>.Failure(error), Replayed: false);
 
     // The draft rather than the request, so two requests that differ only in blanks are the same request.
     private static object Fingerprint(BrandStyleGuideDraft draft) =>

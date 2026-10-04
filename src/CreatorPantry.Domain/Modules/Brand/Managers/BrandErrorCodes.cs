@@ -260,6 +260,25 @@ public static class BrandErrorCodes
     /// </remarks>
     public const string GuideVersionLimitExceeded = "brand.guide.version.limit.invalid_request";
 
+    /// <summary>
+    /// The caller's own unsaved edit of a guide has moved since the copy they are writing over. Maps to 409.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One creator in two tabs, or an autosave that overlapped a discard: the <c>If-Match</c> quoted is not
+    /// the draft's current row version, so the save is refused and the stored draft is untouched. The remedy
+    /// is to read the draft again and decide which copy to keep — a client that retried with the same token
+    /// could only lose the same race again.
+    /// </para>
+    /// <para>
+    /// <strong>Not <see cref="GuideWorkingVersionConflict"/>, and not a stale draft.</strong> That one is
+    /// about the guide having gained a version; this is about the draft itself. A draft composed against an
+    /// older version is not refused at all — it is saved and reported as stale, because the creator's own
+    /// words are worth more than the tidiness of refusing them.
+    /// </para>
+    /// </remarks>
+    public const string GuideEditSessionConflict = "brand.guide.editSession.conflict";
+
     // The setup-session codes are underscore-shaped by contract (11A.22), so the `.suffix` rule in
     // ProblemResults.StatusFor cannot map them; each is listed there explicitly.
 

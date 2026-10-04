@@ -1,0 +1,212 @@
+<!-- Always in the DOM, never created alongside its own text: a live region inserted already populated is not
+     reliably announced, so a creator who pressed Compare would hear nothing when the answer landed. -->
+<p class="status" role="status">{{ statusMessage() }}</p>
+
+<nav class="back" aria-label="Back">
+  <a [routerLink]="['/', workspaceSlug, 'brand']">Brand</a>
+</nav>
+
+<!-- The outcome of an activation, which is about the whole workspace rather than about one panel. Assertive,
+     because it reports a decision the creator has just taken and the list behind it has reloaded. -->
+@if (notice(); as message) {
+  <cp-notice [tone]="noticeTone()" role="alert">{{ message }}</cp-notice>
+}
+
+@if (guide()?.isArchived) {
+  <cp-notice tone="warning">
+    This guide is archived. Its history still reads and its versions still compare; what it cannot do is take
+    a new version or become the workspace default.
+  </cp-notice>
+}
+
+<cp-list-shell [heading]="heading()" [state]="listState()" [errorMessage]="errorMessage()">
+  <div cpListShellActions>
+    @if (loadState().status === 'ready' && canChoose()) {
+      <!-- Beside the button rather than only down in the rows: on a long history the two chosen rows and the
+           button that acts on them cannot be on screen at once, so the pair is said here in words. -->
+      <span class="selection" aria-hidden="true">{{ selectionLabel() }}</span>
+
+      <button cpButton variant="ghost" type="button" aria-label="Swap the two versions" (click)="swap()">⇄</button>
+
+      <button
+        cpButton
+        type="button"
+        [disabled]="!canCompare() || comparing()"
+        [attr.aria-busy]="comparing()"
+        (click)="compare()"
+      >
+        {{ comparing() ? 'Comparing…' : 'Compare' }}
+      </button>
+    }
+
+    <button cpButton variant="secondary" type="button" (click)="load()">Refresh</button>
+  </div>
+
+  <div cpListShellEmpty>
+    <cp-empty-state
+      title="No versions yet"
+      description="A guide records a version every time it is saved. Refresh once one has been written."
+      variant="first-use"
+      icon="↻"
+    >
+      <div cpEmptyStateActions>
+        <button cpButton type="button" (click)="load()">Refresh</button>
+      </div>
+    </cp-empty-state>
+  </div>
+
+  @if (canChoose()) {
+    <!-- Column headings for the two radio groups. `aria-hidden` because each radio carries its own accessible
+         name saying which side it is — a screen reader reads that, not this. -->
+    <div class="legend" aria-hidden="true">
+      <span class="legend-pick">From</span>
+      <span class="legend-pick">To</span>
+      <span class="legend-rest">Version</span>
+    </div>
+  }
+
+  <ul class="versions" role="list">
+    @for (version of versions(); track version.id) {
+      <li class="version" [attr.aria-current]="version.isActive ? 'true' : null">
+        @if (canChoose()) {
+          <!-- Two native radio groups rather than a custom widget: arrow keys walk one group, Space selects,
+               and each group is a single tab stop — behaviour a keyboard user already expects and that no
+               amount of custom handling reproduces faithfully. -->
+          <input
+            class="pick"
+            type="radio"
+            [name]="fromGroup"
+            [attr.aria-label]="radioLabel('from', version)"
+            [checked]="fromVersion() === version.versionNumber"
+            (change)="selectFrom(version.versionNumber)"
+          />
+          <input
+            class="pick"
+            type="radio"
+            [name]="toGroup"
+            [attr.aria-label]="radioLabel('to', version)"
+            [checked]="toVersion() === version.versionNumber"
+            (change)="selectTo(version.versionNumber)"
+          />
+        }
+
+        <div class="version-body">
+          <p class="version-head">
+            <span class="version-number">Version {{ version.versionNumber }}</span>
+
+            @if (version.isActive) {
+              <!-- What the workspace writes with. Said in those terms rather than as "active", which is a
+                   word about a record and not about what the product will sound like. -->
+              <cp-status-pill tone="success" icon="●">Writing with this</cp-status-pill>
+            }
+
+            <cp-status-pill [tone]="statusTone(version)" [icon]="statusGlyph(version)">
+              {{ version.status }}
+            </cp-status-pill>
+
+            @if (version.staleSourceCount > 0) {
+              <cp-status-pill tone="stale" icon="!">{{ staleLabel(version) }}</cp-status-pill>
+            }
+          </p>
+
+          <p class="version-meta">
+            <time [attr.datetime]="version.createdAt">{{ version.createdAt | date: 'd MMM y, HH:mm' }}</time>
+
+            @if (version.sourceCount > 0) {
+              · {{ version.sourceCount }} example{{ version.sourceCount === 1 ? '' : 's' }} cited
+            } @else {
+              · written from your answers, not from an example
+            }
+          </p>
+
+          @if (version.changeReason) {
+            <!-- The creator's own words about why the version exists, quoted rather than paraphrased. -->
+            <p class="version-reason">{{ version.changeReason }}</p>
+          }
+
+          @if (canActivateVersion(version)) {
+            <p class="version-actions">
+              <button
+                cpButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                [attr.aria-label]="'Write with version ' + version.versionNumber"
+                (click)="openActivate(version, $event.currentTarget)"
+              >
+                Write with this version…
+              </button>
+            </p>
+          } @else if (activationBlockedReason(version); as blocked) {
+            <!-- Only for someone who could otherwise activate: it explains an absent button, and to anyone
+                 without the role there is no absence to explain. -->
+            <p class="version-blocked">{{ blocked }}</p>
+          }
+        </div>
+      </li>
+    }
+  </ul>
+
+  <div cpListShellPagination>
+    @if (hasOlderVersions()) {
+      <!-- Said out loud rather than left implicit: without it the oldest versions would be missing from both
+           the list and the picker with nothing to say they exist. -->
+      <p class="older">Showing the {{ versions().length }} most recent versions.</p>
+      <button cpButton variant="secondary" type="button" [disabled]="loadingOlder()" (click)="loadOlder()">
+        {{ loadingOlder() ? 'Loading…' : 'Load older versions' }}
+      </button>
+    } @else if (pagingDegraded()) {
+      <cp-notice tone="warning" role="status">
+        This guide has older versions that couldn't be loaded. Refresh to start the history again.
+      </cp-notice>
+    }
+  </div>
+</cp-list-shell>
+
+@if (loadState().status === 'ready' && canChoose()) {
+  @if (comparingWithItself()) {
+    <p class="compare-note">Both sides name the same version, so there will be nothing to show.</p>
+  }
+
+  @switch (comparisonState().status) {
+    @case ('stale') {
+      <cp-notice tone="error" role="alert">
+        Those versions are no longer available.
+        <button cpButton variant="secondary" size="sm" type="button" (click)="load()">Reload history</button>
+      </cp-notice>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        Couldn't compare those versions. Check your connection and try again.
+        <button cpButton variant="secondary" size="sm" type="button" (click)="compare()">Try again</button>
+      </cp-notice>
+    }
+    @case ('ready') {
+      @if (comparisonState(); as state) {
+        @if (state.status === 'ready') {
+          <!-- Focusable, and focused when a comparison lands: on a long history the answer renders below rows
+               the creator has scrolled past, and a live region alone helps nobody who can see. `tabindex="-1"`
+               only — it is a destination, never a tab stop. -->
+          <div class="comparison-region" tabindex="-1">
+            <cp-brand-guide-version-comparison [comparison]="state.comparison" />
+          </div>
+        }
+      }
+    }
+  }
+}
+
+<!-- Mounted only while an activation is being composed: the dialog's existence is what makes it open, and
+     unmounting it is what discards a half-written reason rather than leaving it to reappear on the next row. -->
+@if (activateTarget(); as target) {
+  <cp-brand-guide-activate
+    [workspaceSlug]="workspaceSlug"
+    [guideId]="guideId"
+    [version]="target"
+    [expectedActiveVersionId]="guide()?.activeVersionId ?? null"
+    [expectedActiveVersionNumber]="guide()?.activeVersionNumber ?? null"
+    (activated)="onActivated($event)"
+    (reloadRequested)="onActivateReloadRequested()"
+    (closed)="closeActivate()"
+  />
+}

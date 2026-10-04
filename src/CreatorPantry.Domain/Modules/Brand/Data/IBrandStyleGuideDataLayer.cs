@@ -132,7 +132,8 @@ public enum BrandStyleGuideActivationWrite
 }
 
 /// <summary>
-/// The guide and the working version an accepted proposal is about to be laid over.
+/// The guide and the working version a new version is about to be built from — whether by a creator's own edit
+/// (11A.15) or by accepted AI guidance (11A.18).
 /// </summary>
 /// <param name="Working">
 /// The highest-numbered version with its sections and rules. Never null: a guide always has version 1.
@@ -143,11 +144,11 @@ public enum BrandStyleGuideActivationWrite
 /// </param>
 /// <remarks>
 /// <strong><paramref name="WorkingStaleSourceCount"/> is read here rather than only after a write</strong>
-/// because accepting guidance identical to what the guide already says writes no version at all, and the reply
-/// still has to be able to say how stale the citations of the version that stands are. Computed with the same
-/// query the version history and the activation check use.
+/// because a change identical to what the guide already says writes no version at all, and the reply still has
+/// to be able to say how stale the citations of the version that stands are. Computed with the same query the
+/// version history and the activation check use.
 /// </remarks>
-public sealed record BrandStyleGuideProposalTargetRead(
+public sealed record BrandStyleGuideVersionWriteTarget(
     BrandStyleGuide Guide,
     BrandStyleGuideVersion Working,
     IReadOnlyList<(Guid DocumentId, int VersionNumber)> Citations,
@@ -327,15 +328,16 @@ public interface IBrandStyleGuideDataLayer
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reads one guide of the resolved workspace with the working version an accepted proposal will be laid
-    /// over, or null if there is none — which is also what another workspace's guide looks like.
+    /// Reads one guide of the resolved workspace with the working version a new version will be built from, or
+    /// null if there is none — which is also what another workspace's guide looks like.
     /// </summary>
     /// <remarks>
     /// Narrower than <see cref="ReadAsync"/>: no approval, no activation, no parent version number, and the
     /// active version is not resolved. None of them bears on what a new version should say, and each is a
-    /// further query inside a transaction another module is holding open.
+    /// further query inside a transaction that is already open — the AI module's acceptance seam holds one, and
+    /// a creator's edit runs inside the one its idempotency wrapper opened.
     /// </remarks>
-    Task<BrandStyleGuideProposalTargetRead?> ReadForProposalAsync(
+    Task<BrandStyleGuideVersionWriteTarget?> ReadForVersionWriteAsync(
         Guid guideId, CancellationToken cancellationToken);
 
     /// <summary>
@@ -344,11 +346,13 @@ public interface IBrandStyleGuideDataLayer
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>No transaction of its own, and that is the point.</strong> This is called from inside the
-    /// transaction the AI module's acceptance seam opened, so the version, the proposal's per-change
-    /// dispositions, the operation's terminal status and both audit entries commit together or none of them do.
-    /// Opening a second transaction here would throw on the nesting; committing one would break the atomicity
-    /// the caller exists to provide.
+    /// <strong>No transaction of its own, and that is the point.</strong> Both callers already hold one. From
+    /// the AI module's acceptance seam, the version, the proposal's per-change dispositions, the operation's
+    /// terminal status and both audit entries commit together or none of them do; from a creator's edit, the
+    /// version commits with the idempotency record that makes the write replayable — and with the
+    /// working-version check that decided it was safe to write at all, which is only a guarantee while it
+    /// shares the transaction. Opening a second transaction here would throw on the nesting; committing one
+    /// would break the atomicity the callers exist to provide.
     /// </para>
     /// <para>
     /// <strong>It saves rather than merely staging</strong>, for the same reason the recipe module's
@@ -369,6 +373,25 @@ public interface IBrandStyleGuideDataLayer
         BrandStyleGuideVersion version, AuditEntry audit, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Stages the removal of one creator's unsaved edit of a guide, for <see cref="AddVersionAsync"/> to
+    /// commit with the version it writes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Stages only, and that is the point.</strong> The draft and the version have to leave and arrive
+    /// together: a creator whose save succeeded must not still be told they have unsaved changes, and one
+    /// whose save was rolled back must not have lost the draft it was composed from. Sharing
+    /// <see cref="AddVersionAsync"/>'s save is what makes both true.
+    /// </para>
+    /// <para>
+    /// The caller's own draft and no other: a second Editor part-way through their own edit of the same guide
+    /// keeps it, because somebody else saving a version is not a reason to discard their words — it is a
+    /// reason for the editor to tell them the guide moved, which <c>isStale</c> does.
+    /// </para>
+    /// </remarks>
+    Task StageEditSessionRemovalAsync(Guid guideId, string userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The guide version this workspace has made its default, whichever guide holds it, or null when it has
     /// none.
     /// </summary>
@@ -385,6 +408,7 @@ public interface IBrandStyleGuideDataLayer
 
 internal sealed class BrandStyleGuideDataLayer(
     IBrandStyleGuideRepository guides,
+    IBrandStyleGuideEditSessionRepository editSessions,
     IAuditWriter auditWriter,
     CreatorPantryDbContext context) : IBrandStyleGuideDataLayer
 {
@@ -543,7 +567,7 @@ internal sealed class BrandStyleGuideDataLayer(
             stale.TryGetValue(version.Id, out var staleCount) ? staleCount : 0);
     }
 
-    public async Task<BrandStyleGuideProposalTargetRead?> ReadForProposalAsync(
+    public async Task<BrandStyleGuideVersionWriteTarget?> ReadForVersionWriteAsync(
         Guid guideId, CancellationToken cancellationToken)
     {
         // The guide and its working version, both or neither. A guide always has version 1, so a guide with no
@@ -558,7 +582,7 @@ internal sealed class BrandStyleGuideDataLayer(
         var citations = await guides.FindCitationsAsync([working.Id], cancellationToken);
         var stale = await guides.StaleSourceCountsAsync([working.Id], cancellationToken);
 
-        return new BrandStyleGuideProposalTargetRead(
+        return new BrandStyleGuideVersionWriteTarget(
             guide,
             working,
             [.. citations.Select(citation => (citation.DocumentId, citation.VersionNumber))],
@@ -591,6 +615,17 @@ internal sealed class BrandStyleGuideDataLayer(
         var stale = await guides.StaleSourceCountsAsync([version.Id], cancellationToken);
 
         return stale.TryGetValue(version.Id, out var count) ? count : 0;
+    }
+
+    public async Task StageEditSessionRemovalAsync(
+        Guid guideId, string userId, CancellationToken cancellationToken)
+    {
+        // Tracked, because it is read to be deleted. Nothing is saved here: AddVersionAsync's own save is what
+        // commits this, which is what keeps the draft and the version in one unit of work.
+        if (await editSessions.GetForUpdateAsync(guideId, userId, cancellationToken) is { } session)
+        {
+            editSessions.Remove(session);
+        }
     }
 
     public async Task<BrandStyleGuideActivationRead?> ReadForActivationAsync(

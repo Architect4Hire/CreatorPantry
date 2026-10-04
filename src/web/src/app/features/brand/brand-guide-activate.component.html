@@ -1,0 +1,132 @@
+<!-- Mounted only while an activation is being composed, so it is open for as long as it exists. CpDialog owns
+     role="dialog", aria-modal, the focus move on open and the backdrop; Escape is this component's own host
+     listener, because the library dialog has none. -->
+<cp-dialog
+  [open]="true"
+  [title]="'Write with version ' + version().versionNumber + '?'"
+  [titleId]="reasonFieldId + '-title'"
+  (closed)="close()"
+>
+  <!-- What changes, in the creator's terms. "Activate" is a word about a record; this is about what the
+       product will sound like from now on. -->
+  <p class="explain">
+    Version {{ version().versionNumber }} becomes the voice this workspace writes and makes pictures with.
+    Everything generated from now on is grounded on it.
+  </p>
+
+  @if (replacing(); as previous) {
+    <p class="explain">
+      It replaces version {{ previous }}, which stays exactly where it is in the history — nothing is removed,
+      renumbered or rewritten.
+    </p>
+  } @else {
+    <p class="explain">
+      This workspace has no default voice yet, so nothing is being replaced.
+    </p>
+  }
+
+  <p class="explain">Nothing is published anywhere, and the version itself is not changed.</p>
+
+  @if (isAlreadyActive()) {
+    <cp-notice tone="warning">
+      Version {{ version().versionNumber }} is already what this workspace writes with, so this would change
+      nothing.
+    </cp-notice>
+  }
+
+  <cp-field
+    label="Why this version?"
+    [forId]="reasonFieldId"
+    hint="Recorded with the decision, in your words. Optional."
+  >
+    <textarea
+      [id]="reasonFieldId"
+      rows="3"
+      [maxlength]="reasonMaxLength"
+      [disabled]="submitting()"
+      [ngModel]="reason()"
+      (ngModelChange)="reason.set($event)"
+      name="reason"
+    ></textarea>
+  </cp-field>
+
+  <!-- Every refusal is reported here rather than by closing: the creator's reason is still in the box, and
+       the remedy differs by refusal, which is why these are not one message. -->
+  @switch (state().status) {
+    @case ('conflict') {
+      <cp-notice tone="error" role="alert">
+        @if (conflictingVersion()?.versionNumber; as holder) {
+          Version {{ holder }} is what this workspace writes with now, not the version this screen was
+          showing. Nothing was changed.
+        } @else {
+          This workspace's default changed while this dialog was open, so nothing was changed.
+        }
+      </cp-notice>
+    }
+    @case ('unapproved') {
+      <cp-notice tone="error" role="alert">
+        Version {{ version().versionNumber }} hasn't been approved yet, so it can't be what the workspace
+        writes with. Approve it first.
+      </cp-notice>
+    }
+    @case ('stale') {
+      <cp-notice tone="error" role="alert">
+        Version {{ version().versionNumber }} was written from an example that has been replaced since. Write
+        a new version from the current examples before making it the default.
+      </cp-notice>
+    }
+    @case ('empty') {
+      <cp-notice tone="error" role="alert">
+        Version {{ version().versionNumber }} says nothing yet — it has no sections and no rules — so there
+        would be nothing to write with.
+      </cp-notice>
+    }
+    @case ('archived') {
+      <cp-notice tone="error" role="alert">
+        This guide is archived. Bring it back before making one of its versions the default.
+      </cp-notice>
+    }
+    @case ('forbidden') {
+      <cp-notice tone="error" role="alert">
+        Choosing what this workspace writes with needs the Owner role.
+      </cp-notice>
+    }
+    @case ('not_found') {
+      <cp-notice tone="error" role="alert">This guide could not be found.</cp-notice>
+    }
+    @case ('key_conflict') {
+      <cp-notice tone="error" role="alert">
+        That decision was already submitted with different details. Close this and start again.
+      </cp-notice>
+    }
+    @case ('invalid') {
+      <cp-notice tone="error" role="alert">Check the reason and try again.</cp-notice>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        Couldn't make that version the default. Check your connection and try again.
+      </cp-notice>
+    }
+  }
+
+  <div cpDialogActions>
+    <button cpButton variant="ghost" type="button" (click)="close()">Cancel</button>
+
+    @if (canReload()) {
+      <!-- The only offer worth making after a stale-state refusal: the same request cannot now succeed. -->
+      <button cpButton variant="secondary" type="button" (click)="reload()">Reload guide</button>
+    }
+
+    <!-- Disabled, never removed: taking away the button a creator has just pressed drops their focus to the
+         top of the document at the moment the refusal is announced. -->
+    <button
+      cpButton
+      type="button"
+      [disabled]="submitting() || !canRetry()"
+      [attr.aria-busy]="submitting()"
+      (click)="submit()"
+    >
+      {{ submitting() ? 'Setting…' : 'Write with this version' }}
+    </button>
+  </div>
+</cp-dialog>
