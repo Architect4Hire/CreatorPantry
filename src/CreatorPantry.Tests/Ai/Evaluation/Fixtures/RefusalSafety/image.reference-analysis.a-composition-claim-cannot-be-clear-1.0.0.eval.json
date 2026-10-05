@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.a-composition-claim-cannot-be-clear",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The only enforceable part of \"do not infer unseen ingredients\". Nothing can know whether bread flour was visible, but it can know that \"made with\" is a claim about composition — and a photograph does not show composition with certainty. The claim is allowed at Probable and refused at Clear.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Subject\",\"text\":\"An open, even crumb, made with bread flour and a long ferment.\",\"confidence\":\"Clear\"},{\"aspect\":\"Mood\",\"text\":\"Quiet and domestic.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.reference_image_observations_invalid"
+  }
+}

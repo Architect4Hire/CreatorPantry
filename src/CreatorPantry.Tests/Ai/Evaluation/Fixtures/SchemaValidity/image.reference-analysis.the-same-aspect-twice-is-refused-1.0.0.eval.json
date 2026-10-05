@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.the-same-aspect-twice-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "Observations are stored keyed by aspect, so two readings of the lighting would mean the second overwrote the first and the creator saw one with no sign the other existed. Refused rather than silently collapsed.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Lighting\",\"text\":\"Soft directional daylight from the left.\",\"confidence\":\"Clear\"},{\"aspect\":\"Lighting\",\"text\":\"Possibly a second fill light from behind.\",\"confidence\":\"Probable\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.reference_image_observations_invalid"
+  }
+}

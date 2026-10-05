@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.a-dietary-claim-in-a-warning-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "Warnings are read by the creator beside the thing they are about, so they are held to the same rules as the prompt and the observations. The photography validator shipped its first pass with warnings exempt, which left the whole claim ban bypassable by writing the claim into one.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Lighting\",\"text\":\"Soft directional daylight from the left.\",\"confidence\":\"Clear\"},{\"aspect\":\"Mood\",\"text\":\"Quiet and domestic.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"The loaf in your reference appears to be gluten free, so the prompt describes one.\"}]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_claim_not_permitted"
+  }
+}

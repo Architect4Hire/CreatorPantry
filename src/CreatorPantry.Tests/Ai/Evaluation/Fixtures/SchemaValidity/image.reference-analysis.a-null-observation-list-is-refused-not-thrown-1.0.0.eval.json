@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.a-null-observation-list-is-refused-not-thrown",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "A provider answering observations: null must be refused, not throw a NullReferenceException out of the validator. System.Text.Json does not enforce a non-nullable annotation unless asked, and a collection initialiser does not survive an explicit null — RespectNullableAnnotations is what makes this a refusal.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":null,\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid"
+  }
+}

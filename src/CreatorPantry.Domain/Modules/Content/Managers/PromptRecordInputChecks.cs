@@ -194,6 +194,13 @@ internal static class PromptRecordInputChecks
 
     private static IEnumerable<(string, string)> RecipePins(SavePromptRecordViewModel model)
     {
+        // An empty Guid is a client that meant to send nothing and sent a default instead. Named rather than
+        // resolved, because the lookup would answer "no such image" and send them looking for one.
+        if (model.GeneratedImageId == Guid.Empty)
+        {
+            yield return (nameof(model.GeneratedImageId), "Name a generated image, or leave this out.");
+        }
+
         if (model.RecipeId == Guid.Empty)
         {
             yield return (nameof(model.RecipeId), "Name a recipe, or leave this out.");

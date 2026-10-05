@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-concept-with-no-hero-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "Exactly one hero per concept is what makes a concept addressable by IMG-002, so a shot list with none is refused rather than having one chosen for it.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"DetailShot\",\"framing\":\"Close on the crumb\",\"lighting\":\"Raking window light\",\"surface\":\"The same board\",\"styling\":\"A slice tipped against the loaf\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_shot_roles_invalid",
+    "category": "DomainInvalid"
+  }
+}

@@ -5744,6 +5744,221 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/image-prompt-requests": {
+      "post": {
+        "tags": [
+          "ImagePromptRequests"
+        ],
+        "summary": "Composes one image prompt for one shot of a concept.",
+        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: nothing\nis composed yet, and the model is called by the worker afterwards (api-contract.md). The \u0060Location\u0060\nheader points at the status resource to poll.\n\n**The concept and the shot are required, and must be ones this workspace was shown.** A concept is\nnamed by the IMG-001 request that produced it plus the concept\u0027s own server-minted id, so a client\npasses back what it was shown rather than anything it constructed. An unknown request, another\nworkspace\u0027s, one that ran a different task, one with no proposal yet, a concept the proposal does not\nhold, and a shot the concept did not plan all answer \u0060404 ai.imagePromptConcept.not_found\u0060 \u2014 one answer,\nbecause each is a client naming something it was not shown.\n\n**There is no separate approval step.** IMG-001 stores no \u0022approved\u0022 state for a concept, so choosing a\nconcept and a shot and asking for its prompt is the approval. What the server checks is that the choice\nis real.\n\n**A brief is untrusted.** When \u0060briefDocumentId\u0060 names one of the workspace\u0027s own documents, its\nextracted text is read through the brand module under the workspace filter, capped, and sent to the\nmodel as untrusted material \u2014 never as instructions. A brief is written to instruct somebody, so an\ninstruction inside one is expected and is not obeyed. A document this workspace does not have answers\n\u0060404 ai.imagePromptBrief.not_found\u0060; a recipe it does not have answers\n\u0060404 ai.imagePromptRecipe.not_found\u0060.\n\n**Nothing is rendered and no rendering setting is composed.** The answer is one prompt plus a list of\nthings to avoid; it carries no provider, model, seed, step count or dimension, and a prompt that writes\none into its prose is refused rather than saved. The creator\u0027s edit of the prompt is what becomes\nauthoritative when they save it to their library.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Composition spends a provider budget, so a repeat of the same key returns the original with\n\u0060Idempotent-Replayed: true\u0060 rather than buying a second prompt.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePrompt"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePrompt"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePrompt"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/image-prompt-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "ImagePromptRequests"
+        ],
+        "summary": "Where a requested composition has got to, and the prompt once there is one.",
+        "description": "Every member including a Viewer may read. Polling before the prompt exists is a \u0060200\u0060 carrying a\nstatus, not a \u0060404\u0060. An unknown id, another workspace\u0027s request and one that ran a different task all\nanswer \u0060404 ai.imagePromptRequest.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as on the request above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/ingredient-tools/parse": {
       "post": {
         "tags": [
@@ -5994,6 +6209,231 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/photography-concept-requests": {
+      "post": {
+        "tags": [
+          "PhotographyConceptRequests"
+        ],
+        "summary": "Asks for up to three ways of photographing a subject.",
+        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: nothing\nhas been generated yet, the request is durable, and the model is called by the worker afterwards, so the\nAPI does not stay open around unbounded provider work (api-contract.md). The \u0060Location\u0060 header points at\nthe status resource to poll.\n\n**Every field is optional.** A creator may plan a shoot for a recipe they have written, for an exact\nversion of it, or for an idea with no recipe at all \u2014 so a request that names no recipe is complete\nrather than incomplete. A \u0060recipeVersionId\u0060 without its \u0060recipeId\u0060 is refused, and a recipe this\nworkspace does not have answers \u0060404 ai.photographyConceptRecipe.not_found\u0060 \u2014 the same answer another\nworkspace\u0027s recipe gets, in the same words.\n\n**What comes back is a proposal, and it can never become an edit.** Concepts are stored as structured\nchanges whose target kind has no path to a recipe, so nothing here rewrites the dish being\nphotographed. The concepts are planning material: a look, a palette, a mood and one to three framed\nshots, exactly one of them the hero.\n\n**It composes no image prompt and generates no image.** The document has no field for a finished\nprompt; composing one from an approved concept is IMG-002, and rendering is later still. The concepts\nalso carry no numeral other than a crop ratio, no claim about what the food is, and no brand or person \u2014\na concept that breaks any of those is refused rather than trimmed.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Generation spends a provider budget, so a repeat of the same key and the same request returns\nthe original with \u0060Idempotent-Replayed: true\u0060 rather than buying a second set of concepts.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPhotographyConcept"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPhotographyConcept"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPhotographyConcept"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/photography-concept-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "PhotographyConceptRequests"
+        ],
+        "summary": "Where a requested generation has got to, and the proposed concepts once there are any.",
+        "description": "Every member including a Viewer may read. Polling before the concepts exist is a \u0060200\u0060 carrying a\nstatus, not a \u0060404\u0060 \u2014 the request resource exists from the moment it was accepted, and reporting it\nmissing would make a normal poll look like a failure. An unknown id, another workspace\u0027s request, and a\nrequest that ran a different task all answer \u0060404 ai.photographyConceptRequest.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as on the request above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/prompts": {
       "get": {
         "tags": [
@@ -6095,7 +6535,7 @@
           "Prompts"
         ],
         "summary": "Saves a prompt to the workspace\u0027s library.",
-        "description": "Contributor or above, the same bar as creating a recipe. A saved prompt is **immutable**: it is the\nevidence of what produced an image that may already be published, so there is no update and no delete \u2014\nnot even of \u0060label\u0060. A reworked prompt is a new record.\n\n\u0060text\u0060 is authoritative: send the prompt as it was actually used, after any edit the creator made. When a\nmodel wrote the draft, send it as \u0060generatedText\u0060 beside it and name the proposal and the template that\nproduced it; the two are kept side by side so the library can still answer what the creator changed.\n\u0060source\u0060 decides which of those are required \u2014 \u0060Manual\u0060 refuses all of them, every other value requires\n\u0060aiProposalId\u0060, \u0060generatedText\u0060 and all three \u0060promptTemplate*\u0060 fields. A prompt may pin a recipe, and\nwith it the exact version it was written against; a version without its recipe is refused, and so is a\nversion of a different recipe.\n\n\u0060channelKey\u0060 must name a channel CreatorPantry still writes for; retired channels are refused as a new\nchoice. A pin naming a recipe, version or proposal this workspace does not have answers\n\u0060422 content.prompt.lineage.unprocessable\u0060 \u2014 as does another workspace\u0027s id, in the same words, so one\nworkspace\u0027s content is never disclosed to another. A malformed prompt answers\n\u0060400 content.prompt.invalid\u0060 with field errors.\n\n**There is no \u0060generatedImageId\u0060 or \u0060damAssetId\u0060 yet.** Those columns exist on the record but have no\nforeign key until 12.6 and 12.9, so this server cannot verify an id a client sends for them \u2014 and the\nrow is immutable, so a wrong value could never be corrected. Each field arrives with the release that\ncan check it. Until then a saved prompt carries no asset lineage, and a client should not synthesise one.",
+        "description": "Contributor or above, the same bar as creating a recipe. A saved prompt is **immutable**: it is the\nevidence of what produced an image that may already be published, so there is no update and no delete \u2014\nnot even of \u0060label\u0060. A reworked prompt is a new record.\n\n\u0060text\u0060 is authoritative: send the prompt as it was actually used, after any edit the creator made. When a\nmodel wrote the draft, send it as \u0060generatedText\u0060 beside it and name the proposal and the template that\nproduced it; the two are kept side by side so the library can still answer what the creator changed.\n\u0060source\u0060 decides which of those are required \u2014 \u0060Manual\u0060 refuses all of them, every other value requires\n\u0060aiProposalId\u0060, \u0060generatedText\u0060 and all three \u0060promptTemplate*\u0060 fields. A prompt may pin a recipe, and\nwith it the exact version it was written against; a version without its recipe is refused, and so is a\nversion of a different recipe.\n\n\u0060channelKey\u0060 must name a channel CreatorPantry still writes for; retired channels are refused as a new\nchoice. A pin naming a recipe, version or proposal this workspace does not have answers\n\u0060422 content.prompt.lineage.unprocessable\u0060 \u2014 as does another workspace\u0027s id, in the same words, so one\nworkspace\u0027s content is never disclosed to another. A malformed prompt answers\n\u0060400 content.prompt.invalid\u0060 with field errors.\n\n**\u0060generatedImageId\u0060 may be sent; \u0060damAssetId\u0060 still may not.** The image pin is resolved through the\nMedia module inside this workspace before anything is written, and the composite foreign key refuses a\nvalue that got past that \u2014 another workspace\u0027s image answers\n\u0060422 content.prompt.lineage.unprocessable\u0060 in the same words as an id that does not exist. There is no\n\u0060damAssetId\u0060 until 12.9 gives it a foreign key: this server could not verify one, and the row is\nimmutable, so a wrong value could never be corrected. A client should not synthesise asset lineage.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -6223,7 +6663,7 @@
           "Prompts"
         ],
         "summary": "Reads one prompt of the workspace named by the route, in full.",
-        "description": "Every member including a Viewer may read. **This is the only route that publishes the prompt itself**:\nthe list carries a truncated \u0060textPreview\u0060 and a \u0060textLength\u0060, and the whole \u0060text\u0060, the model\u0027s\n\u0060generatedText\u0060 and the \u0060promptTemplate*\u0060 triple are here. The response is \u0060no-store\u0060 \u2014 it is\nworkspace-private creator content, and it is the creator\u0027s craft.\n\nAn unknown id answers \u0060404 content.prompt.not_found\u0060. **Another workspace\u0027s prompt answers exactly that\n\u2014 the same code, the same message, the same body** \u2014 so a prompt id cannot be used to ask what a\nneighbour owns. That is not two branches written to match: the workspace query filter means the server\nnever sees the other row at all.\n\n**A prompt cannot say who saved it.** The row records its author as a membership id, and membership ids\nnever leave the server; no route can turn one into a person yet either. An author becomes a compatible\naddition once a workspace-members endpoint exists. For the same shape of reason there is no\n\u0060generatedImageId\u0060 and no \u0060damAssetId\u0060: the columns exist, nothing can write them until 12.6 and 12.9,\nand a field that is always null would claim a lineage this server cannot record.",
+        "description": "Every member including a Viewer may read. **This is the only route that publishes the prompt itself**:\nthe list carries a truncated \u0060textPreview\u0060 and a \u0060textLength\u0060, and the whole \u0060text\u0060, the model\u0027s\n\u0060generatedText\u0060 and the \u0060promptTemplate*\u0060 triple are here. The response is \u0060no-store\u0060 \u2014 it is\nworkspace-private creator content, and it is the creator\u0027s craft.\n\nAn unknown id answers \u0060404 content.prompt.not_found\u0060. **Another workspace\u0027s prompt answers exactly that\n\u2014 the same code, the same message, the same body** \u2014 so a prompt id cannot be used to ask what a\nneighbour owns. That is not two branches written to match: the workspace query filter means the server\nnever sees the other row at all.\n\n**A prompt cannot say who saved it.** The row records its author as a membership id, and membership ids\nnever leave the server; no route can turn one into a person yet either. An author becomes a compatible\naddition once a workspace-members endpoint exists. For a related reason this response carries no\n\u0060generatedImageId\u0060 and no \u0060damAssetId\u0060. Nothing can write \u0060damAssetId\u0060 until 12.9. \u0060generatedImageId\u0060 is\nwritable from 12.6, but an id is only worth publishing to a client that can fetch the image, and the\nauthorized retrieval that resolves one arrives with 12.8 \u2014 a compatible addition when it does.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -6262,6 +6702,140 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PromptDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/prompts/{promptRecordId}/text": {
+      "get": {
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Downloads one prompt of the workspace named by the route as a plain-text file.",
+        "description": "Every member including a Viewer may read, the same bar as the detail route \u2014 this is that read, offered\nas a file. **The body is the prompt and nothing else**: no header lines, no label, no channel, no\ntemplate triple, no timestamp, and not even a trailing newline, so it is byte for byte the \u0060text\u0060 the\ndetail route publishes. A prompt\u0027s provenance travels as PRM-005\u0027s JSON record, not as commentary in a\n\u0060.txt\u0060 file.\n\n\u0060Content-Type: text/plain; charset=utf-8\u0060 with no byte-order mark, and\n\u0060Content-Disposition: attachment\u0060 naming it \u0060{label-slug}-{yyyyMMdd-HHmmss}.txt\u0060 in UTC. The name is\nASCII \u0060a-z0-9\u0060, hyphens and one dot by construction, so there is nothing to quote or encode and no way\nfor a label to put a path separator, a quote or a line break in the header; it carries no id, no\nworkspace and no storage location. The timestamp is the moment the prompt was saved, which is what tells\ntwo downloads apart when their labels are the same or absent \u2014 an immutable row, so the same prompt\nalways downloads under the same name. \u0060X-Content-Type-Options: nosniff\u0060 is set, because a prompt is\ncreator text that may well contain markup.\n\nThe response is \u0060no-store\u0060 and carries no \u0060ETag\u0060: it is workspace-private creator content, and a file\nsave has no revalidating client to offer one to. An unknown id, another workspace\u0027s prompt and a\nnon-member\u0027s request all answer exactly as they do on the detail route \u2014 \u0060404\ncontent.prompt.not_found\u0060, the same code, sentence and body, with no \u0060Content-Disposition\u0060 on a refusal.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "promptRecordId",
+            "in": "path",
+            "description": "The prompt to download. Constrained to a Guid, so a malformed id never reaches this action: routing\nanswers 404 with the edge\u0027s generic \u0060not_found\u0060 code rather than this module\u0027s, exactly as it does\nfor the detail route above.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/prompts/{promptRecordId}/record": {
+      "get": {
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Downloads one prompt of the workspace named by the route as a JSON export document.",
+        "description": "Every member including a Viewer may read, the same bar as the detail route. The body is a versioned\ndocument \u2014 \u0060{ \u0022schemaVersion\u0022: \u0022prompt.record.v1\u0022, \u0022prompt\u0022: { \u2026 } }\u0060 \u2014 carrying **exactly the fields\nthe detail route publishes**, no more: the prompt, the model\u0027s draft, the label, the channel and kind,\nthe recipe and proposal pins, the template triple and the saved timestamp. It is written field by field\nrather than serialized from a type, so a field added to a response cannot arrive in a creator\u0027s\narchived file without a deliberate change here.\n\n**It is deterministic**: the same prompt yields the same bytes forever. Two-space indentation, \u0060\\n\u0060 line\nendings whatever the host, enum values as the declared names this API already publishes, \u0060createdAt\u0060\nnormalized to UTC at full stored precision, nulls written rather than omitted \u2014 so \u0022pins no template\u0022\nand \u0022predates templates\u0022 cannot read alike \u2014 and **no \u0060exportedAt\u0060**, which is what a clock in the\ndocument would cost. \u0060schemaVersion\u0060 changes if a field is removed or changes meaning, never when one is\nadded.\n\n**It carries no workspace id, no membership id, no credential, no URL and no object path.** The first\ntwo never leave the server; the rest a prompt record does not hold, so nothing here is filtering a\nsecret out \u2014 there is none on the row to begin with. \u0060generatedImageId\u0060 and \u0060damAssetId\u0060 are absent for\nthe reason the detail route gives: \u0060damAssetId\u0060 has nothing to write it until 12.9, and\n\u0060generatedImageId\u0060 waits for the retrieval that makes an id useful (12.8). Adding one later does not\nchange \u0060schemaVersion\u0060.\n\n\u0060Content-Type: application/json; charset=utf-8\u0060 with no byte-order mark, and\n\u0060Content-Disposition: attachment\u0060 naming it \u0060{label-slug}-{yyyyMMdd-HHmmss}.json\u0060 \u2014 the same name\nPRM-004 offers with a different extension, ASCII by construction and carrying no id, workspace or\nstorage location. \u0060X-Content-Type-Options: nosniff\u0060 is set. The response is \u0060no-store\u0060 with no \u0060ETag\u0060,\nand an unknown id, another workspace\u0027s prompt and a non-member\u0027s request answer exactly as they do on\nthe other two routes \u2014 \u0060404 content.prompt.not_found\u0060, with no \u0060Content-Disposition\u0060 on a refusal.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "promptRecordId",
+            "in": "path",
+            "description": "The prompt to export. Constrained to a Guid, so a malformed id never reaches this action: routing\nanswers 404 with the edge\u0027s generic \u0060not_found\u0060 code rather than this module\u0027s, as on the two\nroutes above.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -12043,6 +12617,221 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/reference-image-requests": {
+      "post": {
+        "tags": [
+          "ReferenceImageRequests"
+        ],
+        "summary": "Reads one reference image and composes a prompt from what it shows.",
+        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: nothing\nis read yet, and the model is called by the worker afterwards (api-contract.md). The \u0060Location\u0060 header\npoints at the status resource to poll.\n\n**The image is named, not uploaded here.** \u0060referenceDocumentId\u0060 is one of the workspace\u0027s own brand\nsource documents \u2014 uploaded through the route that exists for uploading, where its signature, decoded\nformat, dimensions and size were inspected and its workspace established. JPEG, PNG, WEBP and GIF are\nreadable; a document whose current version is anything else, one this workspace does not have, and one\nthat does not exist all answer \u0060404 ai.referenceImage.not_found\u0060 \u2014 one answer, because each is a client\nnaming something it was not shown.\n\n**The version is pinned when the request is made.** The bytes the model reads are the ones attached,\neven if the document is replaced in the minutes before the worker claims the operation.\n\n**The image is untrusted material, and so is the note.** Both are sent as material to describe rather\nthan as instructions. Writing photographed into the image is described as part of what the picture\nshows; it is not obeyed.\n\n**What the answer will not contain.** No identification of a person, no claim about who owns a brand,\na product or the photograph, and no statement about the food\u0027s safety, nutrition, allergens or dietary\nsuitability \u2014 each is refused rather than returned. Every observation carries its own confidence\n(\u0060Clear\u0060, \u0060Probable\u0060, \u0060Unclear\u0060), because a confident misreading of someone\u0027s reference is worse than\nan uncertain one. An animated GIF is read as its opening frame, with a warning saying so.\n\n**Nothing is rendered and no recipe changes.** The answer is observations plus one prompt and a list\nof things to avoid; it proposes no recipe edit, and the creator\u0027s edit of the prompt is what becomes\nauthoritative when they save it to their library.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A vision call is the most expensive kind this product makes, so a repeat of the same key\nreturns the original with \u0060Idempotent-Replayed: true\u0060 rather than buying a second reading.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestReferenceImageAnalysis"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestReferenceImageAnalysis"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestReferenceImageAnalysis"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/reference-image-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "ReferenceImageRequests"
+        ],
+        "summary": "Where a requested reading has got to, and its observations and prompt once there are some.",
+        "description": "Every member including a Viewer may read. Polling before the reading exists is a \u0060200\u0060 carrying a\nstatus, not a \u0060404\u0060. An unknown id, another workspace\u0027s request and one that ran a different task all\nanswer \u0060404 ai.referenceImageRequest.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as on the request above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/seo-package-requests": {
       "post": {
         "tags": [
@@ -13268,7 +14057,10 @@
           "ContentSection",
           "BrandGuideSection",
           "BrandStyleSampleWithoutGuide",
-          "BrandStyleSampleWithGuide"
+          "BrandStyleSampleWithGuide",
+          "PhotographyConcept",
+          "ImagePrompt",
+          "ReferenceImageAnalysis"
         ],
         "type": "string"
       },
@@ -13401,6 +14193,16 @@
           "Rejected",
           "Failed",
           "Expired"
+        ],
+        "type": "string"
+      },
+      "AiPhotographyShotKind": {
+        "enum": [
+          "Hero",
+          "ProcessStep",
+          "IngredientLayout",
+          "StyledScene",
+          "DetailShot"
         ],
         "type": "string"
       },
@@ -13852,7 +14654,8 @@
           "BrandGuideProposal",
           "PhotographyConcept",
           "ImagePrompt",
-          "BrandStyleTestDrive"
+          "BrandStyleTestDrive",
+          "ReferenceImageAnalysis"
         ],
         "type": "string"
       },
@@ -20720,6 +21523,77 @@
           }
         }
       },
+      "RequestImagePrompt": {
+        "type": "object",
+        "properties": {
+          "conceptRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conceptId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shotKind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiPhotographyShotKind"
+              }
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The channel the image is for. Optional; a known channel key."
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "briefDocumentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sceneOverrides": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Scene elements to include. Optional."
+          },
+          "styleOverrides": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Style directions to follow. Optional."
+          }
+        }
+      },
       "RequestIngredientSubstitution": {
         "type": "object",
         "properties": {
@@ -20744,6 +21618,59 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "RequestPhotographyConcept": {
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The channel the photographs are for. Optional; a known channel key."
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "creatorConcept": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The picture you have in mind. Optional; your own words, not a prompt."
+          },
+          "sceneOverrides": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Scene elements to include. Optional."
+          },
+          "styleOverrides": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Style directions to follow. Optional."
           }
         }
       },
@@ -20972,6 +21899,22 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RequestReferenceImageAnalysis": {
+        "type": "object",
+        "properties": {
+          "referenceDocumentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What you are looking for in this reference. Optional."
           }
         }
       },
@@ -21373,6 +22316,13 @@
               "null",
               "string"
             ]
+          },
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -22943,10 +23893,16 @@
       "name": "EditorialPackageRequests"
     },
     {
+      "name": "ImagePromptRequests"
+    },
+    {
       "name": "IngredientTools"
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "PhotographyConceptRequests"
     },
     {
       "name": "Prompts"
@@ -22989,6 +23945,9 @@
     },
     {
       "name": "Reference"
+    },
+    {
+      "name": "ReferenceImageRequests"
     },
     {
       "name": "SeoPackageRequests"

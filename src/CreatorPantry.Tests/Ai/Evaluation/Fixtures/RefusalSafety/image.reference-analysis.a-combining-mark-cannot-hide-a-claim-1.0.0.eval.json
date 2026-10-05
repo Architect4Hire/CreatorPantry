@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.a-combining-mark-cannot-hide-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The zero-width-space fixture only covered category Format. A combining grapheme joiner is category Mn, a variation selector is Mn too, and a tag character is a surrogate pair — none of which a Format check or a char-wise walk sees. This carries U+034F inside a dietary claim.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Subject\",\"text\":\"A pale crumb; the bake is gluten\u034Ffree.\",\"confidence\":\"Probable\"},{\"aspect\":\"Mood\",\"text\":\"Quiet and domestic.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters"
+  }
+}

@@ -96,6 +96,19 @@ internal interface IAiOperationRepository
     /// </remarks>
     Task<bool> ProposalExistsAsync(Guid proposalId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// One proposal's template provenance and the recipe its operation was about, or null when this workspace
+    /// holds no proposal with that id.
+    /// </summary>
+    /// <remarks>
+    /// The same single answer <see cref="ProposalExistsAsync"/> gives for an unknown id and a neighbour's, and
+    /// for the same reason: the query filter means a neighbour's row is not in the set this reads over. It
+    /// projects rather than returning the entity, so the provider, the model, the token counts and the
+    /// workspace id are never read on a path whose caller is another module (12.3a).
+    /// </remarks>
+    Task<AiProposalLineageServiceModel?> FindProposalLineageAsync(
+        Guid proposalId, CancellationToken cancellationToken);
+
     void AddProposal(AiProposal proposal);
 
     void AddFeedback(AiProposalFeedback feedback);
@@ -270,6 +283,28 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
     public async Task<bool> ProposalExistsAsync(Guid proposalId, CancellationToken cancellationToken) =>
         await context.AiProposals.AsNoTracking()
             .AnyAsync(proposal => proposal.Id == proposalId, cancellationToken);
+
+    /// <inheritdoc cref="GetAsync"/>
+    public Task<AiProposalLineageServiceModel?> FindProposalLineageAsync(
+        Guid proposalId, CancellationToken cancellationToken) =>
+        context.AiProposals.AsNoTracking()
+            .Where(proposal => proposal.Id == proposalId)
+
+            // Joined to the operation because the recipe pin lives there, not on the proposal: a proposal
+            // records the version it was computed against, and the operation records what the creator asked
+            // about. Both sets are filtered by workspace, so the join cannot reach across one.
+            .Join(
+                context.AiOperations.AsNoTracking(),
+                proposal => proposal.AiOperationId,
+                operation => operation.Id,
+                (proposal, operation) => new AiProposalLineageServiceModel(
+                    operation.TaskType,
+                    proposal.PromptTemplateId,
+                    proposal.PromptTemplateVersion,
+                    proposal.PromptTemplateBodyChecksum,
+                    operation.RecipeId,
+                    operation.RecipeVersionId))
+            .FirstOrDefaultAsync(cancellationToken);
 
     public void AddProposal(AiProposal proposal) => context.AiProposals.Add(proposal);
 

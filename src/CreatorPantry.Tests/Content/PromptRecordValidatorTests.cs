@@ -172,22 +172,55 @@ public sealed class PromptRecordValidatorTests
     }
 
     /// <summary>
-    /// The request cannot name a generated image or a DAM asset, and that absence is the design rather than an
-    /// oversight — see <see cref="SavePromptRecordViewModel"/>.
+    /// The request still cannot name a DAM asset, and that absence is the design rather than an oversight —
+    /// see <see cref="SavePromptRecordViewModel"/>.
     /// </summary>
     /// <remarks>
-    /// A rule about what must <em>not</em> be added, which no ordinary test would notice breaking: adding either
+    /// <para>
+    /// A rule about what must <em>not</em> be added, which no ordinary test would notice breaking: adding the
     /// property would work perfectly and quietly let a client write an id this server cannot verify into a row
-    /// that can never be corrected, which is exactly what makes 12.6's composite foreign key unaddable. When
-    /// that prompt arrives it adds the field together with the facade check and the key, and deletes the matching
-    /// line here.
+    /// that can never be corrected.
+    /// </para>
+    /// <para>
+    /// <strong><c>GeneratedImageId</c> was asserted absent here until 12.6 and is deliberately no longer.</strong>
+    /// That prompt added the field, the facade check that resolves it inside the resolved workspace, and the
+    /// composite foreign key — three parts of one change, and this line was the fourth. <c>DamAssetId</c> waits
+    /// for 12.9 on exactly the same terms.
+    /// </para>
     /// </remarks>
     [Fact]
     public void The_request_cannot_name_an_asset_this_server_cannot_resolve()
     {
         var properties = typeof(SavePromptRecordViewModel).GetProperties().Select(property => property.Name).ToList();
 
-        Assert.DoesNotContain("GeneratedImageId", properties);
         Assert.DoesNotContain("DamAssetId", properties);
+    }
+
+    /// <summary>
+    /// A generated image may be named, now that something can resolve one.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the line deleted above: the field's presence is as deliberate as its absence was, and
+    /// a change that removed it again would otherwise pass unnoticed.
+    /// </remarks>
+    [Fact]
+    public async Task A_generated_image_may_be_named()
+    {
+        Assert.Contains(
+            "GeneratedImageId",
+            typeof(SavePromptRecordViewModel).GetProperties().Select(property => property.Name));
+
+        // Shape only: whether this workspace holds that image is the facade's question, and
+        // PromptRecordBusinessTests is where it is asked.
+        Assert.Empty(await FailuresFor(Manual() with { GeneratedImageId = Guid.NewGuid() }));
+    }
+
+    /// <summary>An empty Guid is a client that meant to send nothing, and is named rather than resolved.</summary>
+    [Fact]
+    public async Task An_empty_generated_image_id_is_refused_by_name()
+    {
+        Assert.Contains(
+            "GeneratedImageId",
+            await FailuresFor(Manual() with { GeneratedImageId = Guid.Empty }));
     }
 }

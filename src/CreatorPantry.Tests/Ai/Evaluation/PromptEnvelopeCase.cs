@@ -52,10 +52,14 @@ internal sealed class PromptEnvelopeCase : IAiEvaluationCase
                 PreferencesSegment => builder.WithPreferences(from, input.UntrustedText).Build(),
                 SourceSegment => builder.WithSource(from, input.UntrustedText).Build(),
                 ReferencesSegment => builder.AddReference(from, input.UntrustedText).Build(),
+                ReferenceImageSegment => builder
+                    .AddImage(from, OnePixelPng, "image/png", input.UntrustedText)
+                    .Build(),
                 var unknown => throw new AiEvaluationException(
                     fixture.Identity,
                     $"'{unknown}' is not a segment this case can build. Known: {UntrustedTextSegment}, "
-                        + $"{PreferencesSegment}, {SourceSegment}, {ReferencesSegment}."),
+                        + $"{PreferencesSegment}, {SourceSegment}, {ReferencesSegment}, "
+                        + $"{ReferenceImageSegment}."),
             };
         }
         catch (PromptEnvelopeException refusal)
@@ -99,6 +103,25 @@ internal sealed class PromptEnvelopeCase : IAiEvaluationCase
 
     /// <summary>Where a retrieved passage of the creator's own writing goes (11A.17, 11A.24).</summary>
     private const string ReferencesSegment = "references";
+
+    /// <summary>
+    /// Where the note fencing an attached reference image goes (IMG-004).
+    /// </summary>
+    /// <remarks>
+    /// The fixture's content is the <em>note</em>, not the picture: the pixels ride on
+    /// <c>PromptEnvelope.Images</c> and are never text, so what can be asserted structurally is that the note
+    /// describing them lands fenced in the user message and never in the system message — and that a note
+    /// read from another workspace is refused rather than fenced. Whether a model obeys an instruction
+    /// photographed into the image itself is behaviour no fixture here can demonstrate, which
+    /// <c>PromptSegmentKind.ReferenceImage</c> says in its own remarks.
+    /// </remarks>
+    private const string ReferenceImageSegment = "referenceImage";
+
+    /// <summary>The smallest thing the builder will accept as an image: it checks a length, never a format.</summary>
+    private static readonly byte[] OnePixelPng =
+    [
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    ];
 
     /// <param name="UntrustedText">
     /// The content to place, whichever segment <paramref name="Segment"/> names. Still called this because the

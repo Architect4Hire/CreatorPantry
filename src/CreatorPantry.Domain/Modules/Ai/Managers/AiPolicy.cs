@@ -665,6 +665,126 @@ public static class AiPolicy
     /// <summary>How long a queued request may wait before nobody is going to run it.</summary>
     public static readonly TimeSpan RequestTimeToLive = TimeSpan.FromHours(6);
 
+    /// <summary>The fewest photography concepts IMG-001 may answer with.</summary>
+    /// <remarks>
+    /// One, not two. A concept here is a whole shoot plan rather than a recipe pitch, so a single strong answer
+    /// is a legitimate result for a tightly specified brief — where <see cref="MinConceptCount"/> is two
+    /// because "give me options" is the entire point of AIREC-001.
+    /// </remarks>
+    public const int MinPhotographyConceptCount = 1;
+
+    /// <summary>The most photography concepts IMG-001 may answer with.</summary>
+    /// <remarks>
+    /// Three, against <see cref="MaxConceptCount"/>'s five, because each concept carries a shot list — five
+    /// concepts of three shots each is fifteen frames to read through to make one choice.
+    /// </remarks>
+    public const int MaxPhotographyConceptCount = 3;
+
+    /// <summary>The fewest shots one concept may plan. A concept with no frame is not a concept.</summary>
+    public const int MinPhotographyShotCount = 1;
+
+    /// <summary>The most shots one concept may plan.</summary>
+    public const int MaxPhotographyShotCount = 3;
+
+    /// <summary>The most props one shot may list.</summary>
+    /// <remarks>
+    /// Eight is already a crowded table. The cap also keeps the joined value inside
+    /// <see cref="ChangeValueMaxLength"/> when the handler stores the list as one row.
+    /// </remarks>
+    public const int MaxPhotographyPropCount = 8;
+
+    /// <summary>The longest a prose photography field may be — framing, lighting, surface, styling.</summary>
+    public const int PhotographyFieldMaxLength = 600;
+
+    /// <summary>The longest a short photography field may be — label, mood, palette.</summary>
+    public const int PhotographyShortFieldMaxLength = 300;
+
+    /// <summary>The longest one prop phrase may be.</summary>
+    public const int PhotographyPropMaxLength = 120;
+
+    /// <summary>
+    /// The longest the creator's own concept description may be on an IMG-001 request.
+    /// </summary>
+    /// <remarks>
+    /// Longer than <see cref="BriefFieldMaxLength"/> because this is the one field where a creator describes a
+    /// picture they already have in mind, in their own words, and a photograph is easier to describe than to
+    /// name.
+    /// </remarks>
+    public const int PhotographyCreatorConceptMaxLength = 1000;
+
+    /// <summary>The longest one scene or style override may be on an IMG-001 request.</summary>
+    public const int PhotographyOverrideMaxLength = 300;
+
+    /// <summary>The most scene or style overrides one IMG-001 request may carry, per list.</summary>
+    public const int MaxPhotographyOverrideCount = 10;
+
+    /// <summary>
+    /// The longest a composed image prompt may be.
+    /// </summary>
+    /// <remarks>
+    /// Matched to <c>ContentPolicy.PromptTextMaxLength</c>, because the creator's edit of this text is what
+    /// PRM-001 stores: a prompt the library cannot hold would be composed, shown and then refused on save.
+    /// </remarks>
+    public const int ImagePromptMaxLength = 4000;
+
+    /// <summary>The shortest a composed image prompt may be. A one-line answer is not a prompt.</summary>
+    public const int ImagePromptMinLength = 40;
+
+    /// <summary>The most warnings one composed prompt may carry.</summary>
+    public const int MaxImagePromptWarnings = 6;
+
+    /// <summary>The most negative-guidance phrases one prompt may carry.</summary>
+    public const int MaxImagePromptAvoidCount = 12;
+
+    /// <summary>The longest one negative-guidance phrase may be.</summary>
+    public const int ImagePromptAvoidMaxLength = 120;
+
+    /// <summary>
+    /// The longest an authorized brief may be once read, before it is cut.
+    /// </summary>
+    /// <remarks>
+    /// A brief is a creator-uploaded document and can be long; what reaches the prompt is bounded so one
+    /// document cannot crowd out the concept, the recipe and the guide it is supposed to be read beside.
+    /// </remarks>
+    public const int ImagePromptBriefMaxLength = 4000;
+
+    /// <summary>
+    /// The fewest observations a reference-image reading may carry (IMG-004).
+    /// </summary>
+    /// <remarks>
+    /// Two rather than one, because a single observation is not a reading of a photograph — it is one remark
+    /// about it, and the prompt composed beside it would have nothing reviewable behind it. A model that can
+    /// see the image can say at least this much; one that cannot should be failing, not answering thinly.
+    /// </remarks>
+    public const int MinReferenceImageObservations = 2;
+
+    /// <summary>
+    /// The most observations one reading may carry.
+    /// </summary>
+    /// <remarks>
+    /// Equal to the number of aspects there are, because at most one observation may be made per aspect —
+    /// so this is the ceiling the shape already implies, stated so a count check can refuse a long list
+    /// before the duplicate check walks it.
+    /// </remarks>
+    public const int MaxReferenceImageObservations = 7;
+
+    /// <summary>The longest one observation of a reference image may be.</summary>
+    /// <remarks>
+    /// A sentence or two about one property of one photograph. The same bound a concept's short fields carry,
+    /// because a creator reads these the same way — in a column, beside the thing they describe.
+    /// </remarks>
+    public const int ReferenceImageObservationMaxLength = 300;
+
+    /// <summary>
+    /// The longest the note fencing an attached reference image may be.
+    /// </summary>
+    /// <remarks>
+    /// The note is content-free by construction — a media type, a byte count, a frame count — so this is a
+    /// guard rather than a budget. It exists because the note is assembled from stored metadata, and a
+    /// stored media type is a string this module did not write.
+    /// </remarks>
+    public const int ReferenceImageNoteMaxLength = 300;
+
     /// <summary>
     /// How long a proposal waits for the creator before it expires.
     /// </summary>

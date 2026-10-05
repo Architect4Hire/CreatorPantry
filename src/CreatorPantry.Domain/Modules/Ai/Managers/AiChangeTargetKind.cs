@@ -170,4 +170,65 @@ public enum AiChangeTargetKind
     /// <c>AiProposalBrandContext</c>.
     /// </remarks>
     BrandStyleSampleWithGuide = 16,
+
+    /// <summary>
+    /// One photography concept of <see cref="AiTaskType.PhotographyConcept"/> (IMG-001): a look and the short
+    /// shot list that realises it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Absent from <see cref="AiChangeApplicability"/> and answering <c>null</c> in
+    /// <see cref="AiChangeTargetPolicy"/>, both by omission, as <see cref="RecipeReviewFinding"/> is — so no
+    /// stored concept row can be translated into a recipe edit. That matters more here than for an advisory
+    /// finding: a concept may be planned <em>against</em> a pinned recipe version, and the one thing a
+    /// photograph must never do is change the dish it is a photograph of (recipes.md).
+    /// </para>
+    /// <para>
+    /// <strong>One kind for the concept, and the shots are rows beneath it.</strong> Each shot is a
+    /// <see cref="AiChangeKind.Set"/> row under the concept's own server-minted id, field-named by its role
+    /// and property — so IMG-002 can compose a prompt for one named shot of one approved concept without a
+    /// second target kind existing for something that is not separately approvable.
+    /// </para>
+    /// </remarks>
+    PhotographyConcept = 17,
+
+    /// <summary>
+    /// One composed image prompt of <see cref="AiTaskType.ImagePrompt"/> (IMG-002): the text a creator edits
+    /// and then sends to an image model, plus its negative guidance.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Absent from <see cref="AiChangeApplicability"/> and answering <c>null</c> in
+    /// <see cref="AiChangeTargetPolicy"/>, both by omission, as <see cref="PhotographyConcept"/> is — and for
+    /// the sharper version of the same reason: a prompt may be composed <em>against</em> a pinned recipe
+    /// version, and a photograph of a dish must never become a change to the dish.
+    /// </para>
+    /// <para>
+    /// <strong>Accepting one is not a disposition, it is a save.</strong> Unlike a recipe draft, there is no
+    /// route that applies this row to anything. What a creator does with it is edit the text and save it to
+    /// their prompt library through PRM-001 — where their edit is <c>Text</c>, this row's value is
+    /// <c>GeneratedText</c>, and the proposal this row belongs to is the <c>AiProposalId</c> whose template
+    /// triple the save now derives (12.3a's owed decision, settled here).
+    /// </para>
+    /// </remarks>
+    ImagePrompt = 18,
+
+    /// <summary>
+    /// The reference-image reading, of <see cref="AiTaskType.ReferenceImageAnalysis"/> (IMG-004): what was
+    /// observed in a photograph the creator supplied, and the prompt drawn from it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One target per analysis, with each observation stored as a field-named row under it
+    /// (<c>observation.{Aspect}</c> and its <c>.confidence</c>), the way a concept's shots are. An observation
+    /// is not separately approvable and a target kind of its own would imply that it was.
+    /// </para>
+    /// <para>
+    /// Absent from <c>AiChangeApplicability</c> and <see cref="AiChangeTargetPolicy"/> by omission, as
+    /// <see cref="PhotographyConcept"/> and <see cref="ImagePrompt"/> are, and for the same reason: nothing
+    /// here is a recipe edit, so there must be no code path from a stored row to one. A reading of someone's
+    /// photograph has even less business reaching a recipe than a prompt does.
+    /// </para>
+    /// </remarks>
+    ReferenceImageAnalysis = 19,
 }

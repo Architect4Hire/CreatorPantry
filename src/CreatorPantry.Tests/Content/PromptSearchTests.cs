@@ -14,6 +14,7 @@ using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
@@ -62,6 +63,7 @@ public sealed class PromptSearchTests : IAsyncDisposable
             .AddIngredientModule()
             .AddRecipesModule()
             .AddContentModule()
+            .AddMediaModule()
             .AddLogging()
             .AddDistributedMemoryCache()
             .AddApplicationCache()
@@ -780,7 +782,8 @@ public sealed class PromptSearchTests : IAsyncDisposable
         {
             Id = operationId,
             WorkspaceId = workspaceId,
-            TaskType = Domain.Modules.Ai.Managers.AiTaskType.RecipeConcepts,
+            // ImagePrompt, matching the source the generated fixture declares (see 12.4a).
+            TaskType = Domain.Modules.Ai.Managers.AiTaskType.ImagePrompt,
             Scope = Domain.Modules.Ai.Managers.AiOperationScope.NotApplicable,
             Status = Domain.Modules.Ai.Managers.AiOperationStatus.Proposed,
             IdempotencyKey = $"prompt-{operationId}",
@@ -798,7 +801,10 @@ public sealed class PromptSearchTests : IAsyncDisposable
             OutputSchemaVersion = "image.prompt.v1",
             PromptTemplateId = "image.prompt",
             PromptTemplateVersion = "1.0.0",
-            PromptTemplateBodyChecksum = "sha256:seed",
+            // Matches what Generated() sends: since 12.4a the save derives the triple from the proposal
+            // and refuses a request naming a different one, so a seed that disagreed would make every
+            // generated save in this class a lineage refusal rather than the thing under test.
+            PromptTemplateBodyChecksum = "sha256:" + new string('a', 64),
             ProviderName = "test-provider",
             ModelName = "test-model",
             CreatedAt = Start,

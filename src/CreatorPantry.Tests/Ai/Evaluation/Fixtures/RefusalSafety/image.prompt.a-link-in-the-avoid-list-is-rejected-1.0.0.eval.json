@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-link-in-the-avoid-list-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "The avoid list is sent to the provider alongside the prompt, so it is held to the same text rules — including through the shortest string in the answer.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board over undyed linen, soft daylight from the left, one torn edge showing the crumb, warm neutral palette, unhurried and domestic.\",\"avoid\":[\"anything unlike https://example.com/look\"]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_text_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

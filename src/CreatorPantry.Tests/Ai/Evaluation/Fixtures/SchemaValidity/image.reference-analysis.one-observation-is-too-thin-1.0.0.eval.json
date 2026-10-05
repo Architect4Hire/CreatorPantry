@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.one-observation-is-too-thin",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "A single observation is one remark about a photograph, not a reading of it, and the prompt composed beside it would have nothing reviewable behind it. Two is the floor.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Lighting\",\"text\":\"Soft directional daylight from the left.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.reference_image_observations_invalid"
+  }
+}

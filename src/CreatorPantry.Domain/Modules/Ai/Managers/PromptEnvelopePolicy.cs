@@ -9,6 +9,22 @@ public static class PromptEnvelopePolicy
     /// <summary>Bytes of randomness in a fence token. 128 bits; guessing one is not a strategy.</summary>
     public const int NonceBytes = 16;
 
+    /// <summary>The most reference images one envelope may carry (IMG-004).</summary>
+    /// <remarks>
+    /// Two, because a creator comparing references is a real workflow and a gallery is not. Each one costs a
+    /// provider's image allowance, so the cap is a spend guard as much as a prompt-size one.
+    /// </remarks>
+    public const int MaxImages = 2;
+
+    /// <summary>The most bytes one attached image may be.</summary>
+    /// <remarks>
+    /// Well below the 20 MB an upload may be: what a vision model needs is a legible photograph, and sending
+    /// a 20 MB original would spend a creator's allowance on detail no analysis uses. A larger stored image is
+    /// refused at the envelope rather than silently downscaled, because this codebase has no decoder to
+    /// downscale with and a silent re-encode would be a claim about pixels nobody checked.
+    /// </remarks>
+    public const int ImageMaxBytes = 4 * 1024 * 1024;
+
     /// <summary>
     /// The trust level each segment kind carries. Fixed here rather than supplied per segment, so a caller
     /// cannot promote untrusted text into the instruction position with one wrong argument.
@@ -23,6 +39,7 @@ public static class PromptEnvelopePolicy
         PromptSegmentKind.Source => PromptSegmentTrust.CreatorData,
         PromptSegmentKind.References => PromptSegmentTrust.Untrusted,
         PromptSegmentKind.UntrustedText => PromptSegmentTrust.Untrusted,
+        PromptSegmentKind.ReferenceImage => PromptSegmentTrust.Untrusted,
 
         // No default that guesses. A segment kind added without a trust level must fail here rather than
         // inherit whichever value happens to be first in the enum.
@@ -46,6 +63,7 @@ public static class PromptEnvelopePolicy
         PromptSegmentKind.Source => "SOURCE",
         PromptSegmentKind.References => "REFERENCES",
         PromptSegmentKind.UntrustedText => "UNTRUSTED_TEXT",
+        PromptSegmentKind.ReferenceImage => "REFERENCE_IMAGE",
         PromptSegmentKind.Reminder => "REMINDER",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No fence name is defined for this kind."),
     };

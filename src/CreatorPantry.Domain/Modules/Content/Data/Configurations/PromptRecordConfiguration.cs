@@ -1,6 +1,7 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -115,6 +116,19 @@ internal sealed class PromptRecordConfiguration : IEntityTypeConfiguration<Promp
         // already creates (WorkspaceId, RecipeId, RecipeVersionId), whose leading columns answer exactly that.
         // An explicit (WorkspaceId, RecipeId) index was written here first and removed on reviewing the generated
         // migration — it would have cost every insert a second write to serve a read already covered.
+
+        // The pin 12.3 left waiting for 12.6's table. Workspace-paired and restricted, like every other pin
+        // here: a prompt record can only name an image of its own workspace, and the workspace's own cascade
+        // is what removes both rows — a second cascade path into PromptRecords is what SQL Server refuses.
+        //
+        // Restrict also states the retention rule the other way round: a staged image that a prompt record
+        // names cannot be deleted out from under it, so 12.8's sweep has to reckon with the prompt library
+        // rather than orphan a row that is the evidence of what produced a published image.
+        builder.HasOne<GeneratedImage>()
+            .WithMany()
+            .HasForeignKey(record => new { record.WorkspaceId, record.GeneratedImageId })
+            .HasPrincipalKey(image => new { image.WorkspaceId, image.Id })
+            .OnDelete(DeleteBehavior.Restrict);
 
         // One prompt record per committed generated image. This is what makes 12.3a's "no duplicate prompt records
         // on DAM retry" a property of the schema rather than something a worker has to remember: a retry loses the

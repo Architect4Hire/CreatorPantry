@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-gluten-free-claim-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "A photography concept describes how a dish looks, never what it is: an allergen claim in a styling note is refused rather than carried into a brief the creator will caption from.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Window light\",\"surface\":\"S\",\"styling\":\"Style it to look generous and gluten-free\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

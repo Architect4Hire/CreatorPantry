@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-zero-width-space-cannot-hide-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "A zero-width space is neither printable nor a control character, so it used to split a banned phrase into two harmless fragments as far as every regex was concerned while the creator still read the claim. Invisible formatting characters are now refused outright.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board, soft daylight from the left, one torn edge showing the crumb. A gluten\u200Bfree loaf.\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

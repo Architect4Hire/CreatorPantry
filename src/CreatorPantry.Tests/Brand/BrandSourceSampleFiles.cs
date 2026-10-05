@@ -34,6 +34,44 @@ internal static class BrandSourceSampleFiles
         return bytes;
     }
 
+    /// <summary>
+    /// A structurally valid GIF: the header, the logical screen descriptor, and one image block per frame.
+    /// </summary>
+    /// <remarks>
+    /// GIF became an accepted upload format when IMG-004 shipped, because a creator's reference photograph is
+    /// as likely to be one as a PNG. The inspector reads the logical screen size from the descriptor, which
+    /// is the canvas every frame shares — so a test can state a size here and expect it back.
+    /// </remarks>
+    public static byte[] Gif(ushort width = 4, ushort height = 3, int frames = 1, bool legacyHeader = false)
+    {
+        var bytes = new List<byte>();
+        bytes.AddRange(legacyHeader ? "GIF87a"u8 : "GIF89a"u8);
+
+        var descriptor = new byte[7];
+        BinaryPrimitives.WriteUInt16LittleEndian(descriptor.AsSpan(0), width);
+        BinaryPrimitives.WriteUInt16LittleEndian(descriptor.AsSpan(2), height);
+
+        // Packed field with the global-colour-table flag set, then background index and aspect ratio.
+        descriptor[4] = 0x80;
+        bytes.AddRange(descriptor);
+
+        // The table itself: two RGB triples, which is the smallest a flag of 0x80 implies.
+        bytes.AddRange([0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF]);
+
+        for (var frame = 0; frame < frames; frame++)
+        {
+            // Image descriptor at 0,0 sized 1x1 with no local colour table.
+            bytes.AddRange([0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
+
+            // LZW minimum code size, one sub-block of data, terminator.
+            bytes.AddRange([0x02, 0x02, 0x4C, 0x01, 0x00]);
+        }
+
+        bytes.Add(0x3B);
+
+        return [.. bytes];
+    }
+
     public static byte[] Jpeg(ushort width = 4, ushort height = 3)
     {
         var bytes = new List<byte> { 0xFF, 0xD8 };

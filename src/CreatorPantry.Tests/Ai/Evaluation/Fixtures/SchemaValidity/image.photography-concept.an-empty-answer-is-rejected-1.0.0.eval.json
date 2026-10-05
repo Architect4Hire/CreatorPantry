@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.an-empty-answer-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "Unlike a recipe review, where finding nothing is a real answer, a shoot plan with no concept in it has planned nothing and is refused.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_concept_count_out_of_range",
+    "category": "DomainInvalid"
+  }
+}

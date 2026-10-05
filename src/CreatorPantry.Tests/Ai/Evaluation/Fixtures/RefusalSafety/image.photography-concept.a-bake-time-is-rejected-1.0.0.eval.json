@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-bake-time-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "Nothing in an IMG-001 request supplies a time, a temperature or a quantity, so a figure in a concept is invented: a styling note that tells the creator to shoot the loaf after forty minutes is refused.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Window light\",\"surface\":\"S\",\"styling\":\"Shoot the loaf after 40 minutes in the oven\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_numeral_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

@@ -78,6 +78,53 @@ public interface IPromptRecordFacade
     /// </remarks>
     Task<OperationResult<PromptDetailServiceModel>> GetDetailAsync(
         Guid promptRecordId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one prompt of the resolved workspace as a plain-text download: the prompt itself, and a safe
+    /// deterministic name to save it under.
+    /// </summary>
+    /// <param name="promptRecordId">
+    /// The prompt to download. Never a workspace, and never a file name — the name is composed from the row,
+    /// so no caller and no model can choose what a response is called.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong>No role gate, no validator and nothing cached</strong>, for the reasons
+    /// <see cref="GetDetailAsync"/> records: it is the same read at the same bar, differently represented.
+    /// </para>
+    /// <para>
+    /// <strong>It publishes strictly less than the detail route does</strong> — the text and nothing else, with
+    /// no label, channel, kind, template triple or proposal id. So there is no route by which a download
+    /// discloses something a reader could not already read, and no provenance for a <c>.txt</c> file to carry
+    /// into a context that has lost it; PRM-005's JSON record is where lineage travels.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<PromptTextDownloadServiceModel>> GetTextDownloadAsync(
+        Guid promptRecordId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one prompt of the resolved workspace as a JSON export document: the record, its lineage and a safe
+    /// deterministic name to save it under.
+    /// </summary>
+    /// <param name="promptRecordId">
+    /// The prompt to export. Never a workspace, and never a file name or a shape — the document's version is
+    /// the server's to declare, so no caller and no model can ask for an older or a wider one.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong>No role gate, no validator and nothing cached</strong>, for the reasons
+    /// <see cref="GetDetailAsync"/> records.
+    /// </para>
+    /// <para>
+    /// <strong>It publishes exactly what the detail route does</strong>, written as a versioned document — not
+    /// more. Where the text download is strictly less than detail, this is the same set differently encoded,
+    /// so neither download reaches past what a reader of this workspace could already read. The two Guids that
+    /// never leave the server are dropped by the detail mapping before the document is written, and a prompt
+    /// record holds no credential, URL or storage path for the export to have to exclude.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<PromptRecordExportServiceModel>> GetRecordDownloadAsync(
+        Guid promptRecordId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IPromptRecordFacade"/>
@@ -164,6 +211,14 @@ internal sealed class PromptRecordFacade(
     public Task<OperationResult<PromptDetailServiceModel>> GetDetailAsync(
         Guid promptRecordId, CancellationToken cancellationToken) =>
         business.GetDetailAsync(promptRecordId, cancellationToken);
+
+    public Task<OperationResult<PromptTextDownloadServiceModel>> GetTextDownloadAsync(
+        Guid promptRecordId, CancellationToken cancellationToken) =>
+        business.GetTextDownloadAsync(promptRecordId, cancellationToken);
+
+    public Task<OperationResult<PromptRecordExportServiceModel>> GetRecordDownloadAsync(
+        Guid promptRecordId, CancellationToken cancellationToken) =>
+        business.GetRecordDownloadAsync(promptRecordId, cancellationToken);
 
     /// <summary>
     /// The submitted prompt is what makes two saves "the same" — including its text.

@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-rendering-field-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ImagePromptOutputValidation",
+  "description": "The document has no field for a seed, a model or a dimension, so a model that returns one is refused as an unknown member rather than having it silently dropped — the structural half of \"no rendering\".",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on pale oak, soft daylight, torn edge.\",\"avoid\":[],\"seed\":1234}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

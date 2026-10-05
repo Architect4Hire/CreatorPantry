@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.an-unspecified-confidence-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The route a `required` property cannot close: a model that declares the field and sets it to Unspecified has stated no confidence while satisfying the shape. The zero member exists so this is refusable by name rather than arriving as whichever level happened to be first.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Lighting\",\"text\":\"Soft directional daylight from the left.\",\"confidence\":\"Clear\"},{\"aspect\":\"Surface\",\"text\":\"A pale matte board.\",\"confidence\":\"Unspecified\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.reference_image_observations_invalid"
+  }
+}

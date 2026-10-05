@@ -101,12 +101,14 @@ export type AiTaskType =
   | 'SeoPackage'
   /** 11A.17's brand guide proposal. Reads a style guide and source documents; changes neither. */
   | 'BrandGuideProposal'
-  /** IMG-001's photography concept. Reserved: its handler lands in Phase 12. */
+  /** IMG-001's photography concepts for a channel. Reads an optional recipe and visual guidance; changes neither. */
   | 'PhotographyConcept'
-  /** IMG-002's editable image prompt. Reserved: its handler lands in Phase 12. */
+  /** IMG-002's editable image prompt for one shot of an approved concept. Composes text; renders nothing. */
   | 'ImagePrompt'
   /** 11A.24's read-only style test drive. Reads a guide version; writes nothing anywhere. */
-  | 'BrandStyleTestDrive';
+  | 'BrandStyleTestDrive'
+  /** IMG-004's reading of a reference image the creator uploaded. Describes a photograph; changes nothing. */
+  | 'ReferenceImageAnalysis';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -125,6 +127,7 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'PhotographyConcept',
   'ImagePrompt',
   'BrandStyleTestDrive',
+  'ReferenceImageAnalysis',
 ]);
 
 /**
@@ -173,9 +176,12 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And brand guide proposals through brand-guide-proposal-requests, which is not nested under a recipe at all:
   // this task names a style guide, so there is no recipe segment for this generic route to supply.
   BrandGuideProposal: null,
-  // Image tasks are not asked for through this generic route; each gets its own when its handler lands (Phase 12).
+  // Image tasks each have their own route — photography-concept-requests and image-prompt-requests — because
+  // each carries fields this generic route cannot: a channel and overrides, or the concept and shot to compose.
   PhotographyConcept: null,
   ImagePrompt: null,
+  // And IMG-004 through reference-image-requests, which names an uploaded document rather than a recipe.
+  ReferenceImageAnalysis: null,
   // And test drives through brand-style-test-drives, which names a guide version rather than a recipe. Null
   // for a second reason too: asking again means naming that version, and a generic ask-again would quietly
   // test whichever guide is active instead.
@@ -287,7 +293,13 @@ export type AiChangeTargetKind =
   /** 11A.24's left-hand column: a sample written with no brand context at all. Nothing can accept one. */
   | 'BrandStyleSampleWithoutGuide'
   /** 11A.24's right-hand column: the same sample written from the selected guide version. */
-  | 'BrandStyleSampleWithGuide';
+  | 'BrandStyleSampleWithGuide'
+  /** IMG-001's photography concepts. Planning material: nothing can apply one to the recipe it photographs. */
+  | 'PhotographyConcept'
+  /** IMG-002's composed image prompts. The creator edits one and saves it; nothing applies it to anything. */
+  | 'ImagePrompt'
+  /** IMG-004's reference readings. Observations of a photograph; nothing applies one to anything. */
+  | 'ReferenceImageAnalysis';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -307,6 +319,9 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'BrandGuideSection',
   'BrandStyleSampleWithoutGuide',
   'BrandStyleSampleWithGuide',
+  'PhotographyConcept',
+  'ImagePrompt',
+  'ReferenceImageAnalysis',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

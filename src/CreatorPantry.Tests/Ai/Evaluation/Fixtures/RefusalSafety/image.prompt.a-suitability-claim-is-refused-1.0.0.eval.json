@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-suitability-claim-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "The other side of the same correction: naming a diet as a dish descriptor is fine, and claiming the dish suits someone is not. \"Suitable for\" is the frame that makes it a claim rather than a name.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead photograph of brownies on a slate board, soft window light, broken to show the crumb. Suitable for coeliacs.\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

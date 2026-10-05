@@ -85,6 +85,23 @@ public sealed class PromptsEndpointTests : IAsyncLifetime
         GatewayClient client, SeededWorkspace workspace, Guid promptRecordId) =>
         client.GetAsync($"{PromptsIn(workspace)}/{promptRecordId}", Ct);
 
+    private static Task<HttpResponseMessage> TextAsync(
+        GatewayClient client, SeededWorkspace workspace, Guid promptRecordId, string query = "") =>
+        client.GetAsync($"{PromptsIn(workspace)}/{promptRecordId}/text{query}", Ct);
+
+    private static Task<HttpResponseMessage> RecordAsync(
+        GatewayClient client, SeededWorkspace workspace, Guid promptRecordId, string query = "") =>
+        client.GetAsync($"{PromptsIn(workspace)}/{promptRecordId}/record{query}", Ct);
+
+    /// <summary>The header exactly as sent, before the client's parser normalises it. Exactly one is sent.</summary>
+    private static string RawDisposition(HttpResponseMessage response) =>
+        response.Content.Headers.NonValidated["Content-Disposition"].Single();
+
+    /// <summary>Saves one prompt through the real route and returns its id.</summary>
+    private async Task<Guid> SavedIdAsync(GatewayClient client, SeededWorkspace workspace, object? body = null) =>
+        (await BodyOf(await SaveAsync(client, workspace, body ?? Manual())))
+            .GetProperty("promptRecordId").GetGuid();
+
     /// <summary>
     /// A problem body with its per-request field dropped, so two refusals can be compared as the answers they
     /// are. <c>traceId</c> differs by design and is the only thing allowed to.
@@ -414,6 +431,405 @@ public sealed class PromptsEndpointTests : IAsyncLifetime
 
         Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
         Assert.False(response.Headers.CacheControl!.Public);
+    }
+
+    // ---- the text download -------------------------------------------------------------------------------
+
+    /// <summary>
+    /// PRM-004 over HTTP: the file a creator actually receives, and every header that decides what a browser
+    /// does with it.
+    /// </summary>
+    [Fact]
+    public async Task A_prompt_downloads_as_a_plain_text_file()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        const string text = "Overhead shot of soda bread on linen, soft window light.";
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA, Manual(text));
+
+        var response = await TextAsync(client, _fixture.WorkspaceA, id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // The charset is part of the contract: a prompt is creator text and may be anything but ASCII.
+        Assert.Equal("text/plain; charset=utf-8", response.Content.Headers.ContentType!.ToString());
+
+        // Offered as a file, under the label slugged with the moment it was saved. The raw header is read so
+        // the quoting is seen as it was sent rather than as a parser tidied it.
+        // It needs no quotes, and that is the guarantee rather than an omission: the whole name is a header
+        // token, so there is nothing in it a parser could end the value early on.
+        var disposition = RawDisposition(response);
+        Assert.Matches(@"^attachment; filename=soda-bread-hero-\d{8}-\d{6}\.txt$", disposition);
+
+        Assert.Equal("nosniff", response.Headers.NonValidated["X-Content-Type-Options"].Single());
+        Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+
+        // No validator is offered: a file save has no revalidating client, and no-store with an ETag would be
+        // telling a client to keep nothing and then how to ask whether it is still fresh.
+        Assert.Null(response.Headers.ETag);
+
+        // The body is the prompt and nothing else, and the bytes carry no byte-order mark in front of it.
+        Assert.Equal(text, await response.Content.ReadAsStringAsync(Ct));
+        var bytes = await response.Content.ReadAsByteArrayAsync(Ct);
+        Assert.Equal((byte)'O', bytes[0]);
+    }
+
+    /// <summary>
+    /// The download and the detail route are one read differently represented, so the text must be identical.
+    /// </summary>
+    [Fact]
+    public async Task The_file_is_byte_for_byte_the_text_the_detail_route_publishes()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        // Interior line breaks as a creator would paste them, which neither route may normalise, plus
+        // characters that have to survive the slug being folded to ASCII without touching the body.
+        const string text = "Crème brûlée, overhead.\nSoft window light — linen cloth.";
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA, Manual(text));
+
+        var detail = await BodyOf(await DetailAsync(client, _fixture.WorkspaceA, id));
+        var file = await (await TextAsync(client, _fixture.WorkspaceA, id)).Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal(text, file);
+        Assert.Equal(detail.GetProperty("text").GetString(), file);
+    }
+
+    /// <summary>
+    /// The one thing a <c>.txt</c> file must not pick up on its way out: the provenance the detail route
+    /// publishes and this one deliberately does not.
+    /// </summary>
+    /// <remarks>
+    /// A download is the representation most likely to be "improved" with a header comment naming the channel,
+    /// the template or the proposal it came from — which would put workspace-private provenance into a file
+    /// that then travels anywhere, and would make PRM-005's JSON record redundant for the wrong reason.
+    /// </remarks>
+    [Fact]
+    public async Task The_file_carries_no_label_channel_or_provenance()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        // Text that shares no word with the prompt's own label, channel or source, so the absences below are
+        // the response's doing rather than the fixture's.
+        const string text = "Three lemons on a marble slab, hard noon light.";
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA, Manual(text));
+
+        var body = await (await TextAsync(client, _fixture.WorkspaceA, id)).Content.ReadAsStringAsync(Ct);
+
+        // The whole body, which is what actually forbids a header line — the named absences below cannot be
+        // the assertion that carries this test, because the body is the prompt and a prompt may say anything.
+        Assert.Equal(text, body);
+
+        // Named anyway, because this is the list of what a well-meaning "add some context to the file" change
+        // would reach for, and the equality above is easy to relax by accident while leaving a test passing.
+        foreach (var absent in new[] { "instagram", "Hero", "Soda bread hero", "Manual", id.ToString() })
+        {
+            Assert.DoesNotContain(absent, body, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task A_viewer_may_download_a_prompt()
+    {
+        using var owner = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var id = await SavedIdAsync(owner, _fixture.WorkspaceB);
+
+        using var viewer = await SignInAsync(_fixture.WorkspaceB.MemberEmail);
+        var response = await TextAsync(viewer, _fixture.WorkspaceB, id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(string.IsNullOrEmpty(await response.Content.ReadAsStringAsync(Ct)));
+    }
+
+    /// <summary>
+    /// A refusal is a problem document, not a file: nothing about it may look downloadable.
+    /// </summary>
+    [Fact]
+    public async Task An_unknown_prompt_download_answers_404_and_offers_no_file()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await TextAsync(client, _fixture.WorkspaceA, Guid.NewGuid());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+        Assert.Equal(ContentErrorCodes.PromptNotFound, Code(await BodyOf(response)));
+
+        // No attachment, and no name for a browser to save a problem document under.
+        Assert.False(response.Content.Headers.Contains("Content-Disposition"));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
+    }
+
+    /// <summary>
+    /// The download route's version of the detail route's isolation case, which is not implied by it: a second
+    /// read of one row is a second place the boundary has to hold.
+    /// </summary>
+    /// <remarks>
+    /// Everything but <c>traceId</c> is compared, because a 404 whose body said "that prompt belongs to another
+    /// workspace" would disclose exactly what the matching status hides.
+    /// </remarks>
+    [Fact]
+    public async Task Another_workspaces_prompt_cannot_be_downloaded_and_refuses_identically()
+    {
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var theirs = await SavedIdAsync(ownerB, _fixture.WorkspaceB, Manual("Theirs, about risotto."));
+
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var borrowed = await TextAsync(ownerA, _fixture.WorkspaceA, theirs);
+        var unknown = await TextAsync(ownerA, _fixture.WorkspaceA, Guid.NewGuid());
+
+        Assert.Equal(HttpStatusCode.NotFound, borrowed.StatusCode);
+        Assert.Equal(unknown.StatusCode, borrowed.StatusCode);
+
+        var borrowedBody = await BodyOf(borrowed);
+        Assert.Equal(ContentErrorCodes.PromptNotFound, Code(borrowedBody));
+        Assert.Equal(WithoutTraceId(await BodyOf(unknown)), WithoutTraceId(borrowedBody));
+
+        // And no part of the neighbour's prompt reached the response, header or body.
+        Assert.DoesNotContain("risotto", await borrowed.Content.ReadAsStringAsync(Ct), StringComparison.OrdinalIgnoreCase);
+        Assert.False(borrowed.Content.Headers.Contains("Content-Disposition"));
+    }
+
+    /// <summary>
+    /// A non-member is refused the download route itself, before the prompt id is looked at.
+    /// </summary>
+    /// <remarks>
+    /// The <c>WorkspaceViewer</c> policy is what makes that so, and a download route added without one would
+    /// pass every other test here — A's own prompt ids are not in B's library either, so only B's real id
+    /// asked on B's route can tell the difference.
+    /// </remarks>
+    [Fact]
+    public async Task A_member_of_one_workspace_cannot_download_the_others_prompt_by_route()
+    {
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var theirs = await SavedIdAsync(ownerB, _fixture.WorkspaceB);
+
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var refused = await TextAsync(ownerA, _fixture.WorkspaceB, theirs);
+        var unknownWorkspace = await ownerA.GetAsync(
+            $"/api/v1/workspaces/no-such-workspace/prompts/{theirs}/text", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+        Assert.Equal(unknownWorkspace.StatusCode, refused.StatusCode);
+        Assert.False(refused.Content.Headers.Contains("Content-Disposition"));
+    }
+
+    [Fact]
+    public async Task An_id_that_is_not_a_guid_cannot_be_downloaded_either()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await client.GetAsync($"{PromptsIn(_fixture.WorkspaceA)}/not-a-guid/text", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Nothing a caller sends can change the file, and in particular nothing can name it.
+    /// </summary>
+    /// <remarks>
+    /// The name is composed from the row, so there is no parameter to bind — which is the point: a download
+    /// route that accepted a filename would let a caller choose the extension a browser opens the body with.
+    /// </remarks>
+    [Theory]
+    [InlineData("?filename=../../etc/passwd")]
+    [InlineData("?filename=owned.html")]
+    [InlineData("?workspaceId=00000000-0000-0000-0000-000000000002")]
+    [InlineData("?contentType=text/html")]
+    public async Task No_query_parameter_can_change_the_file_or_its_name(string query)
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA);
+
+        var plain = await TextAsync(client, _fixture.WorkspaceA, id);
+        var tampered = await TextAsync(client, _fixture.WorkspaceA, id, query);
+
+        Assert.Equal(HttpStatusCode.OK, tampered.StatusCode);
+        Assert.Equal(RawDisposition(plain), RawDisposition(tampered));
+        Assert.Equal(plain.Content.Headers.ContentType!.ToString(), tampered.Content.Headers.ContentType!.ToString());
+        Assert.Equal(
+            await plain.Content.ReadAsStringAsync(Ct),
+            await tampered.Content.ReadAsStringAsync(Ct));
+    }
+
+    // ---- the record download -----------------------------------------------------------------------------
+
+    /// <summary>
+    /// PRM-005 over HTTP: the file a creator receives, and every header that decides what happens to it.
+    /// </summary>
+    [Fact]
+    public async Task A_prompt_downloads_as_a_json_document()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA);
+
+        var response = await RecordAsync(client, _fixture.WorkspaceA, id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/json; charset=utf-8", response.Content.Headers.ContentType!.ToString());
+
+        // The same name the text download offers, with a different extension. Unquoted because the whole name
+        // is a header token by construction.
+        Assert.Matches(@"^attachment; filename=soda-bread-hero-\d{8}-\d{6}\.json$", RawDisposition(response));
+
+        Assert.Equal("nosniff", response.Headers.NonValidated["X-Content-Type-Options"].Single());
+        Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+        Assert.Null(response.Headers.ETag);
+
+        var body = await response.Content.ReadAsStringAsync(Ct);
+
+        // Served exactly as the domain wrote it: declared version first, indented, newline-only endings, and
+        // no byte-order mark. Content rather than Ok is what keeps MVC from re-encoding all three.
+        Assert.StartsWith("{\n  \"schemaVersion\": \"prompt.record.v1\",", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\r", body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The exported document and the detail response describe one prompt, so they must agree field for field.
+    /// </summary>
+    /// <remarks>
+    /// Proved over HTTP rather than only at the writer, because this is where the two shapes are actually
+    /// published and where a serializer option on one side could diverge from the other. The timestamps are
+    /// compared as instants: the export normalizes to UTC at full precision and the response carries an
+    /// offset, so the strings differ by design while the moment may not.
+    /// </remarks>
+    [Fact]
+    public async Task The_exported_document_agrees_with_the_detail_response_field_for_field()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA);
+
+        var detail = JsonNode.Parse(
+            await (await DetailAsync(client, _fixture.WorkspaceA, id)).Content.ReadAsStringAsync(Ct))!.AsObject();
+        var exported = JsonNode.Parse(
+            await (await RecordAsync(client, _fixture.WorkspaceA, id)).Content.ReadAsStringAsync(Ct))!
+            .AsObject()["prompt"]!.AsObject();
+
+        Assert.Equal(
+            detail.Select(pair => pair.Key).ToList(),
+            exported.Select(pair => pair.Key).ToList());
+
+        foreach (var (key, value) in detail.Where(pair => pair.Key != "createdAt"))
+        {
+            Assert.Equal(value?.ToJsonString(), exported[key]?.ToJsonString());
+        }
+
+        Assert.Equal(
+            DateTimeOffset.Parse(detail["createdAt"]!.GetValue<string>()).ToUniversalTime(),
+            DateTimeOffset.Parse(exported["createdAt"]!.GetValue<string>()).ToUniversalTime());
+    }
+
+    [Fact]
+    public async Task A_viewer_may_export_a_prompt()
+    {
+        using var owner = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var id = await SavedIdAsync(owner, _fixture.WorkspaceB);
+
+        using var viewer = await SignInAsync(_fixture.WorkspaceB.MemberEmail);
+        var response = await RecordAsync(viewer, _fixture.WorkspaceB, id);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_unknown_prompt_export_answers_404_and_offers_no_file()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await RecordAsync(client, _fixture.WorkspaceA, Guid.NewGuid());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+        Assert.Equal(ContentErrorCodes.PromptNotFound, Code(await BodyOf(response)));
+
+        // A problem document is not a download, and `application/json` on this route must not be mistaken for
+        // an export: the refusal declares problem+json and offers no name to save it under.
+        Assert.False(response.Content.Headers.Contains("Content-Disposition"));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
+    }
+
+    /// <summary>
+    /// The export route's own isolation case: a third read of one row is a third place the boundary must hold.
+    /// </summary>
+    [Fact]
+    public async Task Another_workspaces_prompt_cannot_be_exported_and_refuses_identically()
+    {
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var theirs = await SavedIdAsync(ownerB, _fixture.WorkspaceB, Manual("Theirs, about risotto."));
+
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var borrowed = await RecordAsync(ownerA, _fixture.WorkspaceA, theirs);
+        var unknown = await RecordAsync(ownerA, _fixture.WorkspaceA, Guid.NewGuid());
+
+        Assert.Equal(HttpStatusCode.NotFound, borrowed.StatusCode);
+        Assert.Equal(unknown.StatusCode, borrowed.StatusCode);
+
+        var borrowedBody = await BodyOf(borrowed);
+        Assert.Equal(ContentErrorCodes.PromptNotFound, Code(borrowedBody));
+        Assert.Equal(WithoutTraceId(await BodyOf(unknown)), WithoutTraceId(borrowedBody));
+
+        Assert.DoesNotContain(
+            "risotto", await borrowed.Content.ReadAsStringAsync(Ct), StringComparison.OrdinalIgnoreCase);
+        Assert.False(borrowed.Content.Headers.Contains("Content-Disposition"));
+    }
+
+    /// <summary>
+    /// A non-member is refused the export route itself, before the prompt id is looked at.
+    /// </summary>
+    /// <remarks>
+    /// B's real id on B's route, because that is the only request A's own ids cannot imitate — the
+    /// <c>WorkspaceViewer</c> policy is what refuses it, and a route shipped without one would pass every
+    /// other test in this section.
+    /// </remarks>
+    [Fact]
+    public async Task A_member_of_one_workspace_cannot_export_the_others_prompt_by_route()
+    {
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var theirs = await SavedIdAsync(ownerB, _fixture.WorkspaceB);
+
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var refused = await RecordAsync(ownerA, _fixture.WorkspaceB, theirs);
+        var unknownWorkspace = await ownerA.GetAsync(
+            $"/api/v1/workspaces/no-such-workspace/prompts/{theirs}/record", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+        Assert.Equal(unknownWorkspace.StatusCode, refused.StatusCode);
+        Assert.False(refused.Content.Headers.Contains("Content-Disposition"));
+    }
+
+    [Fact]
+    public async Task An_id_that_is_not_a_guid_cannot_be_exported_either()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await client.GetAsync($"{PromptsIn(_fixture.WorkspaceA)}/not-a-guid/record", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Nothing a caller sends can change the document, its name, or the shape it is written in.
+    /// </summary>
+    /// <remarks>
+    /// `schemaVersion` is the server's to declare, so there is deliberately no parameter to ask for an older
+    /// or a wider shape — a download that honoured one would be two contracts behind one route.
+    /// </remarks>
+    [Theory]
+    [InlineData("?filename=../../etc/passwd")]
+    [InlineData("?schemaVersion=prompt.record.v0")]
+    [InlineData("?workspaceId=00000000-0000-0000-0000-000000000002")]
+    [InlineData("?include=workspaceId,createdByMembershipId")]
+    public async Task No_query_parameter_can_change_the_document_or_its_name(string query)
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var id = await SavedIdAsync(client, _fixture.WorkspaceA);
+
+        var plain = await RecordAsync(client, _fixture.WorkspaceA, id);
+        var tampered = await RecordAsync(client, _fixture.WorkspaceA, id, query);
+
+        Assert.Equal(HttpStatusCode.OK, tampered.StatusCode);
+        Assert.Equal(RawDisposition(plain), RawDisposition(tampered));
+        Assert.Equal(
+            await plain.Content.ReadAsStringAsync(Ct),
+            await tampered.Content.ReadAsStringAsync(Ct));
     }
 
     // ---- the contract ------------------------------------------------------------------------------------

@@ -19,6 +19,7 @@ using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
@@ -90,6 +91,11 @@ builder.Services.AddRecipeReadinessSeam();
 builder.Services.AddContentModule();
 builder.Services.AddRecipeExportSeam();
 
+// The generated-image workspace (12.6). Registered beside the content module rather than on its own
+// account: the prompt library resolves a saved prompt's generated-image pin through this module's lookup
+// facade before writing a row that can never be corrected, so a host serving prompt routes needs both.
+builder.Services.AddMediaModule();
+
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();
 
@@ -123,6 +129,19 @@ builder.Services.AddAiBrandGuideProposalRequestSeam();
 // the rules behind the guided column. See AddAiBrandContext.
 builder.Services.AddAiBrandContext();
 builder.Services.AddAiBrandStyleTestDriveSeam();
+
+// IMG-001. No assembler needed on the request path: a shoot plan is useful with no visual guidance at all, so
+// there is nothing here for an empty or unresolvable package to refuse. The handler assembles it in the worker.
+builder.Services.AddAiPhotographyConceptSeam();
+
+// IMG-002. It resolves the concept, the recipe pin and the brief before queueing, so it needs this module's
+// own data layer plus the recipe and brand-source facades — all of which AddAiModule and the brand module
+// already register for the API.
+builder.Services.AddAiImagePromptSeam();
+
+// IMG-004. It resolves one brand source document and pins its version, so it needs only that module's
+// document facade; the bytes themselves are read by the worker when it claims the operation.
+builder.Services.AddAiReferenceImageSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

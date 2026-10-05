@@ -1,0 +1,14 @@
+{
+  "id": "image.reference-analysis.a-background-free-from-clutter-is-not-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "\"Free from\", \"safe for\" and \"suitable for\" are claims only when a dietary object follows them. Bare, they refuse composition readings — a background free from clutter, a surface suitable for a flat lay — which is a sound answer refused. \"Wholesome\" is mood language here too, and this document has a mood aspect.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Composition\",\"text\":\"A background free from clutter, suitable for a flat lay.\",\"confidence\":\"Clear\"},{\"aspect\":\"Mood\",\"text\":\"Wholesome and unhurried, the sort of table people linger at.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, an uncluttered background, daylight from the left, warm neutral palette.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

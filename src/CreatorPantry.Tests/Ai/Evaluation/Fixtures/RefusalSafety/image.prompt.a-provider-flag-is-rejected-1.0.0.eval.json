@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-provider-flag-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "IMG-002 composes a description of a photograph and renders nothing. The document has no field for a rendering setting, so this is the other route a model takes: writing one into the prose the creator then has to edit out of their saved prompt.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board over undyed linen, soft daylight from the left, one torn edge showing the crumb, a linen napkin just in frame, warm neutral palette, unhurried and domestic. --ar 4:5 --seed 1234\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_render_directive_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

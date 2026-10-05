@@ -145,6 +145,64 @@ public enum AiEvaluationKind
     /// </para>
     /// </remarks>
     BrandStyleSamplesOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiPhotographyConceptOutputValidator.Validate"/>
+    /// directly, for IMG-001's own document and its own domain rules.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Exists apart from <see cref="OutputValidation"/> for the reason <see cref="ConceptOutputValidation"/>
+    /// does: a photography concept is not a recipe diff, so the generic validator has nothing to say about it.
+    /// </para>
+    /// <para>
+    /// What a fixture here can show is deterministic, and it is most of what IMG-001's restriction asks for: the
+    /// concept and shot counts, exactly one hero per concept, distinct shot roles, the numeral ban and its crop-
+    /// ratio exception, the claim ban, and the link/handle/markup ban. What it cannot show is whether a concept
+    /// is any good to photograph, and no fixture here claims to.
+    /// </para>
+    /// </remarks>
+    PhotographyConceptOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiImagePromptOutputValidator.Validate"/> directly,
+    /// for IMG-002's own document and its own domain rules.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="PhotographyConceptOutputValidation"/> because the two capabilities are held to
+    /// deliberately different rules: a concept may write no numeral, and a prompt may, because a prompt is the
+    /// artefact an image model reads. A fixture filed under the wrong one would validate nothing.
+    /// </para>
+    /// <para>
+    /// What a fixture here can show: the length floor and ceiling, the avoid-list bounds, the claim ban, the
+    /// link/handle/markup ban, and the rendering-directive ban that is this capability's own. What it cannot
+    /// show is whether the prompt describes the shot it was asked for.
+    /// </para>
+    /// </remarks>
+    ImagePromptOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiReferenceImageOutputValidator.Validate"/>
+    /// directly, for IMG-004's own document.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="ImagePromptOutputValidation"/> even though both answers carry a prompt: this
+    /// document also carries observations with a required confidence each, and it adds the identity and
+    /// ownership bans that are this capability's own. A fixture filed under the sibling kind would run the
+    /// sibling's validator and demonstrate none of them.
+    /// </para>
+    /// <para>
+    /// What a fixture here can show: the observation count floor and ceiling, the refusal of a duplicated
+    /// aspect, the refusal of an undeclared aspect or confidence, the identity and ownership bans, and the
+    /// claim, link and rendering-directive bans inherited from the sibling. What it cannot show is whether an
+    /// observation is true of the attached photograph, whether the confidence stated is the right one, or
+    /// whether the model declined an instruction photographed into the image — the last needs a real vision
+    /// call, which this harness deliberately never makes.
+    /// </para>
+    /// </remarks>
+    ReferenceImageOutputValidation,
 }
 
 /// <summary>

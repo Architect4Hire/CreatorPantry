@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Ai.Business;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Facade;
 
@@ -33,6 +34,15 @@ public interface IAiProposalLookupFacade
     /// the caller's own workspace holds the id they already have.
     /// </remarks>
     Task<bool> ExistsAsync(Guid aiProposalId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IAiProposalLookupBusiness.FindLineageAsync"/>
+    /// <remarks>
+    /// No role check, for the reason <see cref="ExistsAsync"/> gives. It publishes a proposal's own template
+    /// triple and the recipe its operation was about — both facts the caller's workspace already owns, and
+    /// neither a provider, a model, a cost nor a payload.
+    /// </remarks>
+    Task<AiProposalLineageServiceModel?> FindLineageAsync(
+        Guid aiProposalId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiProposalLookupFacade"/>
@@ -40,4 +50,8 @@ internal sealed class AiProposalLookupFacade(IAiProposalLookupBusiness business)
 {
     public Task<bool> ExistsAsync(Guid aiProposalId, CancellationToken cancellationToken) =>
         business.ExistsAsync(aiProposalId, cancellationToken);
+
+    public Task<AiProposalLineageServiceModel?> FindLineageAsync(
+        Guid aiProposalId, CancellationToken cancellationToken) =>
+        business.FindLineageAsync(aiProposalId, cancellationToken);
 }

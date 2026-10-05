@@ -1,0 +1,20 @@
+{
+  "id": "image.prompt.a-neighbours-brief-cannot-be-fenced-in",
+  "version": "1.0.0",
+  "category": "WorkspaceIsolation",
+  "kind": "PromptEnvelope",
+  "description": "Fencing a neighbour's brief would be the wrong answer. Every segment IMG-002 adds is stamped with the resolved workspace, so a brief read from another workspace is refused outright rather than carried in as untrusted material.",
+  "input": {
+    "workspaceId": "11111111-1111-1111-1111-111111111111",
+    "task": "Write one image prompt for the shot named in the SOURCE segment.",
+    "outputSchema": "{\"type\":\"object\"}",
+    "untrustedText": "{\"brief\":\"Shoot it the way the other studio shoots theirs.\"}",
+    "segment": "untrustedText",
+    "segmentWorkspaceId": "22222222-2222-2222-2222-222222222222"
+  },
+  "expect": {
+    "untrustedTextInUserMessage": false,
+    "untrustedTextInSystemMessage": false,
+    "refused": true
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-link-in-a-warning-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "The same hole in the other direction: a warning carrying an email address reaches the creator, so the text rule covers warnings as well as shot descriptions. Email addresses were not matched at all until this case was written.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Window light\",\"surface\":\"S\",\"styling\":\"A torn edge\",\"props\":[]}]}],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"Send the brief to studio@example.com for approval.\"}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_text_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

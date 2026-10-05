@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-claim-in-a-warning-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "Warnings are read beside the prompt, so they are held to the same rules. The photography validator had this hole on its first pass; this capability was written with it closed. The claim here is an allergen absence, which is a claim in any context — a bare dietary label is not, since it names dishes as often as it asserts anything.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board over undyed linen, soft daylight from the left, one torn edge showing the crumb, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[{\"kind\":\"Assumption\",\"message\":\"I assumed the loaf is gluten-free.\"}]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

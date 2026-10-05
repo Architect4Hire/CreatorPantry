@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-link-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "A link in a shoot plan is the shape an injected instruction or an exfiltration attempt takes when it reaches a field a creator will act on.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Copy the setup at https://example.com/setup\",\"surface\":\"S\",\"styling\":\"A torn edge\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_text_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

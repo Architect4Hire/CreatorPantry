@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-null-avoid-list-is-refused-not-thrown",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ImagePromptOutputValidation",
+  "description": "An explicit null for a non-nullable collection used to crash every validator in this module with a NullReferenceException, because System.Text.Json does not enforce a nullable annotation unless asked. It is now a classified, correctable rejection like any other bad shape.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board, soft daylight from the left, one torn edge showing the crumb.\",\"avoid\":null}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

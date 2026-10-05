@@ -55,6 +55,17 @@ var cache = builder.AddRedis("cache", password: redisPassword)
     .WithLifetime(ContainerLifetime.Persistent)
     .WithDataVolume("creatorpantry-redis-data");
 
+// Development only, for the same reasons as DbGate above: a browser Redis client the app model wires to
+// `cache` itself, so browsing or evicting keys costs no port lookup and no pasted password. Run mode only,
+// because it receives the cache credential. Persistent so it stays up alongside the cache it points at.
+//
+// It reads every workspace's keys at once (`workspace:{id}:...` next to the global reference keys), and a
+// key deleted here is deleted for the running API and Worker too.
+if (builder.ExecutionContext.IsRunMode)
+{
+    cache.WithRedisInsight(redisInsight => redisInsight.WithLifetime(ContainerLifetime.Persistent));
+}
+
 var storage = builder.AddAzureStorage("storage")
     .RunAsEmulator(azurite => azurite
         .WithLifetime(ContainerLifetime.Persistent)

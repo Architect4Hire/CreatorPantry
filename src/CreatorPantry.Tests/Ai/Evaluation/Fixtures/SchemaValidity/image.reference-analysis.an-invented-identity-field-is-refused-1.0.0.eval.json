@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.an-invented-identity-field-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The document has no field for who is in the picture, and a model that adds one is refused rather than having it dropped. Strict shape validation is what stops a claim this contract has no room for arriving beside one it does.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Lighting\",\"text\":\"Soft directional daylight from the left.\",\"confidence\":\"Clear\"},{\"aspect\":\"Mood\",\"text\":\"Quiet and domestic.\",\"confidence\":\"Clear\"}],\"personIdentified\":\"a well-known baker\",\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, unhurried and domestic.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field"
+  }
+}

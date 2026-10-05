@@ -22,12 +22,18 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// </remarks>
 public sealed class PromptEnvelope
 {
-    internal PromptEnvelope(string nonce, string systemMessage, string userMessage, IReadOnlyList<PromptSegment> segments)
+    internal PromptEnvelope(
+        string nonce,
+        string systemMessage,
+        string userMessage,
+        IReadOnlyList<PromptSegment> segments,
+        IReadOnlyList<PromptImage>? images = null)
     {
         Nonce = nonce;
         SystemMessage = systemMessage;
         UserMessage = userMessage;
         Segments = segments;
+        Images = images ?? [];
     }
 
     /// <summary>The fence token for this envelope. Fresh per build, and never reused.</summary>
@@ -40,6 +46,17 @@ public sealed class PromptEnvelope
     public string UserMessage { get; }
 
     public IReadOnlyList<PromptSegment> Segments { get; }
+
+    /// <summary>
+    /// The images attached to the user message, in the order they were added. Empty for every text-only
+    /// capability.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Segments"/> because pixels cannot be fenced in a text message: each image has
+    /// a <see cref="PromptSegmentKind.ReferenceImage"/> segment announcing it, and the bytes travel here. A
+    /// gateway with no images to attach composes exactly the message it always did.
+    /// </remarks>
+    public IReadOnlyList<PromptImage> Images { get; }
 
     /// <summary>
     /// What may be logged about this envelope: which segments it carried, their trust, and how large they
@@ -66,9 +83,33 @@ public sealed class PromptEnvelope
                 .Append("ch");
         }
 
+        foreach (var image in Images)
+        {
+            description.Append("; ").Append(image.MediaType).Append('=').Append(image.Bytes.Length).Append('B');
+        }
+
         return description.ToString();
     }
 }
+
+/// <summary>
+/// One image attached to an envelope's user message.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>The bytes are carried, never logged and never serialized into the prompt text.</strong>
+/// <see cref="PromptEnvelope.Describe"/> reports the media type and the length and nothing else, for the same
+/// reason it reports no segment content: <c>ai.md</c> forbids a prompt body reaching a log, and a reference
+/// image is a creator's own photograph.
+/// </para>
+/// <para>
+/// <paramref name="WorkspaceId"/> is checked against the envelope's at build time, exactly as a text
+/// segment's is. Retrieval returning a neighbour's image is the realistic failure, and the builder is the
+/// last place it can be caught before the content reaches a model.
+/// </para>
+/// </remarks>
+/// <param name="MediaType">The type established from the bytes at upload, never one a client declared.</param>
+public sealed record PromptImage(ReadOnlyMemory<byte> Bytes, string MediaType, Guid WorkspaceId);
 
 /// <summary>
 /// An envelope that could not be built safely: a missing required segment, content from the wrong workspace,

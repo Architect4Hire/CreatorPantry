@@ -27,6 +27,8 @@ public sealed class BrandSourceFileInspectorTests
         { "jpeg", "photo.jpg", "image/jpeg" },
         { "jpeg", "photo.JPEG", "image/jpeg" },
         { "webp", "photo.webp", "image/webp" },
+        { "gif", "loaf.gif", "image/gif" },
+        { "gif-87a", "loaf.GIF", "image/gif" },
         { "text", "voice.md", "text/markdown" },
         { "text", "voice.markdown", "text/markdown" },
         { "text", "voice.txt", "text/plain" },
@@ -41,6 +43,8 @@ public sealed class BrandSourceFileInspectorTests
         "png" => BrandSourceSampleFiles.Png(),
         "jpeg" => BrandSourceSampleFiles.Jpeg(),
         "webp" => BrandSourceSampleFiles.Webp(),
+        "gif" => BrandSourceSampleFiles.Gif(),
+        "gif-87a" => BrandSourceSampleFiles.Gif(legacyHeader: true),
         "text" => BrandSourceSampleFiles.Text(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
@@ -157,6 +161,15 @@ public sealed class BrandSourceFileInspectorTests
 
         // Cut before the frame header: a JPEG that never says how big it is.
         Assert.Equal(BrandSourceInspectionOutcome.Corrupt, (await InspectAsync(jpeg[..22], "photo.jpg")).Outcome);
+
+        // And a GIF, whose size lives in the descriptor after the six-byte header: a file cut inside it
+        // states no canvas, and a canvas of zero is as corrupt here as it is for every other format.
+        Assert.Equal(
+            BrandSourceInspectionOutcome.Corrupt,
+            (await InspectAsync(BrandSourceSampleFiles.Gif(width: 0), "loaf.gif")).Outcome);
+        Assert.Equal(
+            BrandSourceInspectionOutcome.Corrupt,
+            (await InspectAsync(BrandSourceSampleFiles.Gif()[..9], "loaf.gif")).Outcome);
     }
 
     [Fact]
@@ -165,6 +178,9 @@ public sealed class BrandSourceFileInspectorTests
         Assert.Equal(BrandSourceInspectionOutcome.ImageTooLarge, (await InspectAsync(BrandSourceSampleFiles.Png(10_000, 10_000), "logo.png")).Outcome);
         Assert.Equal(BrandSourceInspectionOutcome.ImageTooLarge, (await InspectAsync(BrandSourceSampleFiles.Jpeg(60_000, 60_000), "photo.jpg")).Outcome);
         Assert.Equal(BrandSourceInspectionOutcome.ImageTooLarge, (await InspectAsync(BrandSourceSampleFiles.Webp(16_000, 16_000), "photo.webp")).Outcome);
+        Assert.Equal(
+            BrandSourceInspectionOutcome.ImageTooLarge,
+            (await InspectAsync(BrandSourceSampleFiles.Gif(10_000, 10_000), "loaf.gif")).Outcome);
     }
 
     [Fact]

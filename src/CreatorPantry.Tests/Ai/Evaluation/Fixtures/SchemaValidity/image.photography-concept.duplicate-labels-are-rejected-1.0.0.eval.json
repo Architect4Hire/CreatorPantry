@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.duplicate-labels-are-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "Two concepts a creator cannot tell apart in a list of three are not a choice, so a shared label is refused.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"Morning light\",\"mood\":\"Unhurried\",\"palette\":\"Warm neutrals\",\"rationale\":\"Overhead suits a flat loaf\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead, square crop\",\"lighting\":\"Soft daylight from the left\",\"surface\":\"Pale oak board\",\"styling\":\"A torn edge showing the crumb\",\"props\":[]}]},{\"label\":\"Morning light\",\"mood\":\"Unhurried\",\"palette\":\"Warm neutrals\",\"rationale\":\"Overhead suits a flat loaf\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead, square crop\",\"lighting\":\"Soft daylight from the left\",\"surface\":\"Pale oak board\",\"styling\":\"A torn edge showing the crumb\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_duplicate_label",
+    "category": "DomainInvalid"
+  }
+}

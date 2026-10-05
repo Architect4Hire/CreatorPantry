@@ -193,12 +193,30 @@ public sealed record BrandContextRequestSelection(
     /// The assembler request for one task, or null when the creator asked for no brand context.
     /// </summary>
     /// <remarks>
-    /// The channel is always null here. No writing capability built so far targets a channel — the channel
-    /// catalogue holds social channels, and a blog package, SEO metadata, a recipe concept and a first draft are
-    /// none of them — so a channel on these requests could only pull a social variant over long-form guidance.
-    /// The social writing task is the one that will pass a channel, and this is the parameter it will set.
+    /// The channel is null on this overload. No <em>writing</em> capability built so far targets a channel — the
+    /// channel catalogue holds social channels, and a blog package, SEO metadata, a recipe concept and a first
+    /// draft are none of them — so a channel on those requests could only pull a social variant over the
+    /// long-form guidance they need.
+    /// <para>
+    /// IMG-001 is the first capability that does target one, and it calls
+    /// <see cref="ToRequest(AiTaskType, string?)"/>: a photograph is planned for a place it will be seen, so the
+    /// channel is what selects the visual guidance the creator wrote for that place rather than their visual
+    /// identity in general.
+    /// </para>
     /// </remarks>
-    public BrandContextRequest? ToRequest(AiTaskType taskType) => UseBrandVoice
-        ? new BrandContextRequest(taskType, ChannelKey: null, Audience, Guide, SourceDocumentIds)
+    public BrandContextRequest? ToRequest(AiTaskType taskType) => ToRequest(taskType, channelKey: null);
+
+    /// <summary>
+    /// The assembler request for one task against one channel, or null when the creator asked for no brand
+    /// context.
+    /// </summary>
+    /// <param name="channelKey">
+    /// The channel this piece is for, or null for the workspace's guidance in general. Validated against the
+    /// catalogue before it reaches here — the assembler answers
+    /// <see cref="BrandContextErrors.ChannelInvalid"/> for a key the product does not know, so an unknown
+    /// channel is refused rather than silently ignored.
+    /// </param>
+    public BrandContextRequest? ToRequest(AiTaskType taskType, string? channelKey) => UseBrandVoice
+        ? new BrandContextRequest(taskType, channelKey, Audience, Guide, SourceDocumentIds)
         : null;
 }

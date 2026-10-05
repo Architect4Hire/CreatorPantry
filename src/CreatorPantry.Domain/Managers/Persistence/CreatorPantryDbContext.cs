@@ -1,6 +1,7 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -502,6 +503,22 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// creator content: the prompt bodies are never logged.
     /// </remarks>
     public DbSet<PromptRecord> PromptRecords => Set<PromptRecord>();
+
+    /// <summary>One request to generate images from one prompt (IMG-003).</summary>
+    /// <remarks>
+    /// Metadata only. The files live in private staging storage under the opaque key each image carries, and
+    /// nothing in either table is or becomes a public address (media.md).
+    /// </remarks>
+    public DbSet<GeneratedImageOperation> GeneratedImageOperations => Set<GeneratedImageOperation>();
+
+    /// <summary>
+    /// The images a provider returned, staged privately while the creator chooses (IMG-005, IMG-006).
+    /// </summary>
+    /// <remarks>
+    /// A rejected image is never a DAM asset; a kept one becomes one in 12.9. Rows exist only once there are
+    /// bytes to describe, so none ever claims an object key it does not have.
+    /// </remarks>
+    public DbSet<GeneratedImage> GeneratedImages => Set<GeneratedImage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

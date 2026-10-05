@@ -342,6 +342,70 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers IMG-001's request seam: photography concepts for a channel.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddAiModule"/> for the reason <see cref="AddAiConceptRequestSeam"/> is, and it
+    /// carries the recipe-module dependency the way the recipe-bound seams do — the recipe is optional on the
+    /// request, but resolving one that <em>is</em> named needs the recipe facade before anything is queued.
+    /// The handler's own brand-context dependency comes from <see cref="AddAiBrandContext"/>, which the worker
+    /// registers; this seam does not assemble a package itself, because a shoot plan is useful with no
+    /// guidance and so has nothing to refuse the request for.
+    /// </remarks>
+    public static IServiceCollection AddAiPhotographyConceptSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiPhotographyConceptRequestBusiness, AiPhotographyConceptRequestBusiness>();
+        services.AddScoped<IAiPhotographyConceptRequestFacade, AiPhotographyConceptRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestPhotographyConceptViewModel>,
+            RequestPhotographyConceptViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers IMG-002's request seam: one composed image prompt for one shot of a concept.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddAiPhotographyConceptSeam"/> because they are separate task discriminators
+    /// and a deployment may enable one and not the other. It resolves more at request time than any other
+    /// seam — the concept, the recipe pin and the brief — so it carries the recipe module's facade and the
+    /// brand module's document facade, and the concept comes from this module's own data layer.
+    /// </remarks>
+    public static IServiceCollection AddAiImagePromptSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiImagePromptRequestBusiness, AiImagePromptRequestBusiness>();
+        services.AddScoped<IAiImagePromptRequestFacade, AiImagePromptRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestImagePromptViewModel>,
+            RequestImagePromptViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers IMG-004's request seam: a structured reading of one reference image the creator uploaded.
+    /// </summary>
+    /// <remarks>
+    /// The thinnest of the image seams, because the subject is already in the workspace: it resolves one
+    /// brand source document and pins its version, and needs no recipe facade and no brand context — a
+    /// reading of a photograph is not grounded in the workspace's voice, it is grounded in the photograph.
+    /// </remarks>
+    public static IServiceCollection AddAiReferenceImageSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiReferenceImageRequestBusiness, AiReferenceImageRequestBusiness>();
+        services.AddScoped<IAiReferenceImageRequestFacade, AiReferenceImageRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestReferenceImageAnalysisViewModel>,
+            RequestReferenceImageAnalysisViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers 11A.19's brand-context assembler, which grounds a generation in the workspace's brand voice.
     /// </summary>
     /// <remarks>
@@ -412,6 +476,10 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, SeoPackageAiTaskHandler>(AiTaskType.SeoPackage);
         services.AddKeyedScoped<IAiTaskHandler, BrandGuideProposalAiTaskHandler>(AiTaskType.BrandGuideProposal);
         services.AddKeyedScoped<IAiTaskHandler, BrandStyleTestDriveAiTaskHandler>(AiTaskType.BrandStyleTestDrive);
+        services.AddKeyedScoped<IAiTaskHandler, PhotographyConceptAiTaskHandler>(AiTaskType.PhotographyConcept);
+        services.AddKeyedScoped<IAiTaskHandler, ImagePromptAiTaskHandler>(AiTaskType.ImagePrompt);
+        services.AddKeyedScoped<IAiTaskHandler, ReferenceImageAnalysisAiTaskHandler>(
+            AiTaskType.ReferenceImageAnalysis);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

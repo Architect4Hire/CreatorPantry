@@ -1,0 +1,14 @@
+{
+  "id": "image.prompt.kosher-salt-is-a-prop-not-a-claim",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ImagePromptOutputValidation",
+  "description": "A correction, pinned so it cannot be undone. An earlier pass added bare dietary labels to the claim list, which would have rejected this: kosher salt is a prop a food photographer reaches for constantly, and a recipe called Vegan Brownies is a recipe rather than an assurance. The claim frame is what is matched now, so both of these validate.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead photograph of vegan brownies on a slate board, a small dish of kosher salt beside them, soft window light from the left, one brownie broken to show the crumb.\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

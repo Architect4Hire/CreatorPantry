@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.four-shots-in-one-concept-are-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "A concept plans at most three frames: a shot list a creator cannot hold in their head on a shoot is not a plan, and the roles are distinct so a fourth has nothing left to be.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"F\",\"lighting\":\"G\",\"surface\":\"S\",\"styling\":\"T\",\"props\":[]},{\"kind\":\"DetailShot\",\"framing\":\"F\",\"lighting\":\"G\",\"surface\":\"S\",\"styling\":\"T\",\"props\":[]},{\"kind\":\"ProcessStep\",\"framing\":\"F\",\"lighting\":\"G\",\"surface\":\"S\",\"styling\":\"T\",\"props\":[]},{\"kind\":\"StyledScene\",\"framing\":\"F\",\"lighting\":\"G\",\"surface\":\"S\",\"styling\":\"T\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_shot_count_out_of_range",
+    "category": "DomainInvalid"
+  }
+}

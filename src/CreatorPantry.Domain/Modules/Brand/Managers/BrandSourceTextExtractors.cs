@@ -41,6 +41,7 @@ internal static class BrandSourceTextExtractors
         [BrandSourceFileInspector.PngMediaType] = Image,
         [BrandSourceFileInspector.JpegMediaType] = Image,
         [BrandSourceFileInspector.WebpMediaType] = Image,
+        [BrandSourceFileInspector.GifMediaType] = Image,
     };
 
     /// <summary>

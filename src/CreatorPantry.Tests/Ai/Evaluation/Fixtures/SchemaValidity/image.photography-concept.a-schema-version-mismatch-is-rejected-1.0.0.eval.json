@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-schema-version-mismatch-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "A template and an answer that disagree on version fail before the body is examined, so a concept written against an older shape is never read as a current one.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"image.photography-concept.v0\",\"concepts\":[]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch",
+    "category": "OutputSchemaInvalid"
+  }
+}

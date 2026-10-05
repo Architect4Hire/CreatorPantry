@@ -225,4 +225,33 @@ public enum AiTaskType
     /// </para>
     /// </remarks>
     BrandStyleTestDrive = 14,
+
+    /// <summary>
+    /// IMG-004: structured visual observations of a reference image the creator supplied, plus an editable
+    /// prompt that would photograph something like it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The only task that sends a model anything but text.</strong> The image rides on
+    /// <see cref="PromptEnvelope.Images"/> behind the <c>REFERENCE_IMAGE</c> fence at
+    /// <see cref="PromptSegmentTrust.Untrusted"/> trust, and the fence's own remarks are honest about the
+    /// limit: a fence delimits text, and a photograph of a note reading "ignore your instructions" arrives as
+    /// pixels no delimiter can wrap. What the structure buys is that the image is declared as material to
+    /// describe; whether a model obeys writing it finds inside one is behaviour the evaluation set examines.
+    /// </para>
+    /// <para>
+    /// <strong>It describes and infers nothing.</strong> Every observation carries its own
+    /// <see cref="AiReferenceImageConfidence"/>, because "the surface is probably unglazed ceramic" and "the
+    /// surface is unglazed ceramic" are different statements about someone else's photograph. The
+    /// RESTRICTION this ships under names four things it may not do — infer an ingredient it cannot see,
+    /// assert who owns a brand in frame, identify a person, or state a food-safety fact — and the first is the
+    /// one no validator can catch, so it is the template's instruction and the evaluation set's question.
+    /// </para>
+    /// <para>
+    /// <strong>It changes no recipe.</strong> Its <see cref="AiChangeTargetKind"/> is absent from
+    /// <c>AiChangeApplicability</c>, like <see cref="PhotographyConcept"/>'s and
+    /// <see cref="ImagePrompt"/>'s, so there is no code path from a stored row to a recipe edit.
+    /// </para>
+    /// </remarks>
+    ReferenceImageAnalysis = 15,
 }

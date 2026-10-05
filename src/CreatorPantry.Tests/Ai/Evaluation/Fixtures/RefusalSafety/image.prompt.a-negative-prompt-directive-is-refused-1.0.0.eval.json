@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-negative-prompt-directive-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "A setting named without a value is still a setting: the first pass of this rule required a digit, so 'negative prompt: blurry' and 'sampler: Euler a' walked straight past it — which is the smuggling the avoid-list rule exists to close.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board, soft daylight from the left, one torn edge showing the crumb. Negative prompt: blurry, extra fingers.\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_render_directive_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

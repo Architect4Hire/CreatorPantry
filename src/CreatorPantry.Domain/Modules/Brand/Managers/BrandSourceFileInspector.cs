@@ -62,6 +62,26 @@ internal static class BrandSourceFileInspector
 
     public const string WebpMediaType = "image/webp";
 
+    /// <summary>
+    /// Accepted for IMG-004, which analyzes reference images and takes GIF alongside the other three.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An animated GIF is accepted rather than refused: a creator who saved one from somewhere should not have
+    /// to convert it first. Which frame an analysis describes is IMG-004's concern and not this inspector's —
+    /// what it validates is the file, and the size it reads is the logical screen, the canvas every frame
+    /// shares.
+    /// </para>
+    /// <para>
+    /// <strong>Adding a format here is only half the change.</strong> Every accepted type needs a text
+    /// extractor registered in <c>BrandSourceTextExtractors</c>, or every version of it is queued, run and
+    /// failed with "no reader is registered" — a server fault reported as if the creator's file were at fault.
+    /// GIF maps to the same image reader as the other three, which reads nothing and says so.
+    /// <c>BrandSourceTextExtractorTests</c> is what refuses to let the two lists drift.
+    /// </para>
+    /// </remarks>
+    public const string GifMediaType = "image/gif";
+
     private const string DocxMainPartContentType =
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
 
@@ -83,6 +103,7 @@ internal static class BrandSourceFileInspector
         [PngMediaType] = [".png"],
         [JpegMediaType] = [".jpg", ".jpeg"],
         [WebpMediaType] = [".webp"],
+        [GifMediaType] = [".gif"],
     };
 
     /// <summary>
@@ -102,6 +123,7 @@ internal static class BrandSourceFileInspector
         [PngMediaType] = "png",
         [JpegMediaType] = "jpg",
         [WebpMediaType] = "webp",
+        [GifMediaType] = "gif",
         ["text/markdown"] = "md",
         ["text/plain"] = "txt",
         ["text/html"] = "html",
@@ -156,6 +178,7 @@ internal static class BrandSourceFileInspector
             PngMediaType => (PngMediaType, Png(signature.Span)),
             JpegMediaType => (JpegMediaType, await JpegAsync(content, length, cancellationToken)),
             WebpMediaType => (WebpMediaType, Webp(signature.Span, length)),
+            GifMediaType => (GifMediaType, Gif(signature.Span)),
             _ => await TextAsync(content, extension, length, cancellationToken),
         };
 
@@ -206,6 +229,13 @@ internal static class BrandSourceFileInspector
         if (head.Length >= 12 && head.StartsWith("RIFF"u8) && head[8..12].SequenceEqual("WEBP"u8))
         {
             return WebpMediaType;
+        }
+
+        // Both header versions. 89a is what anything with animation or transparency writes; 87a still turns
+        // up in older saved files, and refusing it would refuse a perfectly readable reference image.
+        if (head.Length >= 6 && (head.StartsWith("GIF87a"u8) || head.StartsWith("GIF89a"u8)))
+        {
+            return GifMediaType;
         }
 
         return null;
@@ -380,6 +410,23 @@ internal static class BrandSourceFileInspector
 
         return BrandSourceInspectionOutcome.Corrupt;
     }
+
+    /// <summary>
+    /// A GIF's logical screen size, from the descriptor that follows the six-byte header.
+    /// </summary>
+    /// <remarks>
+    /// Two little-endian 16-bit values at offsets 6 and 8, so a GIF cannot exceed the pixel cap by arithmetic
+    /// alone — 65,535 squared is well past it, which is exactly what <see cref="Dimensions"/> is for. A file
+    /// that claims a zero dimension is corrupt, as it is for every other format here. Frames are not counted:
+    /// validating the file needs the canvas, and whether there is more than one frame is IMG-004's question,
+    /// answered by <c>GifFrames</c> when it reads the bytes it is about to send.
+    /// </remarks>
+    private static BrandSourceInspectionOutcome Gif(ReadOnlySpan<byte> head) =>
+        head.Length < 10
+            ? BrandSourceInspectionOutcome.Corrupt
+            : Dimensions(
+                BinaryPrimitives.ReadUInt16LittleEndian(head[6..]),
+                BinaryPrimitives.ReadUInt16LittleEndian(head[8..]));
 
     private static BrandSourceInspectionOutcome Dimensions(uint width, uint height)
     {

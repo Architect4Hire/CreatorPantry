@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-composed-prompt-field-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "IMG-001 plans a shoot and composes no prompt. The document has no field for one, so a model that returns a ready-to-send prompt is refused as an unknown member rather than having it silently dropped — which is the restriction enforced by the shape rather than by a rule.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"prompt\":\"overhead shot of soda bread, soft window light, linen, 4k, photorealistic\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Window light\",\"surface\":\"S\",\"styling\":\"A torn edge\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

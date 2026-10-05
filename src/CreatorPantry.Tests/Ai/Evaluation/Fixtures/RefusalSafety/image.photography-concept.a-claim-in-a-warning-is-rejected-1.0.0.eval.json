@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-claim-in-a-warning-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "A warning is shown to the creator beside the concepts, and is the likeliest place for a model to explain itself into a claim. The claim and link rules run over warnings too, which the first pass of this validator did not do.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Window light\",\"surface\":\"S\",\"styling\":\"A torn edge\",\"props\":[]}]}],\"warnings\":[{\"kind\":\"Assumption\",\"message\":\"I assumed the loaf is gluten-free, so style it light.\"}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

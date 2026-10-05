@@ -3,6 +3,8 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Tests.Recipes;
 using Microsoft.EntityFrameworkCore;
@@ -129,6 +131,62 @@ public sealed class PromptRecordAggregateTests : IDisposable
         await db.SaveChangesAsync(Ct);
 
         return proposalId;
+    }
+
+    /// <summary>
+    /// A staged generated image and the operation that produced it, so the image pin has something real to
+    /// point at.
+    /// </summary>
+    /// <remarks>
+    /// Fabricated ids worked here until 12.6, when <c>(WorkspaceId, GeneratedImageId)</c> gained a foreign key
+    /// — which is what 12.3's note meant by "expect the migration to fail if any stored id is wrong". A test
+    /// fixture is the one place a wrong id could still be found, because the save seam refuses to accept one.
+    /// </remarks>
+    private async Task<Guid> SeedGeneratedImageAsync(Guid workspaceId)
+    {
+        await using var scope = _fixture.ScopeFor(workspaceId);
+        var db = RecipeAggregateFixture.Db(scope);
+
+        var operationId = Guid.NewGuid();
+        var imageId = Guid.NewGuid();
+
+        db.GeneratedImageOperations.Add(new GeneratedImageOperation
+        {
+            Id = operationId,
+            WorkspaceId = workspaceId,
+            Status = GeneratedImageOperationStatus.Succeeded,
+            PromptText = "Overhead shot of soda bread on linen.",
+            VariantCount = 1,
+            IdempotencyKey = $"image-{operationId}",
+            RequestedByMembershipId = Guid.NewGuid(),
+            RequestedAt = Now,
+            StatusChangedAt = Now,
+            AvailableAt = Now,
+        });
+
+        db.GeneratedImages.Add(new GeneratedImage
+        {
+            Id = imageId,
+            WorkspaceId = workspaceId,
+            GeneratedImageOperationId = operationId,
+            VariantIndex = 0,
+            Status = GeneratedImageStatus.Staged,
+            ObjectKey = $"staging/{workspaceId:N}/{imageId:N}.png",
+            MediaType = "image/png",
+            Width = 1024,
+            Height = 1024,
+            SizeBytes = 2048,
+            ContentChecksum = "sha256:" + new string('a', 64),
+            ProviderName = "test-provider",
+            ModelName = "test-model",
+            RetentionExpiresAt = Now + MediaPolicy.StagedImageTimeToLive,
+            CreatedAt = Now,
+            StatusChangedAt = Now,
+        });
+
+        await db.SaveChangesAsync(Ct);
+
+        return imageId;
     }
 
     [Fact]
@@ -319,7 +377,7 @@ public sealed class PromptRecordAggregateTests : IDisposable
     public async Task One_committed_image_holds_one_prompt_record()
     {
         // The schema's answer to "no duplicate prompt records on DAM retry": a retry loses the index.
-        var imageId = Guid.NewGuid();
+        var imageId = await SeedGeneratedImageAsync(RecipeAggregateFixture.WorkspaceA);
         await SeedAsync(RecipeAggregateFixture.WorkspaceA, NewRecord(RecipeAggregateFixture.WorkspaceA, generatedImageId: imageId));
 
         await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
@@ -329,18 +387,31 @@ public sealed class PromptRecordAggregateTests : IDisposable
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
     }
 
+    /// <summary>
+    /// Each workspace's own image holds its own prompt record, and the unique index on one does not reach the
+    /// other.
+    /// </summary>
+    /// <remarks>
+    /// <strong>This asked a weaker question until 12.6.</strong> It used to seed one fabricated id into both
+    /// workspaces and assert the workspace-leading unique index did not refuse the second, because "the image
+    /// tables do not exist yet to say whose it is". They exist now, and the composite foreign key makes that
+    /// collision unconstructible: an image id resolves in exactly one workspace, so a shared id is no longer
+    /// something a test can even set up. What is left to prove is that the index is still per-workspace, which
+    /// is what two separate images each holding a record shows.
+    /// </remarks>
     [Fact]
-    public async Task Two_workspaces_may_each_reference_the_same_image_id()
+    public async Task Each_workspace_pins_its_own_image_without_colliding_with_the_other()
     {
-        // The unique index leads with the workspace, so an id colliding across workspaces is not this feature's
-        // problem to refuse — and could not be, since the image tables do not exist yet to say whose it is.
-        var imageId = Guid.NewGuid();
+        var mine = await SeedGeneratedImageAsync(RecipeAggregateFixture.WorkspaceA);
+        var theirs = await SeedGeneratedImageAsync(RecipeAggregateFixture.WorkspaceB);
 
-        await SeedAsync(RecipeAggregateFixture.WorkspaceA, NewRecord(RecipeAggregateFixture.WorkspaceA, generatedImageId: imageId));
-        await SeedAsync(RecipeAggregateFixture.WorkspaceB, NewRecord(RecipeAggregateFixture.WorkspaceB, generatedImageId: imageId));
+        await SeedAsync(RecipeAggregateFixture.WorkspaceA, NewRecord(RecipeAggregateFixture.WorkspaceA, generatedImageId: mine));
+        await SeedAsync(RecipeAggregateFixture.WorkspaceB, NewRecord(RecipeAggregateFixture.WorkspaceB, generatedImageId: theirs));
 
         await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
-        Assert.Single(await RecipeAggregateFixture.Db(scope).PromptRecords.ToListAsync(Ct));
+        var only = Assert.Single(await RecipeAggregateFixture.Db(scope).PromptRecords.ToListAsync(Ct));
+
+        Assert.Equal(mine, only.GeneratedImageId);
     }
 
     [Fact]

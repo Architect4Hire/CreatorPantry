@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-pixel-dimension-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "The template bans a pixel dimension by name and the first pass of the regex did not catch one. A prompt says the frame is a square crop; how many pixels that is belongs to the renderer.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board, soft daylight from the left, one torn edge showing the crumb. Output at 1024x1024.\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_render_directive_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

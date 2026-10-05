@@ -33,6 +33,12 @@ public static class AiSubstitutionOutputValidator
     {
         Converters = { new JsonStringEnumConverter() },
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+
+        // A provider that answers an explicit null for a non-nullable collection — "changes": null — would
+        // otherwise crash this validator with a NullReferenceException rather than being refused: System.Text.Json
+        // does not enforce a non-nullable annotation unless asked, and a collection initialiser does not survive
+        // an explicit null. With this, the null is a classified, correctable rejection like any other bad shape.
+        RespectNullableAnnotations = true,
     };
 
     /// <summary>Validates one model answer against the schema version its template declared.</summary>

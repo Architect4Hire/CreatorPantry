@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Content.Data;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -125,7 +127,11 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
     [Fact]
     public async Task The_filtered_unique_index_refuses_a_second_record_for_one_image()
     {
-        var imageId = Guid.NewGuid();
+        // A real image row since 12.6: the composite foreign key means a fabricated id is now refused by the
+        // key before the unique index it is meant to be testing ever gets a say. 12.3's note predicted exactly
+        // this — "expect the migration to fail if any stored id is wrong" — and a test fixture is the one place
+        // a wrong id could still be found, because the save seam refuses to accept one.
+        var imageId = await SeedGeneratedImageAsync(WorkspaceA);
 
         await using (var first = ScopeFor(WorkspaceA))
         {
@@ -139,6 +145,83 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
         retry.PromptRecords.Add(NewRecord(generatedImageId: imageId));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => retry.SaveChangesAsync(Ct));
+    }
+
+    /// <summary>
+    /// The composite foreign key refuses another workspace's image, with no validation involved.
+    /// </summary>
+    /// <remarks>
+    /// The save seam resolves the pin through the Media facade and refuses a borrowed id with a field error
+    /// (<c>PromptRecordBusinessTests</c>), which is the answer a creator sees. This is the floor underneath it:
+    /// a caller that reached the context directly — a worker, a plugin, a future in-transaction writer — cannot
+    /// store the value either, because <c>(WorkspaceId, GeneratedImageId)</c> has nothing to resolve to. The
+    /// row is immutable, so a wrong value written once could only ever be erased; unrepresentable is the only
+    /// guarantee worth having, and only a real engine can be asked whether it holds.
+    /// </remarks>
+    [Fact]
+    public async Task A_prompt_cannot_pin_another_workspaces_generated_image_even_round_the_seam()
+    {
+        var theirs = await SeedGeneratedImageAsync(WorkspaceB);
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        db.PromptRecords.Add(NewRecord(generatedImageId: theirs));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
+    }
+
+    /// <summary>
+    /// One staged generated image of that workspace, with the operation that produced it.
+    /// </summary>
+    /// <remarks>
+    /// Inserted directly: 12.6 lands the tables and their configuration, and the facade that will stage an
+    /// image arrives with 12.7's worker. What this needs is a row the composite key can resolve.
+    /// </remarks>
+    private async Task<Guid> SeedGeneratedImageAsync(Guid workspaceId)
+    {
+        await using var scope = ScopeFor(workspaceId);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var operationId = Guid.NewGuid();
+        var imageId = Guid.NewGuid();
+
+        db.GeneratedImageOperations.Add(new GeneratedImageOperation
+        {
+            Id = operationId,
+            WorkspaceId = workspaceId,
+            Status = GeneratedImageOperationStatus.Succeeded,
+            PromptText = "Overhead shot of soda bread on linen.",
+            VariantCount = 1,
+            IdempotencyKey = $"image-{operationId}",
+            RequestedByMembershipId = Guid.NewGuid(),
+            RequestedAt = Now,
+            StatusChangedAt = Now,
+            AvailableAt = Now,
+        });
+
+        db.GeneratedImages.Add(new GeneratedImage
+        {
+            Id = imageId,
+            WorkspaceId = workspaceId,
+            GeneratedImageOperationId = operationId,
+            VariantIndex = 0,
+            Status = GeneratedImageStatus.Staged,
+            ObjectKey = $"staging/{workspaceId:N}/{imageId:N}.png",
+            MediaType = "image/png",
+            Width = 1024,
+            Height = 1024,
+            SizeBytes = 2048,
+            ContentChecksum = "sha256:" + new string('a', 64),
+            ProviderName = "test-provider",
+            ModelName = "test-model",
+            RetentionExpiresAt = Now.AddDays(14),
+            CreatedAt = Now,
+            StatusChangedAt = Now,
+        });
+
+        await db.SaveChangesAsync(Ct);
+
+        return imageId;
     }
 
     [Fact]
@@ -244,10 +327,10 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
     public async Task Deleting_a_workspace_still_succeeds_with_a_fully_pinned_prompt_in_it()
     {
         // The one question only a real engine answers, and it is not academic: this row cascades from Workspace
-        // while itself holding Restrict pins to a recipe, a version and a proposal that cascade from the same
-        // workspace. If SQL Server checked those NO ACTION constraints mid-cascade rather than at the end of the
-        // statement, a workspace holding a prompt could never be deleted at all — and immutability means the
-        // prompt could not be removed first through EF to clear the way.
+        // while itself holding Restrict pins to a recipe, a version, a proposal and a generated image that
+        // all cascade from that same workspace. If SQL Server checked those NO ACTION constraints mid-cascade
+        // rather than at the end of the statement, a workspace holding a prompt could never be deleted at all
+        // — and immutability means the prompt could not be removed first through EF to clear the way.
         var workspaceId = Guid.NewGuid();
 
         await using (var seed = _provider!.CreateAsyncScope())
@@ -262,6 +345,10 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
 
         var (recipeId, versionId, proposalId) = await SeedLineageAsync(workspaceId);
 
+        // And since 12.6 a fourth restricted pin, to an image that itself holds one to the operation that
+        // produced it: two restricted edges deep, with all four tables cascading from the one workspace.
+        var imageId = await SeedGeneratedImageAsync(workspaceId);
+
         await using (var write = ScopeFor(workspaceId, "doomed"))
         {
             var db = write.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
@@ -269,6 +356,7 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
             record.RecipeId = recipeId;
             record.RecipeVersionId = versionId;
             record.AiProposalId = proposalId;
+            record.GeneratedImageId = imageId;
             record.Source = PromptRecordSource.ImagePromptComposition;
             record.GeneratedText = record.Text;
             record.PromptTemplateId = "image.prompt";
@@ -290,7 +378,15 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
         // And the prompt went with it rather than being left behind pointing at nothing.
         await using var after = ScopeFor(WorkspaceA);
         var remaining = after.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
-        Assert.Empty(await remaining.PromptRecords.IgnoreQueryFilters().Where(r => r.WorkspaceId == workspaceId).ToListAsync(Ct));
+        Assert.Empty(await remaining.PromptRecords.IgnoreQueryFilters()
+            .Where(record => record.WorkspaceId == workspaceId).ToListAsync(Ct));
+
+        // And so did the image and its operation, rather than the delete stopping at the first restricted edge
+        // it met. A staged image outliving its workspace would be bytes in storage nothing could ever reach.
+        Assert.Empty(await remaining.GeneratedImages.IgnoreQueryFilters()
+            .Where(image => image.WorkspaceId == workspaceId).ToListAsync(Ct));
+        Assert.Empty(await remaining.GeneratedImageOperations.IgnoreQueryFilters()
+            .Where(operation => operation.WorkspaceId == workspaceId).ToListAsync(Ct));
     }
 
     /// <summary>A recipe, a version of it, and a proposal — the three Restrict pins a prompt can hold.</summary>
@@ -603,6 +699,42 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
 
         // And an id that exists nowhere answers identically, which is what makes the two one case.
         Assert.Null(await new PromptRecordRepository(mine).FindAsync(Guid.NewGuid(), Ct));
+    }
+
+    /// <summary>
+    /// The same question for PRM-004's download, which is a second key seek rather than the same one.
+    /// </summary>
+    /// <remarks>
+    /// Worth asking separately because this read is a <em>projection</em>: the filter has to be applied to a
+    /// <c>Select</c> over a <c>Where</c> on the key, and a projection is the shape where a global query filter
+    /// is easiest to lose — EF composes it for you, so nothing in the C# says it is there. A download that
+    /// read across the boundary would hand one creator another's prompt as a file.
+    /// </remarks>
+    [Fact]
+    public async Task One_prompts_text_cannot_be_downloaded_from_the_other_workspace_on_the_real_engine()
+    {
+        Guid theirId;
+
+        await using (var theirs = ScopeFor(WorkspaceB, slug: "workspace-b"))
+        {
+            var db = theirs.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var record = NewRecord(text: "Theirs, about risotto.");
+            db.PromptRecords.Add(record);
+            await db.SaveChangesAsync(Ct);
+
+            theirId = record.Id;
+
+            // Downloadable in its own workspace, so the null below is the filter and not a missing row — and
+            // the projection really does carry the text the file is built from.
+            var own = await new PromptRecordRepository(db).FindTextAsync(theirId, Ct);
+            Assert.Equal("Theirs, about risotto.", own!.Text);
+        }
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var mine = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        Assert.Null(await new PromptRecordRepository(mine).FindTextAsync(theirId, Ct));
+        Assert.Null(await new PromptRecordRepository(mine).FindTextAsync(Guid.NewGuid(), Ct));
     }
 
     private static Task<(IReadOnlyList<PromptSummaryRecord> Rows, bool HasMore)> Search(

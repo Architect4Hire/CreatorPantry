@@ -1,0 +1,14 @@
+{
+  "id": "image.photography-concept.a-full-set-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "One concept with a hero and a detail shot, described in words throughout, is exactly what IMG-001 asks for and validates.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"Morning window light\",\"mood\":\"Unhurried and domestic\",\"palette\":\"Warm neutrals, wheat, muted sage\",\"rationale\":\"Overhead suits a flat round loaf and keeps the crumb legible\",\"channelFit\":\"A square crop still reads at thumbnail size\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead, square crop, loaf centred with space to one side\",\"lighting\":\"Soft daylight from the left, late morning\",\"surface\":\"Pale oak board over undyed linen\",\"styling\":\"One torn edge showing the crumb, crumbs scattered sparingly\",\"props\":[\"Undyed linen napkin\",\"Small ceramic bowl\"]},{\"kind\":\"DetailShot\",\"framing\":\"Close crop on the torn edge, three-quarter angle\",\"lighting\":\"The same window light, raking across the crumb\",\"surface\":\"The same oak board\",\"styling\":\"A single slice tipped against the loaf\",\"props\":[]}]}],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

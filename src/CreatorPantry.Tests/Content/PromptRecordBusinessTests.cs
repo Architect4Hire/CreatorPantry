@@ -16,6 +16,10 @@ using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
+using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
@@ -66,6 +70,7 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
             .AddIngredientModule()
             .AddRecipesModule()
             .AddContentModule()
+            .AddMediaModule()
             .AddLogging()
             .AddDistributedMemoryCache()
             .AddApplicationCache()
@@ -178,7 +183,10 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
     }
 
     /// <summary>An AI operation and a proposal from it, inserted directly: no model runs in a test.</summary>
-    private async Task<Guid> SeedProposalAsync(Guid workspaceId)
+    private Task<Guid> SeedProposalAsync(Guid workspaceId) =>
+        SeedProposalAsync(workspaceId, recipeId: null);
+
+    private async Task<Guid> SeedProposalAsync(Guid workspaceId, Guid? recipeId)
     {
         await using var scope = ScopeFor(workspaceId);
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
@@ -190,7 +198,11 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
         {
             Id = operationId,
             WorkspaceId = workspaceId,
-            TaskType = AiTaskType.RecipeConcepts,
+            // ImagePrompt, matching the ImagePromptComposition source Generated() declares: since 12.4a the
+            // save refuses a proposal from a different kind of generation, so a seed that said RecipeConcepts
+            // would make every generated save here a lineage refusal rather than the thing under test.
+            TaskType = AiTaskType.ImagePrompt,
+            RecipeId = recipeId,
             Scope = AiOperationScope.NotApplicable,
             Status = AiOperationStatus.Proposed,
             IdempotencyKey = $"prompt-{operationId}",
@@ -208,7 +220,10 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
             OutputSchemaVersion = "image.prompt.v1",
             PromptTemplateId = "image.prompt",
             PromptTemplateVersion = "1.0.0",
-            PromptTemplateBodyChecksum = "sha256:seed",
+            // Matches what Generated() sends: since 12.4a the save derives the triple from the proposal
+            // and refuses a request naming a different one, so a seed that disagreed would make every
+            // generated save in this class a lineage refusal rather than the thing under test.
+            PromptTemplateBodyChecksum = "sha256:" + new string('a', 64),
             ProviderName = "test-provider",
             ModelName = "test-model",
             CreatedAt = Now,
@@ -217,6 +232,57 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
         await db.SaveChangesAsync(Ct);
 
         return proposalId;
+    }
+
+    /// <summary>One staged generated image of that workspace, with the operation that produced it.</summary>
+    /// <remarks>
+    /// Inserted directly, like the proposal above: 12.6 lands the tables and the facade that stages an image
+    /// arrives with 12.7's worker. What a prompt save needs is a row the lookup can resolve and the composite
+    /// foreign key can name. WorkspaceId is left to the ownership interceptor.
+    /// </remarks>
+    private async Task<Guid> SeedGeneratedImageAsync(Guid workspaceId)
+    {
+        await using var scope = ScopeFor(workspaceId);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var operationId = Guid.NewGuid();
+        var imageId = Guid.NewGuid();
+
+        db.GeneratedImageOperations.Add(new GeneratedImageOperation
+        {
+            Id = operationId,
+            Status = GeneratedImageOperationStatus.Succeeded,
+            PromptText = "Overhead shot of soda bread on linen.",
+            VariantCount = 1,
+            IdempotencyKey = $"image-{operationId}",
+            RequestedByMembershipId = Guid.NewGuid(),
+            RequestedAt = Now,
+            StatusChangedAt = Now,
+            AvailableAt = Now,
+        });
+
+        db.GeneratedImages.Add(new GeneratedImage
+        {
+            Id = imageId,
+            GeneratedImageOperationId = operationId,
+            VariantIndex = 0,
+            Status = GeneratedImageStatus.Staged,
+            ObjectKey = $"staging/{workspaceId:N}/{imageId:N}.png",
+            MediaType = "image/png",
+            Width = 1024,
+            Height = 1024,
+            SizeBytes = 2048,
+            ContentChecksum = "sha256:" + new string('a', 64),
+            ProviderName = "test-provider",
+            ModelName = "test-model",
+            RetentionExpiresAt = Now + MediaPolicy.StagedImageTimeToLive,
+            CreatedAt = Now,
+            StatusChangedAt = Now,
+        });
+
+        await db.SaveChangesAsync(Ct);
+
+        return imageId;
     }
 
     private async Task<int> CountAsync(Guid workspaceId)
@@ -385,6 +451,115 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
         Assert.Equal(proposalId, saved.AiProposalId);
     }
 
+    /// <summary>
+    /// The stored template triple is the proposal's, not the request's (12.3a's owed decision, settled in
+    /// 12.4a).
+    /// </summary>
+    /// <remarks>
+    /// The server already holds the triple on the proposal that wrote the draft, and the prompt row is
+    /// immutable — so a value the client got wrong could only ever be erased, never corrected. Deriving it
+    /// makes the stored lineage a fact rather than a claim.
+    /// </remarks>
+    [Fact]
+    public async Task The_stored_template_triple_comes_from_the_proposal()
+    {
+        var proposalId = await SeedProposalAsync(WorkspaceA);
+
+        var saved = await SavedAsync(WorkspaceA, Generated(proposalId));
+
+        Assert.Equal("image.prompt", saved.PromptTemplateId);
+        Assert.Equal("1.0.0", saved.PromptTemplateVersion);
+        Assert.Equal("sha256:" + new string('a', 64), saved.PromptTemplateBodyChecksum);
+    }
+
+    [Theory]
+    [InlineData("promptTemplateId")]
+    [InlineData("promptTemplateVersion")]
+    [InlineData("promptTemplateBodyChecksum")]
+    public async Task A_template_value_that_contradicts_the_proposal_is_refused(string field)
+    {
+        var proposalId = await SeedProposalAsync(WorkspaceA);
+
+        // One field at a time, so each is proved to be checked rather than one standing in for three.
+        var model = field switch
+        {
+            "promptTemplateId" => Generated(proposalId) with { PromptTemplateId = "some.other.template" },
+            "promptTemplateVersion" => Generated(proposalId) with { PromptTemplateVersion = "9.9.9" },
+            _ => Generated(proposalId) with
+            {
+                PromptTemplateBodyChecksum = "sha256:" + new string('b', 64),
+            },
+        };
+
+        var result = await SaveAsync(WorkspaceA, model);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ContentErrorCodes.PromptLineageUnprocessable, result.Error!.Code);
+        Assert.Contains(field, result.Error.FieldErrors.Keys);
+        Assert.Equal(0, await CountAsync(WorkspaceA));
+    }
+
+    /// <summary>
+    /// A proposal about one recipe is not where a prompt about another came from.
+    /// </summary>
+    /// <remarks>
+    /// Before 12.4a any proposal the workspace held satisfied any recipe pin, so a prompt could permanently
+    /// claim a provenance that had nothing to do with the dish it names.
+    /// </remarks>
+    [Fact]
+    public async Task A_proposal_about_a_different_recipe_is_refused()
+    {
+        var recipe = await SeedRecipeAsync(WorkspaceA);
+        var other = await SeedRecipeAsync(WorkspaceA);
+
+        var proposalId = await SeedProposalAsync(WorkspaceA, recipeId: other.RecipeId);
+
+        var model = Generated(proposalId) with { RecipeId = recipe.RecipeId };
+
+        var result = await SaveAsync(WorkspaceA, model);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ContentErrorCodes.PromptLineageUnprocessable, result.Error!.Code);
+        Assert.Contains("aiProposalId", result.Error.FieldErrors.Keys);
+        Assert.Equal(0, await CountAsync(WorkspaceA));
+    }
+
+    /// <summary>A proposal about the recipe the prompt pins is accepted, so the refusal above is the rule.</summary>
+    [Fact]
+    public async Task A_proposal_about_the_pinned_recipe_is_accepted()
+    {
+        var recipe = await SeedRecipeAsync(WorkspaceA);
+        var proposalId = await SeedProposalAsync(WorkspaceA, recipeId: recipe.RecipeId);
+
+        var model = Generated(proposalId) with { RecipeId = recipe.RecipeId };
+
+        var saved = await SavedAsync(WorkspaceA, model);
+
+        Assert.Equal(recipe.RecipeId, saved.RecipeId);
+        Assert.Equal(proposalId, saved.AiProposalId);
+    }
+
+    /// <summary>
+    /// A proposal that named no recipe can still be the source of a prompt that pins one.
+    /// </summary>
+    /// <remarks>
+    /// IMG-001's own requests may pin no recipe — a creator plans shoots for recipes they have not written —
+    /// so requiring the proposal to name the same recipe would refuse the commonest real case. The rule is
+    /// only that two <em>stated</em> subjects must not disagree.
+    /// </remarks>
+    [Fact]
+    public async Task A_proposal_that_named_no_recipe_is_accepted_beside_a_recipe_pin()
+    {
+        var recipe = await SeedRecipeAsync(WorkspaceA);
+        var proposalId = await SeedProposalAsync(WorkspaceA, recipeId: null);
+
+        var model = Generated(proposalId) with { RecipeId = recipe.RecipeId };
+
+        var saved = await SavedAsync(WorkspaceA, model);
+
+        Assert.Equal(recipe.RecipeId, saved.RecipeId);
+    }
+
     [Fact]
     public async Task An_unknown_proposal_is_refused()
     {
@@ -452,6 +627,41 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
         Assert.False(borrowed.Succeeded);
         AssertSameRefusal(unknown, borrowed, "aiProposalId");
         Assert.Equal(0, await CountAsync(WorkspaceA));
+    }
+
+    /// <inheritdoc cref="Another_workspaces_recipe_is_refused_exactly_as_an_unknown_one_is"/>
+    /// <remarks>
+    /// The pin 12.3a refused to accept at all until something could verify it. The composite foreign key is the
+    /// authority, so a borrowed id is unrepresentable rather than merely refused — but a storage exception is
+    /// not an answer a creator can act on, and this row can never be corrected once written.
+    /// </remarks>
+    [Fact]
+    public async Task Another_workspaces_generated_image_is_refused_exactly_as_an_unknown_one_is()
+    {
+        var theirs = await SeedGeneratedImageAsync(WorkspaceB);
+
+        var borrowed = await SaveAsync(WorkspaceA, Manual() with { GeneratedImageId = theirs });
+        var unknown = await SaveAsync(WorkspaceA, Manual() with { GeneratedImageId = Guid.NewGuid() });
+
+        Assert.False(borrowed.Succeeded);
+        AssertSameRefusal(unknown, borrowed, "generatedImageId");
+        Assert.Equal(0, await CountAsync(WorkspaceA));
+    }
+
+    /// <summary>And this workspace's own image is stored, so the refusals above are the filter and not the field.</summary>
+    [Fact]
+    public async Task A_prompt_may_name_a_generated_image_of_its_own_workspace()
+    {
+        var mine = await SeedGeneratedImageAsync(WorkspaceA);
+
+        var saved = await SavedAsync(WorkspaceA, Manual() with { GeneratedImageId = mine });
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var stored = await db.PromptRecords.AsNoTracking()
+            .SingleAsync(record => record.Id == saved.PromptRecordId, Ct);
+
+        Assert.Equal(mine, stored.GeneratedImageId);
     }
 
     /// <summary>
@@ -729,6 +939,9 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
             new Domain.Managers.Reference.ContentChannelCatalog(),
             scope.ServiceProvider.GetRequiredService<IRecipeFacade>(),
             alwaysResolves ? new AlwaysResolves() : new ResolvesOnce(),
+
+            // Nothing in this test names a generated image, so the lookup is never asked.
+            new NoGeneratedImages(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             new StoppedClock());
 
@@ -746,12 +959,30 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
 
         public Task<PromptRecord?> GetDetailAsync(Guid promptRecordId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("This double exists to refuse a save; nothing here reads.");
+
+        public Task<PromptTextRecord?> GetTextDownloadAsync(
+            Guid promptRecordId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("This double exists to refuse a save; nothing here downloads.");
     }
 
+    /// <summary>
+    /// A proposal that resolves, recording the same template triple <c>Generated</c> sends.
+    /// </summary>
+    /// <remarks>
+    /// The triple has to agree: since 12.4a the save derives it from the proposal and refuses a request that
+    /// contradicts it, so a double answering some other template would make every generated save in this class
+    /// a lineage refusal.
+    /// </remarks>
     private sealed class AlwaysResolves : IAiProposalLookupFacade
     {
         public Task<bool> ExistsAsync(Guid aiProposalId, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        public Task<AiProposalLineageServiceModel?> FindLineageAsync(
+            Guid aiProposalId, CancellationToken cancellationToken) =>
+            Task.FromResult<AiProposalLineageServiceModel?>(new AiProposalLineageServiceModel(
+                AiTaskType.ImagePrompt, "image.prompt", "1.0.0",
+                $"sha256:{new string('a', 64)}", null, null));
     }
 
     /// <summary>Resolves the first time it is asked and not the second: a pin taken away mid-request.</summary>
@@ -761,6 +992,21 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
 
         public Task<bool> ExistsAsync(Guid aiProposalId, CancellationToken cancellationToken) =>
             Task.FromResult(_asked++ == 0);
+
+        public Task<AiProposalLineageServiceModel?> FindLineageAsync(
+            Guid aiProposalId, CancellationToken cancellationToken) =>
+            Task.FromResult(_asked++ == 0
+                ? new AiProposalLineageServiceModel(
+                    AiTaskType.ImagePrompt, "image.prompt", "1.0.0",
+                    $"sha256:{new string('a', 64)}", null, null)
+                : null);
+    }
+
+    /// <summary>A lookup nothing asks, for the collision tests that name no image.</summary>
+    private sealed class NoGeneratedImages : IGeneratedImageLookupFacade
+    {
+        public Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here names a generated image.");
     }
 
     private sealed class StoppedClock : IClock

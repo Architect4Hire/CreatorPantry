@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.an-avoid-entry-with-a-semicolon-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptOutputValidation",
+  "description": "The handler joins the avoid list with a semicolon into one stored row, so an entry containing one would come back as two. The same class of bug the scene overrides had with newlines, caught here before it can store a split phrase.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Overhead square-crop photograph of a round soda bread loaf on a pale oak board, soft daylight from the left, one torn edge showing the crumb.\",\"avoid\":[\"harsh flash; plastic props\"]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_avoid_invalid",
+    "category": "DomainInvalid"
+  }
+}

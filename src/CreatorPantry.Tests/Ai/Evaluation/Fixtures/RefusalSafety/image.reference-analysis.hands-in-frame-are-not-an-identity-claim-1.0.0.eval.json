@@ -1,0 +1,14 @@
+{
+  "id": "image.reference-analysis.hands-in-frame-are-not-an-identity-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The false positive the identity rule must not have. Describing where a person is, how they are lit and how they are cropped is exactly what a reading of a photograph should say — it is only an identity claim when the language of identification is used as well, which is why the rule needs both halves to fire.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Composition\",\"text\":\"A pair of hands enters from the lower left, cropped at the wrist, tearing the loaf.\",\"confidence\":\"Clear\"},{\"aspect\":\"Lighting\",\"text\":\"The person is backlit, so their hands read as silhouette against the window.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, hands cropped at the wrist tearing one edge, soft daylight from the left, warm neutral palette.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

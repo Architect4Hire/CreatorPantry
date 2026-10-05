@@ -30,6 +30,12 @@ public static class ContentServiceCollectionExtensions
     /// the prompt facade at resolution and nowhere else. <c>AddAiModule</c> registers that lookup, so the AI
     /// request seam is not also required.
     /// </para>
+    /// <para>
+    /// It resolves a prompt's generated-image pin the same way, through the <strong>Media</strong> module's
+    /// <c>IGeneratedImageLookupFacade</c>, so <c>AddMediaModule</c> belongs beside this call in any host that
+    /// serves the prompt routes. 12.3a refused to accept that id at all until something could verify it inside
+    /// the resolved workspace; this is that something, and the row it guards can never be corrected.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddContentModule(this IServiceCollection services)
     {

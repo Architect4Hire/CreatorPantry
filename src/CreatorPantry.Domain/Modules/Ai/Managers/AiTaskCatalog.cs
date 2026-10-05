@@ -71,6 +71,15 @@ public static class AiTaskCatalog
     /// <summary>11A.24: the read-only comparison of samples written without and with one selected guide version.</summary>
     public const string BrandStyleTestDrive = "brand.style-test-drive";
 
+    /// <summary>IMG-001: photography concepts for a subject, each planned as a short shot list.</summary>
+    public const string PhotographyConcept = "image.photography-concept";
+
+    /// <summary>IMG-002: one editable image prompt for one shot of an approved concept.</summary>
+    public const string ImagePrompt = "image.prompt";
+
+    /// <summary>IMG-004: structured observations of a reference image, and a prompt drawn from them.</summary>
+    public const string ReferenceImageAnalysis = "image.reference-analysis";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -85,6 +94,9 @@ public static class AiTaskCatalog
         [SeoPackage] = AiTaskType.SeoPackage,
         [BrandGuideProposal] = AiTaskType.BrandGuideProposal,
         [BrandStyleTestDrive] = AiTaskType.BrandStyleTestDrive,
+        [PhotographyConcept] = AiTaskType.PhotographyConcept,
+        [ImagePrompt] = AiTaskType.ImagePrompt,
+        [ReferenceImageAnalysis] = AiTaskType.ReferenceImageAnalysis,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -160,13 +172,22 @@ public static class AiTaskCatalog
     /// nowhere to travel on the generic contract, the scope is the server's to fix at
     /// <see cref="AiOperationScope.NotApplicable"/>, and it names no recipe.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.PhotographyConcept"/> needs it for the first two reasons and, uniquely so far,
+    /// <strong>not</strong> the third: its recipe is <em>optional</em>. A creator may plan a shoot for a recipe
+    /// they have written or for an idea they have not, so the recipe-nested route would make a pin mandatory
+    /// that the capability treats as a choice — and the scope follows that choice rather than the task, which
+    /// is the one thing no earlier entry in this list does. Its channel, its creator concept and its scene and
+    /// style overrides have nowhere to travel on the generic contract either.
+    /// </para>
     /// </remarks>
     public static bool RequiresTaskInputs(AiTaskType task) =>
         task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
             or AiTaskType.ProposalExplanation or AiTaskType.RecipeConcepts or AiTaskType.RecipeFirstDraft
             or AiTaskType.RecipeRevision or AiTaskType.EditorialPackage
             or AiTaskType.SeoPackage or AiTaskType.BrandGuideProposal
-            or AiTaskType.BrandStyleTestDrive;
+            or AiTaskType.BrandStyleTestDrive or AiTaskType.PhotographyConcept
+            or AiTaskType.ImagePrompt or AiTaskType.ReferenceImageAnalysis;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

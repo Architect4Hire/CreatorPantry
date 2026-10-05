@@ -35,6 +35,12 @@ public static class AiBrandStyleSamplesOutputValidator
     {
         Converters = { new JsonStringEnumConverter(allowIntegerValues: false) },
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+
+        // A provider that answers an explicit null for a non-nullable collection — "changes": null — would
+        // otherwise crash this validator with a NullReferenceException rather than being refused: System.Text.Json
+        // does not enforce a non-nullable annotation unless asked, and a collection initialiser does not survive
+        // an explicit null. With this, the null is a classified, correctable rejection like any other bad shape.
+        RespectNullableAnnotations = true,
     };
 
     // The editorial and SEO pattern, less the handle and hashtag alternation, which are judged separately below.

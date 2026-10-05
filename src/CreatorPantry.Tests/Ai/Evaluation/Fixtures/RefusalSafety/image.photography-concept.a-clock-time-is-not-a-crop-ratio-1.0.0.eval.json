@@ -1,0 +1,16 @@
+{
+  "id": "image.photography-concept.a-clock-time-is-not-a-crop-ratio",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "The crop-ratio exemption is an allow-list of real aspect ratios, not any colon-separated pair. A clock time would otherwise have been stripped before the digits were counted, which is the hole that makes the numeral ban worth having.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"L\",\"mood\":\"M\",\"palette\":\"P\",\"rationale\":\"R\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Shoot at 10:30 for the hard light\",\"surface\":\"S\",\"styling\":\"A torn edge\",\"props\":[]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.photography_numeral_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

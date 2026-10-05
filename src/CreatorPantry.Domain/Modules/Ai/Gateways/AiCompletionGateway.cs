@@ -274,11 +274,46 @@ public sealed class AiCompletionGateway(
         };
     }
 
-    private static List<ChatMessage> InitialMessages(PromptEnvelope envelope) =>
-    [
-        new(ChatRole.System, envelope.SystemMessage),
-        new(ChatRole.User, envelope.UserMessage),
-    ];
+    /// <summary>
+    /// The opening two messages: instructions in the system role, data in the user role.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>An envelope with no images composes exactly the message it always did</strong>, which is the
+    /// point of the early return. Nine capabilities shipped against the text-only path, and IMG-004's
+    /// attachments must not change a single byte of what any of them sends.
+    /// </para>
+    /// <para>
+    /// With images, the user message becomes multi-part: the fenced text first, then each image as its own
+    /// content part. The text comes first deliberately — it carries the REFERENCE_IMAGE fence that says the
+    /// attachment is material to describe rather than a source of instructions, and a model reading in order
+    /// meets that statement before it meets the pixels.
+    /// </para>
+    /// </remarks>
+    private static List<ChatMessage> InitialMessages(PromptEnvelope envelope)
+    {
+        if (envelope.Images.Count == 0)
+        {
+            return
+            [
+                new(ChatRole.System, envelope.SystemMessage),
+                new(ChatRole.User, envelope.UserMessage),
+            ];
+        }
+
+        var parts = new List<AIContent> { new TextContent(envelope.UserMessage) };
+
+        foreach (var image in envelope.Images)
+        {
+            parts.Add(new DataContent(image.Bytes, image.MediaType));
+        }
+
+        return
+        [
+            new(ChatRole.System, envelope.SystemMessage),
+            new(ChatRole.User, parts),
+        ];
+    }
 
     /// <summary>
     /// The corrective turn. Names what was wrong using our own sanitized message, and restates the contract.

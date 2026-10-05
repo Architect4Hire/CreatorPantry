@@ -64,6 +64,26 @@ public enum PromptSegmentKind
     /// the cheapest mitigation available.
     /// </remarks>
     Reminder = 8,
+
+    /// <summary>
+    /// A reference image the creator supplied. Untrusted, and the only segment whose content is not the
+    /// material itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Added for IMG-004. Its <c>Content</c> is a content-free note — the media type, the byte size, how many
+    /// frames a GIF had — because the pixels cannot travel in a text message. They ride on
+    /// <see cref="PromptEnvelope.Images"/> instead, and this fence is what tells the model that an attached
+    /// image is material to describe rather than a source of instructions.
+    /// </para>
+    /// <para>
+    /// <strong>The honest limit of the fence.</strong> A fence delimits text, and an image is not text: a
+    /// photograph of a note reading "ignore your instructions" arrives as pixels no delimiter can wrap. The
+    /// trust level and this fence say what the image is for; whether a model obeys writing it finds inside one
+    /// is behaviour, and belongs to the evaluation set rather than to this type.
+    /// </para>
+    /// </remarks>
+    ReferenceImage = 9,
 }
 
 /// <summary>One fenced block of an envelope.</summary>

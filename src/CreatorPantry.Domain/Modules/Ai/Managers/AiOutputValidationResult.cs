@@ -280,6 +280,131 @@ public static class AiOutputReason
     // best-effort heuristic (AiBrandGuideClaimScanner), which warns rather than refuses, so a rejection code for
     // either would be dead and would imply an enforcement this capability does not have. The warnings carry
     // AiBrandGuideClaimScanner's own codes instead.
+
+    /// <summary>IMG-001 answered with too few or too many concepts.</summary>
+    public const string PhotographyConceptCountOutOfRange = "ai.output.photography_concept_count_out_of_range";
+
+    /// <summary>One concept planned too few or too many shots.</summary>
+    public const string PhotographyShotCountOutOfRange = "ai.output.photography_shot_count_out_of_range";
+
+    /// <summary>A concept or one of its shots left a required field blank.</summary>
+    public const string PhotographyFieldMissing = "ai.output.photography_field_missing";
+
+    /// <summary>
+    /// A concept's shots do not form a shoot: there is no hero frame, more than one, or two shots claim the
+    /// same role.
+    /// </summary>
+    /// <remarks>
+    /// Exactly one hero per concept is what makes a concept addressable by IMG-002 — it composes the hero's
+    /// prompt first — and distinct roles are what stop three frames of the same shot being presented as a shot
+    /// list.
+    /// </remarks>
+    public const string PhotographyShotRolesInvalid = "ai.output.photography_shot_roles_invalid";
+
+    /// <summary>Two concepts share a label, so a creator cannot tell them apart in a list of three.</summary>
+    public const string PhotographyDuplicateLabel = "ai.output.photography_duplicate_label";
+
+    /// <summary>
+    /// A concept wrote a numeral where the brief gave it no number to write.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Numerals are refused outright in a photography concept, with one exception for a crop ratio
+    /// (<c>4:5</c>).</strong> The rule this enforces is "no invented recipe fact": nothing in an IMG-001
+    /// request tells the model a quantity, a time, a temperature, a yield or a serving count, so any such
+    /// figure in a concept is fabricated — and a photograph planned around "bake 25 minutes" has put a recipe
+    /// fact into a creative brief the creator may then act on (ai.md, recipes.md).
+    /// </para>
+    /// <para>
+    /// <strong>Refusing every numeral rather than detecting food units is deliberate.</strong> A unit
+    /// allow-list has to arbitrate <c>35mm</c>, <c>f/2.8</c>, <c>1/125s</c> and <c>180C</c>, and a rule that
+    /// has to tell a lens from an oven is a rule that will get one wrong. A concept describes a picture in
+    /// words — "overhead", "three-quarter", "late morning light" — and camera specifications belong to the
+    /// shot list a photographer writes from it, not to the look itself. The prompt says so, so this code is
+    /// what a model that ignored it receives.
+    /// </para>
+    /// </remarks>
+    public const string PhotographyNumeralNotPermitted = "ai.output.photography_numeral_not_permitted";
+
+    /// <summary>
+    /// A concept made a safety, dietary, nutrition or authenticity claim about the food.
+    /// </summary>
+    /// <remarks>
+    /// A photography concept describes how a dish should look. "Gluten-free", "healthy", "authentic" and
+    /// "guaranteed" are claims about what it is, which this capability has no basis for and which ai.md
+    /// forbids presenting as fact. Styling never carries one.
+    /// </remarks>
+    public const string PhotographyClaimNotPermitted = "ai.output.photography_claim_not_permitted";
+
+    /// <summary>
+    /// A concept carried a link, an account handle, markup or a code fence.
+    /// </summary>
+    /// <remarks>
+    /// None belongs in a shoot plan, and each is the shape an injected instruction or an exfiltration attempt
+    /// takes when it reaches a field a creator will read and act on.
+    /// </remarks>
+    public const string PhotographyTextNotPermitted = "ai.output.photography_text_not_permitted";
+
+    /// <summary>The composed image prompt is missing, too short, or past its length.</summary>
+    /// <remarks>
+    /// Refused rather than trimmed: a prompt cut at a character boundary is a prompt the creator never read
+    /// and the model never wrote, and this is the text that will be sent to an image model.
+    /// </remarks>
+    public const string ImagePromptLengthOutOfRange = "ai.output.image_prompt_length_out_of_range";
+
+    /// <summary>The negative-guidance list is too long, or one of its phrases is.</summary>
+    public const string ImagePromptAvoidInvalid = "ai.output.image_prompt_avoid_invalid";
+
+    /// <summary>
+    /// The prompt made a safety, dietary, nutrition or authenticity claim about the food.
+    /// </summary>
+    /// <remarks>
+    /// The same bar <see cref="PhotographyClaimNotPermitted"/> sets, and it matters more here: this text is
+    /// what gets sent to a provider and saved to the creator's library, so a claim in it outlives the request
+    /// that produced it.
+    /// </remarks>
+    public const string ImagePromptClaimNotPermitted = "ai.output.image_prompt_claim_not_permitted";
+
+    /// <summary>
+    /// The prompt carried a link, an email address, an account handle, markup or a code fence.
+    /// </summary>
+    public const string ImagePromptTextNotPermitted = "ai.output.image_prompt_text_not_permitted";
+
+    /// <summary>
+    /// The prompt named a rendering parameter in its prose.
+    /// </summary>
+    /// <remarks>
+    /// The document has no field for one, so this catches the other route: "--ar 16:9", "seed 1234", "steps
+    /// 30", "Midjourney v6". IMG-002 composes a description of a photograph; what renders it, and with what
+    /// settings, is 12.7's and not something a creator should have to edit out of their saved prompt.
+    /// </remarks>
+    public const string ImagePromptRenderDirectiveNotPermitted =
+        "ai.output.image_prompt_render_directive_not_permitted";
+
+    /// <summary>
+    /// The reference-image observations are missing, too few, too many, duplicated by aspect, undeclared, or
+    /// one of them states no confidence.
+    /// </summary>
+    /// <remarks>
+    /// One code for the whole set, because every case is the same fault from a creator's point of view: the
+    /// reading of their photograph did not come back in a form that can be shown beside it. The reason text
+    /// says which, and the payload never appears in it.
+    /// </remarks>
+    public const string ReferenceImageObservationsInvalid = "ai.output.reference_image_observations_invalid";
+
+    /// <summary>
+    /// The reading identified a person, or asserted who owns a brand or a photograph.
+    /// </summary>
+    /// <remarks>
+    /// Two of the four things IMG-004's RESTRICTION forbids, and the two a regex can actually catch: an
+    /// identity claim about somebody in frame, and an ownership or trademark claim about a logo, a product or
+    /// the picture itself. A model that can see an image will volunteer both unprompted, and either one
+    /// reaches the creator's library as a statement CreatorPantry made about a real person or a real company.
+    /// The third — a food-safety verdict — is caught by the shared claim ban. The fourth, an ingredient
+    /// inferred rather than seen, cannot be judged from the text alone and is the evaluation set's.
+    /// </remarks>
+    public const string ReferenceImageIdentityClaimNotPermitted =
+        "ai.output.reference_image_identity_claim_not_permitted";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

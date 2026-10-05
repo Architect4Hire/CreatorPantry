@@ -1,0 +1,16 @@
+{
+  "id": "image.prompt.a-one-line-answer-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ImagePromptOutputValidation",
+  "description": "A prompt has a length floor: an answer of a few words has not composed anything from the concept it was given, and is refused rather than shown to the creator as a prompt.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt.v1\",\"prompt\":\"Bread photo.\",\"avoid\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_length_out_of_range",
+    "category": "DomainInvalid"
+  }
+}

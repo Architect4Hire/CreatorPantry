@@ -1,3 +1,4 @@
+using System.Text;
 using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
@@ -7,6 +8,7 @@ using CreatorPantry.Domain.Modules.Content.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.Net.Http.Headers;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -15,6 +17,12 @@ namespace CreatorPantry.ApiService.Controllers;
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/prompts")]
 public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerBase
 {
+    /// <summary>The media type of PRM-004's download, without its charset.</summary>
+    public const string PlainTextContentType = "text/plain";
+
+    /// <summary>The media type of PRM-005's export document, without its charset.</summary>
+    public const string JsonContentType = "application/json";
+
     /// <summary>Lists the prompts in the workspace's library, newest first.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
@@ -86,9 +94,10 @@ public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerB
     ///
     /// **A prompt cannot say who saved it.** The row records its author as a membership id, and membership ids
     /// never leave the server; no route can turn one into a person yet either. An author becomes a compatible
-    /// addition once a workspace-members endpoint exists. For the same shape of reason there is no
-    /// `generatedImageId` and no `damAssetId`: the columns exist, nothing can write them until 12.6 and 12.9,
-    /// and a field that is always null would claim a lineage this server cannot record.
+    /// addition once a workspace-members endpoint exists. For a related reason this response carries no
+    /// `generatedImageId` and no `damAssetId`. Nothing can write `damAssetId` until 12.9. `generatedImageId` is
+    /// writable from 12.6, but an id is only worth publishing to a client that can fetch the image, and the
+    /// authorized retrieval that resolves one arrives with 12.8 — a compatible addition when it does.
     /// </remarks>
     [HttpGet("{promptRecordId:guid}")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
@@ -106,6 +115,152 @@ public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerB
         var result = await prompts.GetDetailAsync(promptRecordId, cancellationToken);
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Downloads one prompt of the workspace named by the route as a plain-text file.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="promptRecordId">
+    /// The prompt to download. Constrained to a Guid, so a malformed id never reaches this action: routing
+    /// answers 404 with the edge's generic <c>not_found</c> code rather than this module's, exactly as it does
+    /// for the detail route above.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Every member including a Viewer may read, the same bar as the detail route — this is that read, offered
+    /// as a file. **The body is the prompt and nothing else**: no header lines, no label, no channel, no
+    /// template triple, no timestamp, and not even a trailing newline, so it is byte for byte the `text` the
+    /// detail route publishes. A prompt's provenance travels as PRM-005's JSON record, not as commentary in a
+    /// `.txt` file.
+    ///
+    /// `Content-Type: text/plain; charset=utf-8` with no byte-order mark, and
+    /// `Content-Disposition: attachment` naming it `{label-slug}-{yyyyMMdd-HHmmss}.txt` in UTC. The name is
+    /// ASCII `a-z0-9`, hyphens and one dot by construction, so there is nothing to quote or encode and no way
+    /// for a label to put a path separator, a quote or a line break in the header; it carries no id, no
+    /// workspace and no storage location. The timestamp is the moment the prompt was saved, which is what tells
+    /// two downloads apart when their labels are the same or absent — an immutable row, so the same prompt
+    /// always downloads under the same name. `X-Content-Type-Options: nosniff` is set, because a prompt is
+    /// creator text that may well contain markup.
+    ///
+    /// The response is `no-store` and carries no `ETag`: it is workspace-private creator content, and a file
+    /// save has no revalidating client to offer one to. An unknown id, another workspace's prompt and a
+    /// non-member's request all answer exactly as they do on the detail route — `404
+    /// content.prompt.not_found`, the same code, sentence and body, with no `Content-Disposition` on a refusal.
+    /// </remarks>
+    [HttpGet("{promptRecordId:guid}/text")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<string>(StatusCodes.Status200OK, PlainTextContentType)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetText(
+        string workspaceSlug,
+        Guid promptRecordId,
+        CancellationToken cancellationToken)
+    {
+        // Set before the result is examined, so a refusal carries it too.
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await prompts.GetTextDownloadAsync(promptRecordId, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        var download = result.Value!;
+
+        // ASCII a-z, 0-9, hyphens and one dot by construction, so there is nothing to quote or encode — the
+        // same guarantee the recipe and brand-source downloads rely on, from the same shared folding. Set here
+        // rather than through a FileDownloadName so that one piece of code decides the name and the header.
+        Response.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+        {
+            FileName = download.FileName,
+        }.ToString();
+
+        // Private creator text, which may itself contain markup: nothing may be sniffed into another type.
+        Response.Headers.XContentTypeOptions = "nosniff";
+
+        // The prompt, verbatim. ContentResult encodes with the charset named here and writes no preamble, so
+        // the body is the text's UTF-8 bytes and nothing is prepended to them.
+        return Content(
+            download.Text,
+            new MediaTypeHeaderValue(PlainTextContentType) { Encoding = Encoding.UTF8 }.ToString());
+    }
+
+    /// <summary>Downloads one prompt of the workspace named by the route as a JSON export document.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="promptRecordId">
+    /// The prompt to export. Constrained to a Guid, so a malformed id never reaches this action: routing
+    /// answers 404 with the edge's generic <c>not_found</c> code rather than this module's, as on the two
+    /// routes above.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Every member including a Viewer may read, the same bar as the detail route. The body is a versioned
+    /// document — `{ "schemaVersion": "prompt.record.v1", "prompt": { … } }` — carrying **exactly the fields
+    /// the detail route publishes**, no more: the prompt, the model's draft, the label, the channel and kind,
+    /// the recipe and proposal pins, the template triple and the saved timestamp. It is written field by field
+    /// rather than serialized from a type, so a field added to a response cannot arrive in a creator's
+    /// archived file without a deliberate change here.
+    ///
+    /// **It is deterministic**: the same prompt yields the same bytes forever. Two-space indentation, `\n` line
+    /// endings whatever the host, enum values as the declared names this API already publishes, `createdAt`
+    /// normalized to UTC at full stored precision, nulls written rather than omitted — so "pins no template"
+    /// and "predates templates" cannot read alike — and **no `exportedAt`**, which is what a clock in the
+    /// document would cost. `schemaVersion` changes if a field is removed or changes meaning, never when one is
+    /// added.
+    ///
+    /// **It carries no workspace id, no membership id, no credential, no URL and no object path.** The first
+    /// two never leave the server; the rest a prompt record does not hold, so nothing here is filtering a
+    /// secret out — there is none on the row to begin with. `generatedImageId` and `damAssetId` are absent for
+    /// the reason the detail route gives: `damAssetId` has nothing to write it until 12.9, and
+    /// `generatedImageId` waits for the retrieval that makes an id useful (12.8). Adding one later does not
+    /// change `schemaVersion`.
+    ///
+    /// `Content-Type: application/json; charset=utf-8` with no byte-order mark, and
+    /// `Content-Disposition: attachment` naming it `{label-slug}-{yyyyMMdd-HHmmss}.json` — the same name
+    /// PRM-004 offers with a different extension, ASCII by construction and carrying no id, workspace or
+    /// storage location. `X-Content-Type-Options: nosniff` is set. The response is `no-store` with no `ETag`,
+    /// and an unknown id, another workspace's prompt and a non-member's request answer exactly as they do on
+    /// the other two routes — `404 content.prompt.not_found`, with no `Content-Disposition` on a refusal.
+    /// </remarks>
+    [HttpGet("{promptRecordId:guid}/record")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<string>(StatusCodes.Status200OK, JsonContentType)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetRecord(
+        string workspaceSlug,
+        Guid promptRecordId,
+        CancellationToken cancellationToken)
+    {
+        // Set before the result is examined, so a refusal carries it too.
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await prompts.GetRecordDownloadAsync(promptRecordId, cancellationToken);
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        var export = result.Value!;
+
+        // ASCII a-z, 0-9, hyphens and one dot by construction, as for the text download.
+        Response.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+        {
+            FileName = export.FileName,
+        }.ToString();
+
+        Response.Headers.XContentTypeOptions = "nosniff";
+
+        // Content rather than Ok: the document is already written, and handing it to the response serializer
+        // would re-encode it through MVC's options — which is exactly the indentation, ordering and timestamp
+        // format the domain just decided, decided again somewhere else.
+        return Content(
+            export.Json,
+            new MediaTypeHeaderValue(JsonContentType) { Encoding = Encoding.UTF8 }.ToString());
     }
 
     /// <summary>Saves a prompt to the workspace's library.</summary>
@@ -141,10 +296,12 @@ public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerB
     /// workspace's content is never disclosed to another. A malformed prompt answers
     /// `400 content.prompt.invalid` with field errors.
     ///
-    /// **There is no `generatedImageId` or `damAssetId` yet.** Those columns exist on the record but have no
-    /// foreign key until 12.6 and 12.9, so this server cannot verify an id a client sends for them — and the
-    /// row is immutable, so a wrong value could never be corrected. Each field arrives with the release that
-    /// can check it. Until then a saved prompt carries no asset lineage, and a client should not synthesise one.
+    /// **`generatedImageId` may be sent; `damAssetId` still may not.** The image pin is resolved through the
+    /// Media module inside this workspace before anything is written, and the composite foreign key refuses a
+    /// value that got past that — another workspace's image answers
+    /// `422 content.prompt.lineage.unprocessable` in the same words as an id that does not exist. There is no
+    /// `damAssetId` until 12.9 gives it a foreign key: this server could not verify one, and the row is
+    /// immutable, so a wrong value could never be corrected. A client should not synthesise asset lineage.
     /// </remarks>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]

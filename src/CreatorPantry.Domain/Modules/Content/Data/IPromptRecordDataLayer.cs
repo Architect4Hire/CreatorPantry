@@ -28,6 +28,18 @@ public interface IPromptRecordDataLayer
     /// backend.md names. Nothing is cached, for the reason <c>IPromptRecordFacade.SearchAsync</c> records.
     /// </remarks>
     Task<PromptRecord?> GetDetailAsync(Guid promptRecordId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads what a plain-text download of one prompt is built from, or null when this workspace has none with
+    /// that id.
+    /// </summary>
+    /// <remarks>
+    /// A single read, so there is nothing to compose and no transaction to own, for the reason
+    /// <see cref="GetDetailAsync"/> gives. Nothing is cached either: the body is a prompt, which is the one
+    /// kind of workspace-private creator content this module has decided not to keep a copy of anywhere a
+    /// mis-keyed lookup could reach (<c>IPromptRecordFacade.SearchAsync</c>).
+    /// </remarks>
+    Task<PromptTextRecord?> GetTextDownloadAsync(Guid promptRecordId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IPromptRecordDataLayer"/>
@@ -54,6 +66,10 @@ internal sealed class PromptRecordDataLayer(
 
     public Task<PromptRecord?> GetDetailAsync(Guid promptRecordId, CancellationToken cancellationToken) =>
         records.FindAsync(promptRecordId, cancellationToken);
+
+    public Task<PromptTextRecord?> GetTextDownloadAsync(
+        Guid promptRecordId, CancellationToken cancellationToken) =>
+        records.FindTextAsync(promptRecordId, cancellationToken);
 
     /// <summary>
     /// The transaction boundary for a prompt save — which is, deliberately, whatever transaction the caller

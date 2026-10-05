@@ -11,6 +11,7 @@ using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Vocabulary;
@@ -86,6 +87,11 @@ public static class WorkerHostRegistration
         // The consumer of the recipe-version-changed event the Recipes handler fans out to. Worker-only: the
         // dispatcher that delivers the event runs here, so nothing in the API reacts to a recipe change.
         builder.Services.AddContentModule();
+
+        // The content module resolves a saved prompt's generated-image pin through the Media module, so a
+        // host carrying one carries the other. Nothing here reads prompts yet; 12.7's generation job will,
+        // and a missing registration would surface as a resolution failure at the first claim rather than here.
+        builder.Services.AddMediaModule();
         builder.Services.AddAudit();
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddAiOperationWorker();

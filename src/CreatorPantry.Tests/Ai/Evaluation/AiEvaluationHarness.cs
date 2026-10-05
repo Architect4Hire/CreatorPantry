@@ -52,6 +52,9 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new SeoSlugDerivationCase(),
             new BrandGuideOutputValidationCase(),
             new BrandStyleSamplesOutputValidationCase(),
+            new PhotographyConceptOutputValidationCase(),
+            new ImagePromptOutputValidationCase(),
+            new ReferenceImageOutputValidationCase(),
         }.ToDictionary(evaluationCase => evaluationCase.Kind);
 
     public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(store, Cases);

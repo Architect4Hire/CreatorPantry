@@ -1,0 +1,14 @@
+{
+  "id": "image.photography-concept.kosher-salt-is-a-prop-not-a-claim",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "PhotographyConceptOutputValidation",
+  "description": "The same correction on IMG-001's side, where the bare labels were added first. A flaky-salt prop and a dish whose name includes a diet are both ordinary photography vocabulary, and refusing them would have failed sound concepts for a word in the dish's own name.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.photography.v1\",\"concepts\":[{\"label\":\"Slate and salt\",\"mood\":\"Spare\",\"palette\":\"Cool greys\",\"rationale\":\"Dark surface reads well against a pale crumb\",\"shots\":[{\"kind\":\"Hero\",\"framing\":\"Overhead\",\"lighting\":\"Side window light\",\"surface\":\"Slate board\",\"styling\":\"Vegan brownies broken open\",\"props\":[\"A dish of kosher salt\"]}]}]}",
+    "expectedSchemaVersion": "fixture.photography.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "image.reference-analysis.a-recognisable-loaf-beside-her-hands-is-not-an-identity-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The second false positive in the identity rule, and the reason it matches frames rather than stems. A first pass matched the bare stems identif* and recogni*, so \"a recognisable braided loaf, with her hands dusted in flour\" was refused because an adjective and a pronoun shared a sentence. What identifies somebody is \"recognisable as\", not \"recognisable\".",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Subject\",\"text\":\"A recognisable braided loaf, with her hands dusted in flour at the edge of the frame.\",\"confidence\":\"Clear\"},{\"aspect\":\"Lighting\",\"text\":\"An identifiable window shape reflects in the glaze.\",\"confidence\":\"Probable\"}],\"prompt\":\"Overhead square-crop photograph of a braided loaf on a pale oak board over undyed linen, floured hands cropped at the wrist, daylight from the left, warm neutral palette.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

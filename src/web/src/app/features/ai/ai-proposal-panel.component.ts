@@ -196,6 +196,14 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // labels exist so the map stays exhaustive over the wire enum.
   BrandStyleSampleWithoutGuide: 'Sample without your guide',
   BrandStyleSampleWithGuide: 'Sample with your guide',
+  // Likewise. IMG-001's concepts are a shoot plan read on the Content Pipeline screens, not a diff to the
+  // recipe they may have been planned against — nothing can apply one — and they have no review surface
+  // here yet; the label exists so the map stays exhaustive over the wire enum.
+  PhotographyConcept: 'Photography concept',
+  // Likewise. IMG-002's prompts are edited and saved on the Image Studio screen, not applied to anything.
+  ImagePrompt: 'Image prompt',
+  // Likewise again. IMG-004 reads a photograph the creator uploaded; nothing applies a reading to a recipe.
+  ReferenceImageAnalysis: 'Reference image reading',
 };
 
 /**

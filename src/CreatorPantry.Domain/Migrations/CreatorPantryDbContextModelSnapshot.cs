@@ -3341,6 +3341,211 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("UnitAliases", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentChecksum")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("GeneratedImageOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ModelDeployment")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("ProviderName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("RetentionExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("VariantIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObjectKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_GeneratedImages_ObjectKey");
+
+                    b.HasIndex("GeneratedImageOperationId", "VariantIndex")
+                        .IsUnique()
+                        .HasDatabaseName("UX_GeneratedImages_Operation_Variant");
+
+                    b.HasIndex("Status", "RetentionExpiresAt")
+                        .HasDatabaseName("IX_GeneratedImages_Status_RetentionExpiresAt")
+                        .HasFilter("Status = 1");
+
+                    b.HasIndex("WorkspaceId", "GeneratedImageOperationId", "VariantIndex")
+                        .HasDatabaseName("IX_GeneratedImages_Workspace_Operation_Variant");
+
+                    b.ToTable("GeneratedImages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GeneratedImages_Checksum_NotBlank", "trim(ContentChecksum) <> ''");
+
+                            t.HasCheckConstraint("CK_GeneratedImages_Dimensions_Positive", "Width > 0 AND Height > 0");
+
+                            t.HasCheckConstraint("CK_GeneratedImages_ObjectKey_NotBlank", "trim(ObjectKey) <> ''");
+
+                            t.HasCheckConstraint("CK_GeneratedImages_Pixels_Range", "CAST(Width AS bigint) * CAST(Height AS bigint) <= 50000000");
+
+                            t.HasCheckConstraint("CK_GeneratedImages_SizeBytes_Positive", "SizeBytes > 0");
+
+                            t.HasCheckConstraint("CK_GeneratedImages_Status_Declared", "Status <> 0");
+
+                            t.HasCheckConstraint("CK_GeneratedImages_VariantIndex_Range", "VariantIndex >= 0 AND VariantIndex < 4");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImageOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("AvoidText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FailureCategory")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("FailureSummary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("LeasedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ModelDeployment")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ModelName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptText")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ProviderName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RequestedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("VariantCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "AvailableAt")
+                        .HasDatabaseName("IX_GeneratedImageOperations_Status_AvailableAt")
+                        .HasFilter("Status IN (1, 2)");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId");
+
+                    b.HasIndex("WorkspaceId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_GeneratedImageOperations_Workspace_IdempotencyKey");
+
+                    b.HasIndex("WorkspaceId", "RequestedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_GeneratedImageOperations_Workspace_RequestedAt");
+
+                    b.ToTable("GeneratedImageOperations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_Status_Declared", "Status <> 0");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_VariantCount_Range", "VariantCount >= 1 AND VariantCount <= 4");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5381,6 +5586,12 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImage", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "GeneratedImageId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "RecipeId")
@@ -5507,6 +5718,37 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("MeasurementUnitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImage", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImageOperation", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "GeneratedImageOperationId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImageOperation", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>

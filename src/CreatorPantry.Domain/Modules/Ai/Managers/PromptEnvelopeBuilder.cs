@@ -24,6 +24,7 @@ public sealed class PromptEnvelopeBuilder
 {
     private readonly Guid _workspaceId;
     private readonly List<PromptSegment> _segments = [];
+    private readonly List<PromptImage> _images = [];
 
     /// <param name="workspaceId">The resolved workspace. Every non-instruction segment must match it.</param>
     public PromptEnvelopeBuilder(Guid workspaceId)
@@ -61,6 +62,47 @@ public sealed class PromptEnvelopeBuilder
     public PromptEnvelopeBuilder WithUntrustedText(Guid workspaceId, string content) =>
         Add(PromptSegmentKind.UntrustedText, content, workspaceId);
 
+    /// <summary>
+    /// Attaches one reference image to the user message (IMG-004).
+    /// </summary>
+    /// <param name="workspaceId">The workspace the image was read from, checked as every segment's is.</param>
+    /// <param name="bytes">The image, as stored. Never re-encoded, and never written into the prompt text.</param>
+    /// <param name="mediaType">The type established from the bytes at upload, not one a client declared.</param>
+    /// <param name="note">
+    /// What the fence says about the image: its type, its size, and how many frames it had. Content-free by
+    /// construction, because the pixels travel separately and a note that quoted them would put a creator's
+    /// photograph into the prompt text and from there into a log.
+    /// </param>
+    /// <remarks>
+    /// Accumulating, like <see cref="AddReference"/>: a capability may show a model several references. The
+    /// count and the total size are capped, because an image is thousands of times the size of a text segment
+    /// and an uncapped attachment list is a way to spend a creator's allowance by accident.
+    /// </remarks>
+    public PromptEnvelopeBuilder AddImage(
+        Guid workspaceId, ReadOnlyMemory<byte> bytes, string mediaType, string note)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);
+
+        if (_images.Count >= PromptEnvelopePolicy.MaxImages)
+        {
+            throw new PromptEnvelopeException(
+                $"An envelope carries at most {PromptEnvelopePolicy.MaxImages} images.");
+        }
+
+        if (bytes.Length == 0 || bytes.Length > PromptEnvelopePolicy.ImageMaxBytes)
+        {
+            throw new PromptEnvelopeException(
+                $"A reference image must be between 1 and {PromptEnvelopePolicy.ImageMaxBytes} bytes.");
+        }
+
+        // The note goes through Add, so the image is workspace-checked by exactly the code that checks a text
+        // segment rather than by a second rule that could drift from it.
+        Add(PromptSegmentKind.ReferenceImage, note, workspaceId);
+        _images.Add(new PromptImage(bytes, mediaType, workspaceId));
+
+        return this;
+    }
+
     /// <exception cref="PromptEnvelopeException">
     /// A required segment is missing, a segment came from another workspace, or content carries the fence
     /// token this envelope generated.
@@ -92,6 +134,7 @@ public sealed class PromptEnvelopeBuilder
             PromptSegmentKind.Preferences,
             PromptSegmentKind.Source,
             PromptSegmentKind.References,
+            PromptSegmentKind.ReferenceImage,
             PromptSegmentKind.UntrustedText));
 
         ordered.Add(new PromptSegment(PromptSegmentKind.Reminder, PromptEnvelopePolicy.Reminder));
@@ -106,7 +149,7 @@ public sealed class PromptEnvelopeBuilder
             segment.Kind is not (PromptSegmentKind.Policy or PromptSegmentKind.Task or PromptSegmentKind.OutputSchema)),
             nonce);
 
-        return new PromptEnvelope(nonce, system, user, ordered);
+        return new PromptEnvelope(nonce, system, user, ordered, _images);
     }
 
     private PromptEnvelopeBuilder Add(PromptSegmentKind kind, string content, Guid? workspaceId)

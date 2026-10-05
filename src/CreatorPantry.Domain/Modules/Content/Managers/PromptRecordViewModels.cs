@@ -81,4 +81,27 @@ public sealed record SavePromptRecordViewModel
 
     /// <inheritdoc cref="PromptTemplateId"/>
     public string? PromptTemplateBodyChecksum { get; init; }
+
+    /// <summary>
+    /// The generated image this prompt produced, when it produced one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Refused until 12.6, and accepted now because something can finally verify it.</strong> 12.3a
+    /// deliberately left this field out: the column existed, nothing could resolve an id, and the row is
+    /// immutable — so a wrong value written once could only ever be erased. The generated-image workspace now
+    /// exists, the id is resolved through its facade inside the resolved workspace, and the composite foreign
+    /// key makes a wrong one unrepresentable rather than merely refused.
+    /// </para>
+    /// <para>
+    /// <strong>Set at insert or never.</strong> A prompt record cannot be updated, so a prompt saved before
+    /// its image was committed has no way to gain one afterwards — which is why the save happens after the
+    /// image is staged, from inside the transaction that commits both.
+    /// </para>
+    /// <para>
+    /// There is still no <c>damAssetId</c>: nothing can verify one until 12.9, which is the same reason this
+    /// field waited.
+    /// </para>
+    /// </remarks>
+    public Guid? GeneratedImageId { get; init; }
 }

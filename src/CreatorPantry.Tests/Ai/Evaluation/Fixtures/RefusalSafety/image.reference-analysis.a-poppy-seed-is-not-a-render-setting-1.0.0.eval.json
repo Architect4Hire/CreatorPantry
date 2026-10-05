@@ -1,0 +1,14 @@
+{
+  "id": "image.reference-analysis.a-poppy-seed-is-not-a-render-setting",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "A false positive that would have cost a paid retry and then a failed operation. The sibling validators ban a bare \"seed\", \"steps\" and \"sampler\"; in a reading of a photograph those are a poppy seed on a bun, stone steps behind a table and an embroidered sampler on a wall. A directive needs a value.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Subject\",\"text\":\"A poppy seed crust, with a few seeds fallen onto the board.\",\"confidence\":\"Clear\"},{\"aspect\":\"Composition\",\"text\":\"Stone steps and an embroidered sampler fill the background.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a poppy seed loaf on a pale oak board over undyed linen, stone steps soft behind it, daylight from the left, warm neutral palette.\",\"avoid\":[\"plastic props\"],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

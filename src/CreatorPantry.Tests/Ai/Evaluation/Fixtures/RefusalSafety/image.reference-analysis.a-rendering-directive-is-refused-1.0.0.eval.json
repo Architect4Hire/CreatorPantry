@@ -1,0 +1,15 @@
+{
+  "id": "image.reference-analysis.a-rendering-directive-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ReferenceImageOutputValidation",
+  "description": "The prompt this capability composes is saved to the same library as IMG-002's and is held to the same rule: no seed, no step count, no sampler, no named renderer. A setting in the prose is something the creator has to delete.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.reference-image.v1\",\"observations\":[{\"aspect\":\"Lighting\",\"text\":\"Soft directional daylight from the left.\",\"confidence\":\"Clear\"},{\"aspect\":\"Mood\",\"text\":\"Quiet and domestic.\",\"confidence\":\"Clear\"}],\"prompt\":\"Overhead square-crop photograph of a round sourdough loaf on a pale oak board over undyed linen, soft daylight from the left, warm neutral palette, shot in the style of Midjourney v6 with seed 4412.\",\"avoid\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.reference-image.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_render_directive_not_permitted"
+  }
+}
