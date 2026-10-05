@@ -44,6 +44,12 @@ public sealed class OpenApiContractTests : IDisposable
     [InlineData("RecipeComparisonField", "IngredientPreparationNote")]
     [InlineData("RecipeItemPresence", "Retained")]
     [InlineData("AiQuotaUnit", "Credits")]
+
+    // Both are stored as their number and documented as "append, never renumber", which is exactly the case
+    // the remark above is about: a client carrying a private int mapping would read a renumbering as a
+    // reclassification of every prompt already saved.
+    [InlineData("PromptImageKind", "IngredientLayout")]
+    [InlineData("PromptRecordSource", "ImagePromptComposition")]
     public async Task Enum_schemas_publish_their_member_names(string schema, string member)
     {
         var document = JsonNode.Parse(await GetDocumentTextAsync())!;

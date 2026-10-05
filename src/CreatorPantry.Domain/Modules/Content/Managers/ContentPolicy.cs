@@ -34,4 +34,16 @@ public static class ContentPolicy
 
     /// <summary>The creator's own short name for a prompt.</summary>
     public const int PromptLabelMaxLength = 200;
+
+    /// <summary>
+    /// How much of a prompt a list page carries.
+    /// </summary>
+    /// <remarks>
+    /// Enough to recognise a prompt by its opening, and far short of the <see cref="PromptTextMaxLength"/> a
+    /// row may hold: a hundred-row page of full prompts would be the size of the library, which is what the
+    /// detail route exists to avoid. Truncation happens in SQL, so the bytes are never fetched to be dropped.
+    /// Raising it is a compatible change; lowering it is not, because a client may be rendering what it was
+    /// given.
+    /// </remarks>
+    public const int PromptPreviewMaxLength = 200;
 }

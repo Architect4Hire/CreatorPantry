@@ -5994,6 +5994,306 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/prompts": {
+      "get": {
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Lists the prompts in the workspace\u0027s library, newest first.",
+        "description": "Every member including a Viewer may read. Cursor-paged: follow \u0060nextCursor\u0060 until it is null rather than\ncomparing counts against a page size the server may have clamped. A cursor is bound to the workspace and\nfilters it was issued for, so changing either means starting again without one \u2014\n\u0060content.prompt.cursor.invalid\u0060 says so explicitly. \u0060limit\u0060 is clamped rather than refused. \u0060totalCount\u0060\ncounts every match across all pages and is present unless \u0060includeTotal=false\u0060; it is a row count, not a\npage count, because a keyset ordering has no page N to jump to.\n\n**Newest first is the only ordering**, so there is no \u0060sort\u0060 parameter. Ties between prompts saved in the\nsame instant are broken by id, which is what keeps a page boundary from repeating one and skipping the\nother.\n\n**Each row carries a preview, not the prompt.** \u0060textPreview\u0060 is truncated server-side and \u0060textLength\u0060\nis the full length, so a client can show an ellipsis without fetching what it is eliding; the whole\nprompt, its model draft and its template provenance come from the detail route. An empty library and\nfilters matching nothing are both an empty page, never a \u0060404\u0060, and a \u0060channel\u0060 naming no channel at all\nis the same \u2014 a read keeps answering for keys the catalogue has retired, because a prompt that stored one\nis still in the library. The response is \u0060no-store\u0060: it is workspace-private creator content.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched as a substring of the prompt text or your label. Terms shorter than two characters are ignored. Not matched against the model\u0027s draft, so a prompt is never found by words you removed from it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "description": "One content channel key, such as instagram. A key no channel has, or one retired since a prompt stored it, is an empty page rather than an error.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeTotal",
+            "in": "query",
+            "description": "Whether to count every match alongside the page. Defaults to true; pass false when following a cursor, since counting costs a second query.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptSearchPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptSearchPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptSearchPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Saves a prompt to the workspace\u0027s library.",
+        "description": "Contributor or above, the same bar as creating a recipe. A saved prompt is **immutable**: it is the\nevidence of what produced an image that may already be published, so there is no update and no delete \u2014\nnot even of \u0060label\u0060. A reworked prompt is a new record.\n\n\u0060text\u0060 is authoritative: send the prompt as it was actually used, after any edit the creator made. When a\nmodel wrote the draft, send it as \u0060generatedText\u0060 beside it and name the proposal and the template that\nproduced it; the two are kept side by side so the library can still answer what the creator changed.\n\u0060source\u0060 decides which of those are required \u2014 \u0060Manual\u0060 refuses all of them, every other value requires\n\u0060aiProposalId\u0060, \u0060generatedText\u0060 and all three \u0060promptTemplate*\u0060 fields. A prompt may pin a recipe, and\nwith it the exact version it was written against; a version without its recipe is refused, and so is a\nversion of a different recipe.\n\n\u0060channelKey\u0060 must name a channel CreatorPantry still writes for; retired channels are refused as a new\nchoice. A pin naming a recipe, version or proposal this workspace does not have answers\n\u0060422 content.prompt.lineage.unprocessable\u0060 \u2014 as does another workspace\u0027s id, in the same words, so one\nworkspace\u0027s content is never disclosed to another. A malformed prompt answers\n\u0060400 content.prompt.invalid\u0060 with field errors.\n\n**There is no \u0060generatedImageId\u0060 or \u0060damAssetId\u0060 yet.** Those columns exist on the record but have no\nforeign key until 12.6 and 12.9, so this server cannot verify an id a client sends for them \u2014 and the\nrow is immutable, so a wrong value could never be corrected. Each field arrives with the release that\ncan check it. Until then a saved prompt carries no asset lineage, and a client should not synthesise one.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same prompt returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than saving a second copy.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePromptRecord"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePromptRecord"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePromptRecord"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPromptRecord"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPromptRecord"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPromptRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/prompts/{promptRecordId}": {
+      "get": {
+        "tags": [
+          "Prompts"
+        ],
+        "summary": "Reads one prompt of the workspace named by the route, in full.",
+        "description": "Every member including a Viewer may read. **This is the only route that publishes the prompt itself**:\nthe list carries a truncated \u0060textPreview\u0060 and a \u0060textLength\u0060, and the whole \u0060text\u0060, the model\u0027s\n\u0060generatedText\u0060 and the \u0060promptTemplate*\u0060 triple are here. The response is \u0060no-store\u0060 \u2014 it is\nworkspace-private creator content, and it is the creator\u0027s craft.\n\nAn unknown id answers \u0060404 content.prompt.not_found\u0060. **Another workspace\u0027s prompt answers exactly that\n\u2014 the same code, the same message, the same body** \u2014 so a prompt id cannot be used to ask what a\nneighbour owns. That is not two branches written to match: the workspace query filter means the server\nnever sees the other row at all.\n\n**A prompt cannot say who saved it.** The row records its author as a membership id, and membership ids\nnever leave the server; no route can turn one into a person yet either. An author becomes a compatible\naddition once a workspace-members endpoint exists. For the same shape of reason there is no\n\u0060generatedImageId\u0060 and no \u0060damAssetId\u0060: the columns exist, nothing can write them until 12.6 and 12.9,\nand a field that is always null would claim a lineage this server cannot record.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "promptRecordId",
+            "in": "path",
+            "description": "The prompt to read. Constrained to a Guid, so a malformed id never reaches this action: routing answers\n404, the same status as an unknown prompt and as one belonging to another workspace. The problem body\ndiffers \u2014 an edge 404 carries the generic \u0060not_found\u0060 code rather than this module\u0027s \u2014 so nothing is\ndisclosed, but a client branching on \u0060code\u0060 sees two codes for what is one condition to it.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/proposal-explanation-requests": {
       "post": {
         "tags": [
@@ -17775,6 +18075,216 @@
           }
         }
       },
+      "PromptDetail": {
+        "required": [
+          "promptRecordId",
+          "channelKey",
+          "imageKind",
+          "text",
+          "generatedText",
+          "label",
+          "source",
+          "aiProposalId",
+          "recipeId",
+          "recipeVersionId",
+          "promptTemplateId",
+          "promptTemplateVersion",
+          "promptTemplateBodyChecksum",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "promptRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channelKey": {
+            "type": "string"
+          },
+          "imageKind": {
+            "$ref": "#/components/schemas/PromptImageKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "generatedText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromptRecordSource"
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptTemplateId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateBodyChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PromptImageKind": {
+        "enum": [
+          "Hero",
+          "ProcessStep",
+          "IngredientLayout",
+          "StyledScene",
+          "SocialTile",
+          "PinGraphic",
+          "DetailShot",
+          "Other"
+        ],
+        "type": "string"
+      },
+      "PromptRecordSource": {
+        "enum": [
+          "Manual",
+          "PhotographyConcept",
+          "ImagePromptComposition",
+          "ReferenceImageAnalysis"
+        ],
+        "type": "string"
+      },
+      "PromptSearchPage": {
+        "required": [
+          "items",
+          "nextCursor",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromptSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PromptSummary": {
+        "required": [
+          "promptRecordId",
+          "channelKey",
+          "imageKind",
+          "textPreview",
+          "textLength",
+          "label",
+          "source",
+          "recipeId",
+          "recipeVersionId",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "promptRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channelKey": {
+            "type": "string"
+          },
+          "imageKind": {
+            "$ref": "#/components/schemas/PromptImageKind"
+          },
+          "textPreview": {
+            "type": "string"
+          },
+          "textLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromptRecordSource"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "Quantity": {},
       "QuantityDisplayResult": {
         "required": [
@@ -20686,6 +21196,186 @@
           }
         }
       },
+      "SavedPromptRecord": {
+        "required": [
+          "promptRecordId",
+          "channelKey",
+          "imageKind",
+          "text",
+          "generatedText",
+          "label",
+          "source",
+          "aiProposalId",
+          "recipeId",
+          "recipeVersionId",
+          "promptTemplateId",
+          "promptTemplateVersion",
+          "promptTemplateBodyChecksum",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "promptRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channelKey": {
+            "type": "string"
+          },
+          "imageKind": {
+            "$ref": "#/components/schemas/PromptImageKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "generatedText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromptRecordSource"
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptTemplateId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateBodyChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SavePromptRecord": {
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageKind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromptImageKind"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generatedText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromptRecordSource"
+              }
+            ]
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptTemplateId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateBodyChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ScaleRecipe": {
         "required": [
           "sourceVersionNumber",
@@ -22257,6 +22947,9 @@
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "Prompts"
     },
     {
       "name": "ProposalExplanationRequests"

@@ -17,10 +17,19 @@ public static class ContentServiceCollectionExtensions
     /// so a host that also registers the Recipes module reacts to a recipe gaining a version.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The content-seed generator additionally needs the <strong>Vocabulary</strong> and <strong>Brand</strong>
     /// modules, whose facades it reads for reference vocabulary and for the workspace's declared channels. A host
     /// that registers this module without those two still resolves everything else here — the seed facade is the
     /// only thing that would fail, and it fails loudly at resolution rather than quietly at runtime.
+    /// </para>
+    /// <para>
+    /// The prompt library needs the <strong>Recipes</strong> module and the AI module's
+    /// <c>IAiProposalLookupFacade</c>, which it resolves a prompt's recipe, version and proposal pins through
+    /// before writing a row that can never be corrected. Same bargain as above: a host missing either fails on
+    /// the prompt facade at resolution and nowhere else. <c>AddAiModule</c> registers that lookup, so the AI
+    /// request seam is not also required.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddContentModule(this IServiceCollection services)
     {
@@ -42,6 +51,14 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IWorkspaceWeeklyThemeBusiness, WorkspaceWeeklyThemeBusiness>();
         services.AddScoped<IWorkspaceWeeklyThemeFacade, WorkspaceWeeklyThemeFacade>();
         services.AddScoped<IValidator<ReplaceWeeklyThemesViewModel>, ReplaceWeeklyThemesViewModelValidator>();
+
+        services.AddScoped<IPromptRecordRepository, PromptRecordRepository>();
+        services.AddScoped<IPromptRecordSearchRepository, PromptRecordSearchRepository>();
+        services.AddScoped<IPromptRecordDataLayer, PromptRecordDataLayer>();
+        services.AddScoped<IPromptRecordBusiness, PromptRecordBusiness>();
+        services.AddScoped<IPromptRecordFacade, PromptRecordFacade>();
+        services.AddScoped<IValidator<SavePromptRecordViewModel>, SavePromptRecordViewModelValidator>();
+        services.AddScoped<IValidator<PromptSearchViewModel>, PromptSearchViewModelValidator>();
 
         // The seed generator owns no table, so it has no repository or data layer: it composes this module's
         // weekly themes with the vocabulary and brand facades and the three code-owned catalogues.

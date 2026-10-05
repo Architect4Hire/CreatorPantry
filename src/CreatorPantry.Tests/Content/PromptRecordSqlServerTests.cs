@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Content.Data;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -379,4 +380,236 @@ public sealed class PromptRecordSqlServerTests : IAsyncLifetime
 
         Assert.Equal(["Prompt 3.", "Prompt 2.", "Prompt 1.", "Prompt 0."], newestFirst);
     }
+
+    /// <summary>
+    /// PRM-002's projection against the real engine: the preview is truncated by SQL Server rather than in
+    /// memory, and the full length comes back beside it.
+    /// </summary>
+    /// <remarks>
+    /// Worth proving here rather than only on SQLite, because the two providers translate this differently —
+    /// <c>SUBSTRING</c> against <c>substr</c>, <c>LEN</c> against <c>length</c> — and <c>LEN</c> in particular
+    /// has a documented quirk SQLite's does not: it does not count trailing spaces. The prompt text is trimmed
+    /// on the way in, so that cannot bite a stored row, and this is where that stops being an assumption.
+    /// </remarks>
+    [Fact]
+    public async Task The_summary_projection_truncates_in_the_engine_and_reports_the_real_length()
+    {
+        await using var scope = ScopeFor(WorkspaceA);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var longPrompt = NewRecord(text: new string('a', ContentPolicy.PromptTextMaxLength));
+        var shortPrompt = NewRecord(text: "Overhead shot.");
+        shortPrompt.CreatedAt = Now.AddMinutes(-1);
+        db.PromptRecords.AddRange(longPrompt, shortPrompt);
+        await db.SaveChangesAsync(Ct);
+
+        var (rows, hasMore) = await Search(db, new PromptSearchCriteria(new PromptSearchFilters(), "scope"), Ct);
+
+        Assert.False(hasMore);
+        Assert.Equal(2, rows.Count);
+
+        var first = rows.Single(row => row.Id == longPrompt.Id);
+        Assert.Equal(ContentPolicy.PromptPreviewMaxLength, first.TextPreview.Length);
+        Assert.Equal(ContentPolicy.PromptTextMaxLength, first.TextLength);
+
+        var second = rows.Single(row => row.Id == shortPrompt.Id);
+        Assert.Equal("Overhead shot.", second.TextPreview);
+        Assert.Equal("Overhead shot.".Length, second.TextLength);
+    }
+
+    /// <summary>
+    /// The keyset pages the same way on the real engine, and the channel filter and the search narrow it.
+    /// </summary>
+    /// <remarks>
+    /// The search is the part that cannot be taken on trust from SQLite: the term and the columns are both
+    /// lowered in C# and SQL precisely because SQL Server's default collation is case-insensitive and SQLite's
+    /// is not, so "the same search means the same thing in both" is a claim only a test on both can make.
+    /// </remarks>
+    [Fact]
+    public async Task The_keyset_the_channel_filter_and_the_search_work_on_the_real_engine()
+    {
+        await using var scope = ScopeFor(WorkspaceB, slug: "workspace-b");
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        for (var index = 0; index < 5; index++)
+        {
+            var record = NewRecord(
+                text: index == 0 ? "Overhead shot of SODA bread." : $"Prompt {index}.",
+                channelKey: index % 2 == 0 ? "instagram" : "blog");
+            record.CreatedAt = Now.AddMinutes(index);
+
+            // Labels cleared except on one row, so each search below has exactly one thing it can match. The
+            // shared NewRecord labels everything "Soda bread hero", which would make a text search for "soda"
+            // match every row through its label and prove nothing about either.
+            record.Label = index == 4 ? "Crumb DETAIL" : null;
+
+            db.PromptRecords.Add(record);
+        }
+
+        await db.SaveChangesAsync(Ct);
+
+        // Two pages of two, then one: no row repeated and none skipped.
+        var seen = new List<Guid>();
+        PromptSearchPosition? position = null;
+
+        for (var page = 0; page < 3; page++)
+        {
+            var criteria = new PromptSearchCriteria(new PromptSearchFilters(), "scope", position, RequestedLimit: 2);
+            var (rows, hasMore) = await Search(db, criteria, Ct);
+
+            seen.AddRange(rows.Select(row => row.Id));
+            Assert.Equal(page < 2, hasMore);
+
+            if (!hasMore)
+            {
+                break;
+            }
+
+            Assert.True(PromptSearchPosition.TryCreate(
+                new Domain.Managers.Paging.ReferenceCursor(rows[^1].SortValue, rows[^1].TieBreaker, "unused"),
+                out position));
+        }
+
+        Assert.Equal(5, seen.Count);
+        Assert.Equal(5, seen.Distinct().Count());
+
+        var byChannel = new PromptSearchCriteria(new PromptSearchFilters(ChannelKey: "instagram"), "scope");
+        Assert.Equal(3, await Count(db, byChannel, Ct));
+
+        // Lowercase terms against mixed-case stored values, which is the collation claim — once against the
+        // prompt text and once against the creator's label, because the filter ORs the two.
+        var byText = new PromptSearchCriteria(new PromptSearchFilters(Search: "soda"), "scope");
+        Assert.Equal(1, await Count(db, byText, Ct));
+
+        var byLabel = new PromptSearchCriteria(new PromptSearchFilters(Search: "detail"), "scope");
+        Assert.Equal(1, await Count(db, byLabel, Ct));
+
+        var byNothing = new PromptSearchCriteria(new PromptSearchFilters(Search: "risotto"), "scope");
+        Assert.Equal(0, await Count(db, byNothing, Ct));
+    }
+
+    /// <summary>
+    /// PRM-002's search, its count and its keyset stay inside the resolved workspace on the real engine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The existing <c>Each_workspace_sees_only_its_own_library_on_the_real_engine</c> proves the query filter
+    /// over the bare <c>DbSet</c>. This proves it over the <em>search</em>, which is a different query: a
+    /// lowered <c>LIKE</c> against two columns, a separate <c>COUNT</c> statement, and a keyset predicate — any
+    /// of which a hand-written <c>WorkspaceId</c> predicate or a stray <c>IgnoreQueryFilters</c> could widen
+    /// without the simpler test noticing.
+    /// </para>
+    /// <para>
+    /// The position handed in is deliberately <strong>the other workspace's row</strong>. A cursor cannot
+    /// legitimately carry one — the scope fingerprint refuses it long before here — so this is the forged case,
+    /// and it must reach none of their prompts. It is safe by construction, because a position is only ever a
+    /// <c>WHERE</c> predicate over a set the filter has already scoped; that is precisely why it is worth
+    /// pinning on the engine that evaluates both.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task The_search_the_count_and_the_keyset_stay_inside_the_workspace_on_the_real_engine()
+    {
+        Guid theirPosition;
+        DateTimeOffset theirCreatedAt;
+
+        await using (var theirs = ScopeFor(WorkspaceB, slug: "workspace-b"))
+        {
+            var db = theirs.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+            // The same searchable word in both libraries, so a leak would be visible as a count rather than as
+            // an absence — and a label only they have.
+            var newest = NewRecord(text: "Overhead shot of soda bread.", channelKey: "instagram");
+            newest.Label = "Theirs only";
+            newest.CreatedAt = Now.AddHours(1);
+            db.PromptRecords.Add(newest);
+            await db.SaveChangesAsync(Ct);
+
+            theirPosition = newest.Id;
+            theirCreatedAt = newest.CreatedAt;
+        }
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var mine = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var record = NewRecord(text: "Overhead shot of soda bread.", channelKey: "instagram");
+        record.Label = null;
+        record.CreatedAt = Now;
+        mine.PromptRecords.Add(record);
+        await mine.SaveChangesAsync(Ct);
+
+        var bySearch = new PromptSearchCriteria(new PromptSearchFilters(Search: "soda"), "scope");
+        var (rows, _) = await Search(mine, bySearch, Ct);
+
+        Assert.Equal(record.Id, Assert.Single(rows).Id);
+        Assert.Equal(1, await Count(mine, bySearch, Ct));
+
+        // Their label is not reachable from here at all.
+        var byTheirLabel = new PromptSearchCriteria(new PromptSearchFilters(Search: "theirs only"), "scope");
+        Assert.Equal(0, await Count(mine, byTheirLabel, Ct));
+
+        var byChannel = new PromptSearchCriteria(new PromptSearchFilters(ChannelKey: "instagram"), "scope");
+        Assert.Equal(1, await Count(mine, byChannel, Ct));
+
+        // Positioned on their row, which is newer than mine: mine still follows it, theirs is not there to.
+        Assert.True(PromptSearchPosition.TryCreate(
+            new Domain.Managers.Paging.ReferenceCursor(
+                PromptSearchPosition.FormatTimestamp(theirCreatedAt),
+                theirPosition.ToString("D"),
+                "unused"),
+            out var position));
+
+        var (afterTheirs, _) = await Search(
+            mine, new PromptSearchCriteria(new PromptSearchFilters(), "scope", position), Ct);
+
+        Assert.Equal(record.Id, Assert.Single(afterTheirs).Id);
+        Assert.DoesNotContain(afterTheirs, row => row.Id == theirPosition);
+    }
+
+    /// <summary>
+    /// The detail read is a primary-key seek, and a key seek is exactly the query a hand-written
+    /// <c>WorkspaceId</c> predicate would look unnecessary on — so the real engine is asked whether the global
+    /// filter is in the generated SQL.
+    /// </summary>
+    /// <remarks>
+    /// A key lookup is the shape most likely to be "optimised" into <c>FindAsync</c> or a raw
+    /// <c>SingleAsync(id)</c> at some later date, either of which would read across the boundary while still
+    /// passing a single-workspace test. The row is proved present in its own workspace in the same test, so a
+    /// null here cannot be a seeding mistake reading as isolation.
+    /// </remarks>
+    [Fact]
+    public async Task One_prompt_cannot_be_read_by_id_from_the_other_workspace_on_the_real_engine()
+    {
+        Guid theirId;
+
+        await using (var theirs = ScopeFor(WorkspaceB, slug: "workspace-b"))
+        {
+            var db = theirs.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var record = NewRecord(text: "Theirs, about risotto.");
+            db.PromptRecords.Add(record);
+            await db.SaveChangesAsync(Ct);
+
+            theirId = record.Id;
+
+            // Present and readable by id in its own workspace, so the null below is the filter rather than a
+            // row that was never written.
+            Assert.NotNull(await new PromptRecordRepository(db).FindAsync(theirId, Ct));
+        }
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var mine = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        Assert.Null(await new PromptRecordRepository(mine).FindAsync(theirId, Ct));
+
+        // And an id that exists nowhere answers identically, which is what makes the two one case.
+        Assert.Null(await new PromptRecordRepository(mine).FindAsync(Guid.NewGuid(), Ct));
+    }
+
+    private static Task<(IReadOnlyList<PromptSummaryRecord> Rows, bool HasMore)> Search(
+        CreatorPantryDbContext db, PromptSearchCriteria criteria, CancellationToken cancellationToken) =>
+        new PromptRecordSearchRepository(db).SearchAsync(criteria, cancellationToken);
+
+    private static Task<int> Count(
+        CreatorPantryDbContext db, PromptSearchCriteria criteria, CancellationToken cancellationToken) =>
+        new PromptRecordSearchRepository(db).CountAsync(criteria, cancellationToken);
 }

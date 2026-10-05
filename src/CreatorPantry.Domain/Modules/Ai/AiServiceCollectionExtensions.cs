@@ -54,6 +54,13 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<IAiOperationRepository, AiOperationRepository>();
         services.AddScoped<IAiOperationDataLayer, AiOperationDataLayer>();
 
+        // Here rather than in AddAiProposalSeam, which is the reason this lookup is a class of its own: it
+        // resolves the repository and nothing else, so a module that only needs to resolve a proposal id — the
+        // content module, writing PromptRecord's provenance pin — does not drag the recipe facade and the quota
+        // gate in behind it.
+        services.AddScoped<IAiProposalLookupBusiness, AiProposalLookupBusiness>();
+        services.AddScoped<IAiProposalLookupFacade, AiProposalLookupFacade>();
+
         // Concrete rather than behind an interface: it is the documented cross-workspace carve-out, and giving
         // it an interface would invite something else to be registered as one.
         services.AddScoped<AiOperationClaimRepository>();

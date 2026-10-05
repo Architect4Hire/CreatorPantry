@@ -84,6 +84,18 @@ internal interface IAiOperationRepository
     Task<(int PendingChangeCount, IReadOnlyList<Guid> ProposalIds, IReadOnlyList<AiOutstandingWarningRow> Warnings)>
         SummarizeOutstandingAsync(Guid recipeId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Whether a proposal with this id exists in the resolved workspace.
+    /// </summary>
+    /// <remarks>
+    /// Keyed by the proposal's own id rather than by an operation's, because that is the form another module
+    /// stores: <c>PromptRecord.AiProposalId</c> is workspace-paired to <c>AiProposal</c>, and 12.3a validates
+    /// that pin before writing an immutable row. An unknown id and another workspace's id are deliberately one
+    /// answer — the query filter makes them indistinguishable, which is what stops this being used to probe a
+    /// neighbour's proposal ids.
+    /// </remarks>
+    Task<bool> ProposalExistsAsync(Guid proposalId, CancellationToken cancellationToken);
+
     void AddProposal(AiProposal proposal);
 
     void AddFeedback(AiProposalFeedback feedback);
@@ -253,6 +265,11 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
 
         return (perProposal.Sum(row => row.Count), [.. perProposal.Select(row => row.AiProposalId)], warnings);
     }
+
+    /// <inheritdoc cref="GetAsync"/>
+    public async Task<bool> ProposalExistsAsync(Guid proposalId, CancellationToken cancellationToken) =>
+        await context.AiProposals.AsNoTracking()
+            .AnyAsync(proposal => proposal.Id == proposalId, cancellationToken);
 
     public void AddProposal(AiProposal proposal) => context.AiProposals.Add(proposal);
 

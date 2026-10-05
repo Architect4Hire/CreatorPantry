@@ -3510,7 +3510,7 @@ work. It reasoned sound beforehand; it is the kind of reasoning worth a test.*
 isolation list — mutation through a facade, cache, search, background processing, AI retrieval — cannot be tested
 here because no seam exists to test. It is owed to 12.3a and PRM-002, and is noted in 12.3a.*
 
-### 12.3a Save prompt record
+### 12.3a Save prompt record - done
 
 ```text
 SCOPE: Implement only PRM-001 as the idempotent prompt-save operation used when a generated asset is
@@ -3530,7 +3530,81 @@ loses the index rather than relying on this seam remembering. `CreatedByMembersh
 membership, never from input. And the isolation coverage tenancy.md asks for — mutation, cache, search, background
 and AI retrieval — is **owed here**, because 12.3 could only test the schema.*
 
-### 12.3b List/search prompts
+*Delivery note (2026-10-04). The full seam plus `POST /api/v1/workspaces/{workspaceSlug}/prompts` — Contributor,
+`201` with a `Location`, optional `Idempotency-Key` — in the content module. Three stable codes:
+`content.prompt.invalid` (400, field errors), `content.prompt.lineage.unprocessable` (422) and
+`content.prompt.conflict` (409). The OpenAPI diff is purely additive — one path, two schemas and the two enums,
+which were also added to `OpenApiContractTests`' member-naming theory because both are stored as their number
+and documented "append, never renumber".*
+
+*The carried-forward rule above could not be executed as written, and that was the prompt's one real decision.
+It says to resolve both ids through the owning facade before inserting; **there is no owning facade yet**, so the
+only way to honour it was **not to accept either id**. `generatedImageId` and `damAssetId` are absent from the
+ViewModel and from the facade's command, written null, and their absence is pinned by a test in the style of
+`PromptRecordModelShapeTests` — a rule about what must not be added, which no ordinary test would notice
+breaking, because a field that merely works is exactly how a client writes an unverifiable id into a row that
+can never be corrected. **12.6 and 12.9 each add their field together with the facade check and the composite
+foreign key**, which is an additive contract change, and each deletes its line from that test. The consequence,
+stated rather than left implied: this seam cannot reach
+`UX_PromptRecords_Workspace_GeneratedImage` at all, so the RESTRICTION's "no duplicate prompt records on DAM
+retry" rests entirely on the index 12.3 already tested, and what this prompt protects against is a lost response
+on a client retry.*
+
+*Transaction linkage to DAM-001, which is what BEHAVIOR asked be planned. `PromptRecordDataLayer.SaveAsync`
+**opens no transaction** and that is the linkage rather than the absence of one: a single insert enlists in
+whatever transaction the caller already began on the scope's `DbContext`, which both a keyed request and DAM-001
+will have. `WorkspaceWeeklyThemeDataLayer.ReplaceAsync` needs the conditional `CurrentTransaction` shape because
+a week replace is two ordered statement batches; one insert needs no ordering.
+`A_save_joins_a_transaction_its_caller_already_opened_and_rolls_back_with_it` holds it. **The direction is
+decided by immutability and is not a preference**: DAM-001 writes the prompt inside its own transaction, never
+after the asset commits, because `ImmutableRecordInterceptor` refuses every delete — a prompt row committed
+beside an asset whose object copy then fails has no compensating delete to write, only an erasure. That is now
+written into 12.9a. A failure detaches only the record this call added rather than clearing the change tracker,
+because the caller may be mid-transaction with its own entities staged.*
+
+*A refused insert is **classified, not assumed**, following `LostToAnotherWriterAsync`'s reasoning. The data
+layer returns false; Business re-asks the pins. A pin that has gone is the 422, because that cannot end
+differently however often it is retried; anything else — a deadlock victim, a command timeout — is the 409,
+which genuinely can. Both branches are tested.*
+
+*Three smaller decisions. **The proposal pin needed a new seam**, because `IAiProposalFacade.GetAsync` is keyed
+by recipe and *request* id and an image-prompt proposal need not belong to a recipe at all; the id a record
+stores is `AiProposal.Id`. It is `IAiProposalLookupFacade`, a class of its own in the AI module and registered
+by `AddAiModule` rather than `AddAiProposalSeam` — the reason `IAiProposalFacade.SummarizeOutstandingAsync`
+already records, that `AiProposalBusiness` drags `IRecipeFacade`, the quota gate and the task options behind it,
+which is a lot of graph for one existence check. The recipe pin needed nothing new:
+`IRecipeFacade.GetSnapshotAsync` resolves recipe and version together and refuses a version of another recipe.
+**No audit row**, matching recipe create, which writes none either: the row *is* the record — immutable, with
+its own author and timestamp — and a prompt body is the one thing an audit summary must never hold. **Contributor
+and `KeyRequired: false`**, the house default; the fingerprint is the whole model including the prompt text,
+which is acceptable only because it is HMAC-hashed and the hash alone is stored.*
+
+*One thing the isolation audit surfaced that is **not** a leak and is **not** fixed here, recorded so it is a
+decision rather than an oversight: the proposal pin is checked for **existence only**. Nothing ties it to the
+pinned recipe, or the stored template triple to the triple on the proposal that supposedly wrote the draft — so
+a creator's own client can pair their own proposal with their own recipe or template that did not produce it,
+permanently, because the row is immutable. It is private data in one workspace either way, which is why it did
+not block. It is not enforced now because the three producing tasks do not exist: 12.4, 12.4a and 12.5 are what
+settle what the relationship actually is, and guessing it here would have to be relaxed rather than tightened.
+**12.4a is the place to decide it**, and the strongest available answer is probably to stop accepting the
+template triple at all and derive it from the proposal, since the server already knows it.*
+
+*What is **still owed**, said plainly rather than papered over. Mutation isolation is delivered in full — A
+cannot save into B, B's recipe, version and proposal are unusable as pins from A in the same words an unknown id
+gets, and nothing saves before a workspace is resolved — and so are the role bars and replay. **Cache, search
+and AI retrieval have nothing to test here**: this seam caches nothing, lists nothing and no plugin retrieves a
+prompt yet. Those three move to 12.3b's read seam and to 12.4, and writing tests that only looked like coverage
+would have been worse than saying so. One loose end: the `Location` header names PRM-003's detail route, which
+12.3c serves — a forward reference until then.*
+
+*Amended by 12.3b (2026-10-04): `SavedPromptRecordServiceModel` briefly published `createdByMembershipId`, and
+should not have. `RecipeDetailServiceModel` already states the rule — `WorkspaceId` and the membership ids never
+leave the server — and this contradicted it for an id no route can turn into a person anyway. Removed before
+anything consumed it, with a test pinning the absence, and the row still stores the value. Adding an author to
+PRM-003 is a compatible change once a workspace-members endpoint can name one. **Search isolation and the cache
+item are discharged by 12.3b**, the latter by design rather than by test: see its note.*
+
+### 12.3b List/search prompts - done
 
 ```text
 SCOPE: Implement only PRM-002 paged prompt list with channel filter, search, newest-first default, and
@@ -3540,7 +3614,76 @@ RESTRICTION: No unbounded list, full asset bytes, raw object path, or cross-work
 BEHAVIOR: Show query/index plan, wait for approval, implement filter/paging/isolation tests.
 ```
 
-### 12.3c Prompt detail
+*Delivery note (2026-10-04). `GET /api/v1/workspaces/{workspaceSlug}/prompts` — Viewer, cursor-paged,
+`no-store` — built on the recipe search's shape: a module-owned `PromptSearchPageServiceModel` carrying
+`totalCount` beside the two `CursorPage` fields, a `PromptSearchQueryFactory` that takes the workspace id (the
+one place the shared paging kernel does not carry over), and `PromptSearchScope` binding the cursor to the
+workspace. Two codes: `content.prompt.search.invalid` and `content.prompt.cursor.invalid`, separate so a paging
+client can tell "your filters are wrong" from "start again". **No migration**: 12.3 built both indexes for this
+read, and this prompt is where that pays off.*
+
+*The index plan, and it is the reason this seam has no `sort` parameter. Unfiltered, the keyset rides
+`IX_PromptRecords_Workspace_Created`; with a channel it rides
+`IX_PromptRecords_Workspace_Channel_Created`; both are `(…, CreatedAt DESC, Id DESC)`, so the ordering is a
+seek that arrives already sorted rather than a sort operator. The keyset predicate names those same two columns
+in those same two directions, which is the whole correctness condition — disagree by one column or one
+direction and paging silently repeats or skips rows rather than failing. Offering a second ordering would mean
+either an unindexed sort or a migration this prompt does not own, so `sort` is absent rather than present with
+one accepted value; `PromptSearchScope` pins the ordering by name anyway, so adding one later does not
+invalidate cursors already in flight.*
+
+*The search cost is **stated rather than discovered**: a substring match is not indexable, and neither index
+covers `Text` or `Label`, so a search examines the workspace's rows and pays a key lookup for each. That is
+affordable at a creator-library scale precisely because 12.3 made `Text` `nvarchar(4000)` rather than `MAX`;
+full-text indexing is the escalation path, and it would be its own prompt with its own migration. **The draft
+column is deliberately not searched** — `GeneratedText` exists to record what the creator changed, so matching
+it would find a prompt by the very words they deleted.*
+
+*A summary row carries a **preview, not the prompt**: `textPreview` truncated to
+`ContentPolicy.PromptPreviewMaxLength` by `SUBSTRING` in the database, beside `textLength` so a client can show
+an ellipsis honestly. A hundred-row page of full prompts would be the size of the library, which is what
+PRM-003 exists for. Proved on both engines, because SQLite's `substr`/`length` and SQL Server's
+`SUBSTRING`/`LEN` are different translations of the same expression — and `LEN` has a quirk theirs does not, in
+not counting trailing spaces, which cannot bite a row whose text was trimmed on the way in but is now a test
+rather than an assumption. The row publishes no prompt body, no membership id, no proposal id and no template
+triple, and `PromptSearchTests` fails on a field named like a URL or an object path.*
+
+*Two decisions worth their own line. **Nothing is cached**, and that is how the cache item 12.3a owed here is
+discharged — a workspace-private list that changes whenever a prompt is saved is a poor cache candidate, and a
+cache key missing its workspace prefix is the classic way a list leaks across the boundary; there is no cached
+value to isolate. And **a `channel` naming nothing is an empty page, not a refusal**, unlike a save, which
+validates the key against the catalogue: a read has to keep answering for keys the catalogue has retired,
+because a prompt that stored one is still in the library.*
+
+*Isolation is covered where 12.3a could not cover it: a library holds only its own workspace's rows and counts
+only its own; a term appearing only in B's prompts matches nothing in A, by text and by label; a channel filter
+never reaches B; a cursor minted in A is refused in B, with `PromptSearchScope.Build` asserted directly to
+prove the two fingerprints genuinely differ rather than merely differing because the filters did; and a list
+cannot be read at all before a workspace is resolved. The search, the separate `COUNT` and the keyset predicate
+are each proved scoped on the **real engine** too, because a lowered `LIKE` over two columns and a second
+statement are different queries from the bare `DbSet` the 12.3 test covered — any of them could be widened by a
+hand-written predicate without that one noticing.*
+
+*Two things the isolation review changed, both worth recording because the first was a defect whose own comment
+claimed otherwise. **The scope's variable parts are length-prefixed.** The string is assembled from `|` and
+`=`, and *two* of its values are text a caller chooses — the channel is not catalogue-validated here, by
+design — so `?channel=instagram|q=foo` and `?channel=instagram&search=foo` built the identical scope and would
+have accepted each other's cursors. Same workspace and same caller, so never a leak, but exactly the silent
+skipping and repeating the keyset exists to prevent. `ReferenceQueryKey`'s put-the-term-last rule cannot fix it
+once there are two such values; writing each value's length in front can, and a test now pins that two
+different filter sets never share a scope. **And the fingerprint is not an authorization control** — it is an
+unkeyed checksum that catches a cursor used in the wrong place. A hand-forged cursor is reachable, so there is
+now a test that one carrying this workspace's fingerprint and the other workspace's row as its position still
+returns none of theirs, on SQLite and on SQL Server: safe by construction, because a position is only ever a
+`WHERE` over a set the query filter already scoped, which is precisely why it was worth pinning.*
+
+*The "nothing is cached" decision has a **guard test** rather than only a sentence: a reflection check that no
+implementation on the read path — facade, business, data layer, search repository — takes a constructor
+dependency whose type name contains `Cache`. A list of workspace-private rows put behind `CachedPageReader`
+would work perfectly, and the first key written without a `workspace:{id}:` prefix would serve one creator's
+library to another.*
+
+### 12.3c Prompt detail - done
 
 ```text
 SCOPE: Implement only PRM-003 prompt detail by ID with complete lineage and authorized metadata.
@@ -3548,6 +3691,74 @@ CONSTRAINT: add-content-feature and add-endpoint skills.
 RESTRICTION: Unknown and cross-workspace are indistinguishable; no download presentation in this prompt.
 BEHAVIOR: Plan ServiceModel, wait for approval, implement found/not-found/isolation tests.
 ```
+
+*Owed from 12.3a and 12.3b (2026-10-04). This is the route that serves the **full prompt text**: PRM-002's rows
+carry a truncated `textPreview` and a `textLength`, deliberately, so detail is the only place the whole thing,
+the model's draft and the template triple are published. It is also where the `Location` header PRM-001 returns
+starts resolving — until this ships, that header is a forward reference. On "authorized metadata": the
+membership ids are **not** metadata a route may publish (tenancy.md, and the rule
+`RecipeDetailServiceModel` states), so authorship waits for a workspace-members endpoint that can turn one into
+a person; 12.3a published `createdByMembershipId` by mistake and it was removed. Unknown and cross-workspace
+must be one answer, which the global query filter already makes true — the test worth writing is the one that
+proves the message and body are identical too, not just the status.*
+
+*Delivery note (2026-10-04). `GET /api/v1/workspaces/{workspaceSlug}/prompts/{promptRecordId}` — Viewer,
+`no-store`, one new code `content.prompt.not_found`. **No migration, no validator, no cache, no transaction and
+no audit row**: a keyed read of an immutable row needs none of them, and the `:guid` route constraint is the
+only shape check a single id can fail. The `Location` header PRM-001 has been returning since 12.3a now
+resolves, and `A_created_prompt_is_readable_at_its_location_header` **follows the header** rather than
+rebuilding the URL, so the two route strings cannot drift apart unnoticed.*
+
+*`PromptDetailServiceModel` is **a separate record whose fields match `SavedPromptRecordServiceModel`
+exactly**, which is worth justifying because the duplication is the visible cost. The two are two contracts,
+and the fields that are coming are the reason: an author once a workspace-members endpoint can name one, and
+`generatedImageId`/`damAssetId` once something can verify them. Neither belongs on the reply to a save, and
+welding the shapes would put them there. `Detail_reports_the_same_prompt_the_save_reported` compares the whole
+record field for field, so "separate" cannot quietly become "divergent" while they are still meant to agree —
+a field added to one and not the other has to be a decision rather than an accident.*
+
+*What detail publishes that nothing else does: the **whole `text`**, the model's **`generatedText`**, and the
+**template triple**. It deliberately does *not* carry `textPreview` or `textLength` — a client holding the text
+can measure it — which is the one place this shape is not a superset of the list's row. **The asset ids were
+considered and omitted**, against a literal reading of "complete lineage": nothing can write either column yet,
+so they would be null on every row that exists, and a field that is always null documents a capability this
+server does not have rather than a prompt that produced no asset. Each arrives with the release that can check
+the id (12.6, 12.9), and both are compatible additions.*
+
+*On "authorized metadata", which is the phrase that needed deciding: **a prompt cannot say who saved it, and
+that is the answer rather than a gap left open**. The row stores `CreatedByMembershipId` and it stays on the
+server with `WorkspaceId` (tenancy.md, and the rule `RecipeDetailServiceModel` states); no route can turn a
+membership id into a person anyway, so publishing it would be disclosure with no use. 12.3a's mistake is
+pinned twice now — once over the save response, and here over the published shape by reflection rather than
+over one response, so a field added later is caught whether or not a test happens to read it.*
+
+*The read is a **primary-key seek on the entity, read untracked**, not a projection. The search repository
+projects because a hundred-row page is where two discarded Guids stop being negligible; one row is not, and the
+entity never crosses the HTTP boundary — Business maps it and drops both columns. Untracked matters for a
+reason beyond cost: the row is `IImmutableRecord`, so a tracked copy could only ever be staged into an update
+`ImmutableRecordInterceptor` would refuse. It went on `IPromptRecordRepository`, which that interface's own
+comment had anticipated, and which puts a write-seam repository on a read path for the first time — so the
+no-cache guard test is repeated for the detail path with that repository included.*
+
+*Isolation. The two answers are **one refusal in the code**, not two written to match: the global query filter
+means Business never sees the neighbour's row, so there is a single `record is null` branch and nothing that
+could drift. The tests prove it at both levels anyway — at the facade, code, message and field-error count
+compared between a borrowed id and an invented one, plus an assertion that the shared wording says nothing
+about a workspace (two identical disclosures would pass an equality check); and over HTTP, the entire problem
+body compared with only `traceId` removed. **And on the real engine**, because a key seek is exactly the query
+a hand-written `WorkspaceId` predicate looks unnecessary on and the shape most likely to be "simplified" into
+`FindAsync(id)` later — which would read across the boundary while still passing every single-workspace test.
+That test proves the row is readable by id in its own workspace first, so the null cannot be a seeding mistake
+reading as isolation. The isolation review added one the first pass had missed: **the route-level refusal**, a
+non-member asking for B's real prompt id on B's route, answering as an unknown slug does — the
+`WorkspaceViewer` policy is what makes that so, and a route shipped without it would have passed every other
+test here, because A's own ids are not in B's library either.*
+
+*Two things stated rather than left implicit. **A malformed id is routing's 404, carrying the edge's generic
+`not_found` rather than this module's code** — nothing is disclosed, but a client branching on `code` sees two
+codes for what is one condition to it, so it is a test and a documented note rather than something quietly
+tolerated. And the OpenAPI diff is **purely additive**: one path, one `PromptDetail` schema, no shipped shape
+touched.*
 
 ### 12.3d Prompt text download
 
@@ -3589,6 +3800,14 @@ BEHAVIOR: Show schema/template/evaluations, wait for approval, implement through
 run ai-safety-reviewer.
 ```
 
+*Owed from 12.3a (2026-10-04). PRM-001 validates `aiProposalId` for **existence in the workspace and nothing
+more** — it does not check that the proposal relates to the pinned recipe, nor that the record's
+`PromptTemplateId`/`Version`/`BodyChecksum` match the triple on the proposal that wrote the draft. That was left
+open deliberately, because this prompt is one of the three that decide what the relationship is. Decide it here,
+and consider **deriving the template triple from the proposal instead of accepting it** on the save: the server
+already holds it, the row is immutable, and a mismatch written once can only be erased. Whatever is decided,
+`PromptRecordInputChecks` and `PromptRecordBusiness.UnresolvedPinAsync` are where it lands.*
+
 ### 12.5 Reference-image analysis
 
 ```text
@@ -3619,6 +3838,13 @@ review/apply it, and test workspace ownership.
 workspace-paired alternate key that needs. Add the key in the same change, and expect the migration to fail if any
 stored id is wrong — `PromptRecord` is immutable, so a bad row cannot be repaired, only erased. 12.3a is required to
 validate the id before insert for exactly this reason.*
+
+*How 12.3a answered that (2026-10-04): it **refuses to accept the id at all** until an owning facade exists, so
+every stored value is null and this migration cannot find a wrong one. This is therefore the prompt that adds
+`generatedImageId` to `SavePromptRecordViewModel`, together with the facade check resolving it inside the
+resolved workspace and the composite key above — three parts of one change. A test in
+`PromptRecordValidatorTests` pins the field's absence and must have its matching line deleted here; leaving it
+would be the clearest possible signal that the check was not added.*
 
 ### 12.7 Image-provider gateway and generation worker
 
@@ -3665,6 +3891,15 @@ CONSTRAINT: add-media-feature and add-endpoint skills.
 RESTRICTION: No search/update/delete. Idempotent retry creates one asset. Preserve actual media metadata.
 BEHAVIOR: Show transaction/compensation plan, wait for approval, implement rollback/replay/isolation tests.
 ```
+
+*From 12.3a (2026-10-04), and it constrains the compensation plan this prompt has to show: when this creates an
+asset from a staged image, it calls `IPromptRecordFacade.SaveAsync` **inside its own transaction**, never after
+the asset row commits. `PromptRecord` is `IImmutableRecord`, so `ImmutableRecordInterceptor` refuses every
+delete — there is no compensating delete to write for a prompt row, and one committed beside an asset whose
+object copy then fails could only be erased. `PromptRecordDataLayer.SaveAsync` deliberately opens no
+transaction of its own so that it enlists in this one. This is also the prompt that adds `DamAssetId` to
+`SavePromptRecordViewModel` together with the facade check that resolves it in the resolved workspace; until
+then that field does not exist, and a test pins its absence.*
 
 ### 12.9b Search DAM assets
 
