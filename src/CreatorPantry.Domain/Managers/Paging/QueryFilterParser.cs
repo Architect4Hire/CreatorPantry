@@ -1,4 +1,4 @@
-namespace CreatorPantry.Domain.Modules.Recipes.Managers;
+namespace CreatorPantry.Domain.Managers.Paging;
 
 /// <summary>
 /// Turns the comma-separated strings a filtered query arrives as into typed lists, collecting a field-named
@@ -6,7 +6,7 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Extracted from <see cref="RecipeSearchQueryFactory"/> when <see cref="TestRunHistoryQueryFactory"/> needed the
+/// Extracted from <c>RecipeSearchQueryFactory</c> when <c>TestRunHistoryQueryFactory</c> needed the
 /// same parsing, and shared rather than copied because one of these rules is a correctness property rather than a
 /// convenience: <see cref="TryParseDefined{TEnum}"/> refuses a <em>numeric</em> enum value, which
 /// <see cref="Enum.TryParse{TEnum}(string, bool, out TEnum)"/> otherwise accepts. Two copies of that would
@@ -14,9 +14,10 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// comparing against a value no member has.
 /// </para>
 /// <para>
-/// <strong>Internal to the Recipes module for now.</strong> Nothing here is recipe-specific and a second module
-/// wanting it should promote it to the shared kernel — but a kernel type is a platform-wide commitment, and one
-/// module's two callers do not yet justify making one.
+/// <strong>Promoted to the shared kernel by 12.9b</strong>, which is what the note here used to say should
+/// happen: the DAM's search is the second module to want it, and it sits beside <see cref="ReferenceCursor"/>
+/// and <see cref="PageBuilder"/> because every cursor-paged search needs all three. Still <c>internal</c> —
+/// the commitment is to the assembly, not to anything outside it, and no host parses a query string.
 /// </para>
 /// <para>
 /// Every method returns <c>null</c> for a value the caller did not send, and the errors list is appended to rather

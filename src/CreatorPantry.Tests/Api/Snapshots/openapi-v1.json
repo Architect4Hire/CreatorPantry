@@ -5502,6 +5502,184 @@
       }
     },
     "/api/v1/workspaces/{workspaceSlug}/dam-assets": {
+      "get": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Lists the workspace\u0027s library, filtered and paged.",
+        "description": "Any member may read. Newest first unless \u0060sort=Title\u0060. Cursor-paged: follow \u0060nextCursor\u0060 until it is\nnull. A cursor is bound to the workspace, ordering and filters it was issued for, so changing a\nfilter means starting again without one \u2014 that answers \u0060400 media.asset_search.cursor_invalid_request\u0060\nrather than quietly resuming in a different set.\n\n\u0060limit\u0060 is clamped rather than refused, so a client cannot fail a read by asking for too much.\nFilters combine with AND, except that repeated \u0060tag\u0060, \u0060cuisine\u0060 and \u0060course\u0060 values match an asset\ncarrying any one of them. \u0060createdFrom\u0060 is inclusive and \u0060createdBefore\u0060 exclusive, so adjacent\nranges neither overlap nor gap. Any filter that nothing matches is an empty page, not an error; a\nmalformed one answers \u0060400 media.asset_search.invalid_request\u0060 naming every field it could not read.\n\n**Soft-deleted assets are never listed**, whatever the filters say. Each item carries the current\nversion\u0027s media type and dimensions so a grid can lay out without fetching every asset \u2014 and never\nthe bytes, a checksum, an object key or any address. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Free text matched as a substring of the title or the description, case-insensitively. Not matched against alt text, tags or the file name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "description": "One channel key from the workspace\u0027s own vocabulary. An asset that never said which channel it was for does not match any channel.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "description": "One platform key from the workspace\u0027s own vocabulary.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "day",
+            "in": "query",
+            "description": "One day of the week by name: Sunday through Saturday. Matches the weekly-theme day the asset belongs to.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "style",
+            "in": "query",
+            "description": "One visual style key from the workspace\u0027s own vocabulary.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cuisine",
+            "in": "query",
+            "description": "Comma-separated cuisine ids from the shared reference vocabulary. An asset matches if it carries any one of them.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "course",
+            "in": "query",
+            "description": "Comma-separated course ids from the shared reference vocabulary. An asset matches if it carries any one of them.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Comma-separated workspace tag ids. An asset matches if it carries any one of them.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "query",
+            "description": "Only assets linked to this recipe. An asset linked to it more than once is still listed once.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "createdFrom",
+            "in": "query",
+            "description": "Inclusive ISO 8601 lower bound on when the asset entered the library. Not when it was last used.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "createdBefore",
+            "in": "query",
+            "description": "Exclusive ISO 8601 upper bound on when the asset entered the library, so adjacent ranges neither overlap nor leave a gap.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Ordering: RecentlyAdded (the default) or Title. Arbitrary column names are not accepted.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "includeTotal",
+            "in": "query",
+            "description": "Whether to count the whole filtered set alongside the page. Defaults to true; pass false when following a cursor, since counting costs a second query per page.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetSearchPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetSearchPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetSearchPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
       "post": {
         "tags": [
           "DamAssets"
@@ -5657,6 +5835,192 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}": {
+      "get": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Reads one asset in full: its metadata, its versions, its lineage and its counts.",
+        "description": "Any member may read. The response carries the creator\u0027s own metadata, the current version\u0027s facts, the\nwhole version history newest first, the tags named rather than as ids, and the recipes and prompts the\nasset is linked to. **Utilization is counted here and paged separately**, because it gains a row every\ntime the asset is used and grows without limit; versions travel with the asset because there are a handful.\n\n\u0060recipeLinkCount\u0060 agrees with \u0060recipeLinks\u0060: a link pointing at a recipe this workspace cannot name is\nrefused by the database, so there is none to drop. Prompt lineage names a prompt and never quotes one \u2014\nthe words are read through the prompt\u0027s own route.\n\n**A soft-deleted asset answers \u0060404\u0060 unless \u0060includeDeleted=true\u0060.** Asked for explicitly, it returns with\n\u0060deletedAt\u0060 and \u0060deletedByMembershipId\u0060 set, which is how a creator sees what they deleted and when. The\nimage and download routes refuse a deleted asset either way.\n\nAn unknown id, another workspace\u0027s asset and an unasked-for tombstone are one answer \u2014\n\u0060404 media.asset.not_found\u0060 \u2014 so the reply never discloses that an asset exists elsewhere. Nothing here is\nor becomes an address: no object key, no URL, no bytes. \u0060concurrencyToken\u0060 is opaque and is what a metadata\npatch must quote. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset to read, resolved inside the caller\u0027s own workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "includeDeleted",
+            "in": "query",
+            "description": "True to return a soft-deleted asset with its deletedAt and deletedByMembershipId instead of 404. Defaults to false. The image and download routes refuse a deleted asset regardless of this flag.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}/utilization": {
+      "get": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Reads one page of an asset\u0027s utilization history, newest first.",
+        "description": "Any member may read. Cursor-paged: follow \u0060nextCursor\u0060 until it is null. A cursor is bound to the workspace\nand the asset it was issued for, so sending one to a different asset answers\n\u0060400 media.asset_search.cursor_invalid_request\u0060 rather than quietly paging the wrong history.\n\nOrdered by the date the asset was used, newest first, with the row id breaking the tie three uses on one\nday would otherwise leave undefined. \u0060utilizedOn\u0060 is a calendar date in the workspace\u0027s own zone rather\nthan an instant, and \u0060utilizedDay\u0060 is the weekday derived when the use was logged \u2014 not re-derived here,\nwhich would use this server\u0027s calendar instead of the workspace\u0027s.\n\n\u0060limit\u0060 is clamped rather than refused. An asset that has never been used is an empty page, not an error.\nA soft-deleted asset answers \u0060404\u0060, as does an unknown or inaccessible one \u2014 this route has no\n\u0060includeDeleted\u0060 of its own, because a creator looking at a tombstone is reading its detail rather than\npaging its usage log. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset whose history to read, resolved inside the caller\u0027s own workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "includeTotal",
+            "in": "query",
+            "description": "Whether to count every logged use alongside the page. Defaults to true; pass false when following a cursor, since counting costs a second query per page.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetUtilizationPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetUtilizationPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetUtilizationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -6038,6 +6402,114 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images": {
+      "post": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "Asks for one to four images to be generated from a prompt.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required on this route, unlike most. Image generation is the most expensive call\nthis product makes, and a client whose request committed but whose response was lost would\notherwise retry and buy a second set of images. There is no natural key to fall back on \u2014 the same\nprompt twice is a legitimate thing to want \u2014 so the header is the only thing standing in the way.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestGeneratedImages"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestGeneratedImages"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestGeneratedImages"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageOperation"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageOperation"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -15241,6 +15713,38 @@
           }
         }
       },
+      "AssetPrompt": {
+        "required": [
+          "id",
+          "label",
+          "imageKind",
+          "source",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageKind": {
+            "$ref": "#/components/schemas/PromptImageKind"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromptRecordSource"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "BrandAsset": {
         "required": [
           "mediaAssetId",
@@ -18770,6 +19274,93 @@
         ],
         "type": "string"
       },
+      "GeneratedImageOperation": {
+        "required": [
+          "id",
+          "status",
+          "variantCount",
+          "stagedCount",
+          "providerName",
+          "modelName",
+          "failureCategory",
+          "failureSummary",
+          "requestedAt",
+          "completedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GeneratedImageOperationStatus"
+          },
+          "variantCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "stagedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "providerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "modelName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureCategory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GeneratedImageOperationStatus": {
+        "enum": [
+          "Unspecified",
+          "Requested",
+          "Running",
+          "Succeeded",
+          "PartiallySucceeded",
+          "Failed",
+          "Cancelled"
+        ],
+        "type": "string"
+      },
       "IFormFile": {
         "type": "string",
         "format": "binary"
@@ -19260,6 +19851,198 @@
           }
         }
       },
+      "MediaAssetDetail": {
+        "required": [
+          "id",
+          "title",
+          "description",
+          "altText",
+          "kind",
+          "channelKey",
+          "platformKey",
+          "day",
+          "styleKey",
+          "cuisineId",
+          "courseId",
+          "rightsHolder",
+          "attributionText",
+          "tags",
+          "currentVersion",
+          "versions",
+          "versionCount",
+          "utilizationCount",
+          "recipeLinkCount",
+          "recipeLinks",
+          "prompts",
+          "deletedAt",
+          "deletedByMembershipId",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "altText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaAssetKind"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "platformKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "styleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cuisineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "rightsHolder": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attributionText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAssetTag"
+            }
+          },
+          "currentVersion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MediaAssetVersion"
+              }
+            ]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAssetVersion"
+            }
+          },
+          "versionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "utilizationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recipeLinkCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recipeLinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAssetRecipeLink"
+            }
+          },
+          "prompts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetPrompt"
+            }
+          },
+          "deletedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "deletedByMembershipId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
       "MediaAssetKind": {
         "enum": [
           "Unspecified",
@@ -19357,6 +20140,33 @@
           }
         }
       },
+      "MediaAssetRecipeLink": {
+        "required": [
+          "recipeId",
+          "title",
+          "role",
+          "caption"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RecipeAssetRole"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "MediaAssetRecipeLinkInput": {
         "required": [
           "recipeId",
@@ -19375,6 +20185,346 @@
             ]
           }
         }
+      },
+      "MediaAssetSearchPage": {
+        "required": [
+          "items",
+          "nextCursor",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAssetSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "MediaAssetSummary": {
+        "required": [
+          "id",
+          "title",
+          "description",
+          "kind",
+          "altText",
+          "channelKey",
+          "platformKey",
+          "day",
+          "styleKey",
+          "cuisineId",
+          "courseId",
+          "currentVersionNumber",
+          "mediaType",
+          "width",
+          "height",
+          "sizeBytes",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaAssetKind"
+          },
+          "altText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "platformKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "styleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cuisineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "currentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mediaType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "width": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "height": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MediaAssetTag": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "MediaAssetUtilization": {
+        "required": [
+          "id",
+          "platformKey",
+          "utilizedOn",
+          "utilizedDay",
+          "campaignName",
+          "notes",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platformKey": {
+            "type": "string"
+          },
+          "utilizedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "utilizedDay": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "campaignName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MediaAssetUtilizationPage": {
+        "required": [
+          "items",
+          "nextCursor",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAssetUtilization"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "MediaAssetVersion": {
+        "required": [
+          "versionNumber",
+          "mediaType",
+          "width",
+          "height",
+          "sizeBytes",
+          "contentChecksum",
+          "originalFileName",
+          "source",
+          "sourceGeneratedImageId",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "width": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "height": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "contentChecksum": {
+            "type": "string"
+          },
+          "originalFileName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/MediaAssetVersionSource"
+          },
+          "sourceGeneratedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MediaAssetVersionSource": {
+        "enum": [
+          "Unspecified",
+          "Upload",
+          "GeneratedImage"
+        ],
+        "type": "string"
       },
       "MidpointRounding": {
         "enum": [
@@ -22415,6 +23565,44 @@
             }
           }
         }
+      },
+      "RequestGeneratedImages": {
+        "type": "object",
+        "properties": {
+          "promptText": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The prompt as it will be sent, after any edit the creator made to a composed one."
+          },
+          "avoidText": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What the provider should avoid, when the creator said. Untrusted text, like the prompt."
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The IMG-002 proposal the prompt was composed from, when it was composed rather than written.",
+            "format": "uuid"
+          },
+          "variantCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "How many images to ask for. One to four \u2014 every one of them is a separate charge.",
+            "format": "int32"
+          }
+        },
+        "description": "The body of an image-generation request (IMG-003)."
       },
       "RequestImagePrompt": {
         "type": "object",

@@ -239,6 +239,25 @@ public interface IRecipeFacade
         Guid excludingRecipeId, int limit, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Names recipes another module holds links to, as id and title only, in the resolved workspace.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The counterpart of <see cref="ListApprovedLinkCandidatesAsync"/> for the other direction: that one offers
+    /// targets to link to, this one names targets already linked. The DAM's detail read is the first caller.
+    /// </para>
+    /// <para>
+    /// <strong>An id the resolved workspace cannot see is absent from the result</strong>, not an error, and the
+    /// caller cannot tell an unknown recipe from a neighbour's. That is deliberate: asking about an id must not
+    /// become a way to learn that somebody else's recipe exists (tenancy.md). A caller therefore has to tolerate
+    /// a shorter list than the ids it passed, and must not index the result by position.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
+        IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken);
+
+
+    /// <summary>
     /// Reads one page of one recipe's history, newest first, in the workspace resolved for this scope.
     /// </summary>
     /// <param name="recipeId">The recipe whose history to read, resolved from the route.</param>
@@ -616,6 +635,13 @@ internal sealed class RecipeFacade(
                 .Select(item => new RecipeLinkCandidateServiceModel(item.Id, item.Title))]
             : [];
     }
+
+    public Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
+        IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) =>
+        recipeIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<RecipeLinkCandidateServiceModel>>([])
+            : business.ListTitlesAsync(recipeIds, cancellationToken);
+
 
     public async Task<OperationResult<RecipeSearchPageServiceModel>> SearchAsync(
         RecipeSearchViewModel model,

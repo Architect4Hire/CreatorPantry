@@ -1,9 +1,12 @@
 using CreatorPantry.Domain.Managers.MalwareScanning;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Content.Facade;
+using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Gateways;
 using CreatorPantry.Domain.Modules.Media.Managers;
+using CreatorPantry.Domain.Modules.Recipes.Facade;
 using Microsoft.Extensions.Logging;
 
 namespace CreatorPantry.Domain.Modules.Media.Business;
@@ -16,6 +19,35 @@ public interface IMediaAssetBusiness
     /// <summary>Creates an asset from bytes a creator uploaded.</summary>
     Task<OperationResult<MediaAssetServiceModel>> CreateFromUploadAsync(
         MediaAssetUpload upload, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads one asset of the resolved workspace in full, or reports that it has none with that id.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One expected failure, and only one: no asset this workspace can see has that id. There is no separate
+    /// "belongs to another workspace" branch, because the query filter means this layer never sees a neighbour's
+    /// row — which is what makes the two answers identical rather than merely matched (tenancy.md).
+    /// </para>
+    /// <para>
+    /// A soft-deleted asset is that same failure unless <paramref name="includeDeleted"/> says otherwise.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<MediaAssetDetailServiceModel>> GetDetailAsync(
+        Guid mediaAssetId, bool includeDeleted, CancellationToken cancellationToken);
+
+    /// <summary>Reads one page of one asset's utilization history, newest first.</summary>
+    /// <remarks>
+    /// Checks the asset is visible first, so a history read cannot become a way to learn that a neighbour's asset
+    /// exists by comparing an empty page against a 404. A soft-deleted asset's history is readable only the way
+    /// its detail is.
+    /// </remarks>
+    Task<OperationResult<MediaAssetUtilizationPageServiceModel>> GetUtilizationAsync(
+        MediaAssetUtilizationCriteria criteria, bool includeDeleted, CancellationToken cancellationToken);
+
+    /// <summary>One page of the filtered library (DAM-002).</summary>
+    Task<MediaAssetSearchPageServiceModel> SearchAsync(
+        MediaAssetSearchCriteria criteria, CancellationToken cancellationToken);
 
     /// <summary>Creates an asset from a staged generated image, keeping it.</summary>
     Task<OperationResult<MediaAssetServiceModel>> CreateFromGeneratedImageAsync(
@@ -39,10 +71,83 @@ public interface IMediaAssetBusiness
 internal sealed class MediaAssetBusiness(
     IMediaAssetDataLayer assets,
     IPromptRecordFacade prompts,
+    IRecipeFacade recipes,
     IGeneratedImageDataLayer stagedImages,
     IMalwareScanGateway scanner,
     ILogger<MediaAssetBusiness> logger) : IMediaAssetBusiness
 {
+
+    public async Task<OperationResult<MediaAssetDetailServiceModel>> GetDetailAsync(
+        Guid mediaAssetId, bool includeDeleted, CancellationToken cancellationToken)
+    {
+        var bundle = await assets.FindDetailAsync(mediaAssetId, includeDeleted, cancellationToken);
+
+        if (bundle is null)
+        {
+            return OperationResult<MediaAssetDetailServiceModel>.Failure(NoSuchAsset());
+        }
+
+        // The two lineage reads run together: neither depends on the other, and a detail panel waits for both.
+        // Each is its own module's facade because neither row is one this module may query — PromptRecord is
+        // Content's and carries the foreign key, and Recipe has none pointing here at all (backend.md).
+        var recipeIds = bundle.RecipeLinks.Select(link => link.RecipeId).Distinct().ToList();
+
+        var lineage = prompts.ListForAssetAsync(mediaAssetId, cancellationToken);
+        var titles = recipes.ListTitlesAsync(recipeIds, cancellationToken);
+
+        await Task.WhenAll(lineage, titles);
+
+        var titleById = (await titles).ToDictionary(recipe => recipe.Id, recipe => recipe.Title);
+
+        return OperationResult<MediaAssetDetailServiceModel>.Success(
+            Map(bundle, await lineage, titleById));
+    }
+
+    public async Task<OperationResult<MediaAssetUtilizationPageServiceModel>> GetUtilizationAsync(
+        MediaAssetUtilizationCriteria criteria, bool includeDeleted, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        // Visibility first. Without it an unknown asset and a neighbour's would both answer an empty page, which
+        // reads as "never used" — and a caller could then tell a real asset from a fictional one by nothing at
+        // all. 404 for both is the answer tenancy.md asks for.
+        //
+        // An EXISTS rather than the detail read: a history page has no use for the asset's versions, tags and
+        // links, and paying for three extra statements per page to learn one boolean is the kind of cost that
+        // only shows up once a creator has a long history.
+        if (!await assets.IsAssetVisibleAsync(criteria.MediaAssetId, includeDeleted, cancellationToken))
+        {
+            return OperationResult<MediaAssetUtilizationPageServiceModel>.Failure(NoSuchAsset());
+        }
+
+        var (rows, hasMore, total) = await assets.ListUtilizationAsync(criteria, cancellationToken);
+        var page = PageBuilder.Build(rows, hasMore, criteria.Scope, MapUse);
+
+        return OperationResult<MediaAssetUtilizationPageServiceModel>.Success(
+            new MediaAssetUtilizationPageServiceModel(page.Items, page.NextCursor, total));
+    }
+
+    /// <summary>
+    /// An unknown asset, a neighbour's asset, and a tombstone the caller did not ask for: one answer.
+    /// </summary>
+    /// <remarks>
+    /// Written once so the three cannot drift apart. A distinguishable message for any of them would disclose
+    /// that the other workspace's asset exists (tenancy.md).
+    /// </remarks>
+    private static OperationError NoSuchAsset() =>
+        new(MediaErrorCodes.AssetNotFound, "No such asset.", new Dictionary<string, string[]>());
+
+    public async Task<MediaAssetSearchPageServiceModel> SearchAsync(
+        MediaAssetSearchCriteria criteria, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        var (rows, hasMore, total) = await assets.SearchAsync(criteria, cancellationToken);
+        var page = PageBuilder.Build(rows, hasMore, criteria.Scope, Map);
+
+        return new MediaAssetSearchPageServiceModel(page.Items, page.NextCursor, total);
+    }
+
     public async Task<OperationResult<MediaAssetServiceModel>> CreateFromUploadAsync(
         MediaAssetUpload upload, CancellationToken cancellationToken)
     {
@@ -127,7 +232,7 @@ internal sealed class MediaAssetBusiness(
         {
             // One answer for an unknown id, a neighbour's, an image already rejected and one whose bytes
             // retention has removed, so none of them discloses the others (tenancy.md).
-            return Error(MediaErrorCodes.AssetSourceNotFound, "That generated image could not be found.");
+            return Error(MediaErrorCodes.AssetNotFound, "That generated image could not be found.");
         }
 
         if (staged.Outcome is StagedImageOpenOutcome.StorageUnavailable)
@@ -244,6 +349,110 @@ internal sealed class MediaAssetBusiness(
             recipeId,
             asset.CreatedAt);
     }
+
+    /// <summary>One search row as a page reports it. No bytes, no key, no address.</summary>
+
+    /// <summary>
+    /// Composes one detail from what Media found and what the other two modules could name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A link whose recipe cannot be named is dropped, not named with a placeholder.</strong> Inventing
+    /// "Untitled" would be this layer asserting something about a row it was refused. Unreachable as the schema
+    /// stands — the composite foreign key to <c>Recipe</c> makes a link to an unnameable recipe impossible — so
+    /// this is a guard rather than a path, and the agreement between the list and the count is asserted by
+    /// <c>MediaAssetDetailEndpointTests</c> rather than assumed here.
+    /// </para>
+    /// <para>
+    /// <see cref="MediaAssetDetailServiceModel.CurrentVersion"/> is the version matching
+    /// <c>CurrentVersionNumber</c>, picked from the list already read rather than queried again. Null is reachable
+    /// only for an asset whose current version is missing, which is modelled honestly instead of defaulted —
+    /// listing the asset with no media facts is the more useful failure than hiding it.
+    /// </para>
+    /// </remarks>
+    private static MediaAssetDetailServiceModel Map(
+        MediaAssetDetailBundle bundle,
+        IReadOnlyList<AssetPromptServiceModel> prompts,
+        IReadOnlyDictionary<Guid, string> recipeTitles)
+    {
+        var asset = bundle.Asset;
+        var versions = bundle.Versions.Select(MapVersion).ToList();
+
+        return new MediaAssetDetailServiceModel(
+            asset.Id,
+            asset.Title,
+            asset.Description,
+            asset.AltText,
+            asset.Kind,
+            asset.ChannelKey,
+            asset.PlatformKey,
+            asset.Day,
+            asset.StyleKey,
+            asset.CuisineId,
+            asset.CourseId,
+            asset.RightsHolder,
+            asset.AttributionText,
+            [.. bundle.Tags.Select(tag => new MediaAssetTagServiceModel(tag.Id, tag.Name))],
+            versions.FirstOrDefault(version => version.VersionNumber == asset.CurrentVersionNumber),
+            versions,
+            asset.VersionCount,
+            asset.UtilizationCount,
+            asset.RecipeLinkCount,
+            [.. bundle.RecipeLinks
+                .Where(link => recipeTitles.ContainsKey(link.RecipeId))
+                .Select(link => new MediaAssetRecipeLinkServiceModel(
+                    link.RecipeId, recipeTitles[link.RecipeId], link.Role, link.Caption))],
+            prompts,
+            asset.DeletedAt,
+            asset.DeletedByMembershipId,
+            asset.CreatedAt,
+            asset.UpdatedAt,
+            MediaConcurrencyToken.From(asset.RowVersion));
+    }
+
+    private static MediaAssetVersionServiceModel MapVersion(MediaAssetVersionRecord version) =>
+        new(
+            version.VersionNumber,
+            version.MediaType,
+            version.Width,
+            version.Height,
+            version.SizeBytes,
+            version.ContentChecksum,
+            version.OriginalFileName,
+            version.Source,
+            version.SourceGeneratedImageId,
+            version.CreatedAt);
+
+    private static MediaAssetUtilizationServiceModel MapUse(MediaAssetUtilizationRecord use) =>
+        new(
+            use.Id,
+            use.PlatformKey,
+            use.UtilizedOn,
+            use.UtilizedDay,
+            use.CampaignName,
+            use.Notes,
+            use.CreatedAt);
+
+    private static MediaAssetSummaryServiceModel Map(MediaAssetSearchRecord row) =>
+        new(
+            row.Id,
+            row.Title,
+            row.Description,
+            row.Kind,
+            row.AltText,
+            row.ChannelKey,
+            row.PlatformKey,
+            row.Day,
+            row.StyleKey,
+            row.CuisineId,
+            row.CourseId,
+            row.CurrentVersionNumber,
+            row.MediaType,
+            row.Width,
+            row.Height,
+            row.SizeBytes,
+            row.CreatedAt,
+            row.UpdatedAt);
 
     private static OperationResult<MediaAssetServiceModel> Error(string code, string message) =>
         OperationResult<MediaAssetServiceModel>.Failure(

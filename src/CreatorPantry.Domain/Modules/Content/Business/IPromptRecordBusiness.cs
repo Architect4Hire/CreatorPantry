@@ -50,6 +50,18 @@ public interface IPromptRecordBusiness
         Guid promptRecordId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Names the prompts that produced one DAM asset, newest first, for a caller in another module.
+    /// </summary>
+    /// <remarks>
+    /// Not an <c>OperationResult</c>, deliberately: an asset with no prompts and an asset this workspace cannot
+    /// see are both an empty list, so there is no failure to report and nothing a caller could learn from one.
+    /// A DAM detail read that could not name its prompts should still show the asset.
+    /// </remarks>
+    Task<IReadOnlyList<AssetPromptServiceModel>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken);
+
+
+    /// <summary>
     /// Reads one prompt of the resolved workspace as a plain-text download: the text, and the name to offer it
     /// under.
     /// </summary>
@@ -86,6 +98,12 @@ internal sealed class PromptRecordBusiness(
     IWorkspaceContext workspace,
     IClock clock) : IPromptRecordBusiness
 {
+    public async Task<IReadOnlyList<AssetPromptServiceModel>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken) =>
+        [.. (await dataLayer.ListForAssetAsync(damAssetId, cancellationToken))
+            .Select(row => new AssetPromptServiceModel(
+                row.Id, row.Label, row.ImageKind, row.Source, row.CreatedAt))];
+
     public async Task<OperationResult<SavedPromptRecordServiceModel>> SaveAsync(
         SavePromptRecordViewModel model, CancellationToken cancellationToken)
     {

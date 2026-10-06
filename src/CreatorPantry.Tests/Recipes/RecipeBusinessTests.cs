@@ -3345,6 +3345,10 @@ public sealed class RecipeBusinessTests
 
     private sealed class RecordingRecipeDataLayer : IRecipeDataLayer
     {
+        public Task<IReadOnlyList<RecipeTitleRecord>> ListTitlesAsync(
+            IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<RecipeTitleRecord>>([]);
+
         public int Calls { get; private set; }
 
         public Recipe? Recipe { get; private set; }

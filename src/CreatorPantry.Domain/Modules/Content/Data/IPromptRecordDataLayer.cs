@@ -29,6 +29,11 @@ public interface IPromptRecordDataLayer
     /// </remarks>
     Task<PromptRecord?> GetDetailAsync(Guid promptRecordId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IPromptRecordRepository.ListForAssetAsync"/>
+    Task<IReadOnlyList<AssetPromptRecord>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken);
+
+
     /// <summary>
     /// Reads what a plain-text download of one prompt is built from, or null when this workspace has none with
     /// that id.
@@ -48,6 +53,10 @@ internal sealed class PromptRecordDataLayer(
     IPromptRecordSearchRepository search,
     CreatorPantryDbContext context) : IPromptRecordDataLayer
 {
+    public Task<IReadOnlyList<AssetPromptRecord>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken) =>
+        records.ListForAssetAsync(damAssetId, cancellationToken);
+
     public async Task<(IReadOnlyList<PromptSummaryRecord> Rows, bool HasMore, int? Total)> SearchAsync(
         PromptSearchCriteria criteria, CancellationToken cancellationToken)
     {

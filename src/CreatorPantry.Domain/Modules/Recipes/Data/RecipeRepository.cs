@@ -45,6 +45,23 @@ internal sealed class RecipeRepository(CreatorPantryDbContext context) : IRecipe
             .Select(recipe => (RecipeStatus?)recipe.Status)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<RecipeTitleRecord>> ListTitlesAsync(
+        IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken)
+    {
+        if (recipeIds.Count == 0)
+        {
+            return [];
+        }
+
+        // No WorkspaceId predicate and no IgnoreQueryFilters: the global query filter is what makes another
+        // workspace's recipe absent rather than refused, which is what lets the caller name nothing.
+        return await context.Recipes
+            .AsNoTracking()
+            .Where(recipe => recipeIds.Contains(recipe.Id))
+            .Select(recipe => new RecipeTitleRecord(recipe.Id, recipe.Title))
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>
     /// The one query both reads use, because a snapshot taken from a half-loaded aggregate is a permanent
     /// mistake and two queries that had to stay identical would eventually not be.

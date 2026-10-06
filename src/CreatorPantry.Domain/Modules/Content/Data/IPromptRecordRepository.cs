@@ -67,6 +67,29 @@ public interface IPromptRecordRepository
     /// </para>
     /// </remarks>
     Task<PromptTextRecord?> FindTextAsync(Guid promptRecordId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The prompts that produced one DAM asset, newest first, or empty when this workspace has none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A projection, and a deliberately narrow one.</strong> Lineage names a prompt; it does not quote
+    /// one. <c>Text</c> and <c>GeneratedText</c> are prompt bodies — the creator's craft and the thing a
+    /// competitor would most like to read — so they are not selected at all rather than selected and dropped
+    /// (ai.md). A caller that wants the words asks for one prompt by id, which is its own route.
+    /// </para>
+    /// <para>
+    /// Empty covers an unknown asset and another workspace's asset as one case: the global query filter means a
+    /// neighbour's prompts are not in the set this query runs over, so no caller can turn an asset id into
+    /// evidence that somebody else's asset exists (tenancy.md).
+    /// </para>
+    /// <para>
+    /// Unbounded on purpose, and safely so: a prompt record is written once per committed asset version, so the
+    /// count is the asset's version count. There is no page here to need a cursor.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<AssetPromptRecord>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IPromptRecordRepository"/>
@@ -92,4 +115,18 @@ internal sealed class PromptRecordRepository(CreatorPantryDbContext context) : I
             .Where(prompt => prompt.Id == promptRecordId)
             .Select(prompt => new PromptTextRecord(prompt.Text, prompt.Label, prompt.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<AssetPromptRecord>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken) =>
+        await context.PromptRecords
+            .AsNoTracking()
+
+            // Inside the filtered set, as above. Ordered newest first so lineage reads like a history, with the
+            // id breaking the tie two prompts saved in one tick would otherwise leave undefined.
+            .Where(prompt => prompt.DamAssetId == damAssetId)
+            .OrderByDescending(prompt => prompt.CreatedAt)
+            .ThenByDescending(prompt => prompt.Id)
+            .Select(prompt => new AssetPromptRecord(
+                prompt.Id, prompt.Label, prompt.ImageKind, prompt.Source, prompt.CreatedAt))
+            .ToListAsync(cancellationToken);
 }

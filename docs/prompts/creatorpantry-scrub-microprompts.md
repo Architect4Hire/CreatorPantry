@@ -3877,9 +3877,22 @@ ecosystem's provider-neutral seam.*
 *This prompt also added the **enqueue** half, which its scope sentence does not mention and which no later
 prompt adds either: `IGeneratedImageGenerationFacade.RequestAsync`, Contributor-gated, validated by
 `GeneratedImageInputChecks`, idempotent on `(WorkspaceId, IdempotencyKey)`. Without it the worker has no input
-and 12.7 ships dead code. **An HTTP route is therefore owed before 12.10c Image Studio** — `POST
-/api/v1/workspaces/{workspaceSlug}/generated-images`, with its own ViewModel, FluentValidation rules and an
-OpenAPI snapshot regeneration. It maps onto the facade; the seam does not change.*
+and 12.7 ships dead code.*
+
+*The HTTP route this owed — `POST /api/v1/workspaces/{workspaceSlug}/generated-images` — **landed on
+2026-10-06**, after 12.9a and before 12.9b. It answers **202 Accepted** rather than 201, because nothing is
+generated in the request: the operation is queued and a worker claims it, which is what api-contract.md asks
+of long-running work. The `Idempotency-Key` header is **required** on it, unlike every other route, and the
+action returns the standard `idempotency.key_required` error itself rather than going through
+`IIdempotentCommandExecutor` — because this operation's replay guard is its own unique index on
+`(WorkspaceId, IdempotencyKey)`, not a stored response, and wrapping it would be two mechanisms for one
+guarantee. Removing the read-first lookup leaves the endpoint tests green: the index is the authority and the
+read is the optimisation, which is the shape that was intended.*
+
+*Still owed from it: **a way to read an operation back.** A 202 hands a client an id and a status and no
+route to poll. 12.10b and 12.10c both need one, and whichever lands first should add
+`GET /api/v1/workspaces/{workspaceSlug}/generated-images/operations/{operationId}` — or whatever shape the
+Image Studio actually wants, which is why it was not guessed at here.*
 
 *Two notes for 12.8, which owns the sweep. First, **orphan reconciliation has a known producer**: a worker that
 writes a staging object and dies before committing the row leaves bytes nothing references. The data layer
@@ -4164,6 +4177,62 @@ RESTRICTION: No binary bytes in results; clamp page size; deterministic sort; wo
 BEHAVIOR: Show query/index plan, wait for approval, implement combined-filter/paging/isolation tests.
 ```
 
+*What 12.9b decided (2026-10-06). **No new index, deliberately.** Two filtered indexes from 12.9 do the
+seeking — `IX_MediaAssets_Workspace_CreatedAt` for the default ordering and `IX_MediaAssets_Workspace_Title`
+for the alphabetical one, both `WHERE DeletedAt IS NULL`, so a tombstone never enters the seek rather than
+being filtered out of it. Channel, platform, day, style, cuisine, course, the date bounds and the free-text
+match are all **residual predicates** evaluated after one of those seeks has narrowed the read to one
+workspace: a creator's library is thousands of rows, and an index per filter combination would be paid for on
+every edit to save nothing measurable on a read. Tags and the recipe link are **semi-joins, not joins**, so an
+asset carrying two requested tags appears once — a plain join would also corrupt the page size and the cursor
+following it; `IX_MediaAssetTags_Workspace_Tag_Asset` and `IX_RecipeAssetLinks_Workspace_MediaAsset` serve
+them. Answered during planning: **tags match any** of the ids given, matching `RecipeSearchFilters` and the
+brand source list, and the **date bounds are the asset's own created date**, half-open — "when did this enter
+the library" needs no join, while "when did I last use this" is a utilization question 12.9c surfaces.*
+
+*The two things that cost a correction. `MediaAssetSearchRecord` first computed its cursor halves **in the
+projection**, including `CreatedAt.ToString("O")`; EF would have client-evaluated that top-level `Select` and
+read every column to produce two strings. It now carries the `Sort` and computes both as properties, which is
+what `RecipeSummaryRecord` does and why. And `MediaAssetSearchViewModel` initially published **PascalCase**
+query names (`Search`, `Channel`) because the OpenAPI generator takes the C# name: every parameter now carries
+`[property: FromQuery(Name = "…")]` and a `[property: Description]`, as `RecipeSearchViewModel` explains at
+length. Both were visible only in the regenerated snapshot — reading that diff is what caught the second.*
+
+*A third, caught by the contract review: the page first published **`total`** where
+`RecipeSearchPageServiceModel` and `PromptSearchPageServiceModel` both publish `TotalCount`. The layers below
+all call it `Total` in their tuples, which is where the name came from, but three sibling paged routes
+publishing two names for one fact is exactly the drift api-contract.md is about — and the published name is the
+one that cannot be changed later. Renamed to `TotalCount`. Also corrected an isolation test of my own that
+asserted `Assert.All(rows, ...)` over a prefix and so would have passed on an empty page; it now names both
+expected rows, and the two workspaces are seeded at different instants so the expected page does not depend on
+how the engine orders two GUIDs.*
+
+*Promoted `QueryFilterParser` from `Modules/Recipes/Managers/` into **`Managers/Paging/`**, which the file's
+own note had said should happen once a second module wanted it. It sits beside `ReferenceCursor` and
+`PageBuilder` because every cursor-paged search needs all three, and stays `internal`.*
+
+*One real tripwire, worth separating from the three known `BaseOutputPath` failures:
+`ModuleBoundaryTests.The_scan_actually_sees_the_domain` asserts the file count is in `150..1000`, and 12.9b
+crossed it at 1002. The ceiling is a sanity bound on the scan — it catches a root that has picked up `bin/obj`
+or the whole solution — not a budget on the domain, so it was raised to 1400 rather than the new files not
+being counted.*
+
+*`SqlServerMediaFixture` is a **class fixture**, not per-test lifetime, and that is load-bearing: xUnit builds
+a new instance of a test class per test method, so the container-owning `*SqlServerTests` pattern used
+elsewhere — each with a handful of tests — would have started one SQL Server per test for the two dozen here.
+It does add a container to a full run, which raises contention: a full suite showed
+`AiUsageReconciliationConcurrencyTests.A_losing_pass_still_posts_the_rest_of_its_batch` failing after 32s and
+passing in 2s when its class was re-run alone. Re-run a class before believing a concurrency failure.*
+
+*Not cached, following `IRecipeFacade.SearchAsync`: a filtered page keyed by eleven filters plus a cursor has
+a cache key per query and an invalidation scope of "any asset changed", which is a cache that pays for itself
+on nothing. The response is `no-store` — a creator's private index of their own work must not sit in a shared
+proxy (gateway.md).*
+
+*Still owed, unchanged from 12.9: `MediaAsset` has no global `DeletedAt` filter, so this feature states
+`DeletedAt == null` in its own query. The second reader should land one shared filtered query rather than
+repeating the predicate, and a boundary test flagging a bare `db.MediaAssets` read would be worth having.*
+
 ### 12.9c Retrieve DAM detail
 
 ```text
@@ -4173,6 +4242,96 @@ CONSTRAINT: add-media-feature and add-endpoint skills.
 RESTRICTION: No raw object path or cross-workspace link; soft-deleted detail follows approved policy.
 BEHAVIOR: Plan ServiceModel, wait for approval, implement found/not-found/soft-delete/isolation tests.
 ```
+
+*What 12.9c decided (2026-10-06). Approved during planning: a soft-deleted asset answers **404 unless
+`?includeDeleted=true`**, versions travel **inline** while utilization is **cursor-paged** on its own route, and
+lineage is **resolved to titles and labels** rather than left as ids.*
+
+*The soft-delete policy is the one 12.9e needs. An ordinary read of a tombstone is a 404, so "exclusion from
+ordinary reads" holds and a panel that forgot to check `deletedAt` cannot render a deleted asset as live. Asked
+for explicitly it returns with `deletedAt` and `deletedByMembershipId` — the only way DAM-005 can ever report who
+deleted an asset and when, and the reason `MediaAsset` still has no global filter on `DeletedAt`. The flag widens
+which of the caller's **own** assets are visible and nothing else; a test proves it cannot reach the neighbour's.
+Every byte route refuses regardless, and the utilization route has no flag at all — a creator looking at a
+tombstone is reading its detail, not paging its usage log.*
+
+*Two cross-module reads had to be added, and the architecture left no choice.
+`IPromptRecordFacade.ListForAssetAsync` exists because prompt lineage points the **other way**:
+`PromptRecord.DamAssetId` is Content's column, so Media cannot read it — no foreign key runs from an asset to a
+prompt, and the boundary rule only lets an entity cross where one already does. It publishes a label, a kind and a
+date and **never a prompt body** (ai.md); a test asserts the seeded text appears nowhere in the response.
+`IRecipeFacade.ListTitlesAsync` exists because `RecipeAssetLink` is readable here (its key crosses into Media) but
+`Recipe` is not — and because both live in one namespace, `ModuleBoundaryTests` would **not** have caught that
+reach. Both compositions sit in Business, which is the house pattern: dozens of Business classes across Ai, Brand,
+Content and AiUsage already inject a foreign module's facade. Verified before copying, after 12.9a's lesson about
+citing a precedent without checking it.*
+
+*The claim I had to withdraw. The detail first documented `recipeLinks` as possibly **shorter** than
+`recipeLinkCount`, with a test seeding a link to the other workspace's recipe to prove it. The insert failed:
+`RecipeAssetLink` carries `(WorkspaceId, RecipeId)` to `(WorkspaceId, Id)` on `Recipe` and cascades on delete, so
+such a row is refused by the database — on SQLite as well as SQL Server — and the two counts **always** agree. The
+test now asserts the agreement and, separately, that the database refuses the foreign link; the
+`Where(ContainsKey)` filter stays as a guard against a future shape that key does not cover, documented as a guard
+rather than a path, and the service model, controller and facade remarks were all corrected. A schema disproving a
+design note is the good case — it was written down before it could be believed.*
+
+*Other decisions. Four statements rather than one `Include` graph, because one query over three collections is a
+cartesian product — three versions, four tags and two links is twenty-four rows carrying the root twenty-four
+times — and `AsSplitQuery` would do the same thing less explicitly while still materialising entities. The three
+counts ride on the root's statement as correlated subqueries; two tests pin them to separate values and prove
+another asset's children do not inflate them. `ContentChecksum` **is** published on the detail and stays off the
+search row, following `BrandSourceDocumentVersionDetailServiceModel`: it is what a download's `ETag` is built
+from, so a client holding both can tell whether its bytes are current. `MediaConcurrencyToken` is Media's own,
+duplicating Brand's and Recipes' almost exactly — a token is part of each module's published contract, and sharing
+one helper would make three contracts move together.*
+
+*`MediaErrorCodes.AssetSourceNotFound` became `AssetNotFound`, same published value `media.asset.not_found`, now
+covering both the asset on a read and the staged source on a create. One constant rather than two with one value:
+a client cannot act differently on them, and splitting it would publish a distinction whose only use is telling a
+caller which of two things they cannot see exists.*
+
+*Tooling note: `.OrderBy(x => x.Name)` **after** projecting a join into a record does not translate — EF cannot see
+through the constructor to the property, and the whole class failed at once with one cause. Order on the column,
+then project.*
+
+*Still owed. 12.9i is what writes `MediaAssetUtilization`, so the history route reads a table nothing fills yet;
+the schema and the paging are real and tested, but no end-to-end use exists until then. The utilization route takes
+no filters — narrowing a usage log by platform or date is worth having once there is enough of it to narrow, and
+adding parameters later is compatible.*
+
+*What the reviewers caught. The isolation audit found no leak but three real weaknesses, all fixed.
+`A_tag_join_cannot_name_the_other_workspaces_tag` **proved nothing**: it read B's asset from B's own scope and
+asserted the tag id came back as B's, but that id comes from the `MediaAssetTag` row itself and `WorkspaceTag` is
+keyed on `Id` alone — the assertion held whether or not the join was workspace-aware. Replaced with the real
+guarantee one level down: `MediaAssetTag` carries `(WorkspaceId, WorkspaceTagId)` to `(WorkspaceId, Id)`, so a row
+naming a neighbour's tag is refused. Same class of defect as the vacuous `Assert.All` in 12.9b — worth noticing that
+both were tests whose summary described a stronger claim than the body made.*
+
+*The two new lineage facades had **no isolation test of their own**, only inference from the global filter. They are
+public facade surface anything may call with any id, so they are now called directly from workspace A with B's ids
+and asserted empty, each with a same-workspace positive control beside it. Mutation-tested by adding
+`IgnoreQueryFilters()` to both repository reads: both tests red. The utilization history gained a direct
+cross-workspace read too, pinning the filter on `MediaAssetUtilizations` itself rather than on the visibility check
+above it.*
+
+*`deletedByMembershipId` is the only membership id this read publishes, which the audit flagged as inconsistent
+with the test asserting no `createdByMembershipId` or `updatedByMembershipId`. It is deliberate — who deleted an
+asset is the question DAM-005 exists to answer and no other route could — so the asymmetry is now asserted in that
+same test and explained on the model, rather than left as a silent difference a reader would have to guess about.*
+
+*Also from the audit, and a fair hit: `GetUtilizationAsync` was running the whole four-statement detail bundle,
+counts included, purely to check visibility. It now uses a one-column `EXISTS` on the same filtered set — three
+fewer statements per page, same 404 for an unknown asset, a neighbour's, and a tombstone.*
+
+*The architecture review found no defects, and supplied a precedent I had not cited: `AiDraftAcceptanceBusiness`
+says in so many words that "Business is the only layer permitted to reach another module", with writes still
+delegated to the DataLayer so the transaction boundary stays there. That is exactly the shape 12.9a arrived at for
+the prompt save and 12.9c uses for the two reads.*
+
+*A full run showed two further failures — `PromptsEndpointTests` and `RecipePdfEndpointTests`, at 10s and 11s —
+both passing when their classes were re-run alone. Same SQL container contention `SqlServerMediaFixture` added to
+in 12.9b. The reliable signal remains: a slow failure in a full run is re-run before it is believed; a clean run is
+the three `BaseOutputPath` root-discovery failures and nothing else.*
 
 ### 12.9d Update DAM metadata
 

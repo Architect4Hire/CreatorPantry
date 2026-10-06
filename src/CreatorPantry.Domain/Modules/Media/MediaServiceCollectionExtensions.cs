@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Modules.Media.Gateways;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Storage;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CreatorPantry.Domain.Modules.Media;
@@ -55,6 +56,10 @@ public static class MediaServiceCollectionExtensions
 
         services.AddScoped<IMediaAssetObjectGateway, MediaAssetObjectGateway>();
         services.AddScoped<IMediaAssetRepository, MediaAssetRepository>();
+        services.AddScoped<IMediaAssetSearchRepository, MediaAssetSearchRepository>();
+        services.AddScoped<IMediaAssetDetailRepository, MediaAssetDetailRepository>();
+        services.AddScoped<IValidator<MediaAssetSearchViewModel>, MediaAssetSearchViewModelValidator>();
+        services.AddScoped<IValidator<MediaAssetUtilizationViewModel>, MediaAssetUtilizationViewModelValidator>();
         services.AddScoped<IMediaAssetDataLayer, MediaAssetDataLayer>();
         services.AddScoped<IMediaAssetBusiness, MediaAssetBusiness>();
         services.AddScoped<IMediaAssetFacade, MediaAssetFacade>();

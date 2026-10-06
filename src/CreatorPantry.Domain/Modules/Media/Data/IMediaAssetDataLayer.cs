@@ -80,6 +80,28 @@ public interface IMediaAssetDataLayer
     /// <inheritdoc cref="IMediaAssetRepository.RecipeExistsAsync"/>
     Task<bool> RecipeExistsAsync(Guid recipeId, CancellationToken cancellationToken);
 
+    /// <summary>One page of the filtered library, and the total when the caller asked for it.</summary>
+    /// <remarks>
+    /// A single read, so there is nothing to compose and no transaction to own — the method exists because
+    /// the seam does, and because a Business layer reaching the repository would be the defect backend.md
+    /// names. Nothing is cached, for the reason <c>IRecipeFacade.SearchAsync</c> records at length.
+    /// </remarks>
+    Task<(IReadOnlyList<MediaAssetSearchRecord> Rows, bool HasMore, int? Total)> SearchAsync(
+        MediaAssetSearchCriteria criteria, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetDetailRepository.FindAsync"/>
+    Task<MediaAssetDetailBundle?> FindDetailAsync(
+        Guid mediaAssetId, bool includeDeleted, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetDetailRepository.IsVisibleAsync"/>
+    Task<bool> IsAssetVisibleAsync(
+        Guid mediaAssetId, bool includeDeleted, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetDetailRepository.ListUtilizationAsync"/>
+    Task<(IReadOnlyList<MediaAssetUtilizationRecord> Rows, bool HasMore, int? Total)> ListUtilizationAsync(
+        MediaAssetUtilizationCriteria criteria, CancellationToken cancellationToken);
+
+
     /// <summary>Creates an asset, its first version, its tags, its recipe link and its prompt.</summary>
     /// <param name="savePrompt">
     /// Saves the prompt the creation carries, inside this layer's transaction, and is null when it carries
@@ -118,6 +140,8 @@ public interface IMediaAssetDataLayer
 /// </remarks>
 internal sealed class MediaAssetDataLayer(
     IMediaAssetRepository assets,
+    IMediaAssetSearchRepository search,
+    IMediaAssetDetailRepository detail,
     IMediaAssetObjectGateway objects,
     IGeneratedImageRepository generatedImages,
     IWorkspaceContext workspace,
@@ -126,6 +150,23 @@ internal sealed class MediaAssetDataLayer(
 {
     public Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
         assets.ExistsAsync(mediaAssetId, cancellationToken);
+
+    public Task<(IReadOnlyList<MediaAssetSearchRecord> Rows, bool HasMore, int? Total)> SearchAsync(
+        MediaAssetSearchCriteria criteria, CancellationToken cancellationToken) =>
+        search.SearchAsync(criteria, cancellationToken);
+
+    public Task<MediaAssetDetailBundle?> FindDetailAsync(
+        Guid mediaAssetId, bool includeDeleted, CancellationToken cancellationToken) =>
+        detail.FindAsync(mediaAssetId, includeDeleted, cancellationToken);
+
+    public Task<bool> IsAssetVisibleAsync(
+        Guid mediaAssetId, bool includeDeleted, CancellationToken cancellationToken) =>
+        detail.IsVisibleAsync(mediaAssetId, includeDeleted, cancellationToken);
+
+    public Task<(IReadOnlyList<MediaAssetUtilizationRecord> Rows, bool HasMore, int? Total)> ListUtilizationAsync(
+        MediaAssetUtilizationCriteria criteria, CancellationToken cancellationToken) =>
+        detail.ListUtilizationAsync(criteria, cancellationToken);
+
 
     public Task<MediaAsset?> FindByGeneratedImageAsync(
         Guid generatedImageId, CancellationToken cancellationToken) =>

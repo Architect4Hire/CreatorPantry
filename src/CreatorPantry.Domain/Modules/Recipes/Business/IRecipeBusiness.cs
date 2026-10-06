@@ -592,6 +592,17 @@ public interface IRecipeBusiness
         string actorUserId,
         string? expectedConcurrencyToken,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Names <paramref name="recipeIds"/> for a caller in another module, as id and title only.
+    /// </summary>
+    /// <remarks>
+    /// Maps straight to the published <see cref="RecipeLinkCandidateServiceModel"/> because there is nothing to
+    /// decide: an id the resolved workspace cannot see is absent, which is the repository's doing and the only
+    /// behaviour this needs. Order follows the ids given, so a caller that passed a sorted list gets one back.
+    /// </remarks>
+    Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
+        IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken);
 }
 
 internal sealed class RecipeBusiness(
@@ -599,6 +610,19 @@ internal sealed class RecipeBusiness(
     IWorkspaceContext workspace,
     IClock clock) : IRecipeBusiness
 {
+    public async Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
+        IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken)
+    {
+        var found = await dataLayer.ListTitlesAsync(recipeIds, cancellationToken);
+        var byId = found.ToDictionary(row => row.Id, row => row.Title);
+
+        // Ordered by the ids the caller gave rather than by what the database returned, so a caller that sorted
+        // its links keeps that order. Anything the workspace cannot see is skipped rather than named.
+        return [.. recipeIds
+            .Where(byId.ContainsKey)
+            .Select(id => new RecipeLinkCandidateServiceModel(id, byId[id]))];
+    }
+
     public async Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
         CanonicalCreateRecipe input,
         MeasurementDimension? yieldUnitDimension,

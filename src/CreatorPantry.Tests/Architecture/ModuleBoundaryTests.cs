@@ -163,7 +163,10 @@ public sealed class ModuleBoundaryTests
         var files = DomainFiles();
 
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
-        Assert.InRange(files.Count, 150, 1000);
+        // The upper bound is a scan sanity check, not a budget on the domain: it catches a root that has
+        // picked up the wrong tree — bin/obj, or the whole solution — rather than growth. 12.9b crossed the
+        // old ceiling of 1000 honestly, so it was raised rather than the files not counted.
+        Assert.InRange(files.Count, 150, 1400);
         // Eleven since 12.6 added Media.
         Assert.Equal(11, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 

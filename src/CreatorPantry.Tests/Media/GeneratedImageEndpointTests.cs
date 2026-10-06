@@ -45,6 +45,130 @@ public sealed class GeneratedImageEndpointTests : IAsyncLifetime
 
     public ValueTask DisposeAsync() => _fixture.DisposeAsync();
 
+    // ---- requesting a generation ------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_request_is_accepted_and_queued_rather_than_generated_in_the_request()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await PostAsync(client, _fixture.WorkspaceA, Body(variantCount: 3), "key-1");
+
+        // 202, because nothing is generated here: a worker claims the operation (api-contract.md).
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Requested", body.GetProperty("status").GetString());
+        Assert.Equal(3, body.GetProperty("variantCount").GetInt32());
+        Assert.Equal(0, body.GetProperty("stagedCount").GetInt32());
+
+        // Nothing about the prompt comes back: it is private creator content and the caller already has it.
+        Assert.False(body.TryGetProperty("promptText", out _));
+    }
+
+    [Fact]
+    public async Task A_repeated_key_returns_the_first_operation_rather_than_buying_a_second()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var first = await PostAsync(client, _fixture.WorkspaceA, Body(), "same-key");
+        var second = await PostAsync(client, _fixture.WorkspaceA, Body(), "same-key");
+
+        Assert.Equal(HttpStatusCode.Accepted, second.StatusCode);
+        Assert.Equal(await OperationIdAsync(first), await OperationIdAsync(second));
+
+        // The unique index is the guarantee: a second row for one key is unrepresentable.
+        Assert.Single(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+    }
+
+    [Fact]
+    public async Task A_request_without_an_idempotency_key_is_refused()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await PostAsync(client, _fixture.WorkspaceA, Body(), idempotencyKey: null);
+
+        // Required on this route, unlike most: a lost response must never become a second charge.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("idempotency.key_required", await CodeAsync(response));
+        Assert.Empty(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    public async Task A_variant_count_outside_the_policy_is_refused(int variantCount)
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await PostAsync(client, _fixture.WorkspaceA, Body(variantCount: variantCount), "key-2");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("media.generation.invalid_request", await CodeAsync(response));
+        Assert.Empty(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+    }
+
+    [Fact]
+    public async Task A_request_with_no_prompt_is_refused()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await PostAsync(
+            client, _fixture.WorkspaceA, new { avoidText = (string?)null, variantCount = 1 }, "key-3");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("media.generation.invalid_request", await CodeAsync(response));
+    }
+
+    [Fact]
+    public async Task A_viewer_cannot_spend_the_workspaces_generation_budget()
+    {
+        // Workspace B's member is seeded as a Viewer.
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceB.MemberEmail);
+
+        var response = await PostAsync(client, _fixture.WorkspaceB, Body(), "key-4");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(await OperationRowsAsync(_fixture.WorkspaceB.Id));
+    }
+
+    [Fact]
+    public async Task One_workspaces_key_does_not_collide_with_anothers()
+    {
+        using var a = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        using var b = await _fixture.SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+
+        var inA = await PostAsync(a, _fixture.WorkspaceA, Body(), "shared-key");
+        var inB = await PostAsync(b, _fixture.WorkspaceB, Body(), "shared-key");
+
+        // The index is (WorkspaceId, IdempotencyKey): a key is a workspace's own, not the platform's.
+        Assert.Equal(HttpStatusCode.Accepted, inA.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, inB.StatusCode);
+        Assert.NotEqual(await OperationIdAsync(inA), await OperationIdAsync(inB));
+
+        Assert.Single(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+        Assert.Single(await OperationRowsAsync(_fixture.WorkspaceB.Id));
+    }
+
+    [Fact]
+    public async Task A_request_records_the_workspace_from_the_route_rather_than_the_body()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        // A body that tries to name a workspace at all: the ViewModel has no such field, so it is ignored
+        // by the binder, and the row is stamped from the resolved context (tenancy.md).
+        var response = await PostAsync(
+            client,
+            _fixture.WorkspaceA,
+            new { promptText = "soup", variantCount = 1, workspaceId = _fixture.WorkspaceB.Id },
+            "key-5");
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Single(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+        Assert.Empty(await OperationRowsAsync(_fixture.WorkspaceB.Id));
+    }
+
     // ---- retrieval ------------------------------------------------------------------------------------
 
     [Fact]
@@ -275,6 +399,39 @@ public sealed class GeneratedImageEndpointTests : IAsyncLifetime
     }
 
     // ---- harness ---------------------------------------------------------------------------------------
+
+    private static object Body(int variantCount = 1, string prompt = "a bowl of soup on a wooden table") =>
+        new { promptText = prompt, variantCount };
+
+    private static Task<HttpResponseMessage> PostAsync(
+        GatewayClient client, SeededWorkspace workspace, object body, string? idempotencyKey) =>
+        idempotencyKey is null
+            ? client.PostAsJsonAsync(
+                $"/api/v1/workspaces/{workspace.Slug}/generated-images",
+                body,
+                TestContext.Current.CancellationToken)
+            : client.PostAsJsonAsync(
+                $"/api/v1/workspaces/{workspace.Slug}/generated-images",
+                body,
+                idempotencyKey,
+                TestContext.Current.CancellationToken);
+
+    private static async Task<Guid> OperationIdAsync(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
+            .GetProperty("id").GetGuid();
+
+    /// <inheritdoc cref="RowAsync"/>
+    private async Task<IReadOnlyList<GeneratedImageOperation>> OperationRowsAsync(Guid workspaceId)
+    {
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .GeneratedImageOperations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(operation => operation.WorkspaceId == workspaceId)
+            .ToListAsync(TestContext.Current.CancellationToken);
+    }
 
     private static string Content(SeededWorkspace workspace, Guid imageId) =>
         $"/api/v1/workspaces/{workspace.Slug}/generated-images/{imageId}/content";

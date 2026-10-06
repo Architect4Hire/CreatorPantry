@@ -30,6 +30,149 @@ namespace CreatorPantry.ApiService.Controllers;
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/dam-assets")]
 public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBase
 {
+
+    /// <summary>Lists the workspace's library, filtered and paged.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="query">The filters, cursor and page size. Carries no workspace.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. Newest first unless `sort=Title`. Cursor-paged: follow `nextCursor` until it is
+    /// null. A cursor is bound to the workspace, ordering and filters it was issued for, so changing a
+    /// filter means starting again without one — that answers `400 media.asset_search.cursor_invalid_request`
+    /// rather than quietly resuming in a different set.
+    ///
+    /// `limit` is clamped rather than refused, so a client cannot fail a read by asking for too much.
+    /// Filters combine with AND, except that repeated `tag`, `cuisine` and `course` values match an asset
+    /// carrying any one of them. `createdFrom` is inclusive and `createdBefore` exclusive, so adjacent
+    /// ranges neither overlap nor gap. Any filter that nothing matches is an empty page, not an error; a
+    /// malformed one answers `400 media.asset_search.invalid_request` naming every field it could not read.
+    ///
+    /// **Soft-deleted assets are never listed**, whatever the filters say. Each item carries the current
+    /// version's media type and dimensions so a grid can lay out without fetching every asset — and never
+    /// the bytes, a checksum, an object key or any address. The response is `no-store`.
+    /// </remarks>
+    [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<MediaAssetSearchPageServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> Search(
+        string workspaceSlug,
+        [FromQuery] MediaAssetSearchViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await assets.SearchAsync(query, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        // A library page is a creator's private index of their own work: it must not sit in a shared proxy
+        // or a browser cache after they sign out (gateway.md).
+        Response.Headers.CacheControl = "no-store";
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>Reads one asset in full: its metadata, its versions, its lineage and its counts.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="assetId">The asset to read, resolved inside the caller's own workspace.</param>
+    /// <param name="query">Whether a soft-deleted asset counts as found. Carries no workspace.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. The response carries the creator's own metadata, the current version's facts, the
+    /// whole version history newest first, the tags named rather than as ids, and the recipes and prompts the
+    /// asset is linked to. **Utilization is counted here and paged separately**, because it gains a row every
+    /// time the asset is used and grows without limit; versions travel with the asset because there are a handful.
+    ///
+    /// `recipeLinkCount` agrees with `recipeLinks`: a link pointing at a recipe this workspace cannot name is
+    /// refused by the database, so there is none to drop. Prompt lineage names a prompt and never quotes one —
+    /// the words are read through the prompt's own route.
+    ///
+    /// **A soft-deleted asset answers `404` unless `includeDeleted=true`.** Asked for explicitly, it returns with
+    /// `deletedAt` and `deletedByMembershipId` set, which is how a creator sees what they deleted and when. The
+    /// image and download routes refuse a deleted asset either way.
+    ///
+    /// An unknown id, another workspace's asset and an unasked-for tombstone are one answer —
+    /// `404 media.asset.not_found` — so the reply never discloses that an asset exists elsewhere. Nothing here is
+    /// or becomes an address: no object key, no URL, no bytes. `concurrencyToken` is opaque and is what a metadata
+    /// patch must quote. The response is `no-store`.
+    /// </remarks>
+    [HttpGet("{assetId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<MediaAssetDetailServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> Detail(
+        string workspaceSlug,
+        Guid assetId,
+        [FromQuery] MediaAssetDetailViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await assets.GetDetailAsync(assetId, query, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        // A creator's own asset, with its lineage: never in a shared proxy, and never in a browser cache after
+        // they sign out (gateway.md).
+        Response.Headers.CacheControl = "no-store";
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>Reads one page of an asset's utilization history, newest first.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).
+    /// </param>
+    /// <param name="assetId">The asset whose history to read, resolved inside the caller's own workspace.</param>
+    /// <param name="query">The cursor and page size. Carries no workspace and no filters.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. Cursor-paged: follow `nextCursor` until it is null. A cursor is bound to the workspace
+    /// and the asset it was issued for, so sending one to a different asset answers
+    /// `400 media.asset_search.cursor_invalid_request` rather than quietly paging the wrong history.
+    ///
+    /// Ordered by the date the asset was used, newest first, with the row id breaking the tie three uses on one
+    /// day would otherwise leave undefined. `utilizedOn` is a calendar date in the workspace's own zone rather
+    /// than an instant, and `utilizedDay` is the weekday derived when the use was logged — not re-derived here,
+    /// which would use this server's calendar instead of the workspace's.
+    ///
+    /// `limit` is clamped rather than refused. An asset that has never been used is an empty page, not an error.
+    /// A soft-deleted asset answers `404`, as does an unknown or inaccessible one — this route has no
+    /// `includeDeleted` of its own, because a creator looking at a tombstone is reading its detail rather than
+    /// paging its usage log. The response is `no-store`.
+    /// </remarks>
+    [HttpGet("{assetId:guid}/utilization")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<MediaAssetUtilizationPageServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> Utilization(
+        string workspaceSlug,
+        Guid assetId,
+        [FromQuery] MediaAssetUtilizationViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await assets.GetUtilizationAsync(assetId, query, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        Response.Headers.CacheControl = "no-store";
+
+        return Ok(result.Value);
+    }
+
     /// <summary>Adds an uploaded image to the library as a new asset.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and

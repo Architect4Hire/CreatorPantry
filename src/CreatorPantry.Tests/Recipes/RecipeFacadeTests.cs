@@ -1917,6 +1917,10 @@ public sealed class RecipeFacadeTests
 
     private sealed class RecordingRecipeBusiness : IRecipeBusiness
     {
+        public Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
+            IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<RecipeLinkCandidateServiceModel>>([]);
+
         public int Calls { get; private set; }
 
         public MeasurementDimension? YieldUnitDimension { get; private set; }

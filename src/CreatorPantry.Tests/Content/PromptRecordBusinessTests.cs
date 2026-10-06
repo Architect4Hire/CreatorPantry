@@ -954,6 +954,10 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
         public Task<bool> SaveAsync(PromptRecord record, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
+        public Task<IReadOnlyList<AssetPromptRecord>> ListForAssetAsync(
+            Guid damAssetId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AssetPromptRecord>>([]);
+
         public Task<(IReadOnlyList<PromptSummaryRecord> Rows, bool HasMore, int? Total)> SearchAsync(
             PromptSearchCriteria criteria, CancellationToken cancellationToken) =>
             throw new NotSupportedException("This double exists to refuse a save; nothing here lists.");

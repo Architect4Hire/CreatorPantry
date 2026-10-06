@@ -1,8 +1,11 @@
 using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
@@ -28,8 +31,79 @@ namespace CreatorPantry.ApiService.Controllers;
 [ApiController]
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/generated-images")]
-public sealed class GeneratedImagesController(IStagedImageFacade images) : ControllerBase
+public sealed class GeneratedImagesController(
+    IStagedImageFacade images, IGeneratedImageGenerationFacade generation) : ControllerBase
 {
+
+    /// <summary>Asks for one to four images to be generated from a prompt.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="model">The prompt and how many variants to ask for. Carries no workspace or owner.</param>
+    /// <param name="idempotencyKey">
+    /// <strong>Required on this route, unlike most.</strong> Image generation is the most expensive call
+    /// this product makes, and a client whose request committed but whose response was lost would
+    /// otherwise retry and buy a second set of images. There is no natural key to fall back on — the same
+    /// prompt twice is a legitimate thing to want — so the header is the only thing standing in the way.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Contributor and above. `202 Accepted`, because nothing is generated in the request: the operation
+    /// is queued and a worker claims it, which is what `api-contract.md` asks of long-running work. The
+    /// body is the operation — its id and status — and a repeated key returns the first one rather than a
+    /// conflict, because the caller asked for images and images are coming.
+    ///
+    /// The guarantee is the unique index on `(WorkspaceId, IdempotencyKey)` rather than a stored response:
+    /// a second row for one key is unrepresentable, so a lost answer cannot become a second charge however
+    /// the retry arrives.
+    ///
+    /// A missing header answers `400 idempotency.key_required`. Asking for fewer than one or more than
+    /// four variants answers `400 media.generation.invalid_request`; a Viewer answers
+    /// `403 media.generation.forbidden`.
+    ///
+    /// The action is named `RequestImages` rather than `Request`, which other controllers use and get
+    /// away with: this one reads `ControllerBase.Request` for the conditional download below, and an
+    /// action of that name hides it.
+    /// </remarks>
+    [HttpPost]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<GeneratedImageOperationServiceModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    public async Task<IActionResult> RequestImages(
+        string workspaceSlug,
+        [FromBody] RequestGeneratedImagesViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            // The same code and message every other route's executor produces for a missing required key,
+            // so a client handles one case rather than two. This route enforces it itself because its
+            // replay guard is the operation's own unique index rather than a stored idempotency record.
+            return this.ProblemFor(new OperationError(
+                IdempotencyPolicy.KeyRequiredCode,
+                $"This request requires an {IdempotencyPolicy.KeyHeader} header.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var result = await generation.RequestAsync(
+            new GeneratedImageRequest(
+                model.PromptText ?? string.Empty,
+                model.AvoidText,
+                model.AiProposalId,
+                model.VariantCount ?? 0,
+                idempotencyKey),
+            cancellationToken);
+
+        return result.Succeeded
+            ? Accepted(result.Value)
+            : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Renders one staged image for viewing in the browser.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
@@ -173,4 +247,30 @@ public sealed class GeneratedImagesController(IStagedImageFacade images) : Contr
         // no ranges, and the conditional request is decided above, so exactly one place compares a tag.
         return new FileStreamResult(download.Content, download.MediaType);
     }
+}
+
+/// <summary>The body of an image-generation request (IMG-003).</summary>
+/// <remarks>
+/// <para>
+/// <strong>No workspace, no owner, no idempotency key.</strong> The first two come from the resolved
+/// context; the key is a header, because it describes the request rather than what is being asked for.
+/// </para>
+/// <para>
+/// Every field is nullable so that a missing one is this feature's own validation error rather than the
+/// model binder's, which cannot say which of a creator's fields was the problem.
+/// </para>
+/// </remarks>
+public sealed record RequestGeneratedImagesViewModel
+{
+    /// <summary>The prompt as it will be sent, after any edit the creator made to a composed one.</summary>
+    public string? PromptText { get; init; }
+
+    /// <summary>What the provider should avoid, when the creator said. Untrusted text, like the prompt.</summary>
+    public string? AvoidText { get; init; }
+
+    /// <summary>The IMG-002 proposal the prompt was composed from, when it was composed rather than written.</summary>
+    public Guid? AiProposalId { get; init; }
+
+    /// <summary>How many images to ask for. One to four — every one of them is a separate charge.</summary>
+    public int? VariantCount { get; init; }
 }

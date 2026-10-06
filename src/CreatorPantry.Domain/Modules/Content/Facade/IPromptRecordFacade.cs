@@ -98,6 +98,30 @@ public interface IPromptRecordFacade
         Guid promptRecordId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Names the prompts that produced one DAM asset, newest first, in the resolved workspace.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Exists because prompt lineage points the other way: <c>PromptRecord.DamAssetId</c> is this module's
+    /// column, so the Media module cannot read it — no foreign key runs from an asset to a prompt, and the
+    /// boundary rule only lets an entity cross where one already does (backend.md). The DAM's detail read asks
+    /// here instead.
+    /// </para>
+    /// <para>
+    /// <strong>Never a prompt body.</strong> <see cref="AssetPromptServiceModel"/> carries a label, a kind and a
+    /// date; the words are reached by asking for one prompt by id, which is the route that is allowed to publish
+    /// them (ai.md).
+    /// </para>
+    /// <para>
+    /// An asset with no prompts and an asset this workspace cannot see are the same empty list, so a caller
+    /// cannot turn an id into evidence that a neighbour's asset exists (tenancy.md).
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<AssetPromptServiceModel>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken);
+
+
+    /// <summary>
     /// Reads one prompt of the resolved workspace as a plain-text download: the prompt itself, and a safe
     /// deterministic name to save it under.
     /// </summary>
@@ -153,6 +177,10 @@ internal sealed class PromptRecordFacade(
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IPromptRecordFacade
 {
+    public Task<IReadOnlyList<AssetPromptServiceModel>> ListForAssetAsync(
+        Guid damAssetId, CancellationToken cancellationToken) =>
+        business.ListForAssetAsync(damAssetId, cancellationToken);
+
     /// <summary>A stable operation name for the idempotency scope. Changing it orphans in-flight keys.</summary>
     private const string SaveOperation = "content.prompt_record.save";
 

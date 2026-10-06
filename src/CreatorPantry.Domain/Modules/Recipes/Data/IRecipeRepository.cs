@@ -110,4 +110,24 @@ public interface IRecipeRepository
     /// </para>
     /// </remarks>
     Task<RecipeStatus?> FindStatusAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The titles of <paramref name="recipeIds"/> that are visible in the resolved workspace, as id and title
+    /// only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Exists so another module can name a recipe it holds a link to without building this module's search
+    /// view model, which is not a type that crosses a boundary (backend.md). The DAM's detail read is the
+    /// first caller: a panel saying "used in recipe 3f2a…" is useless to a creator.
+    /// </para>
+    /// <para>
+    /// <strong>An id that is not visible is simply absent from the result</strong> — the global query filter
+    /// drops another workspace's recipe and an unknown id alike, so a caller cannot tell the two apart and a
+    /// cross-workspace link cannot be made to disclose a title. Callers must therefore tolerate a short list
+    /// rather than indexing by position.
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<RecipeTitleRecord>> ListTitlesAsync(
+        IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken);
 }
