@@ -104,4 +104,24 @@ public sealed record SavePromptRecordViewModel
     /// </para>
     /// </remarks>
     public Guid? GeneratedImageId { get; init; }
+
+    /// <summary>
+    /// The DAM asset this prompt produced, when a creator kept the image as one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Refused until 12.9a, on exactly the terms <see cref="GeneratedImageId"/> was.</strong> The
+    /// column waited for an aggregate that could resolve an id: the row is immutable, so a wrong value
+    /// written once could only be erased. The DAM now exists, the id is resolved through its facade inside
+    /// the resolved workspace, and the composite foreign key makes a neighbour's asset unrepresentable
+    /// rather than merely refused.
+    /// </para>
+    /// <para>
+    /// <strong>A client rarely sets this itself.</strong> The usual writer is DAM-001, which fills it in
+    /// from inside the transaction that commits the asset and this record together — the only ordering
+    /// that works, because an immutable row cannot gain the id afterwards and cannot be deleted if the
+    /// asset it names never commits.
+    /// </para>
+    /// </remarks>
+    public Guid? DamAssetId { get; init; }
 }

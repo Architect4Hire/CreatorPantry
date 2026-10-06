@@ -3859,6 +3859,72 @@ BEHAVIOR: Plan operation/compensation/idempotency, wait for approval, implement 
 for partial batch failure, corrupt bytes, cancellation, replay, rate limit, and orphan cleanup.
 ```
 
+*What 12.7 decided (2026-10-05). **There is no image deployment, and that is now a recorded state rather than
+a gap.** B-15 names `chat` and `embeddings` and nothing else, so the gateway depends on
+`Microsoft.Extensions.AI.IImageGenerator` and every host registers `UnconfiguredImageGenerator` beside the two
+existing fallbacks. A claimed operation therefore settles as `provider-not-configured` — terminal, recorded,
+and visible — rather than hanging. Wiring a real deployment is a third Foundry branch through all three AppHost
+modes plus `Azure.AI.OpenAI`/`Microsoft.Extensions.AI.OpenAI` in `CreatorPantry.AiProvider`, and it amends
+B-15, so it is its own change. The job, the gateway and their tests are the parts that do not have to move
+when it lands.*
+
+*`MEAI001` is suppressed in exactly three files — `UnconfiguredImageGenerator`, `GeneratedImageProviderGateway`
+and the registration helper — because `IImageGenerator` is still marked experimental. Narrowly rather than
+project-wide, so a future experimental API elsewhere still has to be opted into deliberately. The alternative
+was a parallel image abstraction of our own, which would be a provider-neutral seam that is not the
+ecosystem's provider-neutral seam.*
+
+*This prompt also added the **enqueue** half, which its scope sentence does not mention and which no later
+prompt adds either: `IGeneratedImageGenerationFacade.RequestAsync`, Contributor-gated, validated by
+`GeneratedImageInputChecks`, idempotent on `(WorkspaceId, IdempotencyKey)`. Without it the worker has no input
+and 12.7 ships dead code. **An HTTP route is therefore owed before 12.10c Image Studio** — `POST
+/api/v1/workspaces/{workspaceSlug}/generated-images`, with its own ViewModel, FluentValidation rules and an
+OpenAPI snapshot regeneration. It maps onto the facade; the seam does not change.*
+
+*Two notes for 12.8, which owns the sweep. First, **orphan reconciliation has a known producer**: a worker that
+writes a staging object and dies before committing the row leaves bytes nothing references. The data layer
+compensates on a failed commit, and a replay clears an orphan at its own deterministic key — but a delete that
+itself fails is logged and swallowed, so 12.8's reconciliation is the real backstop and should walk the
+container, not just the rows. Second, the crash between object write and row commit **costs one re-generation
+of that variant**, deliberately: avoiding it needs a row that claims an object before bytes exist, which 12.6's
+entity documentation rejects outright.*
+
+*One thing this change fixed in passing: the **Worker had no malware scanner**. The API calls
+`AddDevelopmentMalwareScanning`; the Worker never did, because until now it had no inbound-bytes path. Provider
+bytes are scanned before they are stored — media.md asks for a scanning policy on media, not on media from
+sources we happen to trust — so without that registration every generated image would have been refused by the
+fail-closed scanner, on a developer's machine as much as anywhere, and read as a broken job rather than a
+missing scanner. The call is a no-op outside Development, so a deployed host still fails closed.*
+
+*`GeneratedImageFailureCategory.ProviderRefused` is deliberately **not** `content-blocked`. Telling a safety
+refusal from a malformed request or a rejected credential means reading a provider SDK's exception type, and
+the Ai module's `IAiFailureClassifier` — which solves exactly this — lives in its `Gateways` namespace, which
+no other module may cross into. A creator told their prompt was blocked when the real fault was an expired key
+would go and rewrite a prompt that was never wrong. A narrower category arrives with a real deployment and a
+classifier that can see the difference.*
+
+*Two things review changed. **`GeneratedImageOperation` has no `RowVersion`**, unlike every sibling queue's
+operation row — so the load-then-save claim those repositories use would have let two workers win the same
+row and each buy up to four images. `GeneratedImageClaimRepository` therefore claims with a guarded
+`ExecuteUpdate` instead: the `WHERE` is the race and the affected-row count is who won, which needs no
+concurrency token. It also made tenancy.md's identifiers-only condition literal rather than approximate —
+every query there projects to ids before materializing, so a prompt never enters this process from a
+workspace nobody has resolved. `ExecuteUpdate` bypasses `WorkspaceOwnershipInterceptor`, which is why it is
+on the forbidden list; no `SetProperty` here names `WorkspaceId`, and none ever may.*
+
+*And `ExecuteAsync` now **checks** that its caller is `WorkspaceServiceIdentity` rather than documenting it.
+"Called by the Worker only; never routed" was enforced by a comment, and the facade is in DI where any
+controller could inject it. A creator retrying a failed generation queues a new request; nothing a person
+does reaches that method.*
+
+*One test honesty note for whoever extends this. `A_claimed_operation_leaves_the_queue_and_spends_one_attempt`
+is **not** a concurrency test, and its remarks say so: sequentially the second claim finds nothing because the
+candidate scan filters on `Requested`, so deleting the conditional `WHERE` leaves it green. A shared in-memory
+SQLite connection serializes commands, so the interleaving the guard exists for cannot be reproduced there.
+The guard is argued, not asserted. Two other tests in that file were written vacuous and caught by mutating
+the code they claimed to cover — worth doing again for anything in this area, because the expensive failures
+here are silent.*
+
 ### 12.8 Staged-image retrieval, deletion, and cleanup
 
 ```text
@@ -3871,6 +3937,74 @@ BEHAVIOR: Implement endpoint/job tests for found/not-found, traversal, isolation
 and database/blob partial failures.
 ```
 
+*What 12.8 decided (2026-10-05). **Orphan reconciliation needed the object store to be enumerable.** An
+orphan is by definition an object whose row was never committed, so no query over the database can find one
+— only the container knows it is there. `IPrivateObjectStore` gained `ListAsync(container, prefix, limit)`,
+implemented on the Azure adapter, the unconfigured fallback and the in-memory test store. It is additive and
+the Brand module is untouched by it.*
+
+*Reconciliation deletes an object only when **two** conditions hold, and the second is the one that matters:
+no row of the workspace names the key — asked of the database, not inferred from the key's shape — and the
+object is older than `MediaPolicy.OrphanGracePeriod`. A generation writes its object and then commits the row
+that owns it, so between those two steps every in-flight image is indistinguishable from an orphan. Without
+the window the sweep would race the generation job and delete images a creator was about to be shown. The
+window is comfortably longer than `GenerationLeaseDuration`, because a worker's lease bounds how long it can
+legitimately sit between the two writes. Both conditions are mutation-tested: deleting either one reds a
+test.*
+
+*`GeneratedImage.ObjectDeletedAt` is new, and it is what makes the sweep finite. The row outlives its bytes —
+`PromptRecord` may hold a foreign key nothing may delete, and a creator who generated four and declined three
+should still see that they did — so "the bytes are gone" has to be a fact on the row rather than the row's
+absence. Without it every rejected image ever would be a deletion candidate on every pass, one storage call
+per row per minute, learning nothing.*
+
+*The retention scan lives in `GeneratedImageClaimRepository` rather than a new file, so the queue-claim
+exemption list stays at five entries. It returns **workspace ids and nothing else**. Orphan reconciliation
+cannot be in that query for the reason above, so the sweep reconciles the workspaces that have database work:
+a workspace whose only staging content is an orphan waits until it next has real work. That is a slower sweep
+rather than a wrong one, and the alternative is listing a storage container once per workspace per hour
+forever.*
+
+*`DELETE` marks the row `Rejected` and leaves the bytes to the sweep. One system is written to per request, so
+there is no half-done delete to recover from — and it is why the route answers `204` whether this call
+declined the image or a previous one already did. A kept or expired image answers `409`, because every state
+but `Staged` is terminal (12.6).*
+
+*Error codes follow the **underscore reason-suffix** convention `ProblemResults.StatusFor` keys on
+(`.not_found` → 404, `.forbidden` → 403, `.conflict` → 409, `.unavailable` → 503). 12.7 shipped
+`media.generation.invalid-request` with a hyphen, which fell through to 400 correctly but by accident; it is
+now `invalid_request`. Nothing had consumed either.*
+
+*Traversal is unreachable rather than filtered: the routes are `{generatedImageId:guid}`-constrained and the
+storage key is generated from the resolved workspace, the operation and the variant. There is no code path
+from a URL segment to an object key, and no URL for a staging object is ever issued.*
+
+*Known gap for whoever adds workspace deletion: a deleted workspace cascades its rows away, so its staging
+objects become orphans that no sweep will ever visit — reconciliation resolves a workspace before it can list
+that workspace's prefix. There is no delete-workspace path today, so nothing produces this yet.*
+
+*What review changed. **The first cut of orphan reconciliation was wrong, not merely slow.** It took one
+page of the listing and sorted it by age — but a blob store lists in key order and a staging key is a pair
+of GUIDs, so key order is effectively random: an orphan whose key sorted past the first page would never
+have been looked at. Worse, the in-memory fake sorted by age before paging, so every test agreed with the
+broken implementation. `ListAsync` is now honestly paged with a continuation token in the store's own
+order, the fake behaves the way Azure does, reconciliation walks the whole prefix (one ownership query per
+page rather than one per object, bounded by `ReconciliationMaxPages`), and a test stages a page and a half
+of owned objects with the orphan forced to sort last. Capping the walk at one page reds that test.*
+
+*Three smaller things from the same review. The retention workspace scan is now ordered, so a page is the
+same page twice running — it is **not** anti-starvation, and the comment says so: a workspace that is always
+skipped keeps its slot, which only bites past a hundred workspaces with simultaneous work. The store refuses
+an empty prefix, so a future gateway cannot enumerate a whole container by mistake. And `PurgeAsync` used to
+treat a refused key the same as "nothing there" and stamp the row purged; a row whose `ObjectKey` this
+workspace could not have written is corruption, so it is now logged at error — by image id, never by the key
+— and still settled, because the bytes are unreachable from there whatever happens and leaving the row in
+the queue would retry it hourly forever.*
+
+*Not done, deliberately: no audit event on declining an image. auth.md wants audit on destructive deletion,
+and this is arguably that — but 12.10l is the creative-production audit prompt, and scattering one event
+here would be the start of a second audit design. Worth deciding there rather than in passing.*
+
 ### 12.9 DAM aggregate and migration
 
 ```text
@@ -3882,6 +4016,76 @@ No DAM endpoint in this prompt.
 BEHAVIOR: Show aggregate/index/delete design, wait for approval, implement migration, review/apply, test.
 ```
 
+*What 12.9 decided (2026-10-05). **The table is `MediaAssets`, not `DamAssets`, and that is not a liberty
+with the prompt's wording.** `RecipeAssetLink`, `BrandAssetLink` and `TestAttachmentLink` have each carried a
+`MediaAssetId` since Phase 2 with no foreign key at all, and `RecipeAssetLinkConfiguration` says in so many
+words that "the asset aggregate arrives with the media library, and **its own migration adds the
+constraint** … composite `(WorkspaceId, MediaAssetId) -> MediaAssets (WorkspaceId, Id)`". `tenancy.md` lists
+`MediaAsset` in the workspace-owned set too. Renaming three shipped columns across three modules to match a
+prompt's phrasing would have been a migration that changed nothing. **"DAM" stays the language of the
+facades, routes and UI**, so DAM-001 through DAM-010 still read naturally.*
+
+*The migration therefore **adds those three constraints**, which is the single most valuable thing in this
+change: until now only the write seam stopped one workspace's recipe naming another's photograph, and the
+database would have stored it. All three are `Restrict` rather than `Cascade`, because `Workspace` already
+cascades into each of those tables through `Recipe`, `BrandProfile` and `RecipeTestRun`, and a second cascade
+path is what SQL Server refuses outright — a thing SQLite would have accepted silently. The migration has
+since been applied by every SQL Server fixture in the suite, so that is verified rather than assumed.*
+
+*Two tables the scope named do **not** exist, because they would have been duplicate truth.*
+*— **Recipe lineage is `RecipeAssetLink`**, which already has `Role`, `SortOrder` and `Caption`, and which
+12.10i and 12.10j are the command and UI for. A second DAM-owned recipe link table would be a second answer
+to the same question.*
+*— **Prompt lineage is `PromptRecord.DamAssetId`**, which 12.9a adds. `PromptRecord` is `IImmutableRecord`,
+so an asset pointing back would close a cycle neither side could populate at insert — the same reasoning 12.6
+used to keep `GeneratedImageOperation` from naming a prompt record. 12.9's job was to make the target exist.
+12.9c reads prompt lineage through the Content facade.*
+
+*Other shape decisions. `CurrentVersionNumber` is a counter rather than a foreign key, so the root and its
+versions never point at each other (`BrandSourceDocument`'s pattern). Soft delete is `DeletedAt` plus
+`DeletedByMembershipId` rather than a status flag, because DAM-005 asks for timestamp **and** actor, with a
+check constraint refusing half a tombstone. Versions are `IImmutableRecord` and carry `SourceKind` plus a
+nullable workspace-paired `SourceGeneratedImageId`, with a check constraint making the two agree — so a row
+cannot claim a provenance it has no evidence for. Tags link the existing **`WorkspaceTag`** vocabulary rather
+than inventing a third; Brand's own `BrandSourceTag` is the thing not to repeat, because a creator who tags a
+recipe and an asset "weeknight" means one word.*
+
+*Indexes follow `RecipeConfiguration`'s documented stance rather than one per filter: a filtered
+`(WorkspaceId, CreatedAt desc, Id) WHERE DeletedAt IS NULL` and a filtered title index for DAM-002's two
+sorts, `(WorkspaceId, MediaAssetId, VersionNumber desc)` for "latest" in DAM-006/007, and
+`(WorkspaceId, MediaAssetId, UtilizedOn desc)` for DAM-003's history. Channel, platform, day, style, cuisine,
+course, the date bounds and free text are residual predicates after the workspace seek — a creator's library
+is thousands of rows, and an index per filter combination would be paid for on every edit to save nothing
+measurable on a read.*
+
+*The cost, for the record: **302 tests failed the moment those three constraints existed**, every one of them
+a fixture seeding `MediaAssetId = Guid.NewGuid()` — which is exactly the hole the key closes, visible at last.
+`SeededMediaAsset` and `RecipeAggregateFixture.MediaAssetIdFor(workspaceId)` are how they seed now. One test,
+`BrandProfileAggregateTests.Two_workspaces_hold_identical_child_values…`, previously shared one asset id
+across both workspaces; it now gives each its own, which is the constraint working rather than the test being
+weakened — every other child value in it is still identical.*
+
+*What review changed. **The migration would have failed on a real database.** `BrandAssetLink` is writable
+today through the brand profile endpoint, straight from a client-supplied asset id — so any machine that has
+saved a brand profile with a logo holds rows naming assets that never existed, and `AddForeignKey` refuses
+them. The migration now clears link rows that do not resolve to an asset before it adds the three keys,
+written as "the ones that do not resolve" rather than "all of them" so the intent is legible and nothing that
+does resolve is touched. It is the one hand-written part of that migration. Nothing creator-visible is lost
+that was not already broken: a link to an asset that has never existed could not be read or rendered.*
+
+*Two of the three link tests were passing on any `DbUpdateException` at all — a missing required field on the
+profile would have satisfied them — so each now has a same-workspace positive control beside it. The
+version-to-`GeneratedImage` pairing had no cross-workspace test at all; the one that looked like it was
+tripping the `Source_Agrees` check instead. Both gaps are closed, and the three stale "no foreign key until
+the media aggregate lands" remarks on the link entities and the DbContext now say what is true.*
+
+*Left for 12.9b and 12.9c, deliberately: `MediaAsset` has **no global filter for `DeletedAt`**, so every
+reader has to exclude tombstones itself, and nothing at the schema level stops a link pointing at a deleted
+asset. That is the design — 12.9c says soft-deleted detail follows its own policy, and a global filter would
+put it out of reach — but it means the first reader should land a single shared filtered query rather than
+repeating the predicate, and a boundary test flagging a bare `db.MediaAssets` read would be worth having
+once there is something to flag.*
+
 ### 12.9a Create DAM asset
 
 ```text
@@ -3891,6 +4095,55 @@ CONSTRAINT: add-media-feature and add-endpoint skills.
 RESTRICTION: No search/update/delete. Idempotent retry creates one asset. Preserve actual media metadata.
 BEHAVIOR: Show transaction/compensation plan, wait for approval, implement rollback/replay/isolation tests.
 ```
+
+*What 12.9a decided (2026-10-06). **The transaction is the whole design, and the prompt is inside it.**
+Bytes are written before any row names them; the asset, its version, its tags, its recipe link, the staged
+image's move to `Kept` and the prompt record all commit together or not at all; and the object is the only
+thing compensated, under `CancellationToken.None` so it is not cancelled with the request. 12.3a's note said
+the prompt must be written inside this transaction because `PromptRecord` is `IImmutableRecord` and one
+committed beside a failed asset could only be erased — a test now holds that: moving the prompt save after
+the commit reds `A_refused_prompt_leaves_no_asset_no_object_and_a_still_staged_image`.*
+
+*Two things the build refused, and both were right.*
+*— **A dependency cycle**, which turned out to be a symptom. The first cut had `MediaAssetDataLayer` inject
+`IPromptRecordFacade` directly, and `PromptRecordBusiness` resolves `DamAssetId` through this module on its
+way in — so the container refused the graph at startup. The fix that review found is the right one and it
+dissolves the cycle rather than routing around it: **the prompt save goes down as a delegate from Business**,
+which is exactly how `IAiOperationDataLayer.AcceptDraftAsync` composes the recipe module's create. Whether a
+prompt is written is a decision and belongs in Business; the transaction it must happen inside belongs in the
+data layer; neither needs the data layer to know another module's facade exists. The lookup keeps its own
+facade and business — the split `IGeneratedImageLookupBusiness` makes, so the cross-module surface stays one
+boolean — but reads through the one data layer, because the cycle that forced a second one is gone.*
+
+*Worth recording because I got it wrong first: I justified the direct injection by citing
+`AiOperationDataLayer`, which does inject `IAiUsageRecordingFacade` and `IAiQuotaAdmissionFacade`. Those are
+side-effect recording, not composing another module's write — and for the writes, that same class takes
+delegates. The precedent said the opposite of what I claimed it said.*
+*— **A module-boundary violation.** Media named Content's `SavePromptRecordViewModel`, and a ViewModel is
+one of the types `ModuleBoundaryTests` refuses by name. Content now publishes `PromptRecordSaveInput` and
+`IPromptRecordFacade.SaveForAssetAsync`, which maps it and fills in the asset id from inside the caller's
+transaction. The asset id is a parameter rather than a field, because the caller is the thing creating the
+asset.*
+
+*Idempotency is three layers and only one is the header. Keeping a staged image is **naturally** idempotent —
+an image is kept once, so a repeat returns the asset the first call made, and removing that guard reds a
+test. An upload has no natural key, because a creator may legitimately upload one photograph twice as two
+assets, so there the `Idempotency-Key` is the only thing between a lost response and a duplicate — and a test
+asserts that absence of a key really does create two, rather than leaving the gap undocumented. The unique
+object key is the third layer.*
+
+*`PromptRecord.DamAssetId` needed no column: it has existed since 12.3 and was simply never writable. This
+prompt added the ViewModel field, the resolution through `IMediaAssetLookupFacade`, the composite foreign key,
+and the deletion of the `PromptRecordValidatorTests` line pinning its absence — four parts of one change, as
+12.6 did for `GeneratedImageId`. The migration needs no data cleanup, unlike `MediaAssetAggregate`'s, because
+every stored value is null by construction.*
+
+*On "copy or move": the staged bytes are copied, the image becomes `Kept`, and 12.8's retention reclaims the
+staging copy — nothing is deleted until a committed asset owns one. **The sweep checks that rather than
+trusting it.** A kept image is only purgeable once a `MediaAssetVersion` actually names it, which is
+unreachable in production (only a committed creation sets `Kept`) but means that anything which ever set the
+status without copying cannot make the sweep delete a creator's only copy. `StagedImageRetentionTests`'
+kept-image case is what pins it.*
 
 *From 12.3a (2026-10-04), and it constrains the compensation plan this prompt has to show: when this creates an
 asset from a staged image, it calls `IPromptRecordFacade.SaveAsync` **inside its own transaction**, never after

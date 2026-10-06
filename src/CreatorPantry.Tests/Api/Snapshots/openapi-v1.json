@@ -5501,6 +5501,326 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets": {
+      "post": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Adds an uploaded image to the library as a new asset.",
+        "description": "Contributor and above. The media type is established from the file\u0027s bytes, never from the declared\ncontent type or the filename, and the file is scanned before anything stores it \u2014 a file whose bytes\nare not a supported image answers \u0060422 media.asset.unprocessable\u0060 whatever it was called. The\ncreator\u0027s filename is kept for display only and never becomes part of a key or a header.\n\u0060201 Created\u0060 carries the asset; storage that could not be reached answers\n\u0060503 media.asset.unavailable\u0060 with nothing written.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, and worth sending. Without it a client whose upload committed but whose response was lost\nretries and creates a second asset \u2014 there is no natural key to prevent that, because a\ncreator may legitimately upload the same photograph twice as two assets.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "altText": {
+                    "type": "string"
+                  },
+                  "channelKey": {
+                    "type": "string"
+                  },
+                  "platformKey": {
+                    "type": "string"
+                  },
+                  "day": {
+                    "$ref": "#/components/schemas/DayOfWeek"
+                  },
+                  "styleKey": {
+                    "type": "string"
+                  },
+                  "cuisineId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "courseId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "rightsHolder": {
+                    "type": "string"
+                  },
+                  "attributionText": {
+                    "type": "string"
+                  },
+                  "tagIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "recipeId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "caption": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/from-generated-image": {
+      "post": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Keeps a staged generated image as a library asset.",
+        "description": "Contributor and above. The bytes are copied into the library and the staged image becomes \u0060Kept\u0060,\nwhich is what lets retention collect the staging copy: nothing is removed until a committed asset\nowns one.\n\n**Naturally idempotent, with or without a key.** An image is kept exactly once, so a repeat returns\nthe asset the first call made rather than creating a second or failing. An unknown image, another\nworkspace\u0027s, and one already rejected or expired all answer \u0060404 media.asset.not_found\u0060.\n\nA prompt sent with the request is written **inside the same transaction** as the asset, so the two\ncommit together or not at all \u2014 a prompt record cannot be deleted afterwards, so it must never\ncommit beside an asset that did not. A refused prompt takes the asset down with it and answers with\nthe prompt\u0027s own error.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, and largely belt-and-braces here \u2014 see the remarks.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeepGeneratedImage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeepGeneratedImage"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/KeepGeneratedImage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAsset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/editorial-package-requests": {
       "post": {
         "tags": [
@@ -5718,6 +6038,235 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/{generatedImageId}/preview": {
+      "get": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "Renders one staged image for viewing in the browser.",
+        "description": "Any member may read. Identical to the download below but for the disposition: this is \u0060inline\u0060, so a\nbrowser shows it where a page asked for it, and that is the only difference. \u0060Content-Type\u0060 is the\nmedia type **established from the returned bytes at staging**, never one a provider declared.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set, and the response carries a\nstrong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 so \u0060If-None-Match\u0060 answers 304. Staged bytes are\nimmutable, so that tag identifies this representation for as long as it exists.\nMetadata that exists whose bytes cannot be read answers \u0060503 media.staged_image.unavailable\u0060\nrather than 404: the image is there, and retrying is the remedy. No range requests.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "generatedImageId",
+            "in": "path",
+            "description": "The image to render. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/{generatedImageId}/content": {
+      "get": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "Downloads one staged image, byte for byte as the provider returned it.",
+        "description": "Any member may read. \u0060Content-Disposition: attachment\u0060 names it \u0060generated-{n}.{ext}\u0060, where \u0060n\u0060 is\nthe variant counted from one and the extension comes from the media type established from the bytes\n\u2014 so the name describes what is actually there. The name is ASCII \u0060a-z0-9\u0060, one hyphen and one dot\nby construction and carries no id, workspace, prompt or storage location. Everything else matches\nthe preview above, including the entity tag and the 503 for unreadable bytes.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "generatedImageId",
+            "in": "path",
+            "description": "The image to download. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/{generatedImageId}": {
+      "delete": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "Declines one staged image, so retention may remove it.",
+        "description": "Contributor and above \u2014 the same role that may ask for images in the first place. The row moves to\n\u0060Rejected\u0060 and the bytes stay until the retention sweep collects them, which is what makes this\nanswer fast and makes a half-done delete impossible: there is no second system to fail.\n\u0060204\u0060 whether this call declined the image or a previous one already had, so a client that retries\ngets the answer it wanted rather than a conflict. A kept or expired image answers\n\u0060409 media.staged_image.conflict\u0060; an unknown or another workspace\u0027s answers\n\u0060404 media.staged_image.not_found\u0060.\n**A declined image is not a DAM asset and never becomes one** (IMG-006).",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "generatedImageId",
+            "in": "path",
+            "description": "The image to decline. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -18483,6 +19032,50 @@
         ],
         "type": "string"
       },
+      "KeepGeneratedImage": {
+        "type": "object",
+        "properties": {
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "metadata": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MediaAssetMetadataInput"
+              }
+            ]
+          },
+          "recipeLink": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MediaAssetRecipeLinkInput"
+              }
+            ]
+          },
+          "prompt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromptRecordSaveInput"
+              }
+            ],
+            "description": "The prompt that produced the image, saved inside the same transaction as the asset."
+          }
+        },
+        "description": "The body of a keep request."
+      },
       "MeasurementDimension": {
         "enum": [
           "Mass",
@@ -18571,6 +19164,211 @@
             }
           },
           "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MediaAsset": {
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "currentVersionNumber",
+          "mediaType",
+          "width",
+          "height",
+          "sizeBytes",
+          "sourceGeneratedImageId",
+          "promptRecordId",
+          "recipeId",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaAssetKind"
+          },
+          "currentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "width": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "height": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "sourceGeneratedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MediaAssetKind": {
+        "enum": [
+          "Unspecified",
+          "Original",
+          "Imported",
+          "Derived",
+          "AiGenerated"
+        ],
+        "type": "string"
+      },
+      "MediaAssetMetadataInput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "altText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "platformKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "styleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cuisineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "rightsHolder": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attributionText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workspaceTagIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "MediaAssetRecipeLinkInput": {
+        "required": [
+          "recipeId",
+          "caption"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "caption": {
             "type": [
               "null",
               "string"
@@ -18982,6 +19780,101 @@
           "Other"
         ],
         "type": "string"
+      },
+      "PromptRecordSaveInput": {
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageKind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromptImageKind"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generatedText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromptRecordSource"
+              }
+            ]
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptTemplateId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateBodyChecksum": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "PromptRecordSource": {
         "enum": [
@@ -22323,6 +23216,13 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "damAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -23890,7 +24790,13 @@
       "name": "ContentSeeds"
     },
     {
+      "name": "DamAssets"
+    },
+    {
       "name": "EditorialPackageRequests"
+    },
+    {
+      "name": "GeneratedImages"
     },
     {
       "name": "ImagePromptRequests"

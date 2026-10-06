@@ -14,6 +14,7 @@ using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Tests.Media;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +59,21 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
     public static Guid WorkspaceA { get; } = Guid.NewGuid();
 
     public static Guid WorkspaceB { get; } = Guid.NewGuid();
+
+    /// <inheritdoc cref="RecipeAggregateFixture.MediaAssetIdA"/>
+    public static Guid MediaAssetIdA => RecipeAggregateFixture.MediaAssetIdA;
+
+    /// <inheritdoc cref="RecipeAggregateFixture.MediaAssetIdA"/>
+    public static Guid MediaAssetIdB => RecipeAggregateFixture.MediaAssetIdB;
+
+    /// <summary>The seeded asset belonging to <paramref name="workspaceId"/>.</summary>
+    /// <remarks>
+    /// So a helper that seeds into either workspace picks the right one without each caller remembering
+    /// to. Passing the wrong workspace's asset is refused by the composite foreign key rather than
+    /// quietly producing a cross-workspace link, which is the whole point of the key.
+    /// </remarks>
+    public static Guid MediaAssetIdFor(Guid workspaceId) =>
+        workspaceId == WorkspaceB ? MediaAssetIdB : MediaAssetIdA;
 
     public static Guid GramId { get; } = Guid.NewGuid();
 
@@ -175,7 +191,11 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
     /// A recipe with several children in each collection, and their sort orders inserted out of order so
     /// that a read returning them in insertion order rather than sorted order is visible.
     /// </summary>
-    public static Recipe NewRecipe(string title, Guid tagId)
+    /// <param name="mediaAssetId">
+    /// The asset every link on this recipe points at. Defaults to workspace A's; a recipe seeded into
+    /// workspace B passes <see cref="MediaAssetIdB"/>, which the composite foreign key enforces.
+    /// </param>
+    public static Recipe NewRecipe(string title, Guid tagId, Guid? mediaAssetId = null)
     {
         var recipe = new Recipe
         {
@@ -259,7 +279,7 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
                 Id = Guid.NewGuid(),
                 RecipeId = recipe.Id,
                 SortOrder = order,
-                MediaAssetId = Guid.NewGuid(),
+                MediaAssetId = mediaAssetId ?? MediaAssetIdA,
                 Role = order == 0 ? RecipeAssetRole.Hero : RecipeAssetRole.Gallery,
             });
         }
@@ -326,6 +346,12 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
             new WorkspaceTag { Id = TagIdA, WorkspaceId = WorkspaceA, Name = "Weeknight", NormalizedName = "weeknight", CreatedAt = Now },
             new WorkspaceTag { Id = TagIdB, WorkspaceId = WorkspaceB, Name = "Weeknight", NormalizedName = "weeknight", CreatedAt = Now },
             new WorkspaceTag { Id = SecondTagIdA, WorkspaceId = WorkspaceA, Name = "Freezer", NormalizedName = "freezer", CreatedAt = Now });
+
+        // What RecipeAssetLink's new composite foreign key points at, one per workspace. See the same
+        // seed in RecipeAggregateFixture for why a recipe test seeds a media asset at all.
+        db.MediaAssets.AddRange(
+            SeededMediaAsset.For(WorkspaceA, MediaAssetIdA, Now),
+            SeededMediaAsset.For(WorkspaceB, MediaAssetIdB, Now));
 
         await db.SaveChangesAsync();
     }

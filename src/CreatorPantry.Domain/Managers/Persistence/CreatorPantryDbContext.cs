@@ -230,8 +230,9 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <inheritdoc cref="TestObservations"/>
     /// <remarks>
     /// Records a test's use of a media asset and never the asset itself: no bytes, no copied alt text. Like
-    /// <see cref="RecipeAssetLinks"/>, its <c>MediaAssetId</c> has no foreign key until the media aggregate
-    /// lands, so the write seam is what keeps an attachment inside the workspace until then.
+    /// <see cref="RecipeAssetLinks"/>, its <c>MediaAssetId</c> is workspace-paired to
+    /// <see cref="MediaAssets"/> as of 12.9, so an attachment naming another workspace's photograph is
+    /// unrepresentable rather than merely refused by the write seam.
     /// </remarks>
     public DbSet<TestAttachmentLink> TestAttachmentLinks => Set<TestAttachmentLink>();
 
@@ -372,7 +373,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<BrandProfileRevision> BrandProfileRevisions => Set<BrandProfileRevision>();
 
     /// <inheritdoc cref="BrandChannelDefaults"/>
-    /// <remarks>Its <c>MediaAssetId</c> has no foreign key until the media aggregate lands.</remarks>
+    /// <remarks>
+    /// Its <c>MediaAssetId</c> is workspace-paired to <see cref="MediaAssets"/> as of 12.9. It was
+    /// unconstrained from Phase 2 until then, and this is the one of the three links that is writable
+    /// today — straight from a client-supplied asset id — which is why that migration clears rows naming
+    /// an asset that never existed before it adds the key.
+    /// </remarks>
     public DbSet<BrandAssetLink> BrandAssetLinks => Set<BrandAssetLink>();
 
     /// <remarks>
@@ -519,6 +525,32 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// bytes to describe, so none ever claims an object key it does not have.
     /// </remarks>
     public DbSet<GeneratedImage> GeneratedImages => Set<GeneratedImage>();
+
+    /// <summary>
+    /// The digital asset library's root: finished creative the workspace owns and reuses (DAM-001).
+    /// </summary>
+    /// <remarks>
+    /// <strong>This is the media aggregate the link tables have been waiting for.</strong>
+    /// <see cref="RecipeAssetLinks"/>, <see cref="BrandAssetLinks"/> and <see cref="TestAttachmentLinks"/>
+    /// each carry a <c>MediaAssetId</c> that now has the composite foreign key their configurations
+    /// promised. Metadata only: the bytes are private objects named by a version.
+    /// </remarks>
+    public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
+
+    /// <inheritdoc cref="MediaAssets"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. A new file
+    /// is a new version, and its number is unique per asset by index rather than by agreement (DAM-010).
+    /// </remarks>
+    public DbSet<MediaAssetVersion> MediaAssetVersions => Set<MediaAssetVersion>();
+
+    /// <inheritdoc cref="MediaAssets"/>
+    /// <remarks>A history of where an asset went out, not a status (DAM-009).</remarks>
+    public DbSet<MediaAssetUtilization> MediaAssetUtilizations => Set<MediaAssetUtilization>();
+
+    /// <inheritdoc cref="MediaAssets"/>
+    /// <remarks>Links the shared <see cref="WorkspaceTags"/> vocabulary, not a tag table of its own.</remarks>
+    public DbSet<MediaAssetTag> MediaAssetTags => Set<MediaAssetTag>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

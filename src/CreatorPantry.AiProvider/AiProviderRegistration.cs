@@ -64,6 +64,14 @@ public static class AiProviderRegistration
             builder.Services.AddUnconfiguredEmbeddingGenerator();
         }
 
+        // No branch for images, because B-15 names no image deployment and the AppHost supplies none. The
+        // unconfigured generator is registered unconditionally so the Media module's gateway resolves and
+        // reports NotConfigured, which its job settles as a terminal failure with that category. Deliberately
+        // not routed through RequireDevelopment: a deployed host is not misconfigured for lacking a
+        // deployment nothing has decided on yet, and refusing to start over it would take chat and embeddings
+        // down with it. When a deployment is decided, this becomes the same two-branch shape as the others.
+        builder.Services.AddUnconfiguredImageGenerator();
+
         return builder;
     }
 

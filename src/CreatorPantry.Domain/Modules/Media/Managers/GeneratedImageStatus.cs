@@ -6,8 +6,9 @@ namespace CreatorPantry.Domain.Modules.Media.Managers;
 /// <remarks>
 /// <para>
 /// A staged image is not a DAM asset and never becomes one by sitting here: <see cref="Kept"/> records that
-/// the creator chose it, and 12.9 is what makes an asset from a kept one. <see cref="Rejected"/> and
-/// <see cref="Expired"/> are the two ways bytes become deletable, and 12.8's sweep is what deletes them.
+/// an asset was made from it. All three of <see cref="Kept"/>, <see cref="Rejected"/> and
+/// <see cref="Expired"/> make the staging bytes deletable, and 12.8's sweep is what deletes them — the
+/// first because something else now owns a copy, the other two because nobody wanted them.
 /// </para>
 /// <para>
 /// Every state but <see cref="Staged"/> is terminal. A creator who rejects an image and changes their mind
@@ -31,7 +32,15 @@ public enum GeneratedImageStatus
     /// </remarks>
     Staged = 1,
 
-    /// <summary>The creator chose it. 12.9 makes a DAM asset from it; retention passes to that asset.</summary>
+    /// <summary>
+    /// The creator chose it, and a DAM asset was made from it in the same transaction (12.9a).
+    /// </summary>
+    /// <remarks>
+    /// <strong>Its staging bytes are redundant from the moment it reaches this state</strong>, because a
+    /// committed asset owns a copy of them — so the retention sweep collects them like a rejected image's,
+    /// and retention proper passes to the asset. That is how "copy or move" is settled safely: the staged
+    /// copy is only removed once something else demonstrably holds it.
+    /// </remarks>
     Kept = 2,
 
     /// <summary>

@@ -111,12 +111,16 @@ public class PromptRecord : IWorkspaceOwned, IImmutableRecord
     /// </remarks>
     public Guid? GeneratedImageId { get; set; }
 
-    /// <summary>The DAM asset the image became, once committed. No foreign key until 12.9.</summary>
+    /// <summary>The DAM asset the image became, once committed.</summary>
     /// <remarks>
+    /// Workspace-paired to <c>MediaAsset</c> since 12.9a, so another workspace's asset is unrepresentable
+    /// rather than merely refused, and normally written by DAM-001 from inside the transaction that commits
+    /// the asset and this record together — an immutable row cannot gain the id afterwards.
+    ///
     /// Carries no uniqueness, unlike <see cref="GeneratedImageId"/>, because that one is the idempotency anchor: a
     /// prompt is saved when the generated image is committed, so the image is what a retry would duplicate against.
-    /// Two records naming one DAM asset is therefore possible and is not treated as an error. The validate-before-
-    /// insert requirement above applies here identically, and for the same reason.
+    /// Two records naming one DAM asset is therefore possible and is not treated as an error — an asset gains
+    /// versions, and a version made from a new prompt is a new record naming the same asset.
     /// </remarks>
     public Guid? DamAssetId { get; set; }
 

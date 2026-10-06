@@ -1397,9 +1397,10 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
         var tagId = workspaceId == SqlServerRecipeFixture.WorkspaceA
             ? SqlServerRecipeFixture.TagIdA
             : SqlServerRecipeFixture.TagIdB;
+        var mediaAssetId = SqlServerRecipeFixture.MediaAssetIdFor(workspaceId);
 
         return await DataLayer(scope).CreateAsync(
-            SqlServerRecipeFixture.NewRecipe(title, tagId),
+            SqlServerRecipeFixture.NewRecipe(title, tagId, mediaAssetId),
             FirstVersion,
             [],
             TestContext.Current.CancellationToken);
@@ -1566,7 +1567,8 @@ public sealed class RecipeDataLayerTests(SqlServerRecipeFixture fixture) : IClas
     {
         await using var inB = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceB);
         var created = await DataLayer(inB).CreateAsync(
-            SqlServerRecipeFixture.NewRecipe("B's cake", SqlServerRecipeFixture.TagIdB),
+            SqlServerRecipeFixture.NewRecipe(
+                "B's cake", SqlServerRecipeFixture.TagIdB, SqlServerRecipeFixture.MediaAssetIdB),
             FirstVersion,
             [],
             TestContext.Current.CancellationToken);

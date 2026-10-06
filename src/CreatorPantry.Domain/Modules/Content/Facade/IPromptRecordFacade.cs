@@ -28,6 +28,24 @@ public interface IPromptRecordFacade
     /// retries and saves a second, permanent copy of the same prompt. With it, the retry returns the first
     /// answer.
     /// </param>
+    /// <summary>
+    /// Saves a prompt for an asset another module is creating, inside that module's transaction.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>No idempotency key, deliberately.</strong> The caller's own command carries one and this
+    /// prompt is part of it; handing the key down would have this module's executor open a second
+    /// transaction inside the caller's for a write that is not separately retryable.
+    /// </para>
+    /// <para>
+    /// The asset id is a parameter rather than a field on the input, because the caller is the thing
+    /// creating the asset: the id does not exist when the request is written, and an immutable row cannot
+    /// gain it afterwards.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<SavedPromptRecordServiceModel>> SaveForAssetAsync(
+        string userId, PromptRecordSaveInput input, Guid damAssetId, CancellationToken cancellationToken);
+
     Task<IdempotentOutcome<SavedPromptRecordServiceModel>> SaveAsync(
         string userId,
         SavePromptRecordViewModel model,
@@ -139,6 +157,35 @@ internal sealed class PromptRecordFacade(
     private const string SaveOperation = "content.prompt_record.save";
 
     private const string CannotList = "That prompt list cannot be read as described.";
+
+    public Task<OperationResult<SavedPromptRecordServiceModel>> SaveForAssetAsync(
+        string userId, PromptRecordSaveInput input, Guid damAssetId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        // Straight to Business, past the idempotent executor: the caller already holds a transaction and
+        // its own key covers this write. Mapping happens here because the ViewModel is this module's and
+        // may not cross out of it.
+        return business.SaveAsync(
+            new SavePromptRecordViewModel
+            {
+                ChannelKey = input.ChannelKey,
+                ImageKind = input.ImageKind,
+                Text = input.Text,
+                GeneratedText = input.GeneratedText,
+                Label = input.Label,
+                Source = input.Source,
+                AiProposalId = input.AiProposalId,
+                RecipeId = input.RecipeId,
+                RecipeVersionId = input.RecipeVersionId,
+                GeneratedImageId = input.GeneratedImageId,
+                PromptTemplateId = input.PromptTemplateId,
+                PromptTemplateVersion = input.PromptTemplateVersion,
+                PromptTemplateBodyChecksum = input.PromptTemplateBodyChecksum,
+                DamAssetId = damAssetId,
+            },
+            cancellationToken);
+    }
 
     public async Task<IdempotentOutcome<SavedPromptRecordServiceModel>> SaveAsync(
         string userId,

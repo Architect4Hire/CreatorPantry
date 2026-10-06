@@ -10,7 +10,7 @@ namespace CreatorPantry.Domain.Managers.Ai;
 /// <remarks>
 /// The host chooses the provider, exactly as it chooses the cache store — see
 /// <see cref="Caching.CachingServiceCollectionExtensions.AddApplicationCache"/>. This assembly only knows
-/// <see cref="IChatClient"/> and <see cref="IEmbeddingGenerator{TInput,TEmbedding}"/>, never a provider SDK,
+/// <see cref="IChatClient"/> and <see cref="IEmbeddingGenerator{TInput,TEmbedding}"/> and <see cref="IImageGenerator"/>, never a provider SDK,
 /// so the fallbacks live here and the real clients are wired in <c>CreatorPantry.AiProvider</c>.
 /// </remarks>
 public static class AiServiceCollectionExtensions
@@ -29,4 +29,14 @@ public static class AiServiceCollectionExtensions
 
         return services;
     }
+
+    // MEAI001: see UnconfiguredImageGenerator for why this is suppressed here rather than project-wide.
+#pragma warning disable MEAI001
+    public static IServiceCollection AddUnconfiguredImageGenerator(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IImageGenerator>(new UnconfiguredImageGenerator());
+
+        return services;
+    }
+#pragma warning restore MEAI001
 }

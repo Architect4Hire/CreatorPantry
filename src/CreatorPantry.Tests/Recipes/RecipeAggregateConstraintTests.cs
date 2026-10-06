@@ -87,7 +87,7 @@ public sealed class RecipeAggregateConstraintTests : IDisposable
             Id = Guid.NewGuid(),
             RecipeId = recipe.Id,
             SortOrder = 1,
-            MediaAssetId = Guid.NewGuid(),
+            MediaAssetId = RecipeAggregateFixture.MediaAssetIdA,
             Role = RecipeAssetRole.Hero,
         });
 
@@ -363,7 +363,7 @@ public sealed class RecipeAggregateConstraintTests : IDisposable
         Id = Guid.NewGuid(),
         RecipeId = recipeId,
         SortOrder = sortOrder,
-        MediaAssetId = Guid.NewGuid(),
+        MediaAssetId = RecipeAggregateFixture.MediaAssetIdA,
         Role = RecipeAssetRole.Gallery,
     };
 

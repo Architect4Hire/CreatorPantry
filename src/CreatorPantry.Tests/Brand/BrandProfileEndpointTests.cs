@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Tests.Media;
 using CreatorPantry.Tests.Tenancy;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,6 +35,11 @@ public sealed class BrandProfileEndpointTests : IAsyncLifetime
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
             workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        // 12.9 gave BrandAssetLink the composite foreign key its configuration had promised, so a logo now
+        // has to name a real asset of this workspace.
+        var asset = SeededMediaAsset.For(workspace.Id);
+        db.MediaAssets.Add(asset);
 
         var now = DateTimeOffset.UtcNow;
         var profile = new BrandProfile
@@ -65,8 +71,8 @@ public sealed class BrandProfileEndpointTests : IAsyncLifetime
             ];
             profile.AssetLinks =
             [
-                new() { Id = Guid.NewGuid(), MediaAssetId = Guid.NewGuid(), Role = BrandAssetRole.AlternateLogo, SortOrder = 1 },
-                new() { Id = Guid.NewGuid(), MediaAssetId = Guid.NewGuid(), Role = BrandAssetRole.PrimaryLogo, SortOrder = 0 },
+                new() { Id = Guid.NewGuid(), MediaAssetId = asset.Id, Role = BrandAssetRole.AlternateLogo, SortOrder = 1 },
+                new() { Id = Guid.NewGuid(), MediaAssetId = asset.Id, Role = BrandAssetRole.PrimaryLogo, SortOrder = 0 },
             ];
         }
 

@@ -74,6 +74,13 @@ internal sealed class GeneratedImageConfiguration : IEntityTypeConfiguration<Gen
             .HasFilter("Status = 1")
             .HasDatabaseName("IX_GeneratedImages_Status_RetentionExpiresAt");
 
+        // 12.8's purge queue: rows whose bytes are still in staging and whose status says they should not
+        // be. Filtered to exactly that set, so the sweep's read costs nothing once it has drained — which
+        // is the whole reason ObjectDeletedAt exists.
+        builder.HasIndex(image => new { image.Status, image.ObjectDeletedAt })
+            .HasFilter("Status IN (2, 3, 4) AND ObjectDeletedAt IS NULL")
+            .HasDatabaseName("IX_GeneratedImages_Status_ObjectDeletedAt");
+
         // A workspace reading one request's images, in variant order.
         builder.HasIndex(image => new { image.WorkspaceId, image.GeneratedImageOperationId, image.VariantIndex })
             .HasDatabaseName("IX_GeneratedImages_Workspace_Operation_Variant");

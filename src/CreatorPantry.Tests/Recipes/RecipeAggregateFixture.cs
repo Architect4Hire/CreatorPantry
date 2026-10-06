@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
+using CreatorPantry.Tests.Media;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -117,10 +118,34 @@ internal sealed class RecipeAggregateFixture : IDisposable
         db.CookingTechniques.Add(new CookingTechnique { Id = TechniqueId, Code = "bake", DisplayName = "Bake" });
         db.EquipmentTypes.Add(new EquipmentType { Id = EquipmentTypeId, Code = "cake-pan", DisplayName = "Cake pan" });
 
+        // One media asset per workspace, because 12.9 gave RecipeAssetLink the composite foreign key its
+        // configuration had promised since Phase 2. NewRecipe's asset link names MediaAssetIdA, so every
+        // test that saves a recipe gets a link pointing at something real — which is the point of the key.
+        // A recipe test should not have to know what a media asset is, so this is the only place in the
+        // recipe suite that mentions one.
+        db.MediaAssets.AddRange(
+            SeededMediaAsset.For(WorkspaceA, MediaAssetIdA, Now),
+            SeededMediaAsset.For(WorkspaceB, MediaAssetIdB, Now));
+
         db.SaveChanges();
     }
 
     public static Guid WorkspaceA { get; } = Guid.NewGuid();
+
+    /// <summary>The asset <see cref="NewRecipe"/>'s link points at, one per workspace.</summary>
+    public static Guid MediaAssetIdA { get; } = Guid.NewGuid();
+
+    /// <inheritdoc cref="MediaAssetIdA"/>
+    public static Guid MediaAssetIdB { get; } = Guid.NewGuid();
+
+    /// <summary>The seeded asset belonging to <paramref name="workspaceId"/>.</summary>
+    /// <remarks>
+    /// So a helper that seeds into either workspace picks the right one without each caller remembering
+    /// to. Passing the wrong workspace's asset is refused by the composite foreign key rather than
+    /// quietly producing a cross-workspace link, which is the whole point of the key.
+    /// </remarks>
+    public static Guid MediaAssetIdFor(Guid workspaceId) =>
+        workspaceId == WorkspaceB ? MediaAssetIdB : MediaAssetIdA;
 
     public static Guid WorkspaceB { get; } = Guid.NewGuid();
 
@@ -268,7 +293,12 @@ internal sealed class RecipeAggregateFixture : IDisposable
     /// <see cref="WorkspaceOwnershipInterceptor"/>'s job, and a test that set it by hand would stop proving
     /// that ownership arrives from the resolved context rather than from whoever built the object.
     /// </summary>
-    public static Recipe NewRecipe(string title)
+    /// <param name="mediaAssetId">
+    /// The asset the recipe's one link points at. Defaults to workspace A's, because almost every test
+    /// seeds there; a test seeding into workspace B passes <see cref="MediaAssetIdB"/>, and the composite
+    /// foreign key is what makes getting that wrong a failure rather than a silent cross-workspace link.
+    /// </param>
+    public static Recipe NewRecipe(string title, Guid? mediaAssetId = null)
     {
         var recipe = new Recipe
         {
@@ -341,7 +371,7 @@ internal sealed class RecipeAggregateFixture : IDisposable
             Id = Guid.NewGuid(),
             RecipeId = recipe.Id,
             SortOrder = 0,
-            MediaAssetId = Guid.NewGuid(),
+            MediaAssetId = mediaAssetId ?? MediaAssetIdA,
             Role = RecipeAssetRole.Hero,
         });
 

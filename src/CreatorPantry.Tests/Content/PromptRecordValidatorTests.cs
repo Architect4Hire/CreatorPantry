@@ -172,28 +172,22 @@ public sealed class PromptRecordValidatorTests
     }
 
     /// <summary>
-    /// The request still cannot name a DAM asset, and that absence is the design rather than an oversight —
-    /// see <see cref="SavePromptRecordViewModel"/>.
+    /// A DAM asset may be named, now that something can resolve one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A rule about what must <em>not</em> be added, which no ordinary test would notice breaking: adding the
-    /// property would work perfectly and quietly let a client write an id this server cannot verify into a row
-    /// that can never be corrected.
-    /// </para>
-    /// <para>
-    /// <strong><c>GeneratedImageId</c> was asserted absent here until 12.6 and is deliberately no longer.</strong>
-    /// That prompt added the field, the facade check that resolves it inside the resolved workspace, and the
-    /// composite foreign key — three parts of one change, and this line was the fourth. <c>DamAssetId</c> waits
-    /// for 12.9 on exactly the same terms.
-    /// </para>
+    /// <strong>This test asserted the field's <em>absence</em> until 12.9a.</strong> The column existed from
+    /// 12.3, nothing could resolve an id, and the row is immutable — so a wrong value written once could
+    /// only ever be erased. The DAM aggregate now exists, the id is resolved through
+    /// <c>IMediaAssetLookupFacade</c> inside the resolved workspace, and the composite foreign key makes a
+    /// neighbour's asset unrepresentable. Four parts of one change, and deleting the old assertion was the
+    /// fourth — exactly as 12.6 did for <c>GeneratedImageId</c>.
     /// </remarks>
     [Fact]
-    public void The_request_cannot_name_an_asset_this_server_cannot_resolve()
+    public void The_request_may_name_an_asset_this_server_can_resolve()
     {
         var properties = typeof(SavePromptRecordViewModel).GetProperties().Select(property => property.Name).ToList();
 
-        Assert.DoesNotContain("DamAssetId", properties);
+        Assert.Contains("DamAssetId", properties);
     }
 
     /// <summary>

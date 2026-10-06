@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -31,8 +32,14 @@ internal sealed class BrandAssetLinkConfiguration : IEntityTypeConfiguration<Bra
             .HasPrincipalKey(profile => new { profile.WorkspaceId, profile.Id })
             .OnDelete(DeleteBehavior.Cascade);
 
-        // MediaAssetId deliberately has no foreign key yet; see BrandAssetLink. The eventual constraint is
-        // composite (WorkspaceId, MediaAssetId) -> MediaAssets (WorkspaceId, Id).
+        // The constraint this comment used to promise, now that 12.9 has landed the aggregate. Composite
+        // so one workspace's profile cannot show another's logo, and restricted because deleting a link
+        // never deletes the asset and Workspace already cascades here through BrandProfile.
+        builder.HasOne<MediaAsset>()
+            .WithMany()
+            .HasForeignKey(link => new { link.WorkspaceId, link.MediaAssetId })
+            .HasPrincipalKey(asset => new { asset.WorkspaceId, asset.Id })
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(link => new { link.WorkspaceId, link.BrandProfileId, link.SortOrder })
             .IsUnique()

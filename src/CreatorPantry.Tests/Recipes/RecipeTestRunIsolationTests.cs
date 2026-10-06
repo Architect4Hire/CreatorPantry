@@ -70,7 +70,7 @@ public sealed class RecipeTestRunIsolationTests : IDisposable
             Id = Guid.NewGuid(),
             RecipeTestRunId = own.RunId,
             TestIssueId = foreign.IssueId,
-            MediaAssetId = Guid.NewGuid(),
+            MediaAssetId = RecipeAggregateFixture.MediaAssetIdA,
             SortOrder = 1,
         });
 
@@ -122,7 +122,8 @@ public sealed class RecipeTestRunIsolationTests : IDisposable
         var db = RecipeAggregateFixture.Db(scope);
         var token = TestContext.Current.CancellationToken;
 
-        var recipe = RecipeAggregateFixture.NewRecipe("Cake");
+        var recipe = RecipeAggregateFixture.NewRecipe(
+            "Cake", RecipeAggregateFixture.MediaAssetIdFor(workspaceId));
         var version = new RecipeVersion
         {
             Id = Guid.NewGuid(),
@@ -191,7 +192,7 @@ public sealed class RecipeTestRunIsolationTests : IDisposable
             Id = Guid.NewGuid(),
             RecipeTestRunId = run.Id,
             TestIssueId = issue.Id,
-            MediaAssetId = Guid.NewGuid(),
+            MediaAssetId = RecipeAggregateFixture.MediaAssetIdFor(workspaceId),
             SortOrder = 0,
         });
 

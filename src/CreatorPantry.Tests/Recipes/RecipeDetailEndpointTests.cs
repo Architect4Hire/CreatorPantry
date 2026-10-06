@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Tests.Gateway;
+using CreatorPantry.Tests.Media;
 using CreatorPantry.Tests.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -314,7 +315,13 @@ public sealed class RecipeDetailEndpointTests : IAsyncLifetime
             workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
 
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
-        var recipe = SeededRecipe(title);
+
+        // The asset this recipe's links point at. 12.9 gave RecipeAssetLink the composite foreign key its
+        // configuration had promised, so a link now has to name a real asset of this workspace.
+        var asset = SeededMediaAsset.For(workspace.Id);
+        db.MediaAssets.Add(asset);
+
+        var recipe = SeededRecipe(title, asset.Id);
 
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -326,7 +333,7 @@ public sealed class RecipeDetailEndpointTests : IAsyncLifetime
     /// A recipe with two of each ordered child, seeded with their sort orders reversed so that a response in
     /// insertion order is distinguishable from one in sort order.
     /// </summary>
-    private static Recipe SeededRecipe(string title)
+    private static Recipe SeededRecipe(string title, Guid mediaAssetId)
     {
         var recipe = new Recipe
         {
@@ -400,7 +407,7 @@ public sealed class RecipeDetailEndpointTests : IAsyncLifetime
                 Id = Guid.NewGuid(),
                 RecipeId = recipe.Id,
                 SortOrder = groupOrder,
-                MediaAssetId = Guid.NewGuid(),
+                MediaAssetId = mediaAssetId,
                 Role = groupOrder == 0 ? RecipeAssetRole.Hero : RecipeAssetRole.Gallery,
             });
         }

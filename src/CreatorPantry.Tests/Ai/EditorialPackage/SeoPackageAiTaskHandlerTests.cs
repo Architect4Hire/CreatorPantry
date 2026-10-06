@@ -15,6 +15,7 @@ using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
+using CreatorPantry.Tests.Media;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -762,9 +763,15 @@ public sealed class SeoPackageAiTaskHandlerTests : IAsyncDisposable
         var captioned = Guid.NewGuid();
         var bare = Guid.NewGuid();
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        // 12.9 gave RecipeAssetLink the composite foreign key its configuration had promised, so a link
+        // now has to name a real asset of this workspace.
+        var asset = SeededMediaAsset.For(WorkspaceA);
+        db.MediaAssets.Add(asset);
+
         db.RecipeAssetLinks.AddRange(
-            new RecipeAssetLink { Id = captioned, WorkspaceId = WorkspaceA, RecipeId = recipeId, MediaAssetId = Guid.NewGuid(), Role = RecipeAssetRole.Hero, Caption = "Sliced soda bread on a board", SortOrder = 0 },
-            new RecipeAssetLink { Id = bare, WorkspaceId = WorkspaceA, RecipeId = recipeId, MediaAssetId = Guid.NewGuid(), Role = RecipeAssetRole.Gallery, SortOrder = 1 });
+            new RecipeAssetLink { Id = captioned, WorkspaceId = WorkspaceA, RecipeId = recipeId, MediaAssetId = asset.Id, Role = RecipeAssetRole.Hero, Caption = "Sliced soda bread on a board", SortOrder = 0 },
+            new RecipeAssetLink { Id = bare, WorkspaceId = WorkspaceA, RecipeId = recipeId, MediaAssetId = asset.Id, Role = RecipeAssetRole.Gallery, SortOrder = 1 });
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var detail = await recipes.GetDetailAsync(recipeId, TestContext.Current.CancellationToken);

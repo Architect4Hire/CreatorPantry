@@ -102,7 +102,7 @@ public sealed class BrandProfileAggregateTests : IDisposable
             var ws = RecipeAggregateFixture.WorkspaceA;
             db.BrandChannelDefaults.Add(new BrandChannelDefault { Id = Guid.NewGuid(), WorkspaceId = ws, BrandProfileId = profile.Id, ChannelKey = "instagram", SortOrder = 0 });
             db.BrandLinks.Add(new BrandLink { Id = Guid.NewGuid(), WorkspaceId = ws, BrandProfileId = profile.Id, Kind = BrandLinkKind.Website, Url = "https://example.com", SortOrder = 0 });
-            db.BrandAssetLinks.Add(new BrandAssetLink { Id = Guid.NewGuid(), WorkspaceId = ws, BrandProfileId = profile.Id, MediaAssetId = Guid.NewGuid(), Role = BrandAssetRole.PrimaryLogo, SortOrder = 0 });
+            db.BrandAssetLinks.Add(new BrandAssetLink { Id = Guid.NewGuid(), WorkspaceId = ws, BrandProfileId = profile.Id, MediaAssetId = RecipeAggregateFixture.MediaAssetIdFor(ws), Role = BrandAssetRole.PrimaryLogo, SortOrder = 0 });
             await db.SaveChangesAsync(ct);
         }
 
@@ -173,7 +173,7 @@ public sealed class BrandProfileAggregateTests : IDisposable
         BrandAssetLink Link(BrandAssetRole role, int order) => new()
         {
             Id = Guid.NewGuid(), WorkspaceId = ws, BrandProfileId = profile.Id,
-            MediaAssetId = Guid.NewGuid(), Role = role, SortOrder = order,
+            MediaAssetId = RecipeAggregateFixture.MediaAssetIdFor(ws), Role = role, SortOrder = order,
         };
 
         await using (var scope = _fixture.ScopeFor(ws))
@@ -231,12 +231,18 @@ public sealed class BrandProfileAggregateTests : IDisposable
     {
         var a = await SeedAsync(RecipeAggregateFixture.WorkspaceA, "Kitchen A");
         var b = await SeedAsync(RecipeAggregateFixture.WorkspaceB, "Kitchen B");
-        var sharedAsset = Guid.NewGuid();
         var ct = TestContext.Current.CancellationToken;
 
         // Same channel key, sort order, link order and primary logo in both: uniqueness is workspace-relative.
-        await SeedChildrenAsync(RecipeAggregateFixture.WorkspaceA, a.Id, sharedAsset);
-        await SeedChildrenAsync(RecipeAggregateFixture.WorkspaceB, b.Id, sharedAsset);
+        //
+        // The asset is the one child value that cannot be literally shared, and that is 12.9 working rather
+        // than a weakened test: an asset id belongs to exactly one workspace now, so a link naming the
+        // other's is refused by the composite foreign key instead of quietly crossing the boundary. Every
+        // other value here is still identical, which is what this test is about.
+        await SeedChildrenAsync(
+            RecipeAggregateFixture.WorkspaceA, a.Id, RecipeAggregateFixture.MediaAssetIdA);
+        await SeedChildrenAsync(
+            RecipeAggregateFixture.WorkspaceB, b.Id, RecipeAggregateFixture.MediaAssetIdB);
 
         await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
         var db = RecipeAggregateFixture.Db(scope);

@@ -35,7 +35,8 @@ public sealed class ContentProposalAggregateTests : IDisposable
         await using var scope = _fixture.ScopeFor(workspaceId);
         var db = RecipeAggregateFixture.Db(scope);
 
-        var recipe = RecipeAggregateFixture.NewRecipe("Olive oil cake");
+        var recipe = RecipeAggregateFixture.NewRecipe(
+            "Olive oil cake", RecipeAggregateFixture.MediaAssetIdFor(workspaceId));
         db.Recipes.Add(recipe);
 
         var version = NewVersion(workspaceId, recipe.Id, 1);

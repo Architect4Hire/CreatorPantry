@@ -788,7 +788,8 @@ public sealed class RecipeTestRunHistoryRepositoryTests(SqlServerRecipeFixture f
             title,
             workspaceId == SqlServerRecipeFixture.WorkspaceB
                 ? SqlServerRecipeFixture.TagIdB
-                : SqlServerRecipeFixture.TagIdA);
+                : SqlServerRecipeFixture.TagIdA,
+            SqlServerRecipeFixture.MediaAssetIdFor(workspaceId ?? SqlServerRecipeFixture.WorkspaceA));
 
         db.Recipes.Add(recipe);
 
@@ -876,7 +877,8 @@ public sealed class RecipeTestRunHistoryRepositoryTests(SqlServerRecipeFixture f
             {
                 Id = Guid.NewGuid(),
                 RecipeTestRunId = run.Id,
-                MediaAssetId = Guid.NewGuid(),
+                MediaAssetId = SqlServerRecipeFixture.MediaAssetIdFor(
+                    workspaceId ?? SqlServerRecipeFixture.WorkspaceA),
                 SortOrder = index,
             });
         }

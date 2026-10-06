@@ -130,6 +130,19 @@ internal sealed class PromptRecordConfiguration : IEntityTypeConfiguration<Promp
             .HasPrincipalKey(image => new { image.WorkspaceId, image.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
+        // The DAM asset the prompt produced (12.9a). Workspace-paired for the same reason as the image
+        // above, and Restrict for the same two: Workspace already cascades into this table, and an asset a
+        // prompt record names must not be deleted out from under the evidence of what produced it.
+        //
+        // Deliberately not unique, unlike the generated-image index below. An asset gains versions (DAM-010),
+        // and a version made from a new prompt is a new prompt record naming the same asset — so uniqueness
+        // here would refuse the second one.
+        builder.HasOne<MediaAsset>()
+            .WithMany()
+            .HasForeignKey(record => new { record.WorkspaceId, record.DamAssetId })
+            .HasPrincipalKey(asset => new { asset.WorkspaceId, asset.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
         // One prompt record per committed generated image. This is what makes 12.3a's "no duplicate prompt records
         // on DAM retry" a property of the schema rather than something a worker has to remember: a retry loses the
         // index. Filtered, because a prompt saved before any image was committed has no id to be unique on.

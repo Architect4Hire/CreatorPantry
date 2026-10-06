@@ -1150,6 +1150,10 @@ public sealed class BrandSourceExtractionQueueTests : IDisposable
         public Task<StoredObjectContent?> OpenReadAsync(string container, string key, CancellationToken cancellationToken) =>
             inner.OpenReadAsync(container, key, cancellationToken);
 
+        public Task<ObjectListPage> ListAsync(
+            string container, string prefix, int pageSize, string? continuationToken, CancellationToken cancellationToken) =>
+            inner.ListAsync(container, prefix, pageSize, continuationToken, cancellationToken);
+
         public Task<bool> DeleteAsync(string container, string key, CancellationToken cancellationToken) =>
             inner.DeleteAsync(container, key, cancellationToken);
     }

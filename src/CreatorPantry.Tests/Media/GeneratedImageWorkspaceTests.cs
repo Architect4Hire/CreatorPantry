@@ -49,6 +49,10 @@ public sealed class GeneratedImageWorkspaceTests : IAsyncLifetime
         await _connection.OpenAsync(Ct);
 
         _provider = new ServiceCollection()
+
+            // 12.8 gave the Media module a gateway and a data layer that log, so the module no longer
+            // composes without logging. Nothing here reads a log; this is what lets the container build.
+            .AddLogging()
             .AddTenancy()
             .AddAudit()
             .AddMediaModule()

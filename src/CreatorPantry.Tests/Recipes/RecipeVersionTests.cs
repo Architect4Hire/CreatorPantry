@@ -141,7 +141,8 @@ public sealed class RecipeVersionTests : IDisposable
     {
         await using (var seedB = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceB))
         {
-            await SeedVersionAsync(RecipeAggregateFixture.Db(seedB));
+            await SeedVersionAsync(
+                RecipeAggregateFixture.Db(seedB), RecipeAggregateFixture.MediaAssetIdB);
         }
 
         await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
@@ -163,7 +164,7 @@ public sealed class RecipeVersionTests : IDisposable
         await using (var seedB = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceB))
         {
             var otherDb = RecipeAggregateFixture.Db(seedB);
-            await SeedVersionAsync(otherDb);
+            await SeedVersionAsync(otherDb, RecipeAggregateFixture.MediaAssetIdB);
             foreignVersionId = (await otherDb.RecipeVersions.SingleAsync(TestContext.Current.CancellationToken)).Id;
         }
 
@@ -287,7 +288,8 @@ public sealed class RecipeVersionTests : IDisposable
         await using (var seedB = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceB))
         {
             var otherDb = RecipeAggregateFixture.Db(seedB);
-            var foreign = RecipeAggregateFixture.NewRecipe("B's cake");
+            var foreign = RecipeAggregateFixture.NewRecipe(
+                "B's cake", RecipeAggregateFixture.MediaAssetIdB);
             otherDb.Recipes.Add(foreign);
             await otherDb.SaveChangesAsync(TestContext.Current.CancellationToken);
             foreignRecipeId = foreign.Id;
@@ -339,7 +341,7 @@ public sealed class RecipeVersionTests : IDisposable
         await using (var seedB = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceB))
         {
             var otherDb = RecipeAggregateFixture.Db(seedB);
-            await SeedVersionAsync(otherDb);
+            await SeedVersionAsync(otherDb, RecipeAggregateFixture.MediaAssetIdB);
             foreignVersionId = (await otherDb.RecipeVersions.SingleAsync(TestContext.Current.CancellationToken)).Id;
         }
 
@@ -378,7 +380,7 @@ public sealed class RecipeVersionTests : IDisposable
         await using (var seedB = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceB))
         {
             var otherDb = RecipeAggregateFixture.Db(seedB);
-            await SeedVersionAsync(otherDb);
+            await SeedVersionAsync(otherDb, RecipeAggregateFixture.MediaAssetIdB);
             foreignVersionId = (await otherDb.RecipeVersions.SingleAsync(TestContext.Current.CancellationToken)).Id;
         }
 
@@ -395,9 +397,9 @@ public sealed class RecipeVersionTests : IDisposable
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(TestContext.Current.CancellationToken));
     }
 
-    private static async Task<Recipe> SeedVersionAsync(CreatorPantryDbContext db)
+    private static async Task<Recipe> SeedVersionAsync(CreatorPantryDbContext db, Guid? mediaAssetId = null)
     {
-        var recipe = RecipeAggregateFixture.NewRecipe("Olive oil cake");
+        var recipe = RecipeAggregateFixture.NewRecipe("Olive oil cake", mediaAssetId);
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 

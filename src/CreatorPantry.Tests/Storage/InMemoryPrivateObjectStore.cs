@@ -11,7 +11,10 @@ namespace CreatorPantry.Tests.Storage;
 /// </summary>
 internal sealed class InMemoryPrivateObjectStore : IPrivateObjectStore
 {
-    private readonly ConcurrentDictionary<(string Container, string Key), (StoredObject Object, byte[] Bytes)> _objects = new();
+    private readonly ConcurrentDictionary<(string Container, string Key), (StoredObject Object, byte[] Bytes, DateTimeOffset CreatedAt)> _objects = new();
+
+    /// <summary>When a write made now is recorded as happening. Movable, so a grace period can be tested.</summary>
+    public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
 
     private int _openReads;
 
@@ -51,7 +54,7 @@ internal sealed class InMemoryPrivateObjectStore : IPrivateObjectStore
 
         var stored = new StoredObject(key, metered.BytesRead, metered.Checksum, mediaType);
 
-        return _objects.TryAdd((container, key), (stored, buffer.ToArray()))
+        return _objects.TryAdd((container, key), (stored, buffer.ToArray(), Now))
             ? new ObjectWriteResult(ObjectWriteOutcome.Stored, stored)
             : new ObjectWriteResult(ObjectWriteOutcome.AlreadyExists);
     }
@@ -70,6 +73,52 @@ internal sealed class InMemoryPrivateObjectStore : IPrivateObjectStore
 
         return Task.FromResult<StoredObjectContent?>(new StoredObjectContent(
             entry.Object, new CountedStream(new MemoryStream(entry.Bytes, writable: false), this)));
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// <strong>Key order and real continuation tokens, because that is what the Azure adapter does.</strong>
+    /// An earlier version of this fake sorted by age before taking a page, which made orphan reconciliation
+    /// look correct in every test while the real store silently never listed past its first page — a key is
+    /// a pair of GUIDs, so key order is nothing like age order. A fake that is kinder than the real thing
+    /// is worse than no fake.
+    /// </para>
+    /// <para>
+    /// The write time is the clock at <c>PutAsync</c>, which a test can move, so a sweep's grace period can
+    /// be exercised without waiting for one.
+    /// </para>
+    /// </remarks>
+    public Task<ObjectListPage> ListAsync(
+        string container, string prefix, int pageSize, string? continuationToken, CancellationToken cancellationToken)
+    {
+        ThrowIfUnavailable();
+        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
+
+        var matching = _objects
+            .Where(entry => entry.Key.Container == container
+                && entry.Key.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(entry => new StoredObjectSummary(
+                entry.Key.Key, entry.Value.Object.SizeBytes, entry.Value.CreatedAt))
+            .OrderBy(summary => summary.Key, StringComparer.Ordinal)
+            .ToList();
+
+        // The token is the last key handed out, so a page resumes strictly after it. A real store's token
+        // is opaque; this one only has to behave like one.
+        var start = continuationToken is null
+            ? 0
+            : matching.FindIndex(summary => string.CompareOrdinal(summary.Key, continuationToken) > 0);
+
+        if (start < 0)
+        {
+            return Task.FromResult(new ObjectListPage([]));
+        }
+
+        var page = matching.Skip(start).Take(pageSize).ToList();
+        var more = start + page.Count < matching.Count;
+
+        return Task.FromResult(new ObjectListPage(page, more ? page[^1].Key : null));
     }
 
     public Task<bool> DeleteAsync(string container, string key, CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.EntityFrameworkCore;
@@ -46,12 +47,14 @@ internal sealed class TestAttachmentLinkConfiguration : IEntityTypeConfiguration
             .HasPrincipalKey(issue => new { issue.WorkspaceId, issue.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
-        // MediaAssetId deliberately has no foreign key: the asset aggregate arrives with the media library,
-        // and its own migration adds the constraint. When it does, that constraint must be composite —
-        // (WorkspaceId, MediaAssetId) -> MediaAssets (WorkspaceId, Id), the same shape every other key in
-        // this module uses — because a plain MediaAssetId -> MediaAssets(Id) would still let one workspace's
-        // test attach another's photograph. Deleting this link never deletes the asset in any case: the asset
-        // is independently owned creator property with its own retention rules (media.md).
+        // The constraint this comment used to promise, now that 12.9 has landed the aggregate. Composite
+        // so one workspace's test cannot attach another's photograph, and restricted because deleting a
+        // link never deletes the asset and Workspace already cascades here through RecipeTestRun.
+        builder.HasOne<MediaAsset>()
+            .WithMany()
+            .HasForeignKey(link => new { link.WorkspaceId, link.MediaAssetId })
+            .HasPrincipalKey(asset => new { asset.WorkspaceId, asset.Id })
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(link => new { link.WorkspaceId, link.RecipeTestRunId, link.SortOrder })
             .IsUnique()

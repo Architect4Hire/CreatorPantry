@@ -11,6 +11,7 @@ using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.EntityFrameworkCore;
+using CreatorPantry.Tests.Media;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.MsSql;
@@ -243,10 +244,21 @@ public sealed class BrandProfileSqlServerTests : IAsyncLifetime
 
         var profile = await SeedAsync(workspaceA);
 
+        // 12.9 gave BrandAssetLink the composite foreign key its configuration had promised, so a logo now
+        // has to name a real asset of this workspace.
+        var asset = SeededMediaAsset.For(workspaceA);
+
+        await using (var scope = ScopeFor(workspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.MediaAssets.Add(asset);
+            await db.SaveChangesAsync(cancellation);
+        }
+
         BrandAssetLink Logo(BrandAssetRole role, int order) => new()
         {
             Id = Guid.NewGuid(), WorkspaceId = workspaceA, BrandProfileId = profile.Id,
-            MediaAssetId = Guid.NewGuid(), Role = role, SortOrder = order,
+            MediaAssetId = asset.Id, Role = role, SortOrder = order,
         };
 
         await using (var scope = ScopeFor(workspaceA))

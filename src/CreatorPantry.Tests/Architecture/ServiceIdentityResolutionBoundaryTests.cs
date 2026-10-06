@@ -17,7 +17,8 @@ namespace CreatorPantry.Tests.Architecture;
 /// <para>
 /// Every caller today takes its workspace id from a row committed in the same transaction as the thing it is
 /// about — an outbox message beside a recipe version, an extraction operation beside a document version, an
-/// embedding operation beside the extraction it names. The second is the reason the summary above says "a committed row" rather than "a committed outbox row": the
+/// embedding operation beside the extraction it names, a generation operation beside the request a creator
+/// confirmed. The second is the reason the summary above says "a committed row" rather than "a committed outbox row": the
 /// property that matters is that no client chose the value, not which table it was read from. All also deserve
 /// the <em>service</em> resolver rather than the operation one, because none may stop working when the member
 /// who caused it leaves the workspace.
@@ -30,6 +31,8 @@ public sealed class ServiceIdentityResolutionBoundaryTests
     [
         "CreatorPantry.Domain/Modules/Brand/Managers/BrandSourceEmbeddingWorker.cs",
         "CreatorPantry.Domain/Modules/Brand/Managers/BrandSourceExtractionWorker.cs",
+        "CreatorPantry.Domain/Modules/Media/Managers/GeneratedImageWorker.cs",
+        "CreatorPantry.Domain/Modules/Media/Managers/StagedImageRetentionWorker.cs",
         "CreatorPantry.Domain/Modules/Recipes/Managers/RecipeVersionChangedOutboxHandler.cs",
     ];
 

@@ -41,7 +41,8 @@ public sealed class RecipeTestRunConstraintTests : IDisposable
 
         await using (var other = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceB))
         {
-            (foreignRecipeId, foreignVersionId) = await SeedRecipeAsync(RecipeAggregateFixture.Db(other), "B's cake");
+            (foreignRecipeId, foreignVersionId) = await SeedRecipeAsync(
+                RecipeAggregateFixture.Db(other), "B's cake", RecipeAggregateFixture.MediaAssetIdB);
         }
 
         await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
@@ -407,7 +408,7 @@ public sealed class RecipeTestRunConstraintTests : IDisposable
         {
             Id = Guid.NewGuid(),
             RecipeTestRunId = run.RunId,
-            MediaAssetId = Guid.NewGuid(),
+            MediaAssetId = RecipeAggregateFixture.MediaAssetIdA,
             SortOrder = 0,
         });
         await db.SaveChangesAsync(token);
@@ -506,9 +507,10 @@ public sealed class RecipeTestRunConstraintTests : IDisposable
     };
 
     /// <summary>A recipe with one captured version, in whichever workspace the scope resolved to.</summary>
-    private static async Task<(Guid RecipeId, Guid VersionId)> SeedRecipeAsync(CreatorPantryDbContext db, string title)
+    private static async Task<(Guid RecipeId, Guid VersionId)> SeedRecipeAsync(
+        CreatorPantryDbContext db, string title, Guid? mediaAssetId = null)
     {
-        var recipe = RecipeAggregateFixture.NewRecipe(title);
+        var recipe = RecipeAggregateFixture.NewRecipe(title, mediaAssetId);
         var version = new RecipeVersion
         {
             Id = Guid.NewGuid(),

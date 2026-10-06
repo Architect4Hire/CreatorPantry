@@ -449,7 +449,8 @@ public sealed class ContentStalenessPropagationTests(SqlServerRecipeFixture fixt
         var tagId = workspaceId == WsA ? SqlServerRecipeFixture.TagIdA : SqlServerRecipeFixture.TagIdB;
 
         return await scope.ServiceProvider.GetRequiredService<IRecipeDataLayer>().CreateAsync(
-            SqlServerRecipeFixture.NewRecipe("Olive oil cake", tagId),
+            SqlServerRecipeFixture.NewRecipe(
+                "Olive oil cake", tagId, SqlServerRecipeFixture.MediaAssetIdFor(workspaceId)),
             new RecipeVersionFacts(RecipeVersionSource.CreatorEdit, RecipeVersionReadiness.Draft, "Created."),
             [],
             Ct);

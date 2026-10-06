@@ -96,11 +96,29 @@ public sealed class GeneratedImage : IWorkspaceOwned
     /// </summary>
     /// <remarks>
     /// Stored rather than computed so the sweep is a keyed read on a filtered index rather than a scan. It is
-    /// not cleared when an image is kept: the deadline it had is a historical fact, and the index that drives
-    /// the sweep is filtered to <see cref="GeneratedImageStatus.Staged"/> so a kept row is simply never
-    /// looked at again.
+    /// not cleared when an image is kept: the deadline it had is a historical fact, and the expiry index is
+    /// filtered to <see cref="GeneratedImageStatus.Staged"/> so a kept row is never expired. Its bytes are
+    /// still collected, by the purge rather than the expiry — see <see cref="GeneratedImageStatus.Kept"/>.
     /// </remarks>
     public DateTimeOffset RetentionExpiresAt { get; set; }
+
+    /// <summary>
+    /// When the retention sweep removed this image's bytes from staging storage. Null while they are there.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The row outlives its bytes on purpose. A creator who generated four images and rejected three should
+    /// still be able to see that they did, and <c>PromptRecord</c> may hold a foreign key to a row here that
+    /// nothing may delete — so "the bytes are gone" is a fact recorded on the row rather than the row's
+    /// absence.
+    /// </para>
+    /// <para>
+    /// It is also what makes the sweep finite. Without it, every rejected image ever would be a candidate
+    /// for deletion on every pass, and the sweep would spend a storage call per row per minute forever,
+    /// learning nothing. With it, the purge queue empties.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? ObjectDeletedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

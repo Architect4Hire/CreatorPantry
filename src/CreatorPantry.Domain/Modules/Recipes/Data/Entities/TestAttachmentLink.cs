@@ -15,9 +15,9 @@ namespace CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 /// caption is written for this usage.
 /// </para>
 /// <para>
-/// <see cref="MediaAssetId"/> deliberately has <strong>no foreign key</strong>, exactly as
-/// <see cref="RecipeAssetLink.MediaAssetId"/> does not: the asset aggregate arrives with the media library
-/// and its own migration adds the constraint. Two things follow, and both are easy to get wrong later.
+/// <see cref="MediaAssetId"/> is workspace-paired to <c>MediaAsset</c> as of 12.9, exactly as
+/// <see cref="RecipeAssetLink.MediaAssetId"/> is. It was unconstrained from Phase 2 until then. Two things
+/// follow, and both were easy to get wrong before the key existed.
 /// </para>
 /// <para>
 /// The constraint that eventually lands must be composite —

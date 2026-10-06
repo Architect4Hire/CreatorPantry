@@ -14,6 +14,10 @@ internal sealed class UnconfiguredPrivateObjectStore : IPrivateObjectStore
     public Task<StoredObjectContent?> OpenReadAsync(string container, string key, CancellationToken cancellationToken) =>
         throw NotConfigured();
 
+    public Task<ObjectListPage> ListAsync(
+        string container, string prefix, int pageSize, string? continuationToken, CancellationToken cancellationToken) =>
+        throw NotConfigured();
+
     public Task<bool> DeleteAsync(string container, string key, CancellationToken cancellationToken) =>
         throw NotConfigured();
 

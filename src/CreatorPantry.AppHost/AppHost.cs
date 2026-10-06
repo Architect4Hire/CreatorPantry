@@ -77,6 +77,17 @@ var blobs = storage.AddBlobs("blobs");
 // The name is BrandSourceObjectKey.Container.
 var brandSources = blobs.AddBlobContainer("brand-sources");
 
+// Private staging for generated images (12.7). Its own container rather than a prefix inside
+// "brand-sources", because the two have different lifetimes and different sweeps: a brand source lives as
+// long as the document, and a staged image is deleted a fortnight after nobody chose it. The name is
+// GeneratedImageObjectKey.Container. The Worker is what writes here; the API reads it from 12.8.
+var generatedImages = blobs.AddBlobContainer("generated-images");
+
+// The DAM's own container (12.9a). Separate from staging because the two have different lifetimes: a
+// staged image is swept a fortnight after nobody chose it, and a DAM version is kept until the creator
+// deletes the asset. The name is MediaAssetObjectKey.Container.
+var mediaAssets = blobs.AddBlobContainer("media-assets");
+
 // One-shot: applies EF migrations, then exits. Dependents use WaitForCompletion(migrations).
 var migrations = builder.AddProject<Projects.CreatorPantry_MigrationService>("migrations")
     .WithReference(db)
@@ -101,6 +112,8 @@ var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchPro
     .WithReference(cache).WaitFor(cache)
     .WithReference(blobs).WaitFor(blobs)
     .WaitFor(brandSources)
+    .WaitFor(generatedImages)
+    .WaitFor(mediaAssets)
     .WaitForCompletion(migrations)
     .WithHttpHealthCheck("/health");
 
@@ -112,6 +125,9 @@ var worker = builder.AddProject<Projects.CreatorPantry_Worker>("worker")
     .WithReference(db).WaitFor(db)
     .WithReference(cache).WaitFor(cache)
     .WithReference(blobs).WaitFor(blobs)
+    // The Worker is what writes staged generated images, so it waits on the container it writes to.
+    .WaitFor(generatedImages)
+    .WaitFor(mediaAssets)
     .WaitForCompletion(migrations);
 
 // Microsoft Foundry (B-15). Chat and embeddings are separate named deployments, so they can be sized,

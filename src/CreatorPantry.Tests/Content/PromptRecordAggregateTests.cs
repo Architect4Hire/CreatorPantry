@@ -72,7 +72,8 @@ public sealed class PromptRecordAggregateTests : IDisposable
         await using var scope = _fixture.ScopeFor(workspaceId);
         var db = RecipeAggregateFixture.Db(scope);
 
-        var recipe = RecipeAggregateFixture.NewRecipe("Soda bread");
+        var recipe = RecipeAggregateFixture.NewRecipe(
+            "Soda bread", RecipeAggregateFixture.MediaAssetIdFor(workspaceId));
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync(Ct);
 

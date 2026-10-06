@@ -1,6 +1,7 @@
 using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
@@ -89,8 +90,8 @@ public static class WorkerHostRegistration
         builder.Services.AddContentModule();
 
         // The content module resolves a saved prompt's generated-image pin through the Media module, so a
-        // host carrying one carries the other. Nothing here reads prompts yet; 12.7's generation job will,
-        // and a missing registration would surface as a resolution failure at the first claim rather than here.
+        // host carrying one carries the other. It is also where 12.7's image generation runs, which is why
+        // AddGeneratedImageWorker is added below alongside the brand queues.
         builder.Services.AddMediaModule();
         builder.Services.AddAudit();
         builder.Services.AddIdempotency(builder.Configuration);
@@ -103,6 +104,14 @@ public static class WorkerHostRegistration
         builder.Services.AddBrandModule();
         builder.Services.AddBrandSourceExtractionWorker();
         builder.Services.AddBrandSourceEmbeddingWorker();
+
+        // Image generation (12.7). It reads bytes a provider returned, which is the first inbound-content
+        // path this host has had — the API registers the development scanner for its uploads and this host
+        // never needed one. Without this line every generated image is refused by the fail-closed scanner,
+        // on a developer's machine as much as anywhere, which would read as a broken job rather than as a
+        // missing scanner. The call is a no-op outside Development, so a deployed host still fails closed.
+        builder.Services.AddDevelopmentMalwareScanning(builder.Environment);
+        builder.Services.AddGeneratedImageWorker();
 
         // 11A.19's brand-context assembler. Here rather than in the API because its callers are task handlers,
         // which run in this host, and after AddBrandModule because every read it makes goes through that
@@ -125,6 +134,9 @@ public static class WorkerHostRegistration
         builder.Services.AddHostedService<BrandSourceExtractionMaintenanceHostedService>();
         builder.Services.AddHostedService<BrandSourceEmbeddingWorkerHostedService>();
         builder.Services.AddHostedService<BrandSourceEmbeddingMaintenanceHostedService>();
+        builder.Services.AddHostedService<GeneratedImageWorkerHostedService>();
+        builder.Services.AddHostedService<GeneratedImageMaintenanceHostedService>();
+        builder.Services.AddHostedService<StagedImageRetentionHostedService>();
 
         return builder;
     }

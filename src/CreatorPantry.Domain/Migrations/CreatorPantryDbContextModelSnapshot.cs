@@ -2843,6 +2843,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("WorkspaceId", "AiProposalId");
 
+                    b.HasIndex("WorkspaceId", "DamAssetId");
+
                     b.HasIndex("WorkspaceId", "GeneratedImageId")
                         .IsUnique()
                         .HasDatabaseName("UX_PromptRecords_Workspace_GeneratedImage")
@@ -3375,6 +3377,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTimeOffset?>("ObjectDeletedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("ObjectKey")
                         .IsRequired()
                         .HasMaxLength(400)
@@ -3415,6 +3420,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasIndex("GeneratedImageOperationId", "VariantIndex")
                         .IsUnique()
                         .HasDatabaseName("UX_GeneratedImages_Operation_Variant");
+
+                    b.HasIndex("Status", "ObjectDeletedAt")
+                        .HasDatabaseName("IX_GeneratedImages_Status_ObjectDeletedAt")
+                        .HasFilter("Status IN (2, 3, 4) AND ObjectDeletedAt IS NULL");
 
                     b.HasIndex("Status", "RetentionExpiresAt")
                         .HasDatabaseName("IX_GeneratedImages_Status_RetentionExpiresAt")
@@ -3543,6 +3552,275 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_GeneratedImageOperations_Status_Declared", "Status <> 0");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_VariantCount_Range", "VariantCount >= 1 AND VariantCount <= 4");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AltText")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("AttributionText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ChannelKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CuisineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CurrentVersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Day")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlatformKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RightsHolder")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("StyleKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UpdatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("CuisineId");
+
+                    b.HasIndex("WorkspaceId", "CreatedAt", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("IX_MediaAssets_Workspace_CreatedAt")
+                        .HasFilter("DeletedAt IS NULL");
+
+                    b.HasIndex("WorkspaceId", "Title", "Id")
+                        .HasDatabaseName("IX_MediaAssets_Workspace_Title")
+                        .HasFilter("DeletedAt IS NULL");
+
+                    b.ToTable("MediaAssets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaAssets_CurrentVersionNumber_Positive", "CurrentVersionNumber >= 1");
+
+                            t.HasCheckConstraint("CK_MediaAssets_Deleted_Complete", "(DeletedAt IS NULL AND DeletedByMembershipId IS NULL) OR (DeletedAt IS NOT NULL AND DeletedByMembershipId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_MediaAssets_Kind_Declared", "Kind <> 0");
+
+                            t.HasCheckConstraint("CK_MediaAssets_Title_NotBlank", "trim(Title) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetTag", b =>
+                {
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceTagId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("MediaAssetId", "WorkspaceTagId");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId");
+
+                    b.HasIndex("WorkspaceId", "WorkspaceTagId", "MediaAssetId")
+                        .HasDatabaseName("IX_MediaAssetTags_Workspace_Tag_Asset");
+
+                    b.ToTable("MediaAssetTags", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetUtilization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CampaignName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("LoggedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("PlatformKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("UtilizedDay")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("UtilizedOn")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId", "UtilizedOn")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_MediaAssetUtilizations_Workspace_Asset_UtilizedOn");
+
+                    b.ToTable("MediaAssetUtilizations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaAssetUtilizations_PlatformKey_NotBlank", "trim(PlatformKey) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentChecksum")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("SourceGeneratedImageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObjectKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MediaAssetVersions_ObjectKey");
+
+                    b.HasIndex("MediaAssetId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MediaAssetVersions_Asset_VersionNumber");
+
+                    b.HasIndex("WorkspaceId", "SourceGeneratedImageId");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId", "VersionNumber")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_MediaAssetVersions_Workspace_Asset_VersionNumber");
+
+                    b.ToTable("MediaAssetVersions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaAssetVersions_Checksum_NotBlank", "trim(ContentChecksum) <> ''");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_Dimensions_Positive", "Width > 0 AND Height > 0");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_ObjectKey_NotBlank", "trim(ObjectKey) <> ''");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_Pixels_Range", "CAST(Width AS bigint) * CAST(Height AS bigint) <= 50000000");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_SizeBytes_Positive", "SizeBytes > 0");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_Source_Agrees", "(Source = 1 AND SourceGeneratedImageId IS NULL) OR (Source = 2 AND SourceGeneratedImageId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_Source_Declared", "Source <> 0");
+
+                            t.HasCheckConstraint("CK_MediaAssetVersions_VersionNumber_Positive", "VersionNumber >= 1");
                         });
                 });
 
@@ -5203,6 +5481,13 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandChannelDefault", b =>
@@ -5586,6 +5871,12 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "DamAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImage", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "GeneratedImageId")
@@ -5751,6 +6042,86 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Cuisine", null)
+                        .WithMany()
+                        .HasForeignKey("CuisineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetTag", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("WorkspaceId", "MediaAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.WorkspaceTag", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "WorkspaceTagId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetUtilization", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetVersion", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("WorkspaceId", "MediaAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImage", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "SourceGeneratedImageId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.Course", null)
@@ -5789,6 +6160,13 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeAssetLink", b =>
                 {
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
                         .WithMany("AssetLinks")
                         .HasForeignKey("WorkspaceId", "RecipeId")
@@ -5981,6 +6359,13 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.TestAttachmentLink", b =>
                 {
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeTestRun", null)
                         .WithMany("Attachments")
                         .HasForeignKey("WorkspaceId", "RecipeTestRunId")
@@ -6192,6 +6577,13 @@ namespace CreatorPantry.Domain.Migrations
                     b.Navigation("Sections");
 
                     b.Navigation("SourceLinks");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", b =>
+                {
+                    b.Navigation("Tags");
+
+                    b.Navigation("Versions");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>

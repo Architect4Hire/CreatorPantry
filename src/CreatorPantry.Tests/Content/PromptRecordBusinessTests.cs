@@ -940,8 +940,9 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
             scope.ServiceProvider.GetRequiredService<IRecipeFacade>(),
             alwaysResolves ? new AlwaysResolves() : new ResolvesOnce(),
 
-            // Nothing in this test names a generated image, so the lookup is never asked.
+            // Nothing in this test names a generated image or a DAM asset, so neither lookup is asked.
             new NoGeneratedImages(),
+            new NoMediaAssets(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             new StoppedClock());
 
@@ -1007,6 +1008,13 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
     {
         public Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("No test here names a generated image.");
+    }
+
+    /// <inheritdoc cref="NoGeneratedImages"/>
+    private sealed class NoMediaAssets : IMediaAssetLookupFacade
+    {
+        public Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here names a DAM asset.");
     }
 
     private sealed class StoppedClock : IClock

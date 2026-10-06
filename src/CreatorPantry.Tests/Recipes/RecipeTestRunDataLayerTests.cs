@@ -471,7 +471,14 @@ public sealed class RecipeTestRunDataLayerTests(SqlServerRecipeFixture fixture) 
         Guid? tagId = null)
     {
         var db = SqlServerRecipeFixture.Db(scope);
-        var recipe = SqlServerRecipeFixture.NewRecipe(title, tagId ?? SqlServerRecipeFixture.TagIdA);
+
+        // From the resolved context rather than a parameter: the scope already knows whose workspace it
+        // is, and RecipeAssetLink's composite foreign key refuses the other one's asset.
+        var workspaceId = scope.ServiceProvider.GetRequiredService<IWorkspaceContext>().WorkspaceId;
+        var recipe = SqlServerRecipeFixture.NewRecipe(
+            title,
+            tagId ?? SqlServerRecipeFixture.TagIdA,
+            SqlServerRecipeFixture.MediaAssetIdFor(workspaceId));
         recipe.Status = status;
 
         var version = new RecipeVersion

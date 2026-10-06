@@ -43,7 +43,8 @@ public sealed class ContentSeoBusinessTests : IDisposable
         await using var scope = _fixture.ScopeFor(workspaceId);
         var db = RecipeAggregateFixture.Db(scope);
 
-        var recipe = RecipeAggregateFixture.NewRecipe("Soda bread");
+        var recipe = RecipeAggregateFixture.NewRecipe(
+            "Soda bread", RecipeAggregateFixture.MediaAssetIdFor(workspaceId));
         db.Recipes.Add(recipe);
         var v1 = NewVersion(workspaceId, recipe.Id, 1);
         var v2 = NewVersion(workspaceId, recipe.Id, 2);

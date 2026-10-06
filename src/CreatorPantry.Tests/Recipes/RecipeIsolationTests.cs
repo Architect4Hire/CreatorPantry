@@ -82,7 +82,8 @@ public sealed class RecipeIsolationTests : IDisposable
         await using var scope = _fixture.ScopeFor(RecipeAggregateFixture.WorkspaceA);
         var db = RecipeAggregateFixture.Db(scope);
 
-        var recipe = RecipeAggregateFixture.NewRecipe("Planted in B");
+        var recipe = RecipeAggregateFixture.NewRecipe(
+            "Planted in B", RecipeAggregateFixture.MediaAssetIdB);
         recipe.WorkspaceId = RecipeAggregateFixture.WorkspaceB;
         db.Recipes.Add(recipe);
 
@@ -241,7 +242,8 @@ public sealed class RecipeIsolationTests : IDisposable
         await using var scope = _fixture.ScopeFor(workspaceId);
         var db = RecipeAggregateFixture.Db(scope);
 
-        var recipe = RecipeAggregateFixture.NewRecipe(title);
+        var recipe = RecipeAggregateFixture.NewRecipe(
+            title, RecipeAggregateFixture.MediaAssetIdFor(workspaceId));
         db.Recipes.Add(recipe);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 

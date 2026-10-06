@@ -243,7 +243,8 @@ public sealed class RecipeRepositoryTests(SqlServerRecipeFixture fixture) : ICla
     private async Task<Guid> AddAsync(Guid workspaceId, Guid tagId, string title = "Olive oil cake")
     {
         await using var scope = fixture.ScopeFor(workspaceId);
-        var recipe = SqlServerRecipeFixture.NewRecipe(title, tagId);
+        var recipe = SqlServerRecipeFixture.NewRecipe(
+            title, tagId, SqlServerRecipeFixture.MediaAssetIdFor(workspaceId));
 
         Repository(scope).Add(recipe);
 

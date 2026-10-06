@@ -657,7 +657,7 @@ public sealed class RecipeReadinessRepositoryTests(SqlServerRecipeFixture fixtur
                     Id = Guid.NewGuid(),
                     RecipeId = recipe.Id,
                     SortOrder = index,
-                    MediaAssetId = Guid.NewGuid(),
+                    MediaAssetId = SqlServerRecipeFixture.MediaAssetIdA,
                     Role = assetRoles![index],
                 });
             }

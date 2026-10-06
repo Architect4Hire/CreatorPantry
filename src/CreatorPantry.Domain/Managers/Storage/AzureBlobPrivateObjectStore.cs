@@ -101,6 +101,47 @@ internal sealed class AzureBlobPrivateObjectStore(BlobServiceClient client) : IP
         }
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// One page in the SDK's own order, which is key order. Nothing is re-sorted here: a page sorted by
+    /// age would be a lie about what the next page contains, and the caller needs to be able to walk the
+    /// whole prefix.
+    /// </remarks>
+    public async Task<ObjectListPage> ListAsync(
+        string container, string prefix, int pageSize, string? continuationToken, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
+        ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
+
+        try
+        {
+            await foreach (var page in client.GetBlobContainerClient(container)
+                .GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix, cancellationToken)
+                .AsPages(continuationToken, pageSize))
+            {
+                return new ObjectListPage(
+                    [
+                        .. page.Values.Select(blob => new StoredObjectSummary(
+                            blob.Name,
+                            blob.Properties.ContentLength ?? 0,
+
+                            // A blob always has one; the fallback keeps a null out of a sweep's age
+                            // arithmetic, where it would read as year one and make the object look ancient.
+                            blob.Properties.CreatedOn ?? DateTimeOffset.MinValue)),
+                    ],
+
+                    // Empty rather than null is how the SDK spells "no more pages" on the last one.
+                    string.IsNullOrEmpty(page.ContinuationToken) ? null : page.ContinuationToken);
+            }
+        }
+        catch (RequestFailedException exception)
+        {
+            throw Unavailable("list", exception);
+        }
+
+        return new ObjectListPage([]);
+    }
+
     public async Task<bool> DeleteAsync(string container, string key, CancellationToken cancellationToken)
     {
         var blob = client.GetBlobContainerClient(container).GetBlobClient(key);

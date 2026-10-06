@@ -82,6 +82,7 @@ internal sealed class PromptRecordBusiness(
     IRecipeFacade recipes,
     IAiProposalLookupFacade proposals,
     IGeneratedImageLookupFacade generatedImages,
+    IMediaAssetLookupFacade mediaAssets,
     IWorkspaceContext workspace,
     IClock clock) : IPromptRecordBusiness
 {
@@ -308,6 +309,14 @@ internal sealed class PromptRecordBusiness(
             return PromptRecordPins.Missing(nameof(model.GeneratedImageId));
         }
 
+        // The same shape for the DAM asset (12.9a), and for the same reason: this row is immutable, so an
+        // id it cannot resolve is one nobody could ever correct. A soft-deleted asset answers false.
+        if (model.DamAssetId is { } damAssetId
+            && !await mediaAssets.ExistsAsync(damAssetId, cancellationToken))
+        {
+            return PromptRecordPins.Missing(nameof(model.DamAssetId));
+        }
+
         if (model.AiProposalId is not { } proposalId)
         {
             return PromptRecordPins.Resolved(null);
@@ -438,6 +447,7 @@ internal sealed class PromptRecordBusiness(
         // Accepted from the request since 12.6, resolved above, and settable only here: the row is immutable,
         // so this is the one moment a prompt can be tied to the image it produced.
         GeneratedImageId = model.GeneratedImageId,
+        DamAssetId = model.DamAssetId,
         RecipeId = model.RecipeId,
         RecipeVersionId = model.RecipeVersionId,
         PromptTemplateId = lineage?.PromptTemplateId

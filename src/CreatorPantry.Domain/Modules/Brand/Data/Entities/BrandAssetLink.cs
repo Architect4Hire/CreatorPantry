@@ -8,11 +8,11 @@ namespace CreatorPantry.Domain.Modules.Brand.Data.Entities;
 /// usage, never the asset.
 /// </summary>
 /// <remarks>
-/// <see cref="MediaAssetId"/> has <strong>no foreign key</strong> until the media aggregate exists, exactly
-/// like <c>RecipeAssetLink</c>. The key that eventually lands must be composite —
-/// <c>(WorkspaceId, MediaAssetId) -> MediaAssets (WorkspaceId, Id)</c> — and until then the write seam must
-/// validate the id against the resolved workspace through the media facade. Deleting a link never deletes the
-/// asset (media.md).
+/// <see cref="MediaAssetId"/> is workspace-paired to <c>MediaAsset</c> as of 12.9, exactly like
+/// <c>RecipeAssetLink</c>: <c>(WorkspaceId, MediaAssetId) -> MediaAssets (WorkspaceId, Id)</c>, so a
+/// profile showing another workspace's logo is unrepresentable. This is the one of the three links that
+/// was already writable from client input, so it is the one whose stored ids that migration has to clear
+/// before it can add the key. Deleting a link never deletes the asset (media.md).
 /// </remarks>
 public class BrandAssetLink : IWorkspaceOwned
 {

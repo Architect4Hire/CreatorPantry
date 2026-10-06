@@ -101,6 +101,7 @@ public sealed class BulkOperationBoundaryTests
         "Modules/Ai/Data/AiUsageReconciliationRepository.cs",
         "Modules/Brand/Data/BrandSourceEmbeddingClaimRepository.cs",
         "Modules/Brand/Data/BrandSourceExtractionClaimRepository.cs",
+        "Modules/Media/Data/GeneratedImageClaimRepository.cs",
     ];
 
     [Fact]

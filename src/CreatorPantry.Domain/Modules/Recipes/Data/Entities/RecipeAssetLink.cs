@@ -9,9 +9,11 @@ namespace CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="MediaAssetId"/> deliberately has <strong>no foreign key</strong>. The asset aggregate does not
-/// exist yet; it arrives with the media library, and its own migration adds the constraint. Until then this
-/// is an unconstrained identifier, and the gap is recorded here rather than left to be discovered.
+/// <see cref="MediaAssetId"/> is workspace-paired to <c>MediaAsset</c> as of 12.9 —
+/// <c>(WorkspaceId, MediaAssetId) -> MediaAssets (WorkspaceId, Id)</c> — so one workspace's recipe naming
+/// another's photograph is unrepresentable. From Phase 2 until then it was an unconstrained identifier and
+/// only the write seam stood in the way, which is why that migration clears rows naming an asset that
+/// never existed before it adds the key.
 /// </para>
 /// <para>
 /// Nothing about the asset is copied here. Alt text in particular stays on the asset, where media.md keeps

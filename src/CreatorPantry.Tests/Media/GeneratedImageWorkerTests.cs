@@ -1,0 +1,1125 @@
+using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.MalwareScanning;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Storage;
+using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Media.Business;
+using CreatorPantry.Domain.Modules.Media.Data;
+using CreatorPantry.Domain.Modules.Media.Data.Entities;
+using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.Media.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Tests.Brand;
+using CreatorPantry.Tests.Storage;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace CreatorPantry.Tests.Media;
+
+#pragma warning disable MEAI001
+
+/// <summary>
+/// The image-generation job end to end: what a request queues, how a pass calls the provider once per
+/// variant, what it refuses to stage, how it compensates and replays, and that none of it crosses a
+/// workspace.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Over SQLite with a fake <see cref="IImageGenerator"/> and an in-memory object store: no network, no
+/// credential, no model, and no bytes that cost anything. The images are the same sample builders the brand
+/// source inspector is tested against, so "a real PNG" means the same thing in both suites.
+/// </para>
+/// <para>
+/// The clock is movable and nothing sleeps. As in the brand queues, SQLite never moves <c>RowVersion</c>, so
+/// lease assertions are made against the application's own token check.
+/// </para>
+/// </remarks>
+public sealed class GeneratedImageWorkerTests : IDisposable
+{
+    private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+    private static readonly Guid WorkspaceB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly MovableClock _clock = new(new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero));
+    private readonly InMemoryPrivateObjectStore _store = new();
+    private readonly FakeImageGenerator _generator = new();
+    private readonly FakeMalwareScanGateway _scanner = new();
+    private readonly ServiceProvider _provider;
+
+    public GeneratedImageWorkerTests()
+    {
+        _connection.Open();
+
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton<IClock>(_clock)
+            .AddApplicationTime()
+            .AddTenancy()
+            .AddAudit()
+            .AddIdempotency(new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
+                })
+                .Build())
+            .AddMediaModule()
+            .AddGeneratedImageWorker()
+            .AddDbContext<CreatorPantryDbContext>(options => options
+                .UseSqlite(_connection)
+                .ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
+
+        services.RemoveAll<IImageGenerator>();
+        services.AddSingleton<IImageGenerator>(_generator);
+        services.RemoveAll<IPrivateObjectStore>();
+        services.AddSingleton<IPrivateObjectStore>(_store);
+        services.RemoveAll<IMalwareScanGateway>();
+        services.AddSingleton<IMalwareScanGateway>(_scanner);
+
+        _provider = services.BuildServiceProvider(validateScopes: true);
+
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        db.Database.EnsureCreated();
+
+        db.Workspaces.AddRange(
+            new Workspace { Id = WorkspaceA, Name = "A", Slug = "workspace-a", CreatedAt = _clock.UtcNow },
+            new Workspace { Id = WorkspaceB, Name = "B", Slug = "workspace-b", CreatedAt = _clock.UtcNow });
+        db.SaveChanges();
+    }
+
+    public void Dispose()
+    {
+        _provider.Dispose();
+        _connection.Dispose();
+    }
+
+    // ---- what a request records ------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_request_is_queued_and_calls_no_provider()
+    {
+        var operation = await RequestAsync(WorkspaceA, variants: 3);
+
+        Assert.Equal(GeneratedImageOperationStatus.Requested, operation.Status);
+        Assert.Equal(3, operation.VariantCount);
+        Assert.Equal(0, operation.StagedCount);
+        Assert.Null(operation.ProviderName);
+
+        // Nothing is generated by asking. The queue is what spends money, not the request.
+        Assert.Equal(0, _generator.Calls);
+    }
+
+    [Fact]
+    public async Task A_repeated_idempotency_key_returns_the_first_operation_rather_than_buying_a_second()
+    {
+        var first = await RequestAsync(WorkspaceA, key: "same-key");
+        var second = await RequestAsync(WorkspaceA, key: "same-key");
+
+        Assert.Equal(first.Id, second.Id);
+        Assert.Single(await OperationsAsync(WorkspaceA));
+    }
+
+    [Fact]
+    public async Task A_viewer_cannot_request_images()
+    {
+        await using var scope = ScopeFor(WorkspaceA, WorkspaceRole.Viewer);
+
+        var result = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .RequestAsync(Request(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(MediaErrorCodes.GenerationForbidden, result.Error!.Code);
+        Assert.Empty(await OperationsAsync(WorkspaceA));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    public async Task A_variant_count_outside_the_policy_is_refused(int variants)
+    {
+        await using var scope = ScopeFor(WorkspaceA);
+
+        var result = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .RequestAsync(Request(variants: variants), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(MediaErrorCodes.GenerationInvalidRequest, result.Error!.Code);
+        Assert.True(result.Error.FieldErrors.ContainsKey("variantCount"));
+    }
+
+    // ---- the happy path ---------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Every_variant_is_its_own_provider_call_and_its_own_staged_object()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 4);
+
+        var summary = await RunAsync();
+
+        Assert.Equal(1, summary.Claimed);
+        Assert.Equal(1, summary.Generated);
+
+        // One call per image. MediaPolicy.ProviderSupportsBatchGeneration is false, and this is what that
+        // constant has to mean in practice.
+        Assert.Equal(4, _generator.Calls);
+        Assert.All(_generator.RequestedCounts, count => Assert.Equal(1, count));
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Succeeded, operation.Status);
+        Assert.Null(operation.FailureCategory);
+        Assert.NotNull(operation.CompletedAt);
+        Assert.Null(operation.LeasedBy);
+
+        var images = await ImagesAsync(WorkspaceA, requested.Id);
+        Assert.Equal([0, 1, 2, 3], images.Select(image => image.VariantIndex));
+        Assert.Equal(4, _store.Keys.Count);
+    }
+
+    [Fact]
+    public async Task A_staged_image_records_the_bytes_rather_than_what_was_asked_for()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Jpeg(width: 640, height: 400));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+        await RunAsync();
+
+        var image = Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+
+        // The media type comes from the signature and the dimensions from the header. Nothing was resized,
+        // and nothing the provider said about either was an input.
+        Assert.Equal("image/jpeg", image.MediaType);
+        Assert.Equal(640, image.Width);
+        Assert.Equal(400, image.Height);
+        Assert.True(image.SizeBytes > 0);
+        Assert.StartsWith("sha256:", image.ContentChecksum, StringComparison.Ordinal);
+        Assert.Equal(GeneratedImageStatus.Staged, image.Status);
+        Assert.Equal(_clock.UtcNow + MediaPolicy.StagedImageTimeToLive, image.RetentionExpiresAt);
+
+        // Provenance, which the columns require: a staged image always says what made it.
+        Assert.Equal(FakeImageGenerator.Provider, image.ProviderName);
+        Assert.Equal(FakeImageGenerator.Model, image.ModelName);
+    }
+
+    [Fact]
+    public async Task A_staging_key_is_derived_from_the_workspace_operation_and_variant()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        await RunAsync();
+
+        Assert.Equal(
+            [
+                GeneratedImageObjectKey.For(WorkspaceA, requested.Id, 0),
+                GeneratedImageObjectKey.For(WorkspaceA, requested.Id, 1),
+            ],
+            (await ImagesAsync(WorkspaceA, requested.Id)).Select(image => image.ObjectKey));
+    }
+
+    // ---- partial batch failure --------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_bad_answer_fails_its_own_variant_and_the_rest_still_arrive()
+    {
+        _generator.ReturnsAt(1, BrandSourceSampleFiles.Executable());
+
+        var requested = await RequestAsync(WorkspaceA, variants: 3);
+        var summary = await RunAsync();
+
+        Assert.Equal(1, summary.PartiallyGenerated);
+
+        // Three calls, not one: a file that is not an image says nothing about the next answer.
+        Assert.Equal(3, _generator.Calls);
+
+        var images = await ImagesAsync(WorkspaceA, requested.Id);
+        Assert.Equal([0, 2], images.Select(image => image.VariantIndex));
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.PartiallySucceeded, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.UnsupportedMediaType, operation.FailureCategory);
+
+        // Two images staged, two objects. The refused variant left nothing behind.
+        Assert.Equal(2, _store.Keys.Count);
+    }
+
+    [Fact]
+    public async Task Corrupt_bytes_are_refused_and_nothing_is_stored_for_that_variant()
+    {
+        // A real PNG signature with its header cut off: it starts like an image and does not hold together.
+        _generator.Returns(BrandSourceSampleFiles.Png()[..12]);
+
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.CorruptImage, operation.FailureCategory);
+
+        Assert.Empty(await ImagesAsync(WorkspaceA, requested.Id));
+        Assert.Empty(_store.Keys);
+    }
+
+    [Fact]
+    public async Task A_link_instead_of_bytes_is_refused_and_never_fetched()
+    {
+        _generator.ReturnsUri(new Uri("https://example.invalid/generated.png"));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.InvalidResponse, operation.FailureCategory);
+        Assert.Empty(_store.Keys);
+    }
+
+    [Fact]
+    public async Task Bytes_the_scanner_refuses_are_never_stored()
+    {
+        _scanner.Unavailable = true;
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.MalwareDetected, operation.FailureCategory);
+
+        // Scanned before stored, both times: no verdict is not permission.
+        Assert.Equal(2, _scanner.Scans);
+        Assert.Empty(_store.Keys);
+    }
+
+    [Fact]
+    public async Task An_unconfigured_provider_fails_the_operation_terminally_on_its_first_call()
+    {
+        _generator.Throws(() => new AiProviderNotConfiguredException("images"));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 4);
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.ProviderNotConfigured, operation.FailureCategory);
+
+        // One call, not four: a host with no deployment will not grow one between variants.
+        Assert.Equal(1, _generator.Calls);
+        Assert.NotNull(operation.CompletedAt);
+    }
+
+    [Fact]
+    public async Task A_refusal_stops_the_pass_rather_than_buying_three_more_of_the_same_answer()
+    {
+        _generator.Throws(() => new HttpRequestException(
+            "refused", null, System.Net.HttpStatusCode.BadRequest));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 4);
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.ProviderRefused, operation.FailureCategory);
+        Assert.Equal(1, _generator.Calls);
+
+        // Terminal: a refusal is a decision about the request, so no attempt is handed back.
+        Assert.Equal(1, operation.Attempts);
+        Assert.NotNull(operation.CompletedAt);
+    }
+
+    /// <summary>The failure summary is ours, never the provider's — its body can quote the prompt back.</summary>
+    [Fact]
+    public async Task A_recorded_failure_never_carries_the_providers_own_words()
+    {
+        _generator.Throws(() => new HttpRequestException(
+            "Rejected prompt: a close-up of sourdough on a linen cloth",
+            null,
+            System.Net.HttpStatusCode.BadRequest));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 1, prompt: "a close-up of sourdough on a linen cloth");
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+
+        Assert.DoesNotContain("sourdough", operation.FailureSummary!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Rejected prompt", operation.FailureSummary!, StringComparison.Ordinal);
+    }
+
+    // ---- rate limits, retries and attempt exhaustion ----------------------------------------------------
+
+    [Fact]
+    public async Task A_rate_limit_requeues_with_a_backoff_and_the_next_pass_succeeds()
+    {
+        _generator.Throws(() => new HttpRequestException(
+            "slow down", null, System.Net.HttpStatusCode.TooManyRequests));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        var first = await RunAsync();
+
+        Assert.Equal(1, first.Requeued);
+        Assert.Equal(1, _generator.Calls);
+
+        var requeued = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Requested, requeued.Status);
+        Assert.Equal(GeneratedImageFailureCategory.RateLimited, requeued.FailureCategory);
+        Assert.True(requeued.AvailableAt > _clock.UtcNow, "a requeued operation waits before it is claimable");
+        Assert.Null(requeued.LeasedBy);
+
+        // Not claimable yet: a pass run now finds nothing, which is the backoff working.
+        Assert.Equal(0, (await RunAsync()).Claimed);
+
+        _generator.Throws(null);
+        _clock.Advance(TimeSpan.FromMinutes(11));
+
+        Assert.Equal(1, (await RunAsync()).Generated);
+
+        var settled = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Succeeded, settled.Status);
+        Assert.Equal(2, (await ImagesAsync(WorkspaceA, requested.Id)).Count);
+    }
+
+    [Fact]
+    public async Task A_request_that_keeps_failing_transiently_is_settled_once_its_attempts_run_out()
+    {
+        _generator.Throws(() => new HttpRequestException("down", null, System.Net.HttpStatusCode.BadGateway));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+
+        for (var attempt = 0; attempt < MediaPolicy.GenerationMaxAttempts; attempt++)
+        {
+            Assert.Equal(1, (await RunAsync()).Claimed);
+            _clock.Advance(TimeSpan.FromMinutes(11));
+        }
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.ProviderUnavailable, operation.FailureCategory);
+        Assert.Equal(MediaPolicy.GenerationMaxAttempts, operation.Attempts);
+        Assert.NotNull(operation.CompletedAt);
+
+        // And it stays settled: a terminal operation is not claimable however long anyone waits.
+        _clock.Advance(TimeSpan.FromDays(1));
+        Assert.Equal(0, (await RunAsync()).Claimed);
+    }
+
+    [Fact]
+    public async Task A_request_that_staged_some_images_before_running_out_is_partial_rather_than_failed()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 3);
+
+        // First pass stages variant 0 and then the provider goes down.
+        _generator.ThrowsAfter(1, () => new HttpRequestException("down", null, System.Net.HttpStatusCode.BadGateway));
+        Assert.Equal(1, (await RunAsync()).Requeued);
+        Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+
+        for (var attempt = 1; attempt < MediaPolicy.GenerationMaxAttempts; attempt++)
+        {
+            _clock.Advance(TimeSpan.FromMinutes(11));
+            _generator.ThrowsAfter(0, () => new HttpRequestException("down", null, System.Net.HttpStatusCode.BadGateway));
+            await RunAsync();
+        }
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+
+        // One real image is not a failure. Telling the creator their request failed would be a lie about
+        // work that is sitting in storage.
+        Assert.Equal(GeneratedImageOperationStatus.PartiallySucceeded, operation.Status);
+        Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+    }
+
+    // ---- replay ------------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_second_pass_over_a_requeued_operation_regenerates_only_the_variants_with_no_row()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 4);
+
+        _generator.ThrowsAfter(2, () => new HttpRequestException("down", null, System.Net.HttpStatusCode.BadGateway));
+        await RunAsync();
+
+        Assert.Equal(2, (await ImagesAsync(WorkspaceA, requested.Id)).Count);
+        Assert.Equal(3, _generator.Calls);
+
+        _generator.ThrowsAfter(int.MaxValue, null);
+        _generator.ResetCalls();
+        _clock.Advance(TimeSpan.FromMinutes(11));
+
+        Assert.Equal(1, (await RunAsync()).Generated);
+
+        // Two calls, not four: the variants already staged cost nothing the second time.
+        Assert.Equal(2, _generator.Calls);
+        Assert.Equal([0, 1, 2, 3], (await ImagesAsync(WorkspaceA, requested.Id)).Select(image => image.VariantIndex));
+    }
+
+    [Fact]
+    public async Task An_orphaned_object_from_a_crashed_attempt_is_cleared_rather_than_blocking_its_variant()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+
+        // Exactly what a worker that wrote the object and died before committing the row leaves behind: a
+        // staging object at the deterministic key, and no row that owns it.
+        await _store.PutAsync(
+            GeneratedImageObjectKey.Container,
+            GeneratedImageObjectKey.For(WorkspaceA, requested.Id, 0),
+            new MemoryStream(BrandSourceSampleFiles.Png(width: 1, height: 1)),
+            "image/png",
+            MediaPolicy.ImageMaxBytes,
+            TestContext.Current.CancellationToken);
+
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+
+        Assert.Equal(1, (await RunAsync()).Generated);
+
+        var image = Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+
+        // The new bytes, not the orphan's: the row describes what is actually in storage.
+        Assert.Equal(8, image.Width);
+        Assert.Equal(6, image.Height);
+        Assert.Single(_store.Keys);
+    }
+
+    // ---- storage faults and compensation ----------------------------------------------------------------
+
+    [Fact]
+    public async Task Unreachable_storage_requeues_without_recording_an_image()
+    {
+        _store.Unavailable = true;
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        var summary = await RunAsync();
+
+        Assert.Equal(1, summary.Requeued);
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Requested, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.Storage, operation.FailureCategory);
+
+        Assert.Empty(await ImagesAsync(WorkspaceA, requested.Id));
+
+        // One call: there is no point generating the second image when the first could not be kept.
+        Assert.Equal(1, _generator.Calls);
+    }
+
+    [Fact]
+    public async Task A_row_that_cannot_commit_takes_its_object_with_it()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1, key: "target");
+        var neighbour = await RequestAsync(WorkspaceA, variants: 1, key: "neighbour");
+
+        // A row of another operation already claims the exact object key this variant will write to, so the
+        // object write succeeds and the insert that should own it violates UX_GeneratedImages_ObjectKey.
+        // Contrived, but it is the only way to reach the compensating path deliberately — and the path is
+        // reached for real whenever a row fails to commit after its bytes are already in storage.
+        await SeedRowOnlyAsync(
+            WorkspaceA,
+            neighbour.Id,
+            variantIndex: 0,
+            objectKey: GeneratedImageObjectKey.For(WorkspaceA, requested.Id, 0));
+
+        var summary = await RunAsync();
+
+        // No row for the variant, and no bytes left behind for it either.
+        Assert.Empty(await ImagesAsync(WorkspaceA, requested.Id));
+        Assert.Empty(_store.Keys);
+
+        // And the operation was still settled, rather than the failed insert being replayed by the settle.
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Requested, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.Storage, operation.FailureCategory);
+        Assert.True(summary.Requeued >= 1);
+    }
+
+    // ---- cancellation -------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_stopping_worker_releases_the_lease_uncharged_and_keeps_what_it_staged()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 4);
+
+        using var stopping = new CancellationTokenSource();
+        // On the way into the second variant, so the first one is finished and staged by then.
+        _generator.OnCall = call =>
+        {
+            if (call == 2)
+            {
+                stopping.Cancel();
+            }
+        };
+
+        var summary = await RunAsync(stopping.Token);
+
+        Assert.Equal(1, summary.Cancelled);
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+
+        // Back in the queue, immediately claimable, and the attempt refunded: the host stopping is not the
+        // request's fault.
+        Assert.Equal(GeneratedImageOperationStatus.Requested, operation.Status);
+        Assert.Equal(0, operation.Attempts);
+        Assert.Null(operation.LeasedBy);
+        Assert.True(operation.AvailableAt <= _clock.UtcNow);
+
+        // And the variant it finished before stopping is kept, not thrown away.
+        Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+    }
+
+    // ---- lease recovery -------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_lapsed_lease_is_requeued_by_the_sweep_and_run_by_the_next_pass()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+
+        await AbandonAsync(requested.Id);
+
+        var maintenance = await MaintainAsync();
+        Assert.Equal(1, maintenance.Requeued);
+
+        _clock.Advance(TimeSpan.FromMinutes(11));
+
+        Assert.Equal(1, (await RunAsync()).Generated);
+        Assert.Equal(2, (await ImagesAsync(WorkspaceA, requested.Id)).Count);
+    }
+
+    [Fact]
+    public async Task A_lease_that_lapses_with_no_attempts_left_is_abandoned_rather_than_requeued()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+
+        await AbandonAsync(requested.Id, attempts: MediaPolicy.GenerationMaxAttempts);
+
+        var maintenance = await MaintainAsync();
+
+        Assert.Equal(1, maintenance.Abandoned);
+        Assert.Equal(0, maintenance.Requeued);
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.LeaseAbandoned, operation.FailureCategory);
+        Assert.NotNull(operation.CompletedAt);
+    }
+
+    [Fact]
+    public async Task A_worker_whose_lease_was_stolen_writes_nothing()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+
+        await using var scope = ServiceScopeFor(WorkspaceA);
+        await ClaimAsync(requested.Id, Guid.NewGuid());
+
+        var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .ExecuteAsync(requested.Id, Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageRunOutcome.Skipped, outcome);
+        Assert.Equal(0, _generator.Calls);
+        Assert.Equal(GeneratedImageOperationStatus.Running, (await OperationAsync(WorkspaceA, requested.Id)).Status);
+    }
+
+    /// <summary>"Called by the Worker only; never routed" as a check rather than a comment.</summary>
+    [Fact]
+    public async Task A_person_cannot_run_a_generation_even_holding_its_lease()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+        var lease = Guid.NewGuid();
+        await ClaimAsync(requested.Id, lease);
+
+        // An Owner of the right workspace, with the live lease token: everything but the service identity.
+        await using var scope = ScopeFor(WorkspaceA);
+
+        var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .ExecuteAsync(requested.Id, lease, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageRunOutcome.Skipped, outcome);
+        Assert.Equal(0, _generator.Calls);
+        Assert.Empty(_store.Keys);
+    }
+
+    // ---- workspace isolation --------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task One_pass_runs_two_workspaces_requests_without_either_seeing_the_others()
+    {
+        var a = await RequestAsync(WorkspaceA, variants: 2, prompt: "workspace A prompt", key: "a-key");
+        var b = await RequestAsync(WorkspaceB, variants: 1, prompt: "workspace B prompt", key: "b-key");
+
+        Assert.Equal(2, (await RunAsync()).Claimed);
+
+        Assert.Equal(2, (await ImagesAsync(WorkspaceA, a.Id)).Count);
+        Assert.Single(await ImagesAsync(WorkspaceB, b.Id));
+
+        // The decisive one: each provider call carried its own workspace's prompt. Three calls, and A's
+        // text never appears in B's or the other way round.
+        Assert.Equal(3, _generator.Prompts.Count);
+        Assert.Equal(2, _generator.Prompts.Count(prompt => prompt == "workspace A prompt"));
+        Assert.Equal(1, _generator.Prompts.Count(prompt => prompt == "workspace B prompt"));
+
+        // Every key is under its own workspace's prefix, so neither workspace's sweep can reach the other's.
+        Assert.All(
+            await ImagesAsync(WorkspaceA, a.Id),
+            image => Assert.StartsWith($"workspaces/{WorkspaceA:N}/", image.ObjectKey, StringComparison.Ordinal));
+        Assert.All(
+            await ImagesAsync(WorkspaceB, b.Id),
+            image => Assert.StartsWith($"workspaces/{WorkspaceB:N}/", image.ObjectKey, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_claim_resolved_into_the_wrong_workspace_reads_nothing_and_writes_nothing()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        var lease = Guid.NewGuid();
+        await ClaimAsync(requested.Id, lease);
+
+        // What a tampered or stale claim looks like: the right operation id, resolved into a neighbour.
+        await using var scope = ServiceScopeFor(WorkspaceB);
+
+        var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .ExecuteAsync(requested.Id, lease, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageRunOutcome.Skipped, outcome);
+        Assert.Equal(0, _generator.Calls);
+        Assert.Empty(_store.Keys);
+        Assert.Equal(GeneratedImageOperationStatus.Running, (await OperationAsync(WorkspaceA, requested.Id)).Status);
+    }
+
+    [Fact]
+    public async Task One_workspaces_idempotency_key_does_not_collide_with_anothers()
+    {
+        var a = await RequestAsync(WorkspaceA, key: "shared-key");
+        var b = await RequestAsync(WorkspaceB, key: "shared-key");
+
+        // The unique index is (WorkspaceId, IdempotencyKey): a key is a workspace's own, not the platform's.
+        Assert.NotEqual(a.Id, b.Id);
+    }
+
+    // ---- the claim itself ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A claimed operation leaves the queue, and one claim spends exactly one attempt.
+    /// </summary>
+    /// <remarks>
+    /// <strong>This is not the concurrency test it looks like.</strong> Sequentially, the second claim finds
+    /// nothing because the candidate scan filters on <c>Requested</c> and the first claim moved the row to
+    /// <c>Running</c> — the conditional <c>WHERE</c> on the update is not what makes this pass, and removing
+    /// it leaves this green. That guard matters only when two workers' scans interleave before either
+    /// update, which a shared in-memory SQLite connection cannot reproduce: it serializes commands, so the
+    /// interleaving never happens. The guard stays because <c>GeneratedImageOperation</c> carries no
+    /// <c>RowVersion</c>, so under real concurrency it is the only thing between a second claim and a second
+    /// four-image charge — but that property is argued, not asserted here, and a reader should know which.
+    /// </remarks>
+    [Fact]
+    public async Task A_claimed_operation_leaves_the_queue_and_spends_one_attempt()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 4);
+
+        await using var scope = _provider.CreateAsyncScope();
+        var claims = scope.ServiceProvider.GetRequiredService<GeneratedImageClaimRepository>();
+
+        var first = await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, TestContext.Current.CancellationToken);
+        var second = await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(first);
+        Assert.Null(second);
+        Assert.Equal(requested.Id, first.OperationId);
+        Assert.Equal(WorkspaceA, first.WorkspaceId);
+
+        // One claim, one attempt. A second increment here would be a second charge against the creator.
+        Assert.Equal(1, first.Attempts);
+        Assert.Equal(1, (await OperationAsync(WorkspaceA, requested.Id)).Attempts);
+    }
+
+    [Fact]
+    public async Task A_claim_carries_identifiers_and_never_the_prompt()
+    {
+        await RequestAsync(WorkspaceA, variants: 1, prompt: "a close-up of sourdough on a linen cloth");
+
+        await using var scope = _provider.CreateAsyncScope();
+        var claim = await scope.ServiceProvider.GetRequiredService<GeneratedImageClaimRepository>()
+            .ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(claim);
+
+        // Nothing on the claim can hold creator content, and nothing the cross-workspace scan loaded can
+        // either: the queries project before they materialize (tenancy.md's identifiers-only condition).
+        Assert.DoesNotContain(
+            "sourdough",
+            string.Join('|', typeof(GeneratedImageClaim).GetProperties().Select(property => property.Name)),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .ChangeTracker.Entries<GeneratedImageOperation>());
+    }
+
+    [Fact]
+    public async Task The_sweep_settles_each_workspaces_lapsed_lease_on_its_own_staged_images()
+    {
+        // A has two images staged and B has none, so the same sweep must reach two different conclusions.
+        var a = await RequestAsync(WorkspaceA, variants: 2, key: "a-key");
+        Assert.Equal(1, (await RunAsync()).Generated);
+
+        var b = await RequestAsync(WorkspaceB, variants: 2, key: "b-key");
+
+        await ForceRunningAsync(a.Id, MediaPolicy.GenerationMaxAttempts);
+        await ForceRunningAsync(b.Id, MediaPolicy.GenerationMaxAttempts);
+
+        Assert.Equal(2, (await MaintainAsync()).Abandoned);
+
+        // A's staged images must not count for B, and B's absence of them must not count against A.
+        Assert.Equal(
+            GeneratedImageOperationStatus.PartiallySucceeded,
+            (await OperationAsync(WorkspaceA, a.Id)).Status);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, (await OperationAsync(WorkspaceB, b.Id)).Status);
+    }
+
+    /// <summary>
+    /// Why the worker's resolve-failure branch is defensive rather than reachable.
+    /// </summary>
+    /// <remarks>
+    /// <c>GeneratedImageOperation</c> cascades from <c>Workspace</c>, so a workspace that goes away takes
+    /// its queued work with it and no claim can name it afterwards. The branch at
+    /// <c>GeneratedImageWorker.RunClaimedAsync</c> stays, because the claim reads across workspaces and
+    /// "finding a row is not authorization" must not depend on a cascade staying as it is — but this is the
+    /// property that actually holds today, so this is what is asserted.
+    /// </remarks>
+    [Fact]
+    public async Task A_deleted_workspace_takes_its_queued_work_with_it()
+    {
+        await RequestAsync(WorkspaceA, variants: 2);
+        await RequestAsync(WorkspaceB, variants: 1, key: "b-key");
+
+        await DeleteWorkspaceAsync(WorkspaceA);
+
+        Assert.Empty(await OperationsAsync(WorkspaceA));
+
+        // And the neighbour's work is untouched and still runs.
+        var summary = await RunAsync();
+
+        Assert.Equal(1, summary.Claimed);
+        Assert.Equal(1, summary.Generated);
+        Assert.Equal(1, _generator.Calls);
+    }
+
+    // ---- harness ---------------------------------------------------------------------------------------
+
+    /// <summary>A scope resolved the way <c>ResolveForServiceAsync</c> leaves one, for the worker's entry point.</summary>
+    private AsyncServiceScope ServiceScopeFor(Guid workspaceId)
+    {
+        var scope = _provider.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
+            workspaceId,
+            workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
+            WorkspaceServiceIdentity.MembershipId,
+            WorkspaceServiceIdentity.Role,
+            WorkspaceServiceIdentity.AccountId);
+
+        return scope;
+    }
+
+    private AsyncServiceScope ScopeFor(Guid workspaceId, WorkspaceRole role = WorkspaceRole.Owner)
+    {
+        var scope = _provider.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
+            workspaceId,
+            workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
+            Guid.NewGuid(),
+            role,
+            "acct");
+
+        return scope;
+    }
+
+    private static GeneratedImageRequest Request(
+        int variants = 1, string prompt = "a bowl of soup on a wooden table", string? key = null) =>
+        new(prompt, null, null, variants, key ?? Guid.NewGuid().ToString("N"));
+
+    private async Task<GeneratedImageOperationServiceModel> RequestAsync(
+        Guid workspaceId,
+        int variants = 1,
+        string prompt = "a bowl of soup on a wooden table",
+        string? key = null)
+    {
+        await using var scope = ScopeFor(workspaceId);
+
+        var result = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .RequestAsync(Request(variants, prompt, key), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Error?.Message);
+
+        return result.Value!;
+    }
+
+    private async Task<GeneratedImagePassSummary> RunAsync(CancellationToken cancellationToken = default)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<IGeneratedImageWorker>()
+            .RunPendingAsync(cancellationToken == default ? TestContext.Current.CancellationToken : cancellationToken);
+    }
+
+    private async Task<GeneratedImageMaintenanceSummary> MaintainAsync()
+    {
+        await using var scope = _provider.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<IGeneratedImageWorker>()
+            .RunMaintenanceAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    /// Reads straight through the filters, because a test asserting isolation has to be able to see both
+    /// sides of it. Nothing in the application reads this way.
+    /// </summary>
+    private async Task<IReadOnlyList<GeneratedImageOperation>> OperationsAsync(Guid workspaceId)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .GeneratedImageOperations
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(operation => operation.WorkspaceId == workspaceId)
+            .ToListAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task<GeneratedImageOperation> OperationAsync(Guid workspaceId, Guid operationId) =>
+        Assert.Single((await OperationsAsync(workspaceId)).Where(operation => operation.Id == operationId));
+
+    /// <inheritdoc cref="OperationsAsync"/>
+    private async Task<IReadOnlyList<GeneratedImage>> ImagesAsync(Guid workspaceId, Guid operationId)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .GeneratedImages
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(image => image.WorkspaceId == workspaceId && image.GeneratedImageOperationId == operationId)
+            .OrderBy(image => image.VariantIndex)
+            .ToListAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Puts an operation into the state a worker that died holding its lease leaves behind.</summary>
+    private async Task AbandonAsync(Guid operationId, int attempts = 1)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var operation = await db.GeneratedImageOperations
+            .IgnoreQueryFilters()
+            .FirstAsync(candidate => candidate.Id == operationId, TestContext.Current.CancellationToken);
+
+        operation.Status = GeneratedImageOperationStatus.Running;
+        operation.Attempts = attempts;
+        operation.LeasedBy = Guid.NewGuid();
+        operation.LeaseExpiresAt = _clock.UtcNow - TimeSpan.FromMinutes(1);
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Claims an operation under a given lease, the way a running worker holds one.</summary>
+    private async Task ClaimAsync(Guid operationId, Guid leaseToken)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var operation = await db.GeneratedImageOperations
+            .IgnoreQueryFilters()
+            .FirstAsync(candidate => candidate.Id == operationId, TestContext.Current.CancellationToken);
+
+        operation.Status = GeneratedImageOperationStatus.Running;
+        operation.Attempts = 1;
+        operation.ProviderName = FakeImageGenerator.Provider;
+        operation.ModelName = FakeImageGenerator.Model;
+        operation.LeasedBy = leaseToken;
+        operation.LeaseExpiresAt = _clock.UtcNow + MediaPolicy.GenerationLeaseDuration;
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>A row claiming a variant, naming an object that is not at this variant's key.</summary>
+    private async Task SeedRowOnlyAsync(
+        Guid workspaceId, Guid operationId, int variantIndex, string? objectKey = null)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.GeneratedImages.Add(new GeneratedImage
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            GeneratedImageOperationId = operationId,
+            VariantIndex = variantIndex,
+            Status = GeneratedImageStatus.Staged,
+            ObjectKey = objectKey ?? $"workspaces/{workspaceId:N}/generated-images/{Guid.NewGuid():N}/0",
+            MediaType = "image/png",
+            Width = 4,
+            Height = 3,
+            SizeBytes = 100,
+            ContentChecksum = "sha256:seeded",
+            ProviderName = FakeImageGenerator.Provider,
+            ModelName = FakeImageGenerator.Model,
+            RetentionExpiresAt = _clock.UtcNow + MediaPolicy.StagedImageTimeToLive,
+            CreatedAt = _clock.UtcNow,
+            StatusChangedAt = _clock.UtcNow,
+        });
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+
+    /// <summary>Puts an operation into Running with a lapsed lease and a given attempt count.</summary>
+    private async Task ForceRunningAsync(Guid operationId, int attempts)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var operation = await db.GeneratedImageOperations
+            .IgnoreQueryFilters()
+            .FirstAsync(candidate => candidate.Id == operationId, TestContext.Current.CancellationToken);
+
+        operation.Status = GeneratedImageOperationStatus.Running;
+        operation.Attempts = attempts;
+        operation.CompletedAt = null;
+        operation.FailureCategory = null;
+        operation.FailureSummary = null;
+        operation.LeasedBy = Guid.NewGuid();
+        operation.LeaseExpiresAt = _clock.UtcNow - TimeSpan.FromMinutes(1);
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Removes a workspace, so resolving it fails the way a deleted one does.</summary>
+    private async Task DeleteWorkspaceAsync(Guid workspaceId)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var workspace = await db.Workspaces
+            .IgnoreQueryFilters()
+            .FirstAsync(candidate => candidate.Id == workspaceId, TestContext.Current.CancellationToken);
+
+        db.Workspaces.Remove(workspace);
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private sealed class MovableClock(DateTimeOffset start) : IClock
+    {
+        public DateTimeOffset UtcNow { get; private set; } = start;
+
+        public void Advance(TimeSpan by) => UtcNow += by;
+    }
+}
+
+/// <summary>
+/// An <see cref="IImageGenerator"/> whose answers are set per test, and that records what it was asked.
+/// </summary>
+/// <remarks>
+/// It returns real sample images by default, so a test that does not care about the bytes still exercises
+/// the inspector, the checksum and the store. <see cref="RequestedCounts"/> is what holds the job to one
+/// image per call.
+/// </remarks>
+internal sealed class FakeImageGenerator : IImageGenerator
+{
+    public const string Provider = "fake";
+
+    public const string Model = "fake-image-1";
+
+    private readonly List<int> _requestedCounts = [];
+    private readonly List<string> _prompts = [];
+    private readonly Dictionary<int, byte[]> _perCall = [];
+
+    private byte[]? _bytes;
+    private Uri? _uri;
+    private Func<Exception>? _throws;
+    private int _throwAfter = int.MaxValue;
+
+    public int Calls { get; private set; }
+
+    public IReadOnlyList<int> RequestedCounts => _requestedCounts;
+
+    /// <summary>Every prompt this was sent, in order. What proves one workspace's text never reached another's call.</summary>
+    public IReadOnlyList<string> Prompts => _prompts;
+
+    /// <summary>Runs on every call, before it answers. For cancelling mid-pass.</summary>
+    public Action<int>? OnCall { get; set; }
+
+    public void Returns(byte[] bytes) => _bytes = bytes;
+
+    /// <summary>Answers differently on one call, counted from zero. For partial-batch tests.</summary>
+    public void ReturnsAt(int call, byte[] bytes) => _perCall[call] = bytes;
+
+    public void ReturnsUri(Uri uri) => _uri = uri;
+
+    public void Throws(Func<Exception>? throws)
+    {
+        _throws = throws;
+        _throwAfter = throws is null ? int.MaxValue : 0;
+    }
+
+    /// <summary>Answers normally for <paramref name="calls"/> calls of this pass, then throws.</summary>
+    public void ThrowsAfter(int calls, Func<Exception>? throws)
+    {
+        _throws = throws;
+        _throwAfter = throws is null ? int.MaxValue : calls;
+        ResetCalls();
+    }
+
+    public void ResetCalls()
+    {
+        Calls = 0;
+        _requestedCounts.Clear();
+        _prompts.Clear();
+    }
+
+    public Task<ImageGenerationResponse> GenerateAsync(
+        ImageGenerationRequest request,
+        ImageGenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var call = Calls++;
+        _requestedCounts.Add(options?.Count ?? 0);
+        _prompts.Add(request.Prompt ?? string.Empty);
+        OnCall?.Invoke(Calls);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_throws is not null && call >= _throwAfter)
+        {
+            throw _throws();
+        }
+
+        if (_uri is not null)
+        {
+            return Task.FromResult(new ImageGenerationResponse([new UriContent(_uri, "image/png")]));
+        }
+
+        var bytes = _perCall.TryGetValue(call, out var scripted)
+            ? scripted
+            : _bytes ?? BrandSourceSampleFiles.Png(width: 16, height: 12);
+
+        return Task.FromResult(new ImageGenerationResponse([new DataContent(bytes, "image/png")]));
+    }
+
+    public object? GetService(Type serviceType, object? serviceKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(serviceType);
+
+        if (serviceType == typeof(ImageGeneratorMetadata) && serviceKey is null)
+        {
+            return new ImageGeneratorMetadata(Provider, null, Model);
+        }
+
+        return serviceType.IsInstanceOfType(this) && serviceKey is null ? this : null;
+    }
+
+    public void Dispose()
+    {
+    }
+}
