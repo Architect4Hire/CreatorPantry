@@ -1,0 +1,153 @@
+<ng-template #stepList let-rows>
+  <ol class="step-list" aria-label="Pipeline steps">
+    @for (row of rows; track row.step.slug) {
+      <li [attr.aria-current]="row.status === 'current' ? 'step' : null" [attr.data-status]="row.status">
+        <span class="glyph" aria-hidden="true">{{ row.glyph }}</span>
+        <span class="name">{{ row.step.label }}</span>
+        <span class="word">{{ row.word }}</span>
+      </li>
+    }
+  </ol>
+</ng-template>
+
+<section class="pipeline" aria-labelledby="pipeline-heading">
+  <header class="page-header">
+    <h1 id="pipeline-heading">Content Pipeline</h1>
+    <p class="lede">
+      From an idea to finished posts, one step at a time. What you fill in is kept on this device, so you can stop
+      and pick up later.
+    </p>
+  </header>
+
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your pipeline…</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          Your workspaces couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
+      </cp-card>
+    }
+    @case ('read_only') {
+      <cp-card>
+        <cp-notice role="note">
+          You have view-only access to this workspace, so you can't run the pipeline. Ask an Owner or Editor to run
+          it for you.
+        </cp-notice>
+        <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'workflows']">Back to workflows</a>
+      </cp-card>
+    }
+    @case ('resumable') {
+      <cp-card>
+        <section class="resume" aria-labelledby="resume-heading">
+          <h2 id="resume-heading" tabindex="-1">Pick up where you left off</h2>
+          <p>
+            You were on <strong>{{ resumeStep().label }}</strong>. {{ savedText() }}
+          </p>
+          <div class="cp-actions">
+            <button cpButton type="button" variant="primary" (click)="resume()">Continue</button>
+            <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
+          </div>
+        </section>
+      </cp-card>
+    }
+  }
+
+  @if (phase() === 'editing' && currentIndex() !== null) {
+    <div class="layout">
+      <div class="progress">
+        <cp-progress label="Pipeline progress" [value]="percent()" [valueText]="progressText()" />
+        <nav aria-label="Pipeline progress">
+          <ng-container *ngTemplateOutlet="stepList; context: { $implicit: rows() }" />
+        </nav>
+      </div>
+
+      <cp-card>
+        <!-- Keyed on the owner as well as the step: a change of workspace, or of who is signed in, destroys
+             the step rather than swapping a new draft underneath a component still holding the last one's
+             state. -->
+        @for (step of currentStepList(); track step.slug + '@' + ownerKey()) {
+          <section class="step" aria-labelledby="cp-pipeline-step-heading">
+            <h2 id="cp-pipeline-step-heading" tabindex="-1">{{ step.label }}</h2>
+
+            <details class="help cp-disclosure">
+              <summary>Need help with this step?</summary>
+              <p class="cp-muted">{{ step.help }}</p>
+            </details>
+
+            @if (discarded()) {
+              <cp-notice tone="warning" role="status">
+                Something was kept here before, but it couldn't be read — so this is a fresh start.
+              </cp-notice>
+            }
+
+            <!-- Said once per step, above its sections, rather than on each field: marking one optional field
+                 among a dozen unmarked ones makes the rest read as required (DESIGN-SYSTEM.md). -->
+            @if (step.legend) {
+              <p class="legend cp-muted">{{ step.legend }}</p>
+            }
+
+            @switch (step.slug) {
+              @case ('setup') {
+                <cp-content-pipeline-setup-step [config]="draft().config" (changed)="onConfigChanged($event)" />
+              }
+              @case ('idea') {
+                <cp-content-pipeline-idea-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [draft]="draft()"
+                  (changed)="onDraftChanged($event)"
+                  (announced)="onAnnounced($event)"
+                />
+              }
+              @case ('prompt') {
+                <cp-content-pipeline-prompt-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [draft]="draft()"
+                  (changed)="onDraftChanged($event)"
+                  (announced)="onAnnounced($event)"
+                />
+              }
+              @default {
+                <cp-content-pipeline-step-placeholder [step]="step" />
+              }
+            }
+
+            <p class="saved cp-muted" role="status">{{ savedText() }}</p>
+
+            <div class="cp-actions">
+              @if (!isFirst()) {
+                <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
+              }
+              @if (!isComingSoon()) {
+                <button cpButton type="button" variant="primary" [disabled]="!canContinue()" (click)="continue()">
+                  Continue
+                </button>
+              }
+              <button cpButton type="button" variant="text" (click)="saveAndExit()">Save and exit</button>
+              <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
+            </div>
+
+            @if (step.slug === 'idea' && !canContinue()) {
+              <p class="cp-muted">Pick an idea to carry on.</p>
+            }
+            @if (step.slug === 'prompt' && !canContinue()) {
+              <p class="cp-muted">Write the prompt, or have one written, to carry on.</p>
+            }
+          </section>
+        }
+      </cp-card>
+    </div>
+  }
+</section>

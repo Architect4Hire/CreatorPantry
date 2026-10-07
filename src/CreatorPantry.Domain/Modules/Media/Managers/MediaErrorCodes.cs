@@ -15,6 +15,16 @@ public static class MediaErrorCodes
     /// <summary>The request was not well formed. The field errors say which part.</summary>
     public const string GenerationInvalidRequest = "media.generation.invalid_request";
 
+    /// <summary>
+    /// No image-generation operation of this workspace has that id.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Also the answer for another workspace's operation</strong>, in the same words, so neither
+    /// discloses the other (tenancy.md). The global query filter makes the two genuinely one case rather than
+    /// merely reported as one. Carries no field errors: the id came from the route, so there is no field to name.
+    /// </remarks>
+    public const string GenerationOperationNotFound = "media.generation_operation.not_found";
+
     /// <summary>No such generated image in the resolved workspace. Also a neighbour's, deliberately.</summary>
     public const string StagedImageNotFound = "media.staged_image.not_found";
 

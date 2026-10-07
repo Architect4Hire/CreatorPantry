@@ -1,0 +1,128 @@
+@if (state().status === 'generating') {
+  <p class="cp-muted" role="status">Putting an idea together…</p>
+}
+
+@if (state().status === 'unavailable') {
+  <cp-notice tone="error" role="alert">
+    An idea could not be put together just now.
+    <button cpButton type="button" variant="secondary" size="sm" (click)="tryAnother()">Try again</button>
+  </cp-notice>
+}
+
+@if (refusedPins().length > 0) {
+  <cp-notice tone="error" role="alert">
+    Some of what you are keeping cannot be used, so no idea was made. Nothing you chose has been changed.
+  </cp-notice>
+  <ul class="refused">
+    @for (pin of refusedPins(); track pin.name) {
+      <li>
+        <span class="refused-label">{{ pin.label }}</span>
+        <span class="refused-message">{{ pin.message }}</span>
+        <button cpButton type="button" variant="secondary" size="sm" (click)="release(pin.name)">
+          Stop keeping {{ pin.label.toLowerCase() }}
+        </button>
+      </li>
+    }
+  </ul>
+  <div class="cp-actions">
+    <button cpButton type="button" variant="primary" (click)="tryAnother()">Try again</button>
+  </div>
+}
+
+@if (seed() === null && state().status === 'idle') {
+  <p>No idea yet. We can put one together from the cooking vocabulary and your own weekly theme.</p>
+  <div class="cp-actions">
+    <button cpButton type="button" variant="primary" (click)="tryAnother()">Suggest an idea</button>
+  </div>
+}
+
+@if (seed(); as idea) {
+  <cp-form-section
+    heading="The idea"
+    [intro]="accepted() ? 'This is the idea you picked.' : 'Keep the parts you like, then try again for the rest.'"
+  >
+    <p class="description">{{ idea.description }}</p>
+
+    @if (needsSafetyCaution()) {
+      <!-- Shown because this idea's method carries a caution. A method without one renders nothing here: that
+           means no caution has been attached, never that a technique is safe. -->
+      <cp-notice tone="warning" role="note">
+        This method needs care. Follow tested guidance from an authoritative source for times, temperatures and
+        storage — nothing here is a food-safety instruction.
+      </cp-notice>
+    }
+
+    <ul class="facets">
+      @for (row of rows(); track row.name) {
+        <li>
+          <span class="facet-label">{{ row.label }}</span>
+          <span class="facet-value">{{ row.displayName }}</span>
+          @if (row.pinned) {
+            <cp-badge tone="neutral">You asked for this</cp-badge>
+          }
+          @if (row.keepable && !accepted()) {
+            <button
+              cpButton
+              type="button"
+              variant="text"
+              size="sm"
+              [attr.aria-pressed]="isKept(row.name)"
+              [attr.aria-label]="(isKept(row.name) ? 'Stop keeping ' : 'Keep ') + row.label.toLowerCase() + ': ' + row.displayName"
+              (click)="toggleKeep(row.name)"
+            >
+              {{ isKept(row.name) ? 'Keeping' : 'Keep' }}
+            </button>
+          }
+        </li>
+      }
+    </ul>
+
+    <div class="cp-actions">
+      @if (accepted()) {
+        <button cpButton type="button" variant="secondary" (click)="changeIdea()">Change the idea</button>
+      } @else {
+        <button cpButton type="button" variant="primary" (click)="accept()">Pick this idea</button>
+        <button cpButton type="button" variant="secondary" (click)="tryAnother()">Try another</button>
+      }
+      <button cpButton type="button" variant="text" (click)="useAsConcept()">Use this wording as my description</button>
+    </div>
+  </cp-form-section>
+}
+
+<details class="cp-disclosure">
+  <summary>Come back to an idea you have seen before</summary>
+  <p class="cp-muted">
+    Every idea has a short code. Keep a code and the same idea comes back — as long as the vocabulary and that
+    day's theme have not changed since.
+  </p>
+
+  @if (seed(); as idea) {
+    <p class="cp-muted">
+      This idea's code is <code>{{ idea.token }}</code>.
+    </p>
+  }
+
+  <cp-field
+    label="Idea code"
+    forId="cp-pipeline-token"
+    hint="Letters, digits, hyphens and underscores. A code of your own works too."
+    [error]="tokenError()"
+  >
+    <input
+      id="cp-pipeline-token"
+      name="pipelineToken"
+      type="text"
+      autocomplete="off"
+      spellcheck="false"
+      [maxlength]="tokenMaxLength"
+      [ngModel]="tokenEntry()"
+      (ngModelChange)="setTokenEntry($event)"
+    />
+  </cp-field>
+
+  <div class="cp-actions">
+    <button cpButton type="button" variant="secondary" [disabled]="!canReproduce()" (click)="reproduce()">
+      Show that idea
+    </button>
+  </div>
+</details>

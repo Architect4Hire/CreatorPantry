@@ -1,0 +1,176 @@
+<cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+@switch (tracker.phase().kind) {
+  @case ('idle') {
+    <p>
+      We can plan a few looks for this, using the channel, the scene and the words you gave on the step before.
+    </p>
+    <div class="cp-actions">
+      <button cpButton type="button" variant="primary" [disabled]="!canAsk()" (click)="ask()">
+        Plan some looks
+      </button>
+    </div>
+  }
+  @case ('submitting') {
+    <p class="cp-muted" role="status">Asking…</p>
+  }
+  @case ('not_enabled') {
+    <cp-notice tone="warning" role="note">
+      Planning looks is switched off for this installation. Nothing you have filled in is lost.
+    </cp-notice>
+  }
+  @case ('forbidden') {
+    <cp-notice tone="error" role="alert">
+      You need Contributor access in this workspace to plan a shoot.
+    </cp-notice>
+  }
+  @case ('gone') {
+    <cp-notice tone="warning" role="alert">
+      That set of looks is no longer there.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="ask()">Plan some looks</button>
+    </cp-notice>
+  }
+  @case ('refused') {
+    <cp-notice tone="error" role="alert">That could not be asked for.</cp-notice>
+    @if (refusalFieldErrors().length > 0) {
+      <ul class="problems">
+        @for (problem of refusalFieldErrors(); track problem) {
+          <li>{{ problem }}</li>
+        }
+      </ul>
+    }
+    <div class="cp-actions">
+      <button cpButton type="button" variant="secondary" (click)="ask()">Try again</button>
+    </div>
+  }
+  @case ('unavailable') {
+    <cp-notice tone="error" role="alert">
+      That could not be asked for just now.
+      <!-- The same key: this attempt may have reached the server, and a fresh one would buy a second set. -->
+      <button cpButton type="button" variant="secondary" size="sm" (click)="ask()">Try again</button>
+    </cp-notice>
+  }
+  @case ('key_reused') {
+    <cp-notice tone="error" role="alert">
+      That was started with details that have since changed.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="askAgain()">Ask again</button>
+    </cp-notice>
+  }
+  @case ('blocked') {
+    <!-- The allowance notice above says what is exhausted and when it resets. Nothing is repeated here, and
+         nothing the creator filled in has been discarded. -->
+    <p class="cp-muted">Your setup is still here, so you can come back to this.</p>
+  }
+}
+
+@if (tracker.phase(); as phase) {
+  @if (phase.kind === 'watching' || phase.kind === 'failed' || phase.kind === 'ready') {
+    @if (phase.operation; as operation) {
+      <cp-ai-operation-status
+        [status]="operation.status"
+        [failureCategory]="operation.failureCategory"
+        [requestedAt]="operation.requestedAt"
+        [statusChangedAt]="operation.statusChangedAt"
+        [connection]="tracker.connection()"
+      />
+    }
+
+    @if (phase.kind === 'watching') {
+      <div class="cp-actions">
+        @if (tracker.stopped()) {
+          <!-- The loop gave up on its own. Asking again is reading, not generating: it spends nothing. -->
+          <button cpButton type="button" variant="secondary" size="sm" (click)="resume()">Check again</button>
+        } @else {
+          <!-- "Stop checking", not "Cancel": no route cancels a generation, so a button saying it would lie. -->
+          <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
+        }
+      </div>
+    }
+
+    @if (phase.kind === 'failed') {
+      <div class="cp-actions">
+        <button cpButton type="button" variant="secondary" (click)="ask()">Try again</button>
+      </div>
+    }
+  }
+}
+
+@if (tracker.phase().kind === 'ready') {
+  @for (warning of generalWarnings(); track warning.message) {
+    <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+      {{ warning.message }}
+    </cp-notice>
+  }
+
+  <ul class="looks">
+    @for (concept of conceptList(); track concept.conceptId || concept.changeId) {
+      <li>
+        <h4>{{ concept.label }}</h4>
+        @if (concept.mood) {
+          <p><span class="field">Mood</span> {{ concept.mood }}</p>
+        }
+        @if (concept.palette) {
+          <p><span class="field">Colours</span> {{ concept.palette }}</p>
+        }
+        @if (concept.rationale) {
+          <p><span class="field">Why</span> {{ concept.rationale }}</p>
+        }
+        @if (concept.channelFit) {
+          <p><span class="field">For this channel</span> {{ concept.channelFit }}</p>
+        }
+        <!-- Every shot in full rather than only the two lines the choice hint carries. Styling in particular is
+             where a garnish nobody wrote down would appear, and a creator cannot judge that unless they see it
+             (.claude/rules/recipes.md). -->
+        <ul class="shots">
+          @for (shot of concept.shots; track shot.kind) {
+            <li>
+              <h5>{{ shotLabels[shot.kind] }}</h5>
+              @if (shot.framing) {
+                <p><span class="field">Framing</span> {{ shot.framing }}</p>
+              }
+              @if (shot.lighting) {
+                <p><span class="field">Light</span> {{ shot.lighting }}</p>
+              }
+              @if (shot.surface) {
+                <p><span class="field">Surface</span> {{ shot.surface }}</p>
+              }
+              @if (shot.styling) {
+                <p><span class="field">Styling</span> {{ shot.styling }}</p>
+              }
+              @if (shot.props.length > 0) {
+                <p><span class="field">Props</span> {{ shot.props.join(', ') }}</p>
+              }
+            </li>
+          }
+        </ul>
+
+        @for (warning of concept.warnings; track warning.message) {
+          <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+            {{ warning.message }}
+          </cp-notice>
+        }
+      </li>
+    }
+  </ul>
+
+  @if (shotChoices().length === 0) {
+    <cp-notice role="note">No shots came back to choose from. Plan some looks again.</cp-notice>
+    <div class="cp-actions">
+      <button cpButton type="button" variant="secondary" (click)="askAgain()">Plan some looks</button>
+    </div>
+  } @else {
+    <!-- One group over every shot of every look, so there is exactly one answer: IMG-002 refuses a shot its
+         concept did not plan, and two separate picks would let a creator build that refusal by hand. -->
+    <cp-choice-group
+      label="Which shot shall we write a prompt for?"
+      [options]="shotChoices()"
+      [value]="pickValue()"
+      (valueChange)="pick($event)"
+    />
+    <div class="cp-actions">
+      <button cpButton type="button" variant="text" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
+        Plan different looks
+      </button>
+    </div>
+  }
+}

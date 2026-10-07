@@ -1,0 +1,158 @@
+<cp-form-section heading="Where it is going" intro="So the pictures and the words suit the place you publish.">
+  <cp-field
+    label="Channel"
+    forId="cp-pipeline-channel"
+    hint="Leave this as it is if you have not decided, or if the post is for several places."
+  >
+    <select
+      id="cp-pipeline-channel"
+      name="pipelineChannel"
+      [disabled]="channels().status !== 'ready'"
+      [ngModel]="config().channelKey ?? ''"
+      (ngModelChange)="setChannel($event)"
+    >
+      <option value="">No particular channel</option>
+      @for (channel of channelOptions(); track channel.key) {
+        <option [value]="channel.key">{{ channel.displayName }}{{ channel.isActive ? '' : ' (no longer offered)' }}</option>
+      }
+    </select>
+  </cp-field>
+
+  @if (channels().status === 'loading') {
+    <p class="cp-muted" role="status">Loading the list of channels…</p>
+  }
+  @if (channels().status === 'unavailable') {
+    <cp-notice tone="warning" role="status">
+      The list of channels could not be loaded, so you cannot pick one right now. Everything else on this step still
+      works.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="loadChannels()">Try again</button>
+    </cp-notice>
+  }
+
+  <cp-choice-group
+    label="Which day is it for?"
+    layout="fit"
+    [options]="dayChoices"
+    [value]="dayValue()"
+    (valueChange)="setDay($event)"
+  />
+  <p class="cp-muted">If you have a theme for that day, the idea on the next step will use it.</p>
+</cp-form-section>
+
+<cp-form-section heading="How many pictures to try" intro="You pick the ones worth keeping later. Each one you ask for is a separate charge.">
+  <cp-choice-group
+    label="How many pictures to try"
+    layout="fit"
+    [options]="variantChoices"
+    [value]="variantValue()"
+    (valueChange)="setVariantCount($event)"
+  />
+</cp-form-section>
+
+<cp-form-section
+  heading="What you already have in mind"
+  intro="Your own words, written down once so every later step starts from them."
+>
+  <cp-field
+    label="The picture you have in mind"
+    forId="cp-pipeline-concept"
+    hint="Describe it however you like, up to 1000 characters. This stays exactly as you wrote it."
+  >
+    <textarea
+      id="cp-pipeline-concept"
+      name="pipelineConcept"
+      rows="4"
+      [maxlength]="limits.conceptMaxLength"
+      [ngModel]="config().concept"
+      (ngModelChange)="setConcept($event)"
+    ></textarea>
+  </cp-field>
+</cp-form-section>
+
+<cp-form-section
+  heading="Scene"
+  intro="Things you want in the shot — a surface, a season, a time of day, a prop. One per line."
+>
+  @if (sceneRows().length === 0) {
+    <p class="cp-muted">Nothing yet. Add a line if there is something you know you want in the picture.</p>
+  } @else {
+    <ul class="rows">
+      @for (row of sceneRows(); track row.id; let index = $index) {
+        <li>
+          <cp-field [label]="'Scene element ' + (index + 1)" [forId]="'cp-pipeline-scene-' + row.id">
+            <input
+              [id]="'cp-pipeline-scene-' + row.id"
+              [name]="'pipelineScene' + row.id"
+              type="text"
+              autocomplete="off"
+              [maxlength]="limits.overrideMaxLength"
+              [ngModel]="row.text"
+              (ngModelChange)="setScene(row.id, $event)"
+            />
+          </cp-field>
+          <button
+            cpButton
+            type="button"
+            variant="text"
+            size="sm"
+            [attr.aria-label]="'Remove scene element ' + (index + 1)"
+            (click)="removeScene(row.id)"
+          >
+            Remove
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <button cpButton type="button" variant="secondary" [disabled]="sceneAtCap()" (click)="addScene()">
+    Add a scene element
+  </button>
+  @if (sceneAtCap()) {
+    <p class="cp-muted">That is as many scene elements as one picture can carry.</p>
+  }
+</cp-form-section>
+
+<cp-form-section
+  heading="Style"
+  intro="How it should feel — a mood, a palette, a treatment. One per line."
+>
+  @if (styleRows().length === 0) {
+    <p class="cp-muted">Nothing yet. Add a line if there is a look you already want.</p>
+  } @else {
+    <ul class="rows">
+      @for (row of styleRows(); track row.id; let index = $index) {
+        <li>
+          <cp-field [label]="'Style direction ' + (index + 1)" [forId]="'cp-pipeline-style-' + row.id">
+            <input
+              [id]="'cp-pipeline-style-' + row.id"
+              [name]="'pipelineStyle' + row.id"
+              type="text"
+              autocomplete="off"
+              [maxlength]="limits.overrideMaxLength"
+              [ngModel]="row.text"
+              (ngModelChange)="setStyle(row.id, $event)"
+            />
+          </cp-field>
+          <button
+            cpButton
+            type="button"
+            variant="text"
+            size="sm"
+            [attr.aria-label]="'Remove style direction ' + (index + 1)"
+            (click)="removeStyle(row.id)"
+          >
+            Remove
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <button cpButton type="button" variant="secondary" [disabled]="styleAtCap()" (click)="addStyle()">
+    Add a style direction
+  </button>
+  @if (styleAtCap()) {
+    <p class="cp-muted">That is as many style directions as one picture can carry.</p>
+  }
+</cp-form-section>

@@ -50,6 +50,18 @@ public interface IGeneratedImageGenerationBusiness
 
     /// <summary>How many images one operation of the resolved workspace has staged.</summary>
     Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One operation of the resolved workspace with its images, or null when it has none with that id.
+    /// </summary>
+    /// <remarks>
+    /// <strong>No resource-level rule of its own, deliberately.</strong> An operation belongs to the workspace
+    /// rather than to the member who asked for it: a colleague picking up someone's shoot is the ordinary case,
+    /// and a read gated on `RequestedByMembershipId` would make shared work impossible while disclosing nothing
+    /// extra. The workspace filter is the authorization, and the role gate is the facade's.
+    /// </remarks>
+    Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
+        Guid operationId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageGenerationBusiness"/>
@@ -76,6 +88,10 @@ internal sealed class GeneratedImageGenerationBusiness(
     IClock clock,
     ILogger<GeneratedImageGenerationBusiness> logger) : IGeneratedImageGenerationBusiness
 {
+    public Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
+        Guid operationId, CancellationToken cancellationToken) =>
+        dataLayer.FindDetailAsync(operationId, cancellationToken);
+
     public Task<GeneratedImageRequestResult> RequestAsync(
         string promptText,
         string? avoidText,

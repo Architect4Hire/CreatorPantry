@@ -104,6 +104,51 @@ public sealed class GeneratedImagesController(
             : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>Reads one image request and the images it has produced so far.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="operationId">The request to read. Constrained to a Guid.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read, matching the preview and download below: a member who may look at an image may
+    /// certainly learn that it exists.
+    ///
+    /// **This is what makes the 202 above usable.** That response carries a status and two counts but no image
+    /// identities, so a client had an operation and no way to learn a single thing in it — progress, a contact
+    /// sheet, a download and a decline were all unreachable without this read.
+    ///
+    /// The body carries the operation plus one entry per image, ordered by variant, with each image's status,
+    /// media type, dimensions, size and retention deadline. A row exists only once there are bytes to describe,
+    /// so entries appear as variants land and a client can fill a grid in rather than waiting for all of them.
+    ///
+    /// **No prompt text, no object key, no checksum, no address of any kind.** The repository projects rather
+    /// than reading entities, so none of them is even loaded. `Cache-Control: no-store`, because an operation in
+    /// flight changes and because its images are private creator content.
+    ///
+    /// An unknown operation and another workspace's answer `404 media.generation_operation.not_found` alike, so
+    /// neither discloses the other.
+    /// </remarks>
+    [HttpGet("operations/{operationId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<GeneratedImageOperationDetailServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetOperation(
+        string workspaceSlug,
+        Guid operationId,
+        CancellationToken cancellationToken)
+    {
+        // Set before the branch, so a refusal is no more cacheable than an answer: an operation in flight is
+        // different on the next read, what it names is private creator content, and a cached 404 would be a
+        // small signal about which ids exist.
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await generation.GetOperationAsync(operationId, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Renders one staged image for viewing in the browser.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and

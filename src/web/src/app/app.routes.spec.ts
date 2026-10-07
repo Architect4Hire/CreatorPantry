@@ -98,8 +98,15 @@ describe('app routes', () => {
     // Each route's loadComponent already does `.then(m => m.XComponent)`, so it resolves directly to
     // the component class itself. Compare by reference against a directly-imported class, not by
     // `.name` — the bundler can rename same-named classes duplicated across separate lazy chunks.
+    // 'workflows' is a grouping too (12.10): the hub at its index, and the Content Pipeline under it, so the
+    // Workflows nav item stays active while a guided journey runs.
     for (const section of workspaceRoute.children!.filter(
-      (route) => route.path !== '' && route.path !== 'recipes' && route.path !== 'ai-recipe-studio' && route.path !== 'brand',
+      (route) =>
+        route.path !== '' &&
+        route.path !== 'recipes' &&
+        route.path !== 'ai-recipe-studio' &&
+        route.path !== 'brand' &&
+        route.path !== 'workflows',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
@@ -158,5 +165,34 @@ describe('app routes', () => {
 
     const confirmEmailRoute = routes.find((route) => route.path === 'confirm-email')!;
     expect(await confirmEmailRoute.loadComponent!()).toBe(ConfirmEmailComponent);
+  });
+});
+
+describe("the Content Pipeline's place in the route tree", () => {
+  const workspaceRoute = (): Routes =>
+    (routes.find((route) => route.path === ':workspaceSlug')?.children ?? []) as Routes;
+
+  it("nests the pipeline under 'workflows', so that nav item stays active while it runs", () => {
+    const workflows = workspaceRoute().find((route) => route.path === 'workflows');
+    const children = workflows?.children?.map((route) => route.path);
+
+    expect(children).toEqual(['', 'content-pipeline']);
+  });
+
+  it("keeps the Workflows hub as that subtree's own index page", async () => {
+    const workflows = workspaceRoute().find((route) => route.path === 'workflows');
+    const index = workflows?.children?.find((route) => route.path === '');
+
+    expect(index?.pathMatch).toBe('full');
+    expect(await index?.loadComponent?.()).toBe(PlaceholderSectionComponent);
+  });
+
+  it('loads the pipeline lazily, with its own step routes', async () => {
+    const workflows = workspaceRoute().find((route) => route.path === 'workflows');
+    const pipeline = workflows?.children?.find((route) => route.path === 'content-pipeline');
+    const children = (await pipeline?.loadChildren?.()) as Routes;
+
+    expect(children.map((route) => route.path)).toEqual(['', ':step']);
+    expect(children[0].redirectTo).toBe('setup');
   });
 });

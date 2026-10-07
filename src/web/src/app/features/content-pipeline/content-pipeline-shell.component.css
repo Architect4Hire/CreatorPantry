@@ -1,0 +1,108 @@
+:host {
+  display: block;
+}
+
+.pipeline {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+}
+
+.lede {
+  margin: var(--cp-space-2) 0 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+}
+
+.layout {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  /* minmax(0, …) so a long value inside the card cannot push the page sideways (DESIGN-SYSTEM.md). */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+.progress {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.step-list {
+  display: grid;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step-list li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  column-gap: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--cp-radius-md);
+  color: var(--cp-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.step-list li[aria-current='step'] {
+  border-color: var(--cp-primary);
+  background: var(--cp-primary-soft);
+  color: var(--cp-text);
+  font-weight: 700;
+}
+
+.step-list li[data-status='done'] .glyph {
+  color: var(--cp-primary);
+}
+
+.glyph {
+  grid-row: span 2;
+  line-height: var(--cp-leading-normal);
+}
+
+.word {
+  grid-column: 2;
+  font-size: var(--cp-font-size-xs);
+}
+
+.step,
+.resume {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.step h2,
+.resume h2 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+}
+
+.step h2:focus,
+.resume h2:focus {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 4px;
+}
+
+.help summary {
+  color: var(--cp-text-muted);
+}
+
+.help p,
+.resume p,
+.state,
+.legend,
+.saved {
+  margin: 0;
+}

@@ -1,0 +1,149 @@
+<cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+@if (chosen(); as pick) {
+  <p class="cp-muted">
+    For <strong>{{ pick.label }}</strong> — {{ shotLabels[pick.shotKind] }}.
+  </p>
+
+  @switch (tracker.phase().kind) {
+    @case ('idle') {
+      <div class="cp-actions">
+        <button cpButton type="button" variant="primary" [disabled]="!canCompose()" (click)="compose()">
+          Write the prompt
+        </button>
+      </div>
+    }
+    @case ('submitting') {
+      <p class="cp-muted" role="status">Asking…</p>
+    }
+    @case ('not_enabled') {
+      <cp-notice tone="warning" role="note">
+        Writing prompts is switched off for this installation. You can still write one yourself below.
+      </cp-notice>
+    }
+    @case ('forbidden') {
+      <cp-notice tone="error" role="alert">
+        You need Contributor access in this workspace to have a prompt written.
+      </cp-notice>
+    }
+    @case ('gone') {
+      <cp-notice tone="warning" role="alert">
+        That prompt is no longer there.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="composeAgain()">Write it again</button>
+      </cp-notice>
+    }
+    @case ('refused') {
+      <cp-notice tone="error" role="alert">{{ refusalMessage() }}</cp-notice>
+      <p class="cp-muted">Pick a look and a shot again, and we can write a prompt for it.</p>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        That could not be asked for just now.
+        <!-- The same key: this attempt may have reached the server, and a fresh one would buy a second prompt. -->
+        <button cpButton type="button" variant="secondary" size="sm" (click)="compose()">Try again</button>
+      </cp-notice>
+    }
+    @case ('key_reused') {
+      <cp-notice tone="error" role="alert">
+        That was started with details that have since changed.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="composeAgain()">Ask again</button>
+      </cp-notice>
+    }
+    @case ('blocked') {
+      <p class="cp-muted">Nothing you have written is lost, and you can still write the prompt yourself below.</p>
+    }
+  }
+
+  @if (tracker.phase(); as phase) {
+    @if (phase.kind === 'watching' || phase.kind === 'failed' || phase.kind === 'ready') {
+      @if (phase.operation; as operation) {
+        <cp-ai-operation-status
+          [status]="operation.status"
+          [failureCategory]="operation.failureCategory"
+          [requestedAt]="operation.requestedAt"
+          [statusChangedAt]="operation.statusChangedAt"
+          [connection]="tracker.connection()"
+        />
+      }
+
+      @if (phase.kind === 'watching') {
+        <div class="cp-actions">
+          @if (tracker.stopped()) {
+            <button cpButton type="button" variant="secondary" size="sm" (click)="resume()">Check again</button>
+          } @else {
+            <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
+          }
+        </div>
+      }
+
+      @if (phase.kind === 'failed') {
+        <div class="cp-actions">
+          <button cpButton type="button" variant="secondary" (click)="compose()">Try again</button>
+        </div>
+      }
+    }
+  }
+} @else {
+  <cp-notice role="note">Pick a look and a shot above, and we can write a prompt for it.</cp-notice>
+}
+
+<!-- Rendered off the proposal rather than off the prompt, so a Limitation explaining why nothing usable came
+     back is shown rather than dropped with it. -->
+@for (warning of warnings(); track warning.message) {
+  <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+    {{ warning.message }}
+  </cp-notice>
+}
+
+<!-- Always here, even before anything has been composed and even when the task is switched off: a creator who
+     would rather write their own prompt is not waiting on a model to be allowed to. -->
+@if (promptIsGenerated()) {
+  <!-- Generated content is identified and stays editable (.claude/rules/frontend.md). Without this an unedited
+       composition is indistinguishable from the creator's own wording. -->
+  <cp-notice role="note">
+    These words were written for you from {{ generatedFrom() }}. Change any of them — what is in the box is what
+    gets used.
+  </cp-notice>
+}
+
+<cp-field
+  label="The prompt"
+  forId="cp-pipeline-final-prompt"
+  hint="This is the prompt that will be used. Change anything you like — your words win."
+>
+  <textarea
+    id="cp-pipeline-final-prompt"
+    name="pipelineFinalPrompt"
+    rows="8"
+    [ngModel]="prompt().finalPrompt"
+    (ngModelChange)="setFinalPrompt($event)"
+  ></textarea>
+</cp-field>
+
+@if (prompt().generated; as generated) {
+  @if (generated.avoid.length > 0) {
+    <p class="cp-muted">Written to avoid: {{ generated.avoid.join(', ') }}</p>
+  }
+
+  @if (differsFromGenerated()) {
+    <!-- Titled by what it holds — the wording we wrote — rather than as an undo. After writing again it is the
+         *newer* text, and calling that "before your changes" was simply wrong. -->
+    <details class="cp-disclosure">
+      <summary>The prompt we wrote</summary>
+      <p class="generated">{{ generated.text }}</p>
+      <div class="cp-actions">
+        <button cpButton type="button" variant="text" size="sm" (click)="restoreGenerated()">
+          Use this wording instead
+        </button>
+      </div>
+    </details>
+  }
+}
+
+@if (prompt().chosen !== null && tracker.phase().kind === 'ready') {
+  <div class="cp-actions">
+    <button cpButton type="button" variant="text" size="sm" [disabled]="!canCompose()" (click)="composeAgain()">
+      Write it again
+    </button>
+  </div>
+}

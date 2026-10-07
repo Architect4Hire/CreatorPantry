@@ -64,6 +64,16 @@ public interface IGeneratedImageGenerationDataLayer
     /// <summary>Reads what a claimed operation asks for, if this worker still holds its lease.</summary>
     Task<GeneratedImageWork> OpenAsync(Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// One operation of the resolved workspace with its images, or null when it has none with that id.
+    /// </summary>
+    /// <remarks>
+    /// No lease and no claim: this is a creator reading their own operation rather than a worker taking work, so
+    /// it reads through the ordinary workspace filter and holds nothing.
+    /// </remarks>
+    Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
+        Guid operationId, CancellationToken cancellationToken);
+
     /// <summary>Records which provider and model this attempt is running against, before it runs.</summary>
     /// <remarks>
     /// Before rather than after, so an operation that dies mid-generation still says what it was talking to.
@@ -141,6 +151,7 @@ public sealed record GeneratedImageRequestResult(GeneratedImageOperation Operati
 /// </remarks>
 internal sealed class GeneratedImageGenerationDataLayer(
     IGeneratedImageGenerationRepository operations,
+    IGeneratedImageOperationDetailRepository details,
     IGeneratedImageProviderGateway provider,
     IGeneratedImageObjectGateway objects,
     IMalwareScanGateway scanner,
@@ -148,6 +159,10 @@ internal sealed class GeneratedImageGenerationDataLayer(
     ILogger<GeneratedImageGenerationDataLayer> logger) : IGeneratedImageGenerationDataLayer
 {
     public GeneratedImageModel DescribeModel() => provider.Describe();
+
+    public Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
+        Guid operationId, CancellationToken cancellationToken) =>
+        details.FindAsync(operationId, cancellationToken);
 
     public Task<GeneratedImageResult> GenerateAsync(
         string prompt, string? avoid, CancellationToken cancellationToken) =>

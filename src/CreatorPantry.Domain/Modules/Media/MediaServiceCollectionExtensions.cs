@@ -47,6 +47,7 @@ public static class MediaServiceCollectionExtensions
 
         services.AddScoped<IGeneratedImageProviderGateway, GeneratedImageProviderGateway>();
         services.AddScoped<IGeneratedImageObjectGateway, GeneratedImageObjectGateway>();
+        services.AddScoped<IGeneratedImageOperationDetailRepository, GeneratedImageOperationDetailRepository>();
         services.AddScoped<IGeneratedImageGenerationRepository, GeneratedImageGenerationRepository>();
         services.AddScoped<IGeneratedImageGenerationDataLayer, GeneratedImageGenerationDataLayer>();
         services.AddScoped<IGeneratedImageGenerationBusiness, GeneratedImageGenerationBusiness>();

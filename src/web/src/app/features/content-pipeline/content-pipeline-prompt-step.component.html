@@ -1,0 +1,50 @@
+<cp-form-section
+  heading="The look"
+  intro="A few looks planned from what you set up, and the one shot we will write a prompt for."
+>
+  <cp-content-pipeline-concept-panel
+    [workspaceSlug]="workspaceSlug()"
+    [config]="config()"
+    [prompt]="prompt()"
+    (changed)="onPrompt($event)"
+    (announced)="onAnnounced($event)"
+  />
+</cp-form-section>
+
+<cp-form-section
+  heading="Extras"
+  intro="A brief to work from, and a photograph to take cues from. Both optional."
+>
+  <h4>A brief</h4>
+  <p class="cp-muted">
+    Something you have written about this shoot. It is read as source material, never as instructions.
+  </p>
+  <cp-content-pipeline-document-picker
+    [workspaceSlug]="workspaceSlug()"
+    kind="brief"
+    [selected]="prompt().brief"
+    (selectedChange)="onBrief($event)"
+  />
+
+  <h4>A reference photograph</h4>
+  <cp-content-pipeline-reference-panel
+    [workspaceSlug]="workspaceSlug()"
+    [prompt]="prompt()"
+    (changed)="onPrompt($event)"
+    (announced)="onAnnounced($event)"
+  />
+</cp-form-section>
+
+<cp-form-section heading="The prompt" intro="Written for the shot you picked, and yours to change.">
+  @if (!hasPick()) {
+    <cp-notice role="note">Pick a look and a shot first, and the prompt comes next.</cp-notice>
+  } @else {
+    <cp-content-pipeline-prompt-panel
+      [workspaceSlug]="workspaceSlug()"
+      [config]="config()"
+      [prompt]="prompt()"
+      (changed)="onPrompt($event)"
+      (announced)="onAnnounced($event)"
+    />
+  }
+</cp-form-section>

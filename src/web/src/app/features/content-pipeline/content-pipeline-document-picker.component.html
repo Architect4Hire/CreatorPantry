@@ -1,0 +1,81 @@
+@if (selected(); as chosen) {
+  <div class="chosen">
+    <span class="chosen-title">{{ chosen.title }}</span>
+    <button cpButton type="button" variant="text" size="sm" [disabled]="disabled()" (click)="clear()">Remove</button>
+  </div>
+} @else {
+  @switch (library().status) {
+    @case ('closed') {
+      <div class="cp-actions">
+        <button cpButton type="button" variant="secondary" size="sm" [disabled]="disabled()" (click)="openLibrary()">
+          Choose from my library
+        </button>
+      </div>
+
+      <cp-uploader
+        label="Or add a new one"
+        [hint]="imagesOnly() ? 'A photograph, up to 20 MB.' : 'A brief, up to 20 MB.'"
+        [accept]="accept()"
+        [items]="uploadItems()"
+        (filesSelected)="onFiles($event)"
+        (cancel)="onCancelUpload()"
+        (retry)="onRetryUpload()"
+        (remove)="onCancelUpload()"
+      />
+
+      @if (upload(); as state) {
+        @if (state.status === 'failed') {
+          <cp-notice tone="error" role="alert">{{ state.message }}</cp-notice>
+        }
+        @if (state.status === 'uploading') {
+          <p class="cp-muted" role="status">Adding {{ state.name }} to your library…</p>
+        }
+      }
+    }
+    @case ('loading') {
+      <p class="cp-muted" role="status">Looking in your library…</p>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        Your library could not be read just now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="loadLibrary()">Try again</button>
+      </cp-notice>
+      <div class="cp-actions">
+        <button cpButton type="button" variant="text" size="sm" (click)="closeLibrary()">Back</button>
+      </div>
+    }
+    @default {
+      <cp-field label="Search your library" forId="cp-pipeline-doc-search" hint="Type part of the name.">
+        <input
+          id="cp-pipeline-doc-search"
+          name="pipelineDocSearch"
+          type="search"
+          autocomplete="off"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+        />
+      </cp-field>
+
+      <div class="cp-actions">
+        <button cpButton type="button" variant="secondary" size="sm" (click)="loadLibrary()">Search</button>
+        <button cpButton type="button" variant="text" size="sm" (click)="closeLibrary()">Back</button>
+      </div>
+
+      @if (choices().length === 0) {
+        <p class="cp-muted">Nothing in your library matches that.</p>
+      } @else {
+        @if (noUsableRows()) {
+          <cp-notice role="note">
+            None of these is an image, so none can be read as a reference. Search for one, or add a photograph.
+          </cp-notice>
+        }
+        <cp-choice-group label="Choose one" [options]="choices()" [value]="[]" (valueChange)="choose($event)" />
+        @if (library(); as state) {
+          @if (state.status === 'ready' && state.more) {
+            <p class="cp-muted">There are more than these. Type more of the name to narrow the list.</p>
+          }
+        }
+      }
+    }
+  }
+}

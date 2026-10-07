@@ -6,7 +6,15 @@ import { authGuard } from './core/auth.guard';
 
 const SECTION_ROUTES: Routes = [
   { path: 'dashboard', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Dashboard' } },
-  { path: 'workflows', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Workflows' } },
+  // 'workflows' is the hub plus the guided journeys it lists, so the Workflows nav item stays active while
+  // one is running (RouterLinkActive matches the subtree) — the same reason 'brand' owns its setup wizard.
+  {
+    path: 'workflows',
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Workflows' } },
+      { path: 'content-pipeline', loadChildren: () => import('./features/content-pipeline/content-pipeline.routes').then((m) => m.CONTENT_PIPELINE_ROUTES) },
+    ],
+  },
   { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },
   { path: 'my-week', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Week' } },
   // The three multi-page sections own their route trees (and the guards those trees need) beside their

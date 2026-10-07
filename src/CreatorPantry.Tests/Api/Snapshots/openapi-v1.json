@@ -7329,6 +7329,83 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/operations/{operationId}": {
+      "get": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "Reads one image request and the images it has produced so far.",
+        "description": "Any member may read, matching the preview and download below: a member who may look at an image may\ncertainly learn that it exists.\n\n**This is what makes the 202 above usable.** That response carries a status and two counts but no image\nidentities, so a client had an operation and no way to learn a single thing in it \u2014 progress, a contact\nsheet, a download and a decline were all unreachable without this read.\n\nThe body carries the operation plus one entry per image, ordered by variant, with each image\u0027s status,\nmedia type, dimensions, size and retention deadline. A row exists only once there are bytes to describe,\nso entries appear as variants land and a client can fill a grid in rather than waiting for all of them.\n\n**No prompt text, no object key, no checksum, no address of any kind.** The repository projects rather\nthan reading entities, so none of them is even loaded. \u0060Cache-Control: no-store\u0060, because an operation in\nflight changes and because its images are private creator content.\n\nAn unknown operation and another workspace\u0027s answer \u0060404 media.generation_operation.not_found\u0060 alike, so\nneither discloses the other.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operationId",
+            "in": "path",
+            "description": "The request to read. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageOperationDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageOperationDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageOperationDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/generated-images/{generatedImageId}/preview": {
       "get": {
         "tags": [
@@ -20160,6 +20237,88 @@
           }
         }
       },
+      "GeneratedImageOperationDetail": {
+        "required": [
+          "id",
+          "status",
+          "variantCount",
+          "stagedCount",
+          "providerName",
+          "modelName",
+          "failureCategory",
+          "failureSummary",
+          "requestedAt",
+          "completedAt",
+          "images"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GeneratedImageOperationStatus"
+          },
+          "variantCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "stagedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "providerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "modelName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureCategory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StagedImage"
+            }
+          }
+        }
+      },
       "GeneratedImageOperationStatus": {
         "enum": [
           "Unspecified",
@@ -20169,6 +20328,16 @@
           "PartiallySucceeded",
           "Failed",
           "Cancelled"
+        ],
+        "type": "string"
+      },
+      "GeneratedImageStatus": {
+        "enum": [
+          "Unspecified",
+          "Staged",
+          "Kept",
+          "Rejected",
+          "Expired"
         ],
         "type": "string"
       },
@@ -25498,6 +25667,72 @@
           "Archived"
         ],
         "type": "string"
+      },
+      "StagedImage": {
+        "required": [
+          "id",
+          "variantIndex",
+          "status",
+          "mediaType",
+          "width",
+          "height",
+          "sizeBytes",
+          "retentionExpiresAt",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "variantIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GeneratedImageStatus"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "width": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "height": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "retentionExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "TemperatureConversionResult": {
         "required": [

@@ -1,0 +1,156 @@
+<cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+<p class="cp-muted">
+  A photograph you like, read back to you — what it shows, how sure we are of each part, and wording you can
+  start from. Optional.
+</p>
+
+<cp-content-pipeline-document-picker
+  [workspaceSlug]="workspaceSlug()"
+  kind="reference"
+  [selected]="prompt().reference"
+  [disabled]="tracker.busy()"
+  (selectedChange)="onReference($event)"
+/>
+
+@if (prompt().reference !== null) {
+  <cp-field
+    label="What are you looking for in it?"
+    forId="cp-pipeline-reference-note"
+    hint="Optional. Your own words — the light, a particular prop, the way it is cropped."
+  >
+    <textarea
+      id="cp-pipeline-reference-note"
+      name="pipelineReferenceNote"
+      rows="2"
+      [maxlength]="noteMaxLength"
+      [ngModel]="note()"
+      (ngModelChange)="setNote($event)"
+    ></textarea>
+  </cp-field>
+
+  @switch (tracker.phase().kind) {
+    @case ('idle') {
+      <div class="cp-actions">
+        <button cpButton type="button" variant="secondary" [disabled]="!canRead()" (click)="read()">
+          Read this photograph
+        </button>
+      </div>
+    }
+    @case ('submitting') {
+      <p class="cp-muted" role="status">Asking…</p>
+    }
+    @case ('not_enabled') {
+      <cp-notice tone="warning" role="note">
+        Reading a reference is switched off for this installation.
+      </cp-notice>
+    }
+    @case ('forbidden') {
+      <cp-notice tone="error" role="alert">
+        You need Contributor access in this workspace to read a reference.
+      </cp-notice>
+    }
+    @case ('gone') {
+      <cp-notice tone="warning" role="alert">
+        That reading is no longer there.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="read()">Read it again</button>
+      </cp-notice>
+    }
+    @case ('refused') {
+      <cp-notice tone="error" role="alert">{{ refusalMessage() }}</cp-notice>
+      <p class="cp-muted">Choose a different photograph, or add one.</p>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        That could not be asked for just now.
+        <!-- The same key: this attempt may have reached the server, and a fresh one would buy a second reading. -->
+        <button cpButton type="button" variant="secondary" size="sm" (click)="read()">Try again</button>
+      </cp-notice>
+    }
+    @case ('key_reused') {
+      <cp-notice tone="error" role="alert">
+        That was started with details that have since changed. Choose the photograph again.
+      </cp-notice>
+    }
+    @case ('blocked') {
+      <p class="cp-muted">Your reference is still attached, so you can come back to this.</p>
+    }
+  }
+}
+
+@if (tracker.phase(); as phase) {
+  @if (phase.kind === 'watching' || phase.kind === 'failed' || phase.kind === 'ready') {
+    @if (phase.operation; as operation) {
+      <cp-ai-operation-status
+        [status]="operation.status"
+        [failureCategory]="operation.failureCategory"
+        [requestedAt]="operation.requestedAt"
+        [statusChangedAt]="operation.statusChangedAt"
+        [connection]="tracker.connection()"
+      />
+    }
+
+    @if (phase.kind === 'watching') {
+      <div class="cp-actions">
+        @if (tracker.stopped()) {
+          <button cpButton type="button" variant="secondary" size="sm" (click)="resume()">Check again</button>
+        } @else {
+          <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
+        }
+      </div>
+    }
+
+    @if (phase.kind === 'failed') {
+      <div class="cp-actions">
+        <button cpButton type="button" variant="secondary" (click)="read()">Try again</button>
+      </div>
+    }
+  }
+}
+
+<!-- Off the proposal rather than the reading, so a warning about a reading that produced nothing still shows. -->
+@for (warning of warnings(); track warning.message) {
+  <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+    {{ warning.message }}
+  </cp-notice>
+}
+
+@if (reading(); as result) {
+  @if (result.observations.length > 0) {
+    <h4>What the photograph shows</h4>
+    <!-- Confidence is a word on every row, never a hue or a bar: a reading nobody is sure of must not look
+         like one they are (.claude/rules/ai.md). -->
+    <ul class="observations">
+      @for (observation of result.observations; track observation.aspect) {
+        <li>
+          <span class="aspect">{{ aspectLabels[observation.aspect] }}</span>
+          <span class="text">{{ observation.text }}</span>
+          <span class="confidence">{{ confidenceLabels[observation.confidence] }}</span>
+        </li>
+      }
+    </ul>
+  } @else {
+    <!-- "No observations came back", not "nothing could be read with any confidence" — the second asserts a
+         judgement about the photograph that the server never made. -->
+    <cp-notice role="note">No observations came back for this photograph.</cp-notice>
+  }
+
+  @if (result.prompt) {
+    <h4>Wording drawn from it</h4>
+    <p class="cp-muted">
+      Drawn from the readings above, including any we were unsure of. Check it against the photograph before you
+      use it.
+    </p>
+    <p class="drawn">{{ result.prompt }}</p>
+
+    @if (result.avoid.length > 0) {
+      <p class="cp-muted">Avoid: {{ result.avoid.join(', ') }}</p>
+    }
+
+    <div class="cp-actions">
+      <button cpButton type="button" variant="secondary" (click)="useAsPrompt()">
+        Use this as my prompt
+      </button>
+    </div>
+  }
+}

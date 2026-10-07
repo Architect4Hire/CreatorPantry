@@ -1,0 +1,9 @@
+h4 {
+  margin: var(--cp-space-4) 0 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+}
+
+h4:first-of-type {
+  margin-top: 0;
+}

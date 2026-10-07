@@ -4816,7 +4816,69 @@ orphan reds it.*
 
 *This completes DAM-001 through DAM-010. Contention: six slow failures this run, all green alone.*
 
-### 12.10 Content Pipeline configuration and seed UI
+### 12.8a Read an image operation - done
+
+```text
+SCOPE: Implement the read that makes 12.7's 202 usable: one image operation of the resolved workspace with
+the images it has staged so far, through the complete Controller to Repository seam.
+CONSTRAINT: add-endpoint and add-media-feature skills; IMG-003/005.
+RESTRICTION: No prompt text, object key, checksum or address of any kind in the response. No new write path.
+BEHAVIOR: Build bottom-up, test found/not-found/isolation/disclosure, regenerate the OpenAPI snapshot and
+read the diff.
+```
+
+*Why this prompt exists (2026-10-07). It was **not** in the plan: 12.10b asked for image-operation progress, a
+one-to-four grid, a lightbox, keeper selection, download and rejection, and none of it was reachable.
+`GeneratedImagesController` offered `POST`, `/preview`, `/content` and `DELETE`, and
+`GeneratedImageOperationServiceModel` carries a status and two counts but **no image identities** — so a client had an
+operation id and no way to learn a single thing in it. `IGeneratedImageGenerationFacade` had only `RequestAsync` and
+`ExecuteAsync`; `IStagedImageFacade` only `OpenAsync`, `RejectAsync` and `RunRetentionAsync`. 12.6's own note had
+anticipated the surface ("12.8's detail surface is where a creator reads their own request back") and 12.8 never
+built it.*
+
+*`GET api/v1/workspaces/{slug}/generated-images/operations/{operationId}`, Viewer and above, through
+Controller → Facade → Business → DataLayer → a new projection-only repository. Split out as its own prompt rather
+than folded into the UI one, because this file's rule is that a prompt crosses layers only when it is explicitly a
+vertical-integration prompt — and because an API shape deserves a review of its own rather than arriving inside
+several hundred lines of Angular.*
+
+*Three decisions. **Viewer**, matching `/preview` and `/content`: a member who may look at an image but not learn that
+it exists would be a contract at odds with itself. **No rule about who asked** — an operation belongs to the workspace,
+not to the member who requested it, so a colleague picking up someone's shoot is the ordinary case and a gate on
+`RequestedByMembershipId` would break shared work while disclosing nothing extra. And **the existing generation facade
+was extended** rather than given a sibling: it is the same resource, the controller already injects it, and a second
+seam would have been boilerplate.*
+
+*`StagedCount` is deliberately redundant with `Images.Count` — a row exists only once there are bytes to describe, so
+the rows *are* the staged count. It is published anyway so a client decodes one operation shape rather than two, and so
+a progress meter reads a number rather than deriving one.*
+
+*Projections throughout, copying `MediaAssetDetailRepository`'s discipline: `PromptText`, `ObjectKey` and
+`ContentChecksum` are never **loaded**, which is stronger than reading the row and dropping them, because a later edit
+cannot reintroduce one by accident. The logged SQL is the proof — nine columns from each table, none of them those.
+Two statements rather than one, since a single query over the collection would repeat the operation's columns once per
+image.*
+
+*The `FailureSummary` doc comment first said "sanitised server-side", which was an assertion rather than a fact. It is
+now checked and the reason recorded: `GeneratedImageResult` carries an outcome and bytes and nothing else, so a
+provider's words have nowhere to travel — every summary is a fixed sentence written by Business. A provider payload
+could not reach the response without a new field on the gateway's own result type.*
+
+*What review changed. The isolation audit found a defect I had introduced: inserting the new error code anchored on the
+constant rather than on its doc comment, which orphaned `StagedImageNotFound`'s `<summary>` onto the new constant and
+left it with two. It also judged two tests weaker than their names — the "exactly the same not found" one
+compared only `code`, so it now compares the whole `ProblemDetails` minus `traceId`, and the slug-level
+non-disclosure existed only as a comment, so a workspace the caller is not in is now asserted to answer byte for byte
+the same as a slug that was never created. A Viewer of one workspace reading another's operation, and `no-store` on a
+refusal, are both tested too — a cached 404 is a small signal about which ids exist, so the header moved above the
+branch. `@architecture-reviewer` approved the seam with no findings.*
+
+*14 endpoint tests pass; the Media area is 530 green and `OpenApiContractTests` 26. The snapshot diff is **+235 lines,
+0 deletions** — one path and two schemas, nothing existing altered. A full backend run reds 11, all of them the known
+artefacts: 3 `BulkOperationBoundaryTests` from redirecting `BaseOutputPath`, and 8 SQL-container contention failures
+across five classes, every one of which passes when run alone.*
+
+### 12.10 Content Pipeline configuration and seed UI - done
 
 ```text
 SCOPE: Build only PIPE-UI-001/002 through configuration and seed review: channel, day, variant count,
@@ -4826,7 +4888,67 @@ RESTRICTION: No prompt/image/social/DAM action in this prompt.
 BEHAVIOR: Show state flow, wait for approval, implement component/contract/a11y tests.
 ```
 
-### 12.10a Content Pipeline prompt and reference analysis UI
+*What 12.10 decided (2026-10-07). Approved during planning: the pipeline lives **under `workflows`** rather than as
+a thirteenth section; in-progress state is **`localStorage`, per workspace** (narrowed to per *member* during review —
+see below); the shell declares **all six steps**, the four unbuilt ones as placeholders; and accepting an idea
+**never** fills the creator's concept box.*
+
+*Where the requirement text was not available. PIPE-UI-001 through 006 are named only in this file — the functional
+source of truth is not in the repository — so the SCOPE's own list is what was built: channel, day, variant count,
+scene, style and concept on a `setup` step, and generate/keep/pick on an `idea` step. The six fields map exactly onto
+`RequestPhotographyConceptViewModel` plus `GeneratedImageOperation.VariantCount`, which is the reason to believe the
+reading is right: every one of them is a field some later route already takes.*
+
+*"Edit the seed" became **keep and try again**, and the constraint that forced it is worth recording: there is **no
+HTTP route for the photography-style or occasion catalogue**. A facet picker is therefore not buildable, so a creator
+cannot swap a facet for a named other one. What they can do needs no catalogue at all — the seed response carries each
+facet's key, so pinning the ones they like and re-rolling the rest is a pure function of what is already on screen.
+Channel and day are the two facets that *do* have a picker, and they live on the `setup` step.*
+
+*The rule that keeps those two honest: **a value has one home.** Keeping a generated channel or day writes it back
+into `setup` rather than into the keep map, so the configuration step can never disagree with the idea on screen.
+`CONTENT_SEED_KEEP_NAMES` therefore holds five facets, not six, and `contentSeedQueryFor` assembles a request from both
+places.*
+
+*Nothing is stored while an idea is only a suggestion — except the token. The seed generator persists nothing by
+design, so keeping a copy of an unaccepted idea would quietly make it a record; the draft keeps `lastToken` instead and
+reproduces the idea on resume, which is exactly what the contract offers. An idea that has been **picked** is stored
+whole, because from that point it is a decision.*
+
+*Query parameters are **PascalCase on the wire** (`Token`, `DishType`, `PhotographyStyle`). `ContentSeedQueryViewModel`
+binds by property name, so camelCase keys bind to nothing — which would look like a working request that silently
+ignored every pin. A contract test asserts each name rather than trusting it.*
+
+*The safety flag is rendered as asymmetrically as its own documentation demands: `requiresSafetyCaution: true` shows a
+caution and carries it into the picked idea, and `false` shows **nothing at all**. Two tests pin that, one of them
+asserting the words "is safe" never appear.*
+
+*`persisted in-progress client state` ended up needing more care than the phrase suggests, and the isolation audit is
+what found it. The first version keyed the draft by **slug**, which is wrong twice. A slug names a workspace but not a
+person, so a lapsed session followed by a colleague signing in on the same browser offered them the first creator's
+unfinished wording — a real leak inside one workspace. The fix is to key by **`workspaceId` + `membershipId`**, both
+from the caller's own membership row, which is also why the draft can no longer be read from the route alone: the shell
+waits for memberships, and `applyRoute` refuses to judge a step against a draft it has not read. Purging on `expired`
+was the obvious alternative and was rejected — it would have taken away the resuming this prompt asked for.*
+
+*Two smaller things from the same audit. The step on screen is keyed on the owner as well as the slug
+(`track step.slug + '@' + ownerKey()`), because resetting the shell's signals is not enough: Angular can flush the
+reset and the reload in one pass, leaving a child component holding the previous workspace's seed. And the sign-out
+purge only fires if the service exists to notice, so `AppShellComponent` constructs it for every signed-in page — its
+own doc comment had been claiming a guarantee it could not keep.*
+
+*No library component was added. Variant count and day are `CpChoiceGroupComponent`, the override lists are repeatable
+`cp-field` rows inside `CpFormSectionComponent` on the `brand-settings` links pattern, and the seed's facet rows carry
+domain vocabulary, so they stay in the feature. `@design-review` found nothing.*
+
+*Leaving is deliberately **not** guarded. Every change is written through as it is made, so there is no unsaved work to
+warn about — the opposite of `brand-settings`, which guards because its edits live in memory. Start over is the one
+action that loses anything, and it is the one that asks.*
+
+*2575 showcase specs and 176 library specs pass; `npm run build` is clean. The backend was not touched, so the OpenAPI
+snapshot is unchanged.*
+
+### 12.10a Content Pipeline prompt and reference analysis UI - done
 
 ```text
 SCOPE: Extend only the pipeline with concept suggestion, prompt composition/review, brief upload, and
@@ -4836,7 +4958,78 @@ RESTRICTION: No image render, social generation, or DAM save.
 BEHAVIOR: Plan states, wait for approval, implement component/contract/a11y/cancellation tests.
 ```
 
-### 12.10b Content Pipeline image selection UI
+*What 12.10a decided (2026-10-07). Approved during planning: **one `prompt` step with three sections** rather than
+splitting the journey; **draft v3, discarding earlier versions**; a brief and a reference filed as
+**`VisualReference`/`VisualDirection`**; and a **new shared poll helper used by new code only**.*
+
+*All three capabilities already shipped, so this prompt is the client for them: `POST` → 202 → poll `GET`, with the
+answer arriving as a proposal's **flat `Changes` rows**. Reading them back is the bulk of the model code —
+`Add`/`PhotographyConcept` carries a label under a server-minted `targetId` with `Set` rows for `mood`, `palette`,
+`rationale`, `channelFit` and `shot.{Kind}.{property}`; `Add`/`ImagePrompt` and `Add`/`ReferenceImageAnalysis` each
+carry a prompt with `avoid` and, for a reading, `observation.{Aspect}` plus its `.confidence`.*
+
+*Three things the contracts settled rather than taste. IMG-002 requires a concept **and** a shot and refuses a shot
+its concept did not plan, so the two are **one choice in one group** — two pickers would let a creator assemble that
+refusal by hand. Neither IMG route takes a brand-guide selection (the server uses the active guide), so
+`cp-brand-visual-style-control` does **not** apply here despite its own documentation naming these screens. And
+**no route cancels a generation**, so the buttons say "Stop checking"; real cancellation exists only on the upload
+path, under an `AbortSignal`.*
+
+*The brief and the reference image are **brand source documents**, which is why there is no upload surface of its
+own: `briefDocumentId` and `referenceDocumentId` resolve through the brand facade under the workspace filter, where
+a file's signature, decoded format, dimensions and size were already inspected. A second upload path would be a
+second set of those checks to keep in step. The picker shows a document that cannot serve as a reference
+**disabled, with the reason**, rather than filtering it out — narrowing in the browser would hide matches sitting on
+pages the screen never fetched, which is the one list bug a reader cannot see.*
+
+*`promptSource` replaced a plain `promptEdited` boolean, and that was the ai-safety review's finding rather than the
+plan's. A boolean was answering two questions badly: *may this be replaced without asking?* and *was this written by
+a model?* Taking the wording from a reference reading is not an edit but it is a choice, and the text is still
+generated — so `none | composed | reference | creator` answers both, and an unrecognised stored value on a non-empty
+prompt reads as `creator`, because the worst mistake available here is replacing words a person wrote.*
+
+*The one finding that was a real defect rather than a refinement: **IMG-002's warnings never reached the screen.**
+The server emits `Limitation` warnings for a brief it could not read, and both decoders returned `null` when the
+`Add` row was missing — so a proposal whose *only* content was the warning explaining why nothing was produced
+rendered nothing at all. Warnings are now read off the proposal through `composedPromptWarnings` and
+`referenceReadingWarnings`, independently of whether any content decoded, and the interfaces no longer carry a
+`warnings` field that could be read through the thing that might be absent.*
+
+*Four smaller ones from the same review, each worth the line it cost. A composed prompt no longer survives a change
+of shot — it was written for a different frame — while words the creator typed do follow them. The disclosure
+holding the written prompt is titled by **what it holds** rather than as an undo, because after writing again it is
+the *newer* text and "what was written before your changes" was simply false. `Proposed` arriving with no proposal
+answers `unavailable` rather than stranding the screen on "Check again" for something polling has already stopped
+watching. And shot `styling`, `surface` and `props` are now shown in full: styling is exactly where a garnish nobody
+wrote down would appear, and a creator cannot judge that before picking unless they can see it.*
+
+*Idempotency keys now **survive a retry**. Minting one per click meant a "Try again" after an `unavailable` — which
+can mean the server accepted and the response was lost — bought a second generation and spent the allowance twice.
+`IdempotencyKey` keeps one key per logical ask and mints a fresh one only for a deliberately different question.
+Writing that surfaced an adjacent bug: the tracker had no case for `idempotency_key_conflict`, so a reused key was
+reported as a generic outage, which reads as something that might fix itself.*
+
+*Written once rather than three times: `ai-poll.ts` (interval, degraded backoff, failure count, wall-clock ceiling),
+`ai-operation-tracker.ts` (phase, request id, generation guard — its spec is where "an abandoned answer never lands
+on the one the creator is looking at" is pinned), `ai-request.ts` (the refusal precedence, where a suspension is a
+403 like a role refusal and a spent allowance a 429 like the edge's rate limiter) and `brand-source-messages.ts`
+(wording that was already duplicated twice). The three existing pollers in `features/ai/` are untouched. Writing
+`ai-request.spec.ts` caught a real bug: the suspended code is `ai.quota.suspended`, and the `ai_suspended` this was
+first written with fell through to `unavailable` — a suspended account reported as an outage.*
+
+*Two review findings were **not** acted on, and the reasoning matters. The contract reviewer called the list
+separator broken in all three capabilities, reading `PhotographyConceptInputs.ListSeparator = "\n"`; that constant
+is how a **request's** override lists are stored in `TaskInputsJson` and no client ever reads it. Every proposal row
+a client does read is joined with `"; "` by the three handlers, and splitting on the semicolon alone and trimming is
+correct for all of them — and more robust than splitting on `"; "`, which would turn a row joined without the space
+into one long item. It also called the absent `recipeId`/`recipeVersionId` breaking; both are optional, the pipeline
+has no recipe selection at all, and adding fields with nothing to populate them would be dead code. A recipe-pinned
+shoot is a later prompt's work.*
+
+*2716 showcase specs and 176 library specs pass; `npm run build` is clean. The backend was not touched, so the
+OpenAPI snapshot is unchanged.*
+
+### 12.10b Content Pipeline image selection UI - pick up here
 
 ```text
 SCOPE: Extend only the pipeline with image operation progress, one-to-four grid, keyboard lightbox,

@@ -1,0 +1,57 @@
+:host {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+h4 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+}
+
+.observations {
+  display: grid;
+  /* minmax(0, …) so one long reading cannot hold the column wider than the card (DESIGN-SYSTEM.md). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.observations > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2) var(--cp-space-3);
+  padding: var(--cp-space-3) 0;
+  border-block-end: 1px solid var(--cp-border);
+}
+
+.aspect {
+  flex: 0 0 auto;
+  min-width: 8rem;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.confidence {
+  flex: 0 0 auto;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+}
+
+.drawn {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  white-space: pre-wrap;
+}

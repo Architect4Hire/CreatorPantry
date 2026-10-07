@@ -6,6 +6,7 @@ import { CpButtonComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeServ
 
 import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
+import { ContentPipelineDraftService } from '../services/content-pipeline-draft.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 
@@ -51,6 +52,14 @@ export class AppShellComponent {
   private readonly auth = inject(AuthService);
   private readonly membershipService = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);
+  /**
+   * Injected and otherwise unused, so the service exists to notice a sign-out.
+   *
+   * It drops every kept Content Pipeline draft when the session goes anonymous, and it can only do that if it
+   * has been constructed. Leaving that to whoever opens the pipeline next would mean a creator who signs out
+   * without going near it leaves their own unfinished wording on the machine.
+   */
+  private readonly pipelineDrafts = inject(ContentPipelineDraftService);
   readonly theme = inject(CpThemeService);
 
   readonly navItems = NAV_ITEMS;

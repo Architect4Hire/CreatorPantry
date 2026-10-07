@@ -1,0 +1,14 @@
+:host {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.generated {
+  margin: var(--cp-space-2) 0;
+  max-width: var(--cp-measure-prose);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  white-space: pre-wrap;
+}

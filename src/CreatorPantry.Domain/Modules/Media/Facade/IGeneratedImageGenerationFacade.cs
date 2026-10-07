@@ -46,6 +46,23 @@ public interface IGeneratedImageGenerationFacade
     /// </remarks>
     Task<GeneratedImageRunOutcome> ExecuteAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One operation of the resolved workspace, with the images it has produced so far.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Any member may read, which is why it is here and not behind the Contributor gate above.</strong>
+    /// Asking for images spends the workspace's budget; looking at what came back does not, and the preview and
+    /// download routes this read feeds are themselves Viewer. A Viewer who can see an image but not learn that it
+    /// exists would be a contract at odds with itself.
+    /// </para>
+    /// <para>
+    /// An unknown operation and another workspace's are one answer, so neither discloses the other (tenancy.md).
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<GeneratedImageOperationDetailServiceModel>> GetOperationAsync(
+        Guid operationId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageGenerationFacade"/>
@@ -53,6 +70,21 @@ internal sealed class GeneratedImageGenerationFacade(
     IGeneratedImageGenerationBusiness business,
     IWorkspaceContext workspace) : IGeneratedImageGenerationFacade
 {
+    public async Task<OperationResult<GeneratedImageOperationDetailServiceModel>> GetOperationAsync(
+        Guid operationId, CancellationToken cancellationToken)
+    {
+        // No role gate: a resolved workspace context is the authorization for the lowest role, and the routes
+        // this feeds are Viewer too.
+        var detail = await business.FindDetailAsync(operationId, cancellationToken);
+
+        return detail is null
+            ? OperationResult<GeneratedImageOperationDetailServiceModel>.Failure(new OperationError(
+                MediaErrorCodes.GenerationOperationNotFound,
+                "That image request could not be found in this workspace.",
+                new Dictionary<string, string[]>()))
+            : OperationResult<GeneratedImageOperationDetailServiceModel>.Success(detail);
+    }
+
     public async Task<OperationResult<GeneratedImageOperationServiceModel>> RequestAsync(
         GeneratedImageRequest request, CancellationToken cancellationToken)
     {
