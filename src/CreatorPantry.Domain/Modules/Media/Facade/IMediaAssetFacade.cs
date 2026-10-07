@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -57,6 +58,126 @@ public interface IMediaAssetFacade
     Task<OperationResult<MediaAssetDetailServiceModel>> GetDetailAsync(
         Guid mediaAssetId, MediaAssetDetailViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Changes part of one asset's metadata and returns it as it now stands (DAM-004).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Submitted-field semantics: a field the body does not mention is left alone, a value sets it, and
+    /// <c>null</c> clears it. Tags replace. Nothing about the bytes can be reached from here — see
+    /// <see cref="MediaAssetMetadataPatchViewModel"/> for what is deliberately absent and why.
+    /// </para>
+    /// <para>
+    /// Takes an idempotency key so a retried request is replayed rather than answered as a conflict. Without one a
+    /// client whose connection dropped after the server committed would re-send the same edit, find the token
+    /// stale, and be told somebody else saved first — when the somebody else was itself.
+    /// </para>
+    /// </remarks>
+    Task<IdempotentOutcome<MediaAssetDetailServiceModel>> PatchMetadataAsync(
+        string userId,
+        Guid mediaAssetId,
+        MediaAssetMetadataPatchViewModel patch,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Soft-deletes one asset and reports what still references it (DAM-005).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Requires the <strong>Editor</strong> role, where creating and patching require Contributor. Removing a shared
+    /// asset takes finished work out of every collaborator's library and can leave another creator's recipe pointing
+    /// at a tombstone — the same asymmetry <c>RecipesController.Archive</c> names when it asks for Editor to archive
+    /// a recipe.
+    /// </para>
+    /// <para>
+    /// <strong>No idempotency key.</strong> The command is already idempotent — a repeat with a current token
+    /// returns the existing tombstone and writes nothing — so a key would only add a store to the path. The
+    /// consequence of checking the token first is that a retry whose response was lost needs a fresh read.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<MediaAssetDeletionServiceModel>> SoftDeleteAsync(
+        string userId,
+        Guid mediaAssetId,
+        DeleteMediaAssetViewModel model,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Opens a live asset's current version, for rendering (DAM-006) or for download (DAM-007).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Any member may render, matching the reads: an asset a creator can see in the library is one they can look at.
+    /// </para>
+    /// <para>
+    /// <strong>The caller owns disposing the render</strong>, and must register that before anything else that could
+    /// throw — the bytes are an open read, and the controller is what holds it to the end of the response.
+    /// </para>
+    /// <para>
+    /// Not cached, and could not usefully be: the value is a stream.
+    /// </para>
+    /// </remarks>
+    /// <param name="naming">True for a download, which names a file; false for a render, which does not.</param>
+    Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
+        Guid mediaAssetId, bool naming, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Opens one named version of a live asset for download (DAM-008).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Any member may download, as for the current version. The caller owns disposing the render.
+    /// </para>
+    /// <para>
+    /// <strong>Both identifiers are verified together</strong>, so one asset's route cannot serve another's version,
+    /// and a number this asset has no version for is refused rather than quietly answered with the current one.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
+        Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records one use of a live asset (DAM-009).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Contributor, the same role that may add an asset: recording where work went out is part of producing it.
+    /// </para>
+    /// <para>
+    /// Takes an optional idempotency key, as the other DAM creates do. <strong>Without one, two identical calls write
+    /// two rows</strong> — and that is deliberate rather than a gap: an asset genuinely can go out twice on one
+    /// platform on one day, which is why the table carries no uniqueness over
+    /// <c>(asset, platform, date)</c>. A client that wants a retry to be safe sends a key.
+    /// </para>
+    /// </remarks>
+    Task<IdempotentOutcome<MediaAssetUtilizationServiceModel>> LogUtilizationAsync(
+        string userId,
+        Guid mediaAssetId,
+        LogMediaAssetUtilizationViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Adds a new version to a live asset from an upload (DAM-010).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Contributor, the same role that may add an asset: replacing the bytes of your own work is part of producing it.
+    /// Note this is Contributor where <em>removing</em> an asset needs Editor — adding a version takes nothing away,
+    /// because every earlier version keeps its row, its object and its download route.
+    /// </para>
+    /// <para>
+    /// Takes an optional idempotency key, as the create does. Worth sending: an upload is the request most likely to be
+    /// retried after a dropped connection, and without a key a retry adds a second version of the same bytes rather
+    /// than returning the first.
+    /// </para>
+    /// </remarks>
+    Task<IdempotentOutcome<MediaAssetVersionServiceModel>> AddVersionAsync(
+        Guid mediaAssetId,
+        MediaAssetVersionUpload upload,
+        string? idempotencyKey,
+        CancellationToken cancellationToken);
+
     /// <summary>Reads one page of one asset's utilization history, newest first (DAM-003).</summary>
     /// <remarks>
     /// Separate from the detail because this history grows without limit — a row per use, for as long as the
@@ -80,6 +201,7 @@ internal sealed class MediaAssetFacade(
     IMediaAssetBusiness business,
     IValidator<MediaAssetSearchViewModel> searchValidator,
     IValidator<MediaAssetUtilizationViewModel> utilizationValidator,
+    IClock clock,
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IMediaAssetFacade
 {
@@ -87,6 +209,15 @@ internal sealed class MediaAssetFacade(
     private const string UploadOperation = "media.asset.upload";
 
     private const string KeepOperation = "media.asset.keep";
+
+    /// <inheritdoc cref="UploadOperation"/>
+    private const string PatchOperation = "media.asset.patch";
+
+    /// <inheritdoc cref="UploadOperation"/>
+    private const string UtilizationOperation = "media.asset.utilization";
+
+    /// <inheritdoc cref="UploadOperation"/>
+    private const string AddVersionOperation = "media.asset.version";
 
     public async Task<OperationResult<MediaAssetSearchPageServiceModel>> SearchAsync(
         MediaAssetSearchViewModel model, CancellationToken cancellationToken)
@@ -123,6 +254,198 @@ internal sealed class MediaAssetFacade(
         return business.GetDetailAsync(
             mediaAssetId, model.IncludeDeleted ?? false, cancellationToken);
     }
+
+    public Task<IdempotentOutcome<MediaAssetDetailServiceModel>> PatchMetadataAsync(
+        string userId,
+        Guid mediaAssetId,
+        MediaAssetMetadataPatchViewModel patch,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+
+        // Contributor, the role that may add an asset: correcting what was said about one is part of producing it
+        // and changes no bytes.
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return Task.FromResult(RefusedPatch(new OperationError(
+                MediaErrorCodes.AssetForbidden,
+                "You do not have permission to change this workspace's library.",
+                new Dictionary<string, string[]>())));
+        }
+
+        // A token that is not one this API could have issued is a bad request naming the field, not a 409: a
+        // conflict says "somebody saved first", which would be a lie about a token that never existed. This is
+        // what MediaConcurrencyToken.IsWellFormed is separate from Matches for.
+        if (!MediaConcurrencyToken.IsWellFormed(patch.ExpectedConcurrencyToken))
+        {
+            return Task.FromResult(RefusedPatch(OperationError.Validation(
+                MediaErrorCodes.AssetInvalidRequest,
+                "That asset could not be changed as described.",
+                [("expectedConcurrencyToken",
+                    "Send the concurrencyToken from the read this edit was composed against.")])));
+        }
+
+        return idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId,
+                workspace.WorkspaceId,
+                PatchOperation,
+                idempotencyKey,
+                // The asset and everything the patch asked for. Fingerprinting only the id and the token would
+                // make one key serve two different edits: the second would be replayed as the first and silently
+                // dropped, which is the opposite of what an idempotency key is for. The view model cannot be
+                // serialized directly — see MediaAssetMetadataPatchViewModel.Fingerprint.
+                Fingerprint: new { mediaAssetId, Patch = patch.Fingerprint() },
+                KeyRequired: false),
+            token => business.PatchMetadataAsync(
+                mediaAssetId, patch, workspace.MembershipId, token),
+            cancellationToken);
+    }
+
+    private static IdempotentOutcome<MediaAssetDetailServiceModel> RefusedPatch(OperationError error) =>
+        new(OperationResult<MediaAssetDetailServiceModel>.Failure(error), Replayed: false);
+
+    public Task<OperationResult<MediaAssetDeletionServiceModel>> SoftDeleteAsync(
+        string userId,
+        Guid mediaAssetId,
+        DeleteMediaAssetViewModel model,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (workspace.Role < WorkspaceRole.Editor)
+        {
+            return Task.FromResult(OperationResult<MediaAssetDeletionServiceModel>.Failure(new OperationError(
+                MediaErrorCodes.AssetForbidden,
+                "You do not have permission to remove assets from this workspace's library.",
+                new Dictionary<string, string[]>())));
+        }
+
+        var failures = new List<(string, string)>();
+
+        // A person decided this, rather than a well-formed body reaching a deletion. Checked before the token so a
+        // client that forgot the flag is told about the flag rather than about concurrency.
+        if (model.Confirmed is not true)
+        {
+            failures.Add(("confirmed", "Send confirmed: true to remove this asset."));
+        }
+
+        if (!MediaConcurrencyToken.IsWellFormed(model.ExpectedConcurrencyToken))
+        {
+            failures.Add((
+                "expectedConcurrencyToken",
+                "Send the concurrencyToken from the read this deletion was decided against."));
+        }
+
+        if (failures.Count > 0)
+        {
+            return Task.FromResult(OperationResult<MediaAssetDeletionServiceModel>.Failure(
+                OperationError.Validation(
+                    MediaErrorCodes.AssetInvalidRequest, "That asset could not be removed.", failures)));
+        }
+
+        return business.SoftDeleteAsync(
+            mediaAssetId,
+            model.ExpectedConcurrencyToken,
+            userId,
+            workspace.MembershipId,
+            cancellationToken);
+    }
+
+    public Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
+        Guid mediaAssetId, bool naming, CancellationToken cancellationToken) =>
+        business.OpenCurrentVersionAsync(mediaAssetId, naming, cancellationToken);
+
+    public Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
+        Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken) =>
+        business.OpenVersionAsync(mediaAssetId, versionNumber, naming, cancellationToken);
+
+    public Task<IdempotentOutcome<MediaAssetUtilizationServiceModel>> LogUtilizationAsync(
+        string userId,
+        Guid mediaAssetId,
+        LogMediaAssetUtilizationViewModel model,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return Task.FromResult(RefusedUtilization(new OperationError(
+                MediaErrorCodes.AssetForbidden,
+                "You do not have permission to record use of this workspace's assets.",
+                new Dictionary<string, string[]>())));
+        }
+
+        // The server's own date for the future bound, passed in so the rule stays a pure function it can be tested at
+        // the boundary of.
+        var failures = MediaAssetInputChecks
+            .Utilization(model, DateOnly.FromDateTime(clock.UtcNow.UtcDateTime))
+            .ToList();
+
+        if (failures.Count > 0)
+        {
+            return Task.FromResult(RefusedUtilization(OperationError.Validation(
+                MediaErrorCodes.AssetInvalidRequest, "That use could not be recorded.", failures)));
+        }
+
+        return idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                userId,
+                workspace.WorkspaceId,
+                UtilizationOperation,
+                idempotencyKey,
+
+                // The asset and everything recorded about the use, so one key cannot serve two different logs — the
+                // mistake the patch path had to be corrected for.
+                Fingerprint: new { mediaAssetId, model.PlatformKey, model.UtilizedOn, model.CampaignName, model.Notes },
+                KeyRequired: false),
+            token => business.LogUtilizationAsync(
+                mediaAssetId, model, workspace.MembershipId, token),
+            cancellationToken);
+    }
+
+    private static IdempotentOutcome<MediaAssetUtilizationServiceModel> RefusedUtilization(OperationError error) =>
+        new(OperationResult<MediaAssetUtilizationServiceModel>.Failure(error), Replayed: false);
+
+    public Task<IdempotentOutcome<MediaAssetVersionServiceModel>> AddVersionAsync(
+        Guid mediaAssetId,
+        MediaAssetVersionUpload upload,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return Task.FromResult(RefusedVersion(new OperationError(
+                MediaErrorCodes.AssetForbidden,
+                "You do not have permission to add versions to this workspace's library.",
+                new Dictionary<string, string[]>())));
+        }
+
+        return idempotency.ExecuteAsync(
+            new IdempotentCommand(
+                upload.UserId,
+                workspace.WorkspaceId,
+                AddVersionOperation,
+                idempotencyKey,
+
+                // The asset and the filename, not the bytes: a fingerprint has to be cheap, and hashing the file would
+                // mean reading it twice before anything is stored. A creator who sends one key with two different
+                // files has made a mistake the executor should catch rather than silently serve the first answer for —
+                // which it does, because the filename almost always differs, and when it does not the two uploads were
+                // indistinguishable to begin with.
+                Fingerprint: new { mediaAssetId, upload.FileName },
+                KeyRequired: false),
+            token => business.AddVersionFromUploadAsync(
+                mediaAssetId, upload, workspace.MembershipId, token),
+            cancellationToken);
+    }
+
+    private static IdempotentOutcome<MediaAssetVersionServiceModel> RefusedVersion(OperationError error) =>
+        new(OperationResult<MediaAssetVersionServiceModel>.Failure(error), Replayed: false);
 
     public async Task<OperationResult<MediaAssetUtilizationPageServiceModel>> GetUtilizationAsync(
         Guid mediaAssetId, MediaAssetUtilizationViewModel model, CancellationToken cancellationToken)

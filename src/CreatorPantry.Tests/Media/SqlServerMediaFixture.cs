@@ -1,14 +1,27 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Caching;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Ai.Business;
+using CreatorPantry.Domain.Modules.Ai.Data;
+using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Recipes;
+using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Tests.Reference;
 using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.Media;
@@ -79,7 +92,12 @@ public sealed class SqlServerMediaFixture : IAsyncLifetime
         scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
 
     /// <summary>A scope with the workspace context resolved, the way a request arrives.</summary>
-    public AsyncServiceScope ScopeFor(Guid workspaceId)
+    /// <param name="role">
+    /// The caller's membership role. Owner by default, because almost every test here is about data rather than
+    /// permission; a test of a facade's own role gate passes the role it wants to be refused at, which is the only
+    /// way to reach that check — the route policy would otherwise refuse first and the facade would never run.
+    /// </param>
+    public AsyncServiceScope ScopeFor(Guid workspaceId, WorkspaceRole role = WorkspaceRole.Owner)
     {
         var scope = _provider!.CreateAsyncScope();
 
@@ -87,7 +105,7 @@ public sealed class SqlServerMediaFixture : IAsyncLifetime
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
-            WorkspaceRole.Owner,
+            role,
             "test-account");
 
         return scope;
@@ -103,6 +121,26 @@ public sealed class SqlServerMediaFixture : IAsyncLifetime
             // The whole module, so the repository under test is resolved the way the API resolves it rather
             // than constructed by hand. Nothing else in it is ever asked for, so nothing else is built.
             .AddMediaModule()
+
+            // Media's business layer resolves lineage through the Content and Recipes facades (12.9c), and those
+            // two pull in the rest: measurement, vocabulary, ingredients, a cache, an outbox, and the AI module's
+            // narrow proposal lookup. The set is the one MediaAssetCreateTests arrived at over SQLite — copied
+            // rather than rediscovered one DI failure at a time, which is how it was found the first time.
+            //
+            // Additive for every other test in this folder: they resolve repositories and never reach any of it.
+            .AddIdempotency(new ConfigurationBuilder().Build())
+            .AddOutbox()
+            .AddDistributedMemoryCache()
+            .AddApplicationCache()
+            .AddMeasurementModule()
+            .AddVocabularyModule()
+            .AddIngredientModule()
+            .AddRecipesModule(new ConfigurationBuilder().Build())
+            .AddContentModule()
+            .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddScoped<IAiProposalLookupBusiness, AiProposalLookupBusiness>()
+            .AddScoped<IAiProposalLookupFacade, AiProposalLookupFacade>()
+            .AddOutbox()
 
             // Shared-kernel services the module depends on rather than registers, exactly as it depends on
             // CreatorPantryDbContext. A data layer taking a logger is the usual cause of an opaque DI failure

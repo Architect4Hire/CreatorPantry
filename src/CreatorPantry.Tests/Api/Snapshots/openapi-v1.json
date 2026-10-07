@@ -5944,6 +5944,280 @@
             "bffSession": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Changes part of one asset\u0027s metadata and returns it as it now stands.",
+        "description": "This is a JSON Merge Patch, not a replacement. A field the body does not mention is left exactly as it is;\na field sent with a value is set to it; a field sent as \u0060null\u0060 is cleared. Omitting a field never blanks\nit. \u0060tags\u0060 is the one field that replaces rather than merges \u2014 a submitted list becomes the asset\u0027s\ncomplete set, and \u0060[]\u0060 or \u0060null\u0060 removes them all. \u0060title\u0060 may be changed but not cleared.\n\n**Nothing about the bytes can be reached from here.** No object key, version number, media type,\ndimensions or checksum: those are facts the server established by reading the bytes, and a new file is a\nnew version rather than an edit. \u0060kind\u0060 is absent too \u2014 it records where the bytes came from, which is\nlineage rather than classification, and relabelling an AI-generated asset as an upload would erase the one\ncolumn that remembers a model was involved. The editorial classification a creator may correct is\n\u0060cuisineId\u0060, \u0060courseId\u0060, \u0060channelKey\u0060, \u0060platformKey\u0060, \u0060styleKey\u0060, \u0060day\u0060 and \u0060tags\u0060.\n\n\u0060expectedConcurrencyToken\u0060 is required and is not a field of the asset: it is the \u0060concurrencyToken\u0060 from\nthe read this edit was composed against. An edit quoting a token the asset has moved past is refused with\n\u0060409 media.asset.stale.conflict\u0060 rather than overwriting whoever saved first; a token this API could never\nhave issued is a \u0060400\u0060 naming the field, because a conflict would be a lie about a token that never\nexisted. **An edit that would change nothing writes nothing** \u2014 no \u0060updatedAt\u0060, no new token \u2014 so the\ncaller\u0027s token stays valid and there is no way to \u0022touch\u0022 an asset.\n\nA soft-deleted asset answers \u0060404\u0060, as does an unknown or inaccessible one: a patch is not a way to edit\nor restore something deleted. The response is the whole asset in the same shape the detail read returns,\nso an editor can rebind from it, carrying the refreshed token the next edit must quote.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset to change. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same edit returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than being answered as a conflict.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaAssetMetadataPatch"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaAssetMetadataPatch"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaAssetMetadataPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Removes one asset from the library without deleting its bytes.",
+        "description": "**Removing is not erasing.** Every version, tag, utilization record, prompt record and link stays exactly\nwhere it was, and **no bytes are deleted** \u2014 here or by any sweep this route schedules. What changes is that\nthe asset gains a tombstone: it drops out of the library listing and out of the detail read, which answers\n\u0060404\u0060 unless asked with \u0060?includeDeleted=true\u0060, and the render and download routes refuse it.\n\n**Links are deliberately left standing.** Cutting a recipe\u0027s photograph silently is the one thing this must\nnot do, so recipe, brand-profile and test-attachment links all survive. The response instead reports what is\nnow pointing at a tombstone: \u0060affected.recipes\u0060 names them, \u0060affected.brandProfileCount\u0060 and\n\u0060affected.testAttachmentCount\u0060 count them, and \u0060affected.any\u0060 is the one flag a client needs to decide\nwhether to warn. Read the asset first if you want to warn *before* removing it.\n\nRequires the **Editor** role, where adding and editing an asset require Contributor: removing one takes\nfinished work out of every collaborator\u0027s library rather than contributing to it.\n\n\u0060confirmed\u0060 must be \u0060true\u0060 \u2014 a deletion should be a step a creator took, not somewhere a well-formed body\narrives. \u0060expectedConcurrencyToken\u0060 is required and is checked **before** the already-removed answer: a\ncaller quoting a stale token has not seen what the asset looks like now, and telling them \u0022already removed\u0022\nwould hide a collaborator\u0027s work. The consequence is that retrying after a lost response needs a fresh read.\n\n**Removing an already-removed asset succeeds and changes nothing** \u2014 the original timestamp and actor come\nback with \u0060alreadyDeleted: true\u0060, and no second audit entry is written. There is no restore route yet.\nAn unknown, inaccessible or other-workspace asset answers \u0060404 media.asset.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset to remove. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteMediaAsset"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteMediaAsset"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteMediaAsset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDeletion"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDeletion"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
       }
     },
     "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}/utilization": {
@@ -6021,6 +6295,525 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Records that the asset was used.",
+        "description": "Contributor and above \u2014 the same role that may add an asset, because recording where work went out is part of\nproducing it. \u0060GET\u0060 on this same path reads the history back, cursor-paged.\n\n**\u0060utilizedOn\u0060 is required, and that is what makes the derived day unambiguous.** \u0060utilizedDay\u0060 follows from\nthe date alone \u2014 a calendar date has exactly one day of the week in every zone \u2014 so there is no instant to\nconvert and no zone that could make it wrong. A client cannot send the day: one that could would be able to\nsend one that disagrees with its own date. \u0060createdAt\u0060 is when the log was written, which is a different fact\nfrom when the asset was used, and the row keeps both.\n\nA date more than a day past the server\u0027s own is refused as \u0060400\u0060: not \u0022after today\u0022, so a creator east of UTC\nlogging this afternoon is not refused for being on tomorrow\u0027s date \u2014 no inhabited offset exceeds \u002B14 hours.\n**There is no lower bound**; recording where a photograph was used last year is a creator entering their own\nhistory. \u0060platformKey\u0060 is required and opaque, validated for length and not against a catalogue.\n\u0060campaignName\u0060 and \u0060notes\u0060 are optional, and whitespace in either is stored as absent rather than as blanks.\n\n**Without an \u0060Idempotency-Key\u0060, two identical calls record two uses** \u2014 deliberately, because an asset can\ngenuinely go out twice on one platform on one day, which is why no uniqueness is imposed over\n\u0060(asset, platform, date)\u0060. Send a key if a retry should be safe.\n\nAn unknown asset, another workspace\u0027s, and a soft-deleted one all answer \u0060404 media.asset.not_found\u0060: there is\nnothing to record a use against, and the three are indistinguishable so none discloses that an asset exists\nelsewhere.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset that was used. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same log returns the original response with\n\u0060Idempotent-Replayed: true\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogMediaAssetUtilization"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogMediaAssetUtilization"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/LogMediaAssetUtilization"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetUtilization"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetUtilization"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetUtilization"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}/content": {
+      "get": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Renders the asset\u0027s current version inline.",
+        "description": "Any member may render: an asset a creator can see in the library is one they can look at. Suitable as an\n\u0060\u003Cimg src\u003E\u0060 \u2014 the bytes come back \u0060inline\u0060 with the media type recorded when they were stored, never\none a client declared.\n\n**The bytes are proxied, never redirected.** There is no signed URL, no storage path and no object key in\nthe response or its headers, so nothing here can be shared, bookmarked past a session, or replayed against\nstorage directly (media.md).\n\n**Caching:** \u0060private, no-cache\u0060 with a strong \u0060ETag\u0060 built from the version\u0027s content checksum. A version\u0027s\nbytes are write-once so the tag identifies them exactly, and \u0060If-None-Match\u0060 answers \u0060304\u0060 with no body \u2014\ncheap for a grid that renders the same asset repeatedly. It revalidates every time rather than carrying a\n\u0060max-age\u0060 because **this route serves whichever version is current**: a stale window would mean a creator who\njust added a version still seeing the old image with no way to tell why. \u0060private\u0060 keeps it out of any shared\nproxy (gateway.md).\n\n**No ranges.** \u0060Accept-Ranges: none\u0060, and a \u0060Range\u0060 header is ignored rather than honoured: these are whole\nimages a browser renders in one pass, and offering ranges would be a contract to keep for no benefit.\n\nAn unknown asset, another workspace\u0027s, a soft-deleted one, and one whose current version row is missing all\nanswer \u0060404 media.asset.not_found\u0060 \u2014 a caller cannot tell which, so none of them discloses that an asset\nexists elsewhere. A version whose bytes cannot be reached answers \u0060503 media.asset.unavailable\u0060 instead,\nbecause the asset is there and retrying is the remedy rather than going back to a list.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset to render. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}/download": {
+      "get": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Downloads the asset\u0027s current version as a named file.",
+        "description": "The same bytes \u0060/content\u0060 renders, with two headers different: \u0060attachment\u0060 rather than \u0060inline\u0060, and a\nfilename. Any member may download \u2014 being able to look at an image and being able to save it are not\nmeaningfully different privileges, and every brand source download takes the same view.\n\n**The filename is \u0060{title-slug}-v{n}.{ext}\u0060**, so \u0022Soda bread hero\u0022 at version 2 stored as JPEG downloads as\n\u0060soda-bread-hero-v2.jpg\u0060. Deterministic: the same asset, version and media type always give the same name.\nSafe by construction: the title is reduced to lower-case ASCII letters, digits and single hyphens, so there is\nnothing a title could carry that becomes a path, a traversal or a second header. A title that folds away\nentirely falls back to \u0060image\u0060.\n\n**The extension comes from the stored media type, never from the uploaded filename** \u2014 that name is the\ncreator\u0027s own text, is optional, and may claim \u0060.jpg\u0060 over bytes that are a PNG. A media type with no known\nextension yields a name with none rather than a guessed one, because a missing extension is recoverable where\na wrong one misleads whatever opens the file. **The \u0060-v{n}\u0060 is what stops two downloads colliding:** saving\nversion 1 and version 2 without it gives two identical names and the second silently becomes \u0022\u2026 (1)\u0022.\n\n**Only the current version.** Choosing a historical one is 12.9h; this route serves what the asset points at.\nCaching, conditional requests, ranges and the failure shapes are all exactly as \u0060/content\u0060 describes them \u2014\nthe two actions share one sender, so none of that can change for one and not the other. No storage path,\nsigned URL or object key appears anywhere in the response.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset to download. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}/versions/{versionNumber}/download": {
+      "get": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Downloads one named version of the asset as a file.",
+        "description": "The history counterpart of \u0060/download\u0060, which serves whichever version the asset currently points at. Named\nby **version number**, which is what the detail read publishes \u2014 a version\u0027s own row id is deliberately never\npublished, so the number is the only identifier a client has.\n\n**Both identifiers are checked together.** The lookup matches \u0060(assetId, versionNumber)\u0060 as one predicate, so\nasking this asset\u0027s route for a number that belongs to a different asset finds nothing \u2014 it cannot serve the\nother asset\u0027s bytes. The workspace filter sits on top of that.\n\n**It never falls back.** A number this asset has no version for answers \u0060404 media.asset.not_found\u0060, not its\ncurrent version: serving bytes a caller did not ask for would be worse than refusing, because they would have\nno way to tell. \u00600\u0060 and negative numbers answer the same \u0060404\u0060 \u2014 the schema makes them unrepresentable, so\nthere is nothing to disclose.\n\nThe filename names the version it served, so \u0060soda-bread-hero-v1.jpg\u0060 and \u0060soda-bread-hero-v2.jpg\u0060 are\ndistinct files. Everything else \u2014 the extension from the stored media type, the \u0060attachment\u0060 disposition, the\n\u0060private, no-cache\u0060 policy with its strong \u0060ETag\u0060, \u0060Accept-Ranges: none\u0060, \u0060nosniff\u0060, and the \u0060404\u0060/\u0060503\u0060 split\n\u2014 is exactly what \u0060/download\u0060 describes, because all three byte routes share one sender.\n\nA soft-deleted asset answers \u0060404\u0060 here too: removing an asset takes its history out of reach, not just its\nlatest bytes. No storage path, signed URL or object key appears anywhere in the response.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset the version must belong to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version to download, from 1. Must be a version of **this** asset; a number belonging to another asset is\nnot found rather than served.",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dam-assets/{assetId}/versions": {
+      "post": {
+        "tags": [
+          "DamAssets"
+        ],
+        "summary": "Adds a new version to the asset from an uploaded file.",
+        "description": "**Bytes only.** Changing what the asset *says* about itself is \u0060PATCH /dam-assets/{assetId}\u0060: a patch is JSON\nwith a concurrency token and merge semantics, an upload is multipart, and form fields cannot express\nabsent-versus-clear. Alt text in particular is left alone rather than cleared \u2014 it is the creator\u0027s own words,\nand deleting them because a file changed is not this route\u0027s decision to make.\n\nThe file is accepted on **what its bytes are**, not what they are called: bounded, signature-inspected and\nscanned by the same acceptance a new asset goes through, so a file refused as an asset is refused as a version.\nThe stored media type, dimensions, size and checksum all describe the bytes something measured.\n\n**Nothing is overwritten.** A version\u0027s object key embeds its number, so a new version is always a new object,\nand the store refuses to overwrite in any case. Every earlier version keeps its row, its object and its\n\u0060/versions/{n}/download\u0060 \u2014 which is why this needs only Contributor where *removing* an asset needs Editor.\nThe new version becomes current, so \u0060/content\u0060 and \u0060/download\u0060 serve it from here on.\n\n**Concurrent uploads cannot share a number.** Three things see to that: the store is create-only, the\n\u0060(asset, version)\u0060 pair is unique, and the asset\u0027s row version guards the counter. A caller that loses the race\ngets \u0060409 media.asset.version_taken.conflict\u0060 and should **retry unchanged** \u2014 the next attempt reads the next\nnumber. Its upload is discarded and, importantly, the winner\u0027s object is left exactly where it is.\n\nAn unknown asset, another workspace\u0027s, and a soft-deleted one all answer \u0060404 media.asset.not_found\u0060: a removed\nasset does not gain versions. Storage failures answer \u0060503\u0060, and a commit that fails answers\n\u0060409 media.asset.conflict\u0060 with the object already removed \u2014 nothing partial is ever left behind.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "path",
+            "description": "The asset to add a version to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional, and worth sending: an upload is the request most likely to be retried after a dropped connection, and\nwithout a key a retry adds a second version of the same bytes rather than returning the first.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetVersion"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetVersion"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -19190,6 +19983,24 @@
         ],
         "type": "string"
       },
+      "DeleteMediaAsset": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Must be true. States that a person confirmed this deletion; a request without it is refused."
+          },
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "DescribedReferenceEntry": {
         "required": [
           "id",
@@ -19667,6 +20478,40 @@
         },
         "description": "The body of a keep request."
       },
+      "LogMediaAssetUtilization": {
+        "type": "object",
+        "properties": {
+          "platformKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Where the asset went out, as a platform key from the workspace\u0027s own vocabulary. Required."
+          },
+          "utilizedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The calendar date the asset was used, as yyyy-MM-dd. Required. The day of the week is derived from it, never sent.",
+            "format": "date"
+          },
+          "campaignName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What this use was part of, in the creator\u0027s own words. Optional."
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Anything else worth recording about this use. Optional."
+          }
+        }
+      },
       "MeasurementDimension": {
         "enum": [
           "Mass",
@@ -19848,6 +20693,88 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "MediaAssetAffectedContent": {
+        "required": [
+          "recipeCount",
+          "recipes",
+          "brandProfileCount",
+          "testAttachmentCount"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeLinkCandidate"
+            }
+          },
+          "brandProfileCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "testAttachmentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "any": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MediaAssetDeletion": {
+        "required": [
+          "id",
+          "title",
+          "deletedAt",
+          "deletedByMembershipId",
+          "alreadyDeleted",
+          "affected",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedByMembershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "alreadyDeleted": {
+            "type": "boolean"
+          },
+          "affected": {
+            "$ref": "#/components/schemas/MediaAssetAffectedContent"
+          },
+          "concurrencyToken": {
+            "type": "string"
           }
         }
       },
@@ -20129,6 +21056,104 @@
             ]
           },
           "workspaceTagIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "MediaAssetMetadataPatch": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "altText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "platformKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "day": {
+            "enum": [
+              "Sunday",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday"
+            ],
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "styleKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cuisineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "rightsHolder": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attributionText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
             "type": [
               "null",
               "array"
@@ -22430,6 +23455,22 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RecipeLinkCandidate": {
+        "required": [
+          "id",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },

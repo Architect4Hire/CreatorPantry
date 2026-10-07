@@ -123,6 +123,56 @@ public static class MediaAssetInputChecks
         }
     }
 
+    /// <summary>
+    /// Shape checks on a utilization log (DAM-009), collecting every failure rather than the first.
+    /// </summary>
+    /// <param name="today">
+    /// The server's own date, for the future bound. Passed in rather than read from a clock here so this stays a pure
+    /// function — a validation rule that reads a clock cannot be tested at a boundary without moving time.
+    /// </param>
+    public static IEnumerable<(string Field, string Error)> Utilization(
+        LogMediaAssetUtilizationViewModel? model, DateOnly today)
+    {
+        if (model is null)
+        {
+            yield return (nameof(LogMediaAssetUtilizationViewModel), "A utilization log is required.");
+
+            yield break;
+        }
+
+        if (string.IsNullOrWhiteSpace(model.PlatformKey))
+        {
+            yield return (nameof(model.PlatformKey), "A platform is required.");
+        }
+        else if (model.PlatformKey.Length > MediaPolicy.VocabularyKeyMaxLength)
+        {
+            yield return (nameof(model.PlatformKey),
+                $"A platform key may be at most {MediaPolicy.VocabularyKeyMaxLength} characters.");
+        }
+
+        if (model.UtilizedOn is not { } utilizedOn)
+        {
+            yield return (nameof(model.UtilizedOn), "The date the asset was used is required.");
+        }
+        else if (utilizedOn > today.AddDays(MediaAssetUtilizationPolicy.FutureDayTolerance))
+        {
+            // Not "after today", so a creator east of UTC logging this afternoon is not refused. See
+            // MediaAssetUtilizationPolicy.FutureDayTolerance for why one day and no floor.
+            yield return (nameof(model.UtilizedOn), "That date is in the future.");
+        }
+
+        foreach (var error in TooLong(
+            model.CampaignName, nameof(model.CampaignName), MediaPolicy.CampaignNameMaxLength))
+        {
+            yield return error;
+        }
+
+        foreach (var error in TooLong(model.Notes, nameof(model.Notes), MediaPolicy.NotesMaxLength))
+        {
+            yield return error;
+        }
+    }
+
     private static IEnumerable<(string Field, string Error)> TooLong(string? value, string field, int max)
     {
         if (value is not null && value.Length > max)

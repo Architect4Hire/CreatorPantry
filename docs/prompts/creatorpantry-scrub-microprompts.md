@@ -4342,6 +4342,101 @@ RESTRICTION: Metadata update never replaces bytes/version, ownership, object ide
 BEHAVIOR: Plan patch semantics, wait for approval, implement partial/clear/conflict/isolation tests.
 ```
 
+*What 12.9d decided (2026-10-07). Approved during planning: **`kind` is not patchable**, a patch aimed at a
+tombstone answers **404**, and a successful patch returns **the full detail**.*
+
+*`kind` records where the bytes came from — an upload, an import, a derivative, a model — which is lineage rather
+than classification, and the restriction here is that a metadata patch never replaces lineage. Letting a creator
+relabel an `AiGenerated` asset as `Original` would erase the only column that remembers a model was involved,
+which ai.md requires be recorded. The 12.9 entity doc's "retitle, retag and reclassify" therefore means the
+editorial fields: cuisine, course, channel, platform, style, day and tags. `kind` is **absent from the view model**
+rather than validated away, so it is unrepresentable; a test sends it anyway along with eleven other forbidden
+fields and asserts none of them moved.*
+
+*Nothing had to be invented for the merge semantics. `PatchField<T>` already exists in the shared kernel with
+absent / set / clear encoded in the type, and `UpdateRecipeViewModel` already uses it — so this is the fourth
+PATCH in the codebase and the third to inherit the same three-state contract. Tags replace rather than merge,
+following the recipe patch: merging leaves no way to remove one, and an add/remove pair would be two ways to say
+one thing. An empty list and an explicit `null` are the same request.*
+
+*The validation decision worth recording: the merge produces a `MediaAssetMetadataInput` and runs
+**`MediaAssetInputChecks.Metadata` — the creation path's own checks — over the merged result**, not per-field patch
+rules. A patch therefore cannot leave an asset in a state a create would have refused, and no rule is written
+twice. One consequence falls out for free: clearing `title` fails with "A title is required", because that is
+already what the shared check says about a missing one.*
+
+*Concurrency is two guards, not one, and that distinction is the whole of what went wrong first. The caller's
+`expectedConcurrencyToken` is compared in Business against the row as loaded; separately, `RowVersion` is a real
+`rowversion`, so EF puts the original value in the `UPDATE`'s `WHERE` and the database refuses a write whose row
+moved between this transaction's read and its write. **Neither covers the other.** EF's guard cannot catch a
+caller quoting an older read when nobody else has written since — Business loads the row fresh, so the guard
+compares the current value against itself and succeeds. A malformed token is a 400 naming the field rather than a
+409, because a conflict would be a lie about a token that never existed; that is what
+`MediaConcurrencyToken.IsWellFormed` is separate from `Matches` for. A no-op patch writes nothing and leaves the
+token spendable, so **there is no way to "touch" an asset**.*
+
+*Audit fields, no audit event: `UpdatedAt` and `UpdatedByMembershipId` are set in the DataLayer so no write path
+can forget them, while `WorkspaceId`, `CreatedAt` and `CreatedByMembershipId` are never assigned. 12.9a's create
+writes no audit entry either and DAM audit is deferred to the creative-production audit prompt — adding one here
+only for edits would be inconsistent.*
+
+*The test-shape lesson, and it cost two wrong turns. The conflict tests were written against the gateway's SQLite
+host first and **passed for the wrong reason, then failed honestly**: `SqliteModelCustomizer` gives every
+concurrency token a `randomblob(8)` default so inserts work, but nothing bumps it on update. Under SQLite a token
+therefore always looks unchanged, a stale one always matches, and three assertions were untestable or vacuous — the
+"refreshed token differs" check, the two-editor conflict, and the no-op's "token still valid". All three moved to
+`MediaAssetPatchSqlServerTests`, where `rowversion` is a real database behaviour, and the SQLite class now says in
+its own remarks why they are not there.*
+
+*Then mutation testing found a hole the move had opened. Breaking the merge reddened two tests; **breaking
+Business's token check reddened nothing**, because the SQL Server tests exercised the DataLayer directly and
+nothing covered Business calling `Matches`. That is exactly the case EF's `WHERE` cannot catch, so the guarantee
+had no test at all. Closed by driving `IMediaAssetBusiness.PatchMetadataAsync` with a superseded token on SQL
+Server — which meant `SqlServerMediaFixture` had to register what Business transitively needs (Content, Recipes,
+Vocabulary, Measurement, Ingredients, a cache, an outbox, idempotency and the AI proposal lookup). That set was
+copied from `MediaAssetCreateTests` rather than rediscovered one DI failure at a time, which is how it was found
+the first time. Re-running the same mutation now reds the new test.*
+
+*Worth watching: the Media SQL Server fixture is a second container, and full runs now show two or three slow
+failures that pass when their class is re-run alone — this time `BrandSourceExtractionReviewEndpointTests`,
+`RecipeTestRunEndpointTests` and `PromptsEndpointTests`, all at 10–11s. Three prompts running, three different
+victims, same signature. A clean run remains the three `BaseOutputPath` root-discovery failures and nothing else,
+but the contention is no longer occasional and a shared fixture may be worth considering before it costs real
+debugging time.*
+
+*What the reviewers caught, and two were real defects rather than weaknesses. The **idempotency fingerprint
+ignored the patch body** — it was `$"{assetId}|{token}"`, where the create and keep paths both fingerprint their
+whole payload. One key with two different edits therefore matched, and the second was replayed as the first with
+`Idempotent-Replayed: true`: the client told it had succeeded, the edit silently dropped. The obvious fix does not
+compile — `PatchFieldJsonConverter.Write` throws by design, so the view model cannot be serialized — so the patch
+now publishes a `Fingerprint()` that puts **only submitted fields in a dictionary**, which is what keeps the three
+states apart through serialization: a `title` key with `null` is a request to clear, and no `title` key at all is a
+request to leave it alone. Tags are ordered so re-sending the same set is not a false mismatch.*
+
+*And **`CuisineId`/`CourseId` were never checked for existence**. Both are client-supplied ids into shared
+vocabulary behind `Restrict` foreign keys, so a stale id reached `SaveChanges`, threw `DbUpdateException` — not the
+`DbUpdateConcurrencyException` the write path catches — and surfaced as a **500**. Confirmed with a test before
+fixing it. The check went into `ResolveAsync`, which the create path shares, so 12.9a's identical gap closed with
+it.*
+
+*The third finding was mine to own: I had claimed the stale-token 409 could not be tested over SQLite and moved all
+of it to SQL Server. Half right. The **two-editor** case genuinely cannot be — SQLite never moves a token — but a
+token that was never that row's mismatches deterministically, because every row is seeded `randomblob(8)` and eight
+zero bytes are not that. So the HTTP contract around a conflict is now proved at the endpoint where it belongs, with
+a second test spending one asset's token on another, and SQL Server keeps only what a real `rowversion` can show.*
+
+*Both fixes were mutation-tested: reverting the fingerprint to the id alone, and removing the cuisine check, reds
+one test each.*
+
+*Worth raising rather than just recording: **the SQL-container contention is no longer occasional.** This run
+produced seven slow failures at 10–12s — across `BrandStyleGuideCompare`, `BrandStyleGuideCreate`,
+`BrandSourceDocumentList`, `BrandSetupSession`, `RecipeDuplicate` and `Prompts` — every one passing when its class
+was re-run alone. They are SQLite endpoint tests, so they are not waiting on SQL Server themselves; they are starved
+while containers start. The count has gone 1 → 3 → 7 over 12.9b, 12.9c and 12.9d. A clean run is still the three
+`BaseOutputPath` root-discovery failures and nothing else, but the signal-to-noise is bad enough now that a full run
+no longer tells a reviewer much without six re-runs. Sharing one container across the `*SqlServerTests` classes, or
+serialising the fixtures, is worth doing before it costs real debugging time.*
+
 ### 12.9e Soft-delete DAM asset
 
 ```text
@@ -4352,6 +4447,106 @@ RESTRICTION: No physical object deletion in request path. Do not silently delete
 BEHAVIOR: Plan linked-state behavior, wait for approval, implement repeat/delete/read/isolation tests.
 ```
 
+*What 12.9e decided (2026-10-07). Approved during planning: **links stay and the response reports the impact**, a
+repeat answers **200 with the existing tombstone**, and deleting requires **Editor** where creating and patching
+require Contributor.*
+
+*The linked-state rule is the whole shape of this prompt. All three link types — `RecipeAssetLink`,
+`BrandAssetLink`, `TestAttachmentLink` — carry workspace-paired `Restrict` foreign keys into `MediaAsset`, so a hard
+delete was never representable while any existed; a soft delete leaves every row standing. Cutting a recipe's
+photograph silently is the one thing DAM-005 must not do, so instead of writing into two other modules the response
+**names** what is now pointing at a tombstone: `affected.recipes` with titles through `IRecipeFacade.ListTitlesAsync`
+(12.9c's method, reused), `brandProfileCount` and `testAttachmentCount` as counts, and `affected.any` as the one flag
+a client needs. Recipes are named because a recipe is the thing a creator goes and fixes; the other two are reached
+from their own screens, and naming them would mean two more facade methods for something nobody asked to see. A
+recipe linked twice is reported once — distinct recipes, not link rows.*
+
+*Nothing physical is removed and nothing is scheduled to be. The objects stay, which is what makes the operation
+answer fast and makes a half-done deletion impossible: there is no second system to fail. A test asserts the version
+row, its object key and its checksum all survive, and that the asset still points at version 1 — so there is nothing
+to repair if a restore route ever arrives. **There is no restore route in this prompt**, deliberately: `DeletedAt` is
+set and nothing clears it.*
+
+*`confirmed: true` is required, following `ActivateBrandStyleGuideVersionViewModel`: a deletion should be a step a
+creator took in the interface, not somewhere a well-formed body arrives (publishing.md's confirmation rule).
+Checked before the token, so a client that forgot the flag is told about the flag rather than about concurrency, and
+a request wrong in both ways hears about both.*
+
+*Editor rather than Contributor, which is the one place this prompt departs from 12.9a and 12.9d.
+`RecipesController.Archive` made the same call with the same reasoning — archiving "takes a recipe out of every
+collaborator's library rather than contributing to one" — and removing a shared asset can leave somebody else's
+recipe pointing at a tombstone.*
+
+*The ordering that matters, and it is borrowed rather than invented. **The token is checked before the
+already-deleted answer**, following `RecipeBusiness.TransitionAsync`, which says why: a caller quoting a stale token
+has not seen what the asset looks like now, and answering "already deleted" would hide a collaborator's work from
+them. The consequence worth stating plainly is that retrying a deletion whose response was lost needs a fresh read
+first — and with a current token the repeat is then a true no-op: original timestamp, original actor, no second
+audit entry, token unmoved. No idempotency key, because the command is already idempotent and a key would only add a
+store to the path.*
+
+*An audit event **is** written here, and that is a deliberate departure from 12.9a and 12.9d, which both wrote audit
+fields and no event while deferring DAM auditing to the creative-production audit prompt. auth.md names "destructive
+deletion" explicitly among the operations requiring one, and an asset leaving every collaborator's library with no
+record of who removed it is exactly the case that rule exists for. `IAuditWriter.Record` stages on the ambient
+context, so the entry and the tombstone commit together or neither does — a test proves a refused concurrent write
+takes its own entry with it. The summary carries the title and nothing else the creator wrote: no description, no
+object key, no count of anybody else's content.*
+
+*Mutation testing found one hole. Breaking the token ordering and the confirmation gate each reddened tests, but
+**weakening the facade's role gate to Contributor broke nothing** — the route's `WorkspaceEditor` policy refuses
+first, so the facade check never runs and the endpoint test proving a contributor cannot delete would pass with that
+check deleted. Two guards are right; only one was covered. Closed by giving `SqlServerMediaFixture.ScopeFor` an
+optional role and calling the facade directly with a Contributor context, which is the only way to reach it.
+Re-running the same mutation now reds that test.*
+
+*The contention is now the loudest thing in a full run: **eight** slow failures this time (7–12s), across
+`WorkspaceWeeklyThemeSqlServer`, `WeeklyThemes`, four Brand source/style classes, `BrandStyleGuideApproval` and
+`BrandSourceDocumentReplace` — every one green when its class was re-run alone. The count has gone 1 → 3 → 7 → 8
+across 12.9b–12.9e. A full run now needs eight re-runs before it says anything, which is past the point where it is
+a useful signal. Sharing one SQL Server container across the `*SqlServerTests` classes is the fix and is worth doing
+before the next prompt.*
+
+*What the reviewers caught, and one of their findings was wrong on the facts. The architecture review found no
+defects. The isolation audit found no leak but three things worth acting on, plus one I had to check before
+believing.*
+
+*The real one: **the audit summary carried the asset title**, and that is creator-authored content.
+`AuditLog` says `Summary` "must never carry ... content", and `RecipeBusiness` spells out what that means where it
+writes its own entries — "no title, no creator text". A title here would have been this module deciding the rule
+applies less to it. The summary is now content-free, the asset is identified by `ResourceId`, and
+`BeforeReference` carries the version number it stood at — a pointer, which is what that field is for. The test
+flipped from asserting the title is present to asserting it is absent, along with the description, the object key
+and the file name. Mutation-tested: putting the title back reds it. Worth noting the architecture reviewer read the
+old summary and approved it; the explicit rule in `AuditLog` plus the Recipes precedent is the stronger authority.*
+
+*Two test gaps, both closed. `testAttachmentCount` was asserted as zero everywhere and never made non-zero, so
+that query could have been miswired entirely — it now seeds a run with three attachments and asserts the count,
+with the other workspace holding two of its own. And `A_member_of_one_workspace_cannot_remove_the_others_asset`
+looped over a one-element array for no reason; it now says why both slugs are worth testing, because they fail at
+different layers — B's slug is the query filter refusing, A's slug is membership resolution refusing before the
+action runs at all. A new test pins the refusal ordering so a foreign asset can never answer 409.*
+
+*The finding that did not survive checking: the audit called the unseeded attachment count "the exact leak" of a
+lost workspace filter. It is not. `TestAttachmentLink` carries `(WorkspaceId, MediaAssetId)` to
+`(WorkspaceId, Id)`, so every attachment row for an asset is in that asset's workspace by construction, and the
+asset id was already resolved through the filtered read — the `MediaAssetId` predicate does the isolating. Adding
+`IgnoreQueryFilters()` to that query changes no result, which is exactly what the mutation showed. The same holds
+for the recipe and brand counts. The test's own remarks now say what it does and does not prove, because "the
+filter is untested here" and "the filter is not what protects this" look identical from outside.*
+
+*And one more comment that overclaimed, the third time this has come up in this group of prompts:
+`Removing_an_already_removed_asset_changes_nothing` read as though its call sequence proved the
+token-before-already-deleted ordering. It cannot — SQLite never moves a rowversion, so the "current" token it
+passes is the original. The SQL Server test carries that proof and the comment now says so. The recurring lesson is
+that a test whose summary describes a stronger claim than its body makes is worse than no test, because it stops
+anyone looking.*
+
+*Left as it stands, with the reasoning recorded: `IMediaAssetBusiness.SoftDeleteAsync` has no role check of its own,
+only the facade's. backend.md does put resource authorization in Business, but all three DAM write paths — create,
+patch, delete — gate the role in the facade, and changing only this one would be the inconsistency rather than the
+fix. If anything other than the facade ever calls Business directly, all three need revisiting together.*
+
 ### 12.9f Render latest DAM image
 
 ```text
@@ -4360,6 +4555,57 @@ CONSTRAINT: add-media-feature and add-endpoint skills; API-010.
 RESTRICTION: Accurate content type/cache policy; no raw blob redirect/path; exclude soft-deleted assets.
 BEHAVIOR: Plan response/range/cache behavior, wait for approval, implement found/missing/isolation tests.
 ```
+
+*What 12.9f decided (2026-10-07). Approved during planning: **`private, no-cache` with a strong ETag**, and
+**`/content` for the inline render** with `/download` left to 12.9g.*
+
+*The cache decision turns on one fact worth writing down: **this URL does not name a version.** It serves whichever
+version the asset's counter points at, so `immutable` or any `max-age` would be wrong — a creator who just added a
+version would keep seeing the old image for the length of the window, with nothing to tell them why. Revalidating
+every time costs one conditional request and a 304 sends no bytes, which is cheap enough for a grid rendering the
+same asset repeatedly. `private` keeps it out of any shared proxy, which gateway.md requires of personalised
+responses. 12.8 chose `no-store` for staged images and that was right there — a staged image is looked at once while
+deciding whether to keep it — but a library asset is rendered on every card and recipe page.*
+
+*The ETag is the **store's** checksum, not the row's. A version's bytes are write-once so the digest identifies the
+representation exactly, and a new current version changes it, which is precisely what a "latest version" route
+needs. The test seeds a row whose `ContentChecksum` is deliberately *not* the real digest, so a test asserting on
+the tag cannot pass by reading the database instead of the response.*
+
+*No ranges, and said rather than implied: `Accept-Ranges: none`, `enableRangeProcessing` left off, and no
+`EntityTag` on the `FileStreamResult` so exactly one place compares a tag. A `Range` header is ignored — the whole
+image comes back, not a 206 and not a 416 — because these are images a browser renders in one pass and offering
+ranges would be a contract to keep for no benefit. 12.8 took the same line.*
+
+*`inline` **with no filename**: a rendered image is not being saved, and the creator's own file name is 12.9g's
+business. One less piece of creator text on a route that does not need it.*
+
+*What had to be built: `IMediaAssetObjectGateway` had `PutVersionAsync` and `DeleteAsync` and no read, so it gained
+`OpenReadAsync` — which **re-checks the key's workspace** exactly as `DeleteAsync` does, on the same principle that
+finding a key is not authorization. That is the second guard behind the query filter that produced the key, and a
+test sets up the state no write path can produce (a version row pointing at another workspace's key, written with
+raw SQL because `MediaAssetVersion` is immutable) to prove the gateway refuses rather than serving the wrong bytes.
+The repository read is the narrowest in the module and **the only one that selects `ObjectKey`** — no title, no
+description, nothing else — because a key read alongside creator content would be a key sitting in a layer that
+publishes things. It stops at the gateway and is never returned.*
+
+*Four causes, one 404: an unknown id, another workspace's, a tombstone, and an asset whose current version row is
+missing. Storage being unreachable is a **503** instead, because the asset is there and retrying is the remedy —
+the same split the staged-image open and the brand source download both make. A version row with no object behind
+it is a 404 rather than a 503: there is nothing to retry for.*
+
+*The lease is registered with `RegisterForDisposeAsync` before anything that can throw, so the 304 path releases it
+too. A test asserts the store's open-read count returns to zero on the bytes path, the not-modified path, and the
+storage-failure path — a leaked stream is the characteristic failure of a proxied download and is invisible to a
+test that only reads the body.*
+
+*Mutation-tested: dropping the gateway's key check, dropping the tombstone exclusion, and weakening the cache header
+to `public, max-age=600` each red tests — four between them.*
+
+*Contention, again and worse: **nine** slow failures this run, one at 27 seconds, across `AiUsageReconciliation`,
+four Brand classes, `RecipePdf`, `RecipeTestRunHistory` and `Prompts` — all eight re-ran green alone. The trend
+across 12.9b–12.9f is 1 → 3 → 7 → 8 → 9. Raised with the user twice now; the fix is sharing one SQL Server
+container across the `*SqlServerTests` classes and it is worth its own change before 12.9g.*
 
 ### 12.9g Download latest DAM version
 
@@ -4371,6 +4617,44 @@ RESTRICTION: No selected historical version or raw object path in this prompt.
 BEHAVIOR: Plan disposition/filename, wait for approval, implement type/name/isolation tests.
 ```
 
+*What 12.9g decided (2026-10-07). Approved during planning: the download is named **`{title-slug}-v{n}.{ext}`** —
+`soda-bread-hero-v2.jpg` — matching `BrandSourceDownloadFileName` exactly, so the two downloads in this codebase are
+named alike.*
+
+*Three properties, each with a reason rather than a preference. **Deterministic**: the same asset, version and media
+type always give the same name, with no timestamp or counter. **Safe by construction**: `FileNameSlug` reduces any
+title to lower-case ASCII letters, digits and single hyphens, so nothing a title carries can become a path, a
+traversal or a second header — a theory covers `../../etc/passwd`, a Windows path, an embedded quote, a CRLF and a
+`; filename=` and asserts the name arrives parseable with exactly one dot. **Accurate**: the extension comes from the
+**stored media type**, never the uploaded filename, which is optional creator text that may claim `.jpg` over PNG
+bytes. A media type with no known extension yields a name with none rather than a guessed one — a missing extension
+is recoverable where a wrong one misleads whatever opens the file. A title that folds away entirely falls back to
+`image`, because `-v2.jpg` is worse than `image-v2.jpg`.*
+
+*The `-v{n}` is load-bearing rather than decorative: saving version 1 and version 2 without it gives two identical
+names and the second silently becomes "… (1)", with nothing recording which is which.*
+
+*The two routes **share one sender**, so rendering and downloading differ by exactly two headers and nothing else can
+drift. That is the argument 12.8's staged pair makes, and a test asserts the ETag, the cache policy, the range policy
+and the sniffing header are identical across `/content` and `/download` — so a change reaching one and not the other
+fails. `MediaAssetRender.FileName` is null for a render, which makes "a render names no file" a shape rather than a
+convention somebody has to remember.*
+
+*One correction to 12.9f, recorded because the claim was mine. Its repository read was documented as touching
+"nothing else about the asset — no title, no description, no tags". The download names its file from the title, so
+the record now carries it and the comment says "nothing else **but** the title". The alternative was a second query
+for one column; narrowing the claim was the honest choice over narrowing the read.*
+
+*And one real bug the test database caught. Adding `asset.Title` to that read turned a correlated `SelectMany` into
+**SQL APPLY**, which SQLite does not support — every render answered 500 under the gateway tests. Worth being precise
+about what this was: SQL Server supports `APPLY`, so production would have worked and only the SQLite suite failed.
+It is a portability trap rather than a production defect, and it is exactly what running the endpoint tests on a
+second engine is for. Rewritten as a join on `(asset id, current version number)`, which translates on both.*
+
+*Contention: eight slow failures this run across two Brand classes, `RecipeUpdate`, `WeeklyThemes` and
+`BrandSourceDocumentList`, all green alone. The trend across 12.9b–12.9g is 1 → 3 → 7 → 8 → 9 → 8. Raised three
+times now; the shared-container fix is still outstanding and still worth doing before the next prompt.*
+
 ### 12.9h Download historical DAM version
 
 ```text
@@ -4379,6 +4663,44 @@ CONSTRAINT: add-media-feature and add-endpoint skills; API-010.
 RESTRICTION: Verify both identifiers and workspace; do not fall back to latest on missing version.
 BEHAVIOR: Plan contract, wait for approval, implement ownership/not-found/type/isolation tests.
 ```
+
+*What 12.9h decided (2026-10-07). Approved during planning: **`private, no-cache` with a strong ETag**, uniform with
+the other two byte routes.*
+
+*The interesting part is what was turned down. This is the one DAM route whose URL is **genuinely immutable** —
+version 2's bytes cannot change — so `max-age=31536000, immutable` would have been literally true here where it would
+be a lie on `/content` and `/download`. It was still declined, for a reason that is about access rather than
+correctness: a long `max-age` leaves a usable copy in the browser cache of somebody who has since been removed from
+the workspace, where revalidating refuses them. A downloaded file is on disk anyway, so the caching win was small
+against that. Keeping all three uniform also means the shared sender needs no branch at all, which is why the policy
+is asserted equal across the three routes rather than written three times.*
+
+*By **version number**, and that is forced rather than chosen: `MediaAssetVersionServiceModel` publishes
+`VersionNumber` and deliberately not the row's `Id`, so the number is the only identifier a client has ever been
+given. Route shape mirrors `BrandSourceDocumentsController`'s `/versions/{versionNumber:int}/content`.*
+
+*The two restrictions, each with a test that fails when the rule is removed. **Both identifiers together:** the
+lookup joins on `(asset id, version number)` as one predicate, so two assets that each have a version 2 cannot reach
+each other's bytes — keying on the number alone reds two tests. **No fallback:** a number this asset has no version
+for is a 404, never its current version; adding `?? FindCurrentVersionObjectAsync` reds five. Zero and negative
+numbers answer the same 404, because `CK_MediaAssetVersions_VersionNumber_Positive` makes them unrepresentable and
+there is nothing to disclose.*
+
+*A tombstoned asset is a 404 on this route too: removing an asset takes its **history** out of reach, not just its
+latest bytes, and a test checks both version 1 and version 2 after a delete.*
+
+*Refactoring rather than adding, which is most of what this prompt was. The DataLayer's two opens now share one
+private `OpenAsync` over whichever version row was found, so the gateway call, the storage-failure split and the file
+naming cannot drift between "the current version" and "this version". Business shares one `Opened` mapper so the
+three routes cannot answer the same outcome differently — which would make one a softer way in than the others. And
+the controller's sender now takes the already-opened result and derives the disposition from
+`MediaAssetRender.FileName` instead of a flag of its own, so a response cannot claim to be an attachment with no name
+or a render with one.*
+
+*Contention: one slow failure this run (`BrandSourceExtractionReview`, 11s), green alone. The trend across
+12.9b–12.9h is 1 → 3 → 7 → 8 → 9 → 8 → 1 — this prompt added no fixture, which is consistent with the cause being
+container count rather than anything about these tests. The shared-container change is still worth doing and is still
+outstanding.*
 
 ### 12.9i Log DAM utilization
 
@@ -4390,6 +4712,52 @@ RESTRICTION: No utilization for missing/soft-deleted/cross-workspace assets. Der
 BEHAVIOR: Plan contract, wait for approval, implement derivation/validation/replay/isolation tests.
 ```
 
+*What 12.9i decided (2026-10-07). Approved during planning: **the date is required and the day derives from it**, and
+**an optional idempotency key** as the other DAM creates have.*
+
+*The zone question deserves recording because the answer was to remove it rather than answer it. The restriction says
+"derived day uses explicit zone", which anticipates a design where the server dates the log from "now" and has to pick
+a zone to do it. Requiring the date instead means **a calendar date has exactly one day of the week in every zone**, so
+there is no instant to convert and therefore no conversion to get wrong — stronger than naming a zone, not a dodge of
+the requirement. It also avoided a dependency that would not have held: `Workspace` has **no** timezone at all, only
+`BrandProfile.TimeZoneId`, which is nullable — so "today in the workspace's zone" would have needed a cross-module read
+into Brand plus a silent fall back to UTC's today for any workspace that never set one.*
+
+*The day is derived in the DataLayer and `utilizedDay` is absent from the contract, so a client cannot send one that
+disagrees with its own date. A test sends `utilizedDay: "Monday"` with a Wednesday date and asserts Wednesday is
+stored; another walks all seven days; a third pins Sunday specifically, because `DayOfWeek.Sunday == 0` is the value a
+"treat the default as unset" bug hides in.*
+
+*The future bound is `TestRunPolicy.FutureTolerance`'s reasoning applied to a date: **one day, no floor.** Not zero,
+because a creator in UTC+13 logging this afternoon is already on tomorrow's date by the server's reckoning and
+refusing them would refuse a correct request — no inhabited offset exceeds +14 hours. Not generous, because the error
+this catches is a mistyped year and a use dated 2099 would sit at the top of an asset's history permanently. No lower
+bound at all: recording where a photograph was used last year is a creator entering their own history, and a product
+that refused it would be telling them their records are wrong.*
+
+*`platformKey` stays opaque — required, non-blank, length-bounded, validated against no catalogue, because nothing
+else in the codebase validates a platform key against one. Whitespace in `campaignName` or `notes` is stored as absent
+rather than as blanks, so a history never shows a campaign whose name is three spaces.*
+
+*Replay: an optional key, and **without one two identical calls record two uses.** That is the intended behaviour
+rather than a gap — an asset genuinely can go out twice on one platform on one day, which is why
+`MediaAssetUtilizationConfiguration` imposes no uniqueness over `(asset, platform, date)` and carries only a
+non-unique index for the history read. A test asserts the two rows, so the behaviour is pinned rather than assumed.
+The fingerprint covers the asset and every recorded field, learning 12.9d's lesson: one key with a different log is
+refused rather than replayed as the first.*
+
+*Visibility is checked **inside the same call that writes**, not by the caller beforehand, so there is no window where
+an asset is deleted between the check and the insert. The composite foreign key would refuse a row for a non-existent
+asset anyway; what the check adds is refusing one for a **tombstoned** asset, which the key cannot see. Missing,
+soft-deleted and cross-workspace all answer one 404.*
+
+*Mutation-tested: letting the visibility check include tombstones, freezing the derived day to a constant, and
+removing the future bound red 11 tests between them.*
+
+*Contention: eight slow failures this run (12–14s) across four Brand classes, `RecipeUpdate`, `RecipePdf` and
+`Prompts`, all green alone. The trend across 12.9b–12.9i is 1 → 3 → 7 → 8 → 9 → 8 → 1 → 8. This prompt added no
+fixture either, which continues to point at container count rather than anything about the tests.*
+
 ### 12.9j Add DAM version
 
 ```text
@@ -4399,6 +4767,54 @@ CONSTRAINT: add-media-feature and add-endpoint skills.
 RESTRICTION: No in-place blob overwrite. Concurrent uploads cannot share a version number.
 BEHAVIOR: Show transaction/compensation plan, wait for approval, implement concurrency/failure/isolation tests.
 ```
+
+*What 12.9j decided (2026-10-07). Approved during planning: a race loser gets a **retryable 409 with no server-side
+retry**, and the upload is **bytes only**.*
+
+*The plan, and why the order is forced. A version's object key embeds its number, so the number must be chosen before
+anything can be written — which means the allocation cannot be a reservation and the race has to be resolved by the
+store. `MAX(VersionNumber) + 1`, then put, then one transaction inserting the row and bumping the counter together, with
+the object removed if that transaction fails. `MAX + 1` rather than `CurrentVersionNumber + 1` because it cannot
+allocate a number that already exists even if the two ever drifted.*
+
+*Three independent things make two uploads unable to share a number, and none is trusted alone: the store is
+create-only, `(MediaAssetId, VersionNumber)` is unique, and the asset's `RowVersion` guards the counter bump.*
+
+*The one rule here that would be a **data-loss** bug to get wrong: a request refused with `AlreadyExists`
+**compensates nothing.** 12.9a never had to think about this because its key contains a freshly-minted asset GUID, so
+two creates cannot collide. A version key is fully deterministic, so both uploads compute the same one — and a loser
+that "cleaned up" would delete the winner's committed bytes. There is a test that sets that state up directly rather
+than waiting for the race, and mutation-testing it (making the loser compensate) reds two tests.*
+
+*Reservation was rejected for a concrete reason, not on taste: bumping the counter before the version row exists leaves
+`CurrentVersionNumber` pointing at a version that is not there if the upload then fails — an asset that renders nothing
+until the next successful upload. The chosen order leaves a failed upload with nothing written at all.*
+
+*Bytes only. A patch is JSON with a concurrency token and merge semantics; an upload is multipart, and **form fields
+cannot express absent-versus-clear** — exactly the ambiguity `PatchField` exists to remove. Alt text in particular is
+left alone rather than cleared: the image changed, so the old description may now be wrong, but it is the creator's own
+words and deleting them because a file changed is not this route's decision. A test asserts no metadata moves.*
+
+*Contributor, where **removing** an asset needs Editor — adding a version takes nothing away, because every earlier
+version keeps its row, its object and its download route. A test downloads version 1 after version 2 lands to prove it.*
+
+*The byte acceptance — bound, signature-inspect, scan — was **extracted and shared** with the create path rather than
+copied, so a format one takes and the other refuses is not representable. That was a refactor of 12.9a, not new code.*
+
+*Two things worth recording from the testing. First, `GatewayClient.SendAsync` **JSON-serializes whatever it is given**,
+so passing multipart content through it answers 400 on every upload; `PostAsync` is the overload that takes
+`HttpContent`. Second, the concurrency test originally asserted "at least one upload succeeded", and that is **not an
+invariant**: SQLite serializes writers, so under contention both commits can be refused. It now asserts only what must
+hold either way — no duplicate numbers, the counter matching the highest committed version, and every committed
+version's object still present — with a comment saying why a success is not required. It survived three consecutive
+runs after the change.*
+
+*The post-commit-failure compensation has a deterministic test, forced by colliding on `MediaAssetVersion`'s unique
+`ObjectKey` index — another asset is given a row already claiming the key this upload will compute, so the object write
+succeeds and the row insert is refused. The same technique proved 12.9a's compensation. Mutating that path to leave an
+orphan reds it.*
+
+*This completes DAM-001 through DAM-010. Contention: six slow failures this run, all green alone.*
 
 ### 12.10 Content Pipeline configuration and seed UI
 

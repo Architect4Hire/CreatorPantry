@@ -54,6 +54,28 @@ public static class MediaErrorCodes
     /// <summary>The rows could not be committed. Nothing was written, including the object.</summary>
     public const string AssetNotCreated = "media.asset.conflict";
 
+    /// <summary>
+    /// The edit quoted a concurrency token the asset has moved past: somebody else saved first (DAM-004).
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="AssetNotCreated"/> although both are 409s, because the recovery differs and that
+    /// is the only thing an error code is for. A failed commit is worth retrying as-is; a stale token is not — the
+    /// client has to re-read, see what the other edit did, and decide. One code for both would tell a caller the
+    /// status and nothing they could act on.
+    /// </remarks>
+    public const string AssetStaleToken = "media.asset.stale.conflict";
+
+    /// <summary>
+    /// Another upload committed this version number first (DAM-010). Retryable as-is.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="AssetStaleToken"/> and <see cref="AssetNotCreated"/> although all three are 409s,
+    /// because the recovery differs and that is what an error code is for: this one is retried unchanged and will take
+    /// the next number, where a stale token needs a re-read first and a failed commit needs nothing but a retry of the
+    /// same request.
+    /// </remarks>
+    public const string AssetVersionTaken = "media.asset.version_taken.conflict";
+
     /// <summary>A library search named a filter this server could not read.</summary>
     public const string AssetSearchInvalidRequest = "media.asset_search.invalid_request";
 
