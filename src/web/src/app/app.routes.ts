@@ -3,70 +3,17 @@ import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
-import { brandGuideEditorCanDeactivateGuard } from './features/brand/brand-guide-editor.guard';
-import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
-import { brandSetupCanDeactivateGuard } from './features/brand/setup/brand-setup.guard';
-import { recipeFirstDraftReviewCanDeactivateGuard } from './features/ai/recipe-first-draft-review.guard';
-import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 
 const SECTION_ROUTES: Routes = [
   { path: 'dashboard', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Dashboard' } },
   { path: 'workflows', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Workflows' } },
   { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },
   { path: 'my-week', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Week' } },
-  {
-    path: 'recipes',
-    children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./features/recipes/recipe-library.component').then((m) => m.RecipeLibraryComponent), data: { title: 'Recipes' } },
-      { path: 'new', loadComponent: () => import('./features/recipes/recipe-editor.component').then((m) => m.RecipeEditorComponent), canDeactivate: [recipeEditorCanDeactivateGuard], data: { title: 'New recipe' } },
-      { path: ':recipeId', loadComponent: () => import('./features/recipes/recipe-editor.component').then((m) => m.RecipeEditorComponent), canDeactivate: [recipeEditorCanDeactivateGuard], data: { title: 'Edit recipe' } },
-    ],
-  },
-  {
-    path: 'brand',
-    children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand' } },
-      // The examples this workspace has given the brand. Under 'brand' so the Brand nav item stays active.
-      {
-        path: 'library',
-        children: [
-          { path: '', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-library.component').then((m) => m.BrandLibraryComponent), data: { title: 'Brand library' } },
-          { path: ':documentId', loadComponent: () => import('./features/brand/brand-source-detail.component').then((m) => m.BrandSourceDetailComponent), data: { title: 'Brand example' } },
-        ],
-      },
-      // One guide's version history, the comparison built from it, and the Owner's activation decision.
-      // Under 'brand' for the same reason the library is: the Brand nav item stays active throughout.
-      {
-        path: 'style-guide',
-        children: [
-          { path: ':guideId', pathMatch: 'full', loadComponent: () => import('./features/brand/brand-guide-editor.component').then((m) => m.BrandGuideEditorComponent), canDeactivate: [brandGuideEditorCanDeactivateGuard], data: { title: 'Edit voice guide' } },
-          { path: ':guideId/history', loadComponent: () => import('./features/brand/brand-guide-history.component').then((m) => m.BrandGuideHistoryComponent), data: { title: 'Guide history' } },
-          // 11A.24. The version is a query parameter rather than a segment: it is the one thing a creator
-          // changes without leaving, and the history links here per row.
-          { path: ':guideId/test-drive', loadComponent: () => import('./features/brand/brand-style-test-drive.component').then((m) => m.BrandStyleTestDriveComponent), data: { title: 'Test my style' } },
-        ],
-      },
-      // The "Create my voice" wizard. Everything under 'brand' keeps the Brand nav item active
-      // (RouterLinkActive matches the subtree), so the section never appears to be left mid-setup.
-      {
-        path: 'setup',
-        children: [
-          { path: '', pathMatch: 'full', redirectTo: 'goals' },
-          { path: ':step', loadComponent: () => import('./features/brand/setup/brand-setup-shell.component').then((m) => m.BrandSetupShellComponent), canDeactivate: [brandSetupCanDeactivateGuard], data: { title: 'Create my voice' } },
-        ],
-      },
-    ],
-  },
-  {
-    path: 'ai-recipe-studio',
-    children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./features/ai/recipe-concept-studio.component').then((m) => m.RecipeConceptStudioComponent), data: { title: 'AI Recipe Studio' } },
-      // The draft under review is named by `?request=`, not by a path segment, so the page resumes after a
-      // refresh the same way the studio itself does. Nothing in the app creates such a request yet; the
-      // surface that will is separate work.
-      { path: 'draft', loadComponent: () => import('./features/ai/recipe-first-draft-review.component').then((m) => m.RecipeFirstDraftReviewComponent), canDeactivate: [recipeFirstDraftReviewCanDeactivateGuard], data: { title: 'Recipe first draft' } },
-    ],
-  },
+  // The three multi-page sections own their route trees (and the guards those trees need) beside their
+  // components, so the guards and pages load with the section rather than with the app shell.
+  { path: 'recipes', loadChildren: () => import('./features/recipes/recipes.routes').then((m) => m.RECIPES_ROUTES) },
+  { path: 'brand', loadChildren: () => import('./features/brand/brand.routes').then((m) => m.BRAND_ROUTES) },
+  { path: 'ai-recipe-studio', loadChildren: () => import('./features/ai/ai-recipe-studio.routes').then((m) => m.AI_RECIPE_STUDIO_ROUTES) },
   { path: 'image-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Image Studio' } },
   { path: 'social-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Social Studio' } },
   { path: 'dam', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'DAM' } },
@@ -79,14 +26,17 @@ export const routes: Routes = [
   {
     path: 'sign-in',
     loadComponent: () => import('./features/sign-in/sign-in.component').then((m) => m.SignInComponent),
+    data: { title: 'Sign in' },
   },
   {
     path: 'sign-up',
     loadComponent: () => import('./features/sign-up/sign-up.component').then((m) => m.SignUpComponent),
+    data: { title: 'Create your account' },
   },
   {
     path: 'confirm-email',
     loadComponent: () => import('./features/confirm-email/confirm-email.component').then((m) => m.ConfirmEmailComponent),
+    data: { title: 'Confirm your email' },
   },
   ...(isDevMode()
     ? [

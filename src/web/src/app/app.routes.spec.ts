@@ -1,4 +1,5 @@
 import { isDevMode } from '@angular/core';
+import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
@@ -13,10 +14,13 @@ import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.co
 import { RecipeLibraryComponent } from './features/recipes/recipe-library.component';
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
 import { BrandSettingsComponent } from './features/brand/brand-settings.component';
+import { BRAND_ROUTES } from './features/brand/brand.routes';
 import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
 import { BrandSetupShellComponent } from './features/brand/setup/brand-setup-shell.component';
 import { brandSetupCanDeactivateGuard } from './features/brand/setup/brand-setup.guard';
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
+import { RECIPES_ROUTES } from './features/recipes/recipes.routes';
+import { AI_RECIPE_STUDIO_ROUTES } from './features/ai/ai-recipe-studio.routes';
 import { RecipeConceptStudioComponent } from './features/ai/recipe-concept-studio.component';
 import { RecipeFirstDraftReviewComponent } from './features/ai/recipe-first-draft-review.component';
 
@@ -103,12 +107,16 @@ describe('app routes', () => {
     // 'brand' is the brand settings (11.1c), no longer a placeholder, and is guarded against losing edits.
     // It is a grouping now: the settings page at its index, and the "Create my voice" wizard (11A.22) under
     // 'setup/:step', so the Brand nav item stays active across the whole subtree.
+    // The three groupings below are lazy: the app routes only name where each tree lives, and the tree
+    // (with its guards) is owned by the feature, so each is resolved through `loadChildren`.
     const brandRoute = workspaceRoute.children!.find((route) => route.path === 'brand')!;
-    const brandIndexRoute = brandRoute.children!.find((route) => route.path === '')!;
+    const brandChildren = (await brandRoute.loadChildren!()) as Routes;
+    expect(brandChildren).toBe(BRAND_ROUTES);
+    const brandIndexRoute = brandChildren.find((route) => route.path === '')!;
     expect(await brandIndexRoute.loadComponent!()).toBe(BrandSettingsComponent);
     expect(brandIndexRoute.canDeactivate).toEqual([brandSettingsCanDeactivateGuard]);
 
-    const setupRoute = brandRoute.children!.find((route) => route.path === 'setup')!;
+    const setupRoute = brandChildren.find((route) => route.path === 'setup')!;
     const setupEntry = setupRoute.children!.find((route) => route.path === '')!;
     expect(setupEntry.redirectTo).toBe('goals');
     const setupStepRoute = setupRoute.children!.find((route) => route.path === ':step')!;
@@ -116,25 +124,29 @@ describe('app routes', () => {
     expect(setupStepRoute.canDeactivate).toEqual([brandSetupCanDeactivateGuard]);
 
     // 'ai-recipe-studio' is a nested grouping like 'recipes': AIREC-001's concept form at its index, and
-    // AIREC-002's first-draft review beside it, so it resolves through children rather than loadComponent.
+    // AIREC-002's first-draft review beside it, so it resolves through loadChildren rather than loadComponent.
     const aiRecipeStudioRoute = workspaceRoute.children!.find((route) => route.path === 'ai-recipe-studio')!;
-    const conceptStudioRoute = aiRecipeStudioRoute.children!.find((route) => route.path === '')!;
+    const aiRecipeStudioChildren = (await aiRecipeStudioRoute.loadChildren!()) as Routes;
+    expect(aiRecipeStudioChildren).toBe(AI_RECIPE_STUDIO_ROUTES);
+    const conceptStudioRoute = aiRecipeStudioChildren.find((route) => route.path === '')!;
     expect(await conceptStudioRoute.loadComponent!()).toBe(RecipeConceptStudioComponent);
 
-    const draftReviewRoute = aiRecipeStudioRoute.children!.find((route) => route.path === 'draft')!;
+    const draftReviewRoute = aiRecipeStudioChildren.find((route) => route.path === 'draft')!;
     expect(await draftReviewRoute.loadComponent!()).toBe(RecipeFirstDraftReviewComponent);
 
     // 'recipes' is a nested grouping instead of a single placeholder: an index library route plus
-    // 'new'/':recipeId' editor routes, so it resolves through its own children rather than loadComponent.
+    // 'new'/':recipeId' editor routes, so it resolves through loadChildren rather than loadComponent.
     const recipesRoute = workspaceRoute.children!.find((route) => route.path === 'recipes')!;
-    const recipesLibraryRoute = recipesRoute.children!.find((route) => route.path === '')!;
+    const recipesChildren = (await recipesRoute.loadChildren!()) as Routes;
+    expect(recipesChildren).toBe(RECIPES_ROUTES);
+    const recipesLibraryRoute = recipesChildren.find((route) => route.path === '')!;
     expect(await recipesLibraryRoute.loadComponent!()).toBe(RecipeLibraryComponent);
 
-    const recipesNewRoute = recipesRoute.children!.find((route) => route.path === 'new')!;
+    const recipesNewRoute = recipesChildren.find((route) => route.path === 'new')!;
     expect(await recipesNewRoute.loadComponent!()).toBe(RecipeEditorComponent);
     expect(recipesNewRoute.canDeactivate).toEqual([recipeEditorCanDeactivateGuard]);
 
-    const recipeDetailRoute = recipesRoute.children!.find((route) => route.path === ':recipeId')!;
+    const recipeDetailRoute = recipesChildren.find((route) => route.path === ':recipeId')!;
     expect(await recipeDetailRoute.loadComponent!()).toBe(RecipeEditorComponent);
     expect(recipeDetailRoute.canDeactivate).toEqual([recipeEditorCanDeactivateGuard]);
 
