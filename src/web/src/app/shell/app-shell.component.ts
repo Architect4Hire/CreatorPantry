@@ -50,7 +50,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppShellComponent {
-  logoClass = 'display: block; width: 100%; max-width: 9.5rem; height: auto;';
+  logoClass = 'display: block; width: 100%; height: auto;';
 
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -97,7 +97,10 @@ export class AppShellComponent {
 
   /** Only says something when there is something worth saying; a healthy balance needs no chrome. */
   readonly allowanceNeedsAttention = computed(
-    () => this.allowance().kind === 'nearly-spent' || this.allowance().kind === 'exhausted' || this.allowance().kind === 'suspended',
+    () =>
+      this.allowance().kind === 'nearly-spent' ||
+      this.allowance().kind === 'exhausted' ||
+      this.allowance().kind === 'suspended',
   );
 
   readonly allowanceLabel = computed(() => {

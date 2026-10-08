@@ -1,59 +1,173 @@
-:host { display: block; min-height: 100vh; }
+:host {
+  display: block;
+  min-height: 100vh;
+}
 
-.shell { min-height: 100vh; }
+.shell {
+  min-height: 100vh;
+}
 
 .sidebar {
-  position: fixed; inset: 0 auto 0 0; z-index: var(--cp-z-sidebar);
-  width: var(--cp-sidebar-width); padding: var(--cp-space-5) var(--cp-space-4);
-  display: flex; flex-direction: column; gap: var(--cp-space-4);
-  background: var(--cp-surface); border-right: 1px solid var(--cp-border); overflow-y: auto;
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: var(--cp-z-sidebar);
+  width: var(--cp-sidebar-width);
+  padding: var(--cp-space-5) var(--cp-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  background: var(--cp-surface);
+  border-right: 1px solid var(--cp-border);
+  overflow-y: auto;
 }
 
-.brand { display: flex; align-items: center; justify-content: center; color: var(--cp-text); }
-.brand-mark { display: block; width: 100%; max-width: 9.5rem; height: auto; }
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cp-text);
+}
 
-nav { display: grid; gap: var(--cp-space-1); }
-nav a { display: flex; align-items: center; gap: var(--cp-space-3); padding: var(--cp-space-2) var(--cp-space-3); border-radius: var(--cp-radius-md); color: var(--cp-text-muted); text-decoration: none; font-size: var(--cp-font-size-sm); font-weight: 600; min-height: 2.5rem; }
-nav a:hover { background: var(--cp-surface-subtle); color: var(--cp-text); }
-nav a.active { background: var(--cp-primary-soft); color: var(--cp-primary); }
+nav {
+  display: grid;
+  gap: var(--cp-space-1);
+}
+nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  color: var(--cp-text-muted);
+  text-decoration: none;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  min-height: 2.5rem;
+}
+nav a:hover {
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+}
+nav a.active {
+  background: var(--cp-primary-soft);
+  color: var(--cp-primary);
+}
 
-.dev-link { margin-top: auto; padding-top: var(--cp-space-3); border-top: 1px solid var(--cp-border); color: var(--cp-text-faint); font-size: var(--cp-font-size-xs); text-decoration: none; }
-.dev-link:hover { color: var(--cp-text-muted); }
+.dev-link {
+  margin-top: auto;
+  padding-top: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+  color: var(--cp-text-faint);
+  font-size: var(--cp-font-size-xs);
+  text-decoration: none;
+}
+.dev-link:hover {
+  color: var(--cp-text-muted);
+}
 
 .topbar {
-  position: fixed; z-index: var(--cp-z-topbar); top: 0; left: var(--cp-sidebar-width); right: 0; height: var(--cp-topbar-height);
-  display: flex; align-items: center; gap: var(--cp-space-3); padding: 0 var(--cp-space-5);
-  background: color-mix(in srgb, var(--cp-bg) 88%, transparent); border-bottom: 1px solid var(--cp-border); backdrop-filter: blur(16px);
+  position: fixed;
+  z-index: var(--cp-z-topbar);
+  top: 0;
+  left: var(--cp-sidebar-width);
+  right: 0;
+  height: var(--cp-topbar-height);
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  padding: 0 var(--cp-space-5);
+  background: color-mix(in srgb, var(--cp-bg) 88%, transparent);
+  border-bottom: 1px solid var(--cp-border);
+  backdrop-filter: blur(16px);
 }
 
-.spacer { flex: 1; }
-.display-name { color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); font-weight: 600; }
+.spacer {
+  flex: 1;
+}
+.display-name {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+}
 
 /* 40px tall so it is a real target on a touch screen, and underlined on hover rather than only recoloured. */
 /* nowrap on both: the pill is a full-radius chip, and a wrapped label inside one breaks the shape in a bar
    that has no room to grow. */
-.allowance-link { display: inline-flex; align-items: center; min-height: 2.5rem; padding: 0 var(--cp-space-2); border-radius: var(--cp-radius-md); color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); font-weight: 600; text-decoration: none; white-space: nowrap; }
-.allowance-link cp-status-pill { white-space: nowrap; }
-.allowance-link:hover { background: var(--cp-surface-subtle); text-decoration: underline; }
-.allowance-link.active { color: var(--cp-primary); background: var(--cp-surface-subtle); }
+.allowance-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.allowance-link cp-status-pill {
+  white-space: nowrap;
+}
+.allowance-link:hover {
+  background: var(--cp-surface-subtle);
+  text-decoration: underline;
+}
+.allowance-link.active {
+  color: var(--cp-primary);
+  background: var(--cp-surface-subtle);
+}
 
-.icon-btn { border: 0; background: transparent; color: var(--cp-text); cursor: pointer; width: 2.5rem; height: 2.5rem; border-radius: var(--cp-radius-md); }
-.icon-btn:hover { background: var(--cp-surface-subtle); }
-.mobile { display: none; }
+.icon-btn {
+  border: 0;
+  background: transparent;
+  color: var(--cp-text);
+  cursor: pointer;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--cp-radius-md);
+}
+.icon-btn:hover {
+  background: var(--cp-surface-subtle);
+}
+.mobile {
+  display: none;
+}
 
-main { margin-left: var(--cp-sidebar-width); padding-top: var(--cp-topbar-height); min-height: 100vh; }
-.page-title { margin: 0; padding: var(--cp-space-5) var(--cp-space-5) 0; font: 400 var(--cp-font-size-xl) / 1.2 var(--cp-font-display); color: var(--cp-text); }
+main {
+  margin-left: var(--cp-sidebar-width);
+  padding-top: var(--cp-topbar-height);
+  min-height: 100vh;
+}
+.page-title {
+  margin: 0;
+  padding: var(--cp-space-5) var(--cp-space-5) 0;
+  font: 400 var(--cp-font-size-xl) / 1.2 var(--cp-font-display);
+  color: var(--cp-text);
+}
 
 @media (max-width: 900px) {
-  .sidebar { transform: translateX(-103%); transition: transform .2s; }
-  .sidebar.open { transform: none; }
-  .topbar { left: 0; }
-  .mobile { display: block; }
-  main { margin-left: 0; }
+  .sidebar {
+    transform: translateX(-103%);
+    transition: transform 0.2s;
+  }
+  .sidebar.open {
+    transform: none;
+  }
+  .topbar {
+    left: 0;
+  }
+  .mobile {
+    display: block;
+  }
+  main {
+    margin-left: 0;
+  }
 
   /* The bar is fixed-height and cannot grow — main's top padding is the same token — so it cannot wrap its
      way out of trouble. The name is the one thing here a creator already knows, so it is what gives way to
      keep the allowance and Sign out on the line. The same rule answers 200% zoom, which shrinks the
      available CSS-px inline size exactly as a narrow window does. */
-  .display-name { display: none; }
+  .display-name {
+    display: none;
+  }
 }
