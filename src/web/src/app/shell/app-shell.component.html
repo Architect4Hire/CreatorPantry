@@ -9,76 +9,44 @@
     <nav aria-label="Primary navigation">
       @for (item of navItems; track item.path) {
         @if (currentWorkspaceSlug(); as slug) {
-          <a
-            [routerLink]="['/', slug, item.path]"
-            routerLinkActive="active"
-            #rla="routerLinkActive"
-            [attr.aria-current]="rla.isActive ? 'page' : null"
-          >
-            <span aria-hidden="true">{{ item.icon }}</span>
-            <span>{{ item.label }}</span>
+          <a [routerLink]="['/', slug, item.path]" routerLinkActive="active" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
+            <span aria-hidden="true">{{ item.icon }}</span> <span>{{ item.label }}</span>
           </a>
         }
       }
     </nav>
 
     @if (isDevMode) {
-      <a class="dev-link" routerLink="/design-system"
-        >Design system (dev only)</a
-      >
+      <a class="dev-link" routerLink="/design-system">Design system (dev only)</a>
     }
   </aside>
 
   <header class="topbar">
-    <button
-      class="icon-btn mobile"
-      aria-label="Toggle menu"
-      aria-controls="cp-shell-sidebar"
-      [attr.aria-expanded]="menuOpen()"
-      (click)="menuOpen.set(!menuOpen())"
-    >
-      ☰
-    </button>
+    <button class="icon-btn mobile" aria-label="Toggle menu" aria-controls="cp-shell-sidebar" [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">☰</button>
     <span class="spacer"></span>
     <button
       class="icon-btn"
       type="button"
-      [attr.aria-label]="
-        theme.resolved() === 'dark'
-          ? 'Switch to light mode'
-          : 'Switch to dark mode'
-      "
+      [attr.aria-label]="theme.resolved() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
       [attr.aria-pressed]="theme.resolved() === 'dark'"
       (click)="theme.toggle()"
-    >
-      <span aria-hidden="true">{{
-        theme.resolved() === "dark" ? "☀" : "☾"
-      }}</span>
-    </button>
+    ><span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☀' : '☾' }}</span></button>
     @if (session(); as currentSession) {
-      @if (currentSession.status === "authenticated") {
+      @if (currentSession.status === 'authenticated') {
         <!--
           The allowance lives beside the account, not in the sidebar: every sidebar item is a section of the
           workspace in the URL, and an allowance belongs to the person across all of them. It draws attention
           to itself only when there is something to say, and says it in words rather than by changing colour.
         -->
-        <a
-          class="allowance-link"
-          routerLink="/app/ai-usage"
-          routerLinkActive="active"
-        >
+        <a class="allowance-link" routerLink="/app/ai-usage" routerLinkActive="active">
           @if (allowanceNeedsAttention()) {
-            <cp-status-pill [tone]="allowanceTone()">{{
-              allowanceLabel()
-            }}</cp-status-pill>
+            <cp-status-pill [tone]="allowanceTone()">{{ allowanceLabel() }}</cp-status-pill>
           } @else {
             <span>{{ allowanceLabel() }}</span>
           }
         </a>
         <span class="display-name">{{ currentSession.displayName }}</span>
-        <button cpButton variant="ghost" size="sm" (click)="signOut()">
-          Sign out
-        </button>
+        <button cpButton variant="ghost" size="sm" (click)="signOut()">Sign out</button>
       }
     }
   </header>

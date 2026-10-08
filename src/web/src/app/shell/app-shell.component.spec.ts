@@ -172,7 +172,7 @@ describe('AppShellComponent', () => {
 
   it('swaps the sidebar brand mark to the dark logo when the resolved theme is dark', async () => {
     const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
-    const brandMark = fixture.nativeElement.querySelector('.brand-mark') as HTMLImageElement;
+    const brandMark = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement;
 
     expect(brandMark.getAttribute('src')).toBe('/images/logo.png');
 
