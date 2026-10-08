@@ -13,6 +13,13 @@ import { WorkflowsHubComponent } from './features/workflows/workflows-hub.compon
 import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
+import { DamAssetDetailComponent } from './features/dam/dam-asset-detail.component';
+import { damAssetDetailCanDeactivateGuard } from './features/dam/dam-asset-detail.guard';
+import { DamLibraryComponent } from './features/dam/dam-library.component';
+import { DAM_ROUTES } from './features/dam/dam.routes';
+import { PromptDetailComponent } from './features/prompt-library/prompt-detail.component';
+import { PromptLibraryComponent } from './features/prompt-library/prompt-library.component';
+import { PROMPT_LIBRARY_ROUTES } from './features/prompt-library/prompt-library.routes';
 import { RecipeLibraryComponent } from './features/recipes/recipe-library.component';
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
 import { BrandSettingsComponent } from './features/brand/brand-settings.component';
@@ -109,7 +116,9 @@ describe('app routes', () => {
         route.path !== 'ai-recipe-studio' &&
         route.path !== 'brand' &&
         route.path !== 'workflows' &&
-        route.path !== 'image-studio',
+        route.path !== 'image-studio' &&
+        route.path !== 'dam' &&
+        route.path !== 'prompt-library',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
@@ -119,6 +128,34 @@ describe('app routes', () => {
     const imageStudio = workspaceRoute.children!.find((route) => route.path === 'image-studio')!;
     expect(await imageStudio.loadComponent!()).toBe(ImageStudioComponent);
     expect(imageStudio.canDeactivate).toBeUndefined();
+
+    // 'dam' is the DAM (12.10e, 12.10f), no longer a placeholder: the library at its index and one asset
+    // beside it. The library is a read, so there is nothing to lose by leaving it and no guard.
+    const damRoute = workspaceRoute.children!.find((route) => route.path === 'dam')!;
+    const damChildren = (await damRoute.loadChildren!()) as Routes;
+    expect(damChildren).toBe(DAM_ROUTES);
+    const damLibraryRoute = damChildren.find((route) => route.path === '')!;
+    expect(damLibraryRoute.pathMatch).toBe('full');
+    expect(await damLibraryRoute.loadComponent!()).toBe(DamLibraryComponent);
+    expect(damLibraryRoute.data?.['title']).toBe('DAM');
+    expect(damLibraryRoute.canDeactivate).toBeUndefined();
+    const damDetailRoute = damChildren.find((route) => route.path === ':assetId')!;
+    expect(await damDetailRoute.loadComponent!()).toBe(DamAssetDetailComponent);
+    // An asset's page can hold an unsaved edit or a running upload (12.10g), so leaving it is confirmed.
+    expect(damDetailRoute.canDeactivate).toEqual([damAssetDetailCanDeactivateGuard]);
+
+    // 'prompt-library' is the Prompt Library (12.10d), no longer a placeholder: the list at its index and one
+    // prompt beside it. Neither is guarded — a saved prompt is immutable, so leaving loses nothing.
+    const promptLibraryRoute = workspaceRoute.children!.find((route) => route.path === 'prompt-library')!;
+    const promptLibraryChildren = (await promptLibraryRoute.loadChildren!()) as Routes;
+    expect(promptLibraryChildren).toBe(PROMPT_LIBRARY_ROUTES);
+    const promptListRoute = promptLibraryChildren.find((route) => route.path === '')!;
+    expect(promptListRoute.pathMatch).toBe('full');
+    expect(await promptListRoute.loadComponent!()).toBe(PromptLibraryComponent);
+    expect(promptListRoute.canDeactivate).toBeUndefined();
+    const promptDetailRoute = promptLibraryChildren.find((route) => route.path === ':promptRecordId')!;
+    expect(await promptDetailRoute.loadComponent!()).toBe(PromptDetailComponent);
+    expect(promptDetailRoute.canDeactivate).toBeUndefined();
 
     // 'brand' is the brand settings (11.1c), no longer a placeholder, and is guarded against losing edits.
     // It is a grouping now: the settings page at its index, and the "Create my voice" wizard (11A.22) under

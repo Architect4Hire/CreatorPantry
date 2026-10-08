@@ -135,6 +135,8 @@ public static class RecipeSnapshotMapper
                 Id = link.Id,
                 SortOrder = link.SortOrder,
                 MediaAssetId = link.MediaAssetId,
+                MediaAssetVersionNumber = link.MediaAssetVersionNumber,
+                InstructionStepId = link.InstructionStepId,
                 Role = link.Role,
                 Caption = link.Caption,
             })],
@@ -286,6 +288,8 @@ public static class RecipeSnapshotMapper
                 RecipeId = recipeId,
                 SortOrder = link.SortOrder,
                 MediaAssetId = link.MediaAssetId,
+                MediaAssetVersionNumber = link.MediaAssetVersionNumber,
+                InstructionStepId = link.InstructionStepId,
                 Role = link.Role,
                 Caption = link.Caption,
             });

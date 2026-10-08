@@ -16,6 +16,15 @@ public static class MediaErrorCodes
     public const string GenerationInvalidRequest = "media.generation.invalid_request";
 
     /// <summary>
+    /// The request names a prompt proposal that is not in this workspace. Maps to 422.
+    /// </summary>
+    /// <remarks>
+    /// One answer for an id that names nothing and for another workspace's proposal, naming only the field
+    /// (tenancy.md).
+    /// </remarks>
+    public const string GenerationProposalUnprocessable = "media.generation.proposal.unprocessable";
+
+    /// <summary>
     /// No image-generation operation of this workspace has that id.
     /// </summary>
     /// <remarks>

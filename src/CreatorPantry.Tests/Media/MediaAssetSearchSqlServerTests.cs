@@ -51,6 +51,7 @@ public sealed class MediaAssetSearchSqlServerTests(SqlServerMediaFixture fixture
             """
             DELETE FROM RecipeAssetLinks;
             DELETE FROM MediaAssetTags;
+            DELETE FROM MediaAssetUtilizations;
             DELETE FROM MediaAssetVersions;
             DELETE FROM Recipes;
             DELETE FROM MediaAssets;
@@ -626,6 +627,47 @@ public sealed class MediaAssetSearchSqlServerTests(SqlServerMediaFixture fixture
     }
 
     /// <summary>
+    /// Each row counts its own uses in the same statement (12.10e), so a card can say how often an asset went
+    /// out without a detail read per asset. An asset never used counts zero rather than dropping out, and one
+    /// asset's uses are not another's.
+    /// </summary>
+    [Fact]
+    public async Task A_row_counts_its_own_uses_and_nobody_elses()
+    {
+        var used = await AddAsync("Used twice");
+        var unused = await AddAsync("Never used");
+        await AddUseAsync(used);
+        await AddUseAsync(used);
+
+        var rows = await SearchAsync(new MediaAssetSearchFilters());
+
+        Assert.Equal(2, rows.Single(row => row.Id == used).UtilizationCount);
+        Assert.Equal(0, rows.Single(row => row.Id == unused).UtilizationCount);
+    }
+
+    /// <summary>
+    /// The count is taken inside the workspace's own filtered set. Workspace B logging uses against its own
+    /// asset must not raise anything Workspace A reads, and each sees only its own figure.
+    /// </summary>
+    [Fact]
+    public async Task A_use_count_never_includes_the_other_workspaces_uses()
+    {
+        var inA = await AddAsync("A hero");
+        var inB = await AddAsync("B hero", workspaceId: SqlServerMediaFixture.WorkspaceB);
+        await AddUseAsync(inA);
+        await AddUseAsync(inB, workspaceId: SqlServerMediaFixture.WorkspaceB);
+        await AddUseAsync(inB, workspaceId: SqlServerMediaFixture.WorkspaceB);
+        await AddUseAsync(inB, workspaceId: SqlServerMediaFixture.WorkspaceB);
+
+        var rowA = Assert.Single(await SearchAsync(new MediaAssetSearchFilters()));
+        var (rowsB, _, _) = await PageAsync(
+            new MediaAssetSearchFilters(), limit: 100, workspaceId: SqlServerMediaFixture.WorkspaceB);
+
+        Assert.Equal(1, rowA.UtilizationCount);
+        Assert.Equal(3, Assert.Single(rowsB).UtilizationCount);
+    }
+
+    /// <summary>
     /// The row carries the ordering it was fetched under, so the cursor half it publishes is the one the next
     /// page will parse. Under the alphabetical ordering that is the title, and under the default it is the
     /// round-trip timestamp.
@@ -993,6 +1035,26 @@ public sealed class MediaAssetSearchSqlServerTests(SqlServerMediaFixture fixture
     }
 
     /// <summary>A recipe for the link filter to name. Nothing reads anything else about it.</summary>
+    private async Task AddUseAsync(Guid mediaAssetId, Guid? workspaceId = null)
+    {
+        await using var scope = fixture.ScopeFor(workspaceId ?? SqlServerMediaFixture.WorkspaceA);
+        var db = SqlServerMediaFixture.Db(scope);
+        var utilizedOn = DateOnly.FromDateTime(Now.UtcDateTime);
+
+        db.MediaAssetUtilizations.Add(new MediaAssetUtilization
+        {
+            Id = Guid.NewGuid(),
+            MediaAssetId = mediaAssetId,
+            PlatformKey = "instagram",
+            UtilizedOn = utilizedOn,
+            UtilizedDay = utilizedOn.DayOfWeek,
+            LoggedByMembershipId = Guid.NewGuid(),
+            CreatedAt = Now,
+        });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
     private async Task<Guid> AddRecipeAsync(string title, Guid? workspaceId = null)
     {
         await using var scope = fixture.ScopeFor(workspaceId ?? SqlServerMediaFixture.WorkspaceA);

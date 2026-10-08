@@ -1,0 +1,133 @@
+:host {
+  display: block;
+  padding: var(--cp-space-8);
+}
+
+.page-head {
+  margin-bottom: var(--cp-space-6);
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+}
+
+.lede {
+  margin: var(--cp-space-2) 0 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+}
+
+.search-field input,
+.channel-field select {
+  min-height: 40px;
+  padding: 0 var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  font: inherit;
+}
+
+.search-field input {
+  min-width: 14rem;
+}
+
+.channel-field select {
+  max-width: 100%;
+}
+
+.search-field input:focus-visible,
+.channel-field select:focus-visible,
+.title a:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.degraded {
+  margin-top: var(--cp-space-3);
+}
+
+cp-list-shell {
+  margin-top: var(--cp-space-6);
+}
+
+.prompt-row {
+  margin-bottom: var(--cp-space-3);
+}
+
+.prompt-row:last-child {
+  margin-bottom: 0;
+}
+
+.prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-4);
+}
+
+.prompt-main {
+  flex: 1 1 16rem;
+  display: grid;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font: 600 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-sans);
+  overflow-wrap: anywhere;
+}
+
+.title a {
+  color: var(--cp-text);
+  text-decoration: none;
+}
+
+.title a:hover {
+  color: var(--cp-primary);
+  text-decoration: underline;
+}
+
+/* The creator's own line breaks are part of the prompt, so they are kept; a long unbroken run still wraps. */
+.preview {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+.saved {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.preview-button {
+  flex: none;
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-3);
+  width: 100%;
+}
+
+.result-summary {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}

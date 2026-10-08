@@ -375,7 +375,7 @@ public sealed class MediaAssetSearchQueryFactoryTests
     private static MediaAssetSearchRecord Row(
         Guid id, DateTimeOffset createdAt, string title, MediaAssetSearchSort sort) =>
         new(id, title, null, MediaAssetKind.Original, null, null, null, null, null, null, null, 1,
-            "image/jpeg", 1200, 800, 1024L, createdAt, createdAt, sort);
+            "image/jpeg", 1200, 800, 1024L, 0, createdAt, createdAt, sort);
 
     private static string CursorFor(DateTimeOffset createdAt, Guid id)
     {

@@ -31,7 +31,7 @@ export type IngredientMatchStatus = 'NotAttempted' | 'Matched' | 'NoMatch' | 'Am
 export type IngredientScaling = 'Proportional' | 'Fixed' | 'ReviewRequired';
 /** Mirrors IngredientDisplayTextSource: whether a line is the creator's wording or was assembled from its own spans. */
 export type IngredientDisplayTextSource = 'Creator' | 'Composed';
-export type RecipeAssetRole = 'Hero' | 'Gallery' | 'Process';
+export type RecipeAssetRole = 'Hero' | 'Gallery' | 'Process' | 'Social' | 'Step';
 
 const RECIPE_STATUS_VALUES: ReadonlySet<string> = new Set<RecipeStatus>([
   'Draft',
@@ -57,7 +57,7 @@ const INGREDIENT_MATCH_STATUS_VALUES: ReadonlySet<string> = new Set<IngredientMa
 ]);
 const INGREDIENT_SCALING_VALUES: ReadonlySet<string> = new Set<IngredientScaling>(['Proportional', 'Fixed', 'ReviewRequired']);
 const INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES: ReadonlySet<string> = new Set<IngredientDisplayTextSource>(['Creator', 'Composed']);
-const RECIPE_ASSET_ROLE_VALUES: ReadonlySet<string> = new Set<RecipeAssetRole>(['Hero', 'Gallery', 'Process']);
+const RECIPE_ASSET_ROLE_VALUES: ReadonlySet<string> = new Set<RecipeAssetRole>(['Hero', 'Gallery', 'Process', 'Social', 'Step']);
 
 export function decodeEnum<T extends string>(values: ReadonlySet<string>, value: unknown): T | null {
   return typeof value === 'string' && values.has(value) ? (value as T) : null;
@@ -577,26 +577,32 @@ export interface RecipeAssetLink {
   readonly id: string;
   readonly sortOrder: number;
   readonly mediaAssetId: string;
+  /** The asset version this use is pinned to; `null` follows whichever is current. */
+  readonly mediaAssetVersionNumber: number | null;
+  /** The step a `Step` picture belongs to; `null` for every other role. */
+  readonly instructionStepId: string | null;
   readonly role: RecipeAssetRole;
   readonly caption: string | null;
 }
 
 function decodeRecipeAssetLink(value: unknown): RecipeAssetLink | null {
   if (!isRecord(value)) return null;
-  const { id, sortOrder, mediaAssetId, role: rawRole, caption } = value;
+  const { id, sortOrder, mediaAssetId, mediaAssetVersionNumber, instructionStepId, role: rawRole, caption } = value;
   const role = decodeEnum<RecipeAssetRole>(RECIPE_ASSET_ROLE_VALUES, rawRole);
 
   if (
     typeof id !== 'string' ||
     typeof sortOrder !== 'number' ||
     typeof mediaAssetId !== 'string' ||
+    !isNumberOrNull(mediaAssetVersionNumber) ||
+    !isStringOrNull(instructionStepId) ||
     role === null ||
     !isStringOrNull(caption)
   ) {
     return null;
   }
 
-  return { id, sortOrder, mediaAssetId, role, caption };
+  return { id, sortOrder, mediaAssetId, mediaAssetVersionNumber, instructionStepId, role, caption };
 }
 
 /** Mirrors RecipeTagServiceModel. */

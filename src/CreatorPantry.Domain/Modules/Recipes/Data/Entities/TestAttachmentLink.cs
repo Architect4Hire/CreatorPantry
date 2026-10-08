@@ -48,6 +48,16 @@ public class TestAttachmentLink : IWorkspaceOwned
     /// <summary>The linked asset. See the type's remarks for what does and does not constrain it.</summary>
     public Guid MediaAssetId { get; set; }
 
+    /// <summary>
+    /// The version of the asset this attachment is pinned to, or <c>null</c> to follow whichever is current.
+    /// </summary>
+    /// <remarks>
+    /// A test's photograph is evidence of what a trial produced, so pinning is the commoner choice here than
+    /// on a recipe: a later version of the asset is a different picture. See
+    /// <see cref="RecipeAssetLink.MediaAssetVersionNumber"/> for the key behind it.
+    /// </remarks>
+    public int? MediaAssetVersionNumber { get; set; }
+
     /// <summary>Position among this run's attachments, unique within the run.</summary>
     public int SortOrder { get; set; }
 

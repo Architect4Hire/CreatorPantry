@@ -182,6 +182,26 @@ describe('decodeRecipeDetail', () => {
     expect(decodeRecipeDetail(malformed)).toBeNull();
   });
 
+  it('decodes a pinned step picture, and rejects a link missing its pin or step', () => {
+    const link = {
+      id: 'a1',
+      sortOrder: 0,
+      mediaAssetId: 'm1',
+      mediaAssetVersionNumber: 2,
+      instructionStepId: 's1',
+      role: 'Step' as const,
+      caption: null,
+    };
+
+    expect(decodeRecipeDetail({ ...VALID_RECIPE_DETAIL, assetLinks: [link] })?.assetLinks).toEqual([link]);
+
+    // The server always sends both, as nulls when they do not apply — an absent one is a different contract.
+    const { mediaAssetVersionNumber: _pin, ...withoutPin } = link;
+    const { instructionStepId: _step, ...withoutStep } = link;
+    expect(decodeRecipeDetail({ ...VALID_RECIPE_DETAIL, assetLinks: [withoutPin] })).toBeNull();
+    expect(decodeRecipeDetail({ ...VALID_RECIPE_DETAIL, assetLinks: [withoutStep] })).toBeNull();
+  });
+
   it('rejects a malformed nested tag (missing name)', () => {
     const malformed = {
       ...VALID_RECIPE_DETAIL,

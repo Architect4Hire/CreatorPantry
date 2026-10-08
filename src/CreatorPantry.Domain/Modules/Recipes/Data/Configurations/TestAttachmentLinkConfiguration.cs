@@ -16,6 +16,10 @@ internal sealed class TestAttachmentLinkConfiguration : IEntityTypeConfiguration
                 "CK_TestAttachmentLinks_SortOrder_NonNegative",
                 "SortOrder >= 0");
 
+            table.HasCheckConstraint(
+                "CK_TestAttachmentLinks_VersionPin_Positive",
+                "MediaAssetVersionNumber IS NULL OR MediaAssetVersionNumber >= 1");
+
             // No role column and so no hero rule. A test's photographs are evidence, and none of them is the
             // lead image of anything — that concept belongs to the recipe, on RecipeAssetLink.
         });
@@ -54,6 +58,15 @@ internal sealed class TestAttachmentLinkConfiguration : IEntityTypeConfiguration
             .WithMany()
             .HasForeignKey(link => new { link.WorkspaceId, link.MediaAssetId })
             .HasPrincipalKey(asset => new { asset.WorkspaceId, asset.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // The pin (12.10i), exactly as RecipeAssetLinkConfiguration draws it: null follows the current version,
+        // and a number cannot name a version the asset does not have.
+        builder.HasOne<MediaAssetVersion>()
+            .WithMany()
+            .HasForeignKey(link => new { link.WorkspaceId, link.MediaAssetId, link.MediaAssetVersionNumber })
+            .HasPrincipalKey(version => new { version.WorkspaceId, version.MediaAssetId, version.VersionNumber })
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(link => new { link.WorkspaceId, link.RecipeTestRunId, link.SortOrder })

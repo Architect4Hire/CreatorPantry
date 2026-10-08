@@ -38,6 +38,7 @@ import {
 } from '../../services/recipe.service';
 import { ReferenceService } from '../../services/reference.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { RecipeMediaStep } from '../../models/recipe-asset-link.models';
 
 import {
   CreateRecipeRequest,
@@ -45,6 +46,7 @@ import {
   IngredientInput,
   InstructionGroupInput,
   InstructionStepInput,
+  RecipeAssetLink,
   RecipeDetail,
   RecipeIngredient,
   RecipeIngredientGroup,
@@ -56,6 +58,7 @@ import {
 } from '../../models/recipe.models';
 import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
+import { RecipeMediaChanged, RecipeMediaComponent } from './recipe-media.component';
 import { RecipeReadinessComponent } from './recipe-readiness.component';
 import { RecipePublishPanelComponent } from './recipe-publish-panel.component';
 import { RecipeTestKitchenComponent } from './recipe-test-kitchen.component';
@@ -309,7 +312,7 @@ type RecipeEditorSaveState =
  * `:workspaceSlug/recipes/:recipeId`. Instructions and ingredients are both fully editable
  * (`RecipeIngredientEditorComponent` for groups/lines: paste-and-parse review, add/edit/remove/reorder),
  * submitted through the same PATCH/POST the rest of the form uses — one Save saves everything together.
- * Media and history are inert placeholders, disabled entirely until the recipe exists.
+ * Media and history read the saved recipe and are disabled entirely until the recipe exists.
  */
 @Component({
   selector: 'cp-recipe-editor',
@@ -330,6 +333,7 @@ type RecipeEditorSaveState =
     CpTabPanelComponent,
     CpTabsComponent,
     RecipeHistoryComponent,
+    RecipeMediaComponent,
     RecipePublishPanelComponent,
     RecipeReadinessComponent,
     RecipeTestKitchenComponent,
@@ -511,6 +515,44 @@ export class RecipeEditorComponent {
 
     const role = state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug)?.role;
     return role === 'Editor' || role === 'Owner';
+  });
+
+  /**
+   * Whether this member may link and unlink pictures: Contributor and above, the bar both routes carry. False
+   * until the membership is known, so a control is never offered on a guess.
+   */
+  readonly canChangeMedia = computed(() => {
+    const state = this.membershipService.state();
+    if (state.status !== 'ready') return false;
+
+    const role = state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug)?.role;
+    return role === 'Contributor' || role === 'Editor' || role === 'Owner';
+  });
+
+  /**
+   * The saved recipe's picture links, held beside the form and never in it: a link is written by its own
+   * command, not by Save, so there is nothing here for the form to edit or to send.
+   */
+  private readonly savedAssetLinksSignal = signal<readonly RecipeAssetLink[]>([]);
+  readonly savedAssetLinks = this.savedAssetLinksSignal.asReadonly();
+
+  /**
+   * The method's saved steps, numbered through its groups, for a step picture to belong to. Read from the
+   * form's own copy, which matches the saved recipe whenever the Media tab will act on it — it refuses to
+   * while the form is dirty. A step not yet saved has no id and is left out: nothing can be linked to it.
+   */
+  readonly mediaSteps = computed<readonly RecipeMediaStep[]>(() => {
+    const steps: RecipeMediaStep[] = [];
+    let number = 0;
+
+    for (const group of this.instructionGroups()) {
+      for (const step of group.steps) {
+        number += 1;
+        if (step.id !== null) steps.push({ id: step.id, number, text: step.text });
+      }
+    }
+
+    return steps;
   });
 
   /**
@@ -1335,6 +1377,37 @@ export class RecipeEditorComponent {
   }
 
   /**
+   * A picture linked or unlinked on the Media tab: the recipe as the server left it, one version on.
+   *
+   * Applied through {@link applyDetail} like a restore, which is safe for the same reason it is there: the
+   * Media tab refuses to act while the form has unsaved edits, so there is nothing of the creator's for the
+   * new token to overwrite. The creator stays on the tab — they are usually about to link another.
+   */
+  onMediaChanged(event: RecipeMediaChanged): void {
+    this.applyDetail(event.recipe);
+    this.saveStateSignal.set({ status: 'idle' });
+    this.fieldErrorsSignal.set({});
+    this.clearPendingIdempotencyKey();
+
+    this.noticeSignal.set({
+      text: `${event.message} The recipe is now at version ${event.recipe.currentVersion?.versionNumber ?? '—'}.`,
+      isProblem: false,
+      recipeLink: null,
+    });
+  }
+
+  /** The Media tab was refused as stale. Re-reading is the remedy, and the form is clean whenever it asks. */
+  async onMediaReloadRequested(): Promise<void> {
+    if (await this.reloadAfterConflict()) return;
+
+    this.noticeSignal.set({
+      text: 'This recipe is out of date, so changing its pictures will keep being refused. Save or discard your edits, then reload it.',
+      isProblem: true,
+      recipeLink: null,
+    });
+  }
+
+  /**
    * A move the server confirmed on the Readiness tab: the recipe as it now stands.
    *
    * Applied through {@link applyDetail} like a restore, which is safe here only because the Readiness tab is
@@ -1821,6 +1894,7 @@ export class RecipeEditorComponent {
     // status at all, and an edit no longer sends one. What is still needed from it is whether the recipe is
     // archived, because that disables the save and shows the banner.
     this.archivedSignal.set(detail.status === 'Archived');
+    this.savedAssetLinksSignal.set(detail.assetLinks);
     this.recipeStatusSignal.set(detail.status);
     this.tags.set(detail.tags.map((tag) => tag.name));
     this.ingredientGroups.set(detail.ingredientGroups);

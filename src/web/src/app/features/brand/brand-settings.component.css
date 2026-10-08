@@ -19,8 +19,7 @@
 
 .legend,
 .hint,
-.empty,
-.disabled-note {
+.empty {
   margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);

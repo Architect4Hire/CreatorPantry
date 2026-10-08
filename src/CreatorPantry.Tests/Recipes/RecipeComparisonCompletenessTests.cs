@@ -82,6 +82,7 @@ public sealed class RecipeComparisonCompletenessTests
         ["RecipeSnapshotIngredient.IngredientNameText"] = RecipeComparisonField.IngredientNameText,
         ["RecipeSnapshotIngredient.IngredientId"] = RecipeComparisonField.IngredientReferenceId,
         ["RecipeSnapshotEquipment.EquipmentTypeId"] = RecipeComparisonField.EquipmentTypeId,
+        ["RecipeSnapshotAssetLink.MediaAssetVersionNumber"] = RecipeComparisonField.AssetVersionNumber,
     };
 
     [Fact]
@@ -210,6 +211,8 @@ public sealed class RecipeComparisonCompletenessTests
         asset.MediaAssetId = Guid.NewGuid();
         asset.Role = RecipeAssetRole.Process;
         asset.Caption = "A different caption.";
+        asset.MediaAssetVersionNumber = 2;
+        asset.InstructionStepId = Guid.NewGuid();
 
         // Swapped rather than edited: a tag carries nothing but its id, so the only change it can express is
         // arriving or leaving, and that is what exercises TagWorkspaceTagId.

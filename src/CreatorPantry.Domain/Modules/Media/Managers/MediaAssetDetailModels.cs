@@ -114,6 +114,13 @@ public sealed record MediaAssetUtilizationServiceModel(
 /// How many recipe links the asset holds. Equal to <c>RecipeLinks.Count</c> — see the lineage note above for why
 /// the schema guarantees that rather than merely expecting it.
 /// </param>
+/// <param name="BrandProfileCount">
+/// How many brand profiles use the asset, and <paramref name="TestAttachmentCount"/> how many recipe test-run
+/// attachments do. Counted as <see cref="MediaAssetAffectedContentServiceModel"/> counts them, so a client can
+/// warn about every link a removal would leave standing <em>before</em> removing, rather than learning of two of
+/// the three kinds only from the removal's own response. Counts and not names, for the reason that model gives.
+/// Added by 12.10h.
+/// </param>
 /// <param name="ConcurrencyToken">
 /// Opaque. Stored and sent back on the next change (12.9d); never parsed, compared or ordered by.
 /// </param>
@@ -137,6 +144,8 @@ public sealed record MediaAssetDetailServiceModel(
     int VersionCount,
     int UtilizationCount,
     int RecipeLinkCount,
+    int BrandProfileCount,
+    int TestAttachmentCount,
     IReadOnlyList<MediaAssetRecipeLinkServiceModel> RecipeLinks,
     IReadOnlyList<AssetPromptServiceModel> Prompts,
     DateTimeOffset? DeletedAt,

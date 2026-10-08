@@ -346,6 +346,18 @@ public sealed record RecipeAssetLinkServiceModel
 
     public required Guid MediaAssetId { get; init; }
 
+    /// <summary>
+    /// The version of the asset this use is pinned to, or <c>null</c> when it follows whichever is current.
+    /// A number, never an address: the bytes are read through the media routes by asset and version.
+    /// </summary>
+    public int? MediaAssetVersionNumber { get; init; }
+
+    /// <summary>
+    /// The instruction step the image belongs to. Set exactly when <see cref="Role"/> is
+    /// <see cref="RecipeAssetRole.Step"/>, and names a step of this same recipe.
+    /// </summary>
+    public Guid? InstructionStepId { get; init; }
+
     public required RecipeAssetRole Role { get; init; }
 
     public required string? Caption { get; init; }

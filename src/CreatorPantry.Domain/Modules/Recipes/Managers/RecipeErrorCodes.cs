@@ -280,4 +280,57 @@ public static class RecipeErrorCodes
 
     /// <summary>The renderer itself threw. A server fault, never the creator's: answers 500 with no detail.</summary>
     public const string PdfExportRenderFailed = "recipes.pdfExport.render.failed";
+
+    /// <summary>A link or unlink request of the wrong shape (RCPUB-005). Answers 400 with field errors.</summary>
+    public const string AssetLinkInvalidRequest = "recipes.assetLink.invalid_request";
+
+    /// <summary>
+    /// Something the link names cannot be used: the asset, the version it pins, or the step it belongs to.
+    /// Answers 422 with the field at fault.
+    /// </summary>
+    /// <remarks>
+    /// One code for all three, and for the asset one sentence whatever the reason — unknown, another
+    /// workspace's or removed from the library — so a link request cannot be used to ask what a neighbour owns
+    /// (tenancy.md). 422 and not 404, because the route's own resource, the recipe, was found.
+    /// </remarks>
+    public const string AssetLinkTargetUnprocessable = "recipes.assetLink.target.unprocessable";
+
+    /// <summary>
+    /// The recipe already has a lead image. Answers 409: unlink that one first.
+    /// </summary>
+    /// <remarks>
+    /// Refused rather than replaced. Replacing would unlink a picture the creator chose as a side effect of
+    /// linking another, and the first they would know of it is that it had gone.
+    /// </remarks>
+    public const string AssetLinkHeroConflict = "recipes.assetLink.hero.conflict";
+
+    /// <summary>The same asset is already linked in the same role, to the same step. Answers 409.</summary>
+    public const string AssetLinkDuplicateConflict = "recipes.assetLink.duplicate.conflict";
+
+    /// <summary>
+    /// The recipe has no link with that id. Answers 404, the same as for a link belonging to another recipe
+    /// or another workspace.
+    /// </summary>
+    public const string AssetLinkNotFound = "recipes.assetLink.not_found";
+
+    /// <summary>An attach request of the wrong shape (RCPUB-005). Answers 400 with field errors.</summary>
+    public const string TestAttachmentInvalidRequest = "recipes.testAttachment.invalid_request";
+
+    /// <summary>
+    /// Something the attachment names cannot be used: the asset, the version it pins, or the issue it
+    /// illustrates. Answers 422, in the same words for an asset that is unknown, a neighbour's or removed.
+    /// </summary>
+    public const string TestAttachmentTargetUnprocessable = "recipes.testAttachment.target.unprocessable";
+
+    /// <summary>The same asset is already attached to the same test, for the same issue. Answers 409.</summary>
+    public const string TestAttachmentDuplicateConflict = "recipes.testAttachment.duplicate.conflict";
+
+    /// <summary>
+    /// Another attachment was saved to this test at the same moment and took the position. Answers 409:
+    /// nothing was written, and the same request will succeed if sent again.
+    /// </summary>
+    public const string TestAttachmentConflict = "recipes.testAttachment.conflict";
+
+    /// <summary>The test has no attachment with that id. Answers 404.</summary>
+    public const string TestAttachmentNotFound = "recipes.testAttachment.not_found";
 }

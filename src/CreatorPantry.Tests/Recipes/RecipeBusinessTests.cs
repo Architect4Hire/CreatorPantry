@@ -3349,6 +3349,10 @@ public sealed class RecipeBusinessTests
             IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<RecipeTitleRecord>>([]);
 
+        public Task<IReadOnlyList<WorkspaceTagRecord>> ListActiveWorkspaceTagsAsync(
+            int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<WorkspaceTagRecord>>([]);
+
         public int Calls { get; private set; }
 
         public Recipe? Recipe { get; private set; }

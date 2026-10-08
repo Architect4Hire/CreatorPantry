@@ -337,6 +337,24 @@ internal sealed class PromptRecordBusiness(
 
         if (model.AiProposalId is not { } proposalId)
         {
+            // A template is a fact about a generation, and the only record of a generation is its proposal
+            // (12.10l). Without one there is nothing to check the claim against, and this row is immutable:
+            // a hand-typed prompt saved as "image.prompt 1.0.0" would say so for good. So the triple is
+            // accepted only alongside the proposal it is then derived from, and refused on its own.
+            foreach (var (field, value) in new (string, string?)[]
+            {
+                (nameof(model.PromptTemplateId), model.PromptTemplateId),
+                (nameof(model.PromptTemplateVersion), model.PromptTemplateVersion),
+                (nameof(model.PromptTemplateBodyChecksum), model.PromptTemplateBodyChecksum),
+            })
+            {
+                if (PromptRecordInputChecks.Normalize(value) is not null)
+                {
+                    return PromptRecordPins.Refused(
+                        field, "A prompt template can only be recorded with the AI proposal it came from.");
+                }
+            }
+
             return PromptRecordPins.Resolved(null);
         }
 
@@ -468,12 +486,12 @@ internal sealed class PromptRecordBusiness(
         DamAssetId = model.DamAssetId,
         RecipeId = model.RecipeId,
         RecipeVersionId = model.RecipeVersionId,
-        PromptTemplateId = lineage?.PromptTemplateId
-            ?? PromptRecordInputChecks.Normalize(model.PromptTemplateId),
-        PromptTemplateVersion = lineage?.PromptTemplateVersion
-            ?? PromptRecordInputChecks.Normalize(model.PromptTemplateVersion),
-        PromptTemplateBodyChecksum = lineage?.PromptTemplateBodyChecksum
-            ?? PromptRecordInputChecks.Normalize(model.PromptTemplateBodyChecksum),
+        // From the proposal and from nowhere else (12.10l). The request's own copies were checked against
+        // these when there is a proposal and refused when there is not, so nothing a client typed is ever
+        // what gets stored here.
+        PromptTemplateId = lineage?.PromptTemplateId,
+        PromptTemplateVersion = lineage?.PromptTemplateVersion,
+        PromptTemplateBodyChecksum = lineage?.PromptTemplateBodyChecksum,
         CreatedByMembershipId = workspace.MembershipId,
         CreatedAt = clock.UtcNow,
     };

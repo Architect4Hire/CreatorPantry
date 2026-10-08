@@ -45,6 +45,17 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeReadinessBusiness, RecipeReadinessBusiness>();
         services.AddScoped<IRecipeFacade, RecipeFacade>();
         services.AddScoped<IRecipeTestRunFacade, RecipeTestRunFacade>();
+
+        // RCPUB-005: a recipe's own asset links, and the pictures attached to a recorded test.
+        services.AddScoped<IRecipeAssetLinkBusiness, RecipeAssetLinkBusiness>();
+        services.AddScoped<IRecipeAssetLinkFacade, RecipeAssetLinkFacade>();
+        services.AddScoped<ITestAttachmentRepository, TestAttachmentRepository>();
+        services.AddScoped<ITestAttachmentDataLayer, TestAttachmentDataLayer>();
+        services.AddScoped<ITestAttachmentBusiness, TestAttachmentBusiness>();
+        services.AddScoped<IRecipeTestAttachmentFacade, RecipeTestAttachmentFacade>();
+        services.AddScoped<IValidator<LinkRecipeAssetViewModel>, LinkRecipeAssetViewModelValidator>();
+        services.AddScoped<IValidator<UnlinkRecipeAssetViewModel>, UnlinkRecipeAssetViewModelValidator>();
+        services.AddScoped<IValidator<AttachTestImageViewModel>, AttachTestImageViewModelValidator>();
         services.AddScoped<IIngredientParsingFacade, IngredientParsingFacade>();
         services.AddScoped<IValidator<CreateRecipeTestRunViewModel>, CreateRecipeTestRunViewModelValidator>();
         services.AddScoped<IValidator<UpdateRecipeTestRunViewModel>, UpdateRecipeTestRunViewModelValidator>();

@@ -86,6 +86,9 @@ public sealed class MediaAssetSearchEndpointTests : IAsyncLifetime
         Assert.Equal(1200, item.GetProperty("height").GetInt32());
         Assert.Equal(204_800L, item.GetProperty("sizeBytes").GetInt64());
         Assert.Equal(1, item.GetProperty("currentVersionNumber").GetInt32());
+
+        // Published on every row, and zero rather than absent for an asset nobody has logged a use of (12.10e).
+        Assert.Equal(0, item.GetProperty("utilizationCount").GetInt32());
     }
 
     /// <summary>

@@ -1217,7 +1217,7 @@
           "BrandProfile"
         ],
         "summary": "Creates the workspace\u0027s brand profile.",
-        "description": "Editor or above. A workspace has one profile: creating a second answers\n\u0060409 brand.profile.exists.conflict\u0060, and the way to change it is \u0060PATCH\u0060. The response is the profile\nas a read returns it, at \u0060revision\u0060 1. \u0060assets\u0060 is part of the contract, but any non-empty list answers\n\u0060422 brand.assets.unprocessable\u0060 until the media library exists to verify that an asset belongs to this\nworkspace; an empty or omitted list is accepted.",
+        "description": "Editor or above. A workspace has one profile: creating a second answers\n\u0060409 brand.profile.exists.conflict\u0060, and the way to change it is \u0060PATCH\u0060. The response is the profile\nas a read returns it, at \u0060revision\u0060 1.\n\n\u0060assets\u0060 links logos from this workspace\u0027s library: at most one \u0060PrimaryLogo\u0060, each asset once. **Only an\nasset in this workspace\u0027s library can be linked.** An unknown asset, another workspace\u0027s and one removed\nfrom the library all answer \u0060422 brand.assets.unprocessable\u0060 naming \u0060assets[i].MediaAssetId\u0060, in the same\nwords. An empty or omitted list is accepted.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -1343,7 +1343,7 @@
           "BrandProfile"
         ],
         "summary": "Changes the workspace\u0027s brand profile.",
-        "description": "Editor or above. This is a JSON Merge Patch, not a replacement. A field the body does not mention is\nleft exactly as it is; a field sent with a value is set; a field sent as \u0060null\u0060 is cleared. Omitting a\nfield never blanks it. \u0060channelDefaults\u0060, \u0060links\u0060 and \u0060assets\u0060 replace as a whole: a submitted list\nbecomes the complete set, and \u0060[]\u0060 or \u0060null\u0060 empties it. \u0060brandName\u0060 may be changed but not cleared.\n\u0060expectedConcurrencyToken\u0060 is required and is not a profile field: it is the \u0060concurrencyToken\u0060 from the\nread this edit was composed against, and an edit quoting a token the profile has moved past is refused\nwith \u0060409 brand.profile.conflict\u0060 rather than overwriting whoever saved first. \u0060reason\u0060 is likewise not\na profile field; it is recorded on the revision this edit writes. An edit that would change nothing\nwrites no revision and leaves the token valid. The response is the whole profile as a read returns it,\ncarrying the refreshed token the next edit must quote. A non-empty \u0060assets\u0060 list answers\n\u0060422 brand.assets.unprocessable\u0060 for the reason \u0060POST\u0060 gives. A workspace with no profile answers\n\u0060404 brand.profile.not_found\u0060.",
+        "description": "Editor or above. This is a JSON Merge Patch, not a replacement. A field the body does not mention is\nleft exactly as it is; a field sent with a value is set; a field sent as \u0060null\u0060 is cleared. Omitting a\nfield never blanks it. \u0060channelDefaults\u0060, \u0060links\u0060 and \u0060assets\u0060 replace as a whole: a submitted list\nbecomes the complete set, and \u0060[]\u0060 or \u0060null\u0060 empties it. \u0060brandName\u0060 may be changed but not cleared.\n\u0060expectedConcurrencyToken\u0060 is required and is not a profile field: it is the \u0060concurrencyToken\u0060 from the\nread this edit was composed against, and an edit quoting a token the profile has moved past is refused\nwith \u0060409 brand.profile.conflict\u0060 rather than overwriting whoever saved first. \u0060reason\u0060 is likewise not\na profile field; it is recorded on the revision this edit writes. An edit that would change nothing\nwrites no revision and leaves the token valid. The response is the whole profile as a read returns it,\ncarrying the refreshed token the next edit must quote. A workspace with no profile answers\n\u0060404 brand.profile.not_found\u0060.\n\nA submitted \u0060assets\u0060 list **replaces** the profile\u0027s logos; leaving \u0060assets\u0060 out leaves them alone, and\n\u0060[]\u0060 unlinks them all. **Unlinking removes the link and nothing else**: the asset stays in the library\nwith every version and its usage history. A newly named asset that is not in this workspace\u0027s library\nanswers \u0060422 brand.assets.unprocessable\u0060 as \u0060POST\u0060 does. A logo the profile already links is kept when\nre-submitted even if its asset has since been removed from the library, so an unrelated edit is never\nblocked by it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -7227,7 +7227,7 @@
           "GeneratedImages"
         ],
         "summary": "Asks for one to four images to be generated from a prompt.",
-        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount or proposal \u2014 or by a different member \u2014 answers \u0060422 idempotency.key_reused\u0060 and queues\nnothing, rather than returning the first request\u0027s operation for something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -7307,6 +7307,16 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -7412,7 +7422,7 @@
           "GeneratedImages"
         ],
         "summary": "Renders one staged image for viewing in the browser.",
-        "description": "Any member may read. Identical to the download below but for the disposition: this is \u0060inline\u0060, so a\nbrowser shows it where a page asked for it, and that is the only difference. \u0060Content-Type\u0060 is the\nmedia type **established from the returned bytes at staging**, never one a provider declared.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set, and the response carries a\nstrong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 so \u0060If-None-Match\u0060 answers 304. Staged bytes are\nimmutable, so that tag identifies this representation for as long as it exists.\nMetadata that exists whose bytes cannot be read answers \u0060503 media.staged_image.unavailable\u0060\nrather than 404: the image is there, and retrying is the remedy. No range requests.",
+        "description": "Any member may read. Identical to the download below but for the disposition: this is \u0060inline\u0060, so a\nbrowser shows it where a page asked for it, and that is the only difference. \u0060Content-Type\u0060 is the\nmedia type **established from the returned bytes at staging**, never one a provider declared.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set, and the response carries a\nstrong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 so \u0060If-None-Match\u0060 answers 304. Staged bytes are\nimmutable, so that tag identifies this representation for as long as it exists.\nMetadata that exists whose bytes cannot be read answers \u0060503 media.staged_image.unavailable\u0060\nrather than 404: the image is there, and retrying is the remedy. No range requests.\n\n**A declined image, and one that expired unchosen, is not served** \u2014 it answers the same 404 an\nunknown image does, from the moment it is declined rather than from whenever its bytes are collected.\nA kept image is still served. The download route below follows the same rule.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -9193,6 +9203,302 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/asset-links": {
+      "post": {
+        "tags": [
+          "RecipeAssetLinks"
+        ],
+        "summary": "Links one library asset to the recipe and returns the recipe as it now stands.",
+        "description": "Contributor and above, the same bar as editing the recipe \u2014 **because this is an edit of it**. A recipe\u0027s\nlinks are part of what each version records, so linking writes one new version, requires the recipe\u0027s\n\u0060expectedConcurrencyToken\u0060, refreshes it, and reopens an approved recipe exactly as any other edit does.\nThe response is the whole recipe in the shape a read returns, with the new link among its \u0060assetLinks\u0060.\n\n\u0060role\u0060 is one of \u0060Hero\u0060, \u0060Gallery\u0060, \u0060Process\u0060, \u0060Social\u0060 or \u0060Step\u0060. **A recipe has at most one \u0060Hero\u0060**:\nlinking a second answers \u0060409 recipes.assetLink.hero.conflict\u0060 rather than replacing the first. A \u0060Step\u0060\nimage must name an \u0060instructionStepId\u0060 of this same recipe, and no other role may name one. The same asset\nin the same role (and step) twice answers \u0060409 recipes.assetLink.duplicate.conflict\u0060; the same asset in two\ndifferent roles is allowed. The new link goes to the end.\n\n\u0060versionNumber\u0060 **pins the link to one version of the asset**; leave it out to follow whichever is current.\nA pin stays where it is when the asset gains newer versions.\n\n**Only an asset in this workspace\u0027s library can be linked.** An unknown asset, another workspace\u0027s, and\none removed from the library all answer \u0060422 recipes.assetLink.target.unprocessable\u0060 naming\n\u0060mediaAssetId\u0060, in the same words, so a link request cannot be used to ask what a neighbour owns. The\nsame code names \u0060versionNumber\u0060 for a version the asset does not have, and \u0060instructionStepId\u0060 for a step\nthat is not part of this recipe.\n\n**Nothing about the asset changes.** No bytes are read, copied or moved, and its usage history is not\ntouched. A token the recipe has moved past answers \u0060409 recipes.recipe.conflict\u0060; an archived recipe\nanswers \u0060409 recipes.archived.conflict\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to link to. Constrained to a Guid, so a malformed id answers 404 at routing.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same link returns the original response with\n\u0060Idempotent-Replayed: true\u0060 rather than being answered as a conflict.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRecipeAsset"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRecipeAsset"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRecipeAsset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/asset-links/{linkId}": {
+      "delete": {
+        "tags": [
+          "RecipeAssetLinks"
+        ],
+        "summary": "Removes one link from the recipe and returns the recipe as it now stands.",
+        "description": "Contributor and above. Like linking, this is an edit of the recipe: it writes one new version, requires\nand refreshes the recipe\u0027s \u0060expectedConcurrencyToken\u0060, and reopens an approved recipe.\n\n**Unlinking removes the link and nothing else.** The asset stays in the library with every version, its\ntags, its usage history and its links to anything else exactly as they were; no bytes are deleted. The\nother links keep their positions.\n\nA link id this recipe does not have answers \u0060404 recipes.assetLink.not_found\u0060 \u2014 the same answer for an id\nthat names nothing, a link of another recipe, and a link in another workspace. **Without an\n\u0060Idempotency-Key\u0060, unlinking the same link twice answers that \u0060404\u0060 the second time**, or\n\u0060409 recipes.recipe.conflict\u0060 if the first call\u0027s token is quoted again; send a key if a retry should\nreceive the original answer.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe to unlink from. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "path",
+            "description": "The link to remove \u2014 an \u0060id\u0060 from the recipe\u0027s \u0060assetLinks\u0060, not an asset id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same unlink returns the original response with\n\u0060Idempotent-Replayed: true\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkRecipeAsset"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkRecipeAsset"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkRecipeAsset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -13091,6 +13397,386 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{testRunId}/attachments": {
+      "get": {
+        "tags": [
+          "RecipeTestAttachments"
+        ],
+        "summary": "Lists the pictures attached to one test, in order.",
+        "description": "Any member may read. Each item is a reference: the attachment\u0027s own \u0060id\u0060, the \u0060mediaAssetId\u0060, the pinned\n\u0060mediaAssetVersionNumber\u0060 when there is one, and the \u0060testIssueId\u0060 it illustrates when it illustrates\none. **Never an address** \u2014 the bytes are read through the library\u0027s own routes, by asset and version.\nA test with no pictures answers an empty list. An unknown test, one on another recipe, and one in another\nworkspace all answer \u0060404 recipes.testRun.not_found\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe the test belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "testRunId",
+            "in": "path",
+            "description": "The test whose pictures to read. Must be a test of that recipe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TestAttachment"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TestAttachment"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TestAttachment"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "RecipeTestAttachments"
+        ],
+        "summary": "Attaches one library asset to the test.",
+        "description": "Contributor and above, the bar recording a test carries. **This is not an edit of the recipe or of what the\ntest recorded**: no recipe version is written, and the test\u0027s own \u0060concurrencyToken\u0060 stays valid.\n\n\u0060versionNumber\u0060 **pins the attachment to one version of the asset**, which is usually what evidence of a\ntrial wants; leave it out to follow whichever is current. \u0060testIssueId\u0060 ties the picture to one issue of\nthis same test. The new attachment goes to the end.\n\n**Only an asset in this workspace\u0027s library can be attached.** An unknown asset, another workspace\u0027s, and\none removed from the library all answer \u0060422 recipes.testAttachment.target.unprocessable\u0060 naming\n\u0060mediaAssetId\u0060, in the same words. The same code names \u0060versionNumber\u0060 for a version the asset does not\nhave and \u0060testIssueId\u0060 for an issue that is not this test\u0027s.\n\nThe same asset against the same issue (or against the test as a whole) twice answers\n\u0060409 recipes.testAttachment.duplicate.conflict\u0060. Two attachments saved at the same instant can collide on\nposition: the loser answers \u0060409 recipes.testAttachment.conflict\u0060 with nothing written, and should simply\nbe sent again. An archived recipe answers \u0060409 recipes.archived.conflict\u0060. **Nothing about the asset\nchanges**, and its usage history is not touched.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe the test belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "testRunId",
+            "in": "path",
+            "description": "The test to attach to. Must be a test of that recipe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key and the same request returns the original attachment with\n\u0060Idempotent-Replayed: true\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachTestImage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachTestImage"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachTestImage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestAttachment"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestAttachment"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs/{testRunId}/attachments/{attachmentId}": {
+      "delete": {
+        "tags": [
+          "RecipeTestAttachments"
+        ],
+        "summary": "Removes one picture from the test.",
+        "description": "Contributor and above. **Detaching removes the attachment and nothing else.** The asset stays in the\nlibrary with every version and its usage history exactly as they were; no bytes are deleted. The response\nis the attachment that was removed.\n\nAn id this test does not have answers \u0060404 recipes.testAttachment.not_found\u0060 \u2014 the same answer for an id\nthat names nothing, an attachment of another test, and one in another workspace. **Without an\n\u0060Idempotency-Key\u0060, detaching the same attachment twice answers that \u0060404\u0060 the second time.**",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe the test belongs to. Constrained to a Guid.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "testRunId",
+            "in": "path",
+            "description": "The test to detach from.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "description": "The attachment to remove \u2014 an \u0060id\u0060 from this test\u0027s attachments, not an asset id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A repeat of the same key returns the original response with \u0060Idempotent-Replayed: true\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestAttachment"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestAttachment"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestAttachment"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/test-runs": {
       "get": {
         "tags": [
@@ -15478,6 +16164,72 @@
           }
         ]
       }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/tags": {
+      "get": {
+        "tags": [
+          "WorkspaceTags"
+        ],
+        "summary": "Lists the workspace\u0027s tags that may be offered as new choices, by name.",
+        "description": "Any member may read. Each item is an \u0060id\u0060 to send and a \u0060name\u0060 to show \u2014 the id is what a recipe\u0027s or a\nlibrary asset\u0027s \u0060tags\u0060 field takes.\n\n**Active tags only.** A retired tag stays named on whatever already carries it, through that record\u0027s\nown read, and is simply not offered here. A workspace with no tags yet answers an empty list, never a\n\u0060404\u0060.\n\n**Not paged, and capped at 500.** A picker filters the whole vocabulary as a creator types, and a\nworkspace\u0027s own tags are a small set; past the cap the list is cut alphabetically rather than growing\nwithout limit. Ordered by name, case-insensitively.\n\n**Read-only.** A tag enters the vocabulary when a creator tags a recipe. The response is \u0060no-store\u0060:\nthe vocabulary is the creator\u0027s own words.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceTag"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceTag"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceTag"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -16612,6 +17364,40 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "AttachTestImage": {
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "testIssueId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -20647,6 +21433,56 @@
         },
         "description": "The body of a keep request."
       },
+      "LinkRecipeAsset": {
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeAssetRole"
+              }
+            ]
+          },
+          "instructionStepId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "LogMediaAssetUtilization": {
         "type": "object",
         "properties": {
@@ -20968,6 +21804,8 @@
           "versionCount",
           "utilizationCount",
           "recipeLinkCount",
+          "brandProfileCount",
+          "testAttachmentCount",
           "recipeLinks",
           "prompts",
           "deletedAt",
@@ -21093,6 +21931,22 @@
             "format": "int32"
           },
           "recipeLinkCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "brandProfileCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "testAttachmentCount": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -21429,6 +22283,7 @@
           "width",
           "height",
           "sizeBytes",
+          "utilizationCount",
           "createdAt",
           "updatedAt"
         ],
@@ -21535,6 +22390,14 @@
               "string"
             ],
             "format": "int64"
+          },
+          "utilizationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "createdAt": {
             "type": "string",
@@ -22492,6 +23355,22 @@
             "type": "string",
             "format": "uuid"
           },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "instructionStepId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
           "role": {
             "$ref": "#/components/schemas/RecipeAssetRole"
           },
@@ -22507,7 +23386,9 @@
         "enum": [
           "Hero",
           "Gallery",
-          "Process"
+          "Process",
+          "Social",
+          "Step"
         ],
         "type": "string"
       },
@@ -22580,7 +23461,9 @@
           "EquipmentNote",
           "AssetMediaAssetId",
           "AssetRole",
-          "AssetCaption"
+          "AssetCaption",
+          "AssetVersionNumber",
+          "AssetInstructionStepId"
         ],
         "type": "string"
       },
@@ -25804,6 +26687,57 @@
         ],
         "type": "string"
       },
+      "TestAttachment": {
+        "required": [
+          "id",
+          "mediaAssetId",
+          "mediaAssetVersionNumber",
+          "testIssueId",
+          "sortOrder",
+          "caption"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "testIssueId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sortOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "TestIssue": {
         "required": [
           "id",
@@ -26399,6 +27333,17 @@
           },
           "isAmbiguous": {
             "type": "boolean"
+          }
+        }
+      },
+      "UnlinkRecipeAsset": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -27023,6 +27968,22 @@
         ],
         "type": "string"
       },
+      "WorkspaceTag": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "YieldReconciliationField": {
         "enum": [
           "BatchYield",
@@ -27284,6 +28245,9 @@
       "name": "RecipeAdaptationRequests"
     },
     {
+      "name": "RecipeAssetLinks"
+    },
+    {
       "name": "RecipeConceptRequests"
     },
     {
@@ -27311,6 +28275,9 @@
       "name": "RecipeSubstitutionRequests"
     },
     {
+      "name": "RecipeTestAttachments"
+    },
+    {
       "name": "RecipeTestRuns"
     },
     {
@@ -27327,6 +28294,9 @@
     },
     {
       "name": "Workspaces"
+    },
+    {
+      "name": "WorkspaceTags"
     }
   ]
 }

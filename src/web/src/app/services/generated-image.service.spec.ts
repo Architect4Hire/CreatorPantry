@@ -157,6 +157,17 @@ describe('GeneratedImageService', () => {
       expect((await pending).status).toBe('rate_limited');
     });
 
+    it('reads a 422 as a refusal in the server’s words, never as something waiting would fix', async () => {
+      for (const code of ['idempotency.key_reused', 'media.generation.proposal.unprocessable']) {
+        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+        http.expectOne(BASE).flush(problem(code), { status: 422, statusText: 'Unprocessable Entity' });
+
+        const outcome = await pending;
+        expect(outcome.status).withContext(code).toBe('refused');
+      }
+    });
+
     it('reads anything else as unavailable, which is the one outcome a retry may replay', async () => {
       const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
 

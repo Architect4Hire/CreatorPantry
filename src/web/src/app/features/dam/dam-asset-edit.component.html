@@ -1,0 +1,217 @@
+<cp-dialog
+  [open]="open()"
+  title="Edit details"
+  description="Change what you said about this picture. The picture itself is not changed here."
+  titleId="cp-dam-edit-title-heading"
+  (closed)="cancel()"
+  (keydown.escape)="onEscape($event)"
+>
+  @if (draft(); as form) {
+    <form class="form" novalidate (submit)="onSubmit($event)">
+      <!-- Optionality is said once, here, rather than field by field. -->
+      <p class="legend">Only the title is needed. Leave anything else empty to clear it.</p>
+
+      @if (problem()) {
+        <cp-notice tone="error" role="alert">
+          {{ problem() }}
+          @if (conflicted()) {
+            <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy()" (click)="loadLatest()">
+              {{ saveState() === 'reloading' ? 'Loading the latest…' : 'Load the latest and keep my changes' }}
+            </button>
+          }
+        </cp-notice>
+      }
+
+      <cp-notice role="status" [quiet]="rebasedNotice() === ''">{{ rebasedNotice() }}</cp-notice>
+
+      <cp-form-section heading="What it is">
+        <cp-field label="Title" [forId]="ids.title" [required]="true" [error]="errorFor('title')">
+          <input
+            type="text"
+            [id]="ids.title"
+            autocomplete="off"
+            [attr.maxlength]="limits.titleMaxLength"
+            [value]="form.title"
+            (input)="setText('title', $event)"
+          />
+        </cp-field>
+
+        <cp-field label="Description" [forId]="ids.description" [error]="errorFor('description')">
+          <textarea
+            rows="3"
+            [id]="ids.description"
+            [attr.maxlength]="limits.descriptionMaxLength"
+            [value]="form.description"
+            (input)="setText('description', $event)"
+          ></textarea>
+        </cp-field>
+
+        <cp-field
+          label="Alt text"
+          [forId]="ids.altText"
+          hint="What the picture shows, in your own words, for anyone who cannot see it."
+          [error]="errorFor('altText')"
+        >
+          <textarea
+            rows="3"
+            [id]="ids.altText"
+            [attr.maxlength]="limits.altTextMaxLength"
+            [value]="form.altText"
+            (input)="setText('altText', $event)"
+          ></textarea>
+        </cp-field>
+      </cp-form-section>
+
+      <cp-form-section heading="What it is for">
+        <cp-field label="Channel" [forId]="ids.channelKey" [error]="errorFor('channelKey')">
+          <select [id]="ids.channelKey" (change)="setText('channelKey', $event)">
+            <option value="" [selected]="form.channelKey === ''">No channel</option>
+            @for (option of channelOptions(); track option.key) {
+              <option [value]="option.key" [selected]="option.key === form.channelKey">{{ option.label }}</option>
+            }
+          </select>
+        </cp-field>
+
+        <cp-field label="Day" [forId]="ids.day" [error]="errorFor('day')">
+          <select [id]="ids.day" (change)="setDay($event)">
+            <option value="" [selected]="form.day === null">No day</option>
+            @for (option of dayOptions; track option) {
+              <option [value]="option" [selected]="option === form.day">{{ option }}</option>
+            }
+          </select>
+        </cp-field>
+
+        <cp-field
+          label="Platform"
+          [forId]="ids.platformKey"
+          hint="A short key of your own, like reels or newsletter."
+          [error]="errorFor('platformKey')"
+        >
+          <input
+            type="text"
+            [id]="ids.platformKey"
+            autocomplete="off"
+            [attr.maxlength]="limits.keyMaxLength"
+            [value]="form.platformKey"
+            (input)="setText('platformKey', $event)"
+          />
+        </cp-field>
+
+        <cp-field
+          label="Style"
+          [forId]="ids.styleKey"
+          hint="A short key of your own, like overhead-linen."
+          [error]="errorFor('styleKey')"
+        >
+          <input
+            type="text"
+            [id]="ids.styleKey"
+            autocomplete="off"
+            [attr.maxlength]="limits.keyMaxLength"
+            [value]="form.styleKey"
+            (input)="setText('styleKey', $event)"
+          />
+        </cp-field>
+      </cp-form-section>
+
+      <cp-form-section heading="Rights">
+        <cp-field label="Rights holder" [forId]="ids.rightsHolder" [error]="errorFor('rightsHolder')">
+          <input
+            type="text"
+            [id]="ids.rightsHolder"
+            autocomplete="off"
+            [attr.maxlength]="limits.rightsMaxLength"
+            [value]="form.rightsHolder"
+            (input)="setText('rightsHolder', $event)"
+          />
+        </cp-field>
+
+        <cp-field label="Attribution" [forId]="ids.attributionText" [error]="errorFor('attributionText')">
+          <input
+            type="text"
+            [id]="ids.attributionText"
+            autocomplete="off"
+            [attr.maxlength]="limits.rightsMaxLength"
+            [value]="form.attributionText"
+            (input)="setText('attributionText', $event)"
+          />
+        </cp-field>
+      </cp-form-section>
+
+      <cp-form-section heading="Tags" intro="Tags come from this workspace's own list.">
+        @if (chosenTags().length === 0) {
+          <p class="plain muted">No tags on this picture.</p>
+        } @else {
+          <ul class="chosen" aria-label="Tags on this picture">
+            @for (tag of chosenTags(); track tag.id) {
+              <li>
+                <span class="tag-name">{{ tag.name }}</span>
+                <button
+                  cpButton
+                  type="button"
+                  variant="text"
+                  size="sm"
+                  [attr.aria-label]="'Remove the tag ' + tag.name"
+                  (click)="removeTag(tag.id)"
+                >
+                  Remove
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        @switch (tagPhase()) {
+          @case ('loading') {
+            <p class="plain muted" role="status">Loading your tags…</p>
+          }
+          @case ('unavailable') {
+            <cp-notice tone="warning" role="status">
+              Your tags couldn't be loaded, so none can be added right now. You can still remove one.
+              <button cpButton type="button" variant="secondary" size="sm" (click)="retryTags()">Try again</button>
+            </cp-notice>
+          }
+          @default {
+            @if (addableTags().length === 0) {
+              <p class="plain muted">
+                @if (chosenTags().length === 0) {
+                  This workspace has no tags yet. A tag is made when you tag a recipe.
+                } @else {
+                  Every tag in this workspace is already on this picture.
+                }
+              </p>
+            } @else {
+              <cp-field label="Add a tag" [forId]="ids.tagIds" [error]="errorFor('tagIds')">
+                <cp-combobox
+                  [inputId]="ids.tagIds"
+                  mode="restricted"
+                  placeholder="Start typing a tag…"
+                  [options]="addableTags()"
+                  [value]="tagQuery()"
+                  (valueChange)="tagQuery.set($event)"
+                  [selected]="tagToAdd()"
+                  (selectedChange)="pickTag($event)"
+                />
+              </cp-field>
+              <div class="cp-actions">
+                <button cpButton type="button" variant="secondary" [disabled]="tagToAdd() === null" (click)="addTag()">
+                  Add tag
+                </button>
+              </div>
+            }
+          }
+        }
+      </cp-form-section>
+
+      <!-- So Enter in a text box saves. The visible Save lives in the dialog's footer, outside this form. -->
+      <button type="submit" hidden tabindex="-1"></button>
+    </form>
+  }
+
+  <div cpDialogActions>
+    <button cpButton variant="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
+    <button cpButton type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
+      {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
+    </button>
+  </div>
+</cp-dialog>

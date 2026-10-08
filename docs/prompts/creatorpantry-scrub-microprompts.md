@@ -5246,6 +5246,21 @@ not an in-place prompt mutation.
 BEHAVIOR: Plan routes/states, wait for approval, implement component/contract/a11y tests.
 ```
 
+*What 12.10d decided (2026-10-08). Web only: `prompt-library` is a route tree (list, and `:promptRecordId`
+detail) over the PRM routes 12.3 built, with no endpoint, migration or snapshot change. PROMPT-UI-001 through
+003 are defined nowhere but this prompt, so they were read as list, preview and detail.*
+
+*Approved during planning. **There is no sort control**: the route has one ordering and no `sort` parameter, and
+sorting loaded pages is what the restriction forbids, so the page states "newest first". **Search and one
+channel are the only filters**, because they are the only ones the route has. Pages are appended by following
+`nextCursor`. Copy is offered in the preview and on the detail page, never on a row, because a row holds a
+truncated preview. **Reuse goes to Image Studio**: it writes a new studio draft holding a copy of the text and
+leaves the record untouched, asking first when that would replace unfinished studio work; a Viewer is not
+offered it.*
+
+*Left open. **Nothing in the web app saves a prompt yet** — no screen calls `POST …/prompts` — so the library
+shows its first-use state until a save action is built. That is its own prompt.*
+
 ### 12.10e DAM Library list UI
 
 ```text
@@ -5255,6 +5270,21 @@ CONSTRAINT: DAM-UI-001/002; creatorpantry-design-system and new-component skills
 RESTRICTION: No detail or mutation. Use authorized thumbnail/render endpoint, never raw blob URL.
 BEHAVIOR: Show query/state design, wait for approval, implement component/contract/a11y tests.
 ```
+
+*What 12.10e decided (2026-10-08). `dam` is the library list over DAM-002, with search, channel, day and the
+route's two orderings sent to the server, pages appended by following `nextCursor`, and cards that are not
+links. DAM-UI-001/002 are defined nowhere but this prompt. "Label" was read as the asset's title, and version
+count is shown from `currentVersionNumber`, which is the count because numbers start at one and none is removed.*
+
+*Approved during planning. **One additive backend change**: `utilizationCount` on
+`MediaAssetSummaryServiceModel`, counted in the search statement as the detail read counts it, because usage
+was on the detail route only and a detail read per card was the alternative. The OpenAPI snapshot gained that
+one field. **There is no thumbnail derivative**: the card fetches the full current version from the authorized
+`/content` route as a blob — the SPA's content security policy refuses a gateway `<img>` — and only when the
+card nears the screen. A real thumbnail is a backend job and its own prompt.*
+
+*Left out. Platform, style and tag filters have no route listing their choices; cuisine, course, date and
+recipe filters have no control yet.*
 
 ### 12.10f DAM asset detail UI
 
@@ -5266,6 +5296,19 @@ RESTRICTION: No edit/upload/utilization/delete action in this prompt.
 BEHAVIOR: Plan sections/states, wait for approval, implement component/contract/a11y tests.
 ```
 
+*What 12.10f decided (2026-10-08). Web only: `dam` became a route tree with `:assetId` beside the library, over
+DAM-003 and the render and download routes. DAM-UI-003 is defined nowhere but this prompt. The page is the
+picture, what the creator said about it, recipe and prompt lineage, every version with its own download, and
+the usage history — which is its own paged read with its own states, so it failing leaves the page standing.*
+
+*Approved during planning. **The library's card titles became links**, since nothing else reached this page.
+**Cuisine and course are not shown**: the route sends ids and the web app has no client for those lists.
+Platform and style are shown as their stored keys. There is no full-screen viewer. A removed asset answers "not
+found" — `includeDeleted` is never sent, and viewing a tombstone belongs to 12.10h. **A use's date is shown as
+the calendar date it is**, and its weekday as the server sent it, never recomputed in the browser's zone.*
+
+*The page decodes no concurrency token: nothing here writes. 12.10g will need it and should read it then.*
+
 ### 12.10g DAM metadata and version actions UI
 
 ```text
@@ -5276,6 +5319,23 @@ RESTRICTION: Upload never overwrites current bytes. No utilization/delete/add-to
 BEHAVIOR: Plan dialogs/state, wait for approval, implement component/contract/a11y tests.
 ```
 
+*What 12.10g decided (2026-10-08). Two dialogs on the asset page, for Contributors and above: **Edit details**
+over DAM-004 and **Add a version** over DAM-010. DAM-UI-004 is defined nowhere but this prompt. The edit sends a
+merge patch of only the fields that changed, with an emptied field sent as a clear, so an untouched field can
+never be blanked. The upload sends the file alone, shows the real transfer progress, and says in its own words
+that every earlier version stays.*
+
+*Approved during planning. **A conflict keeps the creator's edits**: on `409 media.asset.stale.conflict` the
+dialog stays open and offers to load the latest, carrying their changes onto it and taking the newer value for
+every field they did not touch. Leaving with an unsaved edit or a running upload asks first. A cancelled upload
+makes the page re-read the asset, because an aborted request may still have landed.*
+
+*Added at approval: **tags can be added as well as removed**, which needed a route this codebase did not have.
+`GET /api/v1/workspaces/{workspaceSlug}/tags` lists the workspace's active tags by name through the recipes
+module, which owns `WorkspaceTag` — any member may read, not paged, capped at 500. **A tag still cannot be
+created from the DAM**: DAM-004 refuses an id it does not know, so the dialog chooses from the vocabulary and
+says that a tag is made by tagging a recipe. Cuisine and course remain uneditable here, and are never sent.*
+
 ### 12.10h DAM utilization and soft-delete actions UI
 
 ```text
@@ -5284,6 +5344,22 @@ CONSTRAINT: DAM-UI-004/005; creatorpantry-design-system and add-media-feature sk
 RESTRICTION: Do not imply physical immediate deletion or permit utilization of inactive assets.
 BEHAVIOR: Show copy/state, wait for approval, implement component/contract/a11y tests.
 ```
+
+*What 12.10h decided (2026-10-08). **Log a use** is a dialog over DAM-009 for Contributors and above: platform
+and a calendar date, with campaign and notes optional. The date defaults to today in the browser's own
+calendar, is sent as a plain date, and no weekday is sent. One idempotency key per entry, because without one
+two identical calls record two uses. **Remove from library** is over DAM-005 for Editors and Owners, through
+`ConfirmService`; a Contributor is not shown it. DAM-UI-005 is defined nowhere but this prompt.*
+
+*The copy never says "delete". The confirmation says the picture leaves the library for everyone, that its
+files, versions and history are kept, what still links to it, and — approved as written — that the app cannot
+bring it back yet. After a removal the page becomes an account of what happened and what still points at the
+asset, with no action on it, since its own routes answer not-found from then on. A use logged against an asset
+removed meanwhile is refused in those words and the page is re-read when the dialog closes.*
+
+*Approved during planning: **one additive backend change**, `brandProfileCount` and `testAttachmentCount` on
+`MediaAssetDetailServiceModel`, counted as DAM-005's own report counts them, so the warning before a removal
+names every kind of link rather than recipes only. A test holds the two reads to the same numbers.*
 
 ### 12.10i Recipe asset-link command
 
@@ -5295,6 +5371,29 @@ RESTRICTION: Prevent cross-workspace links. Unlink does not delete asset or hist
 BEHAVIOR: Plan contract/invariants, wait for approval, implement link/unlink/replay/isolation tests.
 ```
 
+*What 12.10i decided (2026-10-08). **Linking is an edit of the recipe.** `POST` and `DELETE
+.../recipes/{recipeId}/asset-links[/{linkId}]` take the recipe's `expectedConcurrencyToken`, write one new
+recipe version, reopen an approved recipe, and answer `200` with the whole recipe — not `201` with a link —
+because a link is part of what a version records and the caller needs the new token. Contributor and above.
+An `Idempotency-Key` replays the first answer; without one a repeat is refused, as stale or as a duplicate.*
+
+*Roles are `Hero`, `Gallery`, `Process`, `Social` and `Step`; `Gallery` and `Process` were kept. A `Step`
+picture names a step of the same recipe, and **removing that step demotes the link to `Process` rather than
+dropping it** — the step key is `Restrict`, so the demotion is required, not a courtesy. A second `Hero` and
+the same asset in the same role twice are each refused with `409` and nothing replaced. `versionNumber` pins a
+link to one asset version and **the pin stays** when the asset gains another; restore and duplicate carry the
+pin, and a duplicate's step pictures follow the copy's own steps.*
+
+*A **test image is not a recipe link**. It attaches to one test run at
+`.../test-runs/{testRunId}/attachments` (`GET`, `POST`, `DELETE`), optionally against one issue of that run,
+writes no recipe version and needs no token. The `GET` was added because nothing else lists them.*
+
+*Cross-workspace: an unknown asset, a neighbour's and one removed from the library answer the same `422` in the
+same words, naming `mediaAssetId` and never the version. The asset is resolved through
+`IMediaAssetLookupFacade`, which avoids a dependency cycle with the main media facade. Unlink and detach remove
+one row; the asset, its versions and its usage history are not reachable from either command, and tests hold
+the counts still. Migration `RecipeAssetLinkRolesAndPins` adds the pin and step columns and keys.*
+
 ### 12.10j Recipe asset-link UI
 
 ```text
@@ -5304,6 +5403,23 @@ CONSTRAINT: RCPUB-005; creatorpantry-design-system and new-component skills.
 RESTRICTION: No upload/edit/delete asset action inside recipe editor.
 BEHAVIOR: Show interaction, wait for approval, implement component/contract/a11y tests.
 ```
+
+*What 12.10j decided (2026-10-08). The recipe editor's **Media** tab lists the saved recipe's pictures under
+their roles and offers two actions: **Add from library** and **Unlink**. Adding is one `CpDialog` in two
+steps — browse the library and choose, then say what the picture is for (role, the step for a step picture,
+follow the current version or keep one, caption). Unlink asks through `ConfirmService` and says the picture
+stays in the library. The words "delete" and "remove" are not used, and nothing here uploads, edits or
+removes an asset.*
+
+*Both actions are edits that write a version, so **neither is offered while the form has unsaved edits**. The
+editor owns the recipe and its token; the panel is handed both and hands back the recipe each command
+returns. Viewers and archived recipes get the list with no actions. A link whose asset has since left the
+library keeps its row and can still be unlinked.*
+
+*Approved during planning: test images are **not** in this panel (they belong to a test run); changing a link
+is unlink then link, with no edit in place; no reordering; `Gallery` and `In progress` are offered beside the
+three roles the prompt names. **A kept older version is previewed by reading that version's download route as
+bytes** — there is no render route for a numbered version, and none was added. No backend change.*
 
 ### 12.10k Brand logo link command and UI
 
@@ -5323,6 +5439,30 @@ found and handled, wait for approval, implement migration, guard replacement, an
 cross-workspace-asset isolation tests.
 ```
 
+*What 12.10k decided (2026-10-08). **No migration was added, because the keys already exist.** 12.9's
+`MediaAssetAggregate` migration gave `BrandAssetLinks`, `RecipeAssetLinks` and `TestAttachmentLinks` the
+composite key `(WorkspaceId, MediaAssetId) → MediaAssets (WorkspaceId, Id)`, `Restrict`, and before adding
+each it deleted any link whose asset was not in the same workspace. Brand links could not have been written
+through the API since 11.1b refused them. What this prompt adds is the proof on SQL Server — one test per
+table — that a link naming another workspace's asset is refused by the key itself.*
+
+*The blanket `brand.assets.unprocessable` refusal is gone from the facade and from Business. The facade
+resolves each submitted id through `IMediaAssetLookupFacade` in the resolved workspace and hands Business the
+set that can be linked; Business refuses anything else, naming `assets[i].MediaAssetId`. Unknown, another
+workspace's and removed-from-the-library are one `422` in the same words — the key cannot see `DeletedAt`, so
+this check is what covers a removed asset. **A logo the profile already links is kept when re-submitted even
+if its asset has since been removed**, so an unrelated edit is never blocked by it; once unlinked it cannot be
+linked again. No new route and no change of shape: `assets` on `POST` and `PATCH` simply works, `PATCH`
+replaces the list whole, and `[]` unlinks everything. Unlinking removes link rows and nothing else.*
+
+*In brand settings the disabled "Choose a logo" became a working **Logo** section: one primary logo and any
+alternates, chosen from the library. **Logos are part of the form** — held in the draft, written by the one
+Save, and no question is asked on unlink because nothing has happened until Save. Choosing a new primary
+replaces the old one rather than demoting it. No version pin: a logo follows its asset's current version. The
+library browser from 12.10j was extracted into `DamAssetPickerComponent`, which the recipe dialog and brand
+settings now share; its search is a `role="search"` region rather than a form, because a form nested in the
+settings form would hand its Enter to Save.*
+
 ### 12.10l Creative-production audit
 
 ```text
@@ -5333,6 +5473,38 @@ UTILIZATION: design-review, api-contract-checker, workspace-isolation-auditor, i
 ai-safety-reviewer, and test-gap-analyzer.
 BEHAVIOR: Return findings, wait for approval, fix blockers, rerun focused and end-to-end pipeline tests.
 ```
+
+*What 12.10l found and fixed (2026-10-08). Six reviewers ran; no finding leaked data across workspaces. The
+instruction after the report was "fix all".*
+
+*Image generation: `aiProposalId` on a request is now checked through the Ai module's lookup facade, and one
+that is unknown or another workspace's answers `422 media.generation.proposal.unprocessable` — it used to reach
+the foreign key and throw. **A key names one request**: the same `Idempotency-Key` with a different prompt,
+avoid list, count or proposal, or from a different member, answers `422 idempotency.key_reused` instead of
+returning the first request's operation. The web keys an attempt by what was asked, so a reworded prompt takes
+a new key. A declined or expired staged image is no longer served by `/preview` or `/content`, from the moment
+it is declined rather than from whenever the sweep collects its bytes.*
+
+*Elsewhere: brand settings field errors now reach their fields — the server sends `links[0].Url`, the form
+matched `links[0].url`, and the service normalises keys at the boundary. The outbox claim is guarded per row
+(`Status` and `LeasedBy` are concurrency tokens; no column change), so a second Worker instance cannot
+dispatch a message the first already claimed, and a handler that outlives its lease cannot record an outcome
+over whoever took it. The recipe Media tab uses the shared `DamLinkedAssetComponent` instead of a row of its
+own. Prompt template provenance is taken only from the proposal; the edge already refused it otherwise, and
+Business now does too.*
+
+*Tests added: `CreativePipelineEndToEndTests` — request, worker pass, keep into the DAM with its prompt, link
+to a recipe, unlink, and the other workspace reaching no step of it; before this no test ran two of those
+steps in a row over HTTP, and keeping a generated image was not exercised through its route at all. Also specs
+of their own for the asset picker, the linked-asset row and the brand logos, and unit tests for the link
+validators and the step-demotion rule.*
+
+***Not done, and why.** Image generation still has no allowance check: the AI allowance is metered in credits
+per text task, and charging pictures against it needs decisions this audit could not make — what a picture
+costs, whether a failed one is refunded, where a creator sees it. It needs a prompt of its own. Also left:
+evaluation fixtures for workspace isolation on `content.editorial-package`, `content.seo-package` and the
+`recipe.*` capabilities; `inputs: []` on eleven prompt manifests; and kept AI images having no alt text until a
+creator writes one.*
 
 ## Phase 13 — Social packages, content board, and publishing
 

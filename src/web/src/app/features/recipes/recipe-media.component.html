@@ -1,0 +1,127 @@
+<section class="media" aria-labelledby="cp-recipe-media-heading">
+  <header class="head">
+    <div>
+      <h2 id="cp-recipe-media-heading">Pictures</h2>
+      <p class="lede">
+        Pictures from your library that this recipe uses. Linking or unlinking one saves a new version of the
+        recipe; the picture itself is never changed from here.
+      </p>
+    </div>
+
+    @if (offersActions()) {
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        data-add-picture
+        [disabled]="actionsBlocked()"
+        [attr.aria-describedby]="standing() === 'unsaved_edits' ? 'cp-recipe-media-standing' : null"
+        (click)="openDialog()"
+      >
+        Add from library
+      </button>
+    }
+  </header>
+
+  @switch (standing()) {
+    @case ('archived') {
+      <cp-notice role="note" id="cp-recipe-media-standing">
+        This recipe is archived, so its pictures can’t be changed. Bring it back from the archive first.
+      </cp-notice>
+    }
+    @case ('view_only') {
+      <cp-notice role="note" id="cp-recipe-media-standing">
+        You have view-only access to this workspace, so you can see this recipe’s pictures but not change them.
+      </cp-notice>
+    }
+    @case ('unsaved_edits') {
+      <cp-notice tone="warning" role="note" id="cp-recipe-media-standing">
+        Save or discard your changes before changing pictures.
+      </cp-notice>
+    }
+  }
+
+  @if (problem(); as issue) {
+    <cp-notice tone="error" role="alert">
+      <span tabindex="-1" data-problem>{{ issue.text }}</span>
+      @if (issue.offersReload) {
+        <button cpButton type="button" variant="secondary" size="sm" (click)="requestReload()">Reload the recipe</button>
+      }
+    </cp-notice>
+  }
+
+  @if (groups().length === 0) {
+    <cp-empty-state
+      title="No pictures linked yet"
+      description="Choose pictures from your library to use as this recipe’s lead picture, on its steps, or for social posts."
+      icon="▧"
+    />
+  } @else {
+    @for (group of groups(); track group.role) {
+      <section class="group" [attr.aria-labelledby]="'cp-recipe-media-group-' + group.role">
+        <h3 [id]="'cp-recipe-media-group-' + group.role">{{ group.heading }}</h3>
+
+        <ul class="rows">
+          @for (link of group.links; track link.id) {
+            @let asset = assetFor(link);
+            <li class="row" [attr.data-link-id]="link.id">
+              <cp-dam-linked-asset
+                [workspaceSlug]="workspaceSlug()"
+                [assetId]="link.mediaAssetId"
+                [versionNumber]="link.mediaAssetVersionNumber"
+                (resolved)="onResolved(link, $event)"
+              >
+                @if (stepText(link); as step) {
+                  <p class="fact">{{ step }}</p>
+                }
+
+                @if (link.caption; as caption) {
+                  <p class="caption">{{ caption }}</p>
+                }
+
+                <!-- Nothing is said about versions for a picture that could not be read: which one is current
+                     is exactly what is not known. -->
+                @if (asset) {
+                  <p class="fact">{{ pinText(link, asset) }}</p>
+                } @else if (asset === null) {
+                  <p class="fact">The link is still part of the recipe until you unlink it.</p>
+                }
+              </cp-dam-linked-asset>
+
+              @if (offersActions()) {
+                <div class="actions">
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="actionsBlocked()"
+                    [attr.aria-label]="unlinkLabel(link)"
+                    [attr.aria-describedby]="standing() === 'unsaved_edits' ? 'cp-recipe-media-standing' : null"
+                    (click)="unlink(link)"
+                  >
+                    {{ unlinking() === link.id ? 'Unlinking…' : 'Unlink' }}
+                  </button>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  }
+</section>
+
+@if (offersActions()) {
+  <cp-recipe-media-link-dialog
+    [open]="dialogOpen()"
+    [workspaceSlug]="workspaceSlug()"
+    [recipeId]="recipeId()"
+    [concurrencyToken]="concurrencyToken()"
+    [steps]="steps()"
+    [heroTaken]="heroTaken()"
+    (linked)="onLinked($event)"
+    (closed)="onDialogClosed()"
+    (reloadRequested)="onDialogReloadRequested()"
+  />
+}

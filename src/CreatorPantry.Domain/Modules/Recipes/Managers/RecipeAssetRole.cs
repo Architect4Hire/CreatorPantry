@@ -10,9 +10,12 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// asset itself so there is one place to correct them.
 /// </para>
 /// <para>
-/// There is no step-scoped role yet. Linking an image to a single instruction step needs a second foreign
-/// key into the instruction tree, which would give the same rows two cascade paths from the recipe; it is
-/// designed in Phase 12 alongside the asset model it points at.
+/// <see cref="Step"/> is the one role that names something besides the recipe: the instruction step the image
+/// belongs to (12.10i). That is a second foreign key into the instruction tree, so it is <c>Restrict</c> rather
+/// than cascading — the recipe already cascades into these rows, and a second cascade path is what SQL Server
+/// refuses. Removing a step therefore never removes its image: the edit demotes the link to
+/// <see cref="Process"/>, a recipe-level in-progress image, so a picture a creator chose is not lost because
+/// they reworded their method.
 /// </para>
 /// <para>
 /// Numbering starts at 1, leaving zero — the value an unset <c>RecipeAssetRole</c> field holds — meaning
@@ -36,4 +39,16 @@ public enum RecipeAssetRole
 
     /// <summary>An in-progress image belonging to the recipe as a whole rather than to one numbered step.</summary>
     Process = 3,
+
+    /// <summary>
+    /// An image made for a social channel: cropped, titled or composed for a feed rather than for the recipe page.
+    /// </summary>
+    Social = 4,
+
+    /// <summary>
+    /// An image belonging to one numbered instruction step. The link names the step in
+    /// <c>RecipeAssetLink.InstructionStepId</c>, and <c>CK_RecipeAssetLinks_Step_Paired</c> refuses either
+    /// without the other.
+    /// </summary>
+    Step = 5,
 }

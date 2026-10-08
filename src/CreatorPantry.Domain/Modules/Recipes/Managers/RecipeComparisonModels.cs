@@ -317,4 +317,6 @@ public enum RecipeComparisonField
     AssetMediaAssetId,
     AssetRole,
     AssetCaption,
+    AssetVersionNumber,
+    AssetInstructionStepId,
 }

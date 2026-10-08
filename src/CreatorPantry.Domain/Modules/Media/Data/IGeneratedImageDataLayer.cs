@@ -150,7 +150,15 @@ internal sealed class GeneratedImageDataLayer(
 
         // ObjectDeletedAt is checked as well as the row: a purged image still has a row, and opening it
         // would be a storage round trip that can only ever come back empty.
-        if (image is null || image.ObjectDeletedAt is not null)
+        //
+        // So is the status (12.10l). A picture the creator declined, and one nobody chose in time, are no
+        // longer theirs to look at: the bytes linger only until the sweep collects them, and serving them in
+        // the meantime would make "declined" mean "declined, eventually". Answered as not found, exactly as
+        // it will be once the sweep has run, so the answer does not change under the caller. A kept image is
+        // still served: its asset holds the bytes for good and this copy is the same picture.
+        if (image is null
+            || image.ObjectDeletedAt is not null
+            || image.Status is GeneratedImageStatus.Rejected or GeneratedImageStatus.Expired)
         {
             return new StagedImageOpen(StagedImageOpenOutcome.NotFound);
         }

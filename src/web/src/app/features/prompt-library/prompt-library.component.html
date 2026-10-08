@@ -1,0 +1,113 @@
+<header class="page-head">
+  <h1>Prompt Library</h1>
+  <p class="lede">Every picture prompt saved in this workspace. Open one to read it in full, copy it, download it, or start something new from it.</p>
+</header>
+
+<cp-toolbar ariaLabel="Prompt filters" [loading]="phase() === 'loading'">
+  <label class="search-field" cpToolbarSearch>
+    <span class="cp-sr-only">Search prompts</span>
+    <input
+      type="search"
+      name="search"
+      placeholder="Search prompts"
+      autocomplete="off"
+      [value]="searchText()"
+      (input)="onSearchInput($event)"
+    />
+  </label>
+
+  <label class="channel-field" cpToolbarFilters>
+    <span class="cp-sr-only">Filter by channel</span>
+    <select name="channel" [disabled]="channelPhase() !== 'ready'" (change)="setChannel($event)">
+      <option value="" [selected]="channel() === null">All channels</option>
+      @for (option of channelOptions(); track option.key) {
+        <option [value]="option.key" [selected]="option.key === channel()">{{ option.label }}</option>
+      }
+    </select>
+  </label>
+
+  @if (hasActiveFilters()) {
+    <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
+  }
+</cp-toolbar>
+
+@if (channelPhase() === 'unavailable') {
+  <cp-notice class="degraded" tone="warning" role="status">
+    Channel names couldn't be loaded, so the channel filter is off for now. Your prompts are still listed.
+    <button cpButton type="button" variant="secondary" size="sm" (click)="retryChannels()">Try again</button>
+  </cp-notice>
+}
+
+<cp-list-shell heading="Saved prompts" [state]="listShellState()" [errorMessage]="errorMessage" emptyMessage="No prompts saved yet.">
+  <div cpListShellActions>
+    @if (phase() === 'error') {
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+    }
+  </div>
+
+  <div cpListShellEmpty>
+    @if (hasActiveFilters()) {
+      <cp-empty-state
+        title="No prompts match these filters"
+        description="Try a different search, or clear the filters to see every saved prompt."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="No prompts saved yet"
+        description="Nothing has been saved to this workspace's library so far. Prompts saved here will be listed newest first."
+        variant="first-use"
+        icon="❝"
+      />
+    }
+  </div>
+
+  @for (prompt of items(); track prompt.promptRecordId) {
+    <cp-card class="prompt-row">
+      <article class="prompt" [attr.data-prompt-id]="prompt.promptRecordId">
+        <div class="prompt-main">
+          <h3 class="title"><a [routerLink]="[prompt.promptRecordId]">{{ title(prompt) }}</a></h3>
+          <p class="preview">{{ prompt.textPreview }}@if (truncated(prompt)) {<span aria-hidden="true">…</span><span class="cp-sr-only"> (continues)</span>}</p>
+          <p class="meta">
+            <cp-badge tone="blue">{{ channelName(prompt) }}</cp-badge>
+            <cp-badge>{{ kindLabel(prompt) }}</cp-badge>
+            <cp-badge [tone]="prompt.source === 'Manual' ? 'neutral' : 'purple'">{{ sourceLabel(prompt) }}</cp-badge>
+            <span class="saved">Saved {{ prompt.createdAt | date: 'mediumDate' }}</span>
+          </p>
+        </div>
+        <button
+          cpButton
+          class="preview-button"
+          variant="secondary"
+          size="sm"
+          type="button"
+          [attr.aria-label]="'Preview ' + title(prompt)"
+          (click)="openPreview(prompt, $event)"
+        >
+          Preview
+        </button>
+      </article>
+    </cp-card>
+  }
+
+  <div cpListShellPagination class="pager">
+    <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>
+
+    @if (moreFailed()) {
+      <cp-notice tone="error" role="alert">Couldn't load more prompts. The ones above are still here.</cp-notice>
+    }
+
+    @if (hasMore()) {
+      <button cpButton variant="secondary" type="button" [disabled]="loadingMore()" (click)="loadMore()">
+        {{ loadingMore() ? 'Loading more…' : moreFailed() ? 'Try loading more again' : 'Load more' }}
+      </button>
+    }
+  </div>
+</cp-list-shell>
+
+<cp-prompt-preview [workspaceSlug]="workspaceSlug()" [summary]="previewing()" (closed)="closePreview()" />

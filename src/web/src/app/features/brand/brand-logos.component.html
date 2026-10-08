@@ -1,0 +1,112 @@
+<div class="logos">
+  <div class="group" role="group" aria-labelledby="brand-primary-logo-label">
+    <p class="group-label" id="brand-primary-logo-label">Primary logo</p>
+
+    @if (primary(); as logo) {
+      <div class="row" [attr.data-logo-id]="logo.mediaAssetId">
+        <cp-dam-linked-asset [workspaceSlug]="workspaceSlug()" [assetId]="logo.mediaAssetId">
+          @if (isRefused(logo)) {
+            <cp-notice tone="error" role="alert">{{ refusedMessage() }} Unlink it or choose another.</cp-notice>
+          }
+        </cp-dam-linked-asset>
+
+        @if (canEdit()) {
+          <div class="actions">
+            <button cpButton type="button" variant="secondary" size="sm" [id]="ids.choosePrimary" (click)="open('primary')">
+              Change
+            </button>
+            <button cpButton type="button" variant="secondary" size="sm" aria-label="Unlink the primary logo" (click)="unlink(logo)">
+              Unlink
+            </button>
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="none">No primary logo chosen.</p>
+      @if (canEdit()) {
+        <div>
+          <button cpButton type="button" variant="secondary" [id]="ids.choosePrimary" (click)="open('primary')">
+            Choose from library
+          </button>
+        </div>
+      }
+    }
+  </div>
+
+  <div class="group" role="group" aria-labelledby="brand-other-logos-label" aria-describedby="brand-other-logos-hint">
+    <p class="group-label" id="brand-other-logos-label">Other logos</p>
+    <p class="hint" id="brand-other-logos-hint">Variants of the logo, such as a mark on its own or a one-colour version.</p>
+
+    @if (alternates().length > 0) {
+      <ul class="rows">
+        @for (logo of alternates(); track logo.mediaAssetId; let position = $index) {
+          <li class="row" [attr.data-logo-id]="logo.mediaAssetId">
+            <cp-dam-linked-asset [workspaceSlug]="workspaceSlug()" [assetId]="logo.mediaAssetId">
+              @if (isRefused(logo)) {
+                <cp-notice tone="error" role="alert">{{ refusedMessage() }} Unlink it or choose another.</cp-notice>
+              }
+            </cp-dam-linked-asset>
+
+            @if (canEdit()) {
+              <div class="actions">
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  [attr.aria-label]="'Unlink other logo ' + (position + 1)"
+                  (click)="unlink(logo)"
+                >
+                  Unlink
+                </button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (canEdit()) {
+      <div>
+        <button
+          cpButton
+          type="button"
+          variant="secondary"
+          [id]="ids.addAlternate"
+          [disabled]="atLimit()"
+          [attr.aria-describedby]="atLimit() ? 'brand-logo-limit' : null"
+          (click)="open('alternate')"
+        >
+          Add from library
+        </button>
+      </div>
+      @if (atLimit()) {
+        <p class="hint" id="brand-logo-limit">A brand can keep up to {{ maxLogos }} logos. Unlink one to add another.</p>
+      }
+    }
+  </div>
+
+  <!-- Exists before it has anything to say, so a choice that changed nothing is announced. -->
+  <cp-notice role="status" [quiet]="note() === ''">{{ note() }}</cp-notice>
+
+  @if (canEdit()) {
+    <p class="hint">
+      Logos are saved with the rest of these settings. Unlinking one doesn’t change the picture in your library.
+    </p>
+  }
+</div>
+
+@if (canEdit()) {
+  <cp-dialog
+    [open]="picking() !== null"
+    [title]="pickerTitle()"
+    description="Choose a picture already in this workspace’s library."
+    titleId="brand-logo-picker-title"
+    (closed)="close()"
+    (keydown.escape)="close()"
+  >
+    <cp-dam-asset-picker [workspaceSlug]="workspaceSlug()" [active]="picking() !== null" (chosen)="choose($event)" />
+
+    <button cpDialogActions cpButton type="button" variant="ghost" (click)="close()">Cancel</button>
+  </cp-dialog>
+}

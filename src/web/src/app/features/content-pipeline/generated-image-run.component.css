@@ -34,3 +34,11 @@
   margin: 0;
   font-size: var(--cp-font-size-sm);
 }
+
+.provenance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}

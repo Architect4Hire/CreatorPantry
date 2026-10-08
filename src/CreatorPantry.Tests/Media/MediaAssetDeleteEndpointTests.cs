@@ -643,6 +643,58 @@ public sealed class MediaAssetDeleteEndpointTests : IAsyncLifetime
         Assert.Equal(1, await BrandLinkCountAsync(inB));
     }
 
+    /// <summary>
+    /// What the detail read says would be left pointing at a tombstone is what the removal then reports (12.10h).
+    /// A client warns from the first and confirms from the second, so the two must count the same way — distinct
+    /// brand profiles, and every test attachment — or a creator is told one number before and another after.
+    /// </summary>
+    [Fact]
+    public async Task The_detail_read_warns_of_the_same_links_the_removal_then_reports()
+    {
+        var soda = await SeedRecipeAsync(_fixture.WorkspaceA, "Soda bread");
+        var (id, token) = await SeededAsync();
+        await LinkRecipeAsync(_fixture.WorkspaceA, id, soda, RecipeAssetRole.Hero);
+        await LinkBrandAsync(_fixture.WorkspaceA, id);
+        await AttachAsync(_fixture.WorkspaceA, id, count: 2);
+
+        using var client = await SignInAsync(_fixture.WorkspaceA);
+        var before = await ReadAsync(await client.GetAsync(AssetIn(_fixture.WorkspaceA, id), Ct));
+        var affected = (await DeleteAsync(client, id, token)).GetProperty("affected");
+
+        Assert.Equal(1, before.GetProperty("brandProfileCount").GetInt32());
+        Assert.Equal(2, before.GetProperty("testAttachmentCount").GetInt32());
+        Assert.Equal(
+            affected.GetProperty("brandProfileCount").GetInt32(), before.GetProperty("brandProfileCount").GetInt32());
+        Assert.Equal(
+            affected.GetProperty("testAttachmentCount").GetInt32(),
+            before.GetProperty("testAttachmentCount").GetInt32());
+        Assert.Equal(affected.GetProperty("recipeCount").GetInt32(), before.GetProperty("recipeLinkCount").GetInt32());
+    }
+
+    /// <summary>
+    /// The counts on a detail read are this workspace's own. Workspace B's links to its own asset do not raise
+    /// what Workspace A is told about an unlinked one, and each sees its own figures.
+    /// </summary>
+    [Fact]
+    public async Task The_detail_reads_link_counts_never_include_the_other_workspaces_links()
+    {
+        var (inB, _) = await SeededAsync(workspace: _fixture.WorkspaceB);
+        await LinkBrandAsync(_fixture.WorkspaceB, inB);
+        await AttachAsync(_fixture.WorkspaceB, inB, count: 2);
+
+        var (inA, _) = await SeededAsync();
+
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA);
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB);
+        var fromA = await ReadAsync(await ownerA.GetAsync(AssetIn(_fixture.WorkspaceA, inA), Ct));
+        var fromB = await ReadAsync(await ownerB.GetAsync(AssetIn(_fixture.WorkspaceB, inB), Ct));
+
+        Assert.Equal(0, fromA.GetProperty("brandProfileCount").GetInt32());
+        Assert.Equal(0, fromA.GetProperty("testAttachmentCount").GetInt32());
+        Assert.Equal(1, fromB.GetProperty("brandProfileCount").GetInt32());
+        Assert.Equal(2, fromB.GetProperty("testAttachmentCount").GetInt32());
+    }
+
     // ---- Helpers ----
 
     private Task<GatewayClient> SignInAsync(SeededWorkspace workspace, bool asOwner = true) =>

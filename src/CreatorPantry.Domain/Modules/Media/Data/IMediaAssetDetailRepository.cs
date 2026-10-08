@@ -89,6 +89,16 @@ internal sealed class MediaAssetDetailRepository(CreatorPantryDbContext context)
                 context.MediaAssetVersions.Count(version => version.MediaAssetId == candidate.Id),
                 context.MediaAssetUtilizations.Count(use => use.MediaAssetId == candidate.Id),
                 context.RecipeAssetLinks.Count(link => link.MediaAssetId == candidate.Id),
+
+                // The two link kinds a removal leaves standing besides recipes (12.10h), counted exactly as
+                // FindReferencesAsync counts them for the removal's own report — distinct profiles, and every
+                // attachment — so what a creator is warned of beforehand is what they are told afterwards.
+                context.BrandAssetLinks
+                    .Where(link => link.MediaAssetId == candidate.Id)
+                    .Select(link => link.BrandProfileId)
+                    .Distinct()
+                    .Count(),
+                context.TestAttachmentLinks.Count(link => link.MediaAssetId == candidate.Id),
                 candidate.DeletedAt,
                 candidate.DeletedByMembershipId,
                 candidate.CreatedAt,

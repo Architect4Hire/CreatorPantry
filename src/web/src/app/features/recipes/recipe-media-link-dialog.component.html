@@ -1,0 +1,135 @@
+<cp-dialog
+  [open]="open()"
+  [title]="dialogTitle()"
+  [description]="dialogDescription()"
+  titleId="cp-recipe-media-dialog-title"
+  (closed)="cancel()"
+  (keydown.escape)="cancel()"
+>
+  <!-- Kept in the page while the second step shows, and only hidden: going back returns to the same search
+       and the same place in the grid. It starts a fresh search each time the dialog opens. -->
+  <div [hidden]="stage() !== 'browse'">
+    <cp-dam-asset-picker [workspaceSlug]="workspaceSlug()" [active]="open()" (chosen)="choose($event)" />
+  </div>
+
+  @if (stage() === 'describe') {
+    @if (chosen(); as asset) {
+      <form class="describe" novalidate (submit)="onSubmit($event)">
+        @if (problem(); as issue) {
+          <cp-notice tone="error" role="alert">
+            <span tabindex="-1" data-problem>{{ issue.text }}</span>
+            @if (issue.offersReload) {
+              <button cpButton type="button" variant="secondary" size="sm" (click)="requestReload()">Reload the recipe</button>
+            }
+          </cp-notice>
+        }
+
+        <div class="chosen">
+          <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="previewAsset() ?? asset" [versionNumber]="previewVersion()" />
+          <!-- Where focus lands on arriving at this step: the visible name of what was chosen, so the ring is
+               on something a sighted keyboard user can see. -->
+          <h3 class="chosen-title" tabindex="-1" data-stage-heading>{{ asset.title }}</h3>
+        </div>
+
+        <div class="group">
+          <!-- Shown for sighted readers only: the radio group below carries the same words as its name. -->
+          <p class="group-label" aria-hidden="true">What is it for?</p>
+          <div data-role-group>
+            <cp-choice-group
+              label="What is it for?"
+              idPrefix="cp-recipe-media-role-"
+              [options]="roleOptions()"
+              [value]="role()"
+              [describedBy]="errorFor('role') ? 'cp-recipe-media-role-error' : ''"
+              (valueChange)="setRole($event)"
+            />
+          </div>
+          @if (errorFor('role'); as message) {
+            <p class="error" id="cp-recipe-media-role-error">{{ message }}</p>
+          }
+        </div>
+
+        @if (selectedRole() === 'Step') {
+          <cp-field label="Which step?" [forId]="ids.step" [required]="true" [error]="errorFor('instructionStepId')">
+            <select [id]="ids.step" [value]="stepId()" (change)="setStep($event)">
+              <option value="">Choose a step</option>
+              @for (step of stepOptions(); track step.id) {
+                <option [value]="step.id" [selected]="step.id === stepId()">{{ step.label }}</option>
+              }
+            </select>
+          </cp-field>
+        }
+
+        <div class="group">
+          <!-- Shown for sighted readers only: the radio group below carries the same words as its name. -->
+          <p class="group-label" aria-hidden="true">Which version?</p>
+          <cp-choice-group
+            label="Which version?"
+            idPrefix="cp-recipe-media-pin-"
+            [options]="pinOptions()"
+            [value]="pinMode()"
+            (valueChange)="setPinMode($event)"
+          />
+        </div>
+
+        @if (keepsVersion()) {
+          @switch (versions().status) {
+            @case ('loading') {
+              <p class="placeholder" role="status">Loading this picture’s versions…</p>
+            }
+            @case ('unavailable') {
+              <cp-notice tone="error" role="alert">
+                This picture’s versions could not be loaded.
+                <button cpButton type="button" variant="secondary" size="sm" (click)="retryVersions()">Try again</button>
+              </cp-notice>
+            }
+            @case ('gone') {
+              <cp-notice tone="warning" role="alert">This picture is no longer in the library. Go back and choose another.</cp-notice>
+            }
+            @default {
+              <cp-field label="Version to keep" [forId]="ids.version" [required]="true" [error]="errorFor('versionNumber')">
+                <select [id]="ids.version" (change)="setPinVersion($event)">
+                  @for (number of versionNumbers(); track number) {
+                    <option [value]="number" [selected]="number === pinVersion()">
+                      Version {{ number }}{{ $first ? ' (current)' : '' }}
+                    </option>
+                  }
+                </select>
+              </cp-field>
+            }
+          }
+        }
+
+        <cp-field
+          label="Caption"
+          [forId]="ids.caption"
+          hint="Optional. Your own words about this picture in this recipe."
+          [error]="errorFor('caption')"
+        >
+          <textarea
+            rows="2"
+            [id]="ids.caption"
+            [attr.maxlength]="captionMaxLength"
+            [value]="caption()"
+            (input)="setCaption($event)"
+          ></textarea>
+        </cp-field>
+
+        <!-- Enter in a field submits; the visible button lives in the dialog's footer, outside this form. -->
+        <button type="submit" hidden tabindex="-1"></button>
+      </form>
+    }
+  }
+
+  <!-- One projected node, so the footer slot receives it whichever step is showing. -->
+  <div cpDialogActions class="footer">
+    @if (stage() === 'browse') {
+      <button cpButton type="button" variant="ghost" (click)="cancel()">Cancel</button>
+    } @else {
+      <button cpButton type="button" variant="ghost" [disabled]="saving()" (click)="back()">Back</button>
+      <button cpButton type="button" variant="primary" [disabled]="saving()" (click)="submit()">
+        {{ saving() ? 'Linking…' : 'Link picture' }}
+      </button>
+    }
+  </div>
+</cp-dialog>

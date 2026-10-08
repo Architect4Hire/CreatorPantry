@@ -1,0 +1,155 @@
+<header class="page-head">
+  <h1>DAM</h1>
+  <p class="lede">Every finished picture kept in this workspace. Search and filter to find one.</p>
+</header>
+
+<cp-toolbar ariaLabel="Library filters" [loading]="phase() === 'loading'">
+  <label class="search-field" cpToolbarSearch>
+    <span class="cp-sr-only">Search the library</span>
+    <input
+      type="search"
+      name="search"
+      placeholder="Search by title or description"
+      autocomplete="off"
+      [value]="searchText()"
+      (input)="onSearchInput($event)"
+    />
+  </label>
+
+  <label class="select-field" cpToolbarFilters>
+    <span class="cp-sr-only">Filter by channel</span>
+    <select name="channel" [disabled]="channelPhase() !== 'ready'" (change)="setChannel($event)">
+      <option value="" [selected]="channel() === null">All channels</option>
+      @for (option of channelOptions(); track option.key) {
+        <option [value]="option.key" [selected]="option.key === channel()">{{ option.label }}</option>
+      }
+    </select>
+  </label>
+
+  <label class="select-field" cpToolbarFilters>
+    <span class="cp-sr-only">Filter by day</span>
+    <select name="day" (change)="setDay($event)">
+      <option value="" [selected]="day() === null">Any day</option>
+      @for (option of dayOptions; track option) {
+        <option [value]="option" [selected]="option === day()">{{ option }}</option>
+      }
+    </select>
+  </label>
+
+  <label class="select-field" cpToolbarActions>
+    <span class="cp-sr-only">Sort the library</span>
+    <select name="sort" (change)="setSort($event)">
+      <option value="RecentlyAdded" [selected]="sort() === 'RecentlyAdded'">Newest first</option>
+      <option value="Title" [selected]="sort() === 'Title'">Title</option>
+    </select>
+  </label>
+
+  @if (hasActiveFilters()) {
+    <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
+  }
+</cp-toolbar>
+
+@if (channelPhase() === 'unavailable') {
+  <cp-notice class="degraded" tone="warning" role="status">
+    Channel names couldn't be loaded, so the channel filter is off for now. Your pictures are still listed.
+    <button cpButton type="button" variant="secondary" size="sm" (click)="retryChannels()">Try again</button>
+  </cp-notice>
+}
+
+<cp-list-shell heading="Library" [state]="listShellState()" [errorMessage]="errorMessage()" emptyMessage="No pictures in the library yet.">
+  <div cpListShellActions>
+    @if (phase() === 'error') {
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+      @if (hasActiveFilters()) {
+        <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+      }
+    }
+  </div>
+
+  <div cpListShellEmpty>
+    @if (hasActiveFilters()) {
+      <cp-empty-state
+        title="No pictures match these filters"
+        description="Try a different search, or clear the filters to see the whole library."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="No pictures in the library yet"
+        description="Nothing has been kept in this workspace's library so far. Pictures kept here will be listed newest first."
+        variant="first-use"
+        icon="▣"
+      />
+    }
+  </div>
+
+  <ul class="grid">
+    @for (asset of items(); track asset.id) {
+      <li [attr.data-asset-id]="asset.id">
+        <cp-card class="asset">
+          <article class="asset-body">
+            <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="asset" />
+
+            <h3 class="title"><a [routerLink]="[asset.id]">{{ asset.title }}</a></h3>
+
+            @if (asset.description; as description) {
+              <p class="description">{{ description }}</p>
+            }
+
+            <p class="badges">
+              <cp-badge [tone]="asset.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel(asset) }}</cp-badge>
+              @if (channelName(asset); as name) {
+                <cp-badge tone="blue">{{ name }}</cp-badge>
+              }
+              @if (asset.day; as weekday) {
+                <cp-badge>{{ weekday }}</cp-badge>
+              }
+            </p>
+
+            <dl class="facts">
+              @if (facts(asset); as file) {
+                <div>
+                  <dt>File</dt>
+                  <dd>{{ file }}</dd>
+                </div>
+              }
+              <div>
+                <dt>Versions</dt>
+                <dd>{{ versions(asset) }}</dd>
+              </div>
+              @if (usage(asset); as used) {
+                <div>
+                  <dt>Usage</dt>
+                  <dd>{{ used }}</dd>
+                </div>
+              }
+              <div>
+                <dt>Added</dt>
+                <dd>{{ asset.createdAt | date: 'mediumDate' }}</dd>
+              </div>
+            </dl>
+          </article>
+        </cp-card>
+      </li>
+    }
+  </ul>
+
+  <div cpListShellPagination class="pager">
+    <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>
+
+    @if (moreFailed()) {
+      <cp-notice tone="error" role="alert">Couldn't load more pictures. The ones above are still here.</cp-notice>
+    }
+
+    @if (hasMore()) {
+      <button cpButton variant="secondary" type="button" [disabled]="loadingMore()" (click)="loadMore()">
+        {{ loadingMore() ? 'Loading more…' : moreFailed() ? 'Try loading more again' : 'Load more' }}
+      </button>
+    }
+  </div>
+</cp-list-shell>

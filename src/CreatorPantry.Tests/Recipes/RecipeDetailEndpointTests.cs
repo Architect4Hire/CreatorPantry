@@ -108,7 +108,8 @@ public sealed class RecipeDetailEndpointTests : IAsyncLifetime
         var link = body.GetProperty("assetLinks")[0];
 
         Assert.Equal(
-            (string[])["id", "sortOrder", "mediaAssetId", "role", "caption"],
+            // A version number and a step id are references too: neither is, or can be turned into, an address.
+            (string[])["id", "sortOrder", "mediaAssetId", "mediaAssetVersionNumber", "instructionStepId", "role", "caption"],
             link.EnumerateObject().Select(property => property.Name));
     }
 

@@ -3,7 +3,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
+import { Observable, of } from 'rxjs';
+
 import { ConfirmService } from '../../core/confirm.service';
+import { VisibilityService } from '../../core/visibility.service';
+import { DamAssetDetailOutcome, DamAssetSearchOutcome, DamAssetService } from '../../services/dam-asset.service';
+import { assetDetail, assetSummary } from '../recipes/recipe-media.testing';
 import { WorkspaceRole } from '../../models/auth.models';
 import { BrandProfile, ContentChannel, decodeBrandProfile } from '../../models/brand-profile.models';
 import { BrandProfileOutcome, BrandProfileService, ContentChannelsOutcome, SaveBrandProfileOutcome } from '../../services/brand-profile.service';
@@ -56,6 +61,7 @@ interface Harness {
   readonly update: jasmine.Spy<(slug: string, body: Record<string, unknown>, key?: string) => Promise<SaveBrandProfileOutcome>>;
   readonly channels: jasmine.Spy<() => Promise<ContentChannelsOutcome>>;
   readonly confirm: jasmine.Spy;
+  readonly assetDetail: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
 }
 
 let harness: RouterTestingHarness;
@@ -80,6 +86,9 @@ async function create(options: {
     update: jasmine.createSpy('update').and.resolveTo({ status: 'saved', profile: profile({ revision: 2, concurrencyToken: 'tok-2' }), replayed: false }),
     channels: jasmine.createSpy('channels').and.resolveTo(options.channels ?? { status: 'found', channels: CHANNELS }),
     confirm: jasmine.createSpy('confirm').and.resolveTo(true),
+    assetDetail: jasmine
+      .createSpy('assetDetail')
+      .and.callFake((_slug, id) => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id, title: `Logo ${id}` }) })),
   };
 
   TestBed.resetTestingModule();
@@ -100,6 +109,24 @@ async function create(options: {
       },
       { provide: WorkspaceMembershipService, useValue: membershipStub(options.role === undefined ? 'Editor' : options.role) },
       { provide: ConfirmService, useValue: { confirm: spies.confirm } },
+      {
+        provide: DamAssetService,
+        useValue: {
+          detail: spies.assetDetail,
+          content: () => of({ status: 'gone' }),
+          versionContent: () => of({ status: 'gone' }),
+          search: () =>
+            of<DamAssetSearchOutcome>({
+              status: 'found',
+              page: {
+                items: [assetSummary({ id: 'a1', title: 'Wordmark' }), assetSummary({ id: 'a2', title: 'Mark only' })],
+                nextCursor: null,
+                totalCount: 2,
+              },
+            }),
+        },
+      },
+      { provide: VisibilityService, useValue: { whenNearViewport: () => of(undefined) } },
     ],
   }).compileComponents();
 
@@ -459,13 +486,174 @@ describe('BrandSettingsComponent', () => {
     expect(text()).not.toMatch(/\b(AI|train|trained|training|generate|generated)\b/i);
   });
 
-  it('presents logo choice as a disabled, explained state', async () => {
-    await create();
+  // ---- Logos (12.10k) ----
 
-    const choose = button('Choose a logo');
-    expect(choose.disabled).toBeTrue();
-    const note = root().querySelector(`#${choose.getAttribute('aria-describedby')}`);
-    expect(note?.textContent).toContain("isn't available yet");
+  describe('logos', () => {
+    const LOGOS = [
+      { mediaAssetId: 'a1', role: 'PrimaryLogo' },
+      { mediaAssetId: 'a2', role: 'AlternateLogo' },
+    ];
+
+    function logoSection(): HTMLElement {
+      return root().querySelector<HTMLElement>('#section-logo')!;
+    }
+
+    async function chooseFromLibrary(opener: string, title: string): Promise<void> {
+      button(opener).click();
+      await settle();
+      root().querySelector<HTMLButtonElement>(`button[aria-label="Choose ${title}"]`)!.click();
+      await settle();
+    }
+
+    it('says when there is no logo and offers to choose one from the library', async () => {
+      await create();
+
+      expect(logoSection().textContent).toContain('No primary logo chosen.');
+      expect(button('Choose from library').disabled).toBeFalse();
+      expect(logoSection().textContent).not.toContain("isn't available yet");
+    });
+
+    it('shows the linked logos by name, each linking to its picture in the library', async () => {
+      await create({ read: { status: 'found', profile: profile({ assets: LOGOS }) } });
+
+      const links = Array.from(logoSection().querySelectorAll('a')).map((each) => [each.textContent?.trim(), each.getAttribute('href')]);
+
+      expect(links).toEqual([
+        ['Logo a1', '/sams-kitchen/dam/a1'],
+        ['Logo a2', '/sams-kitchen/dam/a2'],
+      ]);
+    });
+
+    it('holds a chosen logo in the form until Save, then sends the whole list', async () => {
+      await create();
+
+      await chooseFromLibrary('Choose from library', 'Wordmark');
+
+      // Nothing has been sent: the logo is an edit like any other.
+      expect(spies.update).not.toHaveBeenCalled();
+      expect(root().querySelector('[role="dialog"]')).toBeNull();
+      expect(logoSection().textContent).toContain('Logo a1');
+
+      await chooseFromLibrary('Add from library', 'Mark only');
+      await save();
+
+      expect(spies.update.calls.mostRecent().args[1]).toEqual({
+        expectedConcurrencyToken: 'tok-1',
+        assets: [
+          { mediaAssetId: 'a1', role: 'PrimaryLogo' },
+          { mediaAssetId: 'a2', role: 'AlternateLogo' },
+        ],
+      });
+    });
+
+    it('counts a chosen logo as an unsaved change, and asks before leaving with one', async () => {
+      await create();
+      await chooseFromLibrary('Choose from library', 'Wordmark');
+
+      spies.confirm.and.resolveTo(false);
+      await harness.navigateByUrl('/sams-kitchen/elsewhere').catch(() => undefined);
+      await settle();
+
+      expect(spies.confirm).toHaveBeenCalled();
+    });
+
+    it('replaces the primary logo rather than keeping the old one as an alternate', async () => {
+      await create({ read: { status: 'found', profile: profile({ assets: [{ mediaAssetId: 'a9', role: 'PrimaryLogo' }] }) } });
+
+      await chooseFromLibrary('Change', 'Wordmark');
+      await save();
+
+      expect(spies.update.calls.mostRecent().args[1]['assets']).toEqual([{ mediaAssetId: 'a1', role: 'PrimaryLogo' }]);
+    });
+
+    it('unlinks a logo by sending the list without it, and an empty list for the last one', async () => {
+      await create({ read: { status: 'found', profile: profile({ assets: LOGOS }) } });
+
+      root().querySelector<HTMLButtonElement>('button[aria-label="Unlink other logo 1"]')!.click();
+      await settle();
+      root().querySelector<HTMLButtonElement>('button[aria-label="Unlink the primary logo"]')!.click();
+      await settle();
+
+      expect(spies.update).not.toHaveBeenCalled();
+      await save();
+
+      expect(spies.update.calls.mostRecent().args[1]['assets']).toEqual([]);
+    });
+
+    it('never says a picture is deleted or removed, and offers nothing that would change the library', async () => {
+      await create({ read: { status: 'found', profile: profile({ assets: LOGOS }) } });
+
+      const words = logoSection().textContent?.toLowerCase() ?? '';
+      const labels = Array.from(logoSection().querySelectorAll('button')).map((each) =>
+        `${each.textContent ?? ''} ${each.getAttribute('aria-label') ?? ''}`.toLowerCase(),
+      );
+
+      expect(words).not.toMatch(/delete|remove/);
+      expect(labels.some((label) => /upload|edit|delete|remove/.test(label))).toBeFalse();
+      expect(logoSection().querySelector('input[type="file"]')).toBeNull();
+    });
+
+    it('marks the logo the server refused on its own row, and clears the mark when the logos change', async () => {
+      await create({ read: { status: 'found', profile: profile({ assets: [{ mediaAssetId: 'a1', role: 'PrimaryLogo' }] }) } });
+      spies.update.and.resolveTo({
+        status: 'assets_refused',
+        positions: [1],
+        message: "That picture is not in this workspace's library.",
+      });
+
+      await chooseFromLibrary('Add from library', 'Mark only');
+      await save();
+
+      const refused = logoSection().querySelector('[data-logo-id="a2"] [role="alert"]');
+      expect(refused?.textContent).toContain("That picture is not in this workspace's library. Unlink it or choose another.");
+      expect(logoSection().querySelector('[data-logo-id="a1"] [role="alert"]')).toBeNull();
+
+      // The logo itself is still in the form, for the creator to act on.
+      expect(logoSection().textContent).toContain('Logo a2');
+
+      root().querySelector<HTMLButtonElement>('button[aria-label="Unlink other logo 1"]')!.click();
+      await settle();
+
+      expect(logoSection().querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('does not save the settings when Enter is pressed in the library search', async () => {
+      await create();
+      await type('brand-default-audience', 'Home bakers');
+
+      button('Choose from library').click();
+      await settle();
+
+      const search = root().querySelector<HTMLInputElement>('#cp-dam-picker-search')!;
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      search.dispatchEvent(enter);
+      await settle();
+
+      expect(enter.defaultPrevented).toBeTrue();
+      // No form of its own: the only form it sits in is the settings form, whose Save it must not trigger.
+      expect(search.closest('form')).toBe(root().querySelector('form[aria-labelledby="brand-heading"]'));
+      expect(spies.update).not.toHaveBeenCalled();
+    });
+
+    it('shows a viewer the logos and nothing to change them with', async () => {
+      await create({ role: 'Viewer', read: { status: 'found', profile: profile({ assets: LOGOS }) } });
+
+      expect(logoSection().textContent).toContain('Logo a1');
+      expect(logoSection().querySelectorAll('button').length).toBe(0);
+      expect(root().querySelector('cp-dam-asset-picker')).toBeNull();
+    });
+
+    it('keeps a logo the creator chose when someone else saved first', async () => {
+      await create();
+      await chooseFromLibrary('Choose from library', 'Wordmark');
+
+      spies.update.and.resolveTo({ status: 'conflict' });
+      spies.get.and.resolveTo({ status: 'found', profile: profile({ locale: 'fr-FR', revision: 2, concurrencyToken: 'tok-2' }) });
+      await save();
+
+      expect(logoSection().textContent).toContain('Logo a1');
+      expect(spies.get).toHaveBeenCalledTimes(2);
+    });
   });
 
   // ---- Leaving ----

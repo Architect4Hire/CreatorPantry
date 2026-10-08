@@ -192,6 +192,17 @@ function mapRequestError(error: unknown): GeneratedImageRequestOutcome {
         };
   }
 
+  // Well formed and still not something the server will do: a prompt proposal that is not this workspace's,
+  // or a key already spent on a different request. Neither is fixed by waiting, so neither is reported as
+  // unavailable — that would invite a retry that can only be refused again.
+  if (code === 422) {
+    return {
+      status: 'refused',
+      message: problemMessageOf(error) ?? 'The pictures could not be asked for.',
+      fieldErrors: decodeFieldErrors(error),
+    };
+  }
+
   if (code === 403) return { status: 'forbidden' };
   if (code === 429) return { status: 'rate_limited' };
 

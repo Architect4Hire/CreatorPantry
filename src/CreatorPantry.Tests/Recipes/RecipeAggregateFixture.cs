@@ -123,9 +123,13 @@ internal sealed class RecipeAggregateFixture : IDisposable
         // test that saves a recipe gets a link pointing at something real — which is the point of the key.
         // A recipe test should not have to know what a media asset is, so this is the only place in the
         // recipe suite that mentions one.
-        db.MediaAssets.AddRange(
-            SeededMediaAsset.For(WorkspaceA, MediaAssetIdA, Now),
-            SeededMediaAsset.For(WorkspaceB, MediaAssetIdB, Now));
+        var assetA = SeededMediaAsset.For(WorkspaceA, MediaAssetIdA, Now);
+        var assetB = SeededMediaAsset.For(WorkspaceB, MediaAssetIdB, Now);
+        db.MediaAssets.AddRange(assetA, assetB);
+
+        // Each with its first version, because 12.10i lets a link pin one and the pin is a foreign key: a
+        // recipe whose link names version 1 needs a version 1 to name.
+        db.MediaAssetVersions.AddRange(SeededMediaAsset.VersionOf(assetA), SeededMediaAsset.VersionOf(assetB));
 
         db.SaveChanges();
     }
@@ -242,6 +246,13 @@ internal sealed class RecipeAggregateFixture : IDisposable
         recipe.RowVersion = [1, 2, 3, 4, 5, 6, 7, 8];
 
         recipe.AssetLinks.Single().Caption = "The cake, still warm.";
+
+        // A step image pinned to a version, because those are the two link fields that are null on every
+        // other kind of link (12.10i) — and the role and the step have to move together, which the check
+        // constraint insists on.
+        recipe.AssetLinks.Single().Role = RecipeAssetRole.Step;
+        recipe.AssetLinks.Single().InstructionStepId = recipe.InstructionGroups.Single().Steps.Single().Id;
+        recipe.AssetLinks.Single().MediaAssetVersionNumber = 1;
         recipe.Tags.Add(new RecipeTag { RecipeId = recipe.Id, WorkspaceTagId = TagIdA });
 
         // Non-zero positions too, so a SortOrder the mapper dropped is not indistinguishable from the first

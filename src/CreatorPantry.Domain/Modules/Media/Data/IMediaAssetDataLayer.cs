@@ -72,6 +72,9 @@ public interface IMediaAssetDataLayer
     /// <inheritdoc cref="IMediaAssetRepository.ExistsAsync"/>
     Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IMediaAssetRepository.VersionExistsAsync"/>
+    Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IMediaAssetRepository.FindByGeneratedImageAsync"/>
     Task<MediaAsset?> FindByGeneratedImageAsync(Guid generatedImageId, CancellationToken cancellationToken);
 
@@ -325,6 +328,9 @@ internal sealed class MediaAssetDataLayer(
 {
     public Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
         assets.ExistsAsync(mediaAssetId, cancellationToken);
+
+    public Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
+        assets.VersionExistsAsync(mediaAssetId, versionNumber, cancellationToken);
 
     public Task<(IReadOnlyList<MediaAssetSearchRecord> Rows, bool HasMore, int? Total)> SearchAsync(
         MediaAssetSearchCriteria criteria, CancellationToken cancellationToken) =>

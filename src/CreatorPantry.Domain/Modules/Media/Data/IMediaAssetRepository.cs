@@ -19,6 +19,13 @@ public interface IMediaAssetRepository
     /// <summary>Whether this workspace holds an asset with that id and has not deleted it.</summary>
     Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken);
 
+    /// <summary>Whether this workspace's asset with that id has a version with that number.</summary>
+    /// <remarks>
+    /// Says nothing about whether the asset is live: the caller asks <see cref="ExistsAsync"/> first, and a
+    /// version of a removed asset is still a version. Filtered to the workspace like every read here.
+    /// </remarks>
+    Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
+
     /// <summary>The asset and its versions, or null when this workspace holds none with that id.</summary>
     Task<MediaAsset?> FindAsync(Guid mediaAssetId, CancellationToken cancellationToken);
 
@@ -218,6 +225,13 @@ internal sealed class MediaAssetRepository(CreatorPantryDbContext context) : IMe
         context.MediaAssets
             .AsNoTracking()
             .AnyAsync(asset => asset.Id == mediaAssetId && asset.DeletedAt == null, cancellationToken);
+
+    public Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
+        context.MediaAssetVersions
+            .AsNoTracking()
+            .AnyAsync(
+                version => version.MediaAssetId == mediaAssetId && version.VersionNumber == versionNumber,
+                cancellationToken);
 
     public Task<MediaAsset?> FindAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
         context.MediaAssets

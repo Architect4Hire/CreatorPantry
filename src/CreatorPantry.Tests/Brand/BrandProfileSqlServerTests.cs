@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Brand;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Facade;
@@ -49,6 +50,11 @@ public sealed class BrandProfileSqlServerTests : IAsyncLifetime
             .AddAudit()
             .AddIdempotency(new ConfigurationBuilder().Build())
             .AddBrandModule()
+
+            // The profile facade asks the Media module whether a submitted logo is in this workspace's library
+            // (12.10k), so its lookup seam has to be resolvable here as it is in every real host.
+            .AddMediaModule()
+            .AddLogging()
             .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlServer(_container.GetConnectionString()))
             .BuildServiceProvider(validateScopes: true);
 
@@ -274,6 +280,96 @@ public sealed class BrandProfileSqlServerTests : IAsyncLifetime
             db.BrandAssetLinks.Add(Logo(BrandAssetRole.PrimaryLogo, 3));
 
             await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(cancellation));
+        }
+    }
+
+    /// <summary>
+    /// The backstop behind the application's check (12.10k), on the engine that enforces it: with that check
+    /// bypassed, the composite key itself refuses a logo in A that names B's asset — and accepts A's own.
+    /// </summary>
+    [Fact]
+    public async Task The_key_refuses_a_logo_naming_another_workspaces_asset()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var profile = await SeedAsync(WorkspaceA);
+        var ours = SeededMediaAsset.For(WorkspaceA);
+        var theirs = SeededMediaAsset.For(WorkspaceB);
+
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.MediaAssets.Add(ours);
+            await db.SaveChangesAsync(cancellation);
+        }
+
+        await using (var scope = ScopeFor(WorkspaceB))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.MediaAssets.Add(theirs);
+            await db.SaveChangesAsync(cancellation);
+        }
+
+        BrandAssetLink Logo(Guid assetId) => new()
+        {
+            Id = Guid.NewGuid(), WorkspaceId = WorkspaceA, BrandProfileId = profile.Id,
+            MediaAssetId = assetId, Role = BrandAssetRole.AlternateLogo, SortOrder = 5,
+        };
+
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.BrandAssetLinks.Add(Logo(theirs.Id));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(cancellation));
+        }
+
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.BrandAssetLinks.Add(Logo(ours.Id));
+            await db.SaveChangesAsync(cancellation);
+        }
+    }
+
+    /// <summary>
+    /// The key is <c>Restrict</c> in both directions that matter: removing the link leaves the asset, and the
+    /// asset cannot be hard-deleted out from under a link.
+    /// </summary>
+    [Fact]
+    public async Task Unlinking_leaves_the_asset_and_a_linked_asset_cannot_be_deleted_from_under_its_link()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var profile = await SeedAsync(WorkspaceA);
+        var asset = SeededMediaAsset.For(WorkspaceA);
+        var link = new BrandAssetLink
+        {
+            Id = Guid.NewGuid(), WorkspaceId = WorkspaceA, BrandProfileId = profile.Id,
+            MediaAssetId = asset.Id, Role = BrandAssetRole.PrimaryLogo, SortOrder = 0,
+        };
+
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.MediaAssets.Add(asset);
+            db.BrandAssetLinks.Add(link);
+            await db.SaveChangesAsync(cancellation);
+        }
+
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.MediaAssets.Remove(await db.MediaAssets.SingleAsync(candidate => candidate.Id == asset.Id, cancellation));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(cancellation));
+        }
+
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.BrandAssetLinks.Remove(await db.BrandAssetLinks.SingleAsync(candidate => candidate.Id == link.Id, cancellation));
+            await db.SaveChangesAsync(cancellation);
+
+            Assert.True(await db.MediaAssets.AnyAsync(candidate => candidate.Id == asset.Id, cancellation));
         }
     }
 }

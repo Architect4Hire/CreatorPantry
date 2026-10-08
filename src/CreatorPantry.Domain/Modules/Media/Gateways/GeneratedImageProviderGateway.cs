@@ -252,12 +252,14 @@ public sealed class GeneratedImageProviderGateway(
     };
 
     /// <summary>
-    /// Puts the avoid list after the prompt, delimited, as untrusted material rather than instructions.
+    /// Puts the avoid list after the prompt, under a plain heading of its own.
     /// </summary>
     /// <remarks>
-    /// Both halves are creator text and neither is a system instruction, so neither may redefine what the
-    /// other asked for (ai.md). The delimiter is what keeps an avoid list that reads like a directive from
-    /// being read as one.
+    /// Both halves are the creator's own text and neither is a system instruction: an image provider is given
+    /// one string, has no tools to be talked into using, and this workspace's words are all that is in it
+    /// (ai.md). The heading is prose, not a delimiter a model is bound by — it tells the two apart for the
+    /// provider and does not stop an avoid list worded as a directive from being read as one. That is
+    /// acceptable here because the worst it can do is change a picture the same creator asked for.
     /// </remarks>
     private static string Compose(string prompt, string? avoid) =>
         string.IsNullOrWhiteSpace(avoid) ? prompt : $"{prompt}\n\nAvoid the following: {avoid}";

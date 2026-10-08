@@ -1,0 +1,168 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-8);
+}
+
+.back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--cp-text-muted);
+}
+
+/* `:focus`, not only `:focus-visible`: this heading is focused by script once the picture is removed, and a
+   browser does not treat that as keyboard focus when the button was clicked with a pointer. */
+h1[tabindex='-1']:focus,
+.back a:focus-visible,
+.links a:focus-visible,
+.scroll:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+h2 {
+  font-size: var(--cp-font-size-xl);
+}
+
+h3 {
+  margin: var(--cp-space-2) 0 0;
+  font: 600 var(--cp-font-size-md) / var(--cp-leading-tight) var(--cp-font-sans);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-3) 0 0;
+}
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  max-width: var(--cp-measure-prose);
+}
+
+/* A table of six columns needs the room a paragraph should not be given. */
+.block--wide {
+  max-width: none;
+}
+
+/* The page's own picture, not a card's: as tall as the picture is, rather than the fixed frame a grid needs
+   to keep its rows even. */
+.preview {
+  aspect-ratio: auto;
+  min-height: 12rem;
+}
+
+.plain {
+  margin: 0;
+}
+
+.muted,
+.note {
+  color: var(--cp-text-muted);
+}
+
+.note {
+  font-size: var(--cp-font-size-sm);
+}
+
+.facts {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The creator's own words, line breaks included. */
+.prose {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tags,
+.links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+.links {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+.links li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  overflow-wrap: anywhere;
+}
+
+/* Six columns do not fit a narrow screen, so the table scrolls inside its own region rather than pushing the
+   page sideways. Focusable, so the scrolling is reachable by keyboard. */
+.scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cp-font-size-sm);
+}
+
+th,
+td {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-bottom: 1px solid var(--cp-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+thead th {
+  color: var(--cp-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+th[scope='row'] {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.file-name {
+  overflow-wrap: anywhere;
+}

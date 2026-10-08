@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Brand;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Facade;
@@ -44,6 +45,11 @@ public sealed class BrandSetupSessionSqlServerTests : IAsyncLifetime
             .AddAudit()
             .AddIdempotency(new ConfigurationBuilder().Build())
             .AddBrandModule()
+
+            // The brand profile facade asks the Media module whether a submitted logo is in this workspace's
+            // library (12.10k), so that lookup has to be resolvable wherever the brand module is composed.
+            .AddMediaModule()
+            .AddLogging()
             .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlServer(_container.GetConnectionString()))
             .BuildServiceProvider(validateScopes: true);
 

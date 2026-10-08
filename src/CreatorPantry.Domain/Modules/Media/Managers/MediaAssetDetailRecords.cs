@@ -36,6 +36,8 @@ public sealed record MediaAssetDetailRecord(
     int VersionCount,
     int UtilizationCount,
     int RecipeLinkCount,
+    int BrandProfileCount,
+    int TestAttachmentCount,
     DateTimeOffset? DeletedAt,
     Guid? DeletedByMembershipId,
     DateTimeOffset CreatedAt,

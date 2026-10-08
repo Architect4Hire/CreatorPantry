@@ -116,6 +116,30 @@ public sealed class PromptsEndpointTests : IAsyncLifetime
 
     // ---- the list ----------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// A template is a fact about a generation, and the only record of one is its proposal (12.10l). Named
+    /// without a proposal there is nothing to check the claim against, and the row is immutable — so a
+    /// hand-typed prompt cannot be saved as the output of a template.
+    /// </summary>
+    [Theory]
+    [InlineData("promptTemplateId", "image.prompt")]
+    [InlineData("promptTemplateVersion", "1.0.0")]
+    [InlineData("promptTemplateBodyChecksum", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public async Task A_template_claimed_without_its_proposal_is_refused_and_nothing_is_saved(string field, string value)
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var body = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(Manual()))!.AsObject();
+        body[field] = value;
+
+        var response = await client.PostAsJsonAsync(PromptsIn(_fixture.WorkspaceA), body, Ct);
+        var problem = await BodyOf(response);
+
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.InRange((int)response.StatusCode, 400, 422);
+        Assert.True(problem.GetProperty("errors").TryGetProperty(field, out _));
+        Assert.Equal(0, await CountAsync(_fixture.WorkspaceA));
+    }
+
     [Fact]
     public async Task A_workspace_with_no_prompts_answers_an_empty_page()
     {

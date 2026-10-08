@@ -816,6 +816,8 @@ internal sealed class MediaAssetBusiness(
             asset.VersionCount,
             asset.UtilizationCount,
             asset.RecipeLinkCount,
+            asset.BrandProfileCount,
+            asset.TestAttachmentCount,
             [.. bundle.RecipeLinks
                 .Where(link => recipeTitles.ContainsKey(link.RecipeId))
                 .Select(link => new MediaAssetRecipeLinkServiceModel(
@@ -869,6 +871,7 @@ internal sealed class MediaAssetBusiness(
             row.Width,
             row.Height,
             row.SizeBytes,
+            row.UtilizationCount,
             row.CreatedAt,
             row.UpdatedAt);
 

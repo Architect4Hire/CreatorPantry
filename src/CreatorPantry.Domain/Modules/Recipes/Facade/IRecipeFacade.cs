@@ -256,6 +256,23 @@ public interface IRecipeFacade
     Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
         IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Lists the tags of the resolved workspace's own vocabulary that may be offered as new choices.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Active tags only, by name, and never more than <see cref="WorkspaceTagPolicy.MaxListed"/>. A workspace
+    /// with no tags yet answers an empty list, not a failure — there is nothing here that can be refused once
+    /// the caller's membership is established, so this returns the list rather than a result.
+    /// </para>
+    /// <para>
+    /// <strong>Read-only.</strong> A tag enters the vocabulary when a creator tags a recipe; nothing here
+    /// creates, renames or retires one. Scoped by the global query filter, so one workspace can never read
+    /// another's vocabulary (tenancy.md).
+    /// </para>
+    /// </remarks>
+    Task<IReadOnlyList<WorkspaceTagServiceModel>> ListWorkspaceTagsAsync(CancellationToken cancellationToken);
+
 
     /// <summary>
     /// Reads one page of one recipe's history, newest first, in the workspace resolved for this scope.
@@ -641,6 +658,10 @@ internal sealed class RecipeFacade(
         recipeIds.Count == 0
             ? Task.FromResult<IReadOnlyList<RecipeLinkCandidateServiceModel>>([])
             : business.ListTitlesAsync(recipeIds, cancellationToken);
+
+    public Task<IReadOnlyList<WorkspaceTagServiceModel>> ListWorkspaceTagsAsync(
+        CancellationToken cancellationToken) =>
+        business.ListWorkspaceTagsAsync(cancellationToken);
 
 
     public async Task<OperationResult<RecipeSearchPageServiceModel>> SearchAsync(

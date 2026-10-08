@@ -58,6 +58,14 @@ public sealed class GeneratedImagesController(
     /// a second row for one key is unrepresentable, so a lost answer cannot become a second charge however
     /// the retry arrives.
     ///
+    /// **A key names one request.** The same key sent again with a different prompt, avoid list, variant
+    /// count or proposal — or by a different member — answers `422 idempotency.key_reused` and queues
+    /// nothing, rather than returning the first request's operation for something else that was asked.
+    ///
+    /// `aiProposalId`, when sent, must name a prompt proposal of this workspace. One that names nothing and
+    /// another workspace's both answer `422 media.generation.proposal.unprocessable` naming `aiProposalId`,
+    /// in the same words.
+    ///
     /// A missing header answers `400 idempotency.key_required`. Asking for fewer than one or more than
     /// four variants answers `400 media.generation.invalid_request`; a Viewer answers
     /// `403 media.generation.forbidden`.
@@ -71,6 +79,7 @@ public sealed class GeneratedImagesController(
     [ProducesResponseType<GeneratedImageOperationServiceModel>(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
     public async Task<IActionResult> RequestImages(
         string workspaceSlug,
         [FromBody] RequestGeneratedImagesViewModel model,
@@ -165,6 +174,10 @@ public sealed class GeneratedImagesController(
     /// immutable, so that tag identifies this representation for as long as it exists.
     /// Metadata that exists whose bytes cannot be read answers `503 media.staged_image.unavailable`
     /// rather than 404: the image is there, and retrying is the remedy. No range requests.
+    ///
+    /// **A declined image, and one that expired unchosen, is not served** — it answers the same 404 an
+    /// unknown image does, from the moment it is declined rather than from whenever its bytes are collected.
+    /// A kept image is still served. The download route below follows the same rule.
     /// </remarks>
     [HttpGet("{generatedImageId:guid}/preview")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]

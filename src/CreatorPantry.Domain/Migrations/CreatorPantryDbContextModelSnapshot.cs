@@ -229,6 +229,7 @@ namespace CreatorPantry.Domain.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<Guid?>("LeasedBy")
+                        .IsConcurrencyToken()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PayloadJson")
@@ -236,6 +237,7 @@ namespace CreatorPantry.Domain.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("int");
 
                     b.Property<string>("Type")
@@ -3973,15 +3975,20 @@ namespace CreatorPantry.Domain.Migrations
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeAssetLink", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Caption")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid?>("InstructionStepId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("MediaAssetId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("MediaAssetVersionNumber")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("RecipeId")
                         .HasColumnType("uniqueidentifier");
@@ -3997,6 +4004,9 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("WorkspaceId", "InstructionStepId")
+                        .HasDatabaseName("IX_RecipeAssetLinks_Workspace_InstructionStep");
+
                     b.HasIndex("WorkspaceId", "MediaAssetId")
                         .HasDatabaseName("IX_RecipeAssetLinks_Workspace_MediaAsset");
 
@@ -4004,6 +4014,8 @@ namespace CreatorPantry.Domain.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_RecipeAssetLinks_Workspace_Recipe_Hero")
                         .HasFilter("Role = 1");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber");
 
                     b.HasIndex("WorkspaceId", "RecipeId", "SortOrder")
                         .IsUnique()
@@ -4014,6 +4026,10 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_RecipeAssetLinks_Role_Specified", "Role <> 0");
 
                             t.HasCheckConstraint("CK_RecipeAssetLinks_SortOrder_NonNegative", "SortOrder >= 0");
+
+                            t.HasCheckConstraint("CK_RecipeAssetLinks_Step_Paired", "(Role = 5 AND InstructionStepId IS NOT NULL) OR (Role <> 5 AND InstructionStepId IS NULL)");
+
+                            t.HasCheckConstraint("CK_RecipeAssetLinks_VersionPin_Positive", "MediaAssetVersionNumber IS NULL OR MediaAssetVersionNumber >= 1");
                         });
                 });
 
@@ -4593,6 +4609,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("MediaAssetId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("MediaAssetVersionNumber")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("RecipeTestRunId")
                         .HasColumnType("uniqueidentifier");
 
@@ -4612,6 +4631,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("WorkspaceId", "TestIssueId");
 
+                    b.HasIndex("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber");
+
                     b.HasIndex("WorkspaceId", "RecipeTestRunId", "SortOrder")
                         .IsUnique()
                         .HasDatabaseName("UX_TestAttachmentLinks_Workspace_Run_Order");
@@ -4619,6 +4640,8 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("TestAttachmentLinks", null, t =>
                         {
                             t.HasCheckConstraint("CK_TestAttachmentLinks_SortOrder_NonNegative", "SortOrder >= 0");
+
+                            t.HasCheckConstraint("CK_TestAttachmentLinks_VersionPin_Positive", "MediaAssetVersionNumber IS NULL OR MediaAssetVersionNumber >= 1");
                         });
                 });
 
@@ -6160,6 +6183,12 @@ namespace CreatorPantry.Domain.Migrations
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeAssetLink", b =>
                 {
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeInstructionStep", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "InstructionStepId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "MediaAssetId")
@@ -6173,6 +6202,12 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber")
+                        .HasPrincipalKey("WorkspaceId", "MediaAssetId", "VersionNumber")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeEquipment", b =>
@@ -6377,6 +6412,12 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "TestIssueId")
                         .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber")
+                        .HasPrincipalKey("WorkspaceId", "MediaAssetId", "VersionNumber")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

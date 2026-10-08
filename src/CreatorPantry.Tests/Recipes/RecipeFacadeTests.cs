@@ -1921,6 +1921,10 @@ public sealed class RecipeFacadeTests
             IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<RecipeLinkCandidateServiceModel>>([]);
 
+        public Task<IReadOnlyList<WorkspaceTagServiceModel>> ListWorkspaceTagsAsync(
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<WorkspaceTagServiceModel>>([]);
+
         public int Calls { get; private set; }
 
         public MeasurementDimension? YieldUnitDimension { get; private set; }

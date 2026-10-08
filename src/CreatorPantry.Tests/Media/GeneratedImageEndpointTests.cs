@@ -1,10 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Storage;
+using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Managers;
+using CreatorPantry.Domain.Modules.Tenancy;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Tests.Brand;
 using CreatorPantry.Tests.Storage;
 using CreatorPantry.Tests.Tenancy;
@@ -396,6 +401,204 @@ public sealed class GeneratedImageEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("media.staged_image.not_found", await CodeAsync(response));
         Assert.Equal(GeneratedImageStatus.Staged, (await RowAsync(image)).Status);
+    }
+
+    // ---- one key, one request (12.10l) --------------------------------------------------------------------
+
+    /// <summary>
+    /// A key names one request. The same key with different words is a second request wearing the first one's
+    /// key: answering it with the first operation would hand back pictures of something else.
+    /// </summary>
+    [Theory]
+    [InlineData("a loaf of soda bread on linen", 1)]
+    [InlineData("a bowl of soup on a wooden table", 3)]
+    public async Task A_key_reused_for_a_different_request_is_refused_and_buys_nothing(string prompt, int variantCount)
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var first = await PostAsync(client, _fixture.WorkspaceA, Body(), "reused-key");
+        var second = await PostAsync(client, _fixture.WorkspaceA, Body(variantCount, prompt), "reused-key");
+
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, second.StatusCode);
+        Assert.Equal(IdempotencyPolicy.KeyReusedCode, await CodeAsync(second));
+
+        // Still the one operation, and still the first one's.
+        var row = Assert.Single(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+        Assert.Equal("a bowl of soup on a wooden table", row.PromptText);
+        Assert.Equal(1, row.VariantCount);
+    }
+
+    [Fact]
+    public async Task A_key_reused_with_a_different_avoid_list_is_refused_too()
+    {
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var body = new { promptText = "a bowl of soup", variantCount = 1, avoidText = "steam" };
+
+        await PostAsync(client, _fixture.WorkspaceA, body, "avoid-key");
+        var same = await PostAsync(client, _fixture.WorkspaceA, new { promptText = "  a bowl of soup  ", variantCount = 1, avoidText = " steam " }, "avoid-key");
+        var different = await PostAsync(client, _fixture.WorkspaceA, new { promptText = "a bowl of soup", variantCount = 1, avoidText = "spoons" }, "avoid-key");
+
+        // Compared as stored — trimmed — so a retry that differs only in padding is still the same request.
+        Assert.Equal(HttpStatusCode.Accepted, same.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, different.StatusCode);
+    }
+
+    /// <summary>
+    /// A key is one member's. Another member of the same workspace who happens to send it is not handed the
+    /// first member's operation.
+    /// </summary>
+    [Fact]
+    public async Task Another_members_request_under_the_same_key_is_refused_rather_than_answered_with_the_first()
+    {
+        using var owner = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        using var member = await _fixture.SignInAsync(_fixture.WorkspaceA.MemberEmail);
+
+        var first = await PostAsync(owner, _fixture.WorkspaceA, Body(), "shared-key");
+        var second = await PostAsync(member, _fixture.WorkspaceA, Body(), "shared-key");
+
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, second.StatusCode);
+        Assert.Equal(IdempotencyPolicy.KeyReusedCode, await CodeAsync(second));
+        Assert.Single(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+    }
+
+    // ---- the proposal a request names (12.10l) -----------------------------------------------------------
+
+    [Fact]
+    public async Task A_request_may_name_a_proposal_of_its_own_workspace()
+    {
+        var proposal = await SeedProposalAsync(_fixture.WorkspaceA);
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await PostAsync(
+            client, _fixture.WorkspaceA, new { promptText = "a bowl of soup", variantCount = 1, aiProposalId = proposal }, "proposal-key");
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal(proposal, Assert.Single(await OperationRowsAsync(_fixture.WorkspaceA.Id)).AiProposalId);
+    }
+
+    /// <summary>
+    /// A proposal that is not this workspace's is refused in words — it used to reach the foreign key and come
+    /// back as a server error — and a neighbour's is answered exactly as one that does not exist.
+    /// </summary>
+    [Fact]
+    public async Task An_unknown_proposal_and_another_workspaces_are_the_same_refusal_and_queue_nothing()
+    {
+        var neighbours = await SeedProposalAsync(_fixture.WorkspaceB);
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        async Task<string> Refused(Guid proposalId, string key)
+        {
+            var response = await PostAsync(
+                client, _fixture.WorkspaceA, new { promptText = "a bowl of soup", variantCount = 1, aiProposalId = proposalId }, key);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            var fields = string.Join(",", body.GetProperty("errors").EnumerateObject().Select(field => $"{field.Name}={field.Value}"));
+
+            return $"{(int)response.StatusCode}|{body.GetProperty("code").GetString()}|{body.GetProperty("title").GetString()}|{fields}";
+        }
+
+        var forUnknown = await Refused(Guid.NewGuid(), "unknown-proposal");
+
+        Assert.StartsWith($"422|{MediaErrorCodes.GenerationProposalUnprocessable}|", forUnknown);
+        Assert.Contains("aiProposalId=", forUnknown);
+        Assert.Equal(forUnknown, await Refused(neighbours, "neighbours-proposal"));
+        Assert.Empty(await OperationRowsAsync(_fixture.WorkspaceA.Id));
+    }
+
+    // ---- a declined image is not served (12.10l) ---------------------------------------------------------
+
+    /// <summary>
+    /// Declined means declined now, not once the sweep has run: the bytes are still in storage, and neither
+    /// route serves them. The answer is the one an unknown image gets, so it does not change when they go.
+    /// </summary>
+    [Theory]
+    [InlineData(GeneratedImageStatus.Rejected)]
+    [InlineData(GeneratedImageStatus.Expired)]
+    public async Task An_image_that_was_declined_or_expired_is_not_served_though_its_bytes_remain(GeneratedImageStatus status)
+    {
+        var image = await StageAsync(_fixture.WorkspaceA, variantIndex: 0, status: status);
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var content = await client.GetAsync(Content(_fixture.WorkspaceA, image), TestContext.Current.CancellationToken);
+        var preview = await client.GetAsync(Preview(_fixture.WorkspaceA, image), TestContext.Current.CancellationToken);
+        var unknown = await client.GetAsync(Content(_fixture.WorkspaceA, Guid.NewGuid()), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, content.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, preview.StatusCode);
+        Assert.Equal(await CodeAsync(unknown), await CodeAsync(content));
+
+        // Not purged: this is the status deciding, not the sweep having already been.
+        Assert.Null((await RowAsync(image)).ObjectDeletedAt);
+        Assert.Single(_store.Keys);
+    }
+
+    [Fact]
+    public async Task Declining_an_image_stops_it_being_served_at_once()
+    {
+        var image = await StageAsync(_fixture.WorkspaceA, variantIndex: 0);
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var before = await client.GetAsync(Preview(_fixture.WorkspaceA, image), TestContext.Current.CancellationToken);
+        await DeleteAsync(client, _fixture.WorkspaceA, image);
+        var after = await client.GetAsync(Preview(_fixture.WorkspaceA, image), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_kept_image_is_still_served()
+    {
+        var image = await StageAsync(_fixture.WorkspaceA, variantIndex: 0, status: GeneratedImageStatus.Kept);
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await client.GetAsync(Preview(_fixture.WorkspaceA, image), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>An AI operation and a proposal from it, inserted directly: no model runs in a test.</summary>
+    private async Task<Guid> SeedProposalAsync(SeededWorkspace workspace)
+    {
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
+            workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "seed");
+
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var now = DateTimeOffset.UtcNow;
+        var operationId = Guid.NewGuid();
+        var proposalId = Guid.NewGuid();
+
+        db.AiOperations.Add(new AiOperation
+        {
+            Id = operationId,
+            TaskType = AiTaskType.ImagePrompt,
+            Scope = AiOperationScope.NotApplicable,
+            Status = AiOperationStatus.Proposed,
+            IdempotencyKey = $"generation-proposal-{operationId}",
+            RequestedByMembershipId = Guid.NewGuid(),
+            RequestedAt = now,
+            StatusChangedAt = now,
+            AvailableAt = now,
+        });
+
+        db.AiProposals.Add(new AiProposal
+        {
+            Id = proposalId,
+            AiOperationId = operationId,
+            OutputSchemaVersion = "image.prompt.v1",
+            PromptTemplateId = "image.prompt",
+            PromptTemplateVersion = "1.0.0",
+            PromptTemplateBodyChecksum = "sha256:" + new string('a', 64),
+            ProviderName = "test-provider",
+            ModelName = "test-model",
+            CreatedAt = now,
+        });
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return proposalId;
     }
 
     // ---- harness ---------------------------------------------------------------------------------------

@@ -67,9 +67,12 @@ public sealed class BrandProfileController(IBrandProfileFacade brandProfile) : C
     /// <remarks>
     /// Editor or above. A workspace has one profile: creating a second answers
     /// `409 brand.profile.exists.conflict`, and the way to change it is `PATCH`. The response is the profile
-    /// as a read returns it, at `revision` 1. `assets` is part of the contract, but any non-empty list answers
-    /// `422 brand.assets.unprocessable` until the media library exists to verify that an asset belongs to this
-    /// workspace; an empty or omitted list is accepted.
+    /// as a read returns it, at `revision` 1.
+    ///
+    /// `assets` links logos from this workspace's library: at most one `PrimaryLogo`, each asset once. **Only an
+    /// asset in this workspace's library can be linked.** An unknown asset, another workspace's and one removed
+    /// from the library all answer `422 brand.assets.unprocessable` naming `assets[i].MediaAssetId`, in the same
+    /// words. An empty or omitted list is accepted.
     /// </remarks>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
@@ -108,9 +111,15 @@ public sealed class BrandProfileController(IBrandProfileFacade brandProfile) : C
     /// with `409 brand.profile.conflict` rather than overwriting whoever saved first. `reason` is likewise not
     /// a profile field; it is recorded on the revision this edit writes. An edit that would change nothing
     /// writes no revision and leaves the token valid. The response is the whole profile as a read returns it,
-    /// carrying the refreshed token the next edit must quote. A non-empty `assets` list answers
-    /// `422 brand.assets.unprocessable` for the reason `POST` gives. A workspace with no profile answers
+    /// carrying the refreshed token the next edit must quote. A workspace with no profile answers
     /// `404 brand.profile.not_found`.
+    ///
+    /// A submitted `assets` list **replaces** the profile's logos; leaving `assets` out leaves them alone, and
+    /// `[]` unlinks them all. **Unlinking removes the link and nothing else**: the asset stays in the library
+    /// with every version and its usage history. A newly named asset that is not in this workspace's library
+    /// answers `422 brand.assets.unprocessable` as `POST` does. A logo the profile already links is kept when
+    /// re-submitted even if its asset has since been removed from the library, so an unrelated edit is never
+    /// blocked by it.
     /// </remarks>
     [HttpPatch]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]

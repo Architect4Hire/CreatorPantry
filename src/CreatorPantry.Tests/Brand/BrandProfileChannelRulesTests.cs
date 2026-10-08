@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Brand;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -49,6 +50,11 @@ public sealed class BrandProfileChannelRulesTests : IDisposable
             .AddIdempotency(new ConfigurationBuilder().Build())
             .AddSingleton<IContentChannelCatalog>(catalog)
             .AddBrandModule()
+
+            // The profile facade asks the Media module whether a submitted logo is in this workspace's library
+            // (12.10k), so its lookup seam has to be resolvable here as it is in every real host.
+            .AddMediaModule()
+            .AddLogging()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
                 .ReplaceService<IModelCustomizer, SqliteModelCustomizer>())

@@ -5,6 +5,8 @@ using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Data;
@@ -86,6 +88,11 @@ public sealed class GeneratedImageWorkerTests : IDisposable
         services.RemoveAll<IMalwareScanGateway>();
         services.AddSingleton<IMalwareScanGateway>(_scanner);
 
+        // The request path asks the Ai module whether a named prompt proposal belongs to this workspace
+        // (12.10l). Nothing here names one: these tests are about the worker, and a stub keeps the whole Ai
+        // module out of the container.
+        services.AddScoped<IAiProposalLookupFacade, NoProposals>();
+
         _provider = services.BuildServiceProvider(validateScopes: true);
 
         using var scope = _provider.CreateScope();
@@ -123,10 +130,16 @@ public sealed class GeneratedImageWorkerTests : IDisposable
     [Fact]
     public async Task A_repeated_idempotency_key_returns_the_first_operation_rather_than_buying_a_second()
     {
-        var first = await RequestAsync(WorkspaceA, key: "same-key");
-        var second = await RequestAsync(WorkspaceA, key: "same-key");
+        // One scope, so one member: a key is the member who sent it as well as the words (12.10l), and this
+        // fixture gives every scope a membership of its own.
+        await using var scope = ScopeFor(WorkspaceA);
+        var facade = scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>();
 
-        Assert.Equal(first.Id, second.Id);
+        var first = await facade.RequestAsync(Request(key: "same-key"), TestContext.Current.CancellationToken);
+        var second = await facade.RequestAsync(Request(key: "same-key"), TestContext.Current.CancellationToken);
+
+        Assert.True(second.Succeeded, second.Error?.Message);
+        Assert.Equal(first.Value!.Id, second.Value!.Id);
         Assert.Single(await OperationsAsync(WorkspaceA));
     }
 
@@ -1122,4 +1135,13 @@ internal sealed class FakeImageGenerator : IImageGenerator
     public void Dispose()
     {
     }
+}
+
+/// <summary>An Ai module with no proposals in it, for a fixture whose requests never name one.</summary>
+file sealed class NoProposals : IAiProposalLookupFacade
+{
+    public Task<bool> ExistsAsync(Guid aiProposalId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+    public Task<AiProposalLineageServiceModel?> FindLineageAsync(Guid aiProposalId, CancellationToken cancellationToken) =>
+        Task.FromResult<AiProposalLineageServiceModel?>(null);
 }

@@ -431,6 +431,10 @@ public interface IRecipeDataLayer
     /// <inheritdoc cref="IRecipeRepository.ListTitlesAsync"/>
     Task<IReadOnlyList<RecipeTitleRecord>> ListTitlesAsync(
         IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IWorkspaceTagRepository.ListActiveAsync"/>
+    Task<IReadOnlyList<WorkspaceTagRecord>> ListActiveWorkspaceTagsAsync(
+        int limit, CancellationToken cancellationToken);
 }
 
 internal sealed class RecipeDataLayer(
@@ -446,6 +450,10 @@ internal sealed class RecipeDataLayer(
     public Task<IReadOnlyList<RecipeTitleRecord>> ListTitlesAsync(
         IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) =>
         recipes.ListTitlesAsync(recipeIds, cancellationToken);
+
+    public Task<IReadOnlyList<WorkspaceTagRecord>> ListActiveWorkspaceTagsAsync(
+        int limit, CancellationToken cancellationToken) =>
+        workspaceTags.ListActiveAsync(limit, cancellationToken);
 
     public async Task<(IReadOnlyList<RecipeSummaryRecord> Rows, bool HasMore, int? Total)> SearchAsync(
         RecipeSearchCriteria criteria,

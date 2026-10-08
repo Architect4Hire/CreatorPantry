@@ -71,14 +71,20 @@ public static class RecipeSnapshotDuplicator
             }
         }
 
+        // Which new step stands in for each archived one, so a step image can follow its step into the copy.
+        var copiedSteps = new Dictionary<Guid, Guid>();
+
         foreach (var group in recipe.InstructionGroups)
         {
             group.Id = Guid.NewGuid();
 
             foreach (var step in group.Steps)
             {
+                var archivedId = step.Id;
+
                 step.Id = Guid.NewGuid();
                 step.RecipeInstructionGroupId = group.Id;
+                copiedSteps[archivedId] = step.Id;
             }
         }
 
@@ -93,6 +99,24 @@ public static class RecipeSnapshotDuplicator
             // moves — RecipeAssetLink records a usage, and both recipes are in the one workspace that owns
             // the asset, so the copy references exactly the same media.
             link.Id = Guid.NewGuid();
+
+            if (link.InstructionStepId is { } archivedStepId)
+            {
+                if (copiedSteps.TryGetValue(archivedStepId, out var copiedStepId))
+                {
+                    // Re-pointed at the copy's own step. Left as archived it would name a step of the
+                    // *source* recipe, which the key would accept — same workspace — and no screen could
+                    // make sense of.
+                    link.InstructionStepId = copiedStepId;
+                }
+                else
+                {
+                    // A step image whose step is not in the document it came from. Not reachable from a
+                    // document this build wrote, and handled the way an edit that removes a step handles it
+                    // rather than by dropping the picture.
+                    RecipeAssetLinkRules.Demote(link);
+                }
+            }
         }
 
         recipe.Tags.Clear();

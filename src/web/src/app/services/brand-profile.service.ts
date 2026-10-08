@@ -13,7 +13,7 @@ const PROFILE_NOT_FOUND_CODE = 'brand.profile.not_found';
 /** `BrandErrorCodes.AlreadyExistsConflict`: a profile appeared since the page loaded. */
 const ALREADY_EXISTS_CODE = 'brand.profile.exists.conflict';
 
-/** `BrandErrorCodes.AssetsUnprocessable`: logo links are not accepted yet. */
+/** `BrandErrorCodes.AssetsUnprocessable`: a submitted logo is not in this workspace's library. */
 const ASSETS_UNPROCESSABLE_CODE = 'brand.assets.unprocessable';
 
 /** `IdempotencyPolicy.KeyReusedCode`: the key belongs to a request with a different body. */
@@ -36,8 +36,11 @@ export type SaveBrandProfileOutcome =
   | { readonly status: 'already_exists' }
   /** Update only: the profile no longer exists. */
   | { readonly status: 'profile_missing' }
-  /** Logo links are refused until the media library exists. */
-  | { readonly status: 'assets_unavailable' }
+  /**
+   * One or more submitted logos is not a picture in this workspace's library. Unknown, another workspace's and
+   * removed are one answer on purpose, so this carries only where in the submitted list each one was.
+   */
+  | { readonly status: 'assets_refused'; readonly positions: readonly number[]; readonly message: string }
   /** The idempotency key was reused for a different body. */
   | { readonly status: 'idempotency_key_conflict' }
   | { readonly status: 'forbidden' }
@@ -67,10 +70,47 @@ function decodeFieldErrors(error: unknown): Record<string, readonly string[]> {
   const result: Record<string, readonly string[]> = {};
   for (const [field, messages] of Object.entries(errors as Record<string, unknown>)) {
     if (Array.isArray(messages) && messages.every((message) => typeof message === 'string')) {
-      result[field] = messages;
+      result[camelCaseFieldKey(field)] = messages;
     }
   }
   return result;
+}
+
+/**
+ * A field-error key in the casing this client's fields use: `links[0].Url` becomes `links[0].url`.
+ *
+ * The server lower-cases only the first segment of a key, so a nested property arrives as the C# name it was
+ * built from. Every screen that matches these keys names its fields in camelCase, and a key that differs only
+ * by that capital would never reach its field — the creator would be told something needs another look and
+ * shown nothing marked. Normalised here, once, at the boundary.
+ */
+export function camelCaseFieldKey(key: string): string {
+  return key
+    .split('.')
+    .map((segment) => segment.charAt(0).toLowerCase() + segment.slice(1))
+    .join('.');
+}
+
+const REFUSED_ASSET_PATTERN = /^assets\[(\d+)]\.mediaAssetId$/i;
+
+/** Which submitted logos were refused, read from the field names the server keyed its messages by. */
+function refusedAssets(fieldErrors: Record<string, readonly string[]>): SaveBrandProfileOutcome {
+  const positions: number[] = [];
+  let message = '';
+
+  for (const [field, messages] of Object.entries(fieldErrors)) {
+    const match = REFUSED_ASSET_PATTERN.exec(field);
+    if (match === null) continue;
+
+    positions.push(Number(match[1]));
+    message ||= messages[0] ?? '';
+  }
+
+  return {
+    status: 'assets_refused',
+    positions: positions.sort((a, b) => a - b),
+    message: message || "That picture is not in this workspace's library.",
+  };
 }
 
 function idempotencyHeaders(key: string | undefined): { headers: Record<string, string> } | Record<string, never> {
@@ -148,10 +188,10 @@ export class BrandProfileService {
       if (code === 403) return { status: 'forbidden' };
       if (code === 404) return problem === PROFILE_NOT_FOUND_CODE ? { status: 'profile_missing' } : { status: 'unavailable' };
       if (code === 409) return problem === ALREADY_EXISTS_CODE ? { status: 'already_exists' } : { status: 'conflict' };
-      // 422 has two meanings on this route, told apart by code: logo links refused, or a reused key. Any other
+      // 422 has two meanings on this route, told apart by code: a logo that cannot be linked, or a reused key. Any other
       // 422 is something this client does not know, and is reported as a failure rather than guessed at.
       if (code === 422) {
-        if (problem === ASSETS_UNPROCESSABLE_CODE) return { status: 'assets_unavailable' };
+        if (problem === ASSETS_UNPROCESSABLE_CODE) return refusedAssets(decodeFieldErrors(error));
         if (problem === IDEMPOTENCY_KEY_REUSED_CODE) return { status: 'idempotency_key_conflict' };
         return { status: 'unavailable' };
       }

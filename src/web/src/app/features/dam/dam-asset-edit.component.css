@@ -1,0 +1,44 @@
+/* The dialog's own chrome — surface, backdrop, focus, footer layout — belongs to CpDialogComponent, and the
+   sections, headings and field measure to CpFormSectionComponent. Every input, select and textarea is styled
+   by the CpFieldComponent it sits in, so none is restyled here. Only what is this form's own is. */
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+.legend,
+.plain {
+  margin: 0;
+}
+
+.legend,
+.muted {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.chosen {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chosen li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-1) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.tag-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

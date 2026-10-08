@@ -194,7 +194,7 @@ public sealed class BrandProfileWriteEndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Logo_links_are_refused_until_the_media_seam_can_verify_them()
+    public async Task A_logo_that_is_not_in_the_library_is_refused_and_nothing_is_stored()
     {
         var cancellation = TestContext.Current.CancellationToken;
         using var client = await OwnerOf(_fixture.WorkspaceA);

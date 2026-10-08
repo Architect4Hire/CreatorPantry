@@ -185,6 +185,8 @@ public static class RecipeDetailMapper
         Id = link.Id,
         SortOrder = link.SortOrder,
         MediaAssetId = link.MediaAssetId,
+        MediaAssetVersionNumber = link.MediaAssetVersionNumber,
+        InstructionStepId = link.InstructionStepId,
         Role = link.Role,
         Caption = link.Caption,
     };

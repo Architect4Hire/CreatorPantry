@@ -195,6 +195,7 @@ public sealed record MediaAssetSearchRecord(
     int Width,
     int Height,
     long SizeBytes,
+    int UtilizationCount,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     MediaAssetSearchSort Sort) : IReferenceRow
@@ -221,6 +222,10 @@ public sealed record MediaAssetSearchRecord(
 /// <strong>No object key and no URL.</strong> Bytes are read by id, which is 12.9f and 12.9g.
 /// </para>
 /// </remarks>
+/// <param name="UtilizationCount">
+/// How many times the asset has been logged as used, so a card can say so without a detail read per asset.
+/// The same count the detail route publishes; the history itself is paged separately. Added by 12.10e.
+/// </param>
 public sealed record MediaAssetSummaryServiceModel(
     Guid Id,
     string Title,
@@ -238,6 +243,7 @@ public sealed record MediaAssetSummaryServiceModel(
     int Width,
     int Height,
     long SizeBytes,
+    int UtilizationCount,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 

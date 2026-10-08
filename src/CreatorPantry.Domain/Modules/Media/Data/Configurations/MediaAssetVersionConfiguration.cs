@@ -52,6 +52,11 @@ internal sealed class MediaAssetVersionConfiguration : IEntityTypeConfiguration<
             .HasPrincipalKey(image => new { image.WorkspaceId, image.Id })
             .OnDelete(DeleteBehavior.Restrict);
 
+        // What a pin points at (12.10i): a recipe's or a test run's link may name one version of an asset, and
+        // the workspace has to be in the key for the reason it is in every other one — a pin that matched on
+        // asset and number alone could be satisfied by another workspace's row.
+        builder.HasAlternateKey(version => new { version.WorkspaceId, version.MediaAssetId, version.VersionNumber });
+
         // DAM-010's "concurrent uploads cannot share a version number", as a property of the schema rather
         // than something the application has to remember.
         builder.HasIndex(version => new { version.MediaAssetId, version.VersionNumber })

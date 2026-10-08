@@ -1019,6 +1019,10 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
     {
         public Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("No test here names a DAM asset.");
+
+        public Task<CreatorPantry.Domain.Modules.Media.Managers.MediaAssetLinkTarget> ResolveLinkTargetAsync(
+            Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here links a DAM asset.");
     }
 
     private sealed class StoppedClock : IClock

@@ -23,8 +23,8 @@ public static class BrandErrorCodes
     public const string AlreadyExistsConflict = "brand.profile.exists.conflict";
 
     /// <summary>
-    /// Logo links cannot be accepted yet: the server cannot verify an asset id belongs to this workspace until
-    /// the media seam exists. Maps to 422.
+    /// A submitted logo is not an asset this workspace can link: unknown, another workspace's, or removed from
+    /// the library — one answer for all three. Maps to 422.
     /// </summary>
     public const string AssetsUnprocessable = "brand.assets.unprocessable";
 

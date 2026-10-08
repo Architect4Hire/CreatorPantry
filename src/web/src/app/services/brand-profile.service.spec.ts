@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { RuntimeConfigService } from '../core/runtime-config.service';
-import { BrandProfileService } from './brand-profile.service';
+import { BrandProfileService, camelCaseFieldKey } from './brand-profile.service';
 
 const WIRE = {
   id: 'p1',
@@ -22,6 +22,15 @@ const WIRE = {
 };
 
 const URL = 'https://gateway.example/api/v1/workspaces/w/brand-profile';
+
+describe('camelCaseFieldKey', () => {
+  it('lower-cases the first letter of every segment and nothing else', () => {
+    expect(camelCaseFieldKey('links[0].Url')).toBe('links[0].url');
+    expect(camelCaseFieldKey('assets[3].MediaAssetId')).toBe('assets[3].mediaAssetId');
+    expect(camelCaseFieldKey('brandName')).toBe('brandName');
+    expect(camelCaseFieldKey('Links')).toBe('links');
+  });
+});
 
 describe('BrandProfileService', () => {
   let service: BrandProfileService;
@@ -102,7 +111,7 @@ describe('BrandProfileService', () => {
       [404, 'brand.profile.not_found', 'profile_missing'],
       [409, 'brand.profile.conflict', 'conflict'],
       [409, 'brand.profile.exists.conflict', 'already_exists'],
-      [422, 'brand.assets.unprocessable', 'assets_unavailable'],
+      [422, 'brand.assets.unprocessable', 'assets_refused'],
       [422, 'idempotency.key_reused', 'idempotency_key_conflict'],
       [422, 'something.new', 'unavailable'],
       [500, 'internal_error', 'unavailable'],
@@ -113,6 +122,44 @@ describe('BrandProfileService', () => {
       http.expectOne(URL).flush(...problem(status, code));
       expect((await pending).status).withContext(`${status} ${code}`).toBe(expected);
     }
+  });
+
+  it('says which submitted logos were refused, by their place in the list, whatever the field name’s casing', async () => {
+    const pending = service.updateBrandProfile('w', {});
+    http.expectOne(URL).flush(
+      ...problem(422, 'brand.assets.unprocessable', {
+        'assets[2].MediaAssetId': ["That picture is not in this workspace's library."],
+        'assets[0].mediaAssetId': ["That picture is not in this workspace's library."],
+      }),
+    );
+
+    expect(await pending).toEqual({
+      status: 'assets_refused',
+      positions: [0, 2],
+      message: "That picture is not in this workspace's library.",
+    });
+  });
+
+  it('hands field errors over in the casing the form matches, though the server capitalises nested names', async () => {
+    const pending = service.updateBrandProfile('w', {});
+    http.expectOne(URL).flush(
+      ...problem(400, 'brand.profile.invalid_request', {
+        'links[1].Url': ['Use an http or https address without a username or password.'],
+        'links[0].Label': ['Too long.'],
+        'channelDefaults[2].ChannelKey': ['Unknown channel.'],
+        brandName: ['A brand needs a name.'],
+      }),
+    );
+
+    const outcome = await pending;
+
+    // As the server sent them, these never reached a field: the form matches 'links[1].url'.
+    expect(outcome.status === 'validation_failed' && Object.keys(outcome.fieldErrors).sort()).toEqual([
+      'brandName',
+      'channelDefaults[2].channelKey',
+      'links[0].label',
+      'links[1].url',
+    ]);
   });
 
   it('keeps the field errors of a 400', async () => {

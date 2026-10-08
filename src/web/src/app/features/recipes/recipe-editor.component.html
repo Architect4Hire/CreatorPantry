@@ -845,7 +845,21 @@
         </cp-tab-panel>
 
         <cp-tab-panel id="media">
-          <cp-empty-state title="Media" description="Media management arrives in a later phase." icon="▧" />
+          <!-- Mounted lazily by the tab. recipeId is non-null here — the tab is disabled entirely in create
+               mode. The panel reads and changes links only; the recipe and its token belong to this component,
+               which applies whatever recipe a link or unlink returns. -->
+          <cp-recipe-media
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [links]="savedAssetLinks()"
+            [steps]="mediaSteps()"
+            [concurrencyToken]="concurrencyToken()"
+            [editorIsDirty]="isDirty()"
+            [canChange]="canChangeMedia()"
+            [isArchived]="isArchived()"
+            (changed)="onMediaChanged($event)"
+            (reloadRequested)="onMediaReloadRequested()"
+          />
         </cp-tab-panel>
 
         <cp-tab-panel id="history">

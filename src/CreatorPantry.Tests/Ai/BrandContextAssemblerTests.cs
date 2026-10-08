@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Brand;
+using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -63,6 +64,10 @@ public sealed class BrandContextAssemblerTests : IAsyncDisposable
             .AddApplicationTime()
             .AddSingleton<IClock>(new StoppedClock())
             .AddBrandModule()
+
+            // The brand profile facade asks the Media module whether a submitted logo is in this workspace's
+            // library (12.10k), so that lookup has to be resolvable wherever the brand module is composed.
+            .AddMediaModule()
             .AddAiBrandContext()
             .AddIdempotency(configuration)
             .AddDbContext<CreatorPantryDbContext>(options => options

@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Data;
+using CreatorPantry.Domain.Modules.Media.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Facade;
 
@@ -25,6 +26,19 @@ public interface IMediaAssetLookupFacade
 {
     /// <inheritdoc cref="IMediaAssetRepository.ExistsAsync"/>
     Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether something in this workspace may link to that asset, optionally pinned to one of its versions
+    /// (12.10i).
+    /// </summary>
+    /// <param name="versionNumber">The version a link would pin, or <c>null</c> for one that follows the current.</param>
+    /// <returns>
+    /// <see cref="MediaAssetLinkTarget.Linkable"/>, or which of the two things was not there. An unknown
+    /// asset, another workspace's and a removed one are all <see cref="MediaAssetLinkTarget.AssetNotFound"/>,
+    /// so asking about an id cannot reveal that a neighbour owns it.
+    /// </returns>
+    Task<MediaAssetLinkTarget> ResolveLinkTargetAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IMediaAssetLookupFacade"/>
@@ -32,4 +46,8 @@ internal sealed class MediaAssetLookupFacade(IMediaAssetLookupBusiness business)
 {
     public Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
         business.ExistsAsync(mediaAssetId, cancellationToken);
+
+    public Task<MediaAssetLinkTarget> ResolveLinkTargetAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+        business.ResolveLinkTargetAsync(mediaAssetId, versionNumber, cancellationToken);
 }

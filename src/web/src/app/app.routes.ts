@@ -17,16 +17,16 @@ const SECTION_ROUTES: Routes = [
   },
   { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },
   { path: 'my-week', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Week' } },
-  // The three multi-page sections own their route trees (and the guards those trees need) beside their
+  // The multi-page sections ('recipes', 'brand', 'ai-recipe-studio', 'dam', 'prompt-library') own their route trees (and the guards those trees need) beside their
   // components, so the guards and pages load with the section rather than with the app shell.
   { path: 'recipes', loadChildren: () => import('./features/recipes/recipes.routes').then((m) => m.RECIPES_ROUTES) },
   { path: 'brand', loadChildren: () => import('./features/brand/brand.routes').then((m) => m.BRAND_ROUTES) },
   { path: 'ai-recipe-studio', loadChildren: () => import('./features/ai/ai-recipe-studio.routes').then((m) => m.AI_RECIPE_STUDIO_ROUTES) },
   { path: 'image-studio', loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio' } },
   { path: 'social-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Social Studio' } },
-  { path: 'dam', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'DAM' } },
+  { path: 'dam', loadChildren: () => import('./features/dam/dam.routes').then((m) => m.DAM_ROUTES) },
   { path: 'content-board', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Content Board' } },
-  { path: 'prompt-library', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Prompt Library' } },
+  { path: 'prompt-library', loadChildren: () => import('./features/prompt-library/prompt-library.routes').then((m) => m.PROMPT_LIBRARY_ROUTES) },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 ];
 

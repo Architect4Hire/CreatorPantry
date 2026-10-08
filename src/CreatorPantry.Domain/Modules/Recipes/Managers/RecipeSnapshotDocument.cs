@@ -297,6 +297,18 @@ public sealed record RecipeSnapshotAssetLink
     /// </remarks>
     public Guid MediaAssetId { get; init; }
 
+    /// <summary>
+    /// The pinned version, or <c>null</c>. Absent from documents captured before 12.10i, which read as
+    /// unpinned — exactly what every link was then.
+    /// </summary>
+    public int? MediaAssetVersionNumber { get; init; }
+
+    /// <summary>
+    /// The step a step image belongs to, as that step's id in this same document. Absent from documents
+    /// captured before 12.10i, none of which could hold a step image.
+    /// </summary>
+    public Guid? InstructionStepId { get; init; }
+
     public RecipeAssetRole Role { get; init; }
 
     public string? Caption { get; init; }

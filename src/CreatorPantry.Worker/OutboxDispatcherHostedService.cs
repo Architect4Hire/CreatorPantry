@@ -11,9 +11,8 @@ namespace CreatorPantry.Worker;
 /// <c>CreatorPantryDbContext</c>, the same lifetime a request scope would give one.
 /// </summary>
 /// <remarks>
-/// Claiming uses a plain read-then-update, not a race-free atomic claim (see <see cref="OutboxDispatcher"/>):
-/// this assumes exactly one Worker instance runs at a time. A race-free claim for multiple concurrent Worker
-/// replicas is future work, not needed by anything today.
+/// Each claim is its own guarded update (see <see cref="OutboxDispatcher"/>): a message two Worker instances
+/// both read as due is claimed by one of them and left alone by the other, so running more than one is safe.
 /// </remarks>
 internal sealed class OutboxDispatcherHostedService(
     IServiceScopeFactory scopeFactory, ILogger<OutboxDispatcherHostedService> logger) : BackgroundService

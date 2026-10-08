@@ -1,0 +1,71 @@
+:host {
+  display: block;
+}
+
+.media {
+  display: grid;
+  gap: var(--cp-space-5);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+}
+
+h2 {
+  margin: 0;
+  font: 400 1.5rem/1.2 var(--cp-font-display);
+}
+
+h3 {
+  margin: 0 0 var(--cp-space-3);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lede {
+  margin: var(--cp-space-2) 0 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+}
+
+.rows {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The shared picture row, then its one action. The action drops underneath when the row is too narrow to hold
+   both — at a phone width, or at 200% zoom. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cp-space-4);
+  align-items: start;
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+}
+
+.fact,
+.caption {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.fact {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+@media (max-width: 40rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -29,6 +29,8 @@ export const BRAND_LIMITS = {
   linkLabelMaxLength: 200,
   reasonMaxLength: 500,
   maxLinks: 20,
+  /** `BrandPolicy.MaxAssetLinks`: the primary logo and its alternates together. */
+  maxLogos: 10,
 } as const;
 
 export interface BrandLink {
@@ -169,6 +171,8 @@ export interface BrandDraft {
   readonly timeZoneId: string;
   readonly channelKeys: readonly string[];
   readonly links: readonly BrandLinkDraft[];
+  /** The logos in the order they are saved: the primary first when there is one, then the alternates. */
+  readonly assets: readonly BrandAsset[];
 }
 
 export const EMPTY_BRAND_DRAFT: BrandDraft = {
@@ -179,6 +183,7 @@ export const EMPTY_BRAND_DRAFT: BrandDraft = {
   timeZoneId: '',
   channelKeys: [],
   links: [],
+  assets: [],
 };
 
 let nextLinkId = 0;
@@ -198,6 +203,7 @@ export function draftFromProfile(profile: BrandProfile): BrandDraft {
     timeZoneId: profile.timeZoneId ?? '',
     channelKeys: profile.channelDefaults,
     links: profile.links.map((link) => ({ id: newLinkDraftId(), kind: link.kind, url: link.url, label: link.label ?? '' })),
+    assets: profile.assets,
   };
 }
 
@@ -221,6 +227,50 @@ function sameLinks(a: readonly WireLink[], b: readonly WireLink[]): boolean {
   return a.length === b.length && a.every((link, i) => link.kind === b[i].kind && link.url === b[i].url && link.label === b[i].label);
 }
 
+function sameAssets(a: readonly BrandAsset[], b: readonly BrandAsset[]): boolean {
+  return a.length === b.length && a.every((asset, i) => asset.mediaAssetId === b[i].mediaAssetId && asset.role === b[i].role);
+}
+
+function wireAssets(assets: readonly BrandAsset[]): BrandAsset[] {
+  return assets.map((asset) => ({ mediaAssetId: asset.mediaAssetId, role: asset.role }));
+}
+
+/** The brand's one primary logo, or null when it has none. */
+export function brandPrimaryLogo(assets: readonly BrandAsset[]): BrandAsset | null {
+  return assets.find((asset) => asset.role === 'PrimaryLogo') ?? null;
+}
+
+/** The other logos, in the creator's order. */
+export function brandAlternateLogos(assets: readonly BrandAsset[]): readonly BrandAsset[] {
+  return assets.filter((asset) => asset.role === 'AlternateLogo');
+}
+
+/**
+ * `assets` with `mediaAssetId` as the primary logo, first in the list.
+ *
+ * **There is one primary logo**, so the one it replaces is dropped rather than demoted: choosing a new logo is
+ * not a request to keep the old one as an alternate. An asset can be listed once, so if the chosen picture was
+ * an alternate it stops being one.
+ */
+export function withPrimaryLogo(assets: readonly BrandAsset[], mediaAssetId: string): readonly BrandAsset[] {
+  return [
+    { mediaAssetId, role: 'PrimaryLogo' },
+    ...assets.filter((asset) => asset.role !== 'PrimaryLogo' && asset.mediaAssetId !== mediaAssetId),
+  ];
+}
+
+/** `assets` with `mediaAssetId` added as an alternate, at the end. Unchanged when it is already a logo. */
+export function withAlternateLogo(assets: readonly BrandAsset[], mediaAssetId: string): readonly BrandAsset[] {
+  return assets.some((asset) => asset.mediaAssetId === mediaAssetId)
+    ? assets
+    : [...assets, { mediaAssetId, role: 'AlternateLogo' }];
+}
+
+/** `assets` without `mediaAssetId`. The link goes; nothing about the picture does. */
+export function withoutLogo(assets: readonly BrandAsset[], mediaAssetId: string): readonly BrandAsset[] {
+  return assets.filter((asset) => asset.mediaAssetId !== mediaAssetId);
+}
+
 function sameKeys(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((key, i) => key === b[i]);
 }
@@ -241,6 +291,7 @@ export function buildCreateRequest(draft: BrandDraft): Record<string, unknown> {
 
   if (draft.channelKeys.length > 0) body['channelDefaults'] = draft.channelKeys.map((channelKey) => ({ channelKey }));
   if (draft.links.length > 0) body['links'] = wireLinks(draft.links);
+  if (draft.assets.length > 0) body['assets'] = wireAssets(draft.assets);
 
   return body;
 }
@@ -281,6 +332,9 @@ export function buildUpdateRequest(
     patch['links'] = nextLinks;
   }
 
+  // The whole list, as the server replaces it whole. `[]` is how the last logo is unlinked.
+  if (!sameAssets(base.assets, draft.assets)) patch['assets'] = wireAssets(draft.assets);
+
   if (Object.keys(patch).length === 0) return null;
 
   const reason = optional(options.reason);
@@ -301,7 +355,8 @@ export function draftDiffers(base: BrandProfile | null, draft: BrandDraft, inclu
       optional(draft.locale) !== null ||
       optional(draft.timeZoneId) !== null ||
       draft.channelKeys.length > 0 ||
-      draft.links.length > 0
+      draft.links.length > 0 ||
+      draft.assets.length > 0
     );
   }
 

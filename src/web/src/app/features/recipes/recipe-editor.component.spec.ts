@@ -4748,4 +4748,125 @@ describe('RecipeEditorComponent', () => {
       expect(field?.querySelector('.error')?.textContent?.trim()).toBe('A serving count must be greater than zero.');
     });
   });
+
+  describe('Media tab (12.10j)', () => {
+    const STEP = {
+      sortOrder: 0,
+      techniqueId: null,
+      durationMinutes: null,
+      temperatureValue: null,
+      temperatureUnitId: null,
+      note: null,
+    };
+
+    const WITH_STEPS: RecipeDetail = {
+      ...RECIPE_DETAIL,
+      instructionGroups: [
+        {
+          id: 'ig1',
+          title: null,
+          sortOrder: 0,
+          steps: [
+            { ...STEP, id: 's1', text: 'Cream the butter and sugar.' },
+            { ...STEP, id: 's2', sortOrder: 1, text: 'Fold in the flour.' },
+          ],
+        },
+      ],
+    };
+
+    const LINKED: RecipeDetail = {
+      ...WITH_STEPS,
+      concurrencyToken: 'AAAAAAAAB9I=',
+      currentVersion: { id: 'v4', versionNumber: 4, source: 'CreatorEdit', readiness: 'Draft', reason: null, createdAt: '2026-01-03T00:00:00Z' },
+      assetLinks: [
+        { id: 'l1', sortOrder: 0, mediaAssetId: 'a1', mediaAssetVersionNumber: null, instructionStepId: null, role: 'Hero', caption: null },
+      ],
+    };
+
+    async function open(role: WorkspaceRole | null = 'Editor', recipe: RecipeDetail = WITH_STEPS) {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe });
+      const created = await createHarness('/cozy-fall/recipes/r1', recipeService, confirmServiceStub(), role);
+      await waitUntil(() => created.component.loadState().status === 'ready');
+
+      return { ...created, recipeService };
+    }
+
+    it('replaces the placeholder with the recipe’s pictures panel', async () => {
+      const { harness } = await open();
+
+      tabButton(harness.routeNativeElement!, 'Media')!.click();
+      harness.detectChanges();
+
+      const panel = harness.routeNativeElement!.querySelector('cp-recipe-media');
+      expect(panel).not.toBeNull();
+      expect(panel?.textContent).toContain('No pictures linked yet');
+      expect(harness.routeNativeElement!.textContent).not.toContain('arrives in a later phase');
+    });
+
+    it('offers the actions to a Contributor and above, and to nobody whose role is not yet known', async () => {
+      for (const [role, allowed] of [
+        ['Viewer', false],
+        ['Contributor', true],
+        ['Editor', true],
+        ['Owner', true],
+        [null, false],
+      ] as const) {
+        const { component } = await open(role);
+
+        expect(component.canChangeMedia()).withContext(String(role)).toBe(allowed);
+        TestBed.resetTestingModule();
+      }
+    });
+
+    it('numbers the saved steps through the method and leaves out one not yet saved', async () => {
+      const { component } = await open();
+
+      expect(component.mediaSteps()).toEqual([
+        { id: 's1', number: 1, text: 'Cream the butter and sugar.' },
+        { id: 's2', number: 2, text: 'Fold in the flour.' },
+      ]);
+
+      component.instructionGroups.update((groups) =>
+        groups.map((group) => ({
+          ...group,
+          steps: [group.steps[0], { ...group.steps[1], key: 'new', id: null, text: 'Not saved yet.' }, group.steps[1]],
+        })),
+      );
+
+      // The unsaved step still takes its place in the count — "Step 3" is what the creator sees — but
+      // cannot be linked to.
+      expect(component.mediaSteps()).toEqual([
+        { id: 's1', number: 1, text: 'Cream the butter and sugar.' },
+        { id: 's2', number: 3, text: 'Fold in the flour.' },
+      ]);
+    });
+
+    it('takes the recipe a link returns: its links, its token and its version, staying on the tab', async () => {
+      const { harness, component, recipeService } = await open();
+      component.selectedAreaId.set('media');
+
+      component.onMediaChanged({ recipe: LINKED, message: 'Picture linked.' });
+      harness.detectChanges();
+
+      expect(component.savedAssetLinks()).toEqual(LINKED.assetLinks);
+      expect(component.concurrencyToken()).toBe('AAAAAAAAB9I=');
+      expect(component.isDirty()).toBeFalse();
+      expect(component.selectedAreaId()).toBe('media');
+      expect(harness.routeNativeElement?.textContent).toContain('Picture linked. The recipe is now at version 4.');
+
+      // No second read: the command answered with the whole recipe.
+      expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-reads the recipe when the panel reports it stale', async () => {
+      const { component, recipeService } = await open();
+
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: LINKED });
+      await component.onMediaReloadRequested();
+
+      expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(2);
+      expect(component.savedAssetLinks()).toEqual(LINKED.assetLinks);
+    });
+  });
 });

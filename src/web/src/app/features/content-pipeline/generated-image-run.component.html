@@ -76,7 +76,9 @@
     }
 
     @if (provenance(); as made) {
-      <p class="cp-muted">Made by {{ made }}.</p>
+      <!-- Said with a badge, not in muted text: that these pictures were generated is something a creator
+           should not have to look for (12.10l). -->
+      <p class="provenance"><cp-badge tone="purple">AI generated</cp-badge> Made by {{ made }}.</p>
     }
   }
 

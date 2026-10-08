@@ -1,5 +1,7 @@
+using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -68,6 +70,7 @@ public interface IGeneratedImageGenerationFacade
 /// <inheritdoc cref="IGeneratedImageGenerationFacade"/>
 internal sealed class GeneratedImageGenerationFacade(
     IGeneratedImageGenerationBusiness business,
+    IAiProposalLookupFacade proposals,
     IWorkspaceContext workspace) : IGeneratedImageGenerationFacade
 {
     public async Task<OperationResult<GeneratedImageOperationDetailServiceModel>> GetOperationAsync(
@@ -109,14 +112,47 @@ internal sealed class GeneratedImageGenerationFacade(
                 MediaErrorCodes.GenerationInvalidRequest, "The images could not be requested.", failures));
         }
 
+        var promptText = request.PromptText.Trim();
+        var avoidText = string.IsNullOrWhiteSpace(request.AvoidText) ? null : request.AvoidText.Trim();
+
+        // The proposal the prompt came from, when one is named, has to be one of this workspace's (12.10l).
+        // The composite key on the operation already refuses anything else, but as an exception nobody reads:
+        // asked here, through the Ai module's own facade, it is a refusal in words. An id that names nothing
+        // and another workspace's proposal are one answer, so this cannot be used to ask what a neighbour has
+        // generated (tenancy.md).
+        if (request.AiProposalId is { } proposalId && !await proposals.ExistsAsync(proposalId, cancellationToken))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(OperationError.Validation(
+                MediaErrorCodes.GenerationProposalUnprocessable,
+                "The images could not be requested.",
+                [(nameof(request.AiProposalId), "That prompt proposal is not in this workspace.")]));
+        }
+
         var result = await business.RequestAsync(
-            request.PromptText.Trim(),
-            string.IsNullOrWhiteSpace(request.AvoidText) ? null : request.AvoidText.Trim(),
+            promptText,
+            avoidText,
             request.AiProposalId,
             request.VariantCount,
             workspace.MembershipId,
             request.IdempotencyKey.Trim(),
             cancellationToken);
+
+        // A key names one request. Found again with anything about the request different — the words, the
+        // number of images, the proposal, or who is asking — it is a second request wearing the first one's
+        // key, and answering it with the first one's operation would hand back images of something else
+        // (12.10l). Refused as every other idempotent command refuses it, and nothing is queued.
+        if (result.Replayed
+            && !(string.Equals(result.Operation.PromptText, promptText, StringComparison.Ordinal)
+                && string.Equals(result.Operation.AvoidText, avoidText, StringComparison.Ordinal)
+                && result.Operation.AiProposalId == request.AiProposalId
+                && result.Operation.VariantCount == request.VariantCount
+                && result.Operation.RequestedByMembershipId == workspace.MembershipId))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(new OperationError(
+                IdempotencyPolicy.KeyReusedCode,
+                "That idempotency key was already used for a different image request.",
+                new Dictionary<string, string[]>()));
+        }
 
         // Zero on a fresh request without a round trip; the real count only matters for a replay, where the
         // caller is asking what became of the operation it already has.

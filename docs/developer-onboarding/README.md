@@ -86,9 +86,9 @@ Consumer recipe indexing or marketplace features, nutrition or allergen guarante
 
 ### What is built today
 
-Implemented: identity and the BFF session, workspace tenancy, the recipe module (library, editor, versions, test runs, readiness, exports), brand profile and style guides, AI recipe proposals (concepts, first draft, review, revision, substitution, adaptation), AI usage allowances, and the ops usage route.
+Implemented: identity and the BFF session, workspace tenancy, the recipe module (library, editor, versions, test runs, readiness, exports), brand profile and style guides, AI recipe proposals (concepts, first draft, review, revision, substitution, adaptation), AI usage allowances, the ops usage route, the Prompt Library (list, preview, detail, copy, download, and reuse into Image Studio), and the DAM library (search, filter, sort, paging and thumbnail cards, plus an asset page with metadata, lineage, versions, usage history and downloads, where a Contributor can edit the details, add a version and log a use, and an Editor can remove the asset from the library), and the recipe editor's Media tab (link a library picture to a recipe as its lead, step, gallery, in-progress or social picture, following or keeping a version, and unlink it), and brand settings can link a primary logo and alternates from the library.
 
-Placeholders in the app shell: Dashboard, Workflows, My Day, My Week, Social Studio, DAM, Content Board, and Prompt Library. Publishing and media pipelines are designed in the rules but not yet built.
+Placeholders in the app shell: Dashboard, Workflows, My Day, My Week, Social Studio, and Content Board. Publishing and media pipelines are designed in the rules but not yet built.
 
 ---
 

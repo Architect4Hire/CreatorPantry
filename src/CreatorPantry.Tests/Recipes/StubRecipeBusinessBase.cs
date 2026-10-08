@@ -19,6 +19,9 @@ internal abstract class StubRecipeBusinessBase : IRecipeBusiness
     public virtual Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
         IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) => throw Unused();
 
+    public virtual Task<IReadOnlyList<WorkspaceTagServiceModel>> ListWorkspaceTagsAsync(
+        CancellationToken cancellationToken) => throw Unused();
+
     public virtual Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
         CanonicalCreateRecipe input,
         MeasurementDimension? yieldUnitDimension,

@@ -35,6 +35,10 @@ internal sealed class RecipeInstructionStepConfiguration : IEntityTypeConfigurat
 
         builder.HasKey(step => step.Id);
 
+        // What a step image's link points at (12.10i). Workspace-paired, as every key a workspace-owned row
+        // is referenced by: an id alone would let one workspace's link name another's step.
+        builder.HasAlternateKey(step => new { step.WorkspaceId, step.Id });
+
         // See RecipeInstructionGroupConfiguration's Id configuration for why this matters: without it, a new
         // step attached to an existing group during an edit is misread as an update to a row that does not
         // exist.

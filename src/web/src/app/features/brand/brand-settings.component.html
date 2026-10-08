@@ -235,16 +235,16 @@
             <cp-form-section
               sectionId="section-logo"
               heading="Logo"
-              intro="The logo your brand is known by."
+              intro="The logo your brand is known by, chosen from pictures in your library."
             >
-              @if (logoCount() > 0) {
-                <p>{{ logoCount() }} logo{{ logoCount() === 1 ? '' : 's' }} linked.</p>
-              }
-              <p class="disabled-note" id="brand-logo-note">
-                Choosing a logo isn't available yet. It arrives with the media library, and nothing you've saved here is
-                affected.
-              </p>
-              <button cpButton type="button" variant="secondary" disabled aria-describedby="brand-logo-note">Choose a logo</button>
+              <cp-brand-logos
+                [workspaceSlug]="workspaceSlug"
+                [assets]="draft().assets"
+                [canEdit]="canEdit()"
+                [refusedIds]="refusedLogoIds()"
+                [refusedMessage]="refusedLogoMessage()"
+                (changed)="setAssets($event)"
+              />
             </cp-form-section>
 
             <cp-form-section

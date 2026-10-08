@@ -6,12 +6,19 @@ namespace CreatorPantry.Domain.Modules.Brand.Managers;
 internal static class BrandProfileErrors
 {
     /// <summary>
-    /// Logo links are refused until the media seam can verify an asset belongs to this workspace. Raised by the
-    /// facade before anything is recorded, and by Business as the backstop for any caller that reaches it
-    /// without the facade.
+    /// One or more of the submitted logos is not an asset this workspace can link (12.10k).
     /// </summary>
-    public static OperationError AssetsUnprocessable() => OperationError.Validation(
+    /// <remarks>
+    /// <strong>One sentence for three cases.</strong> An id that names nothing, an asset in another workspace
+    /// and one removed from this workspace's library all answer in these words, naming only the position the
+    /// caller sent it at — so a save cannot be used to ask what another workspace owns, or whether something
+    /// was ever here (tenancy.md).
+    /// </remarks>
+    /// <param name="positions">The zero-based positions, in the submitted list, of the assets refused.</param>
+    public static OperationError AssetsUnprocessable(IEnumerable<int> positions) => OperationError.Validation(
         BrandErrorCodes.AssetsUnprocessable,
         "The brand profile could not be saved.",
-        [(nameof(CreateBrandProfileViewModel.Assets), "Logos cannot be linked yet: the media library is not available to verify them.")]);
+        positions.Select(position => (
+            $"{nameof(CreateBrandProfileViewModel.Assets)}[{position}].{nameof(BrandAssetInput.MediaAssetId)}",
+            "That picture is not in this workspace's library.")));
 }

@@ -16,17 +16,30 @@ public interface IBrandProfileBusiness
 
     /// <summary>
     /// Creates the profile as revision 1, or fails with <see cref="BrandErrorCodes.AlreadyExistsConflict"/> or a
-    /// validation failure for a time zone that does not exist.
+    /// validation failure for a time zone that does not exist or a logo that is not in <paramref name="linkableAssetIds"/>.
     /// </summary>
+    /// <param name="linkableAssetIds">
+    /// The submitted asset ids the caller's workspace can link, as the facade resolved them through the Media
+    /// module. Business decides what a link means and never reaches into another module to learn whether its
+    /// target exists (backend.md); an id absent from this set is refused, whatever the reason it is absent.
+    /// </param>
     Task<OperationResult<BrandProfileServiceModel>> CreateAsync(
-        string actorUserId, CreateBrandProfileViewModel model, CancellationToken cancellationToken);
+        string actorUserId,
+        CreateBrandProfileViewModel model,
+        IReadOnlySet<Guid> linkableAssetIds,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Applies a merge patch. Not found, conflict on a stale token, or validation failure on a time zone that
-    /// does not exist. A patch that changes nothing writes no revision and leaves the token valid.
+    /// does not exist or a newly linked logo that is not in <paramref name="linkableAssetIds"/>. A patch that
+    /// changes nothing writes no revision and leaves the token valid.
     /// </summary>
+    /// <param name="linkableAssetIds">See <see cref="CreateAsync"/>.</param>
     Task<OperationResult<BrandProfileServiceModel>> UpdateAsync(
-        string actorUserId, UpdateBrandProfileViewModel model, CancellationToken cancellationToken);
+        string actorUserId,
+        UpdateBrandProfileViewModel model,
+        IReadOnlySet<Guid> linkableAssetIds,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class BrandProfileBusiness(
@@ -44,11 +57,17 @@ internal sealed class BrandProfileBusiness(
     }
 
     public async Task<OperationResult<BrandProfileServiceModel>> CreateAsync(
-        string actorUserId, CreateBrandProfileViewModel model, CancellationToken cancellationToken)
+        string actorUserId,
+        CreateBrandProfileViewModel model,
+        IReadOnlySet<Guid> linkableAssetIds,
+        CancellationToken cancellationToken)
     {
-        if (model.Assets is { Count: > 0 })
+        ArgumentNullException.ThrowIfNull(linkableAssetIds);
+
+        // A new profile holds no links yet, so every submitted logo has to be one the workspace can link.
+        if (UnlinkableAssets(model.Assets, linkableAssetIds, alreadyLinked: new HashSet<Guid>()) is { } assetError)
         {
-            return OperationResult<BrandProfileServiceModel>.Failure(BrandProfileErrors.AssetsUnprocessable());
+            return OperationResult<BrandProfileServiceModel>.Failure(assetError);
         }
 
         var zone = BrandProfileInputChecks.Normalize(model.TimeZoneId);
@@ -104,12 +123,12 @@ internal sealed class BrandProfileBusiness(
     }
 
     public async Task<OperationResult<BrandProfileServiceModel>> UpdateAsync(
-        string actorUserId, UpdateBrandProfileViewModel model, CancellationToken cancellationToken)
+        string actorUserId,
+        UpdateBrandProfileViewModel model,
+        IReadOnlySet<Guid> linkableAssetIds,
+        CancellationToken cancellationToken)
     {
-        if (model.Assets.TryGetSubmitted(out var submittedAssets) && submittedAssets is { Count: > 0 })
-        {
-            return OperationResult<BrandProfileServiceModel>.Failure(BrandProfileErrors.AssetsUnprocessable());
-        }
+        ArgumentNullException.ThrowIfNull(linkableAssetIds);
 
         if (model.TimeZoneId.TryGetSubmitted(out var submittedZone)
             && UnknownZone(BrandProfileInputChecks.Normalize(submittedZone)) is { } zoneError)
@@ -126,6 +145,18 @@ internal sealed class BrandProfileBusiness(
         if (!BrandConcurrencyToken.Matches(model.ExpectedConcurrencyToken, profile.RowVersion))
         {
             return Conflict();
+        }
+
+        // After the token, as the channel check is: a refusal about a logo is answered from the profile the
+        // caller actually read. A link the profile already holds is let through whatever has since happened to
+        // its asset — the creator did not just choose it, and refusing would stop them saving anything else
+        // until they dropped a logo they may not know has left the library. Only a newly named asset must be
+        // one the workspace can link.
+        if (model.Assets.TryGetSubmitted(out var submittedAssets)
+            && UnlinkableAssets(
+                submittedAssets, linkableAssetIds, profile.AssetLinks.Select(link => link.MediaAssetId).ToHashSet()) is { } assetError)
+        {
+            return OperationResult<BrandProfileServiceModel>.Failure(assetError);
         }
 
         if (model.ChannelDefaults.TryGetSubmitted(out var submittedChannels)
@@ -223,6 +254,26 @@ internal sealed class BrandProfileBusiness(
                 ReplaceAssets(profile, assets);
             }
         }
+    }
+
+    /// <summary>
+    /// The refusal for any submitted logo this workspace cannot link, or <c>null</c> when there is none.
+    /// </summary>
+    /// <remarks>
+    /// The composite key on <c>BrandAssetLinks</c> already stops a link to another workspace's asset. It cannot
+    /// see <c>DeletedAt</c>, so an asset removed from the library would pass it; and a key violation is an
+    /// exception nobody reads. This is the rule that answers in words, and answers the three cases alike.
+    /// </remarks>
+    private static OperationError? UnlinkableAssets(
+        IReadOnlyList<BrandAssetInput?>? submitted, IReadOnlySet<Guid> linkable, IReadOnlySet<Guid> alreadyLinked)
+    {
+        var refused = (submitted ?? [])
+            .Select((item, position) => (Id: item?.MediaAssetId, position))
+            .Where(entry => entry.Id is { } id && !linkable.Contains(id) && !alreadyLinked.Contains(id))
+            .Select(entry => entry.position)
+            .ToList();
+
+        return refused.Count == 0 ? null : BrandProfileErrors.AssetsUnprocessable(refused);
     }
 
     private static void ReplaceChannels(BrandProfile profile, IReadOnlyList<BrandChannelDefaultInput?>? channels)

@@ -44,4 +44,27 @@ internal static class SeededMediaAsset
             UpdatedByMembershipId = actor,
         };
     }
+
+    /// <summary>The first version of a seeded asset, for a test that pins a link to one (12.10i).</summary>
+    /// <remarks>
+    /// Separate from <see cref="For"/>, which most link tests want as it is. The object key, checksum and
+    /// dimensions are placeholders: no test that uses this reads bytes, only whether the version exists.
+    /// </remarks>
+    public static MediaAssetVersion VersionOf(MediaAsset asset, int versionNumber = 1) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = asset.WorkspaceId,
+            MediaAssetId = asset.Id,
+            VersionNumber = versionNumber,
+            MediaType = "image/jpeg",
+            SizeBytes = 1024,
+            Width = 800,
+            Height = 600,
+            ContentChecksum = Convert.ToHexString(Guid.NewGuid().ToByteArray()),
+            ObjectKey = $"assets/{asset.Id:D}/{versionNumber}.jpg",
+            Source = MediaAssetVersionSource.Upload,
+            CreatedByMembershipId = asset.CreatedByMembershipId,
+            CreatedAt = asset.CreatedAt,
+        };
 }

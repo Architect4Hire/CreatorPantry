@@ -603,6 +603,15 @@ public interface IRecipeBusiness
     /// </remarks>
     Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> ListTitlesAsync(
         IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the workspace's active tags by name, capped at <see cref="WorkspaceTagPolicy.MaxListed"/>.
+    /// </summary>
+    /// <remarks>
+    /// The cap is decided here rather than taken from a caller, so no request can ask for an unbounded read of
+    /// the vocabulary.
+    /// </remarks>
+    Task<IReadOnlyList<WorkspaceTagServiceModel>> ListWorkspaceTagsAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class RecipeBusiness(
@@ -621,6 +630,14 @@ internal sealed class RecipeBusiness(
         return [.. recipeIds
             .Where(byId.ContainsKey)
             .Select(id => new RecipeLinkCandidateServiceModel(id, byId[id]))];
+    }
+
+    public async Task<IReadOnlyList<WorkspaceTagServiceModel>> ListWorkspaceTagsAsync(
+        CancellationToken cancellationToken)
+    {
+        var found = await dataLayer.ListActiveWorkspaceTagsAsync(WorkspaceTagPolicy.MaxListed, cancellationToken);
+
+        return [.. found.Select(tag => new WorkspaceTagServiceModel(tag.Id, tag.Name))];
     }
 
     public async Task<OperationResult<CreatedRecipeServiceModel>> CreateAsync(
@@ -1858,7 +1875,7 @@ internal sealed class RecipeBusiness(
     /// <em>asked</em> for is still audited.
     /// </para>
     /// </remarks>
-    private static RecipeStatusTransition StageReopen(Recipe recipe)
+    internal static RecipeStatusTransition StageReopen(Recipe recipe)
     {
         var from = recipe.Status;
         var target = RecipeStatusTransitions.ReopenTarget;
@@ -2061,6 +2078,9 @@ internal sealed class RecipeBusiness(
 
         foreach (var orphan in existing.Values.Where(group => !kept.Contains(group.Id)).ToList())
         {
+            // Every step in the group goes with it, so their images are demoted first — see
+            // RecipeAssetLinkRules.DemoteStepImages for why a removed step never takes its picture along.
+            RecipeAssetLinkRules.DemoteStepImages(recipe, [.. orphan.Steps.Select(step => step.Id)]);
             recipe.InstructionGroups.Remove(orphan);
             changed = true;
         }
@@ -2093,6 +2113,7 @@ internal sealed class RecipeBusiness(
 
         foreach (var orphan in existing.Values.Where(step => !kept.Contains(step.Id)).ToList())
         {
+            RecipeAssetLinkRules.DemoteStepImages(recipe, [orphan.Id]);
             group.Steps.Remove(orphan);
             changed = true;
         }

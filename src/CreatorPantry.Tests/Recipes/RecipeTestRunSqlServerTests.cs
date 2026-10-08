@@ -152,6 +152,36 @@ public sealed class RecipeTestRunSqlServerTests(SqlServerRecipeFixture fixture) 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(token));
     }
 
+    /// <summary>
+    /// The composite key on a test image's asset (12.10k), on the engine that enforces it: an attachment in
+    /// workspace A cannot name workspace B's asset, whatever the application's own check was told.
+    /// </summary>
+    [Fact]
+    public async Task An_attachment_cannot_name_another_workspaces_asset()
+    {
+        await using var scope = fixture.ScopeFor(SqlServerRecipeFixture.WorkspaceA);
+        var db = SqlServerRecipeFixture.Db(scope);
+        var token = TestContext.Current.CancellationToken;
+
+        var seeded = await SeedRecipeAsync(db, "Attachment keys");
+        var run = NewRun(seeded.RecipeId, seeded.VersionId);
+        db.RecipeTestRuns.Add(run);
+        await db.SaveChangesAsync(token);
+
+        TestAttachmentLink Attachment(Guid assetId, int order) => new()
+        {
+            Id = Guid.NewGuid(), RecipeTestRunId = run.Id, MediaAssetId = assetId, SortOrder = order,
+        };
+
+        db.TestAttachmentLinks.Add(Attachment(SqlServerRecipeFixture.MediaAssetIdB, 0));
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(token));
+
+        db.ChangeTracker.Clear();
+
+        db.TestAttachmentLinks.Add(Attachment(SqlServerRecipeFixture.MediaAssetIdA, 0));
+        await db.SaveChangesAsync(token);
+    }
+
     private static RecipeTestRun NewRun(Guid recipeId, Guid versionId) => new()
     {
         Id = Guid.NewGuid(),

@@ -580,6 +580,8 @@ public static class RecipeSnapshotReconciler
     {
         var changed = live.SortOrder != wanted.SortOrder
             || live.MediaAssetId != wanted.MediaAssetId
+            || live.MediaAssetVersionNumber != wanted.MediaAssetVersionNumber
+            || live.InstructionStepId != wanted.InstructionStepId
             || live.Role != wanted.Role
             || live.Caption != wanted.Caption;
 
@@ -590,6 +592,8 @@ public static class RecipeSnapshotReconciler
 
         live.SortOrder = wanted.SortOrder;
         live.MediaAssetId = wanted.MediaAssetId;
+        live.MediaAssetVersionNumber = wanted.MediaAssetVersionNumber;
+        live.InstructionStepId = wanted.InstructionStepId;
         live.Role = wanted.Role;
         live.Caption = wanted.Caption;
 

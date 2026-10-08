@@ -59,6 +59,28 @@ public class RecipeAssetLink : IWorkspaceOwned
     /// </remarks>
     public Guid MediaAssetId { get; set; }
 
+    /// <summary>
+    /// The version of the asset this use is pinned to, or <c>null</c> to follow whichever is current.
+    /// </summary>
+    /// <remarks>
+    /// A pin is how a recipe keeps showing the photograph its creator chose after the asset gains a newer
+    /// version. It is a foreign key, <c>(WorkspaceId, MediaAssetId, MediaAssetVersionNumber)</c> to
+    /// <c>MediaAssetVersions</c>, so a pin naming a version the asset does not have is unrepresentable rather
+    /// than merely refused by the write seam. Versions are never removed, so a pin never dangles.
+    /// </remarks>
+    public int? MediaAssetVersionNumber { get; set; }
+
+    /// <summary>
+    /// The instruction step this image belongs to. Set exactly when <see cref="Role"/> is
+    /// <see cref="RecipeAssetRole.Step"/>, and <c>null</c> for every other role.
+    /// </summary>
+    /// <remarks>
+    /// Workspace-paired to <c>RecipeInstructionSteps</c> and restricted, never cascading — see
+    /// <see cref="RecipeAssetRole"/>. That the step belongs to <em>this</em> recipe is the write seam's rule:
+    /// the key pins the workspace, and Business resolves the step inside the aggregate it loaded.
+    /// </remarks>
+    public Guid? InstructionStepId { get; set; }
+
     /// <summary>What the asset is doing here. At most one <see cref="RecipeAssetRole.Hero"/> per recipe.</summary>
     public RecipeAssetRole Role { get; set; }
 

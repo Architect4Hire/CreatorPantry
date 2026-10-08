@@ -52,6 +52,7 @@ let fixture: ComponentFixture<HostComponent>;
 let host: HostComponent;
 let el: HTMLElement;
 let requests: RequestGeneratedImagesRequest[];
+let keys: string[];
 let requestOutcome: GeneratedImageRequestOutcome;
 
 async function settle(): Promise<void> {
@@ -69,6 +70,7 @@ function makeButton(): HTMLButtonElement {
 describe('GeneratedImageRunComponent', () => {
   beforeEach(async () => {
     requests = [];
+    keys = [];
     requestOutcome = { status: 'unavailable' };
 
     await TestBed.configureTestingModule({
@@ -76,8 +78,9 @@ describe('GeneratedImageRunComponent', () => {
         {
           provide: GeneratedImageService,
           useValue: {
-            request: (_slug: string, request: RequestGeneratedImagesRequest) => {
+            request: (_slug: string, request: RequestGeneratedImagesRequest, key: string) => {
               requests.push(request);
+              keys.push(key);
 
               return Promise.resolve(requestOutcome);
             },
@@ -141,6 +144,52 @@ describe('GeneratedImageRunComponent', () => {
     await settle();
 
     expect(requests).toEqual([{ promptText: 'A tight crop.', avoidText: 'clutter, harsh light', variantCount: 4 }]);
+  });
+
+  describe('one key, one request (12.10l)', () => {
+    function askButton(): HTMLButtonElement {
+      return Array.from(el.querySelectorAll('button')).find((button) =>
+        ['Make the pictures', 'Try again'].includes((button.textContent ?? '').trim()),
+      ) as HTMLButtonElement;
+    }
+
+    async function ask(): Promise<void> {
+      askButton().click();
+      await settle();
+    }
+
+    it('repeats an unanswered ask under the same key, so a lost answer is a replay and not a second charge', async () => {
+      await ask();
+      await ask();
+
+      expect(keys.length).toBe(2);
+      expect(keys[1]).toBe(keys[0]);
+    });
+
+    it('takes a new key once what is asked for has changed, since the server refuses the old one for it', async () => {
+      await ask();
+
+      host.promptText.set('A wider crop, from above.');
+      await settle();
+      await ask();
+
+      expect(requests.map((request) => request.promptText)).toEqual(['A tight crop.', 'A wider crop, from above.']);
+      expect(keys[1]).not.toBe(keys[0]);
+
+      // And the new ask keeps its own key across its own retry.
+      await ask();
+      expect(keys[2]).toBe(keys[1]);
+    });
+
+    it('takes a new key when only the number of pictures changed', async () => {
+      await ask();
+
+      host.variantCount.set(3);
+      await settle();
+      await ask();
+
+      expect(keys[1]).not.toBe(keys[0]);
+    });
   });
 
   it('defaults to the pipeline wording, so its first caller passes none', () => {

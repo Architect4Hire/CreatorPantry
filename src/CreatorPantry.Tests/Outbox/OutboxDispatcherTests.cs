@@ -209,6 +209,108 @@ public sealed class OutboxDispatcherTests : IAsyncLifetime
         Assert.Equal(1, final.Poisoned);
     }
 
+    /// <summary>
+    /// The guard a second Worker instance relies on (12.10l): two dispatchers that both read a message as due
+    /// cannot both claim it. The second claim's UPDATE names the state it read, matches nothing, and fails.
+    /// </summary>
+    [Fact]
+    public async Task Two_dispatchers_that_read_the_same_due_message_cannot_both_claim_it()
+    {
+        var messageId = await EnqueueAsync();
+        var token = TestContext.Current.CancellationToken;
+
+        await using var firstScope = _services.CreateAsyncScope();
+        await using var secondScope = _services.CreateAsyncScope();
+        var first = firstScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var second = secondScope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        // Both read it while it is Pending.
+        var seenByFirst = await first.OutboxMessages.SingleAsync(m => m.Id == messageId, token);
+        var seenBySecond = await second.OutboxMessages.SingleAsync(m => m.Id == messageId, token);
+
+        foreach (var seen in (OutboxMessage[])[seenByFirst, seenBySecond])
+        {
+            seen.Status = OutboxMessageStatus.Leased;
+            seen.LeasedBy = Guid.NewGuid();
+            seen.LeaseExpiresAt = _time.GetUtcNow() + TimeSpan.FromMinutes(1);
+        }
+
+        await first.SaveChangesAsync(token);
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync(token));
+
+        // And the row is the winner's.
+        await using var check = _services.CreateAsyncScope();
+        var stored = await check.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .OutboxMessages.AsNoTracking().SingleAsync(m => m.Id == messageId, token);
+        Assert.Equal(seenByFirst.LeasedBy, stored.LeasedBy);
+    }
+
+    /// <summary>
+    /// A handler that outlives its lease does not get to record an outcome over whoever took the message
+    /// next: the outcome write quotes this pass's own lease, and is dropped when the row no longer holds it.
+    /// </summary>
+    [Fact]
+    public async Task An_outcome_is_not_recorded_for_a_message_whose_lease_was_taken_while_it_was_handled()
+    {
+        var messageId = await EnqueueAsync();
+        var takenBy = Guid.NewGuid();
+
+        _handler.OnHandle = async _ =>
+        {
+            // Another dispatcher, finding the lease lapsed, takes the message while this handler is still working.
+            await using var scope = _services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var message = await db.OutboxMessages.SingleAsync(m => m.Id == messageId);
+            message.LeasedBy = takenBy;
+            message.LeaseExpiresAt = _time.GetUtcNow() + TimeSpan.FromMinutes(5);
+            await db.SaveChangesAsync();
+        };
+
+        var summary = await DispatchAsync();
+
+        Assert.Equal(1, summary.Claimed);
+        Assert.Equal(0, summary.Completed);
+        Assert.Equal(0, summary.Retrying);
+        Assert.Equal(0, summary.Poisoned);
+
+        await using var check = _services.CreateAsyncScope();
+        var stored = await check.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .OutboxMessages.AsNoTracking().SingleAsync(m => m.Id == messageId, TestContext.Current.CancellationToken);
+
+        // Still leased, to the dispatcher that took it — not marked completed by the one that lost it.
+        Assert.Equal(OutboxMessageStatus.Leased, stored.Status);
+        Assert.Equal(takenBy, stored.LeasedBy);
+        Assert.Null(stored.CompletedAt);
+    }
+
+    [Fact]
+    public async Task A_pass_claims_and_delivers_every_due_message_once()
+    {
+        await EnqueueAsync(count: 3);
+
+        var summary = await DispatchAsync();
+        var again = await DispatchAsync();
+
+        Assert.Equal(3, summary.Claimed);
+        Assert.Equal(3, summary.Completed);
+        Assert.Equal(0, again.Claimed);
+        Assert.Equal(3, _handler.CallCount);
+    }
+
+    private async Task EnqueueAsync(int count)
+    {
+        await using var scope = _services.CreateAsyncScope();
+        var writer = scope.ServiceProvider.GetRequiredService<IOutboxWriter>();
+
+        for (var index = 0; index < count; index++)
+        {
+            writer.Enqueue(MessageType, "{}", Guid.NewGuid());
+        }
+
+        await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
     private async Task<Guid> EnqueueAsync()
     {
         await using var scope = _services.CreateAsyncScope();

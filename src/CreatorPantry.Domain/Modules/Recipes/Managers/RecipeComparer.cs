@@ -529,6 +529,8 @@ public static class RecipeComparer
         (RecipeComparisonField.AssetMediaAssetId, link.MediaAssetId),
         (RecipeComparisonField.AssetRole, link.Role),
         (RecipeComparisonField.AssetCaption, link.Caption),
+        (RecipeComparisonField.AssetVersionNumber, link.MediaAssetVersionNumber),
+        (RecipeComparisonField.AssetInstructionStepId, link.InstructionStepId),
     ];
 
     /// <summary>

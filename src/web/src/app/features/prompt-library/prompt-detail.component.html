@@ -1,0 +1,158 @@
+<nav class="back" aria-label="Breadcrumb">
+  <a [routerLink]="libraryLink()"><span aria-hidden="true">← </span>Prompt Library</a>
+</nav>
+
+@switch (state().status) {
+  @case ('loading') {
+    <cp-card><p class="plain" role="status">Loading the prompt…</p></cp-card>
+  }
+  @case ('not_found') {
+    <cp-card>
+      <h1>Prompt not found</h1>
+      <cp-notice tone="error" role="alert">We couldn't find this prompt.</cp-notice>
+    </cp-card>
+  }
+  @case ('error') {
+    <cp-card>
+      <cp-notice tone="error" role="alert">
+        The prompt couldn't be loaded right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retry()">Try again</button>
+      </cp-notice>
+    </cp-card>
+  }
+  @case ('ready') {
+    @if (prompt(); as shown) {
+      <header class="page-head">
+        <h1>{{ title() }}</h1>
+        <p class="meta">
+          <cp-badge tone="blue">{{ channelName() }}</cp-badge>
+          <cp-badge>{{ kindLabel() }}</cp-badge>
+          <cp-badge [tone]="shown.source === 'Manual' ? 'neutral' : 'purple'">{{ sourceLabel() }}</cp-badge>
+        </p>
+      </header>
+
+      <cp-card>
+        <section class="block" aria-labelledby="prompt-text-heading">
+          <h2 id="prompt-text-heading">The prompt</h2>
+          <p class="prompt-text">{{ shown.text }}</p>
+
+          <div class="cp-actions">
+            <button cpButton type="button" variant="secondary" (click)="copy()">Copy prompt</button>
+            @if (textDownloadUrl(); as href) {
+              <a cpButton variant="secondary" [href]="href">Download as text</a>
+            }
+            @if (recordDownloadUrl(); as href) {
+              <a cpButton variant="secondary" [href]="href" aria-describedby="prompt-json-hint">Download as JSON</a>
+            }
+          </div>
+          <p class="hint" id="prompt-json-hint">The JSON file also holds where the prompt came from.</p>
+
+          <cp-notice role="status" [quiet]="copyMessage() === ''" [tone]="copyFailed() ? 'error' : 'success'">{{
+            copyMessage()
+          }}</cp-notice>
+        </section>
+      </cp-card>
+
+      <cp-card>
+        <section class="block" aria-labelledby="prompt-reuse-heading">
+          <h2 id="prompt-reuse-heading">Use it again</h2>
+          <p class="plain">
+            Start something new in Image Studio with a copy of these words. The prompt saved here stays exactly as it is.
+          </p>
+
+          @switch (reuseAccess()) {
+            @case ('allowed') {
+              <div class="cp-actions">
+                <button cpButton type="button" variant="primary" [disabled]="reusing()" (click)="reuse()">
+                  Use in Image Studio
+                </button>
+              </div>
+            }
+            @case ('view_only') {
+              <cp-notice role="note">
+                You have view-only access to this workspace, so you can't make pictures from this. You can still copy
+                or download it.
+              </cp-notice>
+            }
+            @case ('unknown') {
+              <cp-notice tone="warning" role="status">
+                We couldn't check what you can do in this workspace.
+                <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+              </cp-notice>
+            }
+            @default {
+              <p class="plain" role="status">Checking what you can do here…</p>
+            }
+          }
+
+          @if (reuseProblem(); as problem) {
+            <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
+          }
+        </section>
+      </cp-card>
+
+      @if (shown.generatedText !== null) {
+        <cp-card>
+          <section class="block" aria-labelledby="prompt-draft-heading">
+            <h2 id="prompt-draft-heading">
+              What was written for you
+              <cp-badge tone="purple">Generated</cp-badge>
+            </h2>
+            @if (draftDiffers()) {
+              <p class="plain">You changed this before using it. The prompt above is the one that counts.</p>
+              <p class="prompt-text prompt-text--draft">{{ shown.generatedText }}</p>
+            } @else {
+              <p class="plain">You used it exactly as it was written, so it is the prompt above.</p>
+            }
+          </section>
+        </cp-card>
+      }
+
+      <cp-card>
+        <section class="block" aria-labelledby="prompt-facts-heading">
+          <h2 id="prompt-facts-heading">About this prompt</h2>
+          <dl class="facts">
+            <div>
+              <dt>Channel</dt>
+              <dd>{{ channelName() }}</dd>
+            </div>
+            <div>
+              <dt>Kind of picture</dt>
+              <dd>{{ kindLabel() }}</dd>
+            </div>
+            <div>
+              <dt>Where it came from</dt>
+              <dd>{{ sourceLabel() }}</dd>
+            </div>
+            <div>
+              <dt>Saved</dt>
+              <dd>{{ shown.createdAt | date: 'medium' }}</dd>
+            </div>
+            @if (recipeLink(); as link) {
+              <div>
+                <dt>Recipe</dt>
+                <dd>
+                  <a [routerLink]="link">Open the recipe</a>
+                  @if (shown.recipeVersionId !== null) {
+                    <span class="note"> Written for one particular version of it.</span>
+                  }
+                </dd>
+              </div>
+            }
+            @if (shown.promptTemplateId !== null) {
+              <div>
+                <dt>Writing template</dt>
+                <dd>
+                  {{ shown.promptTemplateId }}
+                  @if (shown.promptTemplateVersion !== null) {
+                    <span class="note"> version {{ shown.promptTemplateVersion }}</span>
+                  }
+                </dd>
+              </div>
+            }
+          </dl>
+        </section>
+      </cp-card>
+    }
+  }
+}

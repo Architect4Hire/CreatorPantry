@@ -18,6 +18,7 @@ import { ConfirmService } from '../../core/confirm.service';
 import {
   BRAND_LIMITS,
   BRAND_LINK_KINDS,
+  BrandAsset,
   BrandDraft,
   BrandLinkKind,
   BrandProfile,
@@ -30,6 +31,7 @@ import {
   newLinkDraftId,
 } from '../../models/brand-profile.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
+import { BrandLogosComponent } from './brand-logos.component';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 
 type LoadState =
@@ -117,7 +119,8 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
  * holding only what changed (`buildUpdateRequest`), so two creators editing different fields do not overwrite
  * each other, and a conflict keeps the creator's own edits while refreshing everything they did not touch.
  *
- * **Logo linking is a disabled, explained state**: the API refuses asset links until the media library exists.
+ * **Logos are part of this form** (12.10k): chosen from the workspace's library, held in the draft like every
+ * other field, and written by the one Save. A logo the server refuses is named on its own row.
  */
 @Component({
   selector: 'cp-brand-settings',
@@ -133,6 +136,7 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
     CpFieldRowComponent,
     CpFormSectionComponent,
     CpToastRegionComponent,
+    BrandLogosComponent,
   ],
   templateUrl: './brand-settings.component.html',
   styleUrl: './brand-settings.component.css',
@@ -219,7 +223,12 @@ export class BrandSettingsComponent {
 
   readonly hasFieldErrors = computed(() => Object.keys(this.fieldErrors()).length > 0);
 
-  readonly logoCount = computed(() => this.base()?.assets.length ?? 0);
+  /**
+   * The logos the last save refused, by asset id. Held by id rather than by position, so the right rows stay
+   * marked whatever the creator unlinks next; cleared by any change to the logos, since that is the remedy.
+   */
+  readonly refusedLogoIds = signal<readonly string[]>([]);
+  readonly refusedLogoMessage = signal('');
 
   constructor() {
     void this.memberships.ensureLoaded();
@@ -314,6 +323,12 @@ export class BrandSettingsComponent {
     }));
   }
 
+  /** The logos section's whole new list. A change is the creator acting on a refusal, so the marks go. */
+  setAssets(assets: readonly BrandAsset[]): void {
+    this.draft.update((draft) => ({ ...draft, assets }));
+    this.refusedLogoIds.set([]);
+  }
+
   // ---- Errors ----
 
   fieldError(key: string): string {
@@ -336,6 +351,7 @@ export class BrandSettingsComponent {
   async save(): Promise<void> {
     if (!this.canEdit() || this.saveState().status === 'saving') return;
 
+    this.refusedLogoIds.set([]);
     this.fieldErrors.set({});
 
     if (this.draft().brandName.trim().length === 0) {
@@ -372,6 +388,17 @@ export class BrandSettingsComponent {
       case 'validation_failed':
         this.showInvalid(outcome.fieldErrors);
         break;
+      case 'assets_refused': {
+        // Positions are in the list that was sent, which is the draft's own order.
+        const sent = this.draft().assets;
+
+        this.lastAttempt = null;
+        this.refusedLogoMessage.set(outcome.message);
+        this.refusedLogoIds.set(outcome.positions.map((position) => sent[position]?.mediaAssetId).filter((id) => id !== undefined));
+        this.saveState.set({ status: 'invalid' });
+        this.focusSoon('section-logo');
+        break;
+      }
       case 'conflict':
       case 'already_exists':
         await this.rebaseOntoLatest();
@@ -413,6 +440,8 @@ export class BrandSettingsComponent {
     const sameLinks = (a: BrandDraft['links'], b: BrandDraft['links']): boolean =>
       a.length === b.length && a.every((l, i) => l.kind === b[i].kind && l.url.trim() === b[i].url.trim() && l.label.trim() === b[i].label.trim());
     const sameKeys = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((k, i) => k === b[i]);
+    const sameAssets = (a: BrandDraft['assets'], b: BrandDraft['assets']): boolean =>
+      a.length === b.length && a.every((asset, i) => asset.mediaAssetId === b[i].mediaAssetId && asset.role === b[i].role);
 
     const merged: BrandDraft = {
       brandName: mine.brandName.trim() === before.brandName.trim() ? theirs.brandName : mine.brandName,
@@ -422,6 +451,7 @@ export class BrandSettingsComponent {
       timeZoneId: mine.timeZoneId.trim() === before.timeZoneId.trim() ? theirs.timeZoneId : mine.timeZoneId,
       channelKeys: sameKeys(mine.channelKeys, before.channelKeys) ? theirs.channelKeys : mine.channelKeys,
       links: sameLinks(mine.links, before.links) ? theirs.links : mine.links,
+      assets: sameAssets(mine.assets, before.assets) ? theirs.assets : mine.assets,
     };
 
     this.base.set(latest.profile);

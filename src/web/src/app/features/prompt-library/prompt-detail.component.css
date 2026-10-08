@@ -1,0 +1,91 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-8);
+}
+
+.back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--cp-text-muted);
+}
+
+.back a:focus-visible,
+.facts a:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  font-size: var(--cp-font-size-xl);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-3) 0 0;
+}
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  max-width: var(--cp-measure-prose);
+}
+
+.plain {
+  margin: 0;
+}
+
+.hint,
+.note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* The creator's own line breaks are part of the prompt, so they are kept; a long unbroken run still wraps. */
+.prompt-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prompt-text--draft {
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text-muted);
+}
+
+.facts {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

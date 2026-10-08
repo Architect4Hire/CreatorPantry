@@ -9,7 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { CpButtonComponent, CpFormSectionComponent, CpNoticeComponent, CpProgressComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { CpBadgeComponent, CpButtonComponent, CpFormSectionComponent, CpNoticeComponent, CpProgressComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -99,6 +99,7 @@ export const PIPELINE_IMAGE_RUN_WORDING: GeneratedImageRunWording = {
   selector: 'cp-generated-image-run',
   standalone: true,
   imports: [
+    CpBadgeComponent,
     CpButtonComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
@@ -135,6 +136,9 @@ export class GeneratedImageRunComponent {
   );
 
   private readonly idempotency = new IdempotencyKey();
+
+  /** The request the current idempotency key was first sent with, or null when there is no attempt in flight. */
+  private keyedRequest: string | null = null;
 
   /** The picture open in the lightbox, or null. One place decides, so the grid and the dialog cannot disagree. */
   protected readonly lightboxId = signal<string | null>(null);
@@ -349,16 +353,26 @@ export class GeneratedImageRunComponent {
 
     this.report.set('');
 
+    const request = {
+      promptText: this.sendText(),
+      avoidText: this.avoidText(),
+      variantCount: this.count(),
+    };
+
+    // A key names one request (12.10l). If what is being asked for has changed since the attempt that took
+    // the key — the prompt was reworded, the count changed — this is a different ask and takes a new one. The
+    // server refuses a key reused for a different request, so keeping it would strand the creator on a retry
+    // that can never succeed.
+    const asked = JSON.stringify(request);
+    if (this.keyedRequest !== null && this.keyedRequest !== asked) this.idempotency.clear();
+    this.keyedRequest = asked;
+
     const operationId = await this.tracker.submit(() =>
       this.service.request(
         this.workspaceSlug(),
-        {
-          promptText: this.sendText(),
-          avoidText: this.avoidText(),
-          variantCount: this.count(),
-        },
-        // Reused across a retry on purpose: an ask that answered `unavailable` may have reached the server
-        // anyway, and a fresh key would then buy a second set of pictures.
+        request,
+        // Reused across a retry of the same request on purpose: an ask that answered `unavailable` may have
+        // reached the server anyway, and a fresh key would then buy a second set of pictures.
         this.idempotency.next(),
       ),
     );
@@ -366,6 +380,7 @@ export class GeneratedImageRunComponent {
     if (operationId === null) return;
 
     this.idempotency.clear();
+    this.keyedRequest = null;
     // Claimed before the draft carries it, so the effect above recognises this as the run already being
     // followed rather than resuming it a second time on top of the poll `submit` just started.
     this.followedKey = `${this.workspaceSlug()}|${operationId}`;
@@ -396,6 +411,7 @@ export class GeneratedImageRunComponent {
     }
 
     this.idempotency.clear();
+    this.keyedRequest = null;
     await this.generate();
   }
 

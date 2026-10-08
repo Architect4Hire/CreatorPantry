@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
+using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.EntityFrameworkCore;
 
 namespace CreatorPantry.Domain.Modules.Recipes.Data;
@@ -32,6 +33,16 @@ public interface IWorkspaceTagRepository
     Task<IReadOnlyList<WorkspaceTag>> FindByIdsAsync(
         IReadOnlyCollection<Guid> ids,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the workspace's active tags by name, for a picker that offers them as new choices.
+    /// </summary>
+    /// <remarks>
+    /// Retired tags are left out: they stay readable on whatever already carries them, and simply leave the
+    /// pickers. Ordered by the normalized name with the id as a tie-break, so the cut at
+    /// <paramref name="limit"/> is the same cut on every read.
+    /// </remarks>
+    Task<IReadOnlyList<WorkspaceTagRecord>> ListActiveAsync(int limit, CancellationToken cancellationToken);
 
     /// <summary>Stages a new tag for insertion, without saving.</summary>
     void Add(WorkspaceTag tag);
@@ -71,6 +82,21 @@ internal sealed class WorkspaceTagRepository(CreatorPantryDbContext context) : I
             .Where(tag => ids.Contains(tag.Id))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<WorkspaceTagRecord>> ListActiveAsync(
+        int limit, CancellationToken cancellationToken) =>
+
+        // No WorkspaceId predicate and no IgnoreQueryFilters: the global query filter is the scope, which is
+        // what keeps another workspace's vocabulary out of the answer. Projected in SQL to the two columns a
+        // picker shows, so the normalized name and the workspace id are never read into memory at all.
+        await context.WorkspaceTags
+            .AsNoTracking()
+            .Where(tag => tag.IsActive)
+            .OrderBy(tag => tag.NormalizedName)
+            .ThenBy(tag => tag.Id)
+            .Take(limit)
+            .Select(tag => new WorkspaceTagRecord(tag.Id, tag.Name))
+            .ToListAsync(cancellationToken);
 
     public void Add(WorkspaceTag tag) => context.WorkspaceTags.Add(tag);
 }

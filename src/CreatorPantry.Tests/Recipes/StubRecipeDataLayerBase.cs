@@ -26,6 +26,9 @@ internal abstract class StubRecipeDataLayerBase : IRecipeDataLayer
     public virtual Task<IReadOnlyList<RecipeTitleRecord>> ListTitlesAsync(
         IReadOnlyList<Guid> recipeIds, CancellationToken cancellationToken) => throw Unused();
 
+    public virtual Task<IReadOnlyList<WorkspaceTagRecord>> ListActiveWorkspaceTagsAsync(
+        int limit, CancellationToken cancellationToken) => throw Unused();
+
     public virtual Task<CreatedRecipe> CreateAsync(
         Recipe recipe,
         RecipeVersionFacts version,

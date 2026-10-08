@@ -217,6 +217,11 @@ internal sealed class MediaAssetSearchRepository(CreatorPantryDbContext context)
             row.Version == null ? 0 : row.Version.Width,
             row.Version == null ? 0 : row.Version.Height,
             row.Version == null ? 0L : row.Version.SizeBytes,
+
+            // Counted in the same statement, as the detail read does. The correlated subquery runs inside the
+            // filtered set, so it cannot count a neighbour's rows, and it seeks
+            // IX_MediaAssetUtilizations_Workspace_Asset_UtilizedOn.
+            context.MediaAssetUtilizations.Count(use => use.MediaAssetId == row.Asset.Id),
             row.Asset.CreatedAt,
             row.Asset.UpdatedAt,
 
