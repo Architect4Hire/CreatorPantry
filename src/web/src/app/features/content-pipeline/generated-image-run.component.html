@@ -1,0 +1,168 @@
+<cp-form-section
+  heading="Make the pictures"
+  [intro]="wording().makeIntro"
+  [sectionId]="sectionIdPrefix() + '-make'"
+>
+  @if (sendText() === '') {
+    <cp-notice tone="warning" role="status">{{ wording().noPrompt }}</cp-notice>
+  } @else {
+    <figure class="recap">
+      <blockquote>{{ sendText() }}</blockquote>
+      @if (avoidText(); as avoid) {
+        <figcaption class="cp-muted">Asking it to avoid: {{ avoid }}</figcaption>
+      }
+    </figure>
+
+    @if (promptTooLong()) {
+      <cp-notice tone="error" role="alert">
+        Your prompt is longer than we can send — {{ promptLengthText() }}. {{ wording().tooLongRemedy }}
+      </cp-notice>
+    }
+
+    <p class="cp-muted">
+      Asking for {{ count() === 1 ? 'one picture' : count() + ' pictures' }}. {{ wording().countRemedy }}
+    </p>
+  }
+
+  @switch (tracker.phase().kind) {
+    @case ('submitting') {
+      <p class="cp-muted" role="status">Asking for your pictures…</p>
+    }
+    @case ('forbidden') {
+      <cp-notice tone="error" role="alert">{{ wording().forbidden }}</cp-notice>
+    }
+    @case ('gone') {
+      <cp-notice tone="warning" role="status">
+        That run is no longer there. Making a new set of pictures is the way on.
+      </cp-notice>
+    }
+    @case ('refused') {
+      <cp-notice tone="error" role="alert">{{ refusalMessage() }}</cp-notice>
+    }
+    @case ('rate_limited') {
+      <cp-notice tone="warning" role="status">
+        That came through too quickly. Waiting a moment and asking again usually works.
+      </cp-notice>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        Your pictures could not be asked for just now. Trying again is safe — it will not make two sets.
+      </cp-notice>
+    }
+  }
+
+  @if (detail(); as run) {
+    <p class="run">
+      <cp-status-pill [tone]="runTones[run.status]">{{ runLabels[run.status] }}</cp-status-pill>
+      <span>{{ runDetail[run.status] }}</span>
+    </p>
+
+    @if (isWatching()) {
+      <cp-progress label="Pictures made so far" [value]="progressPercent()" [valueText]="progressText()" />
+    }
+
+    @if (tracker.connection() === 'degraded') {
+      <cp-notice tone="warning" role="status">
+        This is the last update we could get, so it may be behind what has actually happened.
+      </cp-notice>
+    }
+
+    @if (shortfall(); as sentence) {
+      <cp-notice tone="warning" role="status">{{ sentence }}</cp-notice>
+    }
+
+    @if (failureSentence(); as sentence) {
+      <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
+    }
+
+    @if (provenance(); as made) {
+      <p class="cp-muted">Made by {{ made }}.</p>
+    }
+  }
+
+  <div class="cp-actions">
+    @if (hasPictures()) {
+      <button cpButton type="button" variant="secondary" [disabled]="!canGenerate()" (click)="generateFresh()">
+        Make new pictures
+      </button>
+    } @else {
+      <button cpButton type="button" variant="primary" [disabled]="!canGenerate()" (click)="generate()">
+        {{ tracker.phase().kind === 'idle' ? 'Make the pictures' : 'Try again' }}
+      </button>
+    }
+
+    @if (tracker.busy()) {
+      <button cpButton type="button" variant="text" (click)="stopChecking()">Stop checking</button>
+    }
+    @if (tracker.stopped()) {
+      <button cpButton type="button" variant="secondary" (click)="checkAgain()">Check again</button>
+    }
+    @if (canShowLastRun()) {
+      <button cpButton type="button" variant="text" (click)="showLastRun()">
+        Show the pictures from your last run
+      </button>
+    }
+  </div>
+
+  @if (tracker.stopped() && isWatching()) {
+    <p class="cp-muted">
+      We have stopped checking for now. Your pictures are still being made — "Check again" picks the run back
+      up. Nothing here cancels it.
+    </p>
+  }
+</cp-form-section>
+
+@if (hasPictures()) {
+  <cp-form-section
+    heading="Choose the keepers"
+    intro="Keep the ones worth using. Downloading gives you a copy you keep yourself."
+    [sectionId]="sectionIdPrefix() + '-choose'"
+  >
+    <cp-notice role="note">
+      {{ wording().keepNote }}
+      @if (retentionText(); as deadline) {
+        These pictures stop being available after {{ deadline }}, so download anything you want to keep for
+        longer.
+      }
+    </cp-notice>
+
+    <cp-content-pipeline-image-grid
+      [workspaceSlug]="workspaceSlug()"
+      [images]="stagedImages()"
+      [keepers]="imagesState().keepers"
+      [busy]="working()"
+      (keepToggled)="onKeepToggled($event)"
+      (declineRequested)="decline($event)"
+      (opened)="onOpened($event)"
+    />
+
+    @if (report(); as sentence) {
+      <cp-notice role="status">{{ sentence }}</cp-notice>
+    }
+
+    <p class="cp-muted">
+      {{ keeperCount() === 0 ? 'Nothing kept yet.' : keeperCount() === 1 ? 'One picture kept.' : keeperCount() + ' pictures kept.' }}
+    </p>
+
+    <div class="cp-actions">
+      <button cpButton type="button" variant="secondary" [disabled]="!canTidyUp()" (click)="tidyUp()">
+        Tidy away the ones I didn't keep
+      </button>
+    </div>
+
+    @if (nonKeepers().length === 0 && keeperCount() > 0) {
+      <p class="cp-muted">Nothing left to tidy away.</p>
+    }
+  </cp-form-section>
+}
+
+<cp-content-pipeline-image-lightbox
+  [workspaceSlug]="workspaceSlug()"
+  [images]="stagedImages()"
+  [openAt]="lightboxId()"
+  [keepers]="imagesState().keepers"
+  [busy]="working()"
+  (closed)="onLightboxClosed()"
+  (keepToggled)="onKeepToggled($event)"
+  (declineRequested)="decline($event)"
+/>

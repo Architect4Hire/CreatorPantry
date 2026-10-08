@@ -97,6 +97,9 @@ export class GeneratedImageTracker {
     return kind === 'submitting' || kind === 'watching';
   });
 
+  /** True once {@link destroy} has run. Nothing starts after that. */
+  private destroyed = false;
+
   constructor(private readonly watch: GeneratedImageWatch) {}
 
   /**
@@ -106,6 +109,8 @@ export class GeneratedImageTracker {
    * its own draft so the run can be found again after a refresh.
    */
   async submit(ask: () => Promise<GeneratedImageRequestOutcome>): Promise<string | null> {
+    if (this.destroyed) return null;
+
     const generation = this.begin();
     this.phaseSignal.set({ kind: 'submitting' });
 
@@ -145,6 +150,8 @@ export class GeneratedImageTracker {
 
   /** Pick a run back up by its id — on a refresh, or when a creator returns to the step. */
   resume(operationId: string): void {
+    if (this.destroyed) return;
+
     const generation = this.begin();
     this.operationIdSignal.set(operationId);
     this.phaseSignal.set({ kind: 'watching', operation: null });
@@ -159,6 +166,8 @@ export class GeneratedImageTracker {
    * confirm one tile's new status would be a worse answer than a moment of staleness.
    */
   reread(): void {
+    if (this.destroyed) return;
+
     const operationId = this.operationIdSignal();
     if (operationId === null) return;
 
@@ -194,8 +203,13 @@ export class GeneratedImageTracker {
    * awaiting its answer when the screen goes would otherwise pass the generation check on the way back and
    * open a poll loop with nothing left to tear it down — and then call back into a destroyed component.
    * Being destroyed *is* abandonment, so it goes through the same gate every other abandonment does.
+   *
+   * **And it is final.** A screen's own continuation can outlive the screen — a decline awaiting its answer, a
+   * confirmation still open when the creator pressed Back — and calling {@link reread}, {@link resume} or
+   * {@link submit} from one would otherwise start a poll, or ask for pictures, on behalf of a screen that is gone.
    */
   destroy(): void {
+    this.destroyed = true;
     this.begin();
   }
 

@@ -194,7 +194,36 @@ public sealed class AiProposalBrandContextPersistenceTests : IDisposable
     // ---- harness ---------------------------------------------------------------------------------------
 
     /// <summary>Requests an operation, claims it, and stores a proposal carrying the given package.</summary>
-    private async Task<Guid> StoreAsync(Guid workspaceId, BrandContextPackage? brandContext)
+    /// <summary>
+    /// A warning about a change has to survive the save, not just the assembly: its foreign key names the change
+    /// row, and an id read before that row had one stores as a key to nothing. That refused every proposal whose
+    /// warning pointed at a change — an image prompt composed without visual guidance among them.
+    /// </summary>
+    [Fact]
+    public async Task A_warning_about_a_change_is_stored_against_that_change()
+    {
+        var operationId = await StoreAsync(
+            WorkspaceA,
+            brandContext: null,
+            [
+                new AiResolvedChange(
+                    AiChangeKind.Add, AiChangeTargetKind.ImagePrompt, Guid.NewGuid(), null, null, "A prompt.", 0, 0),
+            ],
+            [new AiOutputWarning { Kind = AiWarningKind.Limitation, Message = "Composed without guidance.", ChangeIndex = 0 }]);
+
+        var loaded = await ReadAsync(WorkspaceA, operationId);
+
+        var change = Assert.Single(loaded.Proposal!.Changes);
+        var warning = Assert.Single(loaded.Proposal.Warnings);
+
+        Assert.Equal(change.Id, warning.AiStructuredChangeId);
+    }
+
+    private async Task<Guid> StoreAsync(
+        Guid workspaceId,
+        BrandContextPackage? brandContext,
+        IReadOnlyList<AiResolvedChange>? diff = null,
+        IReadOnlyList<AiOutputWarning>? warnings = null)
     {
         Guid operationId;
 
@@ -232,8 +261,8 @@ public sealed class AiProposalBrandContextPersistenceTests : IDisposable
             claim.OperationId,
             pinnedVersionId: null,
             currentVersionId: null,
-            new AiOutputDocument { SchemaVersion = "fixture.v1" },
-            [],
+            new AiOutputDocument { SchemaVersion = "fixture.v1", Warnings = [.. warnings ?? []] },
+            diff ?? [],
             new AiProposalProvenance(
                 "fixture.v1", "content.editorial-package", "1.0.0", "sha256:abc", "test-provider", "test-model", null),
             _clock.UtcNow,

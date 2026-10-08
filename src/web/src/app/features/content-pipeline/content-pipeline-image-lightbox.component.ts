@@ -31,10 +31,12 @@ const FOCUSABLE =
  * `←`/`→`/`Home`/`End` between the pictures of this run. The dialog contributes the modal shell — the title,
  * `role="dialog"`, `aria-modal`, the close control and the initial focus — so none of that is rebuilt here.
  *
- * **Deliberately a feature component for now.** A lightbox over a set of images is domain-neutral and belongs
- * in `@creator-pantry/ui` eventually, but it has exactly one caller today. The Image Studio screen is the
- * second, and promoting it then means designing a reusable contract against two real consumers rather than
- * guessing one from this screen alone (.claude/rules/design-system.md).
+ * **Deliberately a feature component still.** A lightbox over a set of images is domain-neutral and belongs
+ * in `@creator-pantry/ui` eventually, but it has exactly one caller: `GeneratedImageRunComponent`, which the
+ * Content Pipeline and the Image Studio (12.10c) both show. Two screens, then, and still one contract — so
+ * promoting it now would be guessing a reusable shape from a single consumer, which is what waiting was meant
+ * to avoid. The DAM's preview is the first caller that would ask something different of it
+ * (.claude/rules/design-system.md).
  *
  * **Arrow keys clamp rather than wrap.** With at most four pictures there is no distance to cover, and a
  * creator who presses `→` at the last one is better told they are at the end — by nothing moving — than

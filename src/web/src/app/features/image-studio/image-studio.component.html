@@ -1,0 +1,151 @@
+<section class="studio" aria-labelledby="image-studio-heading">
+  <header class="page-header">
+    <h1 id="image-studio-heading">Image Studio</h1>
+    <p class="lede">
+      Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept on this device,
+      so you can stop and pick up later.
+    </p>
+  </header>
+
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your studio…</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          Your workspaces couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
+      </cp-card>
+    }
+    @case ('read_only') {
+      <cp-card>
+        <div class="refusal">
+          <cp-notice role="note">
+            You have view-only access to this workspace, so you can't make pictures here. Ask an Owner or Editor to
+            make them for you.
+          </cp-notice>
+          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'dashboard']">Back to the dashboard</a>
+        </div>
+      </cp-card>
+    }
+    @case ('ready') {
+      <cp-anchor-nav
+        [items]="sections"
+        ariaLabel="Parts of the Image Studio"
+        [activeTargetId]="activeSection()"
+        (activated)="onSectionActivated($event)"
+      />
+
+      <cp-card>
+        <!-- Keyed on the owner and on Start over: a change of workspace, of who is signed in, or of the draft
+             itself destroys the panels rather than swapping a new draft underneath components still holding
+             the last one's answers. -->
+        @for (key of panelKeys(); track 'studio@' + key) {
+          <div class="sections">
+            @if (discarded()) {
+              <cp-notice tone="warning" role="status">
+                Something was kept here before, but it couldn't be read — so this is a fresh start.
+              </cp-notice>
+            }
+
+            <!-- Said once, above the sections, rather than on each field: marking one optional field among a
+                 dozen unmarked ones makes the rest read as required (DESIGN-SYSTEM.md). -->
+            <p class="legend cp-muted">
+              Only the prompt is needed to make pictures. Everything else is there to help you get to one.
+            </p>
+
+            <section id="cp-studio-brief" class="brief" tabindex="-1" aria-label="The brief">
+              <cp-content-pipeline-setup-step [config]="config()" [showDay]="false" (changed)="onConfig($event)" />
+            </section>
+
+            <cp-form-section
+              heading="The look"
+              intro="A few looks planned from your brief, and the one shot a prompt can be written for."
+              sectionId="cp-studio-look"
+            >
+              <cp-content-pipeline-concept-panel
+                [workspaceSlug]="workspaceSlug()"
+                [config]="config()"
+                [prompt]="prompt()"
+                (changed)="onPrompt($event)"
+                (announced)="onAnnounced($event)"
+              />
+            </cp-form-section>
+
+            <cp-form-section
+              heading="Extras"
+              intro="A brief to work from, and a photograph to take cues from. Both optional."
+              sectionId="cp-studio-extras"
+            >
+              <h3 class="sub">A brief</h3>
+              <p class="cp-muted">
+                Something you have written about this shoot. It is read as source material, never as instructions.
+              </p>
+              <cp-content-pipeline-document-picker
+                [workspaceSlug]="workspaceSlug()"
+                kind="brief"
+                [selected]="prompt().brief"
+                (selectedChange)="onBrief($event)"
+              />
+
+              <h3 class="sub">A reference photograph</h3>
+              <cp-content-pipeline-reference-panel
+                [workspaceSlug]="workspaceSlug()"
+                [prompt]="prompt()"
+                (changed)="onPrompt($event)"
+                (announced)="onAnnounced($event)"
+              />
+            </cp-form-section>
+
+            <!-- Always here, pick or no pick: a creator who would rather write their own prompt is not waiting
+                 on a look to be allowed to. Having one written still needs a shot, and the panel says so. -->
+            <cp-form-section
+              heading="The prompt"
+              intro="Write your own, or have one written for the shot you picked. Either way it is yours to change."
+              sectionId="cp-studio-prompt"
+            >
+              <cp-content-pipeline-prompt-panel
+                [workspaceSlug]="workspaceSlug()"
+                [config]="config()"
+                [prompt]="prompt()"
+                (changed)="onPrompt($event)"
+                (announced)="onAnnounced($event)"
+              />
+            </cp-form-section>
+
+            <cp-generated-image-run
+              [workspaceSlug]="workspaceSlug()"
+              [promptText]="prompt().finalPrompt"
+              [avoidText]="avoidText()"
+              [variantCount]="config().variantCount"
+              [state]="draft().images"
+              [wording]="runWording"
+              sectionIdPrefix="cp-studio-images"
+              (changed)="onImages($event)"
+              (announced)="onAnnounced($event)"
+            />
+
+            <p class="saved cp-muted" role="status">{{ savedText() }}</p>
+
+            <div class="cp-actions">
+              <button cpButton type="button" variant="text" [disabled]="!canStartOver()" (click)="startOver()">
+                Start over
+              </button>
+            </div>
+          </div>
+        }
+      </cp-card>
+    }
+  }
+</section>

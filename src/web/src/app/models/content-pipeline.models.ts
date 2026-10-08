@@ -515,7 +515,7 @@ function decodeKeep(value: unknown): ContentPipelineKeep | null {
   return keep;
 }
 
-function decodeConfig(value: unknown): ContentPipelineConfig | null {
+export function decodeContentPipelineConfig(value: unknown): ContentPipelineConfig | null {
   if (!isRecord(value)) return null;
 
   const { channelKey, concept } = value;
@@ -598,7 +598,7 @@ function optionalId(value: unknown): { readonly id: string | null } | null {
  * the creator nothing, because everything in it is re-askable. A block that is *present and malformed* is a
  * failure, because the alternative is resuming a run whose pick or final prompt silently became something else.
  */
-function decodePromptState(value: unknown): ContentPipelinePromptState | null {
+export function decodeContentPipelinePromptState(value: unknown): ContentPipelinePromptState | null {
   if (value === undefined || value === null) return emptyContentPipelinePromptState();
   if (!isRecord(value)) return null;
 
@@ -654,11 +654,11 @@ function decodePromptState(value: unknown): ContentPipelinePromptState | null {
 /**
  * The images step's stored state, or null for a shape this build cannot read.
  *
- * Absent is **not** a failure, for `decodePromptState`'s reason: a draft written before this step existed has
+ * Absent is **not** a failure, for `decodeContentPipelinePromptState`'s reason: a draft written before this step existed has
  * no block, and everything in it is re-askable. Present and malformed is, because the alternative is resuming
  * a run whose keepers silently became something else.
  */
-function decodeImagesState(value: unknown): ContentPipelineImagesState | null {
+export function decodeContentPipelineImagesState(value: unknown): ContentPipelineImagesState | null {
   if (value === undefined || value === null) return emptyContentPipelineImagesState();
   if (!isRecord(value)) return null;
 
@@ -720,7 +720,7 @@ export function decodeContentPipelineDraft(raw: string | null | undefined): Cont
 
   if (!isRecord(parsed) || parsed['v'] !== CONTENT_PIPELINE_DRAFT_VERSION) return null;
 
-  const config = decodeConfig(parsed['config']);
+  const config = decodeContentPipelineConfig(parsed['config']);
   const seedRaw = parsed['seed'];
   if (config === null || !isRecord(seedRaw)) return null;
 
@@ -736,10 +736,10 @@ export function decodeContentPipelineDraft(raw: string | null | undefined): Cont
   // it, so a draft claiming one it cannot produce is discarded whole rather than resumed without it.
   if (rawAccepted !== null && rawAccepted !== undefined && accepted === null) return null;
 
-  const prompt = decodePromptState(parsed['prompt']);
+  const prompt = decodeContentPipelinePromptState(parsed['prompt']);
   if (prompt === null) return null;
 
-  const images = decodeImagesState(parsed['images']);
+  const images = decodeContentPipelineImagesState(parsed['images']);
   if (images === null) return null;
 
   const furthest = parsed['furthestStep'];

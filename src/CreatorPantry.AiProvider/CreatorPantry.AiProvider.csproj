@@ -20,6 +20,13 @@
       as the stable 13.5.4 hosting packages the AppHost pins.
     -->
     <PackageReference Include="Aspire.Azure.AI.Inference" Version="13.6.0-preview.1.26479.8" />
+    <!--
+      Images are Venice.ai over plain HTTP (B-15 as amended for Venice), so there is no second provider SDK.
+      This is here only for RemoveAllResilienceHandlers: ServiceDefaults gives every HttpClient a ten-second
+      attempt timeout and retries, and an image generation is slower than the first and paid for on each of
+      the second. Same version as ServiceDefaults pins.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
   </ItemGroup>
 
   <ItemGroup>

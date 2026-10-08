@@ -128,6 +128,8 @@ public sealed class AiProposalAssemblerTests
         var warning = assembly.Proposal!.Warnings.Single(candidate => candidate.AiStructuredChangeId is not null);
         var expected = assembly.Proposal.Changes.Single(change => change.SortOrder == 1);
 
+        // Without this the assertion below passes on two empty ids, which is the defect rather than the proof.
+        Assert.NotEqual(Guid.Empty, expected.Id);
         Assert.Equal(expected.Id, warning.AiStructuredChangeId);
     }
 

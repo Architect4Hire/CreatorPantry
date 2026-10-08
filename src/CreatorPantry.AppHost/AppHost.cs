@@ -130,9 +130,9 @@ var worker = builder.AddProject<Projects.CreatorPantry_Worker>("worker")
     .WaitFor(mediaAssets)
     .WaitForCompletion(migrations);
 
-// Microsoft Foundry (B-15). Chat and embeddings are separate named deployments, so they can be sized,
-// swapped and traced independently — the API and Worker consume them as "chat" and "embeddings", the names
-// CreatorPantry.AiProvider's AiModelConnections declares.
+// Microsoft Foundry (B-15). Chat and embeddings are separate named deployments, so they can be sized, swapped
+// and traced independently — the API and Worker consume them as "chat" and "embeddings", the names
+// CreatorPantry.AiProvider's AiModelConnections declares. Images are not Foundry's: see AddImages below.
 //
 // Foundry:Enabled is opt-in, because RunAsFoundryLocal() drives the Foundry CLI on this machine. Turning it
 // on costs a one-time model download on first run, which is why the dependents WaitFor the deployments rather
@@ -271,6 +271,8 @@ else
     AddExternalDeployment("embeddings", "Foundry:EmbeddingModel");
 }
 
+AddImages();
+
 // Production host for the Angular bundle; serves /runtime-config.json with the gateway's public URL.
 var web = builder.AddProject<Projects.CreatorPantry_Web>("web", launchProfileName: "https")
     .WithHttpHealthCheck("/health")
@@ -353,6 +355,65 @@ bool HasSuppliedDeployment() =>
     !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("chat"))
     || !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("embeddings"))
     || builder.Configuration.GetValue("Foundry:LocalCli", false);
+
+// Images are Venice.ai (B-15 as amended for Venice), not a Foundry deployment, so they are decided here on
+// their own rather than inside any of the three branches above: whichever way chat and embeddings arrive, the
+// API and Worker read this one back as `images`, the name AiModelConnections.Images declares.
+//
+// One value is asked for, the API key. It is a real credential a human holds, so like foundry-key it is
+// prompted for in the dashboard rather than generated, and the reliable path is the same one:
+//   dotnet user-secrets set "Parameters:venice-api-key" "<value>" --project src/CreatorPantry.AppHost
+//
+// Venice:Images is on by default for the reason Foundry:Azure is: the flag decides whether the parameter
+// exists, so nothing can prompt for the flag itself. A developer with no Venice account sets it to false in
+// user secrets; both hosts then register the generator that refuses and a generation settles as
+// provider-not-configured — never a startup failure, because a missing image model turns one feature off
+// rather than the product.
+//
+// Which model, and which endpoint, are configuration rather than prompts (Venice:ImageModel,
+// Venice:Endpoint): neither is a secret and both have a working default, so asking would be a question with
+// one sensible answer. A whole connection string supplied as ConnectionStrings:images —
+// "Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>" — takes precedence over all of it.
+void AddImages()
+{
+    IResourceBuilder<IResourceWithConnectionString> images;
+
+    if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("images")))
+    {
+        // Named, not copied: AddConnectionString reads the value from the AppHost's own configuration when it
+        // is handed to a resource, so a key in it is never held as a literal in the application model.
+        images = builder.AddConnectionString("images");
+    }
+    else if (builder.Configuration.GetValue("Venice:Images", false))
+    {
+        var veniceKey = builder.AddParameter("venice-api-key", secret: true)
+            .WithDescription(
+                "An **API key** from your venice.ai account, used to generate images. Tick *Save to user "
+                + "secret* so it is not asked for again. It is never written to source control or returned "
+                + "by the API. Set `Venice:Images` to `false` in user secrets to start without one.",
+                enableMarkdown: true);
+
+        // Held as literals: neither is a secret, and both hosts read them back out of the connection string
+        // rather than from configuration keys of their own.
+        var veniceEndpoint = Configured("Venice:Endpoint").TrimEnd('/');
+        var veniceModel = Configured("Venice:ImageModel");
+
+        images = builder.AddConnectionString(
+            "images",
+            ReferenceExpression.Create($"Endpoint={veniceEndpoint};Key={veniceKey};Model={veniceModel}"));
+    }
+    else
+    {
+        return;
+    }
+
+    api.WithReference(images);
+    worker.WithReference(images);
+
+    string Configured(string key) => builder.Configuration[key]?.Trim() is { Length: > 0 } value
+        ? value
+        : throw new InvalidOperationException($"'{key}' is required when Venice:Images is true.");
+}
 
 // Passes a model deployment that already exists through to the API and Worker under the name they read it
 // back under. Two sources, in this order: a connection string the configuration supplies, which is an Azure

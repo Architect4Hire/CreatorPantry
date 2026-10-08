@@ -5154,6 +5154,87 @@ separate action prompt.
 BEHAVIOR: Show component/state map, wait for approval, implement with UI/a11y/error/cancellation tests.
 ```
 
+### 12.10c-1 Image deployment wiring
+
+> Inserted 2026-10-08. 12.7 recorded that no image deployment exists and called wiring one "its own change";
+> no prompt was ever added for it, so every generation settles as `provider-not-configured` and nothing built in
+> 12.10b or 12.10c can be shown a real picture. This is that change. Run it before 12.10d.
+
+```text
+SCOPE: Amend B-15 to name a third deployment, `images`, and wire a real Microsoft Foundry image deployment
+behind `Microsoft.Extensions.AI.IImageGenerator` so a queued generated-image operation produces staged
+pictures. Covers the baseline record, the AppHost resource/parameter in all three Foundry modes
+(Foundry:Enabled, Foundry:Azure prompted, supplied connection string), the `images` branch in
+`AiProviderRegistration.AddCreatorPantryAi`, provider/model provenance reported by the gateway, and the
+first-run notes in .claude/rules/aspire.md and CLAUDE.md.
+CONSTRAINT: B-15, INT-010 through 013, IMG-003; add-aspire-resource and add-external-integration skills.
+`CreatorPantry.AiProvider` stays the only assembly naming a provider SDK. Verify current package names, the
+`IImageGenerator` registration API, and which image models the target Foundry/Azure OpenAI resource serves
+against first-party documentation before choosing anything.
+RESTRICTION: Do not change `GeneratedImageProviderGateway`'s contract, the worker job, the staging model, or
+any HTTP shape — 12.7 built those so they would not move. No key in source control, logs, or responses; the
+deployment name and endpoint are parameters like `chat` and `embeddings`. `images` is decided independently:
+a missing image deployment must not take chat or embeddings down, and a host with `Foundry:Azure=false` still
+starts and still settles `provider-not-configured`. Keep `MEAI001` suppressed narrowly, not project-wide. No
+fake or placeholder generator outside tests.
+BEHAVIOR: Show the B-15 amendment, the parameter/connection design for each of the three modes, the
+missing-deployment behaviour in and out of Development, and the failure-category mapping for refusal, rate
+limit, and bad credential; wait for approval. Implement with registration tests for configured, unconfigured,
+and images-only-missing hosts. Then prove it live: `aspire run` with a real deployment, walk the Content
+Pipeline to "Make the images", and report that one to four pictures staged, rendered in the grid and lightbox,
+and recorded provider, model, and cost-relevant usage. Say plainly if the live run was not performed.
+```
+
+*What 12.10c-1 decided (2026-10-08). **Not marked done: the live run has not been performed**, because it needs
+an image deployment on the Azure OpenAI resource and its name in `Parameters:foundry-images-deployment`. The
+code, the registration tests and the B-15 amendment are in.*
+
+*`Azure.AI.Inference` has no image route, so `images` is a **second provider SDK** in `CreatorPantry.AiProvider`:
+`Aspire.Azure.AI.OpenAI` → `GetImageClient` → `AsIImageGenerator()`. Approved during planning: the image
+deployment lives on the **same resource** as chat and embeddings, so the prompted mode reuses `foundry-endpoint`
+and `foundry-key` and asks for one new value. `Foundry:Images` defaults on and is opted out of in user secrets,
+for the reason `Foundry:Azure` does. A missing image deployment never stops a host, in any environment —
+unlike chat and embeddings.*
+
+*Foundry Local has no image-generation models and a Foundry `/models` endpoint has no image route, so "all
+three modes" came out as one mode that prompts and two that pass through a supplied `ConnectionStrings:images`.*
+
+*The gateway was not touched. The OpenAI SDK throws `ClientResultException`, which the gateway would have
+retried as an outage three times at cost, so `AzureOpenAIImageGenerator` rethrows it as `HttpRequestException`
+with the status and none of the provider's text. A content-filter block and a rejected key are still one
+category, `provider-refused`; the provider's error code is logged so the two can be told apart in the dashboard.*
+
+*Two things only the live run can settle. The gateway asks for bytes, which the SDK sends as `response_format`;
+the gpt-image-1 series rejects that parameter and the documentation does not say whether `gpt-image-2` does. And
+the staged-image row has no usage columns, so token usage is logged as counts when the deployment reports any —
+the Azure response examples show none.*
+
+*Superseded the same day for the provider only: the `gpt-image` deployment's throughput could not serve the
+step, so `images` is now Venice.ai over plain HTTP (`VeniceImageGenerator`, B-15's second amendment). The
+prompted value is `Parameters:venice-api-key`; `Foundry:Images`, `foundry-images-deployment`, the second SDK and
+`AzureOpenAIImageGenerator` are gone. **The live run is still not performed** — it now needs that key.*
+
+### 12.10c-2 Workflows entry point for the Content Pipeline
+
+> Inserted 2026-10-08. The pipeline is routed at `workflows/content-pipeline` but nothing links to it — the
+> Workflows section is still `PlaceholderSectionComponent` — so 12.10 through 12.10b are reachable only by typing
+> the URL. 13A.13 builds the real Workflow Hub some fifty prompts from here; this is the stopgap until then.
+
+```text
+SCOPE: Replace the placeholder at the `workflows` index route with a minimal Workflows page that lists the
+guided journeys that exist today — the Content Pipeline only — as one plain-language card that starts it, or
+says "Continue" with the step reached when a draft is already kept for this workspace and account.
+CONSTRAINT: FLOW-004 and the easy-as-pie product rule; creatorpantry-design-system and new-component skills.
+Compose existing `@creator-pantry/ui` exports; read resume state through `ContentPipelineDraftService`.
+RESTRICTION: No workflow catalogue, run entity, endpoint, or shared guided-workflow shell — those are 13A.1
+through 13A.12 and this page is replaced by 13A.13, so keep it small enough to delete. No card for a journey
+that is not built, no decorative metrics, no new library component. The resume state shown must be the
+current workspace's and account's own, never another's.
+BEHAVIOR: Show the component/state map (first use, draft in progress, unreadable draft), wait for approval,
+implement with component, route, a11y, and two-workspace tests. Update `app.routes.spec.ts`. Confirm in the
+running app that Workflows → Content Pipeline reaches the first step by clicking, with no typed URL.
+```
+
 ### 12.10d Prompt Library list and detail UI
 
 ```text

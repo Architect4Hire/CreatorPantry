@@ -90,6 +90,10 @@ public static class AiProposalAssembler
         var changes = diff
             .Select(resolved => new AiStructuredChange
             {
+                // Minted here rather than left for EF to generate at save: a warning below names its change by
+                // this id, and an id read before the context has seen the row is Guid.Empty — which stores as a
+                // foreign key to no change at all and fails the whole proposal.
+                Id = Guid.NewGuid(),
                 WorkspaceId = workspaceId,
                 ChangeKind = resolved.ChangeKind,
                 TargetKind = resolved.TargetKind,

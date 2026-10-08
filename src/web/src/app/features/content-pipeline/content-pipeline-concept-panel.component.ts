@@ -39,6 +39,12 @@ const PICK_SEPARATOR = '|';
  *
  * **The request comes from the setup step**, so the channel, the scene and style lines and the creator's own
  * concept wording are the ones they already gave. Nothing is asked twice.
+ *
+ * **It is never sent empty.** Every field on the setup step is optional, so a creator can arrive here having
+ * filled in none of them. Where they wrote no description, the idea they picked stands in as the brief — it is a
+ * decision of theirs, and it is the only thing that says what the picture is of. Where there is no idea either
+ * and no scene or style, nothing is asked: a request that names no subject is charged for and comes back with no
+ * looks, which a creator can only read as something having broken.
  */
 @Component({
   selector: 'cp-content-pipeline-concept-panel',
@@ -62,6 +68,11 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
   readonly workspaceSlug = input.required<string>();
   readonly config = input.required<ContentPipelineConfig>();
   readonly prompt = input.required<ContentPipelinePromptState>();
+  /**
+   * The wording of the idea the creator picked, where the surface has one. Used as the brief only when they wrote
+   * no description of their own, and never written into `config.concept` — those are their words, and this is not.
+   */
+  readonly idea = input<string | null>(null);
   readonly changed = output<ContentPipelinePromptState>();
   readonly announced = output<string>();
 
@@ -123,8 +134,33 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
 
   protected readonly hasPick = computed(() => this.prompt().chosen !== null);
 
-  /** True when there is nothing in the way of asking: no allowance refusal, nothing already in flight. */
-  protected readonly canAsk = computed(() => !this.tracker.busy());
+  /** What the picture is of: the creator's own description, or failing that the idea they picked. */
+  private readonly brief = computed(() => {
+    const concept = this.config().concept;
+
+    return concept.trim() === '' ? (this.idea() ?? '') : concept;
+  });
+
+  /**
+   * Whether the request would name anything to photograph. A channel alone does not: it says where the picture
+   * is going, not what is in it.
+   */
+  protected readonly hasSubject = computed(() => {
+    const { scene, style } = this.config();
+    const said = (line: string): boolean => line.trim() !== '';
+
+    return said(this.brief()) || scene.some(said) || style.some(said);
+  });
+
+  /** Says why asking is unavailable, except while a request is already on its way and nothing can be asked. */
+  protected readonly needsSubject = computed(() => {
+    const kind = this.tracker.phase().kind;
+
+    return !this.hasSubject() && kind !== 'submitting' && kind !== 'watching';
+  });
+
+  /** True when there is nothing in the way of asking: something to plan around, and nothing already in flight. */
+  protected readonly canAsk = computed(() => !this.tracker.busy() && this.hasSubject());
 
   protected readonly refusalFieldErrors = computed(() => {
     const phase = this.tracker.phase();
@@ -145,13 +181,15 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
   }
 
   protected async ask(): Promise<void> {
+    if (!this.hasSubject()) return;
+
     const config = this.config();
     const requestId = await this.tracker.submit(() =>
       this.concepts.request(
         this.workspaceSlug(),
         {
           channelKey: config.channelKey,
-          creatorConcept: config.concept,
+          creatorConcept: this.brief(),
           sceneOverrides: config.scene,
           styleOverrides: config.style,
         },

@@ -11,7 +11,7 @@ const SECTION_ROUTES: Routes = [
   {
     path: 'workflows',
     children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Workflows' } },
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/workflows/workflows-hub.component').then((m) => m.WorkflowsHubComponent), data: { title: 'Workflows' } },
       { path: 'content-pipeline', loadChildren: () => import('./features/content-pipeline/content-pipeline.routes').then((m) => m.CONTENT_PIPELINE_ROUTES) },
     ],
   },
@@ -22,7 +22,7 @@ const SECTION_ROUTES: Routes = [
   { path: 'recipes', loadChildren: () => import('./features/recipes/recipes.routes').then((m) => m.RECIPES_ROUTES) },
   { path: 'brand', loadChildren: () => import('./features/brand/brand.routes').then((m) => m.BRAND_ROUTES) },
   { path: 'ai-recipe-studio', loadChildren: () => import('./features/ai/ai-recipe-studio.routes').then((m) => m.AI_RECIPE_STUDIO_ROUTES) },
-  { path: 'image-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Image Studio' } },
+  { path: 'image-studio', loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio' } },
   { path: 'social-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Social Studio' } },
   { path: 'dam', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'DAM' } },
   { path: 'content-board', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Content Board' } },

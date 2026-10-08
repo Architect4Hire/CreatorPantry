@@ -17,10 +17,11 @@ const CHANNELS: readonly ContentChannel[] = [
 
 @Component({
   imports: [ContentPipelineSetupStepComponent],
-  template: `<cp-content-pipeline-setup-step [config]="config()" (changed)="apply($event)" />`,
+  template: `<cp-content-pipeline-setup-step [config]="config()" [showDay]="showDay()" (changed)="apply($event)" />`,
 })
 class HostComponent {
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
+  readonly showDay = signal(true);
   readonly emitted: ContentPipelineConfig[] = [];
 
   apply(next: ContentPipelineConfig): void {
@@ -123,6 +124,16 @@ describe('ContentPipelineSetupStepComponent', () => {
     await settle();
 
     expect(latest().day).toBe('Friday');
+  });
+
+  it('asks for no day where its caller says a day means nothing, and keeps every other question', async () => {
+    await mount();
+    host.showDay.set(false);
+    await settle();
+
+    expect(el.textContent).not.toContain('Which day is it for?');
+    expect(byId('cp-pipeline-channel')).not.toBeNull();
+    expect(el.textContent).toContain('How many pictures to try');
   });
 
   it('keeps the concept exactly as it was typed and caps it at the length the server accepts', async () => {

@@ -75,8 +75,8 @@ public static class MediaServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// The module must also be registered, and the host must register an <c>IImageGenerator</c> — this adds
-    /// the driver, not the provider. Every host registers the unconfigured one today, so a claimed
-    /// operation settles as <c>provider-not-configured</c> until a deployment exists.
+    /// the driver, not the provider. A host with no <c>images</c> deployment registers the unconfigured
+    /// one, and a claimed operation then settles as <c>provider-not-configured</c>.
     /// </remarks>
     public static IServiceCollection AddGeneratedImageWorker(this IServiceCollection services)
     {

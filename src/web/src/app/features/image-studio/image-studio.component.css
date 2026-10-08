@@ -1,0 +1,59 @@
+:host {
+  display: block;
+}
+
+.studio {
+  display: grid;
+  /* minmax(0, …) so a long value inside the card cannot push the page sideways (DESIGN-SYSTEM.md). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-family: var(--cp-font-display);
+}
+
+.lede {
+  margin: var(--cp-space-2) 0 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+}
+
+/* A form is named sections a --cp-space-8 apart (.claude/rules/frontend.md). The two shared panels that bring
+   several sections of their own are given the same rhythm between them, so the page reads as one form. */
+.sections,
+.brief,
+cp-content-pipeline-setup-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+/* Reached from the in-page navigation, so it takes focus and has to show it. */
+.brief:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 4px;
+}
+
+.sub {
+  margin: var(--cp-space-4) 0 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+}
+
+.sub:first-of-type {
+  margin-top: 0;
+}
+
+.refusal {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-4);
+}
+
+.state,
+.legend,
+.saved {
+  margin: 0;
+}

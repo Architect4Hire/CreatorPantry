@@ -44,6 +44,9 @@ export class ContentPipelinePromptStepComponent {
   protected readonly prompt = computed(() => this.draft().prompt);
   protected readonly config = computed(() => this.draft().config);
 
+  /** The idea picked on the step before, in its own wording — what the looks are planned around by default. */
+  protected readonly idea = computed(() => this.draft().seed.accepted?.description ?? null);
+
   /** The prompt section is only worth showing once there is a shot to write one for. */
   protected readonly hasPick = computed(() => this.prompt().chosen !== null);
 

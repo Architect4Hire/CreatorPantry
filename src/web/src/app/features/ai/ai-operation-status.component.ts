@@ -65,6 +65,10 @@ const STATUS_DETAIL: Readonly<Record<AiOperationStatus, string>> = {
  * `Unspecified` has a line because a stored row can carry it even though the check constraint refuses it — and
  * a panel that rendered nothing for an unrecognised category would silently drop the only explanation there is.
  *
+ * `DomainInvalid` does not say "your recipe's rules", although for a recipe edit that is what was broken: the
+ * same category is what a photography concept, a brand guide or an SEO package fails with, and none of those has
+ * a recipe. Naming one there sends a creator to inspect something that was never involved.
+ *
  * `Quota` and `AccountSuspended` say different things because they are different situations: an allowance
  * comes back on its own and a suspension does not, so offering "it'll be available again later" for both would
  * leave a suspended creator waiting for something that is never going to happen.
@@ -78,7 +82,7 @@ const FAILURE_DETAIL: Readonly<Record<AiFailureCategory, string>> = {
   RateLimited: 'Too many requests at once. Waiting a moment and asking again usually works.',
   Timeout: 'This took too long to answer. Asking again usually works.',
   OutputSchemaInvalid: "The answer came back in a shape we couldn't use, so none of it was kept.",
-  DomainInvalid: "The answer broke one of your recipe's own rules, so none of it was kept.",
+  DomainInvalid: "The answer didn't follow the rules for this kind of request, so none of it was kept.",
   SafetyBlocked: 'This request was stopped on safety grounds and will not be retried automatically.',
   Cancelled: 'This one was cancelled.',
   LeaseAbandoned: 'Something on our side kept dropping this request. Asking again usually works.',

@@ -269,6 +269,25 @@ describe('GeneratedImageTracker', () => {
     expect(watched).withContext('no poll was started').toEqual([]);
   });
 
+  it('starts nothing once it has been destroyed, whatever a late continuation asks of it', async () => {
+    await tracker.submit(() => Promise.resolve(accepted()));
+    const before = watched.length;
+
+    tracker.destroy();
+    tracker.reread();
+    tracker.resume('op-1');
+    let asked = false;
+    const again = await tracker.submit(() => {
+      asked = true;
+
+      return Promise.resolve(accepted());
+    });
+
+    expect(again).toBeNull();
+    expect(asked).withContext('no request was made').toBeFalse();
+    expect(watched.length).withContext('no poll was started').toBe(before);
+  });
+
   it('forgets everything on reset', async () => {
     await tracker.submit(() => Promise.resolve(accepted()));
 

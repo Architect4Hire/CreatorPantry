@@ -88,7 +88,7 @@ Consumer recipe indexing or marketplace features, nutrition or allergen guarante
 
 Implemented: identity and the BFF session, workspace tenancy, the recipe module (library, editor, versions, test runs, readiness, exports), brand profile and style guides, AI recipe proposals (concepts, first draft, review, revision, substitution, adaptation), AI usage allowances, and the ops usage route.
 
-Placeholders in the app shell: Dashboard, Workflows, My Day, My Week, Image Studio, Social Studio, DAM, Content Board, and Prompt Library. Publishing and media pipelines are designed in the rules but not yet built.
+Placeholders in the app shell: Dashboard, Workflows, My Day, My Week, Social Studio, DAM, Content Board, and Prompt Library. Publishing and media pipelines are designed in the rules but not yet built.
 
 ---
 
@@ -156,6 +156,18 @@ dotnet user-secrets set "Parameters:foundry-embeddings-deployment" "<value>" --p
 ```
 
 A wrong deployment name does not fail at startup. It surfaces as a 404 on the first generation, so check the names against the portal when you enter them.
+
+**Images come from Venice.ai, not Azure.** The same form asks for one more value:
+
+| Parameter        | Secret  | What to enter                                              |
+| ---------------- | ------- | ---------------------------------------------------------- |
+| `venice-api-key` | **Yes** | An API key from your venice.ai account, used for image generation |
+
+```bash
+dotnet user-secrets set "Parameters:venice-api-key" "<value>" --project src/CreatorPantry.AppHost
+```
+
+No Venice account? Set `Venice:Images` to `false` in user secrets. Everything except image generation works, and a generation settles as `provider-not-configured`. The model is `Venice:ImageModel` in the AppHost's `appsettings.json`.
 
 ### 4.3 Switches that choose the model route
 

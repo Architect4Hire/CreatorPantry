@@ -16,4 +16,15 @@ public static class AiModelConnections
 
     /// <summary>The text-embedding deployment backing semantic search and grounded retrieval.</summary>
     public const string Embeddings = "embeddings";
+
+    /// <summary>
+    /// The image-generation model (B-15, amended by 12.10c-1 and again for Venice).
+    /// </summary>
+    /// <remarks>
+    /// Its connection string is a different shape from the other two — <c>Endpoint</c>, <c>Key</c> and
+    /// <c>Model</c> — because it is not a Foundry deployment at all: it is Venice.ai's image API, called over
+    /// plain HTTP. See <see cref="AiProviderRegistration.AddCreatorPantryAi"/> and
+    /// <see cref="VeniceImageGenerator"/>.
+    /// </remarks>
+    public const string Images = "images";
 }

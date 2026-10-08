@@ -74,6 +74,7 @@ const TWO_LOOKS = proposal([
     workspaceSlug="cozy-fall"
     [config]="config()"
     [prompt]="prompt()"
+    [idea]="idea()"
     (changed)="apply($event)"
     (announced)="announcements.push($event)"
   />`,
@@ -81,6 +82,7 @@ const TWO_LOOKS = proposal([
 class HostComponent {
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly prompt = signal<ContentPipelinePromptState>(emptyContentPipelinePromptState());
+  readonly idea = signal<string | null>('Develop a Thai main course using the stir-fry method.');
   readonly announcements: string[] = [];
 
   apply(next: ContentPipelinePromptState): void {
@@ -191,6 +193,42 @@ describe('ContentPipelineConceptPanelComponent', () => {
       styleOverrides: ['soft light'],
     });
     expect(host.prompt().conceptRequestId).toBe('r-concept');
+  });
+
+  it('plans around the idea the creator picked when they wrote no description of their own', async () => {
+    await mount();
+
+    await click('Plan some looks');
+
+    expect(requests[0].creatorConcept).toBe('Develop a Thai main course using the stir-fry method.');
+  });
+
+  it('keeps the description the creator wrote over the idea, because those are their words', async () => {
+    await mount(undefined, { concept: 'A tight crop.' });
+
+    await click('Plan some looks');
+
+    expect(requests[0].creatorConcept).toBe('A tight crop.');
+  });
+
+  it('asks for nothing, and says why, when there is no subject to plan around', async () => {
+    await mount(undefined, { channelKey: 'instagram' });
+    host.idea.set(null);
+    await settle();
+
+    expect(el.textContent).toContain('nothing to plan a look around yet');
+    expect(buttonWith('Plan some looks')!.disabled).toBeTrue();
+
+    buttonWith('Plan some looks')!.click();
+    await settle();
+    expect(requests.length).toBe(0);
+
+    // A scene line is enough to name something, so the same panel then asks.
+    host.config.set({ ...host.config(), scene: ['a pan of lasagne on a wooden table'] });
+    await settle();
+    expect(el.textContent).not.toContain('nothing to plan a look around yet');
+    await click('Plan some looks');
+    expect(requests.length).toBe(1);
   });
 
   it('shows each look and offers every shot of every look as one set of choices', async () => {

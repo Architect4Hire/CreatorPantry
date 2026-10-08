@@ -29,6 +29,7 @@
     </cp-notice>
   }
 
+  @if (showDay()) {
   <cp-choice-group
     label="Which day is it for?"
     layout="fit"
@@ -37,6 +38,7 @@
     (valueChange)="setDay($event)"
   />
   <p class="cp-muted">If you have a theme for that day, the idea on the next step will use it.</p>
+  }
 </cp-form-section>
 
 <cp-form-section heading="How many pictures to try" intro="You pick the ones worth keeping later. Each one you ask for is a separate charge.">

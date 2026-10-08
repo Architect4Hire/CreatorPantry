@@ -37,7 +37,7 @@ later documents may reference them.
 | B-12 | Unmapped DEC items | TBD | **DECIDE** | See [Open items](#open-items). |
 | B-13 | Gateway-to-API trust (no OIDC server) | TBD | Decided | Direct BFF: the gateway owns the session and forwards a short-lived gateway-signed internal token; no OAuth/OIDC authorization server. |
 | B-14 | Machine operations access | TBD | Decided | Hashed, rotatable per-client API keys limited to explicit `ops` routes; never a creator identity. Implemented in 9A.9. |
-| B-15 | Model provider | TBD | Decided | Microsoft Foundry: Foundry Local in development, Azure Foundry deployments when deployed; separate `chat` and `embeddings` deployments behind `IChatClient` and `IEmbeddingGenerator`. |
+| B-15 | Model provider | TBD | Decided | Microsoft Foundry: Foundry Local in development, Azure Foundry deployments when deployed; separate `chat`, `embeddings` and `images` deployments behind `IChatClient`, `IEmbeddingGenerator` and `IImageGenerator`. |
 | B-16 | Prompt templates | TBD | Decided | Embedded `.prompt.md` files with JSON front matter and a declared body checksum; validated at startup; many versions of an id coexist. |
 | B-17 | AI proposal boundaries | TBD | Decided | Proposal is write-once; per-change disposition on the change row; one execution row per provider attempt, owned by the operation; structured change targets, not path strings. |
 | B-18 | Model output contract | TBD | Decided | The C# document type is the schema, exported for the prompt with `JsonSchemaExporter`; validated in five stages; no repair; an empty proposal is a valid answer. |
@@ -306,6 +306,65 @@ none of.
   and Worker wait for them. A developer with no model account sets `Foundry:Azure` to false; the API and
   Worker then register clients that throw rather than answer, so nothing can mistake a stub for a generation.
 
+*Amended 2026-10-08 by microprompt 12.10c-1, which added the third deployment. 12.7 had built the image
+gateway and worker against `IImageGenerator` with no deployment behind it, so every generation settled as
+`provider-not-configured` and nothing downstream could be shown a real picture.*
+
+- **Images are a third named deployment** (`images`), behind `Microsoft.Extensions.AI.IImageGenerator`, and
+  independent of the other two for the same reasons they are independent of each other.
+- **It is served by a second provider SDK.** `Azure.AI.Inference` has no image-generation route, so `images`
+  goes through `Aspire.Azure.AI.OpenAI` → `AzureOpenAIClient.GetImageClient(...)` →
+  `Microsoft.Extensions.AI.OpenAI`'s `AsIImageGenerator()`. Both SDKs live in `CreatorPantry.AiProvider` and
+  nowhere else. Chat and embeddings stay on `Azure.AI.Inference`.
+- **Its connection string is a different shape**: `Endpoint=<resource root>;Key=<key>;Deployment=<name>`. The
+  inference client wants the deployment in the endpoint's path; this client adds the path itself.
+- **It needs an Azure OpenAI resource.** Images are served from `/openai/deployments/<name>/images/generations`,
+  which a Foundry `/models` endpoint does not have, and **Foundry Local has no image-generation models**, so
+  `RunAsFoundryLocal()` cannot own this deployment. In the prompted mode it reuses `foundry-endpoint` and
+  `foundry-key` and asks only for `foundry-images-deployment` (`Foundry:Images`, default on); in every other
+  mode a supplied `ConnectionStrings:images` is passed through.
+- **Which model** is the deployment's own business, as with the other two. `gpt-image-2` is what the prompt
+  suggests: at the time of writing it is generally available without an access application and retires
+  2027-10-21, where `gpt-image-1` retires 2026-10-23 and the 1-series is limited access.
+- **A missing image deployment never stops a host**, in or out of Development. Without chat or embeddings the
+  product does not work; without images one feature reports `provider-not-configured`. The fallback is still
+  a generator that throws, never a placeholder picture.
+- **Provider failures are translated in `CreatorPantry.AiProvider`** (`AzureOpenAIImageGenerator`). The OpenAI
+  SDK reports a refusal as `ClientResultException`, which the Media gateway may not name and would therefore
+  retry as an outage; it is rethrown as `HttpRequestException` carrying the status and none of the provider's
+  text, so the gateway's existing mapping applies unchanged: 429 is `rate-limited`, any other 4xx is
+  `provider-refused` and terminal, 408/5xx/unreachable is `provider-unavailable`.
+
+*Amended again 2026-10-08, outside the microprompt sequence, to move images off Azure OpenAI. The `gpt-image`
+deployment's throughput quota could not serve the image step, so the provider behind `images` is now
+Venice.ai. Where the bullets above name Azure OpenAI, `AzureOpenAIImageGenerator` or
+`foundry-images-deployment`, these replace them; the rest stands.*
+
+- **`images` is Venice.ai, not a Foundry deployment**, and is decided independently of all three Foundry
+  modes. Still behind `IImageGenerator`, still named `images`, so the Media gateway, the worker and their
+  tests did not change.
+- **Plain HTTP, no SDK.** `VeniceImageGenerator` calls Venice's native `POST /image/generate` through a named
+  `HttpClient`. `Aspire.Azure.AI.OpenAI` is removed, so `Azure.AI.Inference` is again the only provider SDK.
+  Venice's OpenAI-compatible `/images/generations` was rejected: it caps a prompt at 1,500 characters where
+  a creator may write 4,000 plus an avoid list, substitutes its default model for an unknown model id — which
+  would make provenance record a model that did not make the picture — and cannot turn the watermark off.
+- **The connection string is `Endpoint=<api root>;Key=<key>;Model=<model id>`.** The AppHost prompts for one
+  value, the secret `venice-api-key` (`Venice:Images`, default on), and takes the endpoint and model from
+  configuration (`Venice:Endpoint`, `Venice:ImageModel`). A supplied `ConnectionStrings:images` takes
+  precedence. `Foundry:Images` and `foundry-images-deployment` no longer exist.
+- **Which model** is configuration. The default is `gpt-image-2-5-flare`, chosen because its prompt limit
+  (10,000 characters) clears the longest prompt this application composes; several cheaper Venice models
+  stop at 1,500–7,500 and would refuse long prompts.
+- **The request is fixed**: PNG, no watermark, safe mode on, no size. No size because Venice's models
+  disagree on how one is expressed and reject each other's fields.
+- **A flagged picture is a refusal.** With safe mode on Venice answers 200 with a blurred image and a header;
+  that is reported as `provider-refused` rather than staged.
+- **This client opts out of the ServiceDefaults resilience handler.** Its ten-second attempt timeout is
+  shorter than a generation and its retries would each be paid for; the gateway's timeout and the
+  operation-level requeue are the only bounds.
+- **Failure mapping is unchanged**, and now needs no translation: a non-success status is thrown as
+  `HttpRequestException` with the status and none of Venice's text. 402 (no balance) is `provider-refused`.
+
 **Options considered:** an OpenAI-compatible endpoint via `Aspire.Hosting.OpenAI` (stable rather than
 preview, and redirectable at Ollama or LM Studio with `WithEndpoint`) was rejected because it fixes both
 deployments to one model family. Splitting the two across two hosting integrations was rejected as two
@@ -313,7 +372,11 @@ credential paths to maintain before anything calls a model.
 **Consequences:** `Aspire.Hosting.Foundry` pulls in `Aspire.Hosting.Azure`, so publish mode now wants
 `Azure:SubscriptionId`, `Azure:ResourceGroupPrefix` and `Azure:Location`; run mode wants none of them. Both
 the hosting and client integrations are preview at 13.5.4, and `Azure.AI.Inference` is itself `1.0.0-beta.5`
-— revisit the pins when a stable AI client integration ships.
+— revisit the pins when a stable AI client integration ships. The images amendment adds
+`Aspire.Azure.AI.OpenAI` at the same preview build, and `IImageGenerator` is itself still experimental
+(`MEAI001`, suppressed per file). A content-filter block and a rejected credential are both `provider-refused`
+to a creator; telling them apart is a new failure category on a shipped contract and is not done here — the
+provider's error code is logged instead.
 **Rules:** `ai.md`, `aspire.md`.
 
 ### B-16 Prompt templates

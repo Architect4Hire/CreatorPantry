@@ -7,7 +7,9 @@ import { routes } from './app.routes';
 import { AppShellComponent } from './shell/app-shell.component';
 import { PlaceholderSectionComponent } from './shell/placeholder-section.component';
 import { WorkspaceGateComponent } from './shell/workspace-gate.component';
+import { ImageStudioComponent } from './features/image-studio/image-studio.component';
 import { LandingComponent } from './features/landing/landing.component';
+import { WorkflowsHubComponent } from './features/workflows/workflows-hub.component';
 import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
@@ -106,10 +108,17 @@ describe('app routes', () => {
         route.path !== 'recipes' &&
         route.path !== 'ai-recipe-studio' &&
         route.path !== 'brand' &&
-        route.path !== 'workflows',
+        route.path !== 'workflows' &&
+        route.path !== 'image-studio',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
+
+    // 'image-studio' is the Image Studio (12.10c), no longer a placeholder. One page, so no route tree of its
+    // own and no guard: every change is kept as it is made, and leaving loses nothing.
+    const imageStudio = workspaceRoute.children!.find((route) => route.path === 'image-studio')!;
+    expect(await imageStudio.loadComponent!()).toBe(ImageStudioComponent);
+    expect(imageStudio.canDeactivate).toBeUndefined();
 
     // 'brand' is the brand settings (11.1c), no longer a placeholder, and is guarded against losing edits.
     // It is a grouping now: the settings page at its index, and the "Create my voice" wizard (11A.22) under
@@ -179,12 +188,15 @@ describe("the Content Pipeline's place in the route tree", () => {
     expect(children).toEqual(['', 'content-pipeline']);
   });
 
-  it("keeps the Workflows hub as that subtree's own index page", async () => {
+  it("keeps the Workflows page as that subtree's own index, no longer a placeholder", async () => {
     const workflows = workspaceRoute().find((route) => route.path === 'workflows');
     const index = workflows?.children?.find((route) => route.path === '');
 
     expect(index?.pathMatch).toBe('full');
-    expect(await index?.loadComponent?.()).toBe(PlaceholderSectionComponent);
+    expect(await index?.loadComponent?.()).toBe(WorkflowsHubComponent);
+    expect(index?.data?.['title']).toBe('Workflows');
+    // Nothing to lose by leaving: the page holds no edits of its own.
+    expect(index?.canDeactivate).toBeUndefined();
   });
 
   it('loads the pipeline lazily, with its own step routes', async () => {

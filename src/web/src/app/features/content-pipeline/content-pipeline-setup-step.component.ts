@@ -84,6 +84,11 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   private readonly brandProfiles = inject(BrandProfileService);
 
   readonly config = input.required<ContentPipelineConfig>();
+  /**
+   * False where a day means nothing. The Image Studio asks the same questions about a picture, but it plans no
+   * week and has no idea step for a day's theme to feed, so offering one there would be a field with no effect.
+   */
+  readonly showDay = input(true);
   readonly changed = output<ContentPipelineConfig>();
 
   protected readonly limits = CONTENT_PIPELINE_LIMITS;

@@ -21,11 +21,12 @@ namespace CreatorPantry.Domain.Managers.Ai;
 /// a creator as something a model produced.
 /// </para>
 /// <para>
-/// <strong>Every host registers this today.</strong> B-15 names two deployments, <c>chat</c> and
-/// <c>embeddings</c>, and there is no third. The generation job therefore settles every operation as
-/// <c>ProviderNotConfigured</c> — a terminal, accurately recorded failure rather than a hang — until a real
-/// image deployment is wired, which amends B-15 and is its own change. The seam is here so that the job, the
-/// gateway and their tests are the parts that do not have to change when it is.
+/// <strong>A host with no <c>images</c> deployment registers this</strong> — in any environment, because a
+/// missing image deployment turns one feature off rather than the product (B-15 as amended by 12.10c-1). The
+/// generation job then settles every operation as <c>ProviderNotConfigured</c>: a terminal, accurately
+/// recorded failure rather than a hang. A host that has one registers <c>VeniceImageGenerator</c> from
+/// <c>CreatorPantry.AiProvider</c> instead, and the job, the gateway and their tests are the parts that did
+/// not have to change for it.
 /// </para>
 /// </remarks>
 public sealed class UnconfiguredImageGenerator : IImageGenerator

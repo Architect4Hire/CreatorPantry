@@ -57,7 +57,7 @@ AI generates drafts, proposals, structured commands, and derivatives. It does no
 - **Frontend:** Angular 22, standalone components, signals where appropriate, strict TypeScript, `cp-` selector prefix.
 - **Edge:** YARP backend-for-frontend. The browser talks to the gateway, not directly to the API.
 - **Identity:** ASP.NET Core Identity. Identity answers who the user is; workspace membership answers what the user may do.
-- **AI:** `Microsoft.Extensions.AI` abstractions (`IChatClient`, `IEmbeddingGenerator`) with Semantic Kernel for orchestration and plugins. Microsoft Foundry is the provider (B-15) — Foundry Local in development, Azure Foundry deployments when deployed — with separate `chat` and `embeddings` deployments wired in `CreatorPantry.AiProvider`.
+- **AI:** `Microsoft.Extensions.AI` abstractions (`IChatClient`, `IEmbeddingGenerator`) with Semantic Kernel for orchestration and plugins. Microsoft Foundry is the provider (B-15) — Foundry Local in development, Azure Foundry deployments when deployed — with separate `chat` and `embeddings` deployments wired in `CreatorPantry.AiProvider`. `images` (`IImageGenerator`) is not Foundry: it is Venice.ai's image API over plain HTTP (`VeniceImageGenerator`), wired in the same assembly.
 - **Media:** metadata in SQL; object bytes in blob storage or an Aspire-compatible local resource.
 - **Observability:** OpenTelemetry through ServiceDefaults; correlation across gateway, API, worker, database, cache, and AI calls.
 

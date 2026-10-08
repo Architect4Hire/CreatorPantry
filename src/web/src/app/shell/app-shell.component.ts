@@ -7,6 +7,7 @@ import { CpButtonComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeServ
 import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
 import { ContentPipelineDraftService } from '../services/content-pipeline-draft.service';
+import { ImageStudioDraftService } from '../services/image-studio-draft.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 
@@ -60,6 +61,8 @@ export class AppShellComponent {
    * without going near it leaves their own unfinished wording on the machine.
    */
   private readonly pipelineDrafts = inject(ContentPipelineDraftService);
+  /** Likewise, for the Image Studio's kept work. */
+  private readonly imageStudioDrafts = inject(ImageStudioDraftService);
   readonly theme = inject(CpThemeService);
 
   readonly navItems = NAV_ITEMS;

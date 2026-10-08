@@ -1,5 +1,12 @@
 <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
+@if (needsSubject()) {
+  <cp-notice tone="warning" role="note">
+    There is nothing to plan a look around yet. Say what the picture is of — a description, a scene or a style —
+    and we can plan some looks for it.
+  </cp-notice>
+}
+
 @switch (tracker.phase().kind) {
   @case ('idle') {
     <p>
@@ -27,7 +34,9 @@
   @case ('gone') {
     <cp-notice tone="warning" role="alert">
       That set of looks is no longer there.
-      <button cpButton type="button" variant="secondary" size="sm" (click)="ask()">Plan some looks</button>
+      <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="ask()">
+        Plan some looks
+      </button>
     </cp-notice>
   }
   @case ('refused') {
@@ -40,20 +49,24 @@
       </ul>
     }
     <div class="cp-actions">
-      <button cpButton type="button" variant="secondary" (click)="ask()">Try again</button>
+      <button cpButton type="button" variant="secondary" [disabled]="!canAsk()" (click)="ask()">Try again</button>
     </div>
   }
   @case ('unavailable') {
     <cp-notice tone="error" role="alert">
       That could not be asked for just now.
       <!-- The same key: this attempt may have reached the server, and a fresh one would buy a second set. -->
-      <button cpButton type="button" variant="secondary" size="sm" (click)="ask()">Try again</button>
+      <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="ask()">
+        Try again
+      </button>
     </cp-notice>
   }
   @case ('key_reused') {
     <cp-notice tone="error" role="alert">
       That was started with details that have since changed.
-      <button cpButton type="button" variant="secondary" size="sm" (click)="askAgain()">Ask again</button>
+      <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
+        Ask again
+      </button>
     </cp-notice>
   }
   @case ('blocked') {
@@ -89,7 +102,7 @@
 
     @if (phase.kind === 'failed') {
       <div class="cp-actions">
-        <button cpButton type="button" variant="secondary" (click)="ask()">Try again</button>
+        <button cpButton type="button" variant="secondary" [disabled]="!canAsk()" (click)="ask()">Try again</button>
       </div>
     }
   }
@@ -156,7 +169,9 @@
   @if (shotChoices().length === 0) {
     <cp-notice role="note">No shots came back to choose from. Plan some looks again.</cp-notice>
     <div class="cp-actions">
-      <button cpButton type="button" variant="secondary" (click)="askAgain()">Plan some looks</button>
+      <button cpButton type="button" variant="secondary" [disabled]="!canAsk()" (click)="askAgain()">
+        Plan some looks
+      </button>
     </div>
   } @else {
     <!-- One group over every shot of every look, so there is exactly one answer: IMG-002 refuses a shot its
