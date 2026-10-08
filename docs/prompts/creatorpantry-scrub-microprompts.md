@@ -5029,7 +5029,7 @@ shoot is a later prompt's work.*
 *2716 showcase specs and 176 library specs pass; `npm run build` is clean. The backend was not touched, so the
 OpenAPI snapshot is unchanged.*
 
-### 12.10b Content Pipeline image selection UI - pick up here
+### 12.10b Content Pipeline image selection UI - done
 
 ```text
 SCOPE: Extend only the pipeline with image operation progress, one-to-four grid, keyboard lightbox,
@@ -5038,6 +5038,111 @@ CONSTRAINT: PIPE-UI-004; creatorpantry-design-system and add-media-feature skill
 RESTRICTION: No social generation or DAM commit. No provider/blob URL exposed.
 BEHAVIOR: Plan state/recovery, wait for approval, implement component/contract/a11y tests.
 ```
+
+*What 12.10b decided (2026-10-08). Approved during planning: pixels reach the screen as a **`blob:` object URL**
+from a credentialed fetch; **cleanup declines every non-keeper on an explicit action**, never on Continue;
+**Continue requires at least one keeper**; and the **lightbox is a feature component** for now.*
+
+*The CSP is what settled the first of those, and it is worth recording because the obvious implementation is
+simply blocked. `ClientOptions.SpaContentSecurityPolicy` allows `img-src 'self' data: blob:` — the gateway
+origin is **not** an allowed image source — while `connect-src` does include it. So `<img src="{gateway}/…/preview">`
+never leaves the browser, and the only route to the pixels is `HttpClient` with `responseType: 'blob'` and an
+object URL. That reading of "no provider/blob URL exposed" is the strict one rather than the convenient one: an
+object URL is a handle inside one tab, and no storage or provider address is produced anywhere. The component
+that holds it also revokes it, on replacement and on destroy — a four-picture sheet left behind would keep its
+bytes alive for the life of the tab, which is the opposite of what `no-store` on the route was asking for.*
+
+*A **keeper is a mark on the draft, not a filing**, because `GeneratedImageStatus.Kept` only ever arrives from
+the DAM commit and this prompt's RESTRICTION excludes it. A kept picture is therefore still `Staged` and
+retention will collect it on schedule, so the step says that outright — "nothing is filed in your library on this
+step", plus the soonest `retentionExpiresAt` in the run — rather than letting a tick imply something was put
+away safely. `STAGED_IMAGE_STATUS_LABELS` reads `Kept` as "Filed in your library" for the same reason: a creator
+who sees it got there another way, and the word has to tell them so instead of echoing the mark they made here.*
+
+*`aiProposalId` is sent as **null**, and this is a known gap rather than an oversight.
+`GeneratedImageInputChecks.Request` does not validate it and `GeneratedImageOperationConfiguration` pins it with
+a `Restrict` foreign key onto `(WorkspaceId, Id)` of `AiProposal` — so a proposal that has since been swept would
+fail the insert and turn "Make the pictures" into a 500 rather than a refusal. The draft also keeps the IMG-002
+*request* id and never a proposal id, by 12.10a's own design. Nothing a creator sees depends on it, since
+`promptText` is the same either way; wiring provenance properly needs a server-side existence check or a durable
+proposal id in the draft, and both belong to a later prompt.*
+
+*The state kept is **an id and a decision**: `operationId` so the run is re-read on resume, and `keepers` because
+a mark is a decision. Nothing about the pictures themselves — bytes, media type, size, dimensions, provider,
+model, retention deadline — is stored, and a test asserts the stored JSON contains none of those field names.
+What was *declined* is not stored either: each picture's own status is the truth about that, and a client copy
+would be a second account free to disagree. On resume, `keepersStillPresent` drops any mark the run no longer
+lists or lists as declined, expired or filed — coming back a day later is an ordinary way to reach that, and
+carrying the mark would gate Continue on a picture that is gone. Draft version 4, discarded rather than migrated.*
+
+*Three things the contract settled rather than taste. There is **no cancel route**, so the control says "Stop
+checking" and the step states that nothing there cancels the generation — the same constraint 12.10a hit.
+Unlike the AI routes this one answers a **repeated idempotency key with the first operation** rather than a 422,
+so there is no `key_reused` phase; `IdempotencyKey` is still reused across a retry, because an ask that answered
+`unavailable` may have reached the server and a fresh key would buy a second set. And **`PartiallySucceeded` is
+a success**: some variants landed and those are what the creator came for, so it lands in `ready` with the
+shortfall said in a sentence rather than in a failure state.*
+
+*`GeneratedImageTracker` is a sibling of `AiOperationTracker` rather than a reuse of it: that one is typed to
+`AiProposalStatus`, reads a `proposal` off it, and models AI allowance refusals this route does not have — the
+generation facade has no quota check at all, so `AiAllowanceNoticeComponent` has nothing to say here and is not
+imported. What is shared is the poll loop: `pollAiOperation` was split into a generic `pollOperation` taking the
+caller's own finished condition, leaving the interval, degraded backoff, failure cap and wall-clock ceiling in
+one place. The existing three pollers are untouched.*
+
+*Alt text states **only what the server stated** — which picture of how many, and its pixel dimensions. Nothing
+in this application has analysed the bytes, so `media.md` forbids describing them, and a test asserts the alt
+text never contains the prompt: reading the prompt back as a description would claim the picture shows what was
+asked for, which is precisely the claim a creator is on this screen to judge.*
+
+*One finding from writing the tests rather than from reading the contract: **a tile's frame cannot be a button.**
+A picture whose load failed has to offer "Try again", and nesting that inside the frame's button is invalid
+markup and unreachable with a keyboard. So "View larger" is its own control naming the variant it opens, and a
+spec walks every control asserting none contains another. `CpDialogComponent` supplied the modal shell and the
+lightbox adds what it lacks — Escape, a focus trap, `←`/`→`/`Home`/`End`, and focus returned to the opener.
+Arrow keys **clamp rather than wrap**: with at most four pictures there is no distance to cover, and being told
+"this is the end" by nothing moving beats being returned to the first picture unannounced.*
+
+*Tidying up is **sequential, and reports per reason**: four deletes at once is the shape the edge's rate limiter
+exists to refuse, and "2 pictures were declined. One had already gone." is what a creator can act on, where one
+sentence per picture would say the same thing three times. Each call is idempotent — `204` whether this call
+declined the picture or an earlier one did — so a half-finished tidy-up is simply run again. A decline takes the
+mark off whatever the outcome: a picture the server would not let us decline is still one the creator said they
+do not want.*
+
+*Two small spill-overs into the prompt step, both in the pipeline and both the same fix. The prompt box now
+carries `maxlength`, because the image route is the first thing to consume it and refuses over 4000 characters;
+and a resumed draft already holding a longer prompt disables Generate with the length and where to shorten it,
+rather than earning a refusal. `CONTENT_PIPELINE_LIMITS.promptMaxLength` reads from
+`GENERATED_IMAGE_PROMPT_MAX_LENGTH`, so the server's number has one home.*
+
+*What review changed. The isolation audit found a defect I had introduced, and it was in the one place the
+tracker's whole discipline lives: `destroy()` unsubscribed but did **not** bump the generation counter, so a
+`submit` still awaiting its answer when the step was destroyed passed the staleness check on the way back,
+opened a poll loop with nothing left to tear it down, and then called `emitImages` and `announced.emit` on a
+destroyed component — a write of the old workspace's draft that was being stopped only by framework behaviour
+nobody had asserted. Being destroyed **is** abandonment, so `destroy()` now goes through `begin()` like every
+other abandonment, and a test resolves a submit after teardown and asserts no poll was started.*
+
+*The same audit was right that the step relied on its caller for isolation. The tracker's poll closure reads
+the slug input on **every** request, so the step was correct only because the shell keys it on
+`step.slug + '@' + ownerKey()` and therefore rebuilds rather than re-points it. `ngOnInit`'s one-shot resume is
+now an effect keyed on `slug|operationId` — the `loadedKey` pattern the shell and the staged-image component
+both already use — so arriving with a kept run, a change of workspace and a change of run are one path, and a
+step that was reused instead of rebuilt could not ask a new workspace for the old one's run. `generate()`
+claims the key before the draft carries it, so the run it just started polling is not resumed a second time on
+top of itself. Six two-workspace tests now cover what `tenancy.md` asks for and the step had no coverage of:
+A's run is never asked of B, a changed slug re-points even when the run id is identical, A's pictures leave
+when B has no run, and A's late answer never lands on what B is looking at.*
+
+*One smaller finding worth the line. Keeper pruning only runs when a reading arrives, and for a run that is
+**gone** none ever will — so its marks survived, and `canContinue` would have let the creator leave the step
+with nothing on screen. The marks are now cleared on `gone`; the run id stays, because it is still the truthful
+answer to which run that was. `@design-review` and `@api-contract-checker` both reported no findings.*
+
+*2887 showcase specs and 176 library specs pass; `npm run build` is clean. No library export changed, so
+`public-api.ts`, the showcase, `README.md` and `DESIGN-SYSTEM.md` are untouched. The backend was not touched, so
+the OpenAPI snapshot is unchanged.*
 
 ### 12.10c Image Studio screen
 

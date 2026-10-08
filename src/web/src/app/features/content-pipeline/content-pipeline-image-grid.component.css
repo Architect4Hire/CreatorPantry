@@ -1,0 +1,40 @@
+/* The floor is clamped on purpose: minmax()'s first argument is a hard floor, so an unclamped 16rem keeps a
+   full-width track inside a narrower phone and pushes the page sideways (DESIGN-SYSTEM.md). */
+.sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  /* min-width: 0 so a long media type cannot hold the track open wider than its share. */
+  min-width: 0;
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+.name {
+  font-weight: 700;
+  font-size: var(--cp-font-size-sm);
+}
+
+.facts {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+}

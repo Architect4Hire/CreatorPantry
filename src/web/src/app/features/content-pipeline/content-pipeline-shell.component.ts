@@ -37,6 +37,7 @@ import {
 } from '../../services/content-pipeline-draft.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
+import { ContentPipelineImagesStepComponent } from './content-pipeline-images-step.component';
 import { ContentPipelinePromptStepComponent } from './content-pipeline-prompt-step.component';
 import { ContentPipelineSetupStepComponent } from './content-pipeline-setup-step.component';
 import { ContentPipelineStepPlaceholderComponent } from './content-pipeline-step-placeholder.component';
@@ -83,6 +84,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     ContentPipelineSetupStepComponent,
     ContentPipelineIdeaStepComponent,
     ContentPipelinePromptStepComponent,
+    ContentPipelineImagesStepComponent,
     ContentPipelineStepPlaceholderComponent,
   ],
   templateUrl: './content-pipeline-shell.component.html',
@@ -198,6 +200,9 @@ export class ContentPipelineShellComponent {
     // A prompt is what this step is for, so carrying on means having one. The creator's own text counts: a
     // prompt they wrote themselves is as finished as one that was written for them.
     if (slug === 'prompt') return this.draft().prompt.finalPrompt.trim() !== '';
+    // A picture is what the steps after this one are about, so one has to be kept. Pictures that came back and
+    // were not chosen are not a decision, which is why the count rather than the run is what counts.
+    if (slug === 'images') return this.draft().images.keepers.length > 0;
 
     return contentPipelineStepIndex(slug) < this.total - 1;
   });

@@ -17,6 +17,7 @@ import { AiOperationTracker } from '../ai/ai-operation-tracker';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { ConfirmService } from '../../core/confirm.service';
 import {
+  CONTENT_PIPELINE_LIMITS,
   ContentPipelineConfig,
   ContentPipelinePromptState,
   isGeneratedPromptSource,
@@ -75,6 +76,9 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
 
   protected readonly allowance = this.usage.allowance;
   protected readonly shotLabels = PHOTOGRAPHY_SHOT_KIND_LABELS;
+
+  /** The box's bound is the image route's own, so the prompt cannot grow past what the next step can send. */
+  protected readonly limits = CONTENT_PIPELINE_LIMITS;
 
   private readonly idempotency = new IdempotencyKey();
 

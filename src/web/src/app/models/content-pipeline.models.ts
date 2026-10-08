@@ -16,6 +16,7 @@ import {
   decodeContentSeed,
   isContentSeedToken,
 } from './content-seed.models';
+import { GENERATED_IMAGE_PROMPT_MAX_LENGTH } from './generated-image.models';
 import { PhotographyShotKind, decodePhotographyShotKind } from './photography-concept.models';
 import { decodeEnum, isRecord } from './recipe.models';
 
@@ -67,9 +68,9 @@ export const CONTENT_PIPELINE_STEPS = [
   {
     slug: 'images',
     label: 'Make the images',
-    help: 'Making the pictures and choosing the ones worth keeping.',
-    legend: '',
-    comingSoon: 'Making and choosing the pictures is coming soon.',
+    help: 'Your prompt goes off to be turned into pictures — one to four of them, as you asked on the first step. Look at what comes back, keep the ones worth using, download any you want a copy of, and tidy the rest away.',
+    legend: 'Keep at least one picture. Nothing is filed in your library on this step.',
+    comingSoon: null,
   },
   {
     slug: 'posts',
@@ -141,6 +142,14 @@ export const CONTENT_PIPELINE_LIMITS = {
   conceptMaxLength: 1000,
   /** `AiPolicy.PhotographyOverrideMaxLength` — one scene element or style direction. */
   overrideMaxLength: 300,
+  /**
+   * `GeneratedImageInputChecks.PromptTextMaxLength` — the prompt, and the avoid list beside it.
+   *
+   * The prompt box had no bound until now because nothing consumed it; the image route does, and it refuses a
+   * longer one. Enforced at the control so a creator is stopped while writing rather than after asking, and
+   * taken from the model that talks to that route so the number has one home rather than two.
+   */
+  promptMaxLength: GENERATED_IMAGE_PROMPT_MAX_LENGTH,
   /** `AiPolicy.MaxPhotographyOverrideCount` — per list, scene and style counted separately. */
   maxOverrides: 10,
   /** `MediaPolicy.MinVariantsPerOperation`. */
@@ -324,11 +333,35 @@ export interface ContentPipelinePromptState {
   readonly promptSource: ContentPipelinePromptSource;
 }
 
+/**
+ * The images step's state (PIPE-UI-004).
+ *
+ * **An id and a decision, and nothing else.** No bytes, media type, size, dimensions, provider, model or
+ * retention deadline: every one of those is read back from the operation, which is the same rule the prompt
+ * step follows. Storing a copy would make this a second account of what the server holds, free to disagree
+ * with it.
+ *
+ * **What was declined is not here either.** Each picture's own status is the truth about that, and the one
+ * place it lives is the server.
+ */
+export interface ContentPipelineImagesState {
+  /** The IMG-003 run last asked for, so its pictures come back after a refresh. */
+  readonly operationId: string | null;
+  /**
+   * The pictures the creator marked to carry forward.
+   *
+   * Stored whole — unlike a suggestion — because from here on it is a decision. These stay `Staged`
+   * server-side: nothing on this step files anything in a library, so there is no `Kept` to read back.
+   */
+  readonly keepers: readonly string[];
+}
+
 /** One workspace's unfinished pipeline run, as it is held between visits. */
 export interface ContentPipelineDraft {
   readonly config: ContentPipelineConfig;
   readonly seed: ContentPipelineSeedState;
   readonly prompt: ContentPipelinePromptState;
+  readonly images: ContentPipelineImagesState;
   /** The furthest step reached, which is as far as the step list will let a creator jump. */
   readonly furthestStep: ContentPipelineStepSlug;
   /** When this draft was last written, as an ISO instant. */
@@ -360,11 +393,16 @@ export function emptyContentPipelinePromptState(): ContentPipelinePromptState {
   };
 }
 
+export function emptyContentPipelineImagesState(): ContentPipelineImagesState {
+  return { operationId: null, keepers: [] };
+}
+
 export function emptyContentPipelineDraft(now: Date = new Date()): ContentPipelineDraft {
   return {
     config: emptyContentPipelineConfig(),
     seed: { lastToken: null, keep: {}, accepted: null },
     prompt: emptyContentPipelinePromptState(),
+    images: emptyContentPipelineImagesState(),
     furthestStep: FIRST_CONTENT_PIPELINE_STEP,
     savedAt: now.toISOString(),
   };
@@ -372,7 +410,7 @@ export function emptyContentPipelineDraft(now: Date = new Date()): ContentPipeli
 
 /** True when nothing on the draft has been filled in, so there is nothing to resume. */
 export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolean {
-  const { config, seed, prompt } = draft;
+  const { config, seed, prompt, images } = draft;
 
   return (
     config.channelKey === null &&
@@ -389,7 +427,9 @@ export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolea
     prompt.brief === null &&
     prompt.reference === null &&
     prompt.promptRequestId === null &&
-    prompt.finalPrompt.trim() === ''
+    prompt.finalPrompt.trim() === '' &&
+    images.operationId === null &&
+    images.keepers.length === 0
   );
 }
 
@@ -442,11 +482,12 @@ export function contentSeedQueryFor(draft: ContentPipelineDraft, token?: string 
  * filling-in, not work they would lose anything irreplaceable by redoing, and a half-understood migration that
  * silently changed what their idea said would be the worse failure. Raise this on any shape change.
  *
- * Raised to 2 by 12.10a, which added the prompt step's state, and to 3 when a plain "edited" flag became
- * {@link ContentPipelinePromptSource}. Both discards cost nothing real: the feature was unreleased, so the only
- * earlier drafts were on a developer's own machine.
+ * Raised to 2 by 12.10a, which added the prompt step's state, to 3 when a plain "edited" flag became
+ * {@link ContentPipelinePromptSource}, and to 4 by 12.10b for {@link ContentPipelineImagesState}. Every discard
+ * so far has cost nothing real: the feature is unreleased, so the only earlier drafts are on a developer's own
+ * machine.
  */
-export const CONTENT_PIPELINE_DRAFT_VERSION = 3;
+export const CONTENT_PIPELINE_DRAFT_VERSION = 4;
 
 function decodeStringList(value: unknown): readonly string[] | null {
   if (value === undefined) return [];
@@ -611,6 +652,54 @@ function decodePromptState(value: unknown): ContentPipelinePromptState | null {
 }
 
 /**
+ * The images step's stored state, or null for a shape this build cannot read.
+ *
+ * Absent is **not** a failure, for `decodePromptState`'s reason: a draft written before this step existed has
+ * no block, and everything in it is re-askable. Present and malformed is, because the alternative is resuming
+ * a run whose keepers silently became something else.
+ */
+function decodeImagesState(value: unknown): ContentPipelineImagesState | null {
+  if (value === undefined || value === null) return emptyContentPipelineImagesState();
+  if (!isRecord(value)) return null;
+
+  const operationId = optionalId(value['operationId']);
+  if (operationId === null) return null;
+
+  const rawKeepers = value['keepers'];
+  if (rawKeepers !== undefined && rawKeepers !== null && !Array.isArray(rawKeepers)) return null;
+
+  const keepers = Array.isArray(rawKeepers)
+    ? Array.from(
+        new Set(
+          (rawKeepers as unknown[]).filter((entry): entry is string => typeof entry === 'string' && entry !== ''),
+        ),
+      ).slice(0, CONTENT_PIPELINE_LIMITS.maxVariants)
+    : [];
+
+  return {
+    // Keepers without a run name pictures nothing can find, so they go with it.
+    operationId: operationId.id,
+    keepers: operationId.id === null ? [] : keepers,
+  };
+}
+
+/**
+ * The keepers a run can still account for.
+ *
+ * A marked picture that the run no longer lists, or lists as declined or expired, is dropped: carrying it would
+ * gate the step's Continue on a picture that is not there any more. Retention collects staged bytes on its own
+ * schedule, so this is an ordinary outcome of coming back a day later rather than an error.
+ */
+export function keepersStillPresent(
+  keepers: readonly string[],
+  images: readonly { readonly id: string; readonly status: string }[],
+): readonly string[] {
+  const live = new Set(images.filter((image) => image.status === 'Staged').map((image) => image.id));
+
+  return keepers.filter((id) => live.has(id));
+}
+
+/**
  * One stored draft, or null when there is nothing usable to resume.
  *
  * Null covers every way this can go wrong — absent, not JSON, another version, too large, a shape this build
@@ -650,6 +739,9 @@ export function decodeContentPipelineDraft(raw: string | null | undefined): Cont
   const prompt = decodePromptState(parsed['prompt']);
   if (prompt === null) return null;
 
+  const images = decodeImagesState(parsed['images']);
+  if (images === null) return null;
+
   const furthest = parsed['furthestStep'];
   const savedAt = parsed['savedAt'];
 
@@ -657,6 +749,7 @@ export function decodeContentPipelineDraft(raw: string | null | undefined): Cont
     config,
     seed: { lastToken, keep, accepted },
     prompt,
+    images,
     furthestStep: isContentPipelineStepSlug(furthest) ? furthest : FIRST_CONTENT_PIPELINE_STEP,
     savedAt: typeof savedAt === 'string' ? savedAt : '',
   };

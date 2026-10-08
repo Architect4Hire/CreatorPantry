@@ -1,0 +1,36 @@
+/* The two sections sit a section apart, which is the form shape the rest of the pipeline uses. */
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+/* The prompt as it will be sent, quoted rather than put in a disabled field: it is not editable here, and a
+   greyed-out textarea would invite trying. */
+.recap {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border-left: 3px solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-subtle);
+}
+
+.recap blockquote {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: var(--cp-font-size-sm);
+}
+
+.recap figcaption {
+  margin-top: var(--cp-space-2);
+  font-size: var(--cp-font-size-xs);
+}
+
+.run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}

@@ -1,0 +1,30 @@
+/* The frame takes the height it can and the picture scales inside it, so a tall and a wide picture both fit
+   without the dialog growing past the viewport — cp-dialog caps itself at 90vh and scrolls. */
+.frame {
+  display: block;
+  max-height: 60vh;
+  overflow: hidden;
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-4) 0 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+.hint {
+  margin: var(--cp-space-2) 0 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Wraps onto more rows rather than scrolling sideways: five controls do not fit a phone in one line, and
+   SC 1.4.10 asks for no horizontal scrolling at 320 CSS px. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}

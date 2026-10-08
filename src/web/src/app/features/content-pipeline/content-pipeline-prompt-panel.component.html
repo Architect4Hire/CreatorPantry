@@ -115,6 +115,7 @@
     id="cp-pipeline-final-prompt"
     name="pipelineFinalPrompt"
     rows="8"
+    [attr.maxlength]="limits.promptMaxLength"
     [ngModel]="prompt().finalPrompt"
     (ngModelChange)="setFinalPrompt($event)"
   ></textarea>

@@ -15,6 +15,7 @@ import {
   ContentPipelineReadResult,
 } from '../../services/content-pipeline-draft.service';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
+import { GeneratedImageService } from '../../services/generated-image.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CONTENT_PIPELINE_ROUTES } from './content-pipeline.routes';
 import { ContentPipelineShellComponent } from './content-pipeline-shell.component';
@@ -138,6 +139,18 @@ async function create(
       },
       { provide: BrandProfileService, useValue: { listContentChannels: () => Promise.resolve({ status: 'found', channels: [] }) } },
       { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(confirmAnswer) } },
+      // The images step is a client of this one. The shell's own tests are about navigation and the kept
+      // draft, so nothing here is asked of the server: a run that is never resumed polls nothing.
+      {
+        provide: GeneratedImageService,
+        useValue: {
+          watch: () => of({ status: 'unavailable' }),
+          preview: () => of({ status: 'unavailable' }),
+          request: () => Promise.resolve({ status: 'unavailable' }),
+          reject: () => Promise.resolve({ status: 'unavailable' }),
+          downloadUrl: () => null,
+        },
+      },
     ],
   }).compileComponents();
 
@@ -181,6 +194,18 @@ async function click(label: string): Promise<void> {
 function filledDraft(overrides: Partial<ContentPipelineDraft> = {}): ContentPipelineDraft {
   const base = emptyContentPipelineDraft(new Date('2026-10-07T12:00:00Z'));
   return { ...base, config: { ...base.config, concept: 'A tight crop.' }, ...overrides };
+}
+
+/** A draft that has got as far as the images step: an idea picked and a prompt written. */
+function reachedImages(): ContentPipelineDraft {
+  const base = emptyContentPipelineDraft(new Date('2026-10-07T12:00:00Z'));
+
+  return {
+    ...base,
+    seed: { lastToken: null, keep: {}, accepted: SEED },
+    prompt: { ...base.prompt, finalPrompt: 'A tight crop, soft light.', promptSource: 'creator' },
+    furthestStep: 'images',
+  };
 }
 
 describe('ContentPipelineShellComponent', () => {
@@ -351,21 +376,40 @@ describe('ContentPipelineShellComponent', () => {
   });
 
   it('offers a step that is not built yet with no action at all, not a disabled one', async () => {
-    const base = emptyContentPipelineDraft();
     await create({
-      draft: {
-        ...base,
-        seed: { lastToken: null, keep: {}, accepted: SEED },
-        prompt: { ...base.prompt, finalPrompt: 'A tight crop, soft light.' },
-        furthestStep: 'images',
-      },
-      url: `/${SLUG}/workflows/content-pipeline/images`,
+      draft: { ...reachedImages(), furthestStep: 'posts' },
+      url: `/${SLUG}/workflows/content-pipeline/posts`,
     });
+    // Past the resume offer a kept draft always shows first.
     await click('Continue');
 
     expect(text()).toContain('coming soon');
     expect(button('Continue')).toBeNull();
-    expect(text()).toContain('Step 4 of 6');
+    expect(text()).toContain('Step 5 of 6');
+  });
+
+  it('holds the images step at Continue until a picture has been kept, and says why', async () => {
+    await create({
+      draft: reachedImages(),
+      url: `/${SLUG}/workflows/content-pipeline/images`,
+    });
+    await click('Continue');
+
+    expect(text()).toContain('Make the pictures');
+    expect(text()).not.toContain('coming soon');
+    expect(button('Continue')?.disabled).withContext('nothing kept yet').toBeTrue();
+    expect(text()).toContain('Keep at least one picture to carry on.');
+  });
+
+  it('lets the images step continue once a picture is kept', async () => {
+    const reached = reachedImages();
+    await create({
+      draft: { ...reached, images: { ...reached.images, operationId: 'op-1', keepers: ['img-1'] } },
+      url: `/${SLUG}/workflows/content-pipeline/images`,
+    });
+    await click('Continue');
+
+    expect(button('Continue')?.disabled).toBeFalse();
   });
 
   it('leaves without having to save, because nothing was ever only on screen', async () => {

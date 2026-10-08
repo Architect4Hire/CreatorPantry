@@ -12,6 +12,7 @@ import {
   emptyContentPipelineDraft,
   encodeContentPipelineDraft,
   isContentPipelineDraftEmpty,
+  keepersStillPresent,
 } from './content-pipeline.models';
 import { ContentSeed } from './content-seed.models';
 
@@ -40,7 +41,7 @@ describe('content-pipeline.models', () => {
     it('gives the built steps no coming-soon body and every unbuilt one a body', () => {
       const built = CONTENT_PIPELINE_STEPS.filter((step) => step.comingSoon === null).map((step) => step.slug);
 
-      expect(built).toEqual(['setup', 'idea', 'prompt']);
+      expect(built).toEqual(['setup', 'idea', 'prompt', 'images']);
       for (const step of CONTENT_PIPELINE_STEPS) {
         if (step.comingSoon !== null) expect(step.comingSoon.length).toBeGreaterThan(0);
       }
@@ -50,6 +51,9 @@ describe('content-pipeline.models', () => {
       expect(CONTENT_PIPELINE_STEPS[0].legend).toContain('optional');
       expect(CONTENT_PIPELINE_STEPS[1].legend.length).toBeGreaterThan(0);
       expect(CONTENT_PIPELINE_STEPS[2].legend).toContain('optional');
+      // The images step's legend carries the one thing a tick on this screen does not mean, because that is
+      // the sentence a creator most needs before they rely on having "kept" something.
+      expect(CONTENT_PIPELINE_STEPS[3].legend).toContain('library');
     });
 
     it('reads a step before the furthest as done and one after it as not started', () => {
@@ -66,6 +70,8 @@ describe('content-pipeline.models', () => {
       expect(CONTENT_PIPELINE_LIMITS.maxOverrides).toBe(10);
       expect(CONTENT_PIPELINE_LIMITS.minVariants).toBe(1);
       expect(CONTENT_PIPELINE_LIMITS.maxVariants).toBe(4);
+      // `GeneratedImageInputChecks.PromptTextMaxLength` — the image route is what gave the box a bound.
+      expect(CONTENT_PIPELINE_LIMITS.promptMaxLength).toBe(4000);
     });
 
     it('holds a variant count inside the range the server accepts', () => {
@@ -230,6 +236,117 @@ describe('content-pipeline.models', () => {
       const stored = encodeContentPipelineDraft(draftWith({ furthestStep: 'idea' })).replace('"idea"', '"nowhere"');
 
       expect(decodeContentPipelineDraft(stored)?.furthestStep).toBe('setup');
+    });
+
+    it("round-trips the images step's run and its marks", () => {
+      const stored = encodeContentPipelineDraft(
+        draftWith({ images: { operationId: 'op-1', keepers: ['img-2', 'img-4'] } }),
+      );
+
+      const read = decodeContentPipelineDraft(stored);
+
+      expect(read?.images.operationId).toBe('op-1');
+      expect(read?.images.keepers).toEqual(['img-2', 'img-4']);
+    });
+
+    it('stores an id and a decision about the images step and nothing else about the pictures', () => {
+      const stored = encodeContentPipelineDraft(
+        draftWith({ images: { operationId: 'op-1', keepers: ['img-1'] } }),
+      );
+      const parsed = JSON.parse(stored) as { images: Record<string, unknown> };
+
+      expect(Object.keys(parsed.images).sort()).toEqual(['keepers', 'operationId']);
+      // No bytes, media type, size, dimensions, provider, model or retention deadline: all re-read.
+      for (const leak of ['mediaType', 'sizeBytes', 'width', 'providerName', 'retentionExpiresAt']) {
+        expect(stored).withContext(leak).not.toContain(leak);
+      }
+    });
+
+    it('defaults the images block when a stored draft has none, since nothing in it is irreplaceable', () => {
+      const parsed = JSON.parse(encodeContentPipelineDraft(draftWith())) as Record<string, unknown>;
+      delete parsed['images'];
+
+      const read = decodeContentPipelineDraft(JSON.stringify(parsed));
+
+      expect(read).not.toBeNull();
+      expect(read?.images).toEqual({ operationId: null, keepers: [] });
+    });
+
+    it('is discarded when the images block is present and malformed', () => {
+      const stored = encodeContentPipelineDraft(draftWith()).replace(
+        '"operationId":null',
+        '"operationId":{"id":"op-1"}',
+      );
+
+      expect(decodeContentPipelineDraft(stored)).toBeNull();
+    });
+
+    it('drops marks without a run, because they name pictures nothing can find', () => {
+      const stored = encodeContentPipelineDraft(
+        draftWith({ images: { operationId: null, keepers: ['img-1'] } }),
+      );
+
+      expect(decodeContentPipelineDraft(stored)?.images.keepers).toEqual([]);
+    });
+
+    it('cuts the marks to the most pictures one run can hold, and drops anything that is not an id', () => {
+      const stored = encodeContentPipelineDraft(
+        draftWith({
+          images: { operationId: 'op-1', keepers: ['a', 'b', 'c', 'd', 'e'] },
+        }),
+      ).replace('"e"', '7');
+
+      const keepers = decodeContentPipelineDraft(stored)?.images.keepers;
+
+      expect(keepers).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('keeps one mark per picture however the stored list repeats itself', () => {
+      const stored = encodeContentPipelineDraft(
+        draftWith({ images: { operationId: 'op-1', keepers: ['img-1', 'img-1', 'img-2'] } }),
+      );
+
+      expect(decodeContentPipelineDraft(stored)?.images.keepers).toEqual(['img-1', 'img-2']);
+    });
+
+    it('is not empty once pictures have been asked for, so it is offered as a resume', () => {
+      const base = draftWith();
+
+      expect(
+        isContentPipelineDraftEmpty({ ...base, images: { operationId: 'op-1', keepers: [] } }),
+      ).toBeFalse();
+      expect(
+        isContentPipelineDraftEmpty({ ...base, images: { operationId: null, keepers: ['img-1'] } }),
+      ).toBeFalse();
+    });
+  });
+
+  describe('keepersStillPresent', () => {
+    const staged = (id: string, status: string) => ({ id, status });
+
+    it('keeps a mark the run still accounts for', () => {
+      expect(keepersStillPresent(['img-1'], [staged('img-1', 'Staged')])).toEqual(['img-1']);
+    });
+
+    it('drops a mark on a picture the run does not list at all', () => {
+      expect(keepersStillPresent(['img-9'], [staged('img-1', 'Staged')])).toEqual([]);
+    });
+
+    it('drops a mark on a picture that is declined, expired or already filed', () => {
+      for (const status of ['Rejected', 'Expired', 'Kept', 'Unspecified']) {
+        expect(keepersStillPresent(['img-1'], [staged('img-1', status)]))
+          .withContext(status)
+          .toEqual([]);
+      }
+    });
+
+    it('keeps the creator’s own order rather than the run’s', () => {
+      expect(
+        keepersStillPresent(
+          ['img-3', 'img-1'],
+          [staged('img-1', 'Staged'), staged('img-2', 'Staged'), staged('img-3', 'Staged')],
+        ),
+      ).toEqual(['img-3', 'img-1']);
     });
   });
 });

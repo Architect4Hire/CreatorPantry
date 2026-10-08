@@ -1,0 +1,79 @@
+<!--
+  The @if wraps the whole dialog, which is how every other CpDialogComponent consumer here is written: the
+  `[cpDialogActions]` slot has to be a static child of cp-dialog for projection to find it.
+-->
+@if (current(); as image) {
+  <cp-dialog
+    [open]="true"
+    [title]="heading()"
+    [description]="facts()"
+    titleId="cp-pipeline-lightbox-title"
+    (closed)="close()"
+  >
+    <!-- The heading changes as the creator moves between pictures, and a changed dialog title is not reliably
+         announced. This says it again where a polite live region will be heard. -->
+    <p class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {{ heading() }}. {{ facts() }}.
+    </p>
+
+    <cp-content-pipeline-staged-image
+      class="frame"
+      [workspaceSlug]="workspaceSlug()"
+      [image]="image"
+      [position]="position()"
+      [total]="total()"
+    />
+
+    <p class="status">
+      <cp-status-pill [tone]="statusTones[image.status]">{{ statusLabels[image.status] }}</cp-status-pill>
+      <span class="cp-muted">{{ sizeText() }}</span>
+    </p>
+
+    <p class="cp-muted hint">Use the left and right arrow keys to move between your pictures.</p>
+
+    <div cpDialogActions class="actions">
+      <cp-checkbox
+        label="Keep this one"
+        [checked]="isKept()"
+        [disabled]="!canAct()"
+        (checkedChange)="toggleKeep($event)"
+      />
+
+      @if (downloadUrl(); as href) {
+        <a
+          cpButton
+          variant="secondary"
+          [href]="href"
+          [attr.aria-label]="'Download picture ' + position() + ' of ' + total()"
+        >
+          Download
+        </a>
+      }
+
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        [disabled]="index() <= 0"
+        (click)="previous()"
+        aria-label="Previous picture"
+      >
+        Previous
+      </button>
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        [disabled]="index() >= total() - 1"
+        (click)="next()"
+        aria-label="Next picture"
+      >
+        Next
+      </button>
+
+      <button cpButton type="button" variant="danger" [disabled]="!canAct()" (click)="decline()">
+        Decline this one
+      </button>
+    </div>
+  </cp-dialog>
+}

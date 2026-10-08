@@ -42,8 +42,8 @@ export function needsWatching(operation: AiProposalStatus): boolean {
  *
  * **Why this exists.** Three screens in `features/ai/` had already written this loop — the interval, the
  * degraded backoff, the consecutive-failure count and the wall-clock ceiling — and the rules only stay in step
- * by being in one place. Those three are left as they are; this is for the Content Pipeline's three panels, and
- * they could adopt it later without changing what any of them does.
+ * by being in one place. Those three are left as they are; this is for the Content Pipeline's panels, and they
+ * could adopt it later without changing what any of them does.
  *
  * **It never errors.** Each client's watch answers with a value for every outcome, which is what stops one
  * failed poll from tearing down a loop and blanking content a creator is reading.
@@ -51,9 +51,14 @@ export function needsWatching(operation: AiProposalStatus): boolean {
  * **`onComplete` fires once the loop has stopped on its own**, so a caller can say "no longer checking" rather
  * than leaving a spinner up forever. Unsubscribing does not call it: that is the caller's own decision and they
  * already know.
+ *
+ * **`needsMore` is the caller's**, because what counts as finished is the capability's own question: `Proposed`
+ * ends an AI proposal, and an image run ends on four quite different statuses. The timing rules do not vary and
+ * so are not a parameter.
  */
-export function pollAiOperation<T extends AiProposalStatus>(
+export function pollOperation<T>(
   ask: () => Observable<AiWatchOutcome<T>>,
+  needsMore: (operation: T) => boolean,
   onComplete: () => void,
   now: () => number = Date.now,
 ): Observable<AiWatchOutcome<T>> {
@@ -62,7 +67,7 @@ export function pollAiOperation<T extends AiProposalStatus>(
 
   const again = (outcome: AiWatchOutcome<T>): Observable<AiWatchOutcome<T>> => {
     if (outcome.status === 'not_found' || outcome.status === 'forbidden') return EMPTY;
-    if (outcome.status === 'found' && !needsWatching(outcome.operation)) return EMPTY;
+    if (outcome.status === 'found' && !needsMore(outcome.operation)) return EMPTY;
 
     failures = outcome.status === 'unavailable' ? failures + 1 : 0;
     if (failures >= AI_MAX_CONSECUTIVE_POLL_FAILURES) return EMPTY;
@@ -85,4 +90,13 @@ export function pollAiOperation<T extends AiProposalStatus>(
         }),
       ),
   );
+}
+
+/** {@link pollOperation} for the AI proposal capabilities, whose finished condition is {@link needsWatching}. */
+export function pollAiOperation<T extends AiProposalStatus>(
+  ask: () => Observable<AiWatchOutcome<T>>,
+  onComplete: () => void,
+  now: () => number = Date.now,
+): Observable<AiWatchOutcome<T>> {
+  return pollOperation(ask, needsWatching, onComplete, now);
 }

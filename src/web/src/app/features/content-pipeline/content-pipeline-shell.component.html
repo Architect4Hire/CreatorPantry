@@ -119,6 +119,14 @@
                   (announced)="onAnnounced($event)"
                 />
               }
+              @case ('images') {
+                <cp-content-pipeline-images-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [draft]="draft()"
+                  (changed)="onDraftChanged($event)"
+                  (announced)="onAnnounced($event)"
+                />
+              }
               @default {
                 <cp-content-pipeline-step-placeholder [step]="step" />
               }
@@ -144,6 +152,9 @@
             }
             @if (step.slug === 'prompt' && !canContinue()) {
               <p class="cp-muted">Write the prompt, or have one written, to carry on.</p>
+            }
+            @if (step.slug === 'images' && !canContinue()) {
+              <p class="cp-muted">Keep at least one picture to carry on.</p>
             }
           </section>
         }

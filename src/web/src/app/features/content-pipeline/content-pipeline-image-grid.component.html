@@ -1,0 +1,64 @@
+<ul class="sheet" aria-label="The pictures this run made">
+  @for (tile of tiles(); track tile.image.id) {
+    <li>
+      <cp-content-pipeline-staged-image
+        [workspaceSlug]="workspaceSlug()"
+        [image]="tile.image"
+        [position]="tile.position"
+        [total]="tile.total"
+      />
+
+      <p class="meta">
+        <span class="name">Picture {{ tile.position }} of {{ tile.total }}</span>
+        <cp-status-pill [tone]="tile.statusTone">{{ tile.statusLabel }}</cp-status-pill>
+      </p>
+      <p class="cp-muted facts">{{ tile.facts }}</p>
+
+      <div class="cp-actions">
+        <cp-checkbox
+          label="Keep this one"
+          [inputId]="'cp-pipeline-keep-' + tile.image.id"
+          [checked]="tile.kept"
+          [disabled]="!tile.canAct"
+          (checkedChange)="onKeep(tile.image.id, $event)"
+        />
+
+        <button
+          cpButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          [attr.aria-label]="'View picture ' + tile.position + ' of ' + tile.total + ' larger'"
+          (click)="opened.emit(tile.image.id)"
+        >
+          View larger
+        </button>
+
+        @if (tile.downloadUrl; as href) {
+          <a
+            cpButton
+            variant="ghost"
+            size="sm"
+            [href]="href"
+            [attr.aria-label]="'Download picture ' + tile.position + ' of ' + tile.total"
+          >
+            Download
+          </a>
+        }
+
+        @if (tile.canAct) {
+          <button
+            cpButton
+            type="button"
+            variant="text"
+            size="sm"
+            [attr.aria-label]="'Decline picture ' + tile.position + ' of ' + tile.total"
+            (click)="declineRequested.emit(tile.image.id)"
+          >
+            Decline
+          </button>
+        }
+      </div>
+    </li>
+  }
+</ul>
