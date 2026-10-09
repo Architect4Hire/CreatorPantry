@@ -12,21 +12,55 @@
   margin: 0 auto;
 }
 
+/* Stacked on narrow screens (logo, then text); side by side once there is room for both. */
 .copy {
   display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-8);
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+  min-width: 0;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
   gap: var(--cp-space-5);
 }
 
-.copy > div {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+/* The logo is sized by width so it can shrink with the screen; the cap keeps it from growing past its
+   natural size when stacked on a wide tablet. It comes first when stacked purely visually: it is a
+   non-interactive image, so reading and tab order still start with the heading. */
+.mark {
+  order: -1;
+  min-width: 0;
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
 }
 
-.copy > div > div:first-child {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-5);
+@media (min-width: 56rem) {
+  .copy {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--cp-space-10);
+  }
+
+  .intro {
+    flex: 1 1 0;
+    max-width: 40rem;
+  }
+
+  .mark {
+    order: 0;
+    flex: 0 1 34rem;
+    max-width: none;
+    margin-inline: 0;
+  }
 }
 
 h1 {
