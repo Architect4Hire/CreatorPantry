@@ -10,6 +10,7 @@ import { ContentPipelineDraftService } from '../services/content-pipeline-draft.
 import { ImageStudioDraftService } from '../services/image-studio-draft.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
+import { CpLogoComponent } from '../features/landing/logo/logo/logo';
 
 interface ShellNavItem {
   readonly path: string;
@@ -42,12 +43,15 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
     CpButtonComponent,
     CpStatusPillComponent,
     WorkspaceSwitcherComponent,
+    CpLogoComponent,
   ],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppShellComponent {
+  logoClass = 'display: block; width: 100%; height: auto;';
+
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
@@ -69,9 +73,6 @@ export class AppShellComponent {
   readonly isDevMode = isDevMode();
   readonly menuOpen = signal(false);
   readonly session = this.auth.session;
-  readonly brandMarkSrc = computed(() =>
-    this.theme.resolved() === 'dark' ? '/images/logodark.png' : '/images/logo.png',
-  );
 
   private readonly routeState = toSignal(
     this.router.events.pipe(
@@ -96,7 +97,10 @@ export class AppShellComponent {
 
   /** Only says something when there is something worth saying; a healthy balance needs no chrome. */
   readonly allowanceNeedsAttention = computed(
-    () => this.allowance().kind === 'nearly-spent' || this.allowance().kind === 'exhausted' || this.allowance().kind === 'suspended',
+    () =>
+      this.allowance().kind === 'nearly-spent' ||
+      this.allowance().kind === 'exhausted' ||
+      this.allowance().kind === 'suspended',
   );
 
   readonly allowanceLabel = computed(() => {

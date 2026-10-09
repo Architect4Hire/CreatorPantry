@@ -14,9 +14,19 @@
 
 .copy {
   display: flex;
+  gap: var(--cp-space-5);
+}
+
+.copy > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.copy > div > div:first-child {
+  display: flex;
   flex-direction: column;
   gap: var(--cp-space-5);
-  max-width: 40rem;
 }
 
 h1 {

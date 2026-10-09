@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CpButtonComponent } from '@creator-pantry/ui';
+import { CpLogoComponent } from './logo/logo/logo';
 
 /**
  * The landing page's opening section: owns the page's single <h1>. Purely presentational — CTAs are
@@ -11,7 +12,7 @@ import { CpButtonComponent } from '@creator-pantry/ui';
 @Component({
   selector: 'cp-landing-hero',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent],
+  imports: [RouterLink, CpButtonComponent, CpLogoComponent],
   templateUrl: './landing-hero.component.html',
   styleUrl: './landing-hero.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

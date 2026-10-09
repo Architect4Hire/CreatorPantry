@@ -1,6 +1,8 @@
 <div class="shell">
   <aside class="sidebar" id="cp-shell-sidebar" [class.open]="menuOpen()">
-    <div class="brand"><img class="brand-mark" [src]="brandMarkSrc()" alt="CreatorPantry" /></div>
+    <div class="brand brand-mark">
+      <cp-logo [styles]="logoClass"></cp-logo>
+    </div>
 
     <cp-workspace-switcher [currentSlug]="currentWorkspaceSlug()" />
 
