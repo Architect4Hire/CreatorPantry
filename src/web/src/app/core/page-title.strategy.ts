@@ -23,10 +23,11 @@ export class PageTitleStrategy extends TitleStrategy {
 }
 
 function deepestDataTitle(root: ActivatedRouteSnapshot): string | undefined {
-  let title: string | undefined;
   for (let node: ActivatedRouteSnapshot | null = root; node; node = node.firstChild) {
     const value = node.data['title'];
-    if (typeof value === 'string' && value.trim().length > 0) title = value;
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
   }
-  return title;
+  return undefined;
 }

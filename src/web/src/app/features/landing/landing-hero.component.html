@@ -1,7 +1,7 @@
 <section class="hero" aria-labelledby="landing-hero-heading">
   <div class="copy">
-    <div>
-      <div>
+    <div class="intro">
+      <div class="text">
         <h1 id="landing-hero-heading">{{ headline() }}</h1>
         <p class="subheadline">{{ subheadline() }}</p>
       </div>
@@ -10,8 +10,8 @@
         <a cpButton variant="secondary" size="lg" routerLink="/sign-in">{{ secondaryCtaLabel() }}</a>
       </div>
     </div>
-    <div>
-      <cp-logo styles="height: 500px"></cp-logo>
+    <div class="mark">
+      <cp-logo styles="display: block; width: 100%; height: auto; margin-inline: auto"></cp-logo>
     </div>
   </div>
   <div class="media"><ng-content select="[cpLandingHeroMedia]" /></div>
