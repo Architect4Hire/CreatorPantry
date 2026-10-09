@@ -157,6 +157,13 @@ export interface RequestPhotographyConceptsRequest {
   readonly recipeId?: string | null;
   /** The version pinned when it was linked. Never sent without {@link recipeId}. */
   readonly recipeVersionId?: string | null;
+  /**
+   * What the creator calls the dish, for work with no recipe linked. Null or blank sends none.
+   *
+   * Never sent beside {@link recipeId}: the route refuses both, and `contentSubjectOf` is where that
+   * precedence is decided.
+   */
+  readonly dishName?: string | null;
   readonly creatorConcept: string;
   readonly sceneOverrides: readonly string[];
   readonly styleOverrides: readonly string[];
@@ -178,6 +185,8 @@ export function encodeRequestPhotographyConcepts(
     // Inside the recipe's own branch: the route refuses a version that arrives without its recipe.
     if (request.recipeVersionId) body['recipeVersionId'] = request.recipeVersionId;
   }
+  // Outside the recipe's branch, and only when there is no recipe: the route refuses both together.
+  else if (request.dishName?.trim()) body['dishName'] = request.dishName.trim();
   if (request.creatorConcept.trim()) body['creatorConcept'] = request.creatorConcept.trim();
   if (request.sceneOverrides.length > 0) body['sceneOverrides'] = [...request.sceneOverrides];
   if (request.styleOverrides.length > 0) body['styleOverrides'] = [...request.styleOverrides];

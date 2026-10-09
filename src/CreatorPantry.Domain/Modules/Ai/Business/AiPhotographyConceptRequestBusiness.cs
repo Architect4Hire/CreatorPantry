@@ -174,6 +174,7 @@ internal sealed class AiPhotographyConceptRequestBusiness(
 
         Add(PhotographyConceptInputs.ChannelKey, model.ChannelKey);
         Add(PhotographyConceptInputs.CreatorConcept, model.CreatorConcept);
+        Add(PhotographyConceptInputs.DishName, model.DishName);
         Add(PhotographyConceptInputs.SceneOverrides, Join(model.SceneOverrides));
         Add(PhotographyConceptInputs.StyleOverrides, Join(model.StyleOverrides));
 

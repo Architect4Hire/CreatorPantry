@@ -14,6 +14,17 @@ import { decodeEnum, isNumberOrNull, isRecord, isStringOrNull } from './recipe.m
  */
 export type CreativeContextReferenceKind = 'Recipe' | 'RecipeConcept' | 'DamAsset' | 'GeneratedImage' | 'PromptRecord';
 
+/**
+ * `CreativeContextReferencePurpose`: what a reference is *for*, as opposed to what it points at (AF.4.3).
+ *
+ * `Source` is something the work draws on — the recipe it is about, the picture it takes cues from. `Keeper`
+ * is something it produced and the creator chose to keep. The same picture can be both, which is why the two
+ * are separate rows rather than one with a changing meaning.
+ */
+export type CreativeContextReferencePurpose = 'Source' | 'Keeper';
+
+const PURPOSES: ReadonlySet<string> = new Set<CreativeContextReferencePurpose>(['Source', 'Keeper']);
+
 /** `System.DayOfWeek`, by name. */
 export type CreativeContextDay = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -49,12 +60,16 @@ const DAYS: ReadonlySet<string> = new Set<CreativeContextDay>([
  * A union rather than one interface with every id optional, because the server refuses a reference that
  * carries another kind's field — so the shape that cannot be sent is the shape that cannot be built.
  */
-export type CreativeContextSource =
+export type CreativeContextSource = (
   | { readonly kind: 'Recipe'; readonly recipeId: string; readonly recipeVersionId?: string | null }
   | { readonly kind: 'RecipeConcept'; readonly conceptRequestId: string; readonly conceptId: string }
   | { readonly kind: 'DamAsset'; readonly mediaAssetId: string; readonly mediaAssetVersionNumber?: number | null }
   | { readonly kind: 'GeneratedImage'; readonly generatedImageId: string }
-  | { readonly kind: 'PromptRecord'; readonly promptRecordId: string };
+  | { readonly kind: 'PromptRecord'; readonly promptRecordId: string }
+) & {
+  /** What this is for. Omitted means `Source`, which is what naming a source without saying is. */
+  readonly purpose?: CreativeContextReferencePurpose;
+};
 
 /**
  * One source a context names. Ids only: a context points at its sources and never copies them, so there is no
@@ -63,6 +78,8 @@ export type CreativeContextSource =
 export interface CreativeContextReference {
   readonly id: string;
   readonly kind: CreativeContextReferenceKind;
+  /** What the work takes this for: something it draws on, or something it made. */
+  readonly purpose: CreativeContextReferencePurpose;
   readonly sortOrder: number;
   readonly recipeId: string | null;
   readonly recipeVersionId: string | null;
@@ -103,22 +120,37 @@ export function linkedRecipeOf(context: CreativeContext | null): LinkedRecipe | 
     : { recipeId: reference.recipeId, recipeVersionId: reference.recipeVersionId };
 }
 
+/** True for a reference that points at a picture, of either kind. */
+function isPicture(reference: CreativeContextReference): boolean {
+  return (
+    (reference.kind === 'DamAsset' && reference.mediaAssetId !== null) ||
+    (reference.kind === 'GeneratedImage' && reference.generatedImageId !== null)
+  );
+}
+
 /**
  * The context's reference picture, or null when it names none (AF.3.5).
  *
- * The first library asset or generated image it names. A context's references carry no role, so "the picture
- * this work takes its cues from" is a convention: the working surfaces keep one, and replace it rather than
- * add a second. A picture a hand-off put on the context is therefore read as this one — which is what handing
- * a picture to Image Studio means.
+ * The first picture the work **draws on**. Still one at a time — the working surfaces keep a single cue and
+ * replace it rather than add a second — but since AF.4.3 the row says what it is for, so a picture the work
+ * *made* is never mistaken for one it takes cues from. That matters because replacing the cue removes the row
+ * this finds: before the purpose existed, that would have removed a keeper.
+ *
+ * A picture a hand-off put on the context arrives as a `Source` and is therefore read as this one, which is
+ * what handing a picture to Image Studio means.
  */
 export function pictureReferenceOf(context: CreativeContext | null): CreativeContextReference | null {
-  return (
-    context?.references.find(
-      (reference) =>
-        (reference.kind === 'DamAsset' && reference.mediaAssetId !== null) ||
-        (reference.kind === 'GeneratedImage' && reference.generatedImageId !== null),
-    ) ?? null
-  );
+  return context?.references.find((reference) => reference.purpose === 'Source' && isPicture(reference)) ?? null;
+}
+
+/**
+ * Every picture this work made and the creator chose to keep, in the order they were named (AF.4.3).
+ *
+ * Both kinds, because a keeper is a staged generated image until it is saved and a library asset afterwards —
+ * and for a moment it is both, which is how the library step knows a picture it saved is saved.
+ */
+export function keeperReferencesOf(context: CreativeContext | null): readonly CreativeContextReference[] {
+  return context?.references.filter((reference) => reference.purpose === 'Keeper' && isPicture(reference)) ?? [];
 }
 
 /** A creative context in full. */
@@ -192,25 +224,31 @@ export interface CreativeContextPatch {
  * `null`.
  */
 export function encodeCreativeContextSource(source: CreativeContextSource): Record<string, unknown> {
+  // Left out for a source, which is what the server reads an unstated purpose as — so an old body and a new
+  // one mean the same thing, and only a keeper has to say so.
+  const purpose = source.purpose && source.purpose !== 'Source' ? { purpose: source.purpose } : {};
+
   switch (source.kind) {
     case 'Recipe':
       return {
         kind: source.kind,
+        ...purpose,
         recipeId: source.recipeId,
         ...(source.recipeVersionId ? { recipeVersionId: source.recipeVersionId } : {}),
       };
     case 'RecipeConcept':
-      return { kind: source.kind, conceptRequestId: source.conceptRequestId, conceptId: source.conceptId };
+      return { kind: source.kind, ...purpose, conceptRequestId: source.conceptRequestId, conceptId: source.conceptId };
     case 'DamAsset':
       return {
         kind: source.kind,
+        ...purpose,
         mediaAssetId: source.mediaAssetId,
         ...(source.mediaAssetVersionNumber ? { mediaAssetVersionNumber: source.mediaAssetVersionNumber } : {}),
       };
     case 'GeneratedImage':
-      return { kind: source.kind, generatedImageId: source.generatedImageId };
+      return { kind: source.kind, ...purpose, generatedImageId: source.generatedImageId };
     case 'PromptRecord':
-      return { kind: source.kind, promptRecordId: source.promptRecordId };
+      return { kind: source.kind, ...purpose, promptRecordId: source.promptRecordId };
   }
 }
 
@@ -274,9 +312,18 @@ export function decodeCreativeContextReference(raw: unknown): CreativeContextRef
   if (!isRecord(raw)) return null;
 
   const kind = decodeEnum<CreativeContextReferenceKind>(KINDS, raw['kind']);
+  // Absent is `Source`: a server from before AF.4.3 publishes no purpose, and every reference it made is one
+  // the work draws on. Present and unreadable fails the row, because guessing would read a picture the work
+  // produced as the one it takes its cues from.
+  const rawPurpose = raw['purpose'];
+  const purpose =
+    rawPurpose === null || rawPurpose === undefined
+      ? 'Source'
+      : decodeEnum<CreativeContextReferencePurpose>(PURPOSES, rawPurpose);
 
   if (
     kind === null ||
+    purpose === null ||
     typeof raw['id'] !== 'string' ||
     typeof raw['sortOrder'] !== 'number' ||
     typeof raw['addedAt'] !== 'string' ||
@@ -295,6 +342,7 @@ export function decodeCreativeContextReference(raw: unknown): CreativeContextRef
   return {
     id: raw['id'],
     kind,
+    purpose,
     sortOrder: raw['sortOrder'],
     recipeId: (raw['recipeId'] as string | null | undefined) ?? null,
     recipeVersionId: (raw['recipeVersionId'] as string | null | undefined) ?? null,

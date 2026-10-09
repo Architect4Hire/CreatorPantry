@@ -19,7 +19,7 @@ public sealed class ImagePromptEndpointTests
 
         Assert.Equal(
             [
-                "BriefDocumentId", "ChannelKey", "ConceptId", "ConceptRequestId",
+                "BriefDocumentId", "ChannelKey", "ConceptId", "ConceptRequestId", "DishName",
                 "RecipeId", "RecipeVersionId", "SceneOverrides", "ShotKind", "StyleOverrides",
             ],
             fields);

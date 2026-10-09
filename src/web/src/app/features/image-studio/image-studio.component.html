@@ -98,8 +98,14 @@
                 [session]="session"
                 idPrefix="cp-studio-recipe"
                 (announced)="onAnnounced($event)"
+                (linkedRecipe)="onRecipeNamed($event)"
               />
-              <cp-content-pipeline-setup-step [config]="config()" [showDay]="false" (changed)="onConfig($event)" />
+              <cp-content-pipeline-setup-step
+                [config]="config()"
+                [showDay]="false"
+                [linkedRecipeTitle]="linkedRecipeTitle()"
+                (changed)="onConfig($event)"
+              />
             </section>
 
             <cp-form-section
@@ -170,9 +176,11 @@
               [variantCount]="config().variantCount"
               [state]="draft().images"
               [wording]="runWording"
+              [library]="runLibrary()"
               sectionIdPrefix="cp-studio-images"
               (changed)="onImages($event)"
               (announced)="onAnnounced($event)"
+              (saved)="onSaved($event)"
             />
 
             <cp-creative-context-save-notice [session]="session" />

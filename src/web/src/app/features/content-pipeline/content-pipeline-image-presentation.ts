@@ -12,8 +12,8 @@ import { GeneratedImageOperationStatus, GeneratedImageStatus } from '../../model
  *
  * None of these is the server's enum member. `Staged` reads as **Ready** because that is what it means to the
  * person looking at it, and `Kept` reads as **Filed in your library** because that status only ever arrives
- * from the library commit — which this journey does not make, so a creator who sees it got there another way
- * and the word has to tell them so rather than echo the mark they made here.
+ * from the library commit — which since AF.4.2 the Image Studio does make, so the word is the plain truth
+ * about a picture that is now permanent, whether it was saved on this screen or another.
  */
 export const STAGED_IMAGE_STATUS_LABELS: Readonly<Record<GeneratedImageStatus, string>> = {
   Unspecified: 'Unknown',
@@ -65,6 +65,33 @@ export const GENERATED_IMAGE_RUN_DETAIL: Readonly<Record<GeneratedImageOperation
   Failed: 'This stopped before it made anything.',
   Cancelled: 'This one was stopped.',
 };
+
+/**
+ * Where one picture stands with the library, on a surface that files them (AF.4.2).
+ *
+ * `staged` is a picture not in the library, which is the only state with anything to save; `saving` is a save
+ * in flight; `saved` is in the library for good; `failed` is an attempt that did not get there, which is
+ * nothing lost — the picture is exactly where it was and can be saved again.
+ */
+export type StagedImageSaveState = 'staged' | 'saving' | 'saved' | 'failed';
+
+/**
+ * One picture's place in the library, as a tile and the lightbox show it.
+ *
+ * **`assetId` may be null on a saved picture**, and that is an honest state rather than a bug: the server's
+ * own `Kept` status is what says a picture is in the library, and the asset's id is a separate thing this
+ * screen has to find. A save made here hands it over; a save made before this visit is matched back through
+ * the work's own references, and when that reading fails the picture is still truthfully saved — just without
+ * a way to the asset.
+ */
+export interface StagedImageSave {
+  readonly state: StagedImageSaveState;
+  readonly assetId: string | null;
+  /** What the asset is called, when that is known. */
+  readonly title: string | null;
+  /** Why the last attempt did not save it. Empty unless {@link state} is `failed`. */
+  readonly problem: string;
+}
 
 /** A byte count as a creator reads it. Decimal units, which is what a file manager shows. */
 export function fileSizeText(sizeBytes: number): string {

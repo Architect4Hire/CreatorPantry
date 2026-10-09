@@ -405,6 +405,54 @@ public static class AiOutputReason
     /// </remarks>
     public const string ReferenceImageIdentityClaimNotPermitted =
         "ai.output.reference_image_identity_claim_not_permitted";
+
+    // ---- Reading a dish name into catalogue facets ----
+
+    /// <summary>The same facet of the dish name was read twice.</summary>
+    /// <remarks>
+    /// Refused rather than deduplicated: the stored rows are keyed by facet, and choosing which of two
+    /// contradictory readings to keep is not a decision to make silently on a creator's behalf.
+    /// </remarks>
+    public const string DishFacetDuplicate = "ai.output.dish_facet_duplicate";
+
+    /// <summary>
+    /// A facet suggestion names a code without saying how sure it is, or states a confidence while naming no
+    /// code.
+    /// </summary>
+    /// <remarks>
+    /// The first is the failure this capability most needs to refuse: an unqualified code is a guess that
+    /// arrives looking exactly like a reading, and the surface pre-fills a creator's control from a confident
+    /// one. The second is the mirror image — "fairly sure, about nothing" — and tolerating it would let the
+    /// band and the code disagree about whether a reading exists at all.
+    /// </remarks>
+    public const string DishFacetConfidenceMisplaced = "ai.output.dish_facet_confidence_misplaced";
+
+    /// <summary>A facet suggestion did not say which words of the name led to it, or why none did.</summary>
+    /// <remarks>
+    /// Required whether or not a code was named. It is what makes a suggestion checkable by the person who
+    /// typed the name — a bare selection is not — and a declined facet with no reason tells them nothing.
+    /// </remarks>
+    public const string DishFacetUnexplained = "ai.output.dish_facet_unexplained";
+
+    /// <summary>
+    /// A facet rationale or warning made a claim about the food — a diet it suits, an allergen it lacks, or
+    /// whether it is safe.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The document has no <em>field</em> for any of that, but it has two free-text ones, and a rationale is
+    /// rendered beside the control it explains — so "fattoush, so naturally gluten free" would reach a
+    /// creator as a finding about their dish. This capability reads a <em>name</em>: the thinnest evidence in
+    /// the product, and nowhere near enough for a dietary or safety conclusion (<c>ai.md</c>).
+    /// </para>
+    /// <para>
+    /// Refused rather than warned, matching <see cref="ImagePromptClaimNotPermitted"/> and
+    /// <see cref="PhotographyClaimNotPermitted"/> and against the same term list. A rationale has exactly one
+    /// job — naming the words that led to a facet — so unlike generated prose there is no legitimate reading
+    /// in which a claim belongs there and should merely be flagged.
+    /// </para>
+    /// </remarks>
+    public const string DishFacetClaimNotPermitted = "ai.output.dish_facet_claim_not_permitted";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

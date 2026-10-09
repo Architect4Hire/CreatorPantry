@@ -114,6 +114,14 @@ internal static class CreativeContextInputChecks
             yield break;
         }
 
+        // Absent is Source, which is what a reference named without saying is. A value that is present and
+        // not a purpose is refused rather than defaulted: a keeper quietly stored as a source would be read as
+        // the cue the next prompt is planned from.
+        if (reference.Purpose is { } purpose && !Enum.IsDefined(purpose))
+        {
+            yield return ($"{prefix}.purpose", "That is not a purpose a source can have.");
+        }
+
         if (kind is CreativeContextReferenceKind.SocialPackage)
         {
             // No table to resolve one against until post packages exist, and an id nothing can check is an id

@@ -294,6 +294,7 @@ describe('RecipeDraftService', () => {
         {
           ...request,
           brief: {
+            dishName: null,
             audience: 'Busy parents',
             course: null,
             cuisine: '   ',

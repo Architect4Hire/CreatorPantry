@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.malformed-json-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "A truncated answer is refused, never repaired. Nothing is patched into something the creator never reviewed and the model never said.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\"",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.malformed_json",
+    "category": "OutputSchemaInvalid"
+  }
+}

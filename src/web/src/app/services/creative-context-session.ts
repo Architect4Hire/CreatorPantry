@@ -100,6 +100,7 @@ function sameFields(left: CreativeContextFields, right: CreativeContextFields): 
 export class CreativeContextSession {
   private readonly contexts = inject(CreativeContextService);
 
+  private readonly workspaceState = signal('');
   private readonly openState = signal<CreativeContextOpenState>('idle');
   private readonly contextState = signal<CreativeContext | null>(null);
   private readonly fieldsState = signal<CreativeContextFields>(EMPTY_CREATIVE_CONTEXT_FIELDS);
@@ -109,6 +110,15 @@ export class CreativeContextSession {
   private readonly clashState = signal<readonly CreativeContextFieldName[]>([]);
 
   readonly open = this.openState.asReadonly();
+
+  /**
+   * The workspace this session is pointed at, or empty before it is pointed anywhere.
+   *
+   * Published so a surface can tell whether the work it is holding is the work of the workspace on screen.
+   * Between a change of workspace and the next read, the two disagree — and a surface that acted on the
+   * context in that gap would be asking one workspace about another's records (.claude/rules/tenancy.md).
+   */
+  readonly workspace = this.workspaceState.asReadonly();
   readonly context = this.contextState.asReadonly();
   readonly fields = this.fieldsState.asReadonly();
   readonly save = this.saveState.asReadonly();
@@ -509,6 +519,7 @@ export class CreativeContextSession {
   private reset(workspaceSlug: string): number {
     this.clearTimer();
     this.slug = workspaceSlug;
+    this.workspaceState.set(workspaceSlug);
     this.filingStore = null;
     this.latest = null;
     this.sending = false;

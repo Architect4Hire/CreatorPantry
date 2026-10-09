@@ -254,4 +254,66 @@ public enum AiTaskType
     /// </para>
     /// </remarks>
     ReferenceImageAnalysis = 15,
+
+    /// <summary>
+    /// Reads a dish name the creator typed and proposes which cuisine, course and cooking technique it most
+    /// likely names, each chosen from the platform vocabulary and each with its own confidence — or declined
+    /// where the name does not carry the answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The smallest capability in this module, and the narrowest on purpose.</strong> It interprets
+    /// intent into a <em>constrained command</em> — three catalogue codes — which is the one thing
+    /// <c>ai.md</c> says a model may do with a creator's words before deterministic code takes over. The
+    /// Content Pipeline's idea generator then does the actual work, as it always did: the codes it receives
+    /// are ordinary pins, indistinguishable from pins a creator typed, and
+    /// <c>ContentSeedSelector</c> still draws everything left open.
+    /// </para>
+    /// <para>
+    /// <strong>It proposes, and that distinction is the whole design — and it is a deliberate exception to a
+    /// convention stated five times in this module.</strong> <see cref="AiBriefInputs.DishName"/> and its
+    /// counterparts on the concept, first-draft, photography and image-prompt requests each say that nothing
+    /// downstream may read a cuisine, a course or an ingredient out of a dish name; the content-seed
+    /// generator says it too (<c>IContentSeedBusiness</c>), and <c>recipe.concepts</c> puts it to the model.
+    /// Those are docstrings and prompt text rather than a rule in <c>.claude/rules/</c>, and what every one
+    /// of them is guarding against is a name becoming a <em>fact</em> about the dish with nobody told.
+    /// </para>
+    /// <para>
+    /// A reading that lands in a visible, editable control, labelled as a suggestion, carrying its own
+    /// confidence and its own account of which words led there, is not that. So the convention is kept by
+    /// where the answer goes rather than by refusing to ask — but a reader arriving at one of those five
+    /// docstrings will not know this exists, and the honest fix is to amend them rather than rely on
+    /// this paragraph.
+    /// </para>
+    /// <para>
+    /// <strong>The model cannot invent an identifier.</strong>
+    /// <see cref="DishFacetSuggestionAiTaskHandler"/> reads the active catalogues itself, shows them to the
+    /// model as the only candidates, and discards any code that is not one of them — so a hallucinated
+    /// cuisine never reaches a pin, and a vocabulary edit cannot be outvoted by a model's memory of it.
+    /// </para>
+    /// <para>
+    /// <strong>Declining is a real answer.</strong> "Weeknight dinner" names no cuisine, and a capability
+    /// that always returns three codes would hand a creator three guesses wearing the same clothes as three
+    /// readings. Each facet is independently nullable and
+    /// <see cref="AiDishFacetsOutputValidator"/> requires a reason when one is left empty.
+    /// </para>
+    /// <para>
+    /// <strong>It changes no recipe.</strong> Its <see cref="AiChangeTargetKind"/> is absent from
+    /// <c>AiChangeApplicability</c>, like <see cref="PhotographyConcept"/>'s and
+    /// <see cref="ReferenceImageAnalysis"/>'s, so there is no code path from a stored row to a recipe edit.
+    /// It names no recipe either: a creator uses this precisely when the dish is not in their library yet.
+    /// </para>
+    /// <para>
+    /// <strong>Known gap: no acceptance outcome is recorded.</strong> <c>ai.md</c> asks that every capability
+    /// record an acceptance or rejection outcome, and this one cannot — the shared disposition flow is
+    /// recipe-bound (<c>AiProposalsController</c> matches on <c>RecipeId</c>, which is null here), so a
+    /// reading's rows stay <see cref="AiChangeDisposition.Pending"/> and its operation stays
+    /// <see cref="AiOperationStatus.Proposed"/> for good. Nothing records whether the creator took a
+    /// suggestion, changed it, or cleared it — which is exactly the signal that would say whether the
+    /// capability is any use, so this is a gap to close rather than a property to keep. Closing it needs
+    /// either an outcome endpoint of its own or a disposition flow that does not assume a recipe; both are
+    /// more than this capability should decide alone.
+    /// </para>
+    /// </remarks>
+    DishFacetSuggestion = 16,
 }

@@ -36,6 +36,23 @@ internal static class ContentSeedInputChecks
             yield return (nameof(model.RecipeVersionId), "A recipe version needs the recipe it belongs to.");
         }
 
+        if (Normalize(model.Subject) is { } subject)
+        {
+            if (subject.Length > ContentSeedPolicy.SubjectMaxLength)
+            {
+                yield return (nameof(model.Subject),
+                    $"A subject is at most {ContentSeedPolicy.SubjectMaxLength} characters.");
+            }
+
+            // Refused rather than one quietly winning: the caller decided which answer this idea is about, and
+            // a server that picked for them would answer a question nobody asked.
+            if (model.RecipeId is not null)
+            {
+                yield return (nameof(model.Subject),
+                    "An idea is about a linked recipe or a subject you name, not both.");
+            }
+        }
+
         // The pinned facet keys are checked for length only. Their real test is whether a catalogue has them,
         // which Business asks, and a key that is merely unknown gets the same answer as one shaped wrongly — so
         // a second shape rule here would only ever duplicate it.

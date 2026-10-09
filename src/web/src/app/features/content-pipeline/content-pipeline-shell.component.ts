@@ -41,13 +41,15 @@ import {
   ContentPipelineDraftService,
 } from '../../services/content-pipeline-draft.service';
 import { CreativeContextFields } from '../../models/creative-context-fields.models';
-import { linkedRecipeOf } from '../../models/creative-context.models';
+import { keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
+import { DamKeepRecipe } from '../../models/dam-asset.models';
 import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.component';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CreativeContextSaveNoticeComponent } from '../../shared/creative-context-save-notice/creative-context-save-notice.component';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 import { ContentPipelineImagesStepComponent } from './content-pipeline-images-step.component';
+import { ContentPipelineLibraryStepComponent } from './content-pipeline-library-step.component';
 import { ContentPipelinePromptStepComponent } from './content-pipeline-prompt-step.component';
 import { ContentPipelineSetupStepComponent } from './content-pipeline-setup-step.component';
 import { ContentPipelineStepPlaceholderComponent } from './content-pipeline-step-placeholder.component';
@@ -81,6 +83,7 @@ export function contentPipelineContextFields(draft: ContentPipelineDraft): Creat
   const accepted = draft.seed.accepted;
 
   return {
+    workingTitle: draft.config.subject,
     channelKey: draft.config.channelKey,
     day: draft.config.day,
     pictureBrief: draft.config.concept,
@@ -135,6 +138,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     ContentPipelineIdeaStepComponent,
     ContentPipelinePromptStepComponent,
     ContentPipelineImagesStepComponent,
+    ContentPipelineLibraryStepComponent,
     ContentPipelineStepPlaceholderComponent,
   ],
   templateUrl: './content-pipeline-shell.component.html',
@@ -262,18 +266,25 @@ export class ContentPipelineShellComponent {
   readonly percent = computed(() => Math.round((this.stepNumber() / this.total) * 100));
   readonly isFirst = computed(() => this.currentIndex() === 0);
 
-  /** True for a step whose body is not built: it has nothing to continue from. */
+  /** True for a step whose body is not built. It is passed through rather than stopped at — see `canContinue`. */
   readonly isComingSoon = computed(() => this.currentStep()?.comingSoon !== null);
+
+  /** True on the last step, which has nowhere to continue to. */
+  readonly isLast = computed(() => this.currentIndex() === this.total - 1);
 
   /**
    * Whether Continue is offered.
    *
    * Setup asks nothing required, so it always continues. The idea step continues once an idea has been picked —
-   * which is what picking one is for. A step that is not built continues nowhere.
+   * which is what picking one is for.
+   *
+   * **A step that is not built is passed through rather than blocking the journey** (AF.4.3). It asks nothing,
+   * so there is nothing to answer; and the step after it may well be built — the library step is, while the
+   * posts step before it is not. Stopping there would hide a finished step behind an unfinished one.
    */
   readonly canContinue = computed(() => {
     const slug = this.currentSlug();
-    if (slug === null || this.isComingSoon()) return false;
+    if (slug === null) return false;
     // An idea, and — where the creator also described a picture — their answer to which of the two to work
     // from. That is asked rather than assumed: it decides what every later step plans around.
     if (slug === 'idea') return this.draft().seed.accepted !== null && !this.needsBriefChoice();
@@ -281,11 +292,15 @@ export class ContentPipelineShellComponent {
     // prompt they wrote themselves is as finished as one that was written for them.
     if (slug === 'prompt') return this.draft().prompt.finalPrompt.trim() !== '';
     // A picture is what the steps after this one are about, so one has to be kept. Pictures that came back and
-    // were not chosen are not a decision, which is why the count rather than the run is what counts.
-    if (slug === 'images') return this.draft().images.keepers.length > 0;
+    // were not chosen are not a decision, which is why the keepers rather than the run are what count. Read
+    // from the work itself since AF.4.3, which is where a keeper now lives.
+    if (slug === 'images') return this.keepers().length > 0;
 
     return contentPipelineStepIndex(slug) < this.total - 1;
   });
+
+  /** The pictures this work names as keepers: what the images step marked, and what the library step files. */
+  readonly keepers = computed(() => keeperReferencesOf(this.session.context()));
 
   /**
    * Where the creator's answers are, said plainly.
@@ -295,6 +310,16 @@ export class ContentPipelineShellComponent {
    */
   /** The recipe this run is about, read from its context: what both picture requests name. */
   readonly linkedRecipe = computed(() => linkedRecipeOf(this.session.context()));
+
+  /**
+   * That recipe with its title, as the picker resolved it.
+   *
+   * The context names a recipe by id, and the setup step's hint about which answer the run is planned around
+   * has to show *which* recipe. The picker reads it already, so it is taken from there rather than read again.
+   */
+  private readonly namedRecipe = signal<DamKeepRecipe | null>(null);
+
+  protected readonly linkedRecipeTitle = computed(() => this.namedRecipe()?.title ?? null);
 
   /** True when there is a description and a picked idea, and the creator has not said which to work from. */
   readonly needsBriefChoice = computed(() => {
@@ -409,6 +434,7 @@ export class ContentPipelineShellComponent {
         const draft = this.draft();
         const config = contentPipelineConfigWith(draft.config, fields);
         if (
+          config.subject !== draft.config.subject ||
           config.channelKey !== draft.config.channelKey ||
           config.day !== draft.config.day ||
           config.concept !== draft.config.concept ||
@@ -723,6 +749,10 @@ export class ContentPipelineShellComponent {
 
   protected onDraftChanged(next: ContentPipelineDraft): void {
     this.keep(next);
+  }
+
+  protected onRecipeNamed(recipe: DamKeepRecipe | null): void {
+    this.namedRecipe.set(recipe);
   }
 
   protected onAnnounced(sentence: string): void {

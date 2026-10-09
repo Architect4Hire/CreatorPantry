@@ -1,3 +1,22 @@
+<!-- The intro says the name is carried, not interpreted. Nothing reads a cuisine, a dish type or a method out
+     of it — the next step offers the vocabulary to say those outright instead (.claude/rules/recipes.md). -->
+<cp-form-section
+  heading="What it is"
+  intro="The dish the picture is of. Your name for it is carried through the idea, the looks and the prompt exactly as you write it. What kind of dish it is and how it is cooked are yours to say on the next step."
+>
+  <cp-field label="What it is called" forId="cp-pipeline-subject" [hint]="subjectHint()">
+    <input
+      id="cp-pipeline-subject"
+      name="pipelineSubject"
+      type="text"
+      autocomplete="off"
+      [maxlength]="limits.subjectMaxLength"
+      [ngModel]="config().subject"
+      (ngModelChange)="setSubject($event)"
+    />
+  </cp-field>
+</cp-form-section>
+
 <cp-form-section heading="Where it is going" intro="So the pictures and the words suit the place you publish.">
   <cp-field
     label="Channel"

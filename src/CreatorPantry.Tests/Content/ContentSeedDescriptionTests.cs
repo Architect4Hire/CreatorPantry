@@ -39,7 +39,8 @@ public sealed class ContentSeedDescriptionTests
         DayOfWeek day = DayOfWeek.Monday,
         (string Key, string Name)? theme = null,
         (string Key, string Name)? occasion = null,
-        string? recipeTitle = null) =>
+        string? recipeTitle = null,
+        string? subjectName = null) =>
         (string)Describe.Invoke(null,
         [
             Facet(cuisine?.Key, cuisine?.Name),
@@ -50,6 +51,7 @@ public sealed class ContentSeedDescriptionTests
             new ContentSeedDayServiceModel(day, Pinned: false, Facet(theme?.Key, theme?.Name)),
             Facet(occasion?.Key, occasion?.Name),
             recipeTitle,
+            subjectName,
         ])!;
 
     [Fact]
@@ -217,5 +219,58 @@ public sealed class ContentSeedDescriptionTests
         {
             Assert.DoesNotContain(word, description, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    [Fact]
+    public void A_seed_built_around_a_typed_subject_proposes_the_facets_rather_than_claiming_them()
+    {
+        var description = Description(
+            cuisine: ("thai", "Thai"),
+            dishType: ("main-course", "Main Course"),
+            method: ("stir-fry", "Stir-fry", false),
+            day: DayOfWeek.Tuesday,
+            subjectName: "Miso Butter Corn");
+
+        // "Develop X as a Y", not "Plan a post about X, a Y": there is no recipe behind the name, so the cuisine
+        // and the dish type are the token's suggestions and the line must not state them as facts about it.
+        Assert.Equal(
+            "Develop \"Miso Butter Corn\" as a Thai main course using the stir-fry method. Publish on Tuesday.",
+            description);
+    }
+
+    [Theory]
+    [InlineData(false, false, "Develop \"Miso Butter Corn\". Publish on Monday.")]
+    [InlineData(true, false, "Develop \"Miso Butter Corn\" as a main course. Publish on Monday.")]
+    [InlineData(false, true, "Develop \"Miso Butter Corn\" using the stir-fry method. Publish on Monday.")]
+    public void A_typed_subject_reads_with_the_suggestions_missing(bool hasDishType, bool hasMethod, string expected) =>
+        Assert.Equal(
+            expected,
+            Description(
+                dishType: hasDishType ? ("main-course", "Main Course") : null,
+                method: hasMethod ? ("stir-fry", "Stir-fry", false) : null,
+                subjectName: "Miso Butter Corn"));
+
+    [Fact]
+    public void A_recipe_wins_over_a_typed_subject_in_the_line()
+    {
+        // Business never sends both, and the request refuses both — this is the backstop saying which the line
+        // would name if one ever arrived that way, so the answer cannot be "whichever branch came first".
+        var description = Description(recipeTitle: "Nan's Lemon Tart", subjectName: "Miso Butter Corn");
+
+        Assert.Contains("Nan's Lemon Tart", description, StringComparison.Ordinal);
+        Assert.DoesNotContain("Miso Butter Corn", description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_typed_subject_is_quoted_verbatim_and_a_caution_still_travels()
+    {
+        var description = Description(
+            method: ("pressure-canning", "Pressure canning", true),
+            subjectName: "  Gran's \"Famous\" Pickles  ");
+
+        // Verbatim: the creator's words are not re-spaced, re-cased or stripped of their own quotation marks.
+        // Normalizing is Business's job before the line is written, not the line's.
+        Assert.Contains("\"  Gran's \"Famous\" Pickles  \"", description, StringComparison.Ordinal);
+        Assert.Contains("Follow tested, authoritative guidance for this method", description, StringComparison.Ordinal);
     }
 }

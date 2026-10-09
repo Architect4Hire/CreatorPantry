@@ -1,0 +1,12 @@
+{
+  "id": "recipe.dish-facets.a-confident-reading-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The ordinary safe case: a name that genuinely carries all three facets, each read as a catalogue code, each saying how sure it is and which words led there.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\",\"code\":\"levantine\",\"confidence\":\"Likely\",\"rationale\":\"fattoush is a Levantine dish\"},{\"facet\":\"DishType\",\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"the name says salad\"},{\"facet\":\"Method\",\"code\":\"grill\",\"confidence\":\"Likely\",\"rationale\":\"the name says grilled\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": { "outcome": "Accepted", "suggestionCount": 3 }
+}

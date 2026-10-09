@@ -1,7 +1,7 @@
 // Wire and view models for AIREC-001 (POST/GET /api/v1/workspaces/{workspaceSlug}/recipe-concept-requests).
 // The wire shape is the same AiProposalStatusServiceModel the Phase 8 proposal lifecycle already decodes in
 // ai-proposal.models.ts — this file adds nothing to that decoder. It adds the request body this route
-// declares (RequestRecipeConceptsViewModel: eleven optional brief fields, nothing else) and a pure,
+// declares (RequestRecipeConceptsViewModel: twelve optional brief fields, nothing else) and a pure,
 // presentation-only view that turns the generic Add/Set change rows a concept-generation answer produces back
 // into a `RecipeConcept` a form can render as a card.
 //
@@ -21,10 +21,18 @@ import { AiProposalDetail, AiProposalWarning, AiProposedChange } from './ai-prop
  * The body of `POST .../recipe-concept-requests` — mirrors `RequestRecipeConceptsViewModel`.
  *
  * **What is absent is the contract**, the same way it is for `RequestAiProposalRequest`: no prompt, no model,
- * no provider, no recipe id, and no free-text field beyond these eleven declared ones. This route names its
+ * no provider, no recipe id, and no free-text field beyond these twelve declared ones. This route names its
  * own task server-side; there is nowhere here to name a different one.
  */
 export interface RequestRecipeConceptsRequest {
+  /**
+   * What the creator calls the dish, when they already know. Null for none.
+   *
+   * The subject the rest of the brief describes: given one, every concept is a different take on that dish
+   * rather than a different dish. Their own words, and a name only — nothing reads a cuisine or a method out
+   * of it.
+   */
+  readonly dishName: string | null;
   readonly audience: string | null;
   readonly course: string | null;
   readonly cuisine: string | null;
@@ -39,6 +47,7 @@ export interface RequestRecipeConceptsRequest {
 }
 
 export const EMPTY_RECIPE_CONCEPTS_REQUEST: RequestRecipeConceptsRequest = {
+  dishName: null,
   audience: null,
   course: null,
   cuisine: null,
@@ -61,6 +70,7 @@ export function encodeRequestRecipeConceptsRequest(request: RequestRecipeConcept
     if (value.length > 0) body[key] = value;
   };
 
+  set('dishName');
   set('audience');
   set('course');
   set('cuisine');

@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.an-undeclared-facet-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "A suggestion that names no facet at all is refused at the shape stage, because 'facet' is a required member: a reading of nothing in particular cannot be put in front of a creator, and the stored rows are keyed by it. The companion fixture covers the other way to say nothing, which is naming Unspecified outright.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"the name says salad\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

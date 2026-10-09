@@ -2921,6 +2921,11 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid?>("PromptRecordId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Purpose")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<Guid?>("RecipeId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2943,16 +2948,6 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasIndex("WorkspaceId", "GeneratedImageId");
 
                     b.HasIndex("WorkspaceId", "PromptRecordId");
-
-                    b.HasIndex("WorkspaceId", "CreativeContextId", "GeneratedImageId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CreativeContextReferences_Context_GeneratedImage")
-                        .HasFilter("GeneratedImageId IS NOT NULL");
-
-                    b.HasIndex("WorkspaceId", "CreativeContextId", "MediaAssetId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CreativeContextReferences_Context_MediaAsset")
-                        .HasFilter("MediaAssetId IS NOT NULL");
 
                     b.HasIndex("WorkspaceId", "CreativeContextId", "PromptRecordId")
                         .IsUnique()
@@ -2982,11 +2977,23 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("UX_CreativeContextReferences_Context_Concept")
                         .HasFilter("ConceptId IS NOT NULL");
 
+                    b.HasIndex("WorkspaceId", "CreativeContextId", "GeneratedImageId", "Purpose")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CreativeContextReferences_Context_GeneratedImage")
+                        .HasFilter("GeneratedImageId IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "CreativeContextId", "MediaAssetId", "Purpose")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CreativeContextReferences_Context_MediaAsset")
+                        .HasFilter("MediaAssetId IS NOT NULL");
+
                     b.ToTable("CreativeContextReferences", null, t =>
                         {
                             t.HasCheckConstraint("CK_CreativeContextReferences_Kind_Columns", "(Kind = 1 AND RecipeId IS NOT NULL AND ConceptRequestId IS NULL AND ConceptId IS NULL AND MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL AND GeneratedImageId IS NULL AND PromptRecordId IS NULL AND SocialPackageId IS NULL) OR (Kind = 2 AND RecipeId IS NULL AND RecipeVersionId IS NULL AND ConceptRequestId IS NOT NULL AND ConceptId IS NOT NULL AND MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL AND GeneratedImageId IS NULL AND PromptRecordId IS NULL AND SocialPackageId IS NULL) OR (Kind = 3 AND RecipeId IS NULL AND RecipeVersionId IS NULL AND ConceptRequestId IS NULL AND ConceptId IS NULL AND MediaAssetId IS NOT NULL AND GeneratedImageId IS NULL AND PromptRecordId IS NULL AND SocialPackageId IS NULL) OR (Kind = 4 AND RecipeId IS NULL AND RecipeVersionId IS NULL AND ConceptRequestId IS NULL AND ConceptId IS NULL AND MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL AND GeneratedImageId IS NOT NULL AND PromptRecordId IS NULL AND SocialPackageId IS NULL) OR (Kind = 5 AND RecipeId IS NULL AND RecipeVersionId IS NULL AND ConceptRequestId IS NULL AND ConceptId IS NULL AND MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL AND GeneratedImageId IS NULL AND PromptRecordId IS NOT NULL AND SocialPackageId IS NULL) OR (Kind = 6 AND RecipeId IS NULL AND RecipeVersionId IS NULL AND ConceptRequestId IS NULL AND ConceptId IS NULL AND MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL AND GeneratedImageId IS NULL AND PromptRecordId IS NULL AND SocialPackageId IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_CreativeContextReferences_Kind_Range", "Kind >= 1 AND Kind <= 6");
+
+                            t.HasCheckConstraint("CK_CreativeContextReferences_Purpose_Range", "Purpose >= 1 AND Purpose <= 2");
 
                             t.HasCheckConstraint("CK_CreativeContextReferences_SortOrder_NonNegative", "SortOrder >= 0");
 

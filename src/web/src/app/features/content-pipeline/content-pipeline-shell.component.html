@@ -134,8 +134,13 @@
                   idPrefix="cp-pipeline-recipe"
                   intro="Link the recipe this post is about, and the idea, the looks and the prompt are all built around it. Optional."
                   (announced)="onAnnounced($event)"
+                  (linkedRecipe)="onRecipeNamed($event)"
                 />
-                <cp-content-pipeline-setup-step [config]="draft().config" (changed)="onConfigChanged($event)" />
+                <cp-content-pipeline-setup-step
+                  [config]="draft().config"
+                  [linkedRecipeTitle]="linkedRecipeTitle()"
+                  (changed)="onConfigChanged($event)"
+                />
               }
               @case ('idea') {
                 <cp-content-pipeline-idea-step
@@ -160,7 +165,16 @@
                 <cp-content-pipeline-images-step
                   [workspaceSlug]="workspaceSlug()"
                   [draft]="draft()"
+                  [session]="session"
                   (changed)="onDraftChanged($event)"
+                  (announced)="onAnnounced($event)"
+                />
+              }
+              @case ('library') {
+                <cp-content-pipeline-library-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [draft]="draft()"
+                  [session]="session"
                   (announced)="onAnnounced($event)"
                 />
               }
@@ -177,7 +191,9 @@
               @if (!isFirst()) {
                 <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
               }
-              @if (!isComingSoon()) {
+              <!-- Offered on a step that is not built too: it asks nothing, and the step after it may well
+                   be finished (AF.4.3). The last step has nowhere to continue to, which `canContinue` says. -->
+              @if (!isLast()) {
                 <button cpButton type="button" variant="primary" [disabled]="!canContinue()" (click)="continue()">
                   Continue
                 </button>

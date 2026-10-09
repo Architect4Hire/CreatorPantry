@@ -137,6 +137,7 @@ export function assetDetail(overrides: Partial<DamAssetDetail> = {}, versions = 
     brandProfileCount: 0,
     testAttachmentCount: 0,
     prompts: [],
+    sourceGeneratedImageId: null,
     createdAt: '2026-10-08T12:00:00+00:00',
     updatedAt: '2026-10-08T12:00:00+00:00',
     concurrencyToken: 'asset-token-1',

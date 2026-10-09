@@ -41,6 +41,7 @@ function asset(overrides: Partial<DamAssetDetail> = {}): DamAssetDetail {
     brandProfileCount: 0,
     testAttachmentCount: 0,
     prompts: [],
+    sourceGeneratedImageId: null,
     createdAt: '2026-10-08T12:00:00+00:00',
     updatedAt: '2026-10-08T12:00:00+00:00',
     concurrencyToken: 'token-1',

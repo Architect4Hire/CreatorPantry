@@ -21,7 +21,7 @@ function filled(): ImageStudioDraft {
       finalPrompt: 'Soft light, my way.',
       promptSource: 'creator',
     },
-    images: { operationId: 'op-1', keepers: ['img-1'] },
+    images: { operationId: 'op-1' },
   };
 }
 
@@ -102,7 +102,8 @@ describe('image studio draft', () => {
       images: { operationId: null, keepers: ['img-1'] },
     });
 
-    expect(decodeImageStudioDraft(raw)?.images).toEqual({ operationId: null, keepers: [] });
+    // A marks list from an older shape is dropped rather than failing the draft (AF.4.3).
+    expect(decodeImageStudioDraft(raw)?.images).toEqual({ operationId: null });
   });
 
   it('stores nothing about a picture, a provider or a proposal — ids and decisions only', () => {

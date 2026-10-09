@@ -43,6 +43,28 @@ public sealed record ContentSeedQueryViewModel
     public string? Occasion { get; init; }
 
     /// <summary>
+    /// What the picture is of, in the creator's own words, for work with no recipe behind it yet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Named in the description verbatim and in quotation marks, exactly as a linked recipe's title is, so the
+    /// idea asks for a post about the thing the creator named rather than for some dish to invent. It supplies
+    /// no cuisine, course or method — it is a name, and nothing about a name says how the dish is cooked — so
+    /// the token still chooses all three, and they read as the suggestions they are.
+    /// </para>
+    /// <para>
+    /// <strong>Refused alongside <see cref="RecipeId"/>.</strong> A linked recipe is canonical source material
+    /// the server reads for itself; a typed name is a stand-in for not having one. Accepting both would make
+    /// the server arbitrate between two answers to one question, and a caller could not tell which it got.
+    /// </para>
+    /// <para>
+    /// Creator content, like a weekly theme's display name — never platform text, and never folded into
+    /// instructions for a model (ai.md).
+    /// </para>
+    /// </remarks>
+    public string? Subject { get; init; }
+
+    /// <summary>
     /// A recipe of this workspace to build the idea around. Its cuisine, course and primary technique become the
     /// seed's cuisine, dish type and method, and its title is named in the description.
     /// </summary>

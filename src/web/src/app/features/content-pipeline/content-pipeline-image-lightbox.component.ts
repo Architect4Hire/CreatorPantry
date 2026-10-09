@@ -9,6 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpCheckboxComponent, CpDialogComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { StagedImage, isStagedImageActionable } from '../../models/generated-image.models';
@@ -16,6 +17,7 @@ import { GeneratedImageService } from '../../services/generated-image.service';
 import {
   STAGED_IMAGE_STATUS_LABELS,
   STAGED_IMAGE_STATUS_TONES,
+  StagedImageSave,
   fileSizeText,
   imageFormatText,
 } from './content-pipeline-image-presentation';
@@ -42,13 +44,15 @@ const FOCUSABLE =
  * creator who presses `→` at the last one is better told they are at the end — by nothing moving — than
  * silently returned to the first. `Home` and `End` are what jump.
  *
- * It renders no action of its own: keeping, downloading and declining are the step's decisions, announced
- * upwards, so a picture cannot be kept in here and not in the grid behind it.
+ * It renders no action of its own: keeping, saving, downloading and declining are the step's decisions,
+ * announced upwards, so a picture cannot be kept in here and not in the grid behind it. The control it offers
+ * is whichever one the surface behind it offers — a mark, or a save (AF.4.2) — and never both.
  */
 @Component({
   selector: 'cp-content-pipeline-image-lightbox',
   standalone: true,
   imports: [
+    RouterLink,
     CpButtonComponent,
     CpCheckboxComponent,
     CpDialogComponent,
@@ -72,10 +76,17 @@ export class ContentPipelineImageLightboxComponent {
   readonly keepers = input.required<readonly string[]>();
   /** True while an action is in flight, so the same picture cannot be declined twice from in here. */
   readonly busy = input(false);
+  /**
+   * Where each picture stands with the library, or null on a surface that files nothing.
+   *
+   * The same contract the grid has: null means the keep checkbox is the control here, a map means saving is.
+   */
+  readonly saves = input<ReadonlyMap<string, StagedImageSave> | null>(null);
 
   readonly closed = output<void>();
   readonly keepToggled = output<{ readonly id: string; readonly keep: boolean }>();
   readonly declineRequested = output<string>();
+  readonly saveRequested = output<string>();
 
   protected readonly statusLabels = STAGED_IMAGE_STATUS_LABELS;
   protected readonly statusTones = STAGED_IMAGE_STATUS_TONES;
@@ -107,10 +118,33 @@ export class ContentPipelineImageLightboxComponent {
     return current !== null && this.keepers().includes(current.id);
   });
 
-  protected readonly canAct = computed(() => {
+  /** Where the picture on screen stands with the library, or null where there is no library to stand in. */
+  protected readonly save = computed(() => {
     const current = this.current();
 
-    return current !== null && isStagedImageActionable(current.status) && !this.busy();
+    return current === null ? null : this.saves()?.get(current.id) ?? null;
+  });
+
+  protected readonly canAct = computed(() => {
+    const current = this.current();
+    const save = this.save();
+
+    return (
+      current !== null &&
+      isStagedImageActionable(current.status) &&
+      !this.busy() &&
+      // A picture on its way into the library, or already in it, is not one to decline from in here either.
+      save?.state !== 'saving' &&
+      save?.state !== 'saved'
+    );
+  });
+
+  /** The way to the asset a saved picture is, or to the library when its asset could not be named. */
+  protected readonly assetLink = computed(() => {
+    const assetId = this.save()?.assetId ?? null;
+    const slug = this.workspaceSlug();
+
+    return assetId === null ? ['/', slug, 'dam'] : ['/', slug, 'dam', assetId];
   });
 
   /** The facts about this picture, which are also all its alt text may claim. */
@@ -184,6 +218,11 @@ export class ContentPipelineImageLightboxComponent {
   protected decline(): void {
     const current = this.current();
     if (current !== null) this.declineRequested.emit(current.id);
+  }
+
+  protected requestSave(): void {
+    const current = this.current();
+    if (current !== null) this.saveRequested.emit(current.id);
   }
 
   protected close(): void {

@@ -20,6 +20,26 @@
   font-size: var(--cp-font-size-sm);
 }
 
+.filed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-2) 0 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+.filed a {
+  font-weight: 400;
+}
+
+.problem {
+  margin: var(--cp-space-2) 0 0;
+  color: var(--cp-danger);
+  font-size: var(--cp-font-size-sm);
+}
+
 /* Wraps onto more rows rather than scrolling sideways: five controls do not fit a phone in one line, and
    SC 1.4.10 asks for no horizontal scrolling at 320 CSS px. */
 .actions {

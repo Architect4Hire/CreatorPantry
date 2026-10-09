@@ -116,25 +116,26 @@
 
 @if (hasPictures()) {
   <cp-form-section
-    heading="Choose the keepers"
-    intro="Keep the ones worth using. Downloading gives you a copy you keep yourself."
+    [heading]="wording().chooseHeading"
+    [intro]="wording().chooseIntro"
     [sectionId]="sectionIdPrefix() + '-choose'"
   >
     <cp-notice role="note">
       {{ wording().keepNote }}
       @if (retentionText(); as deadline) {
-        These pictures stop being available after {{ deadline }}, so download anything you want to keep for
-        longer.
+        These pictures stop being available after {{ deadline }}, {{ wording().expiryRemedy }}
       }
     </cp-notice>
 
     <cp-content-pipeline-image-grid
       [workspaceSlug]="workspaceSlug()"
       [images]="stagedImages()"
-      [keepers]="imagesState().keepers"
+      [keepers]="keepers()"
       [busy]="working()"
+      [saves]="saves()"
       (keepToggled)="onKeepToggled($event)"
       (declineRequested)="decline($event)"
+      (saveRequested)="requestSave($event)"
       (opened)="onOpened($event)"
     />
 
@@ -142,17 +143,15 @@
       <cp-notice role="status">{{ sentence }}</cp-notice>
     }
 
-    <p class="cp-muted">
-      {{ keeperCount() === 0 ? 'Nothing kept yet.' : keeperCount() === 1 ? 'One picture kept.' : keeperCount() + ' pictures kept.' }}
-    </p>
+    <p class="cp-muted">{{ chosenText() }}</p>
 
     <div class="cp-actions">
       <button cpButton type="button" variant="secondary" [disabled]="!canTidyUp()" (click)="tidyUp()">
-        Tidy away the ones I didn't keep
+        {{ tidyLabel() }}
       </button>
     </div>
 
-    @if (nonKeepers().length === 0 && keeperCount() > 0) {
+    @if (nonKeepers().length === 0 && (keeperCount() > 0 || savedCount() > 0)) {
       <p class="cp-muted">Nothing left to tidy away.</p>
     }
   </cp-form-section>
@@ -162,9 +161,33 @@
   [workspaceSlug]="workspaceSlug()"
   [images]="stagedImages()"
   [openAt]="lightboxId()"
-  [keepers]="imagesState().keepers"
+  [keepers]="keepers()"
   [busy]="working()"
+  [saves]="saves()"
   (closed)="onLightboxClosed()"
   (keepToggled)="onKeepToggled($event)"
   (declineRequested)="decline($event)"
+  (saveRequested)="requestSave($event)"
 />
+
+@if (library(); as library) {
+  <!-- One form, opened for whichever picture the creator chose: it reads the picture it is given when it
+       opens, so a half-written entry for one picture can never be waiting here for the next (AF.4.1).
+
+       No prompt is offered with it, and no alt text. A prompt record needs the proposal, the model's draft
+       and the template that wrote it together, and a run keeps request ids rather than any of those, so the
+       tick would be a refusal waiting to happen — AF.4.3 is where that lineage is assembled. Alt text stays
+       the creator's: nothing here has read these pixels, so there is nothing to suggest from
+       (.claude/rules/media.md). -->
+  <cp-save-to-library-dialog
+    [open]="saveTarget() !== null"
+    [workspaceSlug]="workspaceSlug()"
+    [generatedImageId]="saveTargetId()"
+    [defaultTitle]="library.defaultTitle"
+    [defaultRecipe]="library.defaultRecipe"
+    (saved)="onSaved($event)"
+    (progress)="onSaveProgress($event)"
+    (imageGone)="onSaveImageGone()"
+    (closed)="onSaveClosed()"
+  />
+}

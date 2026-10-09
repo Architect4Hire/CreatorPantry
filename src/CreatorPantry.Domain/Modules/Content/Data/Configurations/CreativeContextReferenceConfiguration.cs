@@ -36,6 +36,13 @@ internal sealed class CreativeContextReferenceConfiguration : IEntityTypeConfigu
                 $"Kind >= {(int)CreativeContextReferenceKind.Recipe} AND "
                     + $"Kind <= {(int)CreativeContextReferenceKind.SocialPackage}");
 
+            // The same reasoning for the purpose, and the same reason it starts at one: a row whose purpose
+            // was never set must be refused rather than read as a source the work draws on.
+            table.HasCheckConstraint(
+                "CK_CreativeContextReferences_Purpose_Range",
+                $"Purpose >= {(int)CreativeContextReferencePurpose.Source} AND "
+                    + $"Purpose <= {(int)CreativeContextReferencePurpose.Keeper}");
+
             // One row, one kind, and only that kind's columns. Without it a row could name a recipe and an
             // image at once, and nothing reading it could say which id was the real one.
             table.HasCheckConstraint(
@@ -80,6 +87,16 @@ internal sealed class CreativeContextReferenceConfiguration : IEntityTypeConfigu
         builder.Property(reference => reference.Id).ValueGeneratedNever();
 
         builder.Property(reference => reference.Kind).IsRequired();
+
+        // Defaulted in the store as well as in Business, because the column arrives on a table that already
+        // has rows: every reference made before AF.4.3 is something the work draws on. The sentinel is stated
+        // rather than left implicit — zero is not a purpose, so a row that reaches an insert without one takes
+        // the store's default, and the range check never sees a zero.
+        builder.Property(reference => reference.Purpose)
+            .IsRequired()
+            .HasDefaultValue(CreativeContextReferencePurpose.Source)
+            .HasSentinel(default(CreativeContextReferencePurpose));
+
         builder.Property(reference => reference.SortOrder).IsRequired();
         builder.Property(reference => reference.AddedAt).IsRequired();
 
@@ -174,12 +191,29 @@ internal sealed class CreativeContextReferenceConfiguration : IEntityTypeConfigu
             .HasFilter("ConceptId IS NOT NULL")
             .HasDatabaseName("UX_CreativeContextReferences_Context_Concept");
 
-        builder.HasIndex(reference => new { reference.WorkspaceId, reference.CreativeContextId, reference.MediaAssetId })
+        // The two picture kinds are unique per *purpose* rather than per target, and they are the only ones
+        // that are. A work takes cues from a picture and also makes pictures of its own, so one picture can
+        // honestly be both — this run's output, and the cue the next prompt is planned from (AF.4.3). Naming
+        // it once would force the two facts to overwrite each other, and the surface that replaces a cue would
+        // then remove a keeper.
+        builder.HasIndex(reference => new
+            {
+                reference.WorkspaceId,
+                reference.CreativeContextId,
+                reference.MediaAssetId,
+                reference.Purpose,
+            })
             .IsUnique()
             .HasFilter("MediaAssetId IS NOT NULL")
             .HasDatabaseName("UX_CreativeContextReferences_Context_MediaAsset");
 
-        builder.HasIndex(reference => new { reference.WorkspaceId, reference.CreativeContextId, reference.GeneratedImageId })
+        builder.HasIndex(reference => new
+            {
+                reference.WorkspaceId,
+                reference.CreativeContextId,
+                reference.GeneratedImageId,
+                reference.Purpose,
+            })
             .IsUnique()
             .HasFilter("GeneratedImageId IS NOT NULL")
             .HasDatabaseName("UX_CreativeContextReferences_Context_GeneratedImage");

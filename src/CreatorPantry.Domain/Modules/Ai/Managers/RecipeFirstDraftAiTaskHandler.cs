@@ -145,6 +145,7 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
             Selected concept: {Value(AiFirstDraftInputs.SelectedConcept)}
 
             Brief:
+            - Dish name: {Value(AiBriefInputs.DishName)}
             - Audience: {Value(AiBriefInputs.Audience)}
             - Course: {Value(AiBriefInputs.Course)}
             - Cuisine: {Value(AiBriefInputs.Cuisine)}

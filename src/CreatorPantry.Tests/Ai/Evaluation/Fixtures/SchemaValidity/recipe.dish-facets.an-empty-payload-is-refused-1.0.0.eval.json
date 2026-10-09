@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.an-empty-payload-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "No content at all. Distinct from an empty suggestions list, which is a real answer meaning the name carried nothing: this is the provider returning nothing to read.",
+  "input": {
+    "payload": "",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.empty_payload",
+    "category": "OutputSchemaInvalid"
+  }
+}

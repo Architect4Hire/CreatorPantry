@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-safety-claim-in-a-warning-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The other free-text channel. A warning message reaches the creator as directly as a rationale does, so the claim rule has to cover both -- otherwise the refusal above just moves the sentence one field across. This is the output-side counterpart to the injection fixture that tries to elicit exactly this phrasing.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"This dish was not recognised, but it is safe for a pregnancy diet.\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

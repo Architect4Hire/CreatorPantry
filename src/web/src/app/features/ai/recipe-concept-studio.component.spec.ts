@@ -315,6 +315,18 @@ describe('RecipeConceptStudioComponent', () => {
     discardPeriodicTasks();
   }));
 
+  it('submits the recipe name, which is what the concepts are variations on', fakeAsync(() => {
+    render();
+    typeInto('concept-dish-name', 'Fattoush Salad with Radishes and Grilled Chicken Shawarma');
+
+    click('Get concepts');
+
+    expect(service.requestCalls[0].request.dishName).toBe(
+      'Fattoush Salad with Radishes and Grilled Chicken Shawarma',
+    );
+    discardPeriodicTasks();
+  }));
+
   it('shows a server field-validation error next to its field', fakeAsync(() => {
     render();
     service.requestOutcome = { status: 'validation_failed', fieldErrors: { audience: ['Too long.'] } };
@@ -545,7 +557,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     // Every field the brief submits sits inside one of those sections, not loose beside them.
     const fields = Array.from(card.querySelectorAll('cp-field'));
-    expect(fields.length).toBe(11);
+    expect(fields.length).toBe(12);
     expect(fields.every((field) => field.closest('cp-form-section') !== null)).toBeTrue();
   }));
 
@@ -563,6 +575,7 @@ describe('RecipeConceptStudioComponent', () => {
     /** A brief typed, concepts returned, the first one chosen. */
     function chooseFirst(): void {
       render();
+      typeInto('concept-dish-name', 'Fattoush Salad with Radishes');
       typeInto('concept-audience', 'Busy parents');
       service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
       click('Get concepts');
@@ -625,6 +638,8 @@ describe('RecipeConceptStudioComponent', () => {
       expect(drafts.calls[0].request.sourceConceptRequestId).toBe(REQUEST_ID);
       expect(drafts.calls[0].request.sourceConceptId).toBe('concept-1');
       expect(drafts.calls[0].request.brief?.audience).toBe('Busy parents');
+      // The name goes with it, so the draft is the dish that was pitched rather than one inferred afresh.
+      expect(drafts.calls[0].request.brief?.dishName).toBe('Fattoush Salad with Radishes');
 
       // The plain review route, named by the request it will watch. No recipe exists yet.
       expect(draftNavigations()).toEqual([
@@ -818,6 +833,7 @@ describe('RecipeConceptStudioComponent', () => {
   describe('using the chosen concept elsewhere', () => {
     function chooseFirst(): void {
       render();
+      typeInto('concept-dish-name', 'Fattoush Salad with Radishes');
       typeInto('concept-audience', 'Busy parents');
       service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
       click('Get concepts');
@@ -874,7 +890,7 @@ describe('RecipeConceptStudioComponent', () => {
       expect(all.slice(1).map((button) => button.textContent?.trim())).toEqual(['Make a picture', 'Start a content run']);
     }));
 
-    it('hands over the chosen concept by id, with nothing of the brief or the concepts words', fakeAsync(() => {
+    it('hands over the chosen concept by id, and carries only what the destination asks for', fakeAsync(() => {
       chooseFirst();
 
       handoffButtons()[0].click();
@@ -884,11 +900,43 @@ describe('RecipeConceptStudioComponent', () => {
       expect(contexts.calls.length).toBe(1);
       expect(contexts.calls[0].slug).toBe('cozy-fall');
 
-      // The request the concept came from and the concept inside it. No title copied, no audience, no seed:
-      // the context points at the concept, and the working title stays the creator's to write.
+      // The request the concept came from and the concept inside it — plus the working title, because both
+      // destinations open on a "what it is called" field and arriving at an empty one, having named the dish
+      // a moment ago, is the seam a creator feels. Nothing else travels: no audience, no summary, no
+      // ingredients. The context points at the concept for all of that.
       expect(contexts.calls[0].draft).toEqual({
+        workingTitle: 'Fattoush Salad with Radishes',
         from: { kind: 'RecipeConcept', conceptRequestId: REQUEST_ID, conceptId: 'concept-1' },
       });
+    }));
+
+    it("prefers the creator's own name for the dish over the model's wording for one variation", fakeAsync(() => {
+      chooseFirst();
+
+      handoffButtons()[0].click();
+      settle();
+      settle();
+
+      // They typed this; "Slow-roasted tomato soup" is the concept's title. The concept is not lost — the
+      // context names it — so the field they will edit starts from their words.
+      expect(contexts.calls[0].draft.workingTitle).toBe('Fattoush Salad with Radishes');
+    }));
+
+    it('falls back to the chosen concepts title when the creator named no dish', fakeAsync(() => {
+      render();
+      typeInto('concept-audience', 'Busy parents');
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+      buttons('Choose this concept')[0].click();
+      settle();
+
+      handoffButtons()[0].click();
+      settle();
+      settle();
+
+      // With nothing typed, the concept's title is the only thing that says what the work is about, and a
+      // title they can reword beats an empty box.
+      expect(contexts.calls[0].draft.workingTitle).toBe('Slow-roasted tomato soup');
     }));
 
     for (const [index, label, route] of [

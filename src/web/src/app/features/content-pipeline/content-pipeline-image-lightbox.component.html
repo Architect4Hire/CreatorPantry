@@ -29,15 +29,44 @@
       <span class="cp-muted">{{ sizeText() }}</span>
     </p>
 
+    @if (save(); as save) {
+      @switch (save.state) {
+        @case ('saved') {
+          <p class="filed">
+            @if (save.title) {
+              In your library as “{{ save.title }}”.
+            } @else {
+              In your library.
+            }
+            <a [routerLink]="assetLink()">{{ save.assetId ? 'Open it' : 'Your library' }}</a>
+          </p>
+        }
+        @case ('saving') {
+          <p class="cp-muted" role="status">Saving this one to your library…</p>
+        }
+        @case ('failed') {
+          <p class="problem" role="alert">{{ save.problem }}</p>
+        }
+      }
+    }
+
     <p class="cp-muted hint">Use the left and right arrow keys to move between your pictures.</p>
 
     <div cpDialogActions class="actions">
-      <cp-checkbox
-        label="Keep this one"
-        [checked]="isKept()"
-        [disabled]="!canAct()"
-        (checkedChange)="toggleKeep($event)"
-      />
+      @if (save(); as save) {
+        @if (save.state !== 'saved' && save.state !== 'saving') {
+          <button cpButton type="button" [disabled]="!canAct()" (click)="requestSave()">
+            {{ save.state === 'failed' ? 'Try saving again' : 'Save to library' }}
+          </button>
+        }
+      } @else {
+        <cp-checkbox
+          label="Keep this one"
+          [checked]="isKept()"
+          [disabled]="!canAct()"
+          (checkedChange)="toggleKeep($event)"
+        />
+      }
 
       @if (downloadUrl(); as href) {
         <a
@@ -71,9 +100,13 @@
         Next
       </button>
 
-      <button cpButton type="button" variant="danger" [disabled]="!canAct()" (click)="decline()">
-        Decline this one
-      </button>
+      <!-- Not merely disabled for a saved picture: the asset holds those bytes now, so declining is gone for
+           good rather than unavailable for the moment. -->
+      @if (save()?.state !== 'saved') {
+        <button cpButton type="button" variant="danger" [disabled]="!canAct()" (click)="decline()">
+          Decline this one
+        </button>
+      }
     </div>
   </cp-dialog>
 }

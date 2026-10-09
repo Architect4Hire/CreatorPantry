@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-dietary-claim-in-a-rationale-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The hole an absent field does not close. There is no field for a diet, but a rationale is free text rendered beside the control it explains -- so a claim written into that sentence would reach the creator as a finding about their dish. A name is the thinnest evidence in the product and nowhere near enough for a dietary conclusion (ai.md).",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"DishType\",\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"the name says salad, and fattoush is gluten free\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

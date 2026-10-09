@@ -1,9 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { EMPTY } from 'rxjs';
 
 import { GeneratedImageStatus, StagedImage } from '../../models/generated-image.models';
 import { GeneratedImageService } from '../../services/generated-image.service';
+import { StagedImageSave } from './content-pipeline-image-presentation';
 import { ContentPipelineImageGridComponent } from './content-pipeline-image-grid.component';
 
 const GATEWAY = 'https://gateway.example/api/v1/workspaces/cozy-fall/generated-images';
@@ -34,8 +36,10 @@ function sheet(count: number): readonly StagedImage[] {
     [images]="images()"
     [keepers]="keepers()"
     [busy]="busy()"
+    [saves]="saves()"
     (keepToggled)="keeps.push($event)"
     (declineRequested)="declines.push($event)"
+    (saveRequested)="saveAsks.push($event)"
     (opened)="opens.push($event)"
   />`,
 })
@@ -43,10 +47,23 @@ class HostComponent {
   readonly images = signal<readonly StagedImage[]>(sheet(2));
   readonly keepers = signal<readonly string[]>([]);
   readonly busy = signal(false);
+  readonly saves = signal<ReadonlyMap<string, StagedImageSave> | null>(null);
 
   readonly keeps: { readonly id: string; readonly keep: boolean }[] = [];
   readonly declines: string[] = [];
+  readonly saveAsks: string[] = [];
   readonly opens: string[] = [];
+}
+
+/** A `saves` map for the pictures on screen, with one of them overridden. */
+function savesWith(
+  images: readonly StagedImage[],
+  id: string,
+  save: Partial<StagedImageSave> = {},
+): ReadonlyMap<string, StagedImageSave> {
+  const staged: StagedImageSave = { state: 'staged', assetId: null, title: null, problem: '' };
+
+  return new Map(images.map((image) => [image.id, image.id === id ? { ...staged, ...save } : staged]));
 }
 
 let fixture: ComponentFixture<HostComponent>;
@@ -76,6 +93,7 @@ describe('ContentPipelineImageGridComponent', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         {
           provide: GeneratedImageService,
           useValue: {
@@ -203,6 +221,73 @@ describe('ContentPipelineImageGridComponent', () => {
 
     expect(tiles()[0].querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBeTrue();
     expect(labelled('button', 'Decline picture 1 of 2')).toBeNull();
+  });
+
+  describe('on a surface that files pictures (AF.4.2)', () => {
+    it('offers the save in place of the keeper checkbox, naming the picture it acts on', async () => {
+      host.saves.set(savesWith(host.images(), 'img-1'));
+      await settle();
+
+      expect(el.querySelector('input[type="checkbox"]')).toBeNull();
+      labelled('button', 'Save picture 2 of 2 to your library')!.click();
+      await settle();
+
+      expect(host.saveAsks).toEqual(['img-2']);
+      expect(host.keeps).toEqual([]);
+    });
+
+    it('shows a saved picture as saved, with the way to its asset, and offers it no decline', async () => {
+      host.saves.set(savesWith(host.images(), 'img-1', { state: 'saved', assetId: 'a1', title: 'The hero' }));
+      await settle();
+
+      expect(tiles()[0].textContent).toContain('In your library as “The hero”.');
+      expect(labelled('a', 'Open picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a1');
+      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Decline picture 1 of 2')).toBeNull();
+      // A download is still offered: the bytes are the asset's, and a copy of your own is a copy of your own.
+      expect(labelled('a', 'Download picture 1 of 2')).not.toBeNull();
+    });
+
+    it('offers the library itself when a saved picture’s asset could not be named', async () => {
+      host.saves.set(savesWith(host.images(), 'img-1', { state: 'saved' }));
+      await settle();
+
+      expect(tiles()[0].textContent).toContain('In your library.');
+      expect(tiles()[0].querySelector('a[href="/cozy-fall/dam"]')).not.toBeNull();
+    });
+
+    it('says a save is running, and holds every other decision about that picture meanwhile', async () => {
+      host.saves.set(savesWith(host.images(), 'img-1', { state: 'saving' }));
+      await settle();
+
+      expect(tiles()[0].textContent).toContain('Saving picture 1 of 2 to your library…');
+      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Decline picture 1 of 2')).toBeNull();
+      // And the picture beside it is untouched: one save is about one picture.
+      expect(labelled('button', 'Save picture 2 of 2 to your library')).not.toBeNull();
+    });
+
+    it('says why a save did not land and offers another go, leaving the picture as it was', async () => {
+      host.saves.set(savesWith(host.images(), 'img-1', { state: 'failed', problem: 'Nothing was saved.' }));
+      await settle();
+
+      expect(tiles()[0].querySelector('[role="alert"]')?.textContent).toContain('Nothing was saved.');
+      labelled('button', 'Try saving picture 1 of 2 again')!.click();
+      await settle();
+
+      expect(host.saveAsks).toEqual(['img-1']);
+      expect(labelled('button', 'Decline picture 1 of 2')).not.toBeNull();
+    });
+
+    it('will not offer to save a picture that is past deciding about', async () => {
+      const images = [picture(1, { status: 'Expired' })];
+      host.images.set(images);
+      host.saves.set(savesWith(images, 'nothing'));
+      await settle();
+
+      expect(labelled('button', 'Save picture 1 of 1 to your library')?.hasAttribute('disabled')).toBeTrue();
+      expect(tiles()[0].textContent).toContain('No longer available');
+    });
   });
 
   it('offers no download link when there is no gateway address to build one from', async () => {

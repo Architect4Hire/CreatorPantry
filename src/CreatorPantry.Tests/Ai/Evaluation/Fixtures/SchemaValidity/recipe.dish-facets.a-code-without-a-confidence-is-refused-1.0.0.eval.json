@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-code-without-a-confidence-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The failure this capability most needs to refuse. An unqualified code is a guess that arrives looking exactly like a reading, and the idea step pre-fills a creator's control from a confident one -- so an answer that names a cuisine without committing to how sure it is must not validate.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\",\"code\":\"thai\",\"rationale\":\"it sounds like it could be Thai\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_confidence_misplaced",
+    "category": "DomainInvalid"
+  }
+}

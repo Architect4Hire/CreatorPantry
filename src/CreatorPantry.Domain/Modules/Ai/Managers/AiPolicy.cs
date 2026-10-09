@@ -712,6 +712,48 @@ public static class AiPolicy
     /// </remarks>
     public const int PhotographyCreatorConceptMaxLength = 1000;
 
+    /// <summary>
+    /// The longest the dish name may be on an IMG-001 or IMG-002 request.
+    /// </summary>
+    /// <remarks>
+    /// Matched to <c>CreativeContextPolicy.WorkingTitleMaxLength</c>, because it is the same words: the name a
+    /// creator gave what the picture is of, on work with no recipe in the library behind it. A different bound
+    /// here would let them name work that the shoot request then refused.
+    /// </remarks>
+    public const int PhotographyDishNameMaxLength = 200;
+
+    /// <summary>
+    /// The longest the dish name may be on a <see cref="AiTaskType.DishFacetSuggestion"/> request.
+    /// </summary>
+    /// <remarks>
+    /// The same bound as <see cref="PhotographyDishNameMaxLength"/>, and for the same reason: it is the same
+    /// words, taken from the same field. The Content Pipeline's setup step is where a creator types it, and
+    /// its own cap is <c>CreativeContextPolicy.WorkingTitleMaxLength</c> — so a name they are allowed to type
+    /// must be a name this request accepts, or the suggestion silently stops working on the longest names.
+    /// </remarks>
+    public const int DishFacetNameMaxLength = PhotographyDishNameMaxLength;
+
+    /// <summary>
+    /// The most suggestions one reading may carry: one per <see cref="AiDishFacet"/>.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the enum rather than written as 3, so adding a facet cannot leave the bound behind. The
+    /// <c>Unspecified</c> member is excluded because it is never a valid answer.
+    /// </remarks>
+    public static readonly int MaxDishFacetSuggestions = Enum.GetValues<AiDishFacet>().Length - 1;
+
+    /// <summary>
+    /// The longest one facet rationale may be.
+    /// </summary>
+    /// <remarks>
+    /// Short on purpose. It answers "which words led here", which is a clause, and it is rendered beside a
+    /// form control where a paragraph would bury the control it explains.
+    /// </remarks>
+    public const int DishFacetRationaleMaxLength = 300;
+
+    /// <summary>The most warnings one dish-name reading may carry.</summary>
+    public const int MaxDishFacetWarnings = 5;
+
     /// <summary>The longest one scene or style override may be on an IMG-001 request.</summary>
     public const int PhotographyOverrideMaxLength = 300;
 

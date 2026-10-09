@@ -44,6 +44,19 @@ public class CreativeContextReference : IWorkspaceOwned
 
     public CreativeContextReferenceKind Kind { get; set; }
 
+    /// <summary>
+    /// What this row is for: something the work draws on, or something it produced (AF.4.3).
+    /// </summary>
+    /// <remarks>
+    /// <strong>Why a picture needs it and a recipe does not.</strong> A work has one recipe however it is used,
+    /// but it can both take cues from a picture and produce pictures of its own — and a surface that replaces
+    /// the cue removes the row it found. Without this, the Content Pipeline's keepers and the reference panel's
+    /// chosen picture would be the same shape, and choosing a cue would delete a keeper. The two picture kinds
+    /// are therefore unique per purpose in <c>CreativeContextReferenceConfiguration</c>; every other kind stays
+    /// unique per target.
+    /// </remarks>
+    public CreativeContextReferencePurpose Purpose { get; set; }
+
     /// <summary>Position among this context's references, unique within the context.</summary>
     public int SortOrder { get; set; }
 

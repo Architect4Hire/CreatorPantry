@@ -32,8 +32,9 @@ const OPERATION_STATUS_VALUES: ReadonlySet<string> = new Set<GeneratedImageOpera
 /**
  * Where one staged image stands.
  *
- * `Kept` arrives only from the DAM commit, which this journey does not make — so a picture a creator has
- * marked here is still `Staged`, and the screen says so rather than implying it has been filed.
+ * `Kept` arrives only from the DAM commit — the one write that puts a picture in the library — so it is the
+ * authority on whether a picture is permanent, whoever saved it and from wherever. A surface that merely
+ * *marks* a picture leaves it `Staged`, and says so rather than implying it has been filed.
  */
 export type GeneratedImageStatus = 'Unspecified' | 'Staged' | 'Kept' | 'Rejected' | 'Expired';
 

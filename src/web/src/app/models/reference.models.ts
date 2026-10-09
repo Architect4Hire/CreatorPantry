@@ -206,6 +206,46 @@ export function decodeIngredient(value: unknown): Ingredient | null {
   return { id, canonicalName, foodCategoryCode, defaultCountUnitCode, aliases: aliases as string[] };
 }
 
+/**
+ * One entry in a plain controlled vocabulary — a cuisine, a course, an equipment type, a food category.
+ * Mirrors ReferenceEntryServiceModel.
+ */
+export interface ReferenceEntry {
+  readonly id: string;
+  /** The catalogue's own stable key, e.g. `thai`, `main-course`. What a record stores; never shown. */
+  readonly code: string;
+  readonly displayName: string;
+}
+
+export function decodeReferenceEntry(value: unknown): ReferenceEntry | null {
+  if (!isRecord(value)) return null;
+  const { id, code, displayName } = value;
+
+  if (typeof id !== 'string' || typeof code !== 'string' || typeof displayName !== 'string') return null;
+
+  return { id, code, displayName };
+}
+
+/**
+ * A cooking method. Mirrors CookingTechniqueServiceModel.
+ *
+ * **`requiresSafetyCaution: false` means no caution has been attached to this technique** — never that the
+ * technique is safe, and no surface may render it as one (.claude/rules/ai.md).
+ */
+export interface CookingTechnique extends ReferenceEntry {
+  readonly requiresSafetyCaution: boolean;
+}
+
+export function decodeCookingTechnique(value: unknown): CookingTechnique | null {
+  const entry = decodeReferenceEntry(value);
+  if (entry === null || !isRecord(value)) return null;
+
+  const { requiresSafetyCaution } = value;
+  if (typeof requiresSafetyCaution !== 'boolean') return null;
+
+  return { ...entry, requiresSafetyCaution };
+}
+
 /** Mirrors CursorPageServiceModel<T>. */
 export interface CursorPage<T> {
   readonly items: readonly T[];

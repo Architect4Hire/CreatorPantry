@@ -16,6 +16,12 @@ public sealed record CreativeContextReferenceInputViewModel
     /// <summary>What is being named. <c>SocialPackage</c> is not accepted yet.</summary>
     public CreativeContextReferenceKind? Kind { get; init; }
 
+    /// <summary>
+    /// What the reference is for: something the work draws on, or something it produced. Omit for
+    /// <c>Source</c>, which is what a source named without saying is.
+    /// </summary>
+    public CreativeContextReferencePurpose? Purpose { get; init; }
+
     /// <summary>For <c>Recipe</c>: the recipe.</summary>
     public Guid? RecipeId { get; init; }
 

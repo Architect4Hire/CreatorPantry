@@ -50,8 +50,8 @@ type ChannelsState =
   | { readonly status: 'unavailable' };
 
 /**
- * Step 1 of the Content Pipeline: where the post is going, which day, how many pictures, and anything the
- * creator already knows they want in the shot (PIPE-UI-001).
+ * Step 1 of the Content Pipeline: what the picture is of, where the post is going, which day, how many
+ * pictures, and anything the creator already knows they want in the shot (PIPE-UI-001).
  *
  * **Every field is optional, and that is the capability's shape** — a creator may be planning a shoot for a
  * finished recipe, a draft, or an idea with nothing behind it yet. The legend above says so once; no field
@@ -84,6 +84,14 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   private readonly brandProfiles = inject(BrandProfileService);
 
   readonly config = input.required<ContentPipelineConfig>();
+  /**
+   * The linked recipe's title, or null when none is linked.
+   *
+   * Only ever shown, in the hint beside the name: a creator who has linked a recipe needs telling that the
+   * recipe is what the work is planned around, so a name they typed earlier does not read as the answer in
+   * use. The precedence itself is `contentSubjectOf`'s, not this component's.
+   */
+  readonly linkedRecipeTitle = input<string | null>(null);
   /**
    * False where a day means nothing. The Image Studio asks the same questions about a picture, but it plans no
    * week and has no idea step for a day's theme to feed, so offering one there would be a field with no effect.
@@ -120,6 +128,21 @@ export class ContentPipelineSetupStepComponent implements OnInit {
 
     // A retired channel is shown where it is already chosen and never offered as a new choice.
     return state.channels.filter((channel) => channel.isActive || channel.key === chosen);
+  });
+
+  /**
+   * What the name field says about itself: which answer is in use, and what the other one is for.
+   *
+   * It never asks the creator to delete the name they typed. A linked recipe can be unlinked, and the name is
+   * then the subject again — so saying it is kept is the honest sentence, and clearing it would be this screen
+   * throwing away the creator's own words (.claude/rules/recipes.md).
+   */
+  protected readonly subjectHint = computed(() => {
+    const title = this.linkedRecipeTitle();
+
+    return title === null
+      ? `A dish name, up to ${CONTENT_PIPELINE_LIMITS.subjectMaxLength} characters. Use it when the recipe is not in your library yet.`
+      : `Planned around “${title}” from your library instead. This name is kept, and used again if you unlink that recipe.`;
   });
 
   protected readonly sceneAtCap = computed(() => this.sceneRows().length >= CONTENT_PIPELINE_LIMITS.maxOverrides);
@@ -162,6 +185,10 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   protected setVariantCount(values: readonly string[]): void {
     const value = Number(values[0]);
     if (Number.isFinite(value)) this.emit({ variantCount: value });
+  }
+
+  protected setSubject(text: string): void {
+    this.emit({ subject: text.slice(0, CONTENT_PIPELINE_LIMITS.subjectMaxLength) });
   }
 
   protected setConcept(text: string): void {

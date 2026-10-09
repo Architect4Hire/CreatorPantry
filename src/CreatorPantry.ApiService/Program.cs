@@ -102,6 +102,11 @@ builder.Services.AddAiConceptRequestSeam();
 // AIREC-002's, likewise: a first-draft request names no recipe, and accepting one is a separate step.
 builder.Services.AddAiFirstDraftRequestSeam();
 
+// Reading a dish name into a cuisine, a dish type and a method. No recipe-module prerequisite, for the reason
+// the concept seam has none, and no vocabulary prerequisite either: the catalogues are read by the handler in
+// the worker, at the moment it asks, rather than by this seam when it queues.
+builder.Services.AddAiDishFacetsRequestSeam();
+
 // AIREC-003's. Recipe-bound, so it carries the recipe-module prerequisite the proposal seam does.
 builder.Services.AddAiRevisionRequestSeam();
 builder.Services.AddAiSubstitutionRequestSeam();

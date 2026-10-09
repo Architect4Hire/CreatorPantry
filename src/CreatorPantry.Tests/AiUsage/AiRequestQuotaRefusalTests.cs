@@ -355,8 +355,10 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         seams.Add(typeof(IAiProposalBusiness).Assembly.GetTypes()
             .Single(type => type.Name == "AiProposalBusiness"));
 
-        // Fourteen since IMG-004 added its own request seam.
-        Assert.Equal(14, seams.Count);
+        // Fifteen since the dish-facet reading added its own request seam. It is asked automatically as a
+        // creator types a name rather than by a button they pressed, so an unmetered one would spend an
+        // allowance faster than any other seam here.
+        Assert.Equal(15, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()

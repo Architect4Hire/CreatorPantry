@@ -60,6 +60,7 @@ const SEED: ContentSeed = {
   channel: null,
   day: { day: 'Wednesday', pinned: false, theme: null },
   occasion: null,
+  subject: null,
   description: 'Develop a Thai dish.',
   recipe: null,
 };
@@ -130,6 +131,8 @@ async function create(
     url?: string;
     offline?: boolean;
     setup?: (server: FakeCreativeContextService) => void;
+    /** Pictures the work names as keepers, which is where a keeper lives since AF.4.3. */
+    keepers?: readonly string[];
   } = {},
 ): Promise<void> {
   localStorage.clear();
@@ -149,6 +152,9 @@ async function create(
       channelKeys: config.channelKey === null ? [] : [config.channelKey],
       day: config.day,
       pictureBrief: config.concept === '' ? null : config.concept,
+      references: (options.keepers ?? []).map((generatedImageId, index) =>
+        server.reference({ kind: 'GeneratedImage', purpose: 'Keeper', generatedImageId }, index),
+      ),
     });
     localStorage.setItem(keptKey(CTX), encodeContentPipelineRun(options.run, null));
     localStorage.setItem(LAST_KEY, CTX);
@@ -294,6 +300,10 @@ async function typeConcept(value: string): Promise<void> {
   concept.value = value;
   concept.dispatchEvent(new Event('input'));
   await settle();
+}
+
+function subjectValue(): string {
+  return root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!.value;
 }
 
 function conceptValue(): string {
@@ -628,10 +638,14 @@ describe('ContentPipelineShellComponent', () => {
             channelKeys: ['instagram'],
             day: 'Friday',
             weeklyThemeKey: 'fish-friday',
+            workingTitle: 'Fattoush Salad with Radishes',
             pictureBrief: 'A tight crop of the first slice.',
           }),
       });
 
+      // Seeded by the hand-off that opened this run, so step 1 knows what the post is about on arrival and
+      // step 2's idea is built around it without the creator saying it twice.
+      expect(subjectValue()).toBe('Fattoush Salad with Radishes');
       expect(conceptValue()).toBe('A tight crop of the first slice.');
       expect(text()).toContain('Step 1 of 6');
       expect(text()).toContain('Saved');
@@ -680,12 +694,38 @@ describe('ContentPipelineShellComponent', () => {
     expect(router.url).toBe(`${PIPELINE}/setup`);
   });
 
-  it('offers a step that is not built yet with no action at all, not a disabled one', async () => {
+  it('offers a step that is not built yet no action of its own, and lets the creator past it', async () => {
+    // It asks nothing, and the step after it is built (AF.4.3) — stopping here would hide a finished step
+    // behind an unfinished one.
     await create({ run: { ...reachedImages(), furthestStep: 'posts' }, url: `${RUN}/posts` });
 
     expect(text()).toContain('coming soon');
-    expect(button('Continue')).toBeNull();
     expect(text()).toContain('Step 5 of 6');
+    expect(button('Continue')?.disabled).toBeFalse();
+
+    await click('Continue');
+
+    expect(router.url).toBe(`${RUN}/library`);
+  });
+
+  it('offers no Continue on the last step, which has nowhere to go', async () => {
+    await create({ run: { ...reachedImages(), furthestStep: 'library' }, url: `${RUN}/library` });
+
+    expect(button('Continue')).toBeNull();
+  });
+
+  it('shows the library step when the work was left on it, with the keepers it is to file', async () => {
+    // The step is reachable on a resume, not only by walking the journey (AF.4.3).
+    const reached = reachedImages();
+    await create({
+      run: { ...reached, images: { operationId: 'op-1' }, furthestStep: 'library' },
+      keepers: ['img-1'],
+      url: `${RUN}/library`,
+    });
+
+    expect(text()).toContain('Save to your library');
+    expect(text()).not.toContain('coming soon');
+    expect(text()).toContain('Step 6 of 6');
   });
 
   it('holds the images step at Continue until a picture has been kept, and says why', async () => {
@@ -697,10 +737,11 @@ describe('ContentPipelineShellComponent', () => {
     expect(text()).toContain('Keep at least one picture to carry on.');
   });
 
-  it('lets the images step continue once a picture is kept', async () => {
+  it('lets the images step continue once the work names a keeper', async () => {
     const reached = reachedImages();
     await create({
-      run: { ...reached, images: { ...reached.images, operationId: 'op-1', keepers: ['img-1'] } },
+      run: { ...reached, images: { ...reached.images, operationId: 'op-1' } },
+      keepers: ['img-1'],
       url: `${RUN}/images`,
     });
 

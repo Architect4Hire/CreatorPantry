@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.the-same-facet-read-twice-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "Two readings of the cuisine would collide in storage, since the rows are keyed by facet. Refused rather than deduplicated: choosing which of two contradictory readings a creator is shown is not a decision to make silently on their behalf.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\",\"code\":\"levantine\",\"confidence\":\"Likely\",\"rationale\":\"fattoush is Levantine\"},{\"facet\":\"Cuisine\",\"code\":\"turkish\",\"confidence\":\"Possible\",\"rationale\":\"the salad is eaten in Turkey too\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_duplicate",
+    "category": "DomainInvalid"
+  }
+}

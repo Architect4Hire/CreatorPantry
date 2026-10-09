@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { CpButtonComponent, CpCheckboxComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { RouterLink } from '@angular/router';
+import { CpButtonComponent, CpCheckboxComponent, CpNoticeComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { StagedImage, isStagedImageActionable } from '../../models/generated-image.models';
 import { GeneratedImageService } from '../../services/generated-image.service';
 import {
   STAGED_IMAGE_STATUS_LABELS,
   STAGED_IMAGE_STATUS_TONES,
+  StagedImageSave,
   fileSizeText,
   imageFormatText,
 } from './content-pipeline-image-presentation';
@@ -24,6 +26,10 @@ interface Tile {
   readonly facts: string;
   /** Null while the gateway address is not known, which is the only reason a download is not offered. */
   readonly downloadUrl: string | null;
+  /** Where this picture stands with the library, or null on a surface that files nothing. */
+  readonly save: StagedImageSave | null;
+  /** The way to the asset, for a saved picture whose asset is known. */
+  readonly assetLink: readonly string[] | null;
 }
 
 /**
@@ -42,14 +48,22 @@ interface Tile {
  * invalid and unusable with a keyboard. "View larger" names the picture it opens, so the lightbox is reachable
  * and announced either way.
  *
- * It decides nothing: keeping, declining and opening are announced upwards to the step, which owns the draft.
+ * **One control for the decision this surface offers, never two.** Where a run only marks pictures for the
+ * steps that follow, that control is a checkbox. Where it files them — {@link saves} is then supplied — saving
+ * *is* the decision (AF.4.2), so the checkbox is not drawn at all: a creator choosing a keeper and then
+ * separately saving it would be answering the same question twice.
+ *
+ * It decides nothing: keeping, saving, declining and opening are announced upwards to the step, which owns the
+ * draft and makes every request.
  */
 @Component({
   selector: 'cp-content-pipeline-image-grid',
   standalone: true,
   imports: [
+    RouterLink,
     CpButtonComponent,
     CpCheckboxComponent,
+    CpNoticeComponent,
     CpStatusPillComponent,
     ContentPipelineStagedImageComponent,
   ],
@@ -65,9 +79,18 @@ export class ContentPipelineImageGridComponent {
   readonly keepers = input.required<readonly string[]>();
   /** True while a decline or a tidy-up is in flight, so the same picture cannot be acted on twice. */
   readonly busy = input(false);
+  /**
+   * Where each picture stands with the library, or null on a surface that files nothing.
+   *
+   * Null and an empty map are different instructions: null means there is no library here and the keep
+   * checkbox is the control, while a map says this run files pictures and carries one entry per picture, a
+   * picture with nothing saved included.
+   */
+  readonly saves = input<ReadonlyMap<string, StagedImageSave> | null>(null);
 
   readonly keepToggled = output<{ readonly id: string; readonly keep: boolean }>();
   readonly declineRequested = output<string>();
+  readonly saveRequested = output<string>();
   readonly opened = output<string>();
 
   protected readonly tiles = computed<readonly Tile[]>(() => {
@@ -75,22 +98,39 @@ export class ContentPipelineImageGridComponent {
     const keepers = this.keepers();
     const slug = this.workspaceSlug();
     const busy = this.busy();
+    const saves = this.saves();
     const total = images.length;
 
-    return images.map((image, index) => ({
-      image,
-      position: index + 1,
-      total,
-      kept: keepers.includes(image.id),
-      canAct: isStagedImageActionable(image.status) && !busy,
-      statusLabel: STAGED_IMAGE_STATUS_LABELS[image.status],
-      statusTone: STAGED_IMAGE_STATUS_TONES[image.status],
-      facts: `${imageFormatText(image.mediaType)} · ${image.width} × ${image.height} · ${fileSizeText(image.sizeBytes)}`,
-      downloadUrl: this.service.downloadUrl(slug, image.id),
-    }));
+    return images.map((image, index) => {
+      const save = saves?.get(image.id) ?? null;
+
+      return {
+        image,
+        position: index + 1,
+        total,
+        kept: keepers.includes(image.id),
+        // A picture on its way into the library, or already in it, is not one to decline: the bytes it is
+        // holding are the asset's now (AF.4.2).
+        canAct: isStagedImageActionable(image.status) && !busy && !isFiling(save),
+        statusLabel: STAGED_IMAGE_STATUS_LABELS[image.status],
+        statusTone: STAGED_IMAGE_STATUS_TONES[image.status],
+        facts: `${imageFormatText(image.mediaType)} · ${image.width} × ${image.height} · ${fileSizeText(image.sizeBytes)}`,
+        downloadUrl: this.service.downloadUrl(slug, image.id),
+        save,
+        assetLink: save?.assetId ? ['/', slug, 'dam', save.assetId] : null,
+      };
+    });
   });
+
+  /** Where the creator's own library lives, for a saved picture whose asset could not be named. */
+  protected readonly libraryLink = computed(() => ['/', this.workspaceSlug(), 'dam']);
 
   protected onKeep(id: string, keep: boolean): void {
     this.keepToggled.emit({ id, keep });
   }
+}
+
+/** True while the library has this picture, or is about to: the two states nothing else may act on. */
+function isFiling(save: StagedImageSave | null): boolean {
+  return save !== null && (save.state === 'saving' || save.state === 'saved');
 }

@@ -17,11 +17,17 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 @Component({
   imports: [RecipePickerComponent],
   providers: [CreativeContextSession],
-  template: `<cp-recipe-picker [workspaceSlug]="slug()" [session]="session" (announced)="announcements.push($event)" />`,
+  template: `<cp-recipe-picker
+    [workspaceSlug]="slug()"
+    [session]="session"
+    (announced)="announcements.push($event)"
+    (linkedRecipe)="named.push($event)"
+  />`,
 })
 class HostComponent {
   readonly slug = signal(SLUG);
   readonly announcements: string[] = [];
+  readonly named: ({ readonly id: string; readonly title: string } | null)[] = [];
 
   constructor(readonly session: CreativeContextSession) {}
 }
@@ -325,6 +331,39 @@ describe('RecipePickerComponent', () => {
       await click('Try again');
 
       expect(el.textContent).toContain('Soda bread');
+    });
+  });
+
+  describe('naming the linked recipe for the page (AF.4.2)', () => {
+    it('reports the recipe with its title, which the context names only by id', async () => {
+      await mount({ linked: { recipeId: 'r-soda', recipeVersionId: 'v-soda-2' } });
+
+      expect(host.named).toEqual([{ id: 'r-soda', title: 'Soda bread' }]);
+    });
+
+    it('says nothing while nothing is linked, then reports a link and its removal', async () => {
+      // Silent to begin with: a page holding "no recipe" is already right, and one answer is said once.
+      await mount();
+      expect(host.named).toEqual([]);
+
+      await type('soda');
+      await pick('Soda bread');
+      expect(host.named).toEqual([{ id: 'r-soda', title: 'Soda bread' }]);
+
+      await click('Remove');
+      expect(host.named).toEqual([{ id: 'r-soda', title: 'Soda bread' }, null]);
+    });
+
+    it('names no recipe it could not read, so no page offers a title it is unsure of', async () => {
+      library.offline = true;
+      await mount({ linked: { recipeId: 'r-soda', recipeVersionId: 'v-soda-2' } });
+
+      expect(host.named).toEqual([]);
+
+      library.offline = false;
+      await click('Try again');
+
+      expect(host.named).toEqual([{ id: 'r-soda', title: 'Soda bread' }]);
     });
   });
 });

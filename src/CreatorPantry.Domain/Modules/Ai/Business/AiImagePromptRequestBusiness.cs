@@ -223,6 +223,7 @@ internal sealed class AiImagePromptRequestBusiness(
         }
 
         Add(ImagePromptInputs.ChannelKey, model.ChannelKey);
+        Add(ImagePromptInputs.DishName, model.DishName);
         Add(ImagePromptInputs.BriefDocumentId, model.BriefDocumentId?.ToString());
         Add(ImagePromptInputs.BriefVersionNumber, briefVersionNumber?.ToString(CultureInfo.InvariantCulture));
         Add(ImagePromptInputs.SceneOverrides, Join(model.SceneOverrides));

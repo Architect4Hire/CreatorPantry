@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-facet-named-unspecified-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The other way to answer about nothing: naming the zero member outright, which deserializes cleanly and so slips past the shape stage. Refused by the domain rule instead -- Unspecified is the value a model gets by saying nothing, and letting it through would store a reading that claims to be about the first facet in the list.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Unspecified\",\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"the name says salad\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.kind_not_declared",
+    "category": "DomainInvalid"
+  }
+}

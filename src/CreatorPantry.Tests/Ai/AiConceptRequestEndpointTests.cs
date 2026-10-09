@@ -22,7 +22,7 @@ public sealed class AiConceptRequestEndpointTests
     /// list, or a workspace, because the type has nowhere to put one.
     /// </summary>
     [Fact]
-    public void The_request_carries_only_the_eleven_declared_brief_fields()
+    public void The_request_carries_only_the_twelve_declared_brief_fields()
     {
         var fields = typeof(RequestRecipeConceptsViewModel).GetProperties()
             .Select(property => property.Name)
@@ -32,7 +32,7 @@ public sealed class AiConceptRequestEndpointTests
         Assert.Equal(
             [
                 "Audience", "AvailableIngredients", "Course", "CreatorStyle", "Cuisine", "DietaryGoals",
-                "Equipment", "Exclusions", "Season", "Skill", "TimeBudget",
+                "DishName", "Equipment", "Exclusions", "Season", "Skill", "TimeBudget",
             ],
             fields);
     }

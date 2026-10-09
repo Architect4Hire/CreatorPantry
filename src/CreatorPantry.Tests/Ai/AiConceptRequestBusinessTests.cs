@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -112,6 +113,41 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
         Assert.Equal(AiOperationStatus.Requested, status.Status);
         Assert.Null(status.Proposal);
         Assert.False(outcome.Replayed);
+    }
+
+    /// <summary>
+    /// The dish name reaches the stored inputs the worker reads back.
+    /// </summary>
+    /// <remarks>
+    /// The one link in this chain with no type across it: the request writes <c>TaskInputsJson</c> and the
+    /// handler deserializes it in another process, some time later, so a key written on one side and not read
+    /// on the other fails silently — the creator gets concepts for a dish they never named and nothing says
+    /// why. <c>RecipeConceptsAiTaskHandlerTests</c> covers the reading half; this is the writing half.
+    /// </remarks>
+    [Fact]
+    public async Task A_dish_name_is_stored_on_the_operation_for_the_worker_to_read()
+    {
+        using var scope = _provider.CreateScope();
+        Resolve(scope, WorkspaceA);
+        var business = scope.ServiceProvider.GetRequiredService<IAiConceptRequestBusiness>();
+
+        var outcome = await business.RequestAsync(
+            new RequestRecipeConceptsViewModel { DishName = "Fattoush salad with radishes and grilled chicken shawarma" },
+            "key-1",
+            TestContext.Current.CancellationToken);
+
+        Assert.True(outcome.Result.Succeeded, outcome.Result.Error?.Message);
+
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var operation = await db.AiOperations.AsNoTracking().SingleAsync(
+            row => row.Id == outcome.Result.Value!.AiProposalRequestId,
+            TestContext.Current.CancellationToken);
+
+        var inputs = JsonSerializer.Deserialize<Dictionary<string, string>>(operation.TaskInputsJson!)!;
+
+        Assert.Equal(
+            "Fattoush salad with radishes and grilled chicken shawarma",
+            inputs[AiBriefInputs.DishName]);
     }
 
     // ---- idempotency --------------------------------------------------------------------------------------

@@ -1,0 +1,133 @@
+@switch (phase()) {
+  @case ('loading') {
+    <p class="cp-muted" role="status">Loading the pictures you kept…</p>
+  }
+  @case ('unavailable') {
+    <cp-notice tone="error" role="alert">
+      Your pictures couldn't be read just now, so this step cannot say which of them are already in your
+      library. Nothing has been lost.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="retryRead()">Try again</button>
+    </cp-notice>
+  }
+  @default {
+    @if (rows().length === 0) {
+      <cp-notice role="note">
+        You haven't kept any pictures from this run, so there is nothing to file. Go back to the pictures to
+        keep the ones worth using.
+        <a [routerLink]="imagesLink()">Back to the pictures</a>
+      </cp-notice>
+    } @else {
+      @if (lineageNote(); as sentence) {
+        <cp-notice tone="warning" role="note">{{ sentence }}</cp-notice>
+      } @else if (keepPrompt() !== null) {
+        <p class="cp-muted">
+          The prompt that made these pictures is kept with each one, so you can find it again in your prompt
+          library. Each save asks before it does.
+        </p>
+      }
+
+      <ul class="keepers" aria-label="The pictures you kept">
+        @for (row of rows(); track row.generatedImageId) {
+          <li>
+            <p class="meta">
+              <span class="name">Picture {{ row.position }} of {{ row.total }}</span>
+              <cp-status-pill [tone]="row.statusTone">{{ row.statusLabel }}</cp-status-pill>
+            </p>
+
+            @if (row.facts) {
+              <p class="cp-muted facts">{{ row.facts }}</p>
+            }
+
+            @switch (row.save.state) {
+              @case ('saved') {
+                <p class="filed">
+                  @if (row.save.title) {
+                    In your library as “{{ row.save.title }}”.
+                  } @else {
+                    In your library.
+                  }
+                  @if (row.assetLink; as target) {
+                    <a
+                      [routerLink]="target"
+                      [attr.aria-label]="'Open picture ' + row.position + ' of ' + row.total + ' in your library'"
+                    >
+                      Open it
+                    </a>
+                  } @else {
+                    <a [routerLink]="libraryLink()">Your library</a>
+                  }
+                </p>
+              }
+              @case ('saving') {
+                <p class="cp-muted" role="status">
+                  Saving picture {{ row.position }} of {{ row.total }} to your library…
+                </p>
+              }
+              @case ('failed') {
+                <cp-notice tone="error" role="alert">
+                  {{ row.save.problem }}
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="!row.canSave"
+                    [attr.aria-label]="'Try saving picture ' + row.position + ' of ' + row.total + ' again'"
+                    (click)="requestSave(row.generatedImageId)"
+                  >
+                    Try again
+                  </button>
+                </cp-notice>
+              }
+              @default {
+                @if (row.blocked; as sentence) {
+                  <cp-notice tone="warning" role="note">{{ sentence }}</cp-notice>
+                } @else {
+                  <div class="cp-actions">
+                    <button
+                      cpButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      [attr.aria-label]="'Save picture ' + row.position + ' of ' + row.total + ' to your library'"
+                      (click)="requestSave(row.generatedImageId)"
+                    >
+                      Save to library
+                    </button>
+                  </div>
+                }
+              }
+            }
+          </li>
+        }
+      </ul>
+
+      <p class="count" role="status">{{ countText() }}</p>
+
+      @if (allSaved()) {
+        <!-- The end state: everything the creator kept is permanent, and the way to it is right here. -->
+        <cp-notice tone="success" role="status">
+          Everything you kept from this run is in your library.
+          <a [routerLink]="libraryLink()">Open your library</a>
+        </cp-notice>
+      }
+    }
+  }
+}
+
+@if (rows().length > 0) {
+  <!-- One form, opened for whichever picture the creator chose. It reads the picture it is given when it
+       opens, so a half-written entry for one picture is never waiting here for the next (AF.4.1). -->
+  <cp-save-to-library-dialog
+    [open]="saveTarget() !== null"
+    [workspaceSlug]="workspaceSlug()"
+    [generatedImageId]="saveTargetId()"
+    [defaultTitle]="defaultTitle()"
+    [defaultRecipe]="recipe()"
+    [prompt]="keepPrompt()"
+    (saved)="onSaved($event)"
+    (progress)="onSaveProgress($event)"
+    (imageGone)="onSaveImageGone()"
+    (closed)="onSaveClosed()"
+  />
+}

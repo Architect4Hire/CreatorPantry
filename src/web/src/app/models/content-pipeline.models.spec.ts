@@ -9,10 +9,11 @@ import {
   contentPipelineStepStatus,
   contentSeedQueryFor,
   decodeContentPipelineDraft,
+  decodeContentPipelineRun,
   emptyContentPipelineDraft,
   encodeContentPipelineDraft,
+  encodeContentPipelineRun,
   isContentPipelineDraftEmpty,
-  keepersStillPresent,
 } from './content-pipeline.models';
 import { ContentSeed } from './content-seed.models';
 
@@ -25,6 +26,7 @@ const SEED: ContentSeed = {
   channel: { key: 'instagram', displayName: 'Instagram', pinned: true, fromRecipe: false },
   day: { day: 'Friday', pinned: true, theme: null },
   occasion: null,
+  subject: null,
   description: 'Develop a Thai dish using the pressure canning method.',
   recipe: null,
 };
@@ -42,7 +44,8 @@ describe('content-pipeline.models', () => {
     it('gives the built steps no coming-soon body and every unbuilt one a body', () => {
       const built = CONTENT_PIPELINE_STEPS.filter((step) => step.comingSoon === null).map((step) => step.slug);
 
-      expect(built).toEqual(['setup', 'idea', 'prompt', 'images']);
+      // `library` is built since AF.4.3, and `posts` is the one step still to come (AF.6.5).
+      expect(built).toEqual(['setup', 'idea', 'prompt', 'images', 'library']);
       for (const step of CONTENT_PIPELINE_STEPS) {
         if (step.comingSoon !== null) expect(step.comingSoon.length).toBeGreaterThan(0);
       }
@@ -107,6 +110,7 @@ describe('content-pipeline.models', () => {
         method: 'stir-fry',
         photographyStyle: null,
         occasion: null,
+        subject: null,
         recipeId: null,
         recipeVersionId: null,
       });
@@ -128,6 +132,7 @@ describe('content-pipeline.models', () => {
     it('round-trips everything a creator filled in', () => {
       const draft = draftWith({
         config: {
+          subject: 'Soda bread',
           channelKey: 'instagram',
           day: 'Friday',
           variantCount: 4,
@@ -196,6 +201,7 @@ describe('content-pipeline.models', () => {
           conceptRequestId: 'r-1',
           plannedBrief: 'A tight crop.',
           plannedRecipe: 'r-soda@v-soda-2',
+          plannedSubject: null,
           chosen: { conceptRequestId: 'r-1', conceptId: 'k-1', label: 'Warm morning', shotKind: 'Hero' },
           brief: { documentId: 'd-brief', title: 'Autumn brief' },
           reference: { documentId: 'd-ref', title: 'A loaf I like' },
@@ -252,26 +258,21 @@ describe('content-pipeline.models', () => {
       expect(decodeContentPipelineDraft(stored)?.furthestStep).toBe('setup');
     });
 
-    it("round-trips the images step's run and its marks", () => {
-      const stored = encodeContentPipelineDraft(
-        draftWith({ images: { operationId: 'op-1', keepers: ['img-2', 'img-4'] } }),
-      );
+    it("round-trips the images step's run", () => {
+      const stored = encodeContentPipelineDraft(draftWith({ images: { operationId: 'op-1' } }));
 
-      const read = decodeContentPipelineDraft(stored);
-
-      expect(read?.images.operationId).toBe('op-1');
-      expect(read?.images.keepers).toEqual(['img-2', 'img-4']);
+      expect(decodeContentPipelineDraft(stored)?.images.operationId).toBe('op-1');
     });
 
-    it('stores an id and a decision about the images step and nothing else about the pictures', () => {
-      const stored = encodeContentPipelineDraft(
-        draftWith({ images: { operationId: 'op-1', keepers: ['img-1'] } }),
-      );
+    it('stores the run id and nothing else about the pictures', () => {
+      const stored = encodeContentPipelineDraft(draftWith({ images: { operationId: 'op-1' } }));
       const parsed = JSON.parse(stored) as { images: Record<string, unknown> };
 
-      expect(Object.keys(parsed.images).sort()).toEqual(['keepers', 'operationId']);
+      // Since AF.4.3 the marks are not here either: a keeper is a reference on the work, where the library
+      // step and another device can read it.
+      expect(Object.keys(parsed.images)).toEqual(['operationId']);
       // No bytes, media type, size, dimensions, provider, model or retention deadline: all re-read.
-      for (const leak of ['mediaType', 'sizeBytes', 'width', 'providerName', 'retentionExpiresAt']) {
+      for (const leak of ['mediaType', 'sizeBytes', 'width', 'providerName', 'retentionExpiresAt', 'keepers']) {
         expect(stored).withContext(leak).not.toContain(leak);
       }
     });
@@ -283,7 +284,7 @@ describe('content-pipeline.models', () => {
       const read = decodeContentPipelineDraft(JSON.stringify(parsed));
 
       expect(read).not.toBeNull();
-      expect(read?.images).toEqual({ operationId: null, keepers: [] });
+      expect(read?.images).toEqual({ operationId: null });
     });
 
     it('is discarded when the images block is present and malformed', () => {
@@ -295,72 +296,45 @@ describe('content-pipeline.models', () => {
       expect(decodeContentPipelineDraft(stored)).toBeNull();
     });
 
-    it('drops marks without a run, because they name pictures nothing can find', () => {
-      const stored = encodeContentPipelineDraft(
-        draftWith({ images: { operationId: null, keepers: ['img-1'] } }),
+    it('reads a marks list from an older shape and drops it rather than failing the draft', () => {
+      // A record that still carries them is kept out by the version, not by this decoder — but a stray list
+      // must not take the run id down with it.
+      const stored = encodeContentPipelineDraft(draftWith({ images: { operationId: 'op-1' } })).replace(
+        '"operationId":"op-1"',
+        '"operationId":"op-1","keepers":["img-1"]',
       );
 
-      expect(decodeContentPipelineDraft(stored)?.images.keepers).toEqual([]);
-    });
+      const read = decodeContentPipelineDraft(stored);
 
-    it('cuts the marks to the most pictures one run can hold, and drops anything that is not an id', () => {
-      const stored = encodeContentPipelineDraft(
-        draftWith({
-          images: { operationId: 'op-1', keepers: ['a', 'b', 'c', 'd', 'e'] },
-        }),
-      ).replace('"e"', '7');
-
-      const keepers = decodeContentPipelineDraft(stored)?.images.keepers;
-
-      expect(keepers).toEqual(['a', 'b', 'c', 'd']);
-    });
-
-    it('keeps one mark per picture however the stored list repeats itself', () => {
-      const stored = encodeContentPipelineDraft(
-        draftWith({ images: { operationId: 'op-1', keepers: ['img-1', 'img-1', 'img-2'] } }),
-      );
-
-      expect(decodeContentPipelineDraft(stored)?.images.keepers).toEqual(['img-1', 'img-2']);
+      expect(read?.images).toEqual({ operationId: 'op-1' });
     });
 
     it('is not empty once pictures have been asked for, so it is offered as a resume', () => {
       const base = draftWith();
 
-      expect(
-        isContentPipelineDraftEmpty({ ...base, images: { operationId: 'op-1', keepers: [] } }),
-      ).toBeFalse();
-      expect(
-        isContentPipelineDraftEmpty({ ...base, images: { operationId: null, keepers: ['img-1'] } }),
-      ).toBeFalse();
+      expect(isContentPipelineDraftEmpty({ ...base, images: { operationId: 'op-1' } })).toBeFalse();
     });
   });
 
-  describe('keepersStillPresent', () => {
-    const staged = (id: string, status: string) => ({ id, status });
+  describe('a kept run on a creative context', () => {
+    it('round-trips the run, and keeps the context’s own answers out of it', () => {
+      const stored = encodeContentPipelineRun(draftWith({ images: { operationId: 'op-1' } }), null);
 
-    it('keeps a mark the run still accounts for', () => {
-      expect(keepersStillPresent(['img-1'], [staged('img-1', 'Staged')])).toEqual(['img-1']);
+      const read = decodeContentPipelineRun(stored);
+
+      expect(read?.draft.images.operationId).toBe('op-1');
+      expect(read?.unsent).toBeNull();
     });
 
-    it('drops a mark on a picture the run does not list at all', () => {
-      expect(keepersStillPresent(['img-9'], [staged('img-1', 'Staged')])).toEqual([]);
-    });
+    it('throws away a record from the shape that held the keepers (AF.4.3)', () => {
+      // Version 5 kept them as a `string[]` on the device. They are `Keeper` references on the work now, and
+      // nothing here can write one — no workspace, no session, no way to send. So the record goes, rather
+      // than resuming as a run the creator appears to have kept nothing in.
+      const v6 = encodeContentPipelineRun(draftWith({ images: { operationId: 'op-1' } }), null);
+      const v5 = JSON.stringify({ ...(JSON.parse(v6) as Record<string, unknown>), v: 5 });
 
-    it('drops a mark on a picture that is declined, expired or already filed', () => {
-      for (const status of ['Rejected', 'Expired', 'Kept', 'Unspecified']) {
-        expect(keepersStillPresent(['img-1'], [staged('img-1', status)]))
-          .withContext(status)
-          .toEqual([]);
-      }
-    });
-
-    it('keeps the creator’s own order rather than the run’s', () => {
-      expect(
-        keepersStillPresent(
-          ['img-3', 'img-1'],
-          [staged('img-1', 'Staged'), staged('img-2', 'Staged'), staged('img-3', 'Staged')],
-        ),
-      ).toEqual(['img-3', 'img-1']);
+      expect(decodeContentPipelineRun(v5)).toBeNull();
+      expect(decodeContentPipelineRun(v6)).not.toBeNull();
     });
   });
 });

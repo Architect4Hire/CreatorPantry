@@ -31,6 +31,7 @@ import {
 } from '../../models/content-pipeline.models';
 import { CreativeContextFields, EMPTY_CREATIVE_CONTEXT_FIELDS } from '../../models/creative-context-fields.models';
 import { linkedRecipeOf } from '../../models/creative-context.models';
+import { DamCreatedAsset, DamKeepRecipe } from '../../models/dam-asset.models';
 import { avoidTextFor } from '../../models/generated-image.models';
 import { ImageStudioDraft, emptyImageStudioDraft, isImageStudioDraftEmpty } from '../../models/image-studio.models';
 import { ImageStudioDraftOwner, ImageStudioDraftService } from '../../services/image-studio-draft.service';
@@ -46,6 +47,7 @@ import { ContentPipelineReferencePanelComponent } from '../content-pipeline/cont
 import { ContentPipelineSetupStepComponent } from '../content-pipeline/content-pipeline-setup-step.component';
 import {
   GeneratedImageRunComponent,
+  GeneratedImageRunLibrary,
   GeneratedImageRunWording,
 } from '../content-pipeline/generated-image-run.component';
 
@@ -83,8 +85,11 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
   tooLongRemedy: 'Shorten it above.',
   countRemedy: 'Change that in the brief.',
   forbidden: 'You do not have permission to make pictures in this workspace. Ask an Owner or Editor to make them.',
+  chooseHeading: 'Save the ones worth keeping',
+  chooseIntro: 'Saving a picture puts it in your library for good, with what you want to say about it.',
   keepNote:
-    'Keeping a picture here marks it as one you want. Nothing is filed in your library from this page.',
+    'A picture you save is yours from then on and can be found in your library. One you do not save is not kept.',
+  expiryRemedy: 'so save anything you want to keep.',
 };
 
 /**
@@ -112,9 +117,11 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
  * panels are the pipeline's own, imported rather than copied — their request tracking, staleness guards and
  * allowance handling are the same work on both screens.
  *
- * **Nothing here files a picture in the library, saves a prompt to the prompt library, or writes a post.**
- * Each is a separate action with its own contract. A kept picture is a mark on this draft and is still
- * `Staged` server-side, which the page says.
+ * **A picture worth keeping is saved to the library from here** (AF.4.2, FLU-005). Saving is the one decision
+ * the run offers on this page — there is no separate keeper to mark first — and it is per picture, through the
+ * shared save form. The asset is then named on the work's creative context, so a picture made here is one the
+ * rest of the product can find. It does not save a prompt to the prompt library or write a post: each of those
+ * is a separate action with its own contract, and neither is on this page.
  *
  * **Nothing here cancels a generation, because no route does.** "Stop checking" stops this page asking; leaving
  * the page, changing workspace and starting over all abandon whatever was in flight, and an abandoned answer
@@ -259,6 +266,36 @@ export class ImageStudioComponent {
   /** The recipe this work is about, read from its context: what both picture requests name. */
   protected readonly linkedRecipe = computed(() => linkedRecipeOf(this.session.context()));
 
+  /**
+   * That recipe with its title, as the picker resolved it.
+   *
+   * The context names a recipe by id, and a save form offering the link has to show the creator *which*
+   * recipe. The picker reads it already, so it is taken from there rather than read a second time here.
+   */
+  private readonly namedRecipe = signal<DamKeepRecipe | null>(null);
+
+  /** That recipe's title, for the brief's hint about which answer the work is planned around. */
+  protected readonly linkedRecipeTitle = computed(() => this.namedRecipe()?.title ?? null);
+
+  /**
+   * What the run needs to file a picture in the library (AF.4.2, FLU-005).
+   *
+   * The title it starts from is the work's own if the creator has named it, else the recipe's — a fact about
+   * what the picture is of, never the prompt, which describes what was asked for rather than what came back
+   * (.claude/rules/media.md). The references are where a picture saved in an earlier visit is found again.
+   */
+  protected readonly runLibrary = computed<GeneratedImageRunLibrary>(() => {
+    const recipe = this.namedRecipe();
+    const context = this.session.context();
+    const working = context?.workingTitle?.trim() ?? '';
+
+    return {
+      defaultTitle: working !== '' ? working : recipe?.title ?? '',
+      defaultRecipe: recipe,
+      references: context?.references ?? [],
+    };
+  });
+
   protected readonly prompt = computed(() => this.draft().prompt);
   protected readonly config = computed(() => this.draft().config);
 
@@ -343,7 +380,11 @@ export class ImageStudioComponent {
 
       untracked(() => {
         const draft = this.draft();
-        if (fields.channelKey !== draft.config.channelKey || fields.pictureBrief !== draft.config.concept) {
+        if (
+          fields.workingTitle !== draft.config.subject ||
+          fields.channelKey !== draft.config.channelKey ||
+          fields.pictureBrief !== draft.config.concept
+        ) {
           this.draft.set({ ...draft, config: this.configWith(draft.config, fields) });
         }
       });
@@ -362,7 +403,7 @@ export class ImageStudioComponent {
     });
   }
 
-  /** The config with the context's channel and picture. The day is not asked here, so none is shown. */
+  /** The config with the context's name, channel and picture. The day is not asked here, so none is shown. */
   private configWith(config: ContentPipelineConfig, fields: CreativeContextFields): ContentPipelineConfig {
     return { ...contentPipelineConfigWith(config, fields), day: null };
   }
@@ -475,9 +516,16 @@ export class ImageStudioComponent {
     this.loaded.set(true);
   }
 
-  /** The context's answers for this work: its channel and picture from here, its day and theme left alone. */
+  /**
+   * The context's answers for this work: its name, channel and picture from here, its day and theme left alone.
+   */
   private fieldsFor(draft: ImageStudioDraft): CreativeContextFields {
-    return { ...this.session.fields(), channelKey: draft.config.channelKey, pictureBrief: draft.config.concept };
+    return {
+      ...this.session.fields(),
+      workingTitle: draft.config.subject,
+      channelKey: draft.config.channelKey,
+      pictureBrief: draft.config.concept,
+    };
   }
 
   /**
@@ -577,6 +625,34 @@ export class ImageStudioComponent {
 
   protected onAnnounced(sentence: string): void {
     this.announcement.set(sentence);
+  }
+
+  protected onRecipeNamed(recipe: DamKeepRecipe | null): void {
+    this.namedRecipe.set(recipe);
+  }
+
+  /**
+   * A picture made here is in the library: the work is made to name the asset it became (AF.4.2).
+   *
+   * **The save and the naming are separate, and said separately.** The picture is in the library the moment
+   * the route answers; putting the asset on this piece of work is a second write, and one that fails leaves a
+   * saved picture that this work does not point at. The creator is told exactly that rather than left to
+   * believe either more or less than happened.
+   */
+  protected async onSaved(asset: DamCreatedAsset): Promise<void> {
+    const outcome = await this.session.addReference({
+      kind: 'DamAsset',
+      // A picture this work *made*, not one it takes cues from — so the reference panel never offers it back
+      // as inspiration the creator did not choose, and replacing the cue cannot remove it (AF.4.3).
+      purpose: 'Keeper',
+      mediaAssetId: asset.id,
+      mediaAssetVersionNumber: asset.currentVersionNumber,
+    });
+    if (outcome === 'saved' || outcome === 'duplicate') return;
+
+    this.announcement.set(
+      `“${asset.title}” is in your library, but this piece of work could not be made to point at it just now.`,
+    );
   }
 
   /**

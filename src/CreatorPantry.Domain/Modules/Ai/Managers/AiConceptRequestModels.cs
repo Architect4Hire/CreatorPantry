@@ -3,18 +3,29 @@ using FluentValidation;
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
 /// <summary>
-/// AIREC-001's request: the eleven declared brief fields, and nothing else.
+/// AIREC-001's request: the twelve declared brief fields, and nothing else.
 /// </summary>
 /// <remarks>
 /// <strong>What is absent is the contract</strong>, the same way it is for
 /// <see cref="RequestAiProposalViewModel"/>. There is no task discriminator — this route is the task, so the
 /// server names <see cref="AiTaskType.RecipeConcepts"/> itself rather than resolving one from a field — no
-/// recipe id, no scope, no provider, no system prompt, and no free-text field outside the eleven declared
+/// recipe id, no scope, no provider, no system prompt, and no free-text field outside the twelve declared
 /// ones. Every field is optional: a brief that supplies none of them is a legitimate open-ended request, and
 /// <see cref="RecipeConceptsAiTaskHandler"/> already reads an absent field as "not specified".
 /// </remarks>
 public sealed class RequestRecipeConceptsViewModel
 {
+    /// <summary>
+    /// What the creator calls the dish, when they already know. Their own words, and a name only.
+    /// </summary>
+    /// <remarks>
+    /// It says what the dish is called, never how it is cooked, so nothing downstream may read a cuisine, a
+    /// course or an ingredient out of it. The same words the Image Studio and the Content Pipeline keep as a
+    /// creative context's working title, which is why the bound matches theirs in spirit if not in number: a
+    /// brief field's bound is the brief's.
+    /// </remarks>
+    public string? DishName { get; set; }
+
     public string? Audience { get; set; }
 
     public string? Course { get; set; }
@@ -42,6 +53,7 @@ public sealed class RequestRecipeConceptsViewModelValidator : AbstractValidator<
 {
     public RequestRecipeConceptsViewModelValidator()
     {
+        RuleFor(model => model.DishName).MaximumLength(AiPolicy.BriefFieldMaxLength);
         RuleFor(model => model.Audience).MaximumLength(AiPolicy.BriefFieldMaxLength);
         RuleFor(model => model.Course).MaximumLength(AiPolicy.BriefFieldMaxLength);
         RuleFor(model => model.Cuisine).MaximumLength(AiPolicy.BriefFieldMaxLength);

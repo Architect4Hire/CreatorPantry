@@ -42,6 +42,13 @@ public interface IContentSeedBusiness
     /// recipe is the canonical fact. The token still chooses the photography style, channel, occasion and day.
     /// The same token and the same recipe version return the same seed.
     /// </para>
+    /// <para>
+    /// <strong>Or around a subject the creator typed</strong>, for work with no recipe in the library yet. That
+    /// name is echoed and named in the description, and nothing else follows from it: a name says nothing about
+    /// how a dish is cooked, so the token still chooses the cuisine, dish type and method, and the description
+    /// proposes them rather than stating them. A subject is never read beside a recipe — the request refuses
+    /// both — because the two answer the same question.
+    /// </para>
     /// </remarks>
     Task<OperationResult<ContentSeedServiceModel>> GenerateAsync(
         ContentSeedQueryViewModel model, CancellationToken cancellationToken);
@@ -72,6 +79,11 @@ internal sealed class ContentSeedBusiness(
     {
         // A caller's own token is honoured; otherwise one is minted, which is this generator's only randomness.
         var token = ContentSeedInputChecks.Normalize(model.Token) ?? tokens.Next();
+
+        // A typed subject is the creator's words for a dish with no recipe behind it. It is read only when no
+        // recipe was named: the request refuses both together, and this is the backstop for a caller that
+        // reached Business another way.
+        var subject = model.RecipeId is null ? ContentSeedInputChecks.Normalize(model.Subject) : null;
 
         var cuisines = await vocabulary.ListActiveCuisinesAsync(cancellationToken);
         var courses = await vocabulary.ListActiveCoursesAsync(cancellationToken);
@@ -153,10 +165,11 @@ internal sealed class ContentSeedBusiness(
             occasionFacet,
             ContentSeedDescription.For(
                 cuisineFacet, dishTypeFacet, methodFacet, styleFacet, channelFacet, dayFacet, occasionFacet,
-                recipe?.Title),
+                recipe?.Title, subject),
             recipe is null
                 ? null
-                : new ContentSeedRecipeServiceModel(recipe.RecipeId, recipe.RecipeVersionId, recipe.Title)));
+                : new ContentSeedRecipeServiceModel(recipe.RecipeId, recipe.RecipeVersionId, recipe.Title),
+            subject));
     }
 
     /// <summary>What a seed takes from the recipe it is built around, and nothing else of it.</summary>

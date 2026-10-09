@@ -239,6 +239,7 @@ internal sealed class AiFirstDraftRequestBusiness(
         Add(AiFirstDraftInputs.SourceConceptRequestId, model.SourceConceptRequestId?.ToString());
         Add(AiFirstDraftInputs.SourceConceptId, model.SourceConceptId?.ToString());
 
+        Add(AiBriefInputs.DishName, model.DishName);
         Add(AiBriefInputs.Audience, model.Audience);
         Add(AiBriefInputs.Course, model.Course);
         Add(AiBriefInputs.Cuisine, model.Cuisine);

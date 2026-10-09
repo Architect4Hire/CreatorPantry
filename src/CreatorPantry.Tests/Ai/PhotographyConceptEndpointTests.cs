@@ -26,7 +26,10 @@ public sealed class PhotographyConceptEndpointTests
             .ToArray();
 
         Assert.Equal(
-            ["ChannelKey", "CreatorConcept", "RecipeId", "RecipeVersionId", "SceneOverrides", "StyleOverrides"],
+            [
+                "ChannelKey", "CreatorConcept", "DishName", "RecipeId", "RecipeVersionId", "SceneOverrides",
+                "StyleOverrides",
+            ],
             fields);
     }
 

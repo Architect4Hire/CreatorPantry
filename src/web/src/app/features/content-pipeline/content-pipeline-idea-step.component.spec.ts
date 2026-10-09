@@ -7,6 +7,11 @@ import { ContentPipelineDraft, emptyContentPipelineDraft } from '../../models/co
 import { ContentSeed, ContentSeedQuery } from '../../models/content-seed.models';
 import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
+import {
+  ListReferenceEntriesOutcome,
+  ListTechniquesOutcome,
+  ReferenceService,
+} from '../../services/reference.service';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 
 function seed(overrides: Partial<ContentSeed> = {}): ContentSeed {
@@ -21,6 +26,7 @@ function seed(overrides: Partial<ContentSeed> = {}): ContentSeed {
     occasion: { key: 'weeknight', displayName: 'Weeknight', pinned: false, fromRecipe: false },
     description: 'Develop a Thai main course using the stir-fry method.',
     recipe: null,
+    subject: null,
     ...overrides,
   };
 }
@@ -54,6 +60,56 @@ let queries: { slug: string; query: ContentSeedQuery }[];
 let pending: Subject<GenerateContentSeedOutcome>[];
 let confirmAnswer: boolean;
 let confirmCalls: number;
+/** False to make all three vocabulary reads fail, which is the only failure mode the step distinguishes. */
+let vocabularyReadable: boolean;
+let vocabularyReads: number;
+
+const CUISINES: ListReferenceEntriesOutcome = {
+  status: 'found',
+  entries: [
+    { id: 'c1', code: 'levantine', displayName: 'Levantine' },
+    { id: 'c2', code: 'thai', displayName: 'Thai' },
+  ],
+};
+
+const COURSES: ListReferenceEntriesOutcome = {
+  status: 'found',
+  entries: [
+    { id: 'k1', code: 'salad', displayName: 'Salad' },
+    { id: 'k2', code: 'main-course', displayName: 'Main course' },
+  ],
+};
+
+const TECHNIQUES: ListTechniquesOutcome = {
+  status: 'found',
+  techniques: [
+    { id: 't1', code: 'grill', displayName: 'Grill', requiresSafetyCaution: false },
+    { id: 't2', code: 'stir-fry', displayName: 'Stir-fry', requiresSafetyCaution: false },
+  ],
+};
+
+const referenceFake = {
+  listCuisines: (): Promise<ListReferenceEntriesOutcome> => {
+    vocabularyReads += 1;
+    return Promise.resolve(vocabularyReadable ? CUISINES : { status: 'unavailable' });
+  },
+  listCourses: (): Promise<ListReferenceEntriesOutcome> =>
+    Promise.resolve(vocabularyReadable ? COURSES : { status: 'unavailable' }),
+  listTechniques: (): Promise<ListTechniquesOutcome> =>
+    Promise.resolve(vocabularyReadable ? TECHNIQUES : { status: 'unavailable' }),
+};
+
+function select(facet: 'cuisine' | 'dishType' | 'method'): HTMLSelectElement | null {
+  return el.querySelector(`#cp-pipeline-stated-${facet}`);
+}
+
+/** Choose an option in one of the three selects the way a creator does, and let the step settle. */
+async function choose(facet: 'cuisine' | 'dishType' | 'method', code: string): Promise<void> {
+  const control = select(facet)!;
+  control.value = code;
+  control.dispatchEvent(new Event('change'));
+  await settle();
+}
 
 function generate(slug: string, query: ContentSeedQuery): Observable<GenerateContentSeedOutcome> {
   queries.push({ slug, query });
@@ -101,10 +157,13 @@ describe('ContentPipelineIdeaStepComponent', () => {
     pending = [];
     confirmAnswer = true;
     confirmCalls = 0;
+    vocabularyReadable = true;
+    vocabularyReads = 0;
 
     TestBed.configureTestingModule({
       providers: [
         { provide: ContentSeedService, useValue: { generate } },
+        { provide: ReferenceService, useValue: referenceFake },
         {
           provide: ConfirmService,
           useValue: {
@@ -605,5 +664,212 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({ status: 'found', seed: seed() });
 
     expect(el.querySelector('code')?.textContent).toBe('abc-123');
+  });
+
+  // The gap this closes: each facet is drawn independently, so reaching a particular cuisine, dish type and
+  // method by re-rolling meant re-rolling past every combination that was not those three.
+  describe('stating a facet the creator already knows', () => {
+    it('offers the three vocabularies, with suggesting one as the default', async () => {
+      await mount();
+
+      expect(select('cuisine')!.value).toBe('');
+      expect(Array.from(select('cuisine')!.options).map((option) => option.value)).toEqual([
+        '',
+        'levantine',
+        'thai',
+      ]);
+      expect(Array.from(select('dishType')!.options).map((option) => option.value)).toEqual([
+        '',
+        'salad',
+        'main-course',
+      ]);
+      expect(Array.from(select('method')!.options).map((option) => option.value)).toEqual([
+        '',
+        'grill',
+        'stir-fry',
+      ]);
+    });
+
+    // Before anything has been suggested, which is the whole point: the first idea already honours it.
+    it('asks for the stated facet on the very first idea', async () => {
+      await mount();
+
+      await choose('cuisine', 'levantine');
+      await choose('dishType', 'salad');
+      await choose('method', 'grill');
+      expect(queries.length).toBe(0);
+
+      await click('Suggest an idea');
+
+      expect(queries[0].query.cuisine).toBe('levantine');
+      expect(queries[0].query.dishType).toBe('salad');
+      expect(queries[0].query.method).toBe('grill');
+    });
+
+    // The same code, so the facet that was stated changes and the rest of the idea stays where it was. A fresh
+    // code would re-roll the day, the shot and the occasion along with it.
+    it('re-asks under the same code when a facet is stated after an idea is on screen', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+
+      await choose('cuisine', 'levantine');
+
+      expect(queries.length).toBe(2);
+      expect(queries[1].query.token).toBe('abc-123');
+      expect(queries[1].query.cuisine).toBe('levantine');
+    });
+
+    // Nothing to disagree with, so the idea on screen stands rather than being thrown away.
+    it('does not re-ask when a facet is released', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+      await choose('cuisine', 'levantine');
+      await answer({ status: 'found', seed: seed({ cuisine: { key: 'levantine', displayName: 'Levantine', pinned: true, fromRecipe: false } }) });
+
+      const before = queries.length;
+      await choose('cuisine', '');
+
+      expect(queries.length).toBe(before);
+      expect(latest().seed.keep.cuisine).toBeUndefined();
+    });
+
+    // Pressing Keep on a facet the idea already shows asks for exactly the idea already on screen.
+    it('does not re-ask when Keep is pressed on what is already shown', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+
+      await click('Keep');
+
+      expect(queries.length).toBe(1);
+    });
+
+    // One record of what the creator asked for, so the select and the Keep button cannot disagree.
+    it('shows a facet kept from an idea as the stated one', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+
+      await click('Keep');
+      expect(latest().seed.keep.cuisine).toBe('thai');
+      expect(select('cuisine')!.value).toBe('thai');
+    });
+
+    // A linked recipe's own cuisine, course and technique win over a pin server-side, so a picker beside them
+    // would be a control the next request ignores.
+    it('is not offered once a recipe is linked, or once an idea is picked', async () => {
+      await mount();
+      expect(select('cuisine')).not.toBeNull();
+
+      host.recipe.set({ recipeId: 'r1', recipeVersionId: null });
+      await settle();
+      expect(select('cuisine')).toBeNull();
+
+      host.recipe.set(null);
+      await settle();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+      await click('Pick this idea');
+
+      expect(select('cuisine')).toBeNull();
+    });
+
+    it('disables the selects and says so when the vocabulary cannot be read, leaving the rest working', async () => {
+      vocabularyReadable = false;
+      await mount();
+
+      expect(select('cuisine')!.disabled).toBeTrue();
+      expect(el.textContent).toContain('cooking vocabulary could not be loaded');
+
+      // The step still works without it.
+      await click('Suggest an idea');
+      expect(queries.length).toBe(1);
+
+      vocabularyReadable = true;
+      await click('Load the vocabulary again');
+
+      expect(vocabularyReads).toBe(2);
+      expect(select('cuisine')!.disabled).toBeFalse();
+    });
+  });
+
+  describe('with a name typed instead of a recipe', () => {
+    const NAMED = (): ContentPipelineDraft => {
+      const base = emptyContentPipelineDraft();
+
+      return { ...base, config: { ...base.config, subject: 'Fattoush salad with radishes' } };
+    };
+
+    it('asks for an idea about the name the creator typed', async () => {
+      await mount(NAMED());
+
+      await click('Suggest an idea');
+
+      expect(queries[0].query.subject).toBe('Fattoush salad with radishes');
+      expect(queries[0].query.recipeId).toBeNull();
+    });
+
+    it('sends no name once a recipe is linked, because the route refuses both', async () => {
+      await mount(NAMED());
+      host.recipe.set({ recipeId: 'recipe-1', recipeVersionId: 'version-1' });
+      await settle();
+
+      await click('Suggest an idea');
+
+      expect(queries[0].query.subject).toBeNull();
+      expect(queries[0].query.recipeId).toBe('recipe-1');
+    });
+
+    it('says which name a suggestion was built around', async () => {
+      await mount(NAMED());
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed({ subject: 'Fattoush salad with radishes' }) });
+
+      expect(el.textContent).toContain('Built around what you called it, Fattoush salad with radishes.');
+    });
+
+    it('asks again for a suggestion when the name changes, because a suggestion costs nothing', async () => {
+      await mount(NAMED());
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed({ token: 'abc-123', subject: 'Fattoush salad with radishes' }) });
+
+      host.draft.set({ ...host.draft(), config: { ...host.draft().config, subject: 'Barmbrack' } });
+      await settle();
+
+      expect(queries.length).toBe(2);
+      // The same code, so the creator sees the same idea rebuilt for the new name rather than a fresh roll.
+      expect(queries[1].query.token).toBe('abc-123');
+      expect(queries[1].query.subject).toBe('Barmbrack');
+    });
+
+    it('leaves a picked idea alone and says it is about the earlier name', async () => {
+      await mount(NAMED());
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed({ subject: 'Fattoush salad with radishes' }) });
+      await click('Pick this idea');
+
+      const asked = queries.length;
+      host.draft.set({ ...host.draft(), config: { ...host.draft().config, subject: 'Barmbrack' } });
+      await settle();
+
+      expect(el.textContent).toContain('renamed what this picture is of since picking this idea');
+      // A picked idea is a decision: nothing replaces it without the creator asking.
+      expect(queries.length).toBe(asked);
+      expect(latest().seed.accepted?.subject).toBe('Fattoush salad with radishes');
+    });
+
+    it('says nothing about a name added after an idea was picked', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+      await click('Pick this idea');
+
+      host.draft.set({ ...host.draft(), config: { ...host.draft().config, subject: 'Barmbrack' } });
+      await settle();
+
+      expect(el.textContent).not.toContain('renamed what this picture is of');
+    });
   });
 });

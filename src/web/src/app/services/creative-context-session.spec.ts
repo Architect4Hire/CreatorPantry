@@ -64,6 +64,7 @@ describe('CreativeContextSession', () => {
 
       expect(session.open()).toBe('ready');
       expect(session.fields()).toEqual({
+        workingTitle: '',
         channelKey: 'instagram',
         day: 'Friday',
         weeklyThemeKey: 'fish-friday',

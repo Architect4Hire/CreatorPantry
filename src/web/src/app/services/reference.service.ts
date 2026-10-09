@@ -4,15 +4,28 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
 import {
+  CookingTechnique,
   Ingredient,
   MeasurementUnit,
+  ReferenceEntry,
+  decodeCookingTechnique,
   decodeCursorPage,
   decodeIngredient,
   decodeMeasurementUnit,
+  decodeReferenceEntry,
 } from '../models/reference.models';
 
 export type ListUnitsOutcome =
   | { readonly status: 'found'; readonly units: readonly MeasurementUnit[] }
+  | { readonly status: 'unavailable' };
+
+/** One plain controlled vocabulary, whole. */
+export type ListReferenceEntriesOutcome =
+  | { readonly status: 'found'; readonly entries: readonly ReferenceEntry[] }
+  | { readonly status: 'unavailable' };
+
+export type ListTechniquesOutcome =
+  | { readonly status: 'found'; readonly techniques: readonly CookingTechnique[] }
   | { readonly status: 'unavailable' };
 
 /**
@@ -87,6 +100,11 @@ export class ReferenceService {
    */
   private unitsInFlight: Promise<ListUnitsOutcome> | null = null;
 
+  /** The three vocabularies that describe a dish, cached for the session on the same terms as the units. */
+  private cuisinesInFlight: Promise<ListReferenceEntriesOutcome> | null = null;
+  private coursesInFlight: Promise<ListReferenceEntriesOutcome> | null = null;
+  private techniquesInFlight: Promise<ListTechniquesOutcome> | null = null;
+
   /**
    * Every active unit of measure, following the cursor until the catalogue is exhausted.
    *
@@ -95,19 +113,78 @@ export class ReferenceService {
    * that cannot be read answers `unavailable` for the whole listing.
    */
   listUnits(): Promise<ListUnitsOutcome> {
-    this.unitsInFlight ??= this.readUnits().then((outcome) => {
-      if (outcome.status !== 'found') this.unitsInFlight = null;
-      return outcome;
+    this.unitsInFlight ??= this.readCatalogue('/api/v1/reference/units', decodeMeasurementUnit).then((units) => {
+      if (units === null) {
+        this.unitsInFlight = null;
+        return { status: 'unavailable' } as const;
+      }
+
+      return { status: 'found', units } as const;
     });
 
     return this.unitsInFlight;
   }
 
-  private async readUnits(): Promise<ListUnitsOutcome> {
-    const url = this.apiBase.url('/api/v1/reference/units');
-    if (!url) return { status: 'unavailable' };
+  /** Every active cuisine. Whole or `unavailable`, for {@link listUnits}'s reason. */
+  listCuisines(): Promise<ListReferenceEntriesOutcome> {
+    this.cuisinesInFlight ??= this.readEntries('/api/v1/reference/cuisines').then((outcome) => {
+      if (outcome.status !== 'found') this.cuisinesInFlight = null;
+      return outcome;
+    });
 
-    const units: MeasurementUnit[] = [];
+    return this.cuisinesInFlight;
+  }
+
+  /** Every active course — the role a dish plays in a meal. */
+  listCourses(): Promise<ListReferenceEntriesOutcome> {
+    this.coursesInFlight ??= this.readEntries('/api/v1/reference/courses').then((outcome) => {
+      if (outcome.status !== 'found') this.coursesInFlight = null;
+      return outcome;
+    });
+
+    return this.coursesInFlight;
+  }
+
+  /**
+   * Every active cooking method, each with the caution flag the catalogue holds for it.
+   *
+   * A caller that renders a method must carry that flag through: `false` is the absence of an attached
+   * caution, not a finding that the method is safe (.claude/rules/ai.md).
+   */
+  listTechniques(): Promise<ListTechniquesOutcome> {
+    this.techniquesInFlight ??= this.readCatalogue(
+      '/api/v1/reference/techniques',
+      decodeCookingTechnique,
+    ).then((techniques) => {
+      if (techniques === null) {
+        this.techniquesInFlight = null;
+        return { status: 'unavailable' } as const;
+      }
+
+      return { status: 'found', techniques } as const;
+    });
+
+    return this.techniquesInFlight;
+  }
+
+  private async readEntries(path: string): Promise<ListReferenceEntriesOutcome> {
+    const entries = await this.readCatalogue(path, decodeReferenceEntry);
+
+    return entries === null ? { status: 'unavailable' } : { status: 'found', entries };
+  }
+
+  /**
+   * Every page of one reference catalogue, or null when any part of it could not be read.
+   *
+   * Null rather than a short list, for the reason {@link listUnits} gives: a picker built from half a
+   * catalogue reads as "that entry does not exist" rather than as a failure, which is the one answer a
+   * catalogue read must never give.
+   */
+  private async readCatalogue<T>(path: string, decodeItem: (item: unknown) => T | null): Promise<T[] | null> {
+    const url = this.apiBase.url(path);
+    if (!url) return null;
+
+    const items: T[] = [];
     let cursor: string | null = null;
 
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -121,21 +198,21 @@ export class ReferenceService {
         // Nothing to distinguish here: a stale cursor, a refusal and an outage all leave the caller with no
         // usable catalogue, and the remedy for every one of them is to try again.
         void (error as HttpErrorResponse);
-        return { status: 'unavailable' };
+        return null;
       }
 
-      const decoded = decodeCursorPage(raw, decodeMeasurementUnit);
-      if (decoded === null) return { status: 'unavailable' };
+      const decoded = decodeCursorPage(raw, decodeItem);
+      if (decoded === null) return null;
 
-      units.push(...decoded.items);
-      if (decoded.nextCursor === null) return { status: 'found', units };
+      items.push(...decoded.items);
+      if (decoded.nextCursor === null) return items;
 
       cursor = decoded.nextCursor;
     }
 
-    // The server is still offering more after MAX_PAGES. Answering `found` here would hand back a catalogue
-    // that is quietly incomplete, which is the one thing this method promises not to do.
-    return { status: 'unavailable' };
+    // The server is still offering more after MAX_PAGES. Answering with what arrived would hand back a
+    // catalogue that is quietly incomplete, which is the one thing this method promises not to do.
+    return null;
   }
 
   /**

@@ -1,0 +1,66 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+}
+
+/* A list rather than a grid: these are a handful of decisions to work through in order, not a contact sheet
+   to compare — the creator already chose between them on the previous step. */
+.keepers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keepers > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+.name {
+  font-weight: 700;
+  font-size: var(--cp-font-size-sm);
+}
+
+.facts {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+}
+
+/* Said in words rather than with a tick: a saved picture is permanent, and the sentence carries the way to it. */
+.filed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+.filed a {
+  font-weight: 400;
+}
+
+.count {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}

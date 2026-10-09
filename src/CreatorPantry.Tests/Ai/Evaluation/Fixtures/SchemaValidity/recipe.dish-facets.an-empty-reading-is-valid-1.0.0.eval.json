@@ -1,0 +1,12 @@
+{
+  "id": "recipe.dish-facets.an-empty-reading-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "No suggestions at all means the same as declining each one, and is equally valid: a name may simply not be a dish. Inventing a facet to have something to return is the failure, not an empty answer.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": { "outcome": "Accepted", "suggestionCount": 0 }
+}

@@ -357,8 +357,10 @@ public sealed class CreativeContextsEndpointTests : IAsyncLifetime
         Assert.Equal([0, 1, 2, 3, 4], references.Select(reference => reference.GetProperty("sortOrder").GetInt32()));
 
         // A reference points and never copies: nothing on it could hold a title, a description or a body.
+        // `kind` and `purpose` are this row's own two facts about itself — what it points at, and what it is
+        // for — and are enum names rather than anything copied from the source.
         Assert.All(references, reference => Assert.All(
-            reference.EnumerateObject().Where(property => property.Name is not "kind" and not "addedAt"),
+            reference.EnumerateObject().Where(property => property.Name is not "kind" and not "purpose" and not "addedAt"),
             property => Assert.True(
                 property.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Number
                 || Guid.TryParse(property.Value.GetString(), out _),
@@ -523,6 +525,86 @@ public sealed class CreativeContextsEndpointTests : IAsyncLifetime
         // The same recipe on a second piece of work is not a duplicate of anything.
         var other = await client.PostAsJsonAsync(ContextsIn(A), new { from = new { kind = "Recipe", recipeId } }, Ct);
         Assert.Equal(HttpStatusCode.Created, other.StatusCode);
+    }
+
+    // ---- references: what each one is for (AF.4.3) ------------------------------------------------------
+
+    [Fact]
+    public async Task A_source_named_without_saying_what_it_is_for_is_something_the_work_draws_on()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var (recipeId, _) = await CreateRecipeAsync(A);
+
+        var context = await CreatedAsync(client, A, new { from = new { kind = "Recipe", recipeId } });
+
+        Assert.Equal("Source", Assert.Single(References(context)).GetProperty("purpose").GetString());
+    }
+
+    [Fact]
+    public async Task A_picture_can_be_both_this_works_keeper_and_the_picture_it_takes_cues_from()
+    {
+        // The two facts are independent: a run makes a picture, and the next prompt may be planned around
+        // that same picture. Naming it once would force one of them to overwrite the other, and the surface
+        // that replaces a cue would then remove a keeper (AF.4.3).
+        using var client = await SignInAsync(A.OwnerEmail);
+        var imageId = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var context = await CreatedAsync(client, A);
+
+        var keeper = await AddAsync(
+            client, A, context, new { kind = "GeneratedImage", generatedImageId = imageId, purpose = "Keeper" });
+        Assert.Equal(HttpStatusCode.Created, keeper.StatusCode);
+        context = await BodyOf(keeper);
+
+        var cue = await AddAsync(client, A, context, new { kind = "GeneratedImage", generatedImageId = imageId });
+        Assert.Equal(HttpStatusCode.Created, cue.StatusCode);
+
+        Assert.Equal(["Keeper", "Source"], References(await BodyOf(cue)).Select(each => each.GetProperty("purpose").GetString()));
+    }
+
+    [Fact]
+    public async Task One_picture_is_named_once_for_one_purpose()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var assetId = await InAsync(A, db => CreativeContextSeeds.MediaAssetAsync(db, A.Id, Now, Ct));
+        var context = await CreatedAsync(client, A);
+
+        var first = await AddAsync(
+            client, A, context, new { kind = "DamAsset", mediaAssetId = assetId, purpose = "Keeper" });
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+
+        var again = await AddAsync(
+            client, A, await BodyOf(first), new { kind = "DamAsset", mediaAssetId = assetId, purpose = "Keeper" });
+
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Equal(ContentErrorCodes.CreativeContextReferenceDuplicate, Code(await BodyOf(again)));
+    }
+
+    [Fact]
+    public async Task A_recipe_is_named_once_however_it_is_used()
+    {
+        // Only a picture can honestly be both an output and a cue. A recipe this work is about does not
+        // become a second source by being called something else.
+        using var client = await SignInAsync(A.OwnerEmail);
+        var (recipeId, _) = await CreateRecipeAsync(A);
+        var context = await CreatedAsync(client, A, new { from = new { kind = "Recipe", recipeId } });
+
+        var again = await AddAsync(client, A, context, new { kind = "Recipe", recipeId, purpose = "Keeper" });
+
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_purpose_the_server_does_not_know_is_refused_rather_than_read_as_a_source()
+    {
+        // Defaulting it would store a keeper as the picture the next prompt is planned around.
+        using var client = await SignInAsync(A.OwnerEmail);
+        var imageId = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var context = await CreatedAsync(client, A);
+
+        var refused = await AddAsync(
+            client, A, context, new { kind = "GeneratedImage", generatedImageId = imageId, purpose = 9 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
     }
 
     [Fact]
@@ -1257,6 +1339,34 @@ public sealed class CreativeContextsEndpointTests : IAsyncLifetime
         var response = await AddAsync(client, A, context, new { kind = "Recipe", recipeId = theirs });
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_picture_cannot_be_kept_on_your_own_work()
+    {
+        // The purpose changes nothing about who may be named (AF.4.3): a neighbour's picture is refused as a
+        // keeper exactly as it is as a source, and with the same answer, so neither discloses the other.
+        using var client = await SignInAsync(A.OwnerEmail);
+        var mine = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var theirs = await InAsync(B, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var context = await CreatedAsync(client, A);
+
+        var kept = await AddAsync(
+            client, A, context, new { kind = "GeneratedImage", generatedImageId = mine, purpose = "Keeper" });
+        Assert.Equal(HttpStatusCode.Created, kept.StatusCode);
+        // Read once: the response's stream is consumed by the first read.
+        var keptBody = await BodyOf(kept);
+
+        var borrowed = await AddAsync(
+            client, A, keptBody, new { kind = "GeneratedImage", generatedImageId = theirs, purpose = "Keeper" });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, borrowed.StatusCode);
+        Assert.Equal(ContentErrorCodes.CreativeContextReferenceUnprocessable, Code(await BodyOf(borrowed)));
+
+        // And nothing of B's is on A's work.
+        Assert.Equal(
+            [mine.ToString()],
+            References(keptBody).Select(each => each.GetProperty("generatedImageId").GetString()));
     }
 
     [Fact]

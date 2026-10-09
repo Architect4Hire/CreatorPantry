@@ -37,11 +37,55 @@
   </div>
 }
 
+@if (offersStatedFacets()) {
+  <cp-form-section
+    heading="What you already know"
+    intro="Say any of these and every idea will use it. Leave one alone and it stays a suggestion you can keep or swap. Nothing is read out of the name you typed — these are yours to say."
+  >
+    <cp-field-row>
+      @for (facet of statableFacets; track facet) {
+        <cp-field [label]="facetLabels[facet]" [forId]="'cp-pipeline-stated-' + facet">
+          <select
+            [id]="'cp-pipeline-stated-' + facet"
+            [name]="'pipelineStated' + facet"
+            [disabled]="vocabulary().status !== 'ready'"
+            [ngModel]="stated()[facet]"
+            (ngModelChange)="setStated(facet, $event)"
+          >
+            <option value="">Suggest one</option>
+            @for (entry of facetOptions()[facet]; track entry.code) {
+              <option [value]="entry.code">{{ entry.displayName }}</option>
+            }
+          </select>
+        </cp-field>
+      }
+    </cp-field-row>
+
+    @if (vocabulary().status === 'loading') {
+      <p class="cp-muted" role="status">Loading the cooking vocabulary…</p>
+    }
+    @if (vocabulary().status === 'unavailable') {
+      <cp-notice tone="warning" role="status">
+        The cooking vocabulary could not be loaded, so you cannot state these right now. You can still ask for an
+        idea and keep the parts you like.
+        <!-- Not "Try again": the notices above this one retry the idea, and two buttons with the same name on
+             one screen say nothing about which is which to anyone reading them out of context. -->
+        <button cpButton type="button" variant="secondary" size="sm" (click)="loadVocabulary()">
+          Load the vocabulary again
+        </button>
+      </cp-notice>
+    }
+  </cp-form-section>
+}
+
 @if (seed() === null && state().status === 'idle') {
   @if (recipe()) {
     <p>No idea yet. We can put one together around the recipe you linked, with your own weekly theme.</p>
   } @else {
-    <p>No idea yet. We can put one together from the cooking vocabulary and your own weekly theme.</p>
+    <p>
+      No idea yet. We can put one together from the cooking vocabulary and your own weekly theme, using anything
+      you stated above.
+    </p>
   }
   <div class="cp-actions">
     <button cpButton type="button" variant="primary" (click)="tryAnother()">Suggest an idea</button>
@@ -57,6 +101,8 @@
 
     @if (builtAround(); as title) {
       <p class="cp-muted">Built around your recipe, {{ title }}.</p>
+    } @else if (builtAroundSubject(); as name) {
+      <p class="cp-muted">Built around what you called it, {{ name }}.</p>
     }
 
     @switch (recipeMismatch()) {
@@ -81,6 +127,14 @@
           This idea was built around a recipe that is no longer linked to this run.
           <button cpButton type="button" variant="secondary" size="sm" (click)="suggestForRecipe()">
             Suggest a new idea
+          </button>
+        </cp-notice>
+      }
+      @case ('subject_changed') {
+        <cp-notice tone="warning" role="status">
+          You have renamed what this picture is of since picking this idea, so the idea is about the earlier name.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="suggestForRecipe()">
+            Suggest one for the new name
           </button>
         </cp-notice>
       }

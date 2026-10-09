@@ -55,6 +55,25 @@ public sealed class RequestPhotographyConceptViewModel
     [Description("The picture you have in mind. Optional; your own words, not a prompt.")]
     public string? CreatorConcept { get; set; }
 
+    /// <summary>
+    /// The name the creator gave what the picture is of, for work with no recipe behind it yet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Untrusted text, and it travels in the untrusted segment beside the creator's concept and overrides. It
+    /// is a name and nothing more: it says what the subject is called, never how it is cooked, so nothing
+    /// downstream may read a cuisine, a method or an ingredient out of it.
+    /// </para>
+    /// <para>
+    /// <strong>Refused alongside <see cref="RecipeId"/>.</strong> A linked recipe is canonical source material
+    /// the request reads for itself, and the task says to shoot the dish as that recipe describes it; a name
+    /// beside it would be a second, weaker answer to the same question. The client decides that precedence
+    /// once, so a request carrying both is a client defect rather than something to arbitrate here.
+    /// </para>
+    /// </remarks>
+    [Description("What the dish is called. Optional; your own words, and not needed when a recipe is named.")]
+    public string? DishName { get; set; }
+
     /// <summary>Scene elements the creator wants — a surface, a season, a time of day, a prop.</summary>
     [Description("Scene elements to include. Optional.")]
     public IReadOnlyList<string>? SceneOverrides { get; set; }
@@ -88,6 +107,16 @@ public sealed class RequestPhotographyConceptViewModelValidator
             .MaximumLength(AiPolicy.PhotographyCreatorConceptMaxLength)
             .WithMessage(
                 $"Keep your concept to {AiPolicy.PhotographyCreatorConceptMaxLength} characters or fewer.");
+
+        RuleFor(model => model.DishName)
+            .MaximumLength(AiPolicy.PhotographyDishNameMaxLength)
+            .WithMessage($"Keep the dish name to {AiPolicy.PhotographyDishNameMaxLength} characters or fewer.");
+
+        // Refused rather than one quietly winning: the recipe is the shoot's source material, and a name sent
+        // beside it would be a second answer to what the picture is of.
+        RuleFor(model => model.DishName)
+            .Must((model, name) => string.IsNullOrWhiteSpace(name) || model.RecipeId is null)
+            .WithMessage("A shoot is planned around a linked recipe or a dish name you give, not both.");
 
         RuleFor(model => model.SceneOverrides)
             .Must(BeWithinLimits)
@@ -140,6 +169,8 @@ public static class PhotographyConceptInputs
     public const string ChannelKey = "channelKey";
 
     public const string CreatorConcept = "creatorConcept";
+
+    public const string DishName = "dishName";
 
     public const string SceneOverrides = "sceneOverrides";
 

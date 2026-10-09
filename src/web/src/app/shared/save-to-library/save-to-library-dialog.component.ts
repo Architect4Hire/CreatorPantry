@@ -52,6 +52,19 @@ import { WorkspaceTagService } from '../../services/workspace-tag.service';
 type TagPhase = 'loading' | 'ready' | 'unavailable';
 type PreviewState = 'loading' | 'ready' | 'gone' | 'unavailable';
 
+/**
+ * How a save is going, for the surface behind this dialog to show on the picture itself (AF.4.2).
+ *
+ * Only the two states that surface has no other way of knowing. A save that *lands* is
+ * {@link SaveToLibraryDialogComponent.saved}, and a picture that is gone is
+ * {@link SaveToLibraryDialogComponent.imageGone}: both of those are facts about the picture rather than about
+ * this form, so neither is repeated here.
+ */
+export type SaveToLibraryProgress =
+  | { readonly state: 'saving' }
+  /** The attempt did not land. Nothing was saved and the entry is still in the form. */
+  | { readonly state: 'failed'; readonly problem: string };
+
 type RecipeSearch =
   | { readonly status: 'loading' }
   | { readonly status: 'found'; readonly recipes: readonly RecipeSummary[] }
@@ -143,6 +156,8 @@ export class SaveToLibraryDialogComponent {
   readonly closed = output<void>();
   /** The picture is in the library as this asset — just made, or found already there. */
   readonly saved = output<DamCreatedAsset>();
+  /** A save started, or did not land. For a surface that shows the state on the picture behind this. */
+  readonly progress = output<SaveToLibraryProgress>();
   /** The staged picture turned out not to be there to save, so the surface behind this should read it again. */
   readonly imageGone = output<void>();
 
@@ -387,6 +402,7 @@ export class SaveToLibraryDialogComponent {
     this.saving.set(true);
     this.problem.set('');
     this.promptProblem.set('');
+    this.progress.emit({ state: 'saving' });
 
     const outcome = await this.assets.keepGeneratedImage(
       this.workspaceSlug(),
@@ -418,7 +434,7 @@ export class SaveToLibraryDialogComponent {
         }
 
         this.fieldErrors.set(mapped);
-        this.problem.set(
+        this.stall(
           Object.keys(mapped).length > 0 ? 'This picture could not be saved as entered. Nothing was saved.' : outcome.message,
         );
 
@@ -431,17 +447,20 @@ export class SaveToLibraryDialogComponent {
         this.promptProblem.set(
           `${outcome.message} The picture and its prompt are saved together, so nothing was saved. Untick this to save the picture on its own.`,
         );
+        // The sentence the form shows names the tick it is about, which is in the form; the surface behind is
+        // told the plain outcome instead.
+        this.progress.emit({ state: 'failed', problem: 'The prompt could not be saved, so the picture was not either.' });
         this.focus(IDS.prompt);
         return;
 
       case 'key_reused':
         // The key was spent on an earlier form of this entry. The next press is a new request.
         this.idempotencyKey = null;
-        this.problem.set('The picture could not be saved just now. What you entered is still here, so try again.');
+        this.stall('The picture could not be saved just now. What you entered is still here, so try again.');
         return;
 
       case 'forbidden':
-        this.problem.set('You need Contributor access in this workspace to save a picture. Nothing was saved.');
+        this.stall('You need Contributor access in this workspace to save a picture. Nothing was saved.');
         return;
 
       case 'image_gone':
@@ -449,12 +468,20 @@ export class SaveToLibraryDialogComponent {
         this.problem.set(
           'This picture can no longer be saved. It may have been declined, or kept past the time generated pictures are held.',
         );
+        // Not reported as a failed save: the picture itself has gone, which is a fact about the picture, and
+        // the surface behind reads its own state rather than being told a save to try again.
         this.imageGone.emit();
         return;
 
       default:
-        this.problem.set('The picture could not be saved just now. What you entered is still here, so try again.');
+        this.stall('The picture could not be saved just now. What you entered is still here, so try again.');
     }
+  }
+
+  /** A save that did not land: said in the form, and reported to the surface showing the picture. */
+  private stall(problem: string): void {
+    this.problem.set(problem);
+    this.progress.emit({ state: 'failed', problem });
   }
 
   /** Close without saving. Asks first when that would lose something, and never while a save is running. */

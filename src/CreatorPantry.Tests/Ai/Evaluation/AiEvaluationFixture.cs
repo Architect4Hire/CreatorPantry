@@ -203,6 +203,26 @@ public enum AiEvaluationKind
     /// </para>
     /// </remarks>
     ReferenceImageOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiDishFacetsOutputValidator.Validate"/> directly,
+    /// for the dish-name reading's own document.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The domain rules this reaches are the ones that keep a reading a reading: each facet answered at most
+    /// once, a code that arrives with a confidence and an absent code that arrives with a reason instead, and
+    /// every suggestion saying which words led to it. Those are the checks standing between "the name says
+    /// grilled" and a guess that looks identical on screen, so they are worth fixing in place.
+    /// </para>
+    /// <para>
+    /// What this kind deliberately <strong>cannot</strong> show is that an off-catalogue code is discarded.
+    /// That check needs the vocabulary the handler read, which this runner has no access to — it is
+    /// <c>DishFacetSuggestionHandlerTests</c>'s to prove, against a fake facade. A fixture here asserting it
+    /// would be asserting nothing.
+    /// </para>
+    /// </remarks>
+    DishFacetsOutputValidation,
 }
 
 /// <summary>

@@ -115,6 +115,7 @@ describe('creative context fields', () => {
 
     it('needs every field for a whole set', () => {
       const whole = {
+        workingTitle: 'Soda bread',
         channelKey: 'instagram',
         day: 'Friday',
         pictureBrief: 'A',

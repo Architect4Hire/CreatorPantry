@@ -11,6 +11,7 @@ import {
   CpNoticeComponent,
 } from '@creator-pantry/ui';
 
+import { DamKeepRecipe } from '../../models/dam-asset.models';
 import { recipeReferenceOf } from '../../models/creative-context.models';
 import { DEFAULT_RECIPE_SEARCH_QUERY, RecipeStatus, RecipeSummary } from '../../models/recipe.models';
 import { CreativeContextReferenceOutcome, CreativeContextSession } from '../../services/creative-context-session';
@@ -114,6 +115,15 @@ export class RecipePickerComponent {
   /** One sentence for the surface's polite live region when the link changes. */
   readonly announced = output<string>();
 
+  /**
+   * The linked recipe with its title, or null when none is linked or it can no longer be read.
+   *
+   * The context names a recipe by id; the title is read here, so a surface that needs the *words* — a save
+   * form offering the link, say — is told rather than reading the same recipe a second time. Emitted when the
+   * answer changes, so a page can hold it in a signal.
+   */
+  readonly linkedRecipe = output<DamKeepRecipe | null>();
+
   protected readonly searchText = signal('');
   protected readonly search = signal<SearchState>({ status: 'loading' });
   protected readonly linked = signal<LinkedState>({ status: 'loading' });
@@ -175,6 +185,8 @@ export class RecipePickerComponent {
   private readonly searchAgain = signal(0);
   /** The recipe id whose details are on screen or being read, so the same one is not read twice. */
   private readFor: string | null = null;
+  /** The last answer {@link linkedRecipe} gave, so one answer is reported once. */
+  private reported: string | null = null;
   /** True once the page has let go of this component, so an answer still on its way changes nothing. */
   private gone = false;
 
@@ -212,8 +224,21 @@ export class RecipePickerComponent {
       if (key === this.readFor) return;
 
       this.readFor = key;
-      if (reference?.recipeId) untracked(() => void this.readLinked(slug, reference.recipeId!, reference.recipeVersionId, key));
+      untracked(() => {
+        if (reference?.recipeId) void this.readLinked(slug, reference.recipeId, reference.recipeVersionId, key);
+        // Nothing is linked any more, which a surface holding the title has to be told before it offers it.
+        else this.report(null);
+      });
     });
+  }
+
+  /** Say what is linked, once per answer. */
+  private report(recipe: DamKeepRecipe | null): void {
+    const key = recipe === null ? null : `${recipe.id}|${recipe.title}`;
+    if (key === this.reported) return;
+
+    this.reported = key;
+    this.linkedRecipe.emit(recipe);
   }
 
   protected retrySearch(): void {
@@ -330,10 +355,12 @@ export class RecipePickerComponent {
 
     if (detail.status === 'not_found' || (detail.status === 'found' && detail.recipe.status === 'Archived')) {
       this.linked.set({ status: 'gone' });
+      this.report(null);
       return;
     }
     if (detail.status !== 'found' || history.status !== 'found') {
       this.linked.set({ status: 'unavailable' });
+      this.report(null);
       return;
     }
 
@@ -346,6 +373,7 @@ export class RecipePickerComponent {
       pinnedNumber: versions.find((version) => version.id === pinnedVersionId)?.versionNumber ?? null,
       newer: newest !== null && newest.id !== pinnedVersionId ? { id: newest.id, number: newest.versionNumber } : null,
     });
+    this.report({ id: recipeId, title: detail.recipe.title });
   }
 
 }

@@ -1,9 +1,10 @@
-// The answers a working surface keeps on a creative context: the channel, the day, that day's theme and the
-// picture the creator has in mind (AF.3.1), and the brief they chose to work from (AF.3.2).
+// The answers a working surface keeps on a creative context: what the picture is of, the channel, the day,
+// that day's theme and the picture the creator has in mind (AF.3.1), and the brief they chose to work from
+// (AF.3.2).
 //
 // A view of `CreativeContext`, not another API shape. The Content Pipeline and Image Studio each ask for one
-// channel, so the surface's channel is the context's *first* one; everything else a context holds — a working
-// title, further channels, its sources — is read and left as it is.
+// channel, so the surface's channel is the context's *first* one; everything else a context holds — further
+// channels, its sources — is read and left as it is.
 
 import {
   CreativeContext,
@@ -15,6 +16,15 @@ import {
 import { decodeEnum, isRecord } from './recipe.models';
 
 export interface CreativeContextFields {
+  /**
+   * What the picture is of, in the creator's own words. Empty for none.
+   *
+   * The context's `workingTitle`, which until now no screen wrote. It is a dish name a creator can type when
+   * they have no recipe in the library yet — and it is what the looks, the prompt and the idea are built
+   * around when nothing else says what the subject is. A *linked* recipe always wins: it is real source
+   * material with a cuisine, a course and a method behind it, where this is a name and nothing more.
+   */
+  readonly workingTitle: string;
   /** The context's first channel key, or null for none. */
   readonly channelKey: string | null;
   readonly day: CreativeContextDay | null;
@@ -30,6 +40,7 @@ export interface CreativeContextFields {
 export type CreativeContextFieldName = keyof CreativeContextFields;
 
 export const CREATIVE_CONTEXT_FIELD_NAMES: readonly CreativeContextFieldName[] = [
+  'workingTitle',
   'channelKey',
   'day',
   'pictureBrief',
@@ -39,6 +50,7 @@ export const CREATIVE_CONTEXT_FIELD_NAMES: readonly CreativeContextFieldName[] =
 ];
 
 export const EMPTY_CREATIVE_CONTEXT_FIELDS: CreativeContextFields = {
+  workingTitle: '',
   channelKey: null,
   day: null,
   pictureBrief: '',
@@ -49,8 +61,9 @@ export const EMPTY_CREATIVE_CONTEXT_FIELDS: CreativeContextFields = {
 
 const BRIEF_SOURCES: ReadonlySet<string> = new Set<CreativeContextBriefSource>(['Description', 'Idea', 'Combined']);
 
-/** The two fields that are free text, which are compared and cleared the same way. */
+/** The three fields that are free text, which are compared and cleared the same way. */
 const TEXT_FIELDS: ReadonlySet<CreativeContextFieldName> = new Set<CreativeContextFieldName>([
+  'workingTitle',
   'pictureBrief',
   'workingBrief',
 ]);
@@ -67,6 +80,7 @@ const DAYS: ReadonlySet<string> = new Set<CreativeContextDay>([
 
 export function creativeContextFieldsOf(context: CreativeContext): CreativeContextFields {
   return {
+    workingTitle: context.workingTitle ?? '',
     channelKey: context.channelKeys[0] ?? null,
     day: context.day,
     pictureBrief: context.pictureBrief ?? '',
@@ -130,6 +144,8 @@ export function creativeContextPatchFor(
     if (name === 'channelKey') {
       const key = fields.channelKey;
       patch.channelKeys = key === null ? [] : [key, ...currentChannelKeys.slice(1).filter((other) => other !== key)];
+    } else if (name === 'workingTitle') {
+      patch.workingTitle = fields.workingTitle.trim() === '' ? null : fields.workingTitle;
     } else if (name === 'pictureBrief') {
       patch.pictureBrief = fields.pictureBrief.trim() === '' ? null : fields.pictureBrief;
     } else if (name === 'workingBrief') {
@@ -153,6 +169,7 @@ export function creativeContextPatchFor(
  */
 export function creativeContextDraftFor(fields: CreativeContextFields): CreativeContextDraft {
   return {
+    ...(fields.workingTitle.trim() !== '' ? { workingTitle: fields.workingTitle } : {}),
     ...(fields.channelKey !== null ? { channelKeys: [fields.channelKey] } : {}),
     ...(fields.day !== null ? { day: fields.day } : {}),
     ...(fields.pictureBrief.trim() !== '' ? { pictureBrief: fields.pictureBrief } : {}),
@@ -161,7 +178,7 @@ export function creativeContextDraftFor(fields: CreativeContextFields): Creative
 }
 
 /**
- * Some of the four fields, read back from this device's storage, or null for a shape this build cannot read.
+ * Some of the fields, read back from this device's storage, or null for a shape this build cannot read.
  *
  * A field that is absent was not kept, which is different from one kept as "none" — so only the fields present
  * come back.
@@ -171,6 +188,11 @@ export function decodeCreativeContextFieldsPart(raw: unknown): Partial<CreativeC
 
   const part: { -readonly [K in CreativeContextFieldName]?: CreativeContextFields[K] } = {};
 
+  if ('workingTitle' in raw) {
+    const value = raw['workingTitle'];
+    if (typeof value !== 'string') return null;
+    part.workingTitle = value;
+  }
   if ('channelKey' in raw) {
     const value = raw['channelKey'];
     if (value !== null && typeof value !== 'string') return null;

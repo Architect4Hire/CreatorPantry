@@ -243,8 +243,9 @@ export function damThumbnailAltText(asset: Pick<DamAssetPicture, 'title' | 'altT
 // ---------------------------------------------------------------------------
 // One asset in full (DAM-UI-003). Mirrors `MediaAssetDetailServiceModel` and the utilization page.
 //
-// Deliberately narrower than the route: the checksum, the generated-image id and the tombstone fields are not
-// read, because nothing on the page uses them. The concurrency token is, since 12.10g: an edit has to quote it.
+// Deliberately narrower than the route: the checksum and the tombstone fields are not read, because nothing on
+// the page uses them. The concurrency token is, since 12.10g: an edit has to quote it, and the generated-image
+// id is, since AF.4.2: it is the only published way back from a picture to the asset it was saved as.
 // ---------------------------------------------------------------------------
 
 /** `MediaAssetVersionSource`. How one version's bytes arrived. */
@@ -331,6 +332,14 @@ export interface DamAssetDetail {
   readonly brandProfileCount: number | null;
   readonly testAttachmentCount: number | null;
   readonly prompts: readonly DamAssetPrompt[];
+  /**
+   * The generated picture this asset was kept from, or null for one that was uploaded or imported.
+   *
+   * **How a surface that made a picture finds the asset again.** A staged picture's own row carries no asset
+   * id — `StagedImageServiceModel` publishes a status and nothing else about where it went — so a run coming
+   * back to a picture it saved in an earlier visit matches on this (AF.4.2).
+   */
+  readonly sourceGeneratedImageId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   /**
@@ -444,6 +453,7 @@ export function decodeDamAssetDetail(value: unknown): DamAssetDetail | null {
     rightsHolder,
     attributionText,
     utilizationCount,
+    sourceGeneratedImageId,
     createdAt,
     updatedAt,
     concurrencyToken,
@@ -479,6 +489,7 @@ export function decodeDamAssetDetail(value: unknown): DamAssetDetail | null {
     typeof utilizationCount !== 'number' ||
     recipeLinks === null ||
     prompts === null ||
+    !isStringOrNull(sourceGeneratedImageId ?? null) ||
     typeof createdAt !== 'string' ||
     typeof updatedAt !== 'string' ||
     typeof concurrencyToken !== 'string' ||
@@ -509,6 +520,7 @@ export function decodeDamAssetDetail(value: unknown): DamAssetDetail | null {
     brandProfileCount: typeof brandProfileCount === 'number' ? brandProfileCount : null,
     testAttachmentCount: typeof testAttachmentCount === 'number' ? testAttachmentCount : null,
     prompts,
+    sourceGeneratedImageId: (sourceGeneratedImageId as string | null | undefined) ?? null,
     createdAt,
     updatedAt,
     concurrencyToken,

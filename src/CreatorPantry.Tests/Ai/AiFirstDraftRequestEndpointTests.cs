@@ -24,7 +24,7 @@ public sealed class AiFirstDraftRequestEndpointTests
     /// parameter, a tool list, or a workspace, because the type has nowhere to put one.
     /// </summary>
     [Fact]
-    public void The_request_carries_only_two_concept_ids_and_the_eleven_declared_brief_fields()
+    public void The_request_carries_only_two_concept_ids_and_the_twelve_declared_brief_fields()
     {
         var fields = typeof(RequestRecipeFirstDraftViewModel).GetProperties()
             .Where(property => property.GetMethod?.IsPublic == true)
@@ -35,8 +35,8 @@ public sealed class AiFirstDraftRequestEndpointTests
         Assert.Equal(
             [
                 "Audience", "AvailableIngredients", "Course", "CreatorStyle", "Cuisine", "DietaryGoals",
-                "Equipment", "Exclusions", "Season", "Skill", "SourceConceptId", "SourceConceptRequestId",
-                "TimeBudget",
+                "DishName", "Equipment", "Exclusions", "Season", "Skill", "SourceConceptId",
+                "SourceConceptRequestId", "TimeBudget",
             ],
             fields);
     }

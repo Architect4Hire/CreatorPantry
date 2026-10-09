@@ -231,4 +231,26 @@ public enum AiChangeTargetKind
     /// </para>
     /// </remarks>
     ReferenceImageAnalysis = 19,
+
+    /// <summary>
+    /// The reading of a dish name, of <see cref="AiTaskType.DishFacetSuggestion"/>: which cuisine, course and
+    /// technique that name most likely points at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One target per reading, with each facet stored as field-named rows beneath it
+    /// (<c>facet.{Facet}</c>, plus its <c>.confidence</c> and <c>.rationale</c>) — the way an analysis stores
+    /// its observations. A facet is not separately approvable in the sense a concept is: the creator accepts
+    /// or changes each one in a select, and a target kind per facet would imply a disposition flow that does
+    /// not exist for them.
+    /// </para>
+    /// <para>
+    /// Absent from <see cref="AiChangeApplicability"/> and <see cref="AiChangeTargetPolicy"/> by omission, as
+    /// <see cref="ReferenceImageAnalysis"/> is, and here the omission carries the capability's central
+    /// restriction: a suggested cuisine must never become a fact recorded about a recipe. These rows are read
+    /// by one surface, which puts them in editable controls the creator can overrule, and there is no code
+    /// path from any of them to a recipe field.
+    /// </para>
+    /// </remarks>
+    DishFacetSuggestion = 20,
 }

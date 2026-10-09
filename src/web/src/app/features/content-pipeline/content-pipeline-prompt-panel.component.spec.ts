@@ -217,6 +217,7 @@ describe('ContentPipelinePromptPanelComponent', () => {
       channelKey: 'instagram',
       recipeId: null,
       recipeVersionId: null,
+      dishName: null,
       briefDocumentId: 'd-brief',
       sceneOverrides: ['marble slab'],
       styleOverrides: ['soft light'],

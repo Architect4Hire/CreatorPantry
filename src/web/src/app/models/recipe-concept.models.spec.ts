@@ -1,5 +1,10 @@
 import { AiProposalDetail, AiProposedChange, AiProposalWarning } from './ai-proposal.models';
-import { conceptsFromProposal, encodeRequestRecipeConceptsRequest, generalConceptWarnings } from './recipe-concept.models';
+import {
+  EMPTY_RECIPE_CONCEPTS_REQUEST,
+  conceptsFromProposal,
+  encodeRequestRecipeConceptsRequest,
+  generalConceptWarnings,
+} from './recipe-concept.models';
 
 function addRow(overrides: Partial<AiProposedChange> = {}): AiProposedChange {
   return {
@@ -148,6 +153,7 @@ describe('recipe-concept.models', () => {
   describe('encodeRequestRecipeConceptsRequest', () => {
     it('omits blank and null fields', () => {
       const body = encodeRequestRecipeConceptsRequest({
+        dishName: null,
         audience: 'Weeknight home cooks',
         course: '',
         cuisine: null,
@@ -166,6 +172,7 @@ describe('recipe-concept.models', () => {
 
     it('trims a supplied value', () => {
       const body = encodeRequestRecipeConceptsRequest({
+        dishName: '  Fattoush salad with radishes  ',
         audience: '  Weeknight home cooks  ',
         course: null,
         cuisine: null,
@@ -180,6 +187,16 @@ describe('recipe-concept.models', () => {
       });
 
       expect(body['audience']).toBe('Weeknight home cooks');
+      expect(body['dishName']).toBe('Fattoush salad with radishes');
+    });
+
+    it('leads the brief with the dish name, which is the subject the rest of it describes', () => {
+      const body = encodeRequestRecipeConceptsRequest({
+        ...EMPTY_RECIPE_CONCEPTS_REQUEST,
+        dishName: 'Fattoush salad with radishes and grilled chicken shawarma',
+      });
+
+      expect(body).toEqual({ dishName: 'Fattoush salad with radishes and grilled chicken shawarma' });
     });
   });
 });

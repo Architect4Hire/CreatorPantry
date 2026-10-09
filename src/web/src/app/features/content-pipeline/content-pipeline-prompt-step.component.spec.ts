@@ -112,6 +112,7 @@ describe('ContentPipelinePromptStepComponent', () => {
           occasion: null,
           description: 'Plan a post about "Lemon Tart".',
           recipe: { recipeId: 'recipe-1', recipeVersionId, title: 'Lemon Tart' },
+          subject: null,
         },
       };
     }
@@ -171,6 +172,7 @@ describe('ContentPipelinePromptStepComponent', () => {
             occasion: null,
             description: 'An idea.',
             recipe: null,
+            subject: null,
           },
         },
       });

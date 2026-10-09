@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-confidence-without-a-code-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The mirror image, and the subtler half: \"fairly sure, about nothing\" is not an answer. Tolerating it would let the confidence band and the code disagree about whether a reading exists at all.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Method\",\"confidence\":\"Possible\",\"rationale\":\"nothing here says how it is cooked\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_confidence_misplaced",
+    "category": "DomainInvalid"
+  }
+}

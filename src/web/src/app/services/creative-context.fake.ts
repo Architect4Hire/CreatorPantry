@@ -113,6 +113,7 @@ export class FakeCreativeContextService {
             {
               id: `ref-${id}`,
               kind: from.kind,
+              purpose: from.purpose ?? 'Source',
               sortOrder: 0,
               recipeId: null,
               recipeVersionId: null,
@@ -160,6 +161,11 @@ export class FakeCreativeContextService {
     if (source.kind === 'Recipe' && current.references.some((each) => each.recipeId === source.recipeId)) {
       return of<CreativeContextWriteOutcome>({ status: 'duplicate' });
     }
+    // A picture is named once per purpose, as the store has it: the same picture can be this work's keeper
+    // and the cue its next prompt is planned from, and those are two rows (AF.4.3).
+    if (this.namesPicture(current, source)) {
+      return of<CreativeContextWriteOutcome>({ status: 'duplicate' });
+    }
 
     const next: CreativeContext = {
       ...current,
@@ -192,11 +198,28 @@ export class FakeCreativeContextService {
     return of<CreativeContextWriteOutcome>({ status: 'saved', context: next });
   }
 
+  /** True when this context already names that picture for that purpose. */
+  private namesPicture(context: CreativeContext, source: CreativeContextSource): boolean {
+    const purpose = source.purpose ?? 'Source';
+
+    if (source.kind === 'DamAsset') {
+      return context.references.some((each) => each.mediaAssetId === source.mediaAssetId && each.purpose === purpose);
+    }
+    if (source.kind === 'GeneratedImage') {
+      return context.references.some(
+        (each) => each.generatedImageId === source.generatedImageId && each.purpose === purpose,
+      );
+    }
+
+    return false;
+  }
+
   /** A reference row for one source, as the route would publish it. */
   reference(source: CreativeContextSource, sortOrder: number): CreativeContextReference {
     return {
       id: `ref-${++this.referencesMinted}`,
       kind: source.kind,
+      purpose: source.purpose ?? 'Source',
       sortOrder,
       recipeId: source.kind === 'Recipe' ? source.recipeId : null,
       recipeVersionId: source.kind === 'Recipe' ? (source.recipeVersionId ?? null) : null,

@@ -75,6 +75,13 @@ public sealed record ContentSeedDayServiceModel(DayOfWeek Day, bool Pinned, Cont
 /// for the same reason.
 /// </remarks>
 /// <param name="Recipe">The recipe this seed was built around, or null for a seed with none.</param>
+/// <param name="Subject">
+/// The name the caller gave for what the picture is of, echoed verbatim, or null when they gave none.
+/// </param>
+/// <remarks>
+/// <strong>Never set together with <paramref name="Recipe"/>.</strong> The request refuses both, so a client
+/// reading this can say what one idea is about without deciding between two answers.
+/// </remarks>
 public sealed record ContentSeedServiceModel(
     string Token,
     ContentSeedFacetServiceModel? Cuisine,
@@ -85,4 +92,5 @@ public sealed record ContentSeedServiceModel(
     ContentSeedDayServiceModel Day,
     ContentSeedFacetServiceModel? Occasion,
     string Description,
-    ContentSeedRecipeServiceModel? Recipe = null);
+    ContentSeedRecipeServiceModel? Recipe = null,
+    string? Subject = null);

@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-null-suggestions-list-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "An explicit null for a non-nullable collection. Without RespectNullableAnnotations this crashes the validator rather than being refused, because System.Text.Json does not enforce the annotation unless asked and a collection initialiser does not survive an explicit null. Refused as a classified, correctable rejection like any other bad shape.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":null}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

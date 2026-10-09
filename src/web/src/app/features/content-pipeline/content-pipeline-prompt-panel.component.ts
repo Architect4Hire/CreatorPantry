@@ -20,6 +20,7 @@ import {
   CONTENT_PIPELINE_LIMITS,
   ContentPipelineConfig,
   ContentPipelinePromptState,
+  contentSubjectOf,
   isGeneratedPromptSource,
   promptReplacementNeedsAsking,
 } from '../../models/content-pipeline.models';
@@ -209,6 +210,7 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
           channelKey: config.channelKey,
           recipeId: recipe?.recipeId ?? null,
           recipeVersionId: recipe?.recipeVersionId ?? null,
+          dishName: contentSubjectOf(config, recipe),
           briefDocumentId: latest.brief?.documentId ?? null,
           sceneOverrides: config.scene,
           styleOverrides: config.style,

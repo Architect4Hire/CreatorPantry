@@ -13,10 +13,14 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 ///
 /// No <c>socialPackageId</c> yet: this seam refuses that kind until post packages exist, so the field could
 /// only ever be null. It becomes a compatible addition when the kind is accepted.
+///
+/// <c>Purpose</c> says what the row is for rather than what it points at, which is how a caller tells a
+/// picture the work takes cues from apart from one the work produced (AF.4.3).
 /// </remarks>
 public sealed record CreativeContextReferenceServiceModel(
     Guid Id,
     CreativeContextReferenceKind Kind,
+    CreativeContextReferencePurpose Purpose,
     int SortOrder,
     Guid? RecipeId,
     Guid? RecipeVersionId,

@@ -407,7 +407,41 @@ states, wait for approval, implement with service and component specs including 
 partial-validation error mapped to its field.
 ```
 
-## AF.4.2 Save to library from Image Studio
+## AF.4.2 Save to library from Image Studio - done
+
+*Delivery note, in four parts.*
+
+*The run became the filing surface rather than the studio.* `cp-generated-image-run` takes one new input,
+`library: GeneratedImageRunLibrary | null`, which carries the default title, the recipe to offer as the link,
+and the work's context references. Null — the Content Pipeline, until AF.4.3 — keeps the keeper checkbox and
+changes nothing. Non-null replaces that checkbox with a per-picture save: marking and saving are one action, so
+**the studio writes no keepers at all** and `ContentPipelineImagesState` is untouched. AF.4.3 supplies the same
+input from the pipeline's library step.
+
+*A saved picture is saved because the server says so.* `GeneratedImageStatus.Kept` is the authority and
+survives a reload, another tab and another device. The asset's id is the one thing a staged row does not carry,
+so it is handed over by a save made here and otherwise matched back through the work's own `DamAsset`
+references — `DamAssetDetail` now reads `sourceGeneratedImageId` for exactly that, read one reference at a time,
+stopped as soon as every saved picture is accounted for, and not read at all when nothing is saved. A picture
+whose asset cannot be found still says it is in the library, with the way to the library rather than to the
+asset.
+
+*No prompt is offered with the save, and that is deliberate rather than deferred by oversight.*
+`PromptRecordInputChecks` requires a non-`Manual` prompt to name its proposal, the model's draft and the
+template id, version and checksum together, and a run keeps request ids rather than any of those — so the tick
+would have been a refusal waiting to happen. AF.4.3 assembles that lineage. The dialog gained one small output
+for this prompt, `progress`, because a save in flight and one that did not land are the two states no picture
+row can carry.
+
+*One interaction to know about, not introduced lightly.* `pictureReferenceOf` reads the first `DamAsset` or
+`GeneratedImage` reference as "the picture this work takes its cues from" (AF.3.5), so a saved output shows up
+in the reference panel as an inspiration picture when the creator had not chosen one. An existing choice is
+never displaced — the save is appended — and nothing is analysed or sent to a model until the creator asks, so
+no prompt is shaped by it. Worth a role on the reference, or a filter, when AF.3.5 or AF.4.3 next touches that
+convention.
+
+*Closed by AF.4.3*, which gave references a purpose: a saved asset is a `Keeper` and `pictureReferenceOf`
+reads only a `Source`, so the studio's output is no longer offered back as a cue.
 
 ```text
 SCOPE: Fix FLU-005. In Image Studio's generated-image run, add "Save to library" per picture using AF.4.1,
@@ -420,7 +454,50 @@ BEHAVIOR: Show the per-picture states (staged, saving, saved, failed), wait for 
 component specs.
 ```
 
-## AF.4.3 Content Pipeline library step
+## AF.4.3 Content Pipeline library step - done, in two commits
+
+*Delivery note, in five parts.*
+
+*The keeper move needed a server change first, and it was not optional.* Before this, "the picture this work
+takes its cues from" was *the first* picture reference on the context, and the reference panel **removes that
+row** when the creator chooses a different cue — so keepers-as-references would have meant choosing an
+inspiration picture silently deleting a keeper. References now carry a
+`CreativeContextReferencePurpose` (`Source`, `Keeper`), defaulting to `Source`, with the two **picture** kinds
+unique per purpose rather than per target: one picture can honestly be this work's output *and* the cue its
+next prompt is planned from, while a recipe or a prompt is still named once however it is used. `Source` is
+what an unstated purpose means, so an old body and a new one agree, and the whole thing is additive in the
+OpenAPI snapshot. It also retires the interaction AF.4.2's note flagged — a saved asset is a `Keeper` and
+stops reading as inspiration.
+
+*Keepers are references; the run id stays on the device.* `ContentPipelineImagesState` is `{ operationId }`
+now, the run's `keepers` became its own input with a `keepToggled` output, and the images step writes a mark
+to the context. `CONTENT_PIPELINE_RUN_VERSION` and `IMAGE_STUDIO_WORK_VERSION` are raised, and a record from
+the previous shape is discarded as every earlier one has been — its marks cannot be written to a context from
+a decoder.
+
+*A keeper whose picture has gone is no longer pruned.* `keepersStillPresent` and the run's two pruning effects
+are deleted. A reference points at something that may have stopped being usable rather than at nothing, which
+is what its own entity doc says it means, so the library step says "this picture was declined" or "held past
+the time generated pictures are kept for" instead of quietly forgetting the creator chose it.
+
+*Nothing about progress is stored, which is what makes resume honest.* A keeper is saved when its picture's
+status is `Kept` — the server's own answer — and the asset it became is matched back through the work's
+`DamAsset` references by `sourceGeneratedImageId`, the matcher now shared with AF.4.2 as
+`matchSavedPictures`. So a resume retries exactly what is not saved, a replay costs nothing (the route keeps a
+picture once and answers with the first asset), and each save is its own request, so one failure neither
+undoes nor blocks the others.
+
+*Two things worth knowing.* **The prompt sends no recipe pin**: the proposal already records which recipe and
+version it was about, and a pin that disagreed — the creator relinked the recipe after composing — would be
+refused, failing every picture alike to say something the proposal says better. Where the lineage cannot be
+assembled honestly the picture still saves and the step says why (`no_channel` when the work has named no
+channel, `unreadable` when the generation cannot be read); an edited *reference* reading records as `Manual`,
+which understates it, because the alternative is permanently claiming a model wrote words a person may have
+replaced. **A step that is not built is now passed through** rather than blocking Continue: the library step
+is finished while `posts` before it is not, and stopping there would hide a built step behind an unbuilt one.
+The journey's order is unchanged.
+
+
 
 ```text
 SCOPE: Fix FLU-002. Replace the pipeline's "library" placeholder with a real step: the chosen keepers,

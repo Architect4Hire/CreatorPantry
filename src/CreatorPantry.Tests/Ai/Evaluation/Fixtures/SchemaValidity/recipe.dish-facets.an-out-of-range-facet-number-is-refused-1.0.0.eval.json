@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.an-out-of-range-facet-number-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The enum converter accepts integers as well as names, so a facet of 7 deserializes to a value no member has and slips past a check that only looks for Unspecified. Left through, it becomes a stored field named facet.7.rationale and a warning reading \"The 7 reading...\" -- a row nothing can read back and a sentence no creator can make sense of.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":7,\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"the name says salad\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.kind_not_declared",
+    "category": "DomainInvalid"
+  }
+}

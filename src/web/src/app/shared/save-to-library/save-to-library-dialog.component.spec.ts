@@ -10,7 +10,7 @@ import { DamAssetKeepOutcome, DamAssetService } from '../../services/dam-asset.s
 import { GeneratedImageService, StagedImagePreviewOutcome } from '../../services/generated-image.service';
 import { RecipeSearchOutcome, RecipeService } from '../../services/recipe.service';
 import { WorkspaceTagService, WorkspaceTagsOutcome } from '../../services/workspace-tag.service';
-import { SaveToLibraryDialogComponent } from './save-to-library-dialog.component';
+import { SaveToLibraryDialogComponent, SaveToLibraryProgress } from './save-to-library-dialog.component';
 
 function asset(overrides: Partial<DamCreatedAsset> = {}): DamCreatedAsset {
   return {
@@ -66,6 +66,7 @@ const PROMPT: DamKeepPrompt = {
       [prompt]="prompt()"
       [altTextSuggestion]="suggestion()"
       (saved)="saved.push($event)"
+      (progress)="progress.push($event)"
       (imageGone)="gone = gone + 1"
       (closed)="onClosed()"
     />
@@ -80,6 +81,7 @@ class HostComponent {
   readonly prompt = signal<DamKeepPrompt | null>(null);
   readonly suggestion = signal<string | null>(null);
   readonly saved: DamCreatedAsset[] = [];
+  readonly progress: SaveToLibraryProgress[] = [];
   gone = 0;
   closes = 0;
 
@@ -600,6 +602,42 @@ describe('SaveToLibraryDialogComponent', () => {
     expect(alert()).toContain('Contributor access');
     expect(field('title').value).toBe('Soda bread hero');
     expect(host.closes).toBe(0);
+  });
+
+  // ---- What the surface behind is told (AF.4.2) ----
+
+  it('reports a save as it starts and as it fails, so the picture behind can say where it stands', async () => {
+    await create();
+    keepSpy.and.resolveTo({ status: 'forbidden' });
+
+    button('Save to library').click();
+    await settle();
+
+    expect(host.progress).toEqual([
+      { state: 'saving' },
+      { state: 'failed', problem: 'You need Contributor access in this workspace to save a picture. Nothing was saved.' },
+    ]);
+  });
+
+  it('reports a save that lands as the asset alone, because the picture is no longer waiting on anything', async () => {
+    await create();
+
+    button('Save to library').click();
+    await settle();
+
+    expect(host.progress).toEqual([{ state: 'saving' }]);
+    expect(host.saved).toEqual([asset()]);
+  });
+
+  it('reports a picture that has gone as gone rather than as a save to try again', async () => {
+    await create();
+    keepSpy.and.resolveTo({ status: 'image_gone' });
+
+    button('Save to library').click();
+    await settle();
+
+    expect(host.progress).toEqual([{ state: 'saving' }]);
+    expect(host.gone).toBe(1);
   });
 
   // ---- Tags ----

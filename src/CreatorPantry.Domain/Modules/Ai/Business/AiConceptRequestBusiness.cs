@@ -111,7 +111,7 @@ internal sealed class AiConceptRequestBusiness(
     /// </summary>
     private static string SerializeInputs(RequestRecipeConceptsViewModel model)
     {
-        var values = new Dictionary<string, string>(11, StringComparer.Ordinal);
+        var values = new Dictionary<string, string>(12, StringComparer.Ordinal);
 
         void Add(string name, string? value)
         {
@@ -121,6 +121,7 @@ internal sealed class AiConceptRequestBusiness(
             }
         }
 
+        Add(AiBriefInputs.DishName, model.DishName);
         Add(AiBriefInputs.Audience, model.Audience);
         Add(AiBriefInputs.Course, model.Course);
         Add(AiBriefInputs.Cuisine, model.Cuisine);

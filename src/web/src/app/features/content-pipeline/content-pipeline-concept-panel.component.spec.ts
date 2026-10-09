@@ -195,6 +195,7 @@ describe('ContentPipelineConceptPanelComponent', () => {
       channelKey: 'instagram',
       recipeId: null,
       recipeVersionId: null,
+      dishName: null,
       creatorConcept: 'A tight crop.',
       sceneOverrides: ['marble slab'],
       styleOverrides: ['soft light'],
@@ -546,5 +547,63 @@ describe('ContentPipelineConceptPanelComponent', () => {
 
     expect(el.textContent).toContain('still here');
     expect(host.prompt().conceptRequestId).toBeNull();
+  });
+
+  describe('what the picture is of', () => {
+    it('sends the typed name as the dish, and it is subject enough on its own', async () => {
+      await mount(undefined, { subject: 'Fattoush salad with radishes and grilled chicken shawarma' });
+      host.brief.set('');
+      await settle();
+
+      // A name says what the picture is of, which a channel alone does not — so this is not the empty ask the
+      // panel refuses to spend an allowance on.
+      expect(buttonWith('Plan some looks')!.disabled).toBeFalse();
+
+      await click('Plan some looks');
+
+      expect(requests[0].dishName).toBe('Fattoush salad with radishes and grilled chicken shawarma');
+      expect(requests[0].recipeId).toBeNull();
+    });
+
+    it('sends no dish name once a recipe is linked, because the route refuses both', async () => {
+      await mount(undefined, { subject: 'Soda bread' });
+      host.recipe.set({ recipeId: 'recipe-1', recipeVersionId: 'version-1' });
+      host.brief.set('A tight crop.');
+      await settle();
+
+      await click('Plan some looks');
+
+      expect(requests[0].dishName).toBeNull();
+      expect(requests[0].recipeId).toBe('recipe-1');
+    });
+
+    it('says looks were planned under an earlier name, and never replans on its own', async () => {
+      await mount(undefined, { subject: 'Soda bread' });
+      host.brief.set('A tight crop.');
+      await settle();
+      await click('Plan some looks');
+      await answerWatch(TWO_LOOKS);
+
+      const asked = requests.length;
+      host.config.set({ ...host.config(), subject: 'Barmbrack' });
+      await settle();
+
+      expect(el.textContent).toContain('renamed what this picture is of');
+      // Planning spends the allowance, so it stays the creator's to ask for.
+      expect(requests.length).toBe(asked);
+    });
+
+    it('says nothing about a name added after the looks were planned', async () => {
+      await mount();
+      host.brief.set('A tight crop.');
+      await settle();
+      await click('Plan some looks');
+      await answerWatch(TWO_LOOKS);
+
+      host.config.set({ ...host.config(), subject: 'Soda bread' });
+      await settle();
+
+      expect(el.textContent).not.toContain('renamed what this picture is of');
+    });
   });
 });

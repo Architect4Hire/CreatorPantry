@@ -1,11 +1,13 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, Subject, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
 import { WorkspaceRole } from '../../models/auth.models';
+import { DamCreatedAsset } from '../../models/dam-asset.models';
 import {
   GeneratedImageOperationDetail,
   GeneratedImageOperationStatus,
@@ -39,6 +41,7 @@ import { RecipeService } from '../../services/recipe.service';
 import { PhotographyConceptService } from '../../services/photography-concept.service';
 import { ReferenceImageService } from '../../services/reference-image.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { SaveToLibraryDialogComponent } from '../../shared/save-to-library/save-to-library-dialog.component';
 import { ImageStudioComponent } from './image-studio.component';
 
 const SLUG = 'cozy-fall';
@@ -388,6 +391,17 @@ async function typeConcept(value: string): Promise<void> {
   await settle();
 }
 
+function subjectValue(): string {
+  return root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!.value;
+}
+
+async function typeSubject(value: string): Promise<void> {
+  const field = root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!;
+  field.value = value;
+  field.dispatchEvent(new Event('input'));
+  await settle();
+}
+
 function conceptValue(): string {
   return root().querySelector<HTMLTextAreaElement>('#cp-pipeline-concept')!.value;
 }
@@ -411,6 +425,38 @@ async function click(label: string): Promise<void> {
 
 function promptBox(): HTMLTextAreaElement {
   return root().querySelector<HTMLTextAreaElement>('#cp-pipeline-final-prompt')!;
+}
+
+/** The "Save to library" button of one picture, by its place in the run. */
+function saveButton(position: number, total = 2): HTMLButtonElement | null {
+  return (
+    Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find(
+      (each) => each.getAttribute('aria-label') === `Save picture ${position} of ${total} to your library`,
+    ) ?? null
+  );
+}
+
+/** The save form the run mounts, so what the studio does with its answers can be driven. */
+function saveDialog(): SaveToLibraryDialogComponent {
+  return harness.routeDebugElement!.query(By.directive(SaveToLibraryDialogComponent)).componentInstance;
+}
+
+function savedAsset(overrides: Partial<DamCreatedAsset> = {}): DamCreatedAsset {
+  return {
+    id: 'asset-1',
+    title: 'The first slice',
+    kind: 'AiGenerated',
+    currentVersionNumber: 1,
+    mediaType: 'image/png',
+    width: 1024,
+    height: 1024,
+    sizeBytes: 482000,
+    sourceGeneratedImageId: 'img-1',
+    promptRecordId: null,
+    recipeId: null,
+    createdAt: '2026-10-09T12:00:00Z',
+    ...overrides,
+  };
 }
 
 async function typePrompt(value: string): Promise<void> {
@@ -495,7 +541,7 @@ describe('ImageStudioComponent', () => {
     it('stops a Viewer at the door, and asks the server for nothing on their behalf', async () => {
       await create({
         role: 'Viewer',
-        drafts: { 'w1.m1': draftWith({ images: { operationId: 'op-1', keepers: [] } }) },
+        drafts: { 'w1.m1': draftWith({ images: { operationId: 'op-1' } }) },
       });
 
       expect(text()).toContain('view-only access');
@@ -514,6 +560,9 @@ describe('ImageStudioComponent', () => {
 
       expect(headings).toEqual([
         'A recipe',
+        // Directly under the picker, because the two answer the same question: a recipe from the library, or
+        // the name of one that is not in it yet.
+        'What it is',
         'Where it is going',
         'How many pictures to try',
         'What you already have in mind',
@@ -681,18 +730,14 @@ describe('ImageStudioComponent', () => {
       expect(requests[0].key.length).toBeGreaterThan(0);
     });
 
-    it('shows what comes back, and keeps the run and the marks — and nothing about the pictures', async () => {
+    it('shows what comes back, and keeps the run — and nothing about the pictures', async () => {
       await create({ drafts: { 'w1.m1': draftWith() } });
       await generate();
 
       expect(root().querySelectorAll('.sheet > li').length).toBe(2);
-      expect(text()).toContain('Nothing is filed in your library from this page');
-
-      root().querySelector<HTMLInputElement>('#cp-pipeline-keep-img-1')!.click();
-      await settle();
 
       const last = writes[writes.length - 1].draft;
-      expect(last.images).toEqual({ operationId: 'op-1', keepers: ['img-1'] });
+      expect(last.images).toEqual({ operationId: 'op-1' });
 
       const kept = JSON.stringify(writes.map((write) => write.draft));
       for (const field of ['mediaType', 'sizeBytes', 'width', 'height', 'providerName', 'modelName', 'retentionExpiresAt']) {
@@ -700,8 +745,21 @@ describe('ImageStudioComponent', () => {
       }
     });
 
+    it('offers saving as the one decision about a picture, and no keeper to mark as well (AF.4.2)', async () => {
+      await create({ drafts: { 'w1.m1': draftWith() } });
+      await generate();
+
+      expect(text()).toContain('A picture you save is yours from then on');
+      expect(text()).not.toContain('Nothing is filed in your library from this page');
+      expect(root().querySelector('#cp-pipeline-keep-img-1')).toBeNull();
+      expect(saveButton(1)).not.toBeNull();
+      // An unsaved picture still goes, and the page says when.
+      expect(text()).toContain('stop being available after');
+      expect(text()).toContain('so save anything you want to keep.');
+    });
+
     it('picks a kept run back up on return, without asking for a new one', async () => {
-      await create({ drafts: { 'w1.m1': draftWith({ images: { operationId: 'op-1', keepers: [] } }) } });
+      await create({ drafts: { 'w1.m1': draftWith({ images: { operationId: 'op-1' } }) } });
 
       expect(watchedSlugs).toEqual([`${SLUG}|op-1`]);
       expect(requests).toEqual([]);
@@ -901,6 +959,48 @@ describe('ImageStudioComponent', () => {
       expect(text()).not.toContain('not saved yet');
     });
 
+    it('opens with the name the work was handed over under, so nothing is retyped', async () => {
+      await create({
+        url: `/${SLUG}/image-studio/context/ctx-shared`,
+        setup: (fake) => fake.seed(SLUG, 'ctx-shared', { workingTitle: 'Fattoush Salad with Radishes' }),
+      });
+
+      // What the hand-off seeded. The studio opens knowing what the picture is of, which is what makes
+      // "Plan some looks" available without the creator saying it again.
+      expect(subjectValue()).toBe('Fattoush Salad with Radishes');
+    });
+
+    it('shows the newer name after a reload, because the context owns it and this screen only renders it', async () => {
+      await create({
+        url: `/${SLUG}/image-studio/context/ctx-shared`,
+        setup: (fake) => fake.seed(SLUG, 'ctx-shared', { workingTitle: 'Soda bread' }),
+      });
+      server.changeElsewhere(SLUG, 'ctx-shared', { workingTitle: 'Barmbrack' });
+
+      // A clash on this very field is what offers the reload: renamed here, renamed there.
+      await typeSubject('Fattoush salad');
+      await saved();
+      await click('Load the latest');
+
+      expect(confirmCalls).toEqual(['Load the latest?']);
+      expect(subjectValue()).toBe('Barmbrack');
+    });
+
+    it('keeps the name typed here when the same field was changed somewhere else', async () => {
+      await create({
+        url: `/${SLUG}/image-studio/context/ctx-shared`,
+        setup: (fake) => fake.seed(SLUG, 'ctx-shared', { workingTitle: 'Soda bread' }),
+      });
+      server.changeElsewhere(SLUG, 'ctx-shared', { workingTitle: 'Barmbrack' });
+
+      await typeSubject('Fattoush salad');
+      await saved();
+
+      // Theirs until they say otherwise, exactly as the picture description is.
+      expect(subjectValue()).toBe('Fattoush salad');
+      expect(text()).toContain('changed somewhere else');
+    });
+
     it('keeps the creator’s edit and offers a reload when the same field was changed somewhere else', async () => {
       await create({ drafts: { 'w1.m1': draftWith() } });
       server.changeElsewhere(SLUG, 'ctx-w1.m1', { pictureBrief: 'A wide shot of the table.' });
@@ -917,6 +1017,95 @@ describe('ImageStudioComponent', () => {
       expect(confirmCalls).toEqual(['Load the latest?']);
       expect(conceptValue()).toBe('A wide shot of the table.');
       expect(promptBox().value).withContext('what is only on this device is not touched').toBe(PROMPT);
+    });
+  });
+
+  describe('saving a picture to the library (AF.4.2, FLU-005)', () => {
+    /** Arrive on a context the server already holds, and make the pictures. */
+    async function arrive(workingTitle: string | null = null): Promise<void> {
+      await create({
+        url: `/${SLUG}/image-studio/context/ctx-shared`,
+        setup: (fake) => fake.seed(SLUG, 'ctx-shared', workingTitle === null ? {} : { workingTitle }),
+      });
+      await typePrompt(PROMPT);
+      await generate();
+    }
+
+    /** …and press Save on the first picture. */
+    async function openSave(): Promise<void> {
+      await arrive();
+
+      saveButton(1)!.click();
+      await settle();
+    }
+
+    it('opens the save form for the picture pressed, with the work’s own title', async () => {
+      await arrive('Autumn soda bread');
+
+      saveButton(2)!.click();
+      await settle();
+
+      expect(saveDialog().open()).toBeTrue();
+      expect(saveDialog().generatedImageId()).toBe('img-2');
+      expect(saveDialog().workspaceSlug()).toBe(SLUG);
+      expect(saveDialog().defaultTitle()).toBe('Autumn soda bread');
+    });
+
+    it('names the asset on the work’s creative context, pinned to the version that was saved', async () => {
+      await openSave();
+
+      saveDialog().saved.emit(savedAsset());
+      await settle();
+
+      expect(
+        server.stored(SLUG, 'ctx-shared')?.references.map((each) => [each.kind, each.mediaAssetId, each.mediaAssetVersionNumber]),
+      ).toEqual([['DamAsset', 'asset-1', 1]]);
+      expect(text()).toContain('In your library as “The first slice”.');
+      expect(root().querySelector(`a[href="/${SLUG}/dam/asset-1"]`)).not.toBeNull();
+    });
+
+    it('says the picture is saved even when the work could not be made to point at it', async () => {
+      await openSave();
+
+      server.refuseAddWith = 'limit';
+      saveDialog().saved.emit(savedAsset());
+      await settle();
+
+      // Both halves of the truth: the picture is in the library, and this piece of work does not name it.
+      expect(text()).toContain('is in your library, but this piece of work could not be made to point at it');
+      expect(server.stored(SLUG, 'ctx-shared')?.references).toEqual([]);
+      expect(text()).toContain('In your library as “The first slice”.');
+    });
+
+    it('offers no second save and no decline once a picture is in the library', async () => {
+      await openSave();
+
+      saveDialog().saved.emit(savedAsset());
+      await settle();
+
+      expect(saveButton(1)).toBeNull();
+      expect(
+        Array.from(root().querySelectorAll('button')).some(
+          (each) => each.getAttribute('aria-label') === 'Decline picture 1 of 2',
+        ),
+      ).toBeFalse();
+    });
+
+    it('writes no keeper to the draft: on this page saving is the whole decision', async () => {
+      await openSave();
+
+      saveDialog().saved.emit(savedAsset());
+      await settle();
+
+      // Nothing but the run id is kept about the pictures: on this page saving is the whole decision.
+      expect(writes.every((write) => Object.keys(write.draft.images).length === 1)).toBeTrue();
+    });
+
+    it('offers no save at all to a workspace this creator may only read', async () => {
+      await create({ role: 'Viewer' });
+
+      expect(saveButton(1)).toBeNull();
+      expect(text()).toContain('view-only access');
     });
   });
 
@@ -989,7 +1178,7 @@ describe('ImageStudioComponent', () => {
   });
 
   describe('two workspaces', () => {
-    const cozy = draftWith({ images: { operationId: 'op-cozy', keepers: [] } });
+    const cozy = draftWith({ images: { operationId: 'op-cozy' } });
 
     it("never shows one workspace's prompt in the other", async () => {
       await create({ drafts: { 'w1.m1': cozy } });

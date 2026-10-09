@@ -95,6 +95,42 @@ public sealed class RecipeConceptsAiTaskHandlerTests
         Assert.DoesNotContain("Sichuan", systemMessage, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The dish name leads the brief, and it is the creator's own words wherever it lands.
+    /// </summary>
+    /// <remarks>
+    /// Leads because the rest of the brief describes it, and the prompt reads it as binding on every concept
+    /// returned. It is still untrusted creator text: it reaches the PREFERENCES segment of the user message and
+    /// never the system message, which is what stops a name written as an instruction being read as one
+    /// (ai.md).
+    /// </remarks>
+    [Fact]
+    public async Task A_dish_name_leads_the_brief_and_stays_out_of_the_system_message()
+    {
+        var client = FakeChatClient.Returning(TwoConcepts);
+
+        await Run(client, inputs: new Dictionary<string, string>
+        {
+            ["dishName"] = "Fattoush salad with radishes and grilled chicken shawarma",
+            ["cuisine"] = "Levantine",
+        });
+
+        var userMessage = client.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+        var systemMessage = client.LastMessages!.Single(message => message.Role == ChatRole.System).Text;
+
+        Assert.Contains(
+            "- Dish name: Fattoush salad with radishes and grilled chicken shawarma",
+            userMessage,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("Fattoush", systemMessage, StringComparison.Ordinal);
+
+        // First line of the brief, before every field that describes it.
+        Assert.True(
+            userMessage.IndexOf("Dish name:", StringComparison.Ordinal)
+                < userMessage.IndexOf("Audience:", StringComparison.Ordinal),
+            "the dish name must lead the brief");
+    }
+
     /// <summary>An unsupplied field reads as a complete sentence, not a blank left where a value belonged.</summary>
     [Fact]
     public async Task Unsupplied_inputs_render_as_not_specified()
@@ -104,6 +140,7 @@ public sealed class RecipeConceptsAiTaskHandlerTests
         await Run(client, inputs: null);
 
         var userMessage = client.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+        Assert.Contains("Dish name: not specified", userMessage, StringComparison.Ordinal);
         Assert.Contains("Cuisine: not specified", userMessage, StringComparison.Ordinal);
         Assert.Contains("Creator style: not specified", userMessage, StringComparison.Ordinal);
     }

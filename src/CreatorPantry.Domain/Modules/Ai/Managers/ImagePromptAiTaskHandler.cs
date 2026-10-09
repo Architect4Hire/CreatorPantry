@@ -343,16 +343,17 @@ internal sealed class ImagePromptAiTaskHandler(
     /// </remarks>
     private static string? Untrusted(IReadOnlyDictionary<string, string>? inputs, string? brief)
     {
+        var dishName = ImagePromptInputs.Read(inputs, ImagePromptInputs.DishName);
         var scene = ImagePromptInputs.ReadList(inputs, ImagePromptInputs.SceneOverrides);
         var style = ImagePromptInputs.ReadList(inputs, ImagePromptInputs.StyleOverrides);
 
-        if (brief is null && scene.Count == 0 && style.Count == 0)
+        if (brief is null && dishName is null && scene.Count == 0 && style.Count == 0)
         {
             return null;
         }
 
         return JsonSerializer.Serialize(
-            new { sceneOverrides = scene, styleOverrides = style, brief }, SegmentJson);
+            new { dishName, sceneOverrides = scene, styleOverrides = style, brief }, SegmentJson);
     }
 
     /// <summary>

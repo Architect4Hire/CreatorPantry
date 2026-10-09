@@ -80,6 +80,7 @@ function asset(overrides: Partial<DamAssetDetail> = {}): DamAssetDetail {
       { id: 'p1', label: 'Linen overhead', imageKind: 'Hero', source: 'ImagePromptComposition', createdAt: '2026-10-07T09:00:00+00:00' },
       { id: 'p2', label: null, imageKind: 'DetailShot', source: 'Manual', createdAt: '2026-10-06T09:00:00+00:00' },
     ],
+    sourceGeneratedImageId: null,
     createdAt: '2026-10-08T12:00:00+00:00',
     updatedAt: '2026-10-09T08:30:00+00:00',
     concurrencyToken: 'token-1',

@@ -5640,7 +5640,9 @@ replay, transaction-failure, and isolation tests.
 
 ### 13.7a Content Pipeline keeper commit
 
-*Narrowed by AF.4.3 (`creatorpantry-ai-fluency-scrub-prompts.md`), which delivers the DAM save and prompt lineage. The board card remains here.*
+*Narrowed by AF.4.3 (`creatorpantry-ai-fluency-scrub-prompts.md`), which **has delivered** the DAM save and
+the prompt lineage. The board card remains here — and the keepers it links are now `Keeper` references on the
+work's creative context rather than a `string[]` in the browser.*
 
 ```text
 SCOPE: Add only the final pipeline commit action that idempotently saves the selected staged image to DAM,

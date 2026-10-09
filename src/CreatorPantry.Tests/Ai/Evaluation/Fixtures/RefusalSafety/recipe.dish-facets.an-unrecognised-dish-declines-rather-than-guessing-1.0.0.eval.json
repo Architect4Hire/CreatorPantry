@@ -1,0 +1,12 @@
+{
+  "id": "recipe.dish-facets.an-unrecognised-dish-declines-rather-than-guessing",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "DishFacetsOutputValidation",
+  "description": "A name the model does not recognise declines its facets and says so in a warning, rather than reasoning from a similar-sounding dish. The shape permits this and the template asks for it; whether a model actually declines instead of pattern-matching on a syllable is behaviour this fixture cannot demonstrate, only the shape that lets it.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\",\"rationale\":\"this dish is not one I recognise, and the nearest-sounding one is not evidence\"}],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"This dish was not recognised, so its facets were left for you to choose.\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": { "outcome": "Accepted", "suggestionCount": 1 }
+}

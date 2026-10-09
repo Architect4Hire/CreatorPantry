@@ -17,11 +17,17 @@ const CHANNELS: readonly ContentChannel[] = [
 
 @Component({
   imports: [ContentPipelineSetupStepComponent],
-  template: `<cp-content-pipeline-setup-step [config]="config()" [showDay]="showDay()" (changed)="apply($event)" />`,
+  template: `<cp-content-pipeline-setup-step
+    [config]="config()"
+    [showDay]="showDay()"
+    [linkedRecipeTitle]="linkedRecipeTitle()"
+    (changed)="apply($event)"
+  />`,
 })
 class HostComponent {
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly showDay = signal(true);
+  readonly linkedRecipeTitle = signal<string | null>(null);
   readonly emitted: ContentPipelineConfig[] = [];
 
   apply(next: ContentPipelineConfig): void {
@@ -217,5 +223,38 @@ describe('ContentPipelineSetupStepComponent', () => {
 
     expect(el.querySelectorAll('[aria-required="true"]').length).toBe(0);
     expect(el.textContent).not.toContain('(optional)');
+  });
+
+  describe('what the picture is of', () => {
+    it("keeps the creator's name for the dish, up to the length the context stores", async () => {
+      await mount();
+
+      await type('cp-pipeline-subject', 'Fattoush salad with radishes and grilled chicken shawarma');
+
+      expect(latest().subject).toBe('Fattoush salad with radishes and grilled chicken shawarma');
+
+      // Bounded at the control, so a creator is stopped while typing rather than by a refusal afterwards.
+      expect(byId<HTMLInputElement>('cp-pipeline-subject').maxLength).toBe(200);
+    });
+
+    it('says the name is what everything is planned around while no recipe is linked', async () => {
+      await mount();
+
+      const hint = el.querySelector('#cp-pipeline-subject')!.closest('cp-field')!.textContent ?? '';
+      expect(hint).toContain('not in your library yet');
+    });
+
+    it('says the linked recipe wins, and that the name is kept rather than asking for it to be deleted', async () => {
+      await mount({ ...emptyContentPipelineConfig(), subject: 'Soda bread' });
+      host.linkedRecipeTitle.set("Nan's Soda Bread");
+      await settle();
+
+      const field = el.querySelector('#cp-pipeline-subject')!.closest('cp-field')!.textContent ?? '';
+      expect(field).toContain("Nan's Soda Bread");
+      expect(field).toContain('This name is kept');
+
+      // The creator's own words stay on screen: nothing here clears them.
+      expect(byId<HTMLInputElement>('cp-pipeline-subject').value).toBe('Soda bread');
+    });
   });
 });

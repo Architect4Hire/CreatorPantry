@@ -100,6 +100,13 @@ export interface ContentSeed {
   readonly description: string;
   /** The recipe this idea was built around, or null for an idea with none. */
   readonly recipe: ContentSeedRecipe | null;
+  /**
+   * The name the creator typed for what the picture is of, echoed back, or null when they typed none.
+   *
+   * Creator content, like a theme's display name: the description quotes it verbatim. Never set at the same
+   * time as {@link recipe} — a linked recipe is what the idea is about, and the server refuses both at once.
+   */
+  readonly subject: string | null;
 }
 
 function decodeFacet(value: unknown): ContentSeedFacet | null {
@@ -167,8 +174,10 @@ export function decodeContentSeed(value: unknown): ContentSeed | null {
   const occasion = decodeOptionalFacet(value['occasion']);
   const day = decodeDay(value['day']);
   const recipe = decodeRecipe(value['recipe']);
+  const subject = value['subject'];
 
   if (
+    (subject !== null && subject !== undefined && typeof subject !== 'string') ||
     recipe === null ||
     typeof token !== 'string' ||
     token.length === 0 ||
@@ -195,6 +204,8 @@ export function decodeContentSeed(value: unknown): ContentSeed | null {
     occasion: occasion.facet,
     description,
     recipe: recipe.recipe,
+    // Absent reads as none: an idea picked before a subject could be named is kept on the device without it.
+    subject: typeof subject === 'string' && subject !== '' ? subject : null,
   };
 }
 
@@ -241,6 +252,13 @@ export const CONTENT_SEED_PIN_NAMES: readonly ContentSeedPinName[] = [
 export interface ContentSeedQuery extends ContentSeedPins {
   readonly token?: string | null;
   readonly day?: DayOfWeek | null;
+  /**
+   * What the picture is of, in the creator's own words, for work with no recipe behind it yet.
+   *
+   * Refused alongside {@link recipeId}: a linked recipe is what the idea is about, and the client decides that
+   * precedence once in `contentSubjectOf` rather than letting the server guess between two answers.
+   */
+  readonly subject?: string | null;
   /** A recipe of the workspace to build the idea around, and the version of it the creator pinned, if any. */
   readonly recipeId?: string | null;
   readonly recipeVersionId?: string | null;
@@ -271,6 +289,7 @@ export function contentSeedQueryParams(query: ContentSeedQuery): Record<string, 
   put('Channel', query.channel);
   put('Occasion', query.occasion);
   if (query.day) params['Day'] = query.day;
+  put('Subject', query.subject);
   put('RecipeId', query.recipeId);
   // A version means nothing without its recipe, and the server refuses one sent alone.
   if (params['RecipeId']) put('RecipeVersionId', query.recipeVersionId);
@@ -292,6 +311,9 @@ export const CONTENT_SEED_FIELD_NAMES: Readonly<Record<ContentSeedPinName | 'tok
 
 /** The field a refusal names when the recipe asked for cannot be read in this workspace. */
 export const CONTENT_SEED_RECIPE_FIELD_NAME = 'RecipeId';
+
+/** The field a refusal names when the typed subject is too long, or was sent with a recipe. */
+export const CONTENT_SEED_SUBJECT_FIELD_NAME = 'Subject';
 
 /**
  * The first message a refusal carries for one field, or an empty string.

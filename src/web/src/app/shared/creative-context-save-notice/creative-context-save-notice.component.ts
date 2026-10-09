@@ -7,6 +7,7 @@ import { CreativeContextSession } from '../../services/creative-context-session'
 
 /** What a creator calls each field, for naming the ones a conflict is about. */
 const FIELD_WORDS: Readonly<Record<CreativeContextFieldName, string>> = {
+  workingTitle: 'what the picture is of',
   channelKey: 'the channel',
   day: 'the day',
   pictureBrief: 'the picture you have in mind',

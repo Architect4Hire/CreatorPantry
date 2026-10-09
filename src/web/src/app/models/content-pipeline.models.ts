@@ -60,8 +60,8 @@ export const CONTENT_PIPELINE_STEPS = [
   {
     slug: 'idea',
     label: 'Pick an idea',
-    help: 'A starting point put together from the cooking vocabulary and your own weekly theme. Keep the parts you like, swap the rest, and pick one when it looks right. Nothing is written down until you do.',
-    legend: 'Keep what you like and try again for the rest. Nothing is saved until you pick one.',
+    help: 'A starting point put together from the cooking vocabulary and your own weekly theme. Say what you already know — the cuisine, the kind of dish, how it is cooked — and the rest is suggested around it. Keep the parts you like, swap the rest, and pick one when it looks right. Nothing is written down until you do.',
+    legend: 'Say what you know, keep what you like, and try again for the rest. Nothing is saved until you pick one.',
     comingSoon: null,
   },
   {
@@ -88,9 +88,9 @@ export const CONTENT_PIPELINE_STEPS = [
   {
     slug: 'library',
     label: 'Save to your library',
-    help: 'Filing what you kept, so you can find it again and see where it came from.',
-    legend: '',
-    comingSoon: 'Saving to your library is coming soon.',
+    help: 'Filing the pictures you kept, so you can find them again and see where they came from. Each one is saved on its own, with what you want to say about it.',
+    legend: 'Save the ones you want to keep. A picture you do not save is not kept.',
+    comingSoon: null,
   },
 ] as const satisfies readonly ContentPipelineStepDefinition[];
 
@@ -158,6 +158,8 @@ export const CONTENT_PIPELINE_LIMITS = {
   promptMaxLength: GENERATED_IMAGE_PROMPT_MAX_LENGTH,
   /** `AiPolicy.MaxPhotographyOverrideCount` — per list, scene and style counted separately. */
   maxOverrides: 10,
+  /** `CreativeContextPolicy.WorkingTitleMaxLength` — the name the creator gives what the picture is of. */
+  subjectMaxLength: 200,
   /** `MediaPolicy.MinVariantsPerOperation`. */
   minVariants: 1,
   /**
@@ -186,6 +188,14 @@ export const DEFAULT_VARIANT_COUNT = 2;
 
 /** What the creator filled in on `setup`. All of it optional, which is this capability's shape. */
 export interface ContentPipelineConfig {
+  /**
+   * What the picture is of, named by the creator. Empty for none.
+   *
+   * The context's `workingTitle`: a dish name for work with no recipe in the library behind it. It is what the
+   * idea, the looks and the prompt are built around when no recipe is linked — see {@link contentSubjectOf},
+   * which is the one place that precedence is decided.
+   */
+  readonly subject: string;
   /** A `ContentChannel.key`, or null for no channel in particular. */
   readonly channelKey: string | null;
   readonly day: DayOfWeek | null;
@@ -211,6 +221,21 @@ export interface ContentPipelineConfig {
 /** One string for a linked recipe and its pinned version, for telling two apart. Empty for none. */
 export function linkedRecipeKey(recipe: LinkedRecipe | null): string {
   return recipe === null ? '' : `${recipe.recipeId}@${recipe.recipeVersionId ?? ''}`;
+}
+
+/**
+ * The typed name to build around, or null when a linked recipe is what the work is about.
+ *
+ * **The linked recipe always wins**, and this is the only place that is decided. A recipe is creator-owned
+ * source material the server reads for itself — its title, cuisine, course and method — where the typed name
+ * is a name and nothing else; sending both would ask every route to settle the same question again, and two
+ * answers would eventually disagree. The name is still *kept* on the work, because it is the creator's own and
+ * unlinking the recipe brings it back as the subject.
+ */
+export function contentSubjectOf(config: Pick<ContentPipelineConfig, 'subject'>, recipe: LinkedRecipe | null): string | null {
+  const typed = config.subject.trim();
+
+  return recipe !== null || typed === '' ? null : typed;
 }
 
 /** `CreativeContextBriefSource`, under the name the pipeline's own types use. */
@@ -406,6 +431,14 @@ export interface ContentPipelinePromptState {
    * around a recipe that has since been changed or unlinked can be said to be. Null where that is not known.
    */
   readonly plannedRecipe: string | null;
+  /**
+   * The dish name that request was sent with, or null for none — so looks planned under a name the creator has
+   * since changed can be said to be.
+   *
+   * Separate from {@link plannedRecipe} rather than folded into it, because the two are different answers to
+   * what the picture is of and a creator reads a different sentence about each.
+   */
+  readonly plannedSubject: string | null;
   readonly chosen: ContentPipelineChosenShot | null;
   /** A brief to compose from. Optional; its text is untrusted. */
   readonly brief: ContentPipelineDocumentRef | null;
@@ -436,24 +469,18 @@ export interface ContentPipelinePromptState {
 /**
  * The images step's state (PIPE-UI-004).
  *
- * **An id and a decision, and nothing else.** No bytes, media type, size, dimensions, provider, model or
- * retention deadline: every one of those is read back from the operation, which is the same rule the prompt
- * step follows. Storing a copy would make this a second account of what the server holds, free to disagree
- * with it.
+ * **An id, and nothing else.** No bytes, media type, size, dimensions, provider, model or retention deadline:
+ * every one of those is read back from the operation, which is the same rule the prompt step follows. Storing
+ * a copy would make this a second account of what the server holds, free to disagree with it.
  *
- * **What was declined is not here either.** Each picture's own status is the truth about that, and the one
- * place it lives is the server.
+ * **The keepers are not here either, since AF.4.3.** A marked picture is a decision about the work, so it
+ * belongs to the work: it is a `Keeper` reference on the creative context, where the library step and any
+ * other device can read it. What was declined is each picture's own status, and the one place that lives is
+ * the server.
  */
 export interface ContentPipelineImagesState {
   /** The IMG-003 run last asked for, so its pictures come back after a refresh. */
   readonly operationId: string | null;
-  /**
-   * The pictures the creator marked to carry forward.
-   *
-   * Stored whole — unlike a suggestion — because from here on it is a decision. These stay `Staged`
-   * server-side: nothing on this step files anything in a library, so there is no `Kept` to read back.
-   */
-  readonly keepers: readonly string[];
 }
 
 /** One workspace's unfinished pipeline run, as it is held between visits. */
@@ -470,6 +497,7 @@ export interface ContentPipelineDraft {
 
 export function emptyContentPipelineConfig(): ContentPipelineConfig {
   return {
+    subject: '',
     channelKey: null,
     day: null,
     variantCount: DEFAULT_VARIANT_COUNT,
@@ -486,6 +514,7 @@ export function emptyContentPipelinePromptState(): ContentPipelinePromptState {
     conceptRequestId: null,
     plannedBrief: null,
     plannedRecipe: null,
+    plannedSubject: null,
     chosen: null,
     brief: null,
     reference: null,
@@ -498,7 +527,7 @@ export function emptyContentPipelinePromptState(): ContentPipelinePromptState {
 }
 
 export function emptyContentPipelineImagesState(): ContentPipelineImagesState {
-  return { operationId: null, keepers: [] };
+  return { operationId: null };
 }
 
 export function emptyContentPipelineDraft(now: Date = new Date()): ContentPipelineDraft {
@@ -517,6 +546,7 @@ export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolea
   const { config, seed, prompt, images } = draft;
 
   return (
+    config.subject.trim() === '' &&
     config.channelKey === null &&
     config.day === null &&
     config.variantCount === DEFAULT_VARIANT_COUNT &&
@@ -533,8 +563,7 @@ export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolea
     prompt.reference === null &&
     prompt.promptRequestId === null &&
     prompt.finalPrompt.trim() === '' &&
-    images.operationId === null &&
-    images.keepers.length === 0
+    images.operationId === null
   );
 }
 
@@ -576,6 +605,7 @@ export function contentSeedQueryFor(
   return {
     recipeId: recipe?.recipeId ?? null,
     recipeVersionId: recipe?.recipeVersionId ?? null,
+    subject: contentSubjectOf(draft.config, recipe),
     token: token ?? null,
     channel: draft.config.channelKey,
     day: draft.config.day,
@@ -635,11 +665,13 @@ export function decodeContentPipelineConfig(value: unknown): ContentPipelineConf
   if (!isRecord(value)) return null;
 
   const { channelKey, concept } = value;
+  const subject = value['subject'];
   const scene = decodeStringList(value['scene']);
   const style = decodeStringList(value['style']);
 
   if (channelKey !== null && channelKey !== undefined && typeof channelKey !== 'string') return null;
   if (concept !== undefined && typeof concept !== 'string') return null;
+  if (subject !== undefined && typeof subject !== 'string') return null;
   if (scene === null || style === null) return null;
 
   const rawBrief = value['brief'];
@@ -656,6 +688,7 @@ export function decodeContentPipelineConfig(value: unknown): ContentPipelineConf
   const day = rawDay === null || rawDay === undefined ? null : decodeEnum<DayOfWeek>(DAY_OF_WEEK_VALUES, rawDay);
 
   return {
+    subject: typeof subject === 'string' ? subject.slice(0, CONTENT_PIPELINE_LIMITS.subjectMaxLength) : '',
     channelKey: typeof channelKey === 'string' && channelKey.trim() !== '' ? channelKey.trim() : null,
     day,
     variantCount: clampVariantCount(value['variantCount']),
@@ -740,6 +773,7 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
   const rawSource = value['promptSource'];
   const plannedBrief = value['plannedBrief'];
   const plannedRecipe = value['plannedRecipe'];
+  const plannedSubject = value['plannedSubject'];
 
   if (
     chosen === null ||
@@ -751,6 +785,7 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
     promptRequestId === null ||
     (plannedBrief !== undefined && plannedBrief !== null && typeof plannedBrief !== 'string') ||
     (plannedRecipe !== undefined && plannedRecipe !== null && typeof plannedRecipe !== 'string') ||
+    (plannedSubject !== undefined && plannedSubject !== null && typeof plannedSubject !== 'string') ||
     (finalPrompt !== undefined && typeof finalPrompt !== 'string') ||
     (rawSource !== undefined && typeof rawSource !== 'string')
   ) {
@@ -772,6 +807,10 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
     // A planned brief without its request describes a plan nobody made, so it goes with it.
     plannedBrief: conceptRequestId.id !== null && typeof plannedBrief === 'string' ? plannedBrief : null,
     plannedRecipe: conceptRequestId.id !== null && typeof plannedRecipe === 'string' ? plannedRecipe : null,
+    plannedSubject:
+      conceptRequestId.id !== null && typeof plannedSubject === 'string' && plannedSubject !== ''
+        ? plannedSubject
+        : null,
     chosen: chosen.chosen,
     brief: brief.ref,
     // A reference request without its reference names a reading of nothing, so it goes with it.
@@ -788,8 +827,12 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
  * The images step's stored state, or null for a shape this build cannot read.
  *
  * Absent is **not** a failure, for `decodeContentPipelinePromptState`'s reason: a draft written before this step existed has
- * no block, and everything in it is re-askable. Present and malformed is, because the alternative is resuming
- * a run whose keepers silently became something else.
+ * no block, and everything in it is re-askable. Present and malformed is.
+ *
+ * A `keepers` array from an older shape is read and dropped. Since AF.4.3 a keeper is a reference on the
+ * work's creative context, and a stored run from before that cannot be migrated onto one here — this decoder
+ * has no workspace, no session and no way to write. {@link CONTENT_PIPELINE_RUN_VERSION} is what actually
+ * keeps such a record out: by the time this is reached, the version has already matched.
  */
 export function decodeContentPipelineImagesState(value: unknown): ContentPipelineImagesState | null {
   if (value === undefined || value === null) return emptyContentPipelineImagesState();
@@ -798,39 +841,12 @@ export function decodeContentPipelineImagesState(value: unknown): ContentPipelin
   const operationId = optionalId(value['operationId']);
   if (operationId === null) return null;
 
-  const rawKeepers = value['keepers'];
-  if (rawKeepers !== undefined && rawKeepers !== null && !Array.isArray(rawKeepers)) return null;
-
-  const keepers = Array.isArray(rawKeepers)
-    ? Array.from(
-        new Set(
-          (rawKeepers as unknown[]).filter((entry): entry is string => typeof entry === 'string' && entry !== ''),
-        ),
-      ).slice(0, CONTENT_PIPELINE_LIMITS.maxVariants)
-    : [];
-
-  return {
-    // Keepers without a run name pictures nothing can find, so they go with it.
-    operationId: operationId.id,
-    keepers: operationId.id === null ? [] : keepers,
-  };
+  return { operationId: operationId.id };
 }
 
-/**
- * The keepers a run can still account for.
- *
- * A marked picture that the run no longer lists, or lists as declined or expired, is dropped: carrying it would
- * gate the step's Continue on a picture that is not there any more. Retention collects staged bytes on its own
- * schedule, so this is an ordinary outcome of coming back a day later rather than an error.
- */
-export function keepersStillPresent(
-  keepers: readonly string[],
-  images: readonly { readonly id: string; readonly status: string }[],
-): readonly string[] {
-  const live = new Set(images.filter((image) => image.status === 'Staged').map((image) => image.id));
-
-  return keepers.filter((id) => live.has(id));
-}
+// `keepersStillPresent` was here until AF.4.3, and is gone with the marks it pruned. A keeper is a reference
+// on the work now, and a reference points at something that may have stopped being usable rather than at
+// nothing — so the library step says a picture has gone instead of quietly forgetting the creator chose it.
 
 /**
  * One stored draft, or null when there is nothing usable to resume.
@@ -906,8 +922,18 @@ export function encodeContentPipelineDraft(draft: ContentPipelineDraft): string 
  *
  * The same blocks as a v4 draft with the channel, the day, the picture and the chosen brief left out: those live on the context,
  * and a second copy here would be free to disagree with it. Beside them, {@link ContentPipelineKeptRun.unsent}.
+ *
+ * Raised to 6 by AF.4.3, which moved the keepers onto the context. A v5 record is discarded rather than
+ * migrated, as every earlier one has been: its marks cannot be written to a context from a decoder, and
+ * resuming without them would quietly show a run with nothing kept as one the creator had kept nothing in.
+ *
+ * **Not raised for {@link ContentPipelinePromptState.plannedSubject}**, and that is a decision rather than an
+ * oversight. The rule above is there so a shape cannot be half-read; this field's absence has a defined
+ * meaning — "not known", which reads as not stale, exactly as `plannedBrief` and `plannedRecipe` do — so a v6
+ * record written before it existed decodes to the right answer rather than a guessed one. Discarding real
+ * in-progress runs would have cost something and bought nothing.
  */
-export const CONTENT_PIPELINE_RUN_VERSION = 5;
+export const CONTENT_PIPELINE_RUN_VERSION = 6;
 
 /** What this device keeps for one run on one creative context. */
 export interface ContentPipelineKeptRun {
@@ -925,10 +951,14 @@ export interface ContentPipelineKeptRun {
 /** The config with the answers a creative context holds laid over it. */
 export function contentPipelineConfigWith(
   config: ContentPipelineConfig,
-  fields: Pick<CreativeContextFields, 'channelKey' | 'day' | 'pictureBrief' | 'briefSource' | 'workingBrief'>,
+  fields: Pick<
+    CreativeContextFields,
+    'workingTitle' | 'channelKey' | 'day' | 'pictureBrief' | 'briefSource' | 'workingBrief'
+  >,
 ): ContentPipelineConfig {
   return {
     ...config,
+    subject: fields.workingTitle,
     channelKey: fields.channelKey,
     day: fields.day,
     concept: fields.pictureBrief,

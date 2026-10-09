@@ -226,20 +226,29 @@ internal sealed class PhotographyConceptAiTaskHandler(
         return assembled.Succeeded ? assembled.Value : null;
     }
 
-    /// <summary>What the creator typed, as one untrusted segment — or null when they typed nothing.</summary>
+    /// <summary>
+    /// What the creator typed, as one untrusted segment — or null when they typed nothing.
+    /// </summary>
+    /// <remarks>
+    /// The dish name travels here rather than in the task, even though it is the plainest statement of what the
+    /// subject is: it is the creator's words, and a name is as able to carry an injected instruction as a
+    /// description is (ai.md). A request that names a recipe carries no dish name — the contract refuses both —
+    /// so the segment never offers the model two subjects to choose between.
+    /// </remarks>
     private static string? Brief(IReadOnlyDictionary<string, string>? inputs)
     {
         var concept = PhotographyConceptInputs.Read(inputs, PhotographyConceptInputs.CreatorConcept);
+        var dishName = PhotographyConceptInputs.Read(inputs, PhotographyConceptInputs.DishName);
         var scene = PhotographyConceptInputs.ReadList(inputs, PhotographyConceptInputs.SceneOverrides);
         var style = PhotographyConceptInputs.ReadList(inputs, PhotographyConceptInputs.StyleOverrides);
 
-        if (concept is null && scene.Count == 0 && style.Count == 0)
+        if (concept is null && dishName is null && scene.Count == 0 && style.Count == 0)
         {
             return null;
         }
 
         return JsonSerializer.Serialize(
-            new { concept, sceneOverrides = scene, styleOverrides = style }, SegmentJson);
+            new { dishName, concept, sceneOverrides = scene, styleOverrides = style }, SegmentJson);
     }
 
     /// <summary>

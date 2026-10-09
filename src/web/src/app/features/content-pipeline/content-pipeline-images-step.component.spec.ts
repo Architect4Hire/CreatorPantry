@@ -15,6 +15,9 @@ import {
   RequestGeneratedImagesRequest,
   StagedImage,
 } from '../../models/generated-image.models';
+import { CreativeContextSession } from '../../services/creative-context-session';
+import { FakeCreativeContextService } from '../../services/creative-context.fake';
+import { CreativeContextService } from '../../services/creative-context.service';
 import {
   GeneratedImageRequestOutcome,
   GeneratedImageService,
@@ -24,6 +27,10 @@ import {
 import { ContentPipelineImagesStepComponent } from './content-pipeline-images-step.component';
 
 const PROMPT = 'A tight crop in soft morning light.';
+const SLUG = 'cozy-fall';
+const CTX = 'ctx-1';
+
+let server: FakeCreativeContextService;
 
 function picture(index: number, overrides: Partial<StagedImage> = {}): StagedImage {
   return {
@@ -77,7 +84,7 @@ function draftWith(
       promptSource: 'composed',
       generated: { text: prompt, avoid: ['clutter', 'harsh light'] },
     },
-    images: { operationId: null, keepers: [], ...images },
+    images: { operationId: null, ...images },
     furthestStep: 'images',
   };
 }
@@ -86,9 +93,11 @@ let initialDraft: ContentPipelineDraft = draftWith();
 
 @Component({
   imports: [ContentPipelineImagesStepComponent],
+  providers: [CreativeContextSession],
   template: `<cp-content-pipeline-images-step
     [workspaceSlug]="workspaceSlug()"
     [draft]="draft()"
+    [session]="session"
     (changed)="apply($event)"
     (announced)="announcements.push($event)"
   />`,
@@ -97,6 +106,8 @@ class HostComponent {
   readonly workspaceSlug = signal('cozy-fall');
   readonly draft = signal<ContentPipelineDraft>(initialDraft);
   readonly announcements: string[] = [];
+
+  constructor(readonly session: CreativeContextSession) {}
 
   apply(next: ContentPipelineDraft): void {
     this.draft.set(next);
@@ -149,13 +160,21 @@ const service = {
     `https://gateway.example/api/v1/workspaces/cozy-fall/generated-images/${id}/content`,
 };
 
-async function mount(draft: ContentPipelineDraft = draftWith()): Promise<void> {
+/** Mount the step on a context the server already holds, which is what the shell always hands it. */
+async function mount(draft: ContentPipelineDraft = draftWith(), keepers: readonly string[] = []): Promise<void> {
   initialDraft = draft;
+  server = new FakeCreativeContextService();
+  server.seed(SLUG, CTX, {
+    references: keepers.map((generatedImageId, index) =>
+      server.reference({ kind: 'GeneratedImage', purpose: 'Keeper', generatedImageId }, index),
+    ),
+  });
 
   TestBed.resetTestingModule();
   await TestBed.configureTestingModule({
     providers: [
       { provide: GeneratedImageService, useValue: service },
+      { provide: CreativeContextService, useValue: server },
       {
         provide: ConfirmService,
         useValue: {
@@ -172,7 +191,16 @@ async function mount(draft: ContentPipelineDraft = draftWith()): Promise<void> {
   fixture = TestBed.createComponent(HostComponent);
   host = fixture.componentInstance;
   el = fixture.nativeElement;
+  await host.session.load(SLUG, CTX);
   await settle();
+}
+
+/** The pictures the work names as keepers, as the "server" holds them. */
+function keepers(): readonly string[] {
+  return (server.stored(SLUG, CTX)?.references ?? [])
+    .filter((reference) => reference.purpose === 'Keeper')
+    .map((reference) => reference.generatedImageId!)
+    .filter((id) => id !== null);
 }
 
 function text(): string {
@@ -444,29 +472,15 @@ describe('ContentPipelineImagesStepComponent', () => {
     });
 
     it('asks before replacing pictures that are on screen, and leaves them alone on a no', async () => {
-      await mount();
+      await mount(draftWith(), ['img-1']);
       await generate();
-      host.draft.set({ ...host.draft(), images: { ...host.draft().images, keepers: ['img-1'] } });
-      await settle();
 
       confirmAnswer = false;
       await click('Make new pictures');
 
       expect(confirmCalls.length).toBe(1);
       expect(requests.length).withContext('nothing asked for').toBe(1);
-      expect(host.draft().images.keepers).toEqual(['img-1']);
-    });
-
-    it('drops the marks from the run it replaces, because they name pictures the new one does not have', async () => {
-      await mount();
-      await generate();
-      host.draft.set({ ...host.draft(), images: { ...host.draft().images, keepers: ['img-1'] } });
-      await settle();
-
-      await click('Make new pictures');
-
-      expect(host.draft().images.keepers).toEqual([]);
-      expect(host.draft().images.operationId).toBe('op-1');
+      expect(keepers()).toEqual(['img-1']);
     });
 
     it('offers the previous run back rather than leaving an error with nothing behind it', async () => {
@@ -522,50 +536,56 @@ describe('ContentPipelineImagesStepComponent', () => {
       expect(text()).toContain('stop being available after');
     });
 
-    it('writes a keep through to the draft', async () => {
+    it('records a keep on the work itself, so the library step reads it from the server (AF.4.3)', async () => {
       await mount();
       await generate();
 
       keepBox('img-2').click();
       await settle();
 
-      expect(host.draft().images.keepers).toEqual(['img-2']);
+      expect(keepers()).toEqual(['img-2']);
+      // A keeper is a picture the work *made*, never one it takes its cues from.
+      expect(server.added.map((each) => each.source.purpose)).toEqual(['Keeper']);
       expect(text()).toContain('One picture kept.');
       expect(host.announcements).toContain('Kept.');
+      // And nothing about it is kept on this device: the run id is all the draft holds.
+      expect(JSON.stringify(host.draft().images)).not.toContain('img-2');
     });
 
-    it('takes a keep back off again', async () => {
-      await mount();
+    it('takes a keep back off again, by removing the reference and nothing else', async () => {
+      await mount(draftWith(), ['img-1']);
       await generate();
-      keepBox('img-1').click();
-      await settle();
 
       keepBox('img-1').click();
       await settle();
 
-      expect(host.draft().images.keepers).toEqual([]);
+      expect(keepers()).toEqual([]);
+      expect(server.removed.length).toBe(1);
       expect(text()).toContain('Nothing kept yet.');
     });
 
-    it('drops a mark the run can no longer account for', async () => {
-      await mount(draftWith(PROMPT, { operationId: 'op-1', keepers: ['img-1', 'img-9'] }));
+    it('leaves a mark the run can no longer account for where it is, and says the picture is not there', async () => {
+      // Dropping it silently would forget a decision the creator made; the reference points at something no
+      // longer usable, which is what a reference means (AF.4.3). The library step is where that is said.
+      await mount(draftWith(PROMPT, { operationId: 'op-1' }), ['img-1', 'img-9']);
 
       watches[0].next({ status: 'found', operation: run('Succeeded', [picture(1), picture(2)]) });
       await settle();
 
-      expect(host.draft().images.keepers).withContext('img-9 is not in the run').toEqual(['img-1']);
+      expect(keepers()).toEqual(['img-1', 'img-9']);
+      expect(server.removed).toEqual([]);
     });
 
-    it('drops a mark on a picture that has since been declined or expired', async () => {
-      await mount(draftWith(PROMPT, { operationId: 'op-1', keepers: ['img-1', 'img-2'] }));
+    it('says why a keep could not be recorded, and leaves the box as it was', async () => {
+      await mount();
+      await generate();
 
-      watches[0].next({
-        status: 'found',
-        operation: run('Succeeded', [picture(1), picture(2, { status: 'Expired' })]),
-      });
+      server.refuseAddWith = 'forbidden';
+      keepBox('img-2').click();
       await settle();
 
-      expect(host.draft().images.keepers).toEqual(['img-1']);
+      expect(keepers()).toEqual([]);
+      expect(el.querySelector('[role="alert"]')?.textContent).toContain('do not have permission');
     });
   });
 
@@ -596,16 +616,14 @@ describe('ContentPipelineImagesStepComponent', () => {
     });
 
     it('takes the mark off a picture it declines, so nothing carries into the next step', async () => {
-      await mount();
+      await mount(draftWith(), ['img-1']);
       await generate();
-      keepBox('img-1').click();
-      await settle();
-      expect(host.draft().images.keepers).toEqual(['img-1']);
+      expect(keepers()).toEqual(['img-1']);
 
       labelled('button', 'Decline picture 1 of 2')!.click();
       await settle();
 
-      expect(host.draft().images.keepers).toEqual([]);
+      expect(keepers()).withContext('a declined picture is not one the creator wants').toEqual([]);
     });
 
     it('reports a picture the server would not decline, in terms that say why', async () => {
@@ -736,7 +754,7 @@ describe('ContentPipelineImagesStepComponent across two workspaces', () => {
   });
 
   it('drops A’s pictures when the new workspace has no run of its own', async () => {
-    await mount(draftWith(PROMPT, { operationId: 'op-a', keepers: ['img-1'] }));
+    await mount(draftWith(PROMPT, { operationId: 'op-a' }), ['img-1']);
     watches[0].next({ status: 'found', operation: run('Succeeded', [picture(1), picture(2)]) });
     await settle();
     expect(el.querySelectorAll('.sheet > li').length).toBe(2);
@@ -775,13 +793,16 @@ describe('ContentPipelineImagesStepComponent across two workspaces', () => {
     expect(requests[0].slug).toBe('other-kitchen');
   });
 
-  it('forgets the marks from a run that is no longer there, so the step cannot carry on without a picture', async () => {
-    await mount(draftWith(PROMPT, { operationId: 'op-a', keepers: ['img-1'] }));
+  it('says a run is no longer there without throwing away what the creator chose from it', async () => {
+    // The marks are the work's now, and a run going does not unmake a decision: the library step is what
+    // accounts for a keeper whose picture has gone (AF.4.3).
+    await mount(draftWith(PROMPT, { operationId: 'op-a' }), ['img-1']);
 
     watches[0].next({ status: 'not_found' });
     await settle();
 
     expect(text()).toContain('no longer there');
-    expect(host.draft().images.keepers).withContext('nothing to carry forward').toEqual([]);
+    expect(keepers()).toEqual(['img-1']);
+    expect(server.removed).toEqual([]);
   });
 });

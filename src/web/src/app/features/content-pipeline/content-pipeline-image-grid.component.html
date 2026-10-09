@@ -14,14 +14,75 @@
       </p>
       <p class="cp-muted facts">{{ tile.facts }}</p>
 
+      @if (tile.save; as save) {
+        <!-- Saving is the decision on this surface, so there is no mark to make beside it. -->
+        @switch (save.state) {
+          @case ('saved') {
+            <!-- No live region: this is what the picture *is* from now on, and the surface announces the save
+                 itself once. A second region here would say it twice. -->
+            <p class="filed">
+              @if (save.title) {
+                In your library as “{{ save.title }}”.
+              } @else {
+                In your library.
+              }
+              @if (tile.assetLink; as target) {
+                <a
+                  [routerLink]="target"
+                  [attr.aria-label]="'Open picture ' + tile.position + ' of ' + tile.total + ' in your library'"
+                >
+                  Open it
+                </a>
+              } @else {
+                <a [routerLink]="libraryLink()">Your library</a>
+              }
+            </p>
+          }
+          @case ('saving') {
+            <p class="cp-muted" role="status">Saving picture {{ tile.position }} of {{ tile.total }} to your library…</p>
+          }
+          @case ('failed') {
+            <cp-notice tone="error" role="alert">
+              {{ save.problem }}
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                [attr.aria-label]="'Try saving picture ' + tile.position + ' of ' + tile.total + ' again'"
+                (click)="saveRequested.emit(tile.image.id)"
+              >
+                Try again
+              </button>
+            </cp-notice>
+          }
+        }
+      }
+
       <div class="cp-actions">
-        <cp-checkbox
-          label="Keep this one"
-          [inputId]="'cp-pipeline-keep-' + tile.image.id"
-          [checked]="tile.kept"
-          [disabled]="!tile.canAct"
-          (checkedChange)="onKeep(tile.image.id, $event)"
-        />
+        @if (tile.save; as save) {
+          @if (save.state === 'staged') {
+            <button
+              cpButton
+              type="button"
+              variant="primary"
+              size="sm"
+              [disabled]="!tile.canAct"
+              [attr.aria-label]="'Save picture ' + tile.position + ' of ' + tile.total + ' to your library'"
+              (click)="saveRequested.emit(tile.image.id)"
+            >
+              Save to library
+            </button>
+          }
+        } @else {
+          <cp-checkbox
+            label="Keep this one"
+            [inputId]="'cp-pipeline-keep-' + tile.image.id"
+            [checked]="tile.kept"
+            [disabled]="!tile.canAct"
+            (checkedChange)="onKeep(tile.image.id, $event)"
+          />
+        }
 
         <button
           cpButton

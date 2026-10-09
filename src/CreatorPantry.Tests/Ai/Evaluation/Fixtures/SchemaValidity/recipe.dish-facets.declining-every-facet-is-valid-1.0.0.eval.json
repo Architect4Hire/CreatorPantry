@@ -1,0 +1,12 @@
+{
+  "id": "recipe.dish-facets.declining-every-facet-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "Declining is a real answer, and this is the shape of it: three facets, no codes, a reason each. A name like \"Weeknight dinner\" carries none of the three, and an answer that said otherwise would be three guesses wearing a reading's clothes.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\",\"rationale\":\"nothing in the name points at a cooking tradition\"},{\"facet\":\"DishType\",\"rationale\":\"a dinner could be any course\"},{\"facet\":\"Method\",\"rationale\":\"nothing here says how it is cooked\"}],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"This name describes when the dish is eaten rather than what it is.\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": { "outcome": "Accepted", "suggestionCount": 3 }
+}

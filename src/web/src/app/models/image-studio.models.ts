@@ -51,6 +51,10 @@ export interface ImageStudioDraft {
  * **Version 1 is the last shape that holds the studio's whole work**, and the one exception to "never
  * migrated": since AF.3.1 that work lives on a creative context, so a v1 draft found on a device is work not
  * yet filed on one. It is filed once and removed — see {@link IMAGE_STUDIO_WORK_VERSION}.
+ *
+ * The blocks it is built from changed again in AF.4.3, when the keepers moved onto the context. The studio
+ * marks no keepers — it saves, which is the same decision made once — so nothing it stored was lost; the work
+ * version is raised all the same, because the shape it decodes is not the shape it wrote.
  */
 export const IMAGE_STUDIO_DRAFT_VERSION = 1;
 
@@ -68,6 +72,7 @@ export function isImageStudioDraftEmpty(draft: ImageStudioDraft): boolean {
   const { config, prompt, images } = draft;
 
   return (
+    config.subject.trim() === '' &&
     config.channelKey === null &&
     config.variantCount === DEFAULT_VARIANT_COUNT &&
     config.scene.length === 0 &&
@@ -79,8 +84,7 @@ export function isImageStudioDraftEmpty(draft: ImageStudioDraft): boolean {
     prompt.reference === null &&
     prompt.promptRequestId === null &&
     prompt.finalPrompt.trim() === '' &&
-    images.operationId === null &&
-    images.keepers.length === 0
+    images.operationId === null
   );
 }
 
@@ -138,8 +142,12 @@ export function encodeImageStudioDraft(draft: ImageStudioDraft): string {
  *
  * The v1 blocks with the channel and the picture left out — the context holds those — and any edit to them
  * that has not been sent yet.
+ *
+ * Not raised for `ContentPipelinePromptState.plannedSubject`, for the reason `CONTENT_PIPELINE_RUN_VERSION`
+ * records: its absence has a defined meaning, so an older record decodes to the right answer rather than a
+ * guessed one.
  */
-export const IMAGE_STUDIO_WORK_VERSION = 2;
+export const IMAGE_STUDIO_WORK_VERSION = 3;
 
 /** What this device keeps for the studio's work on one creative context. */
 export interface ImageStudioKeptWork {

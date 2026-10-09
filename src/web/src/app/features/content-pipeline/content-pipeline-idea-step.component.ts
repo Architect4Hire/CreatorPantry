@@ -19,6 +19,7 @@ import {
   CpChoiceGroupComponent,
   CpChoiceOption,
   CpFieldComponent,
+  CpFieldRowComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
 } from '@creator-pantry/ui';
@@ -30,10 +31,12 @@ import {
   CONTENT_PIPELINE_BRIEF_SOURCE_LABELS,
   ContentPipelineBriefSource,
   ContentPipelineDraft,
+  ContentPipelineKeep,
   ContentSeedKeepName,
   contentPipelineBriefFor,
   isContentPipelineBriefEdited,
   contentSeedQueryFor,
+  contentSubjectOf,
   linkedRecipeKey,
 } from '../../models/content-pipeline.models';
 import {
@@ -46,7 +49,9 @@ import {
   isContentSeedToken,
 } from '../../models/content-seed.models';
 import { LinkedRecipe } from '../../models/creative-context.models';
+import { CookingTechnique, ReferenceEntry } from '../../models/reference.models';
 import { ContentSeedService } from '../../services/content-seed.service';
+import { ReferenceService } from '../../services/reference.service';
 
 /** What each choice means, in a line. The brief itself is shown beneath as the example. */
 const BRIEF_CHOICE_HINTS: Readonly<Record<ContentPipelineBriefSource, string>> = {
@@ -81,6 +86,35 @@ interface FacetRow {
 
 type RefusableName = ContentSeedKeepName | 'channel' | 'day';
 
+/**
+ * The three facets a creator can state outright, before anything has been suggested.
+ *
+ * They are the ones that say what the dish *is*, which is why these three and not the other two: a photo
+ * style and an occasion are decisions about the post, and the generator's suggestion for either is a fine
+ * place to start. A cuisine, a dish type and a method are facts about the food, and a creator who already
+ * knows them has nothing to gain from being handed a draw.
+ */
+type StatableFacet = 'cuisine' | 'dishType' | 'method';
+
+const STATABLE_FACETS: readonly StatableFacet[] = ['cuisine', 'dishType', 'method'];
+
+/**
+ * Where the three vocabularies have got to.
+ *
+ * One state for all three rather than one each. They are three reads of the same catalogue API, so a failure
+ * is almost always a failure of all of them, and three separate sentences about it would be three ways of
+ * saying the vocabulary is unreachable.
+ */
+type VocabularyState =
+  | { readonly status: 'loading' }
+  | {
+      readonly status: 'ready';
+      readonly cuisines: readonly ReferenceEntry[];
+      readonly courses: readonly ReferenceEntry[];
+      readonly techniques: readonly CookingTechnique[];
+    }
+  | { readonly status: 'unavailable' };
+
 interface RefusedPin {
   readonly name: RefusableName;
   readonly label: string;
@@ -95,8 +129,13 @@ function errorFor(
   return contentSeedFieldError(fieldErrors, CONTENT_SEED_FIELD_NAMES[name]);
 }
 
-/** What an idea that no longer matches the linked recipe says about itself. */
-type RecipeMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinked';
+/**
+ * What a picked idea that is no longer about what this run is about says of itself.
+ *
+ * The first three are about the linked recipe; `subject_changed` is the same situation one step down — the run
+ * has no recipe and the creator has renamed what the picture is of since they picked.
+ */
+type SubjectMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinked' | 'subject_changed';
 
 /**
  * Step 2 of the Content Pipeline: an idea to start from, and the creator's decision about it (PIPE-UI-002).
@@ -108,6 +147,25 @@ type RecipeMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinke
  * **Keep and try again, rather than edit.** Each part of an idea can be held onto and the rest re-chosen around
  * it. Two of them — the channel and the day — are answers that already have a home on the previous step, so
  * keeping one writes it there instead of storing it twice.
+ *
+ * **What the creator already knows is stated, not drawn for.** The cuisine, dish type and method can be set
+ * outright, before anything has been suggested, and the token then only chooses what was left open. Without
+ * this the only way to reach a particular cuisine was to re-roll until it came up — and because each facet is
+ * drawn independently (`ContentSeedSelector`), reaching a plausible three at once meant re-rolling past every
+ * combination that was not. Those three and not the other five: see {@link StatableFacet}. The pins travel in
+ * the same `keep` map the Keep buttons write, so a stated facet and a kept one are the same thing and the two
+ * controls cannot disagree.
+ *
+ * **Nothing sets these three silently.** Whatever puts a value in one of them — the creator, a Keep button, or
+ * a model's suggestion — is visible on screen and can be changed before any idea is asked for. The convention
+ * it keeps is stated on the server (`IContentSeedBusiness`, and the dish-name docstrings on the AI request
+ * models) and put to the model by `recipe.concepts`: a dish name says what a dish is called, so nothing may
+ * turn it into a *fact* about cuisine, course or method behind the creator's back. A proposal they can see and
+ * overrule is not that; a quiet derivation would be.
+ *
+ * **And this step is where that promise is actually kept.** The server will read a name into all three facets
+ * and has nothing to stop a reading reaching one the creator has answered — see `AiDishFacetInputs`. Applying
+ * a suggestion only to a control they have not touched is this component's obligation, not the API's.
  *
  * **A refused pin is shown, never dropped.** The server refuses a key no catalogue has, or one naming a retired
  * entry, and says which. Generating around it instead would hand the creator an idea that quietly ignored what
@@ -122,6 +180,11 @@ type RecipeMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinke
  * **A linked recipe is what the idea is about.** Its cuisine, course and method are the recipe's own, shown as
  * such and not offered for keeping, and the idea names the recipe. A suggestion follows the link when it changes;
  * a *picked* idea is a decision, so it is left as it is and said to be out of step, with a way to ask again.
+ *
+ * **With no recipe, the name typed on the first step is what it is about instead.** The idea names it and
+ * nothing else follows from it — a name says nothing about how a dish is cooked, so the cuisine, dish type and
+ * method stay the generator's suggestions and are still offered for keeping. Renaming the subject moves a
+ * suggestion and leaves a picked idea alone, exactly as relinking a recipe does.
  */
 @Component({
   selector: 'cp-content-pipeline-idea-step',
@@ -132,6 +195,7 @@ type RecipeMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinke
     CpButtonComponent,
     CpChoiceGroupComponent,
     CpFieldComponent,
+    CpFieldRowComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
   ],
@@ -141,6 +205,7 @@ type RecipeMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinke
 })
 export class ContentPipelineIdeaStepComponent implements OnInit {
   private readonly seeds = inject(ContentSeedService);
+  private readonly reference = inject(ReferenceService);
   private readonly confirm = inject(ConfirmService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -202,6 +267,47 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   /** A code the creator typed or pasted, to come back to an idea they or someone else already had. */
   protected readonly tokenEntry = signal('');
 
+  protected readonly vocabulary = signal<VocabularyState>({ status: 'loading' });
+  protected readonly statableFacets = STATABLE_FACETS;
+  protected readonly facetLabels = CONTENT_SEED_FACET_LABELS;
+
+  /**
+   * Whether the creator can state a facet outright on this step.
+   *
+   * Only with no recipe linked. A linked recipe's own cuisine, course and technique are the canonical facts
+   * about it and the server lets them win over a pin — so offering a picker beside them would be offering a
+   * control that the next request ignores (`IContentSeedBusiness.ResolveAround`). With a recipe linked, the
+   * facets panel's "From your recipe" badge is already the honest account of where they came from.
+   */
+  protected readonly offersStatedFacets = computed(() => this.recipe() === null && this.accepted() === null);
+
+  /** The code stated for each facet, or '' for none. What the three selects show. */
+  protected readonly stated = computed<Readonly<Record<StatableFacet, string>>>(() => {
+    const keep = this.draft().seed.keep;
+
+    return { cuisine: keep.cuisine ?? '', dishType: keep.dishType ?? '', method: keep.method ?? '' };
+  });
+
+  /** The vocabulary each select offers, in the catalogue's own order. Empty until the read lands. */
+  protected readonly facetOptions = computed<Readonly<Record<StatableFacet, readonly ReferenceEntry[]>>>(() => {
+    const state = this.vocabulary();
+    if (state.status !== 'ready') return { cuisine: [], dishType: [], method: [] };
+
+    return { cuisine: state.cuisines, dishType: state.courses, method: state.techniques };
+  });
+
+  /**
+   * Every facet the creator has stated, as one string.
+   *
+   * A computed rather than a read inside the effect below, so that effect depends on the pins themselves and
+   * not on every keystroke anywhere else in the draft.
+   */
+  private readonly keepKey = computed(() => {
+    const keep = this.draft().seed.keep;
+
+    return CONTENT_SEED_KEEP_NAMES.map((name) => keep[name] ?? '').join('|');
+  });
+
   private request: Subscription | null = null;
 
   protected readonly accepted = computed(() => this.draft().seed.accepted);
@@ -218,17 +324,38 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   /** The recipe the idea on screen was built around, by name, or null when it was built around none. */
   protected readonly builtAround = computed(() => this.seed()?.recipe?.title ?? null);
 
+  /** The name the idea on screen was built around, where it was a name rather than a recipe. Null otherwise. */
+  protected readonly builtAroundSubject = computed(() => this.seed()?.subject ?? null);
+
+  /**
+   * The typed name this run is about now, or null when a linked recipe is.
+   *
+   * The same decision every request makes, so what the screen says and what the next request asks for cannot
+   * disagree.
+   */
+  private readonly subject = computed(() => contentSubjectOf(this.draft().config, this.recipe()));
+
   /**
    * How a *picked* idea is out of step with the recipe linked now, or null when it is not.
    *
    * Only ever said about a picked idea: a suggestion is simply asked for again.
    */
-  protected readonly recipeMismatch = computed<RecipeMismatch | null>(() => {
+  protected readonly recipeMismatch = computed<SubjectMismatch | null>(() => {
     const accepted = this.accepted();
-    if (accepted === null || linkedRecipeKey(accepted.recipe) === linkedRecipeKey(this.recipe())) return null;
-    if (this.recipe() === null) return 'recipe_unlinked';
+    if (accepted === null) return null;
 
-    return accepted.recipe === null ? 'picked_before_linking' : 'other_recipe';
+    if (linkedRecipeKey(accepted.recipe) !== linkedRecipeKey(this.recipe())) {
+      if (this.recipe() === null) return 'recipe_unlinked';
+
+      return accepted.recipe === null ? 'picked_before_linking' : 'other_recipe';
+    }
+
+    // No recipe on either side, so the question is the name. Said only when both the idea and the run have
+    // one: a name added after picking is not the idea being wrong about anything.
+    const was = accepted.subject;
+    const now = this.subject();
+
+    return was !== null && now !== null && was !== now ? 'subject_changed' : null;
   });
 
   /** True when the server could not read the linked recipe, so no idea was made. */
@@ -241,24 +368,105 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   constructor() {
     this.destroyRef.onDestroy(() => this.request?.unsubscribe());
 
-    // A suggestion follows the linked recipe: the same code, asked for again around the recipe as it is now.
-    // A picked idea is not touched here — that is a decision, and `recipeMismatch` says it is out of step.
+    // A suggestion follows what the run is about — the linked recipe, or the name typed in its place — and what
+    // the creator has stated about it: the same code, asked for again as things now stand. Re-asking with the
+    // same token is what makes a newly stated cuisine change the cuisine and leave the rest of the idea alone;
+    // a fresh token would re-roll everything. A picked idea is not touched here; that is a decision, and
+    // `recipeMismatch` says it is out of step.
     effect(() => {
-      const key = linkedRecipeKey(this.recipe());
+      const key = `${linkedRecipeKey(this.recipe())}|${this.subject() ?? ''}`;
+      this.keepKey();
 
       untracked(() => {
         const state = this.state();
         if (state.status !== 'shown' || this.accepted() !== null) return;
-        if (linkedRecipeKey(state.seed.recipe) !== key) this.run(state.seed.token);
+
+        const seed = state.seed;
+        const about = `${linkedRecipeKey(seed.recipe)}|${seed.subject ?? ''}`;
+        if (about !== key || !ContentPipelineIdeaStepComponent.honoursKeep(seed, this.draft().seed.keep)) {
+          this.run(seed.token);
+        }
       });
     });
   }
 
   ngOnInit(): void {
+    void this.loadVocabulary();
+
     // A picked idea needs nothing fetched; it is stored whole. An unpicked one is reproduced from the code the
     // draft kept, which is what the contract offers in place of storing a suggestion.
     const { accepted, lastToken } = this.draft().seed;
     if (accepted === null && lastToken !== null) this.run(lastToken);
+  }
+
+  /**
+   * True when every facet the creator stated is what the idea on screen actually shows.
+   *
+   * Compared against the seed rather than tracked separately, which is what makes releasing a pin cost
+   * nothing: with no pin there is nothing to disagree with, so the idea on screen stands. A pin that happens
+   * to match what was drawn is satisfied too, so pressing Keep on a facet never re-asks for the same idea.
+   */
+  private static honoursKeep(seed: ContentSeed, keep: ContentPipelineKeep): boolean {
+    const facets: Readonly<Record<ContentSeedKeepName, ContentSeedFacet | null>> = {
+      cuisine: seed.cuisine,
+      dishType: seed.dishType,
+      method: seed.method,
+      photographyStyle: seed.photographyStyle,
+      occasion: seed.occasion,
+    };
+
+    return CONTENT_SEED_KEEP_NAMES.every((name) => {
+      const stated = keep[name];
+
+      return stated === undefined || stated === facets[name]?.key;
+    });
+  }
+
+  /**
+   * Read the three vocabularies a facet can be stated from.
+   *
+   * A failure leaves the three selects disabled with one sentence saying so, and the rest of the step still
+   * works: a creator who cannot reach the vocabulary can still ask for an idea and keep parts of it.
+   */
+  protected async loadVocabulary(): Promise<void> {
+    this.vocabulary.set({ status: 'loading' });
+
+    const [cuisines, courses, techniques] = await Promise.all([
+      this.reference.listCuisines(),
+      this.reference.listCourses(),
+      this.reference.listTechniques(),
+    ]);
+
+    this.vocabulary.set(
+      cuisines.status === 'found' && courses.status === 'found' && techniques.status === 'found'
+        ? {
+            status: 'ready',
+            cuisines: cuisines.entries,
+            courses: courses.entries,
+            techniques: techniques.techniques,
+          }
+        : { status: 'unavailable' },
+    );
+  }
+
+  /**
+   * State a facet outright, or go back to letting the idea suggest one.
+   *
+   * Written into the same `keep` map the Keep buttons use, so there is exactly one record of what the creator
+   * has asked for and the two controls cannot disagree. The effect above then re-asks under the same code, so
+   * the change lands on the idea without a second click.
+   */
+  protected setStated(name: StatableFacet, code: string): void {
+    const draft = this.draft();
+    const keep = { ...draft.seed.keep };
+
+    if (code === '') {
+      delete keep[name];
+    } else {
+      keep[name] = code;
+    }
+
+    this.changed.emit({ ...draft, seed: { ...draft.seed, keep } });
   }
 
   protected readonly rows = computed<readonly FacetRow[]>(() => {

@@ -7,6 +7,8 @@ import {
   encodeCreativeContextDraft,
   encodeCreativeContextPatch,
   encodeCreativeContextSource,
+  keeperReferencesOf,
+  pictureReferenceOf,
 } from './creative-context.models';
 
 const ID = '5b0f6a3e-2f0c-4d0f-9a35-3d5b6c1f0a11';
@@ -151,6 +153,55 @@ describe('creative context models', () => {
     it('refuses a reference with no position', () => {
       expect(decodeCreativeContextReference(referenceBody({ sortOrder: undefined }))).toBeNull();
     });
+
+    it('reads what a reference is for, and reads a server that does not say as a source (AF.4.3)', () => {
+      expect(decodeCreativeContextReference(referenceBody({ purpose: 'Keeper' }))?.purpose).toBe('Keeper');
+      expect(decodeCreativeContextReference(referenceBody({ purpose: 'Source' }))?.purpose).toBe('Source');
+      expect(decodeCreativeContextReference(referenceBody())?.purpose).toBe('Source');
+      expect(decodeCreativeContextReference(referenceBody({ purpose: null }))?.purpose).toBe('Source');
+    });
+
+    it('refuses a purpose it does not know rather than reading an output as a cue', () => {
+      expect(decodeCreativeContextReference(referenceBody({ purpose: 'Whatever' }))).toBeNull();
+    });
+  });
+
+  describe('telling a cue from a keeper (AF.4.3)', () => {
+    const picture = (purpose: string, generatedImageId: string, sortOrder: number): Record<string, unknown> =>
+      referenceBody({ id: generatedImageId, kind: 'GeneratedImage', purpose, recipeId: null, generatedImageId, sortOrder });
+
+    function context(...references: Record<string, unknown>[]) {
+      return decodeCreativeContext(contextBody({ references }));
+    }
+
+    it('reads only a source as the picture the work takes its cues from', () => {
+      const found = pictureReferenceOf(context(picture('Keeper', ID, 0), picture('Source', OTHER, 1)));
+
+      // The keeper comes first and is still not the answer: what a row is for decides, not where it sits.
+      expect(found?.generatedImageId).toBe(OTHER);
+    });
+
+    it('names no cue when every picture on the work is one the work made', () => {
+      expect(pictureReferenceOf(context(picture('Keeper', ID, 0), picture('Keeper', OTHER, 1)))).toBeNull();
+    });
+
+    it('reads every keeper, in the order they were named, and no cue among them', () => {
+      const keepers = keeperReferencesOf(context(picture('Source', ID, 0), picture('Keeper', OTHER, 1)));
+
+      expect(keepers.map((each) => each.generatedImageId)).toEqual([OTHER]);
+    });
+
+    it('reads a kept library asset as a keeper too, which is what a saved picture becomes', () => {
+      const asset = referenceBody({ kind: 'DamAsset', purpose: 'Keeper', recipeId: null, mediaAssetId: ID });
+
+      expect(keeperReferencesOf(context(asset)).map((each) => each.mediaAssetId)).toEqual([ID]);
+      expect(pictureReferenceOf(context(asset))).toBeNull();
+    });
+
+    it('has nothing to say about a context that is not there', () => {
+      expect(pictureReferenceOf(null)).toBeNull();
+      expect(keeperReferencesOf(null)).toEqual([]);
+    });
   });
 
   describe('decodeCreativeContextPage', () => {
@@ -204,6 +255,20 @@ describe('creative context models', () => {
         expect(encodeCreativeContextSource(source)).toEqual(body);
       });
     }
+
+    it('says so for a keeper, and says nothing for a source (AF.4.3)', () => {
+      expect(encodeCreativeContextSource({ kind: 'GeneratedImage', generatedImageId: ID, purpose: 'Keeper' })).toEqual({
+        kind: 'GeneratedImage',
+        purpose: 'Keeper',
+        generatedImageId: ID,
+      });
+
+      // Left out rather than sent: an unstated purpose is a source, so an old body and a new one agree.
+      expect(encodeCreativeContextSource({ kind: 'GeneratedImage', generatedImageId: ID, purpose: 'Source' })).toEqual({
+        kind: 'GeneratedImage',
+        generatedImageId: ID,
+      });
+    });
   });
 
   describe('encodeCreativeContextDraft', () => {

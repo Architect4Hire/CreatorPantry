@@ -5452,6 +5452,14 @@
             }
           },
           {
+            "name": "Subject",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "RecipeId",
             "in": "query",
             "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
@@ -7652,6 +7660,221 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dish-facet-requests": {
+      "post": {
+        "tags": [
+          "DishFacetRequests"
+        ],
+        "summary": "Asks which cuisine, dish type and cooking method a dish name points at.",
+        "description": "\u0060202\u0060 rather than \u0060201\u0060: nothing has been read yet. The request is durable and the model is\ncalled by the worker afterwards, so the API does not stay open around unbounded provider work\n(api-contract.md). The \u0060Location\u0060 header points at the status resource to poll.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. A repeat of the same key and the same name returns the original with\n\u0060Idempotent-Replayed: true\u0060 rather than buying a second reading -- which matters more here than on\nmost of these routes, because this is requested automatically as a creator fills in a name rather than\nby a button they pressed once.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestDishFacets"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestDishFacets"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestDishFacets"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/dish-facet-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "DishFacetRequests"
+        ],
+        "summary": "Where a requested reading has got to, and the suggested facets once there are any.",
+        "description": "Polling before the reading exists is a \u0060200\u0060 carrying a status, not a \u0060404\u0060 -- the request\nresource exists from the moment it was accepted, and reporting it missing would make a normal poll look\nlike a failure.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Where a requested reading has got to, and the suggested facets once there are any.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -17424,7 +17647,8 @@
           "BrandStyleSampleWithGuide",
           "PhotographyConcept",
           "ImagePrompt",
-          "ReferenceImageAnalysis"
+          "ReferenceImageAnalysis",
+          "DishFacetSuggestion"
         ],
         "type": "string"
       },
@@ -18027,7 +18251,8 @@
           "PhotographyConcept",
           "ImagePrompt",
           "BrandStyleTestDrive",
-          "ReferenceImageAnalysis"
+          "ReferenceImageAnalysis",
+          "DishFacetSuggestion"
         ],
         "type": "string"
       },
@@ -20785,6 +21010,12 @@
                 "$ref": "#/components/schemas/ContentSeedRecipe"
               }
             ]
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -21747,6 +21978,7 @@
         "required": [
           "id",
           "kind",
+          "purpose",
           "sortOrder",
           "recipeId",
           "recipeVersionId",
@@ -21766,6 +21998,9 @@
           },
           "kind": {
             "$ref": "#/components/schemas/CreativeContextReferenceKind"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/CreativeContextReferencePurpose"
           },
           "sortOrder": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -21852,6 +22087,16 @@
               }
             ]
           },
+          "purpose": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreativeContextReferencePurpose"
+              }
+            ]
+          },
           "recipeId": {
             "type": [
               "null",
@@ -21920,6 +22165,13 @@
           "GeneratedImage",
           "PromptRecord",
           "SocialPackage"
+        ],
+        "type": "string"
+      },
+      "CreativeContextReferencePurpose": {
+        "enum": [
+          "Source",
+          "Keeper"
         ],
         "type": "string"
       },
@@ -26905,6 +27157,17 @@
           }
         }
       },
+      "RequestDishFacets": {
+        "type": "object",
+        "properties": {
+          "dishName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RequestEditorialPackage": {
         "type": "object",
         "properties": {
@@ -27010,6 +27273,13 @@
             ],
             "format": "uuid"
           },
+          "dishName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What the dish is called. Optional; your own words, and not needed when a recipe is named."
+          },
           "sceneOverrides": {
             "type": [
               "null",
@@ -27090,6 +27360,13 @@
             ],
             "description": "The picture you have in mind. Optional; your own words, not a prompt."
           },
+          "dishName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What the dish is called. Optional; your own words, and not needed when a recipe is named."
+          },
           "sceneOverrides": {
             "type": [
               "null",
@@ -27160,6 +27437,12 @@
       "RequestRecipeConcepts": {
         "type": "object",
         "properties": {
+          "dishName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "audience": {
             "type": [
               "null",
@@ -27244,6 +27527,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "dishName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "audience": {
             "type": [
@@ -29520,6 +29809,9 @@
     },
     {
       "name": "DamAssets"
+    },
+    {
+      "name": "DishFacetRequests"
     },
     {
       "name": "EditorialPackageRequests"

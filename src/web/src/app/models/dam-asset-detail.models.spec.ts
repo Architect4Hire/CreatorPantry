@@ -91,13 +91,22 @@ describe('DAM asset detail models', () => {
       expect(asset.prompts[0].id).toBe('p1');
     });
 
-    it('holds nothing the page does not use: no checksum, tombstone, generated-image id or object key', () => {
+    it('holds nothing the page does not use: no checksum, tombstone or object key', () => {
       const asset = decodeDamAssetDetail(detailBody({ objectKey: 'assets/x/2.jpg' })) as DamAssetDetail;
       const flat = JSON.stringify(asset);
 
-      for (const banned of ['contentChecksum', 'deletedByMembershipId', 'sourceGeneratedImageId', 'objectKey', 'ABCDEF0123']) {
+      for (const banned of ['contentChecksum', 'deletedByMembershipId', 'objectKey', 'ABCDEF0123']) {
         expect(flat).not.toContain(banned);
       }
+    });
+
+    it('reads the generated picture an asset was kept from, which is the way back to it (AF.4.2)', () => {
+      expect(decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: 'g1' }))?.sourceGeneratedImageId).toBe('g1');
+      // Null for an upload, and for a server that does not publish the field at all.
+      expect(decodeDamAssetDetail(detailBody())?.sourceGeneratedImageId).toBeNull();
+      expect(decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: undefined }))?.sourceGeneratedImageId).toBeNull();
+      // A field that is present and not an id fails the read rather than passing as "kept from nothing".
+      expect(decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: 42 }))).toBeNull();
     });
 
     it('carries the concurrency token exactly as sent, because an edit has to quote it back', () => {

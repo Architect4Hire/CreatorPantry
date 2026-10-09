@@ -33,6 +33,23 @@
 
       <div class="brief-sections">
         <cp-form-section heading="The dish" intro="What kind of recipe you're after.">
+          <cp-field
+            label="Recipe name"
+            forId="concept-dish-name"
+            hint="If you already know what it is. Every concept will be a different take on it, not a different dish."
+            [error]="fieldError('dishName')"
+          >
+            <input
+              id="concept-dish-name"
+              type="text"
+              name="dishName"
+              [maxlength]="shortFieldMaxLength"
+              [ngModel]="dishName()"
+              (ngModelChange)="dishName.set($event)"
+              [attr.aria-invalid]="fieldError('dishName') ? 'true' : null"
+            />
+          </cp-field>
+
           <cp-field label="Course" forId="concept-course" [error]="fieldError('course')">
             <input
               id="concept-course"
@@ -421,6 +438,7 @@
             heading="Or use this concept in…"
             [workspaceSlug]="workspaceSlug"
             [source]="source"
+            [seed]="handoffSeed()"
             [destinations]="handoffDestinations"
             [disabled]="drafting()"
           />

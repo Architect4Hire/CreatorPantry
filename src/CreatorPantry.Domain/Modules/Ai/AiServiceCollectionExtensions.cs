@@ -127,6 +127,25 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers the request seam for reading a dish name into a cuisine, a dish type and a cooking method.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddAiModule"/> for the reason <see cref="AddAiConceptRequestSeam"/> is, and it
+    /// carries that one's prerequisite rather than the recipe module's: the request names no recipe. The
+    /// vocabulary module is a prerequisite of the <em>handler</em>, not of this seam — nothing here reads a
+    /// catalogue, so a host that only queues requests needs no vocabulary registration.
+    /// </remarks>
+    public static IServiceCollection AddAiDishFacetsRequestSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiDishFacetsRequestBusiness, AiDishFacetsRequestBusiness>();
+        services.AddScoped<IAiDishFacetsRequestFacade, AiDishFacetsRequestFacade>();
+        services.AddScoped<IValidator<RequestDishFacetsViewModel>, RequestDishFacetsViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers the request seam for AIREC-002's structured first-draft generation.
     /// </summary>
     /// <remarks>
@@ -482,6 +501,11 @@ public static class AiServiceCollectionExtensions
         services.AddKeyedScoped<IAiTaskHandler, ImagePromptAiTaskHandler>(AiTaskType.ImagePrompt);
         services.AddKeyedScoped<IAiTaskHandler, ReferenceImageAnalysisAiTaskHandler>(
             AiTaskType.ReferenceImageAnalysis);
+
+        // Reads the vocabulary module's catalogues, so this handler adds AddVocabularyModule to the
+        // prerequisites the remarks above already list for the worker.
+        services.AddKeyedScoped<IAiTaskHandler, DishFacetSuggestionAiTaskHandler>(
+            AiTaskType.DishFacetSuggestion);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

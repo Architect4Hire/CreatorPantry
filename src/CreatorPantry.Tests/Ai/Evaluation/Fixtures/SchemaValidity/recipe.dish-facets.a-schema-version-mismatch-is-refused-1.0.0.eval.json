@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-schema-version-mismatch-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "Checked before the shape is examined at all. A template and an answer that disagree on version are answering different questions, and the mismatch is the only evidence of it -- so it is refused rather than parsed hopefully.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"recipe.dish-facets.v2\",\"suggestions\":[]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch",
+    "category": "OutputSchemaInvalid"
+  }
+}

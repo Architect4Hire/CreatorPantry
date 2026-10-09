@@ -17,6 +17,7 @@ import {
   CONTENT_PIPELINE_LIMITS,
   ContentPipelineConfig,
   ContentPipelinePromptState,
+  contentSubjectOf,
   linkedRecipeKey,
 } from '../../models/content-pipeline.models';
 import { LinkedRecipe } from '../../models/creative-context.models';
@@ -48,9 +49,10 @@ const PICK_SEPARATOR = '|';
  *
  * **It is never sent empty.** Every field on the setup step is optional, so a creator can arrive here having
  * filled in none of them. Where they wrote no description, the idea they picked stands in as the brief — it is a
- * decision of theirs, and it is the only thing that says what the picture is of. Where there is no idea either
- * and no scene or style, nothing is asked: a request that names no subject is charged for and comes back with no
- * looks, which a creator can only read as something having broken.
+ * decision of theirs, and it is the only thing that says what the picture is of. A dish name, or a linked
+ * recipe, says that too and is enough on its own. Where there is none of those and no scene or style, nothing
+ * is asked: a request that names no subject is charged for and comes back with no looks, which a creator can
+ * only read as something having broken.
  */
 @Component({
   selector: 'cp-content-pipeline-concept-panel',
@@ -179,6 +181,22 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
     return this.prompt().conceptRequestId !== null && planned !== null && planned !== linkedRecipeKey(this.recipe());
   });
 
+  /** The name this shoot is about now, or null when a linked recipe is. One decision, made in one place. */
+  protected readonly subject = computed(() => contentSubjectOf(this.config(), this.recipe()));
+
+  /**
+   * True when the looks on screen were planned under a different name for the dish. Said, never acted on.
+   *
+   * Only where both the request and the shoot have a name: one added after planning did not make the looks
+   * wrong about anything, and one removed leaves the looks as the last thing the creator asked for.
+   */
+  protected readonly plannedFromOtherSubject = computed(() => {
+    const planned = this.prompt().plannedSubject;
+    const subject = this.subject();
+
+    return this.prompt().conceptRequestId !== null && planned !== null && subject !== null && planned !== subject;
+  });
+
   /**
    * Whether the request would name anything to photograph. A channel alone does not: it says where the picture
    * is going, not what is in it.
@@ -187,7 +205,11 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
     const { scene, style } = this.config();
     const said = (line: string): boolean => line.trim() !== '';
 
-    return said(this.brief()) || scene.some(said) || style.some(said);
+    // The dish name counts, and on its own: "Miso butter corn" is a subject to plan a shoot for, which is the
+    // whole point of offering the field to a creator whose recipe is not in the library yet.
+    return (
+      this.subject() !== null || this.recipe() !== null || said(this.brief()) || scene.some(said) || style.some(said)
+    );
   });
 
   /** Says why asking is unavailable, except while a request is already on its way and nothing can be asked. */
@@ -224,6 +246,7 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
     const config = this.config();
     const brief = this.brief();
     const recipe = this.recipe();
+    const subject = this.subject();
     const requestId = await this.tracker.submit(() =>
       this.concepts.request(
         this.workspaceSlug(),
@@ -231,6 +254,7 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
           channelKey: config.channelKey,
           recipeId: recipe?.recipeId ?? null,
           recipeVersionId: recipe?.recipeVersionId ?? null,
+          dishName: subject,
           creatorConcept: brief,
           sceneOverrides: config.scene,
           styleOverrides: config.style,
@@ -253,6 +277,7 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
       conceptRequestId: requestId,
       plannedBrief: brief,
       plannedRecipe: linkedRecipeKey(recipe),
+      plannedSubject: subject,
       chosen: null,
     });
     this.announced.emit('Looking for some looks to choose from.');

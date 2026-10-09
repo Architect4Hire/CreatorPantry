@@ -11,6 +11,17 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// </remarks>
 public static class AiBriefInputs
 {
+    /// <summary>
+    /// What the creator calls the dish, when they already know. Leads the brief, because it is the subject the
+    /// rest of the brief describes.
+    /// </summary>
+    /// <remarks>
+    /// The creator's own words, and a name only: it says what the dish is called, never how it is cooked, so
+    /// nothing may read a cuisine, a course or an ingredient out of it. It is the same words the Image Studio
+    /// and the Content Pipeline keep as a creative context's working title.
+    /// </remarks>
+    public const string DishName = "dishName";
+
     public const string Audience = "audience";
 
     public const string Course = "course";
@@ -36,6 +47,7 @@ public static class AiBriefInputs
     /// <summary>Every brief key, in the order a brief is rendered in.</summary>
     public static IReadOnlyList<string> All { get; } =
     [
+        DishName,
         Audience,
         Course,
         Cuisine,
@@ -72,7 +84,7 @@ public static class AiBriefInputs
 public static class AiFirstDraftInputs
 {
     /// <summary>The chosen concept's title and summary, composed into one line by the request seam.</summary>
-    /// <remarks>The one key this capability adds to <see cref="AiBriefInputs"/>'s shared eleven.</remarks>
+    /// <remarks>The one key this capability adds to <see cref="AiBriefInputs"/>'s shared twelve.</remarks>
     public const string SelectedConcept = "selectedConcept";
 
     /// <summary>The concept request the chosen concept came from. Stored, never rendered.</summary>

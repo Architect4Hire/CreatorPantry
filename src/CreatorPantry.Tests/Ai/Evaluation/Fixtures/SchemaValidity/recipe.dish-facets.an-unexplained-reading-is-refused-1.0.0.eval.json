@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.an-unexplained-reading-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "A rationale is what makes a suggestion checkable by the person who typed the name; a bare selection is not. Required whether or not a code was named -- a blank one is refused rather than stored as an empty explanation.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"DishType\",\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"   \"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_unexplained",
+    "category": "DomainInvalid"
+  }
+}

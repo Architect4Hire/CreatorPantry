@@ -32,6 +32,16 @@
   </cp-notice>
 }
 
+@if (plannedFromOtherSubject()) {
+  <cp-notice tone="warning" role="status">
+    You have renamed what this picture is of since these looks were planned, so they were planned under the
+    earlier name.
+    <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
+      Plan looks for the new name
+    </button>
+  </cp-notice>
+}
+
 @switch (tracker.phase().kind) {
   @case ('idle') {
     <p>

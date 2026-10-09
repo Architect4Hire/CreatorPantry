@@ -41,6 +41,17 @@ public sealed class RequestRecipeFirstDraftViewModel
     /// </summary>
     public Guid? SourceConceptId { get; set; }
 
+    /// <summary>
+    /// What the creator calls the dish, when they already know. Their own words, and a name only.
+    /// </summary>
+    /// <remarks>
+    /// It says what the dish is called, never how it is cooked, so nothing downstream may read a cuisine, a
+    /// course or an ingredient out of it. The same words the Image Studio and the Content Pipeline keep as a
+    /// creative context's working title, which is why the bound matches theirs in spirit if not in number: a
+    /// brief field's bound is the brief's.
+    /// </remarks>
+    public string? DishName { get; set; }
+
     public string? Audience { get; set; }
 
     public string? Course { get; set; }
@@ -68,7 +79,8 @@ public sealed class RequestRecipeFirstDraftViewModel
 
     /// <summary>Whether the request supplies anything at all in the declared brief fields.</summary>
     internal bool NamesABriefField =>
-        !string.IsNullOrWhiteSpace(Audience)
+        !string.IsNullOrWhiteSpace(DishName)
+        || !string.IsNullOrWhiteSpace(Audience)
         || !string.IsNullOrWhiteSpace(Course)
         || !string.IsNullOrWhiteSpace(Cuisine)
         || !string.IsNullOrWhiteSpace(DietaryGoals)
@@ -98,6 +110,7 @@ public sealed class RequestRecipeFirstDraftViewModelValidator : AbstractValidato
 {
     public RequestRecipeFirstDraftViewModelValidator()
     {
+        RuleFor(model => model.DishName).MaximumLength(AiPolicy.BriefFieldMaxLength);
         RuleFor(model => model.Audience).MaximumLength(AiPolicy.BriefFieldMaxLength);
         RuleFor(model => model.Course).MaximumLength(AiPolicy.BriefFieldMaxLength);
         RuleFor(model => model.Cuisine).MaximumLength(AiPolicy.BriefFieldMaxLength);

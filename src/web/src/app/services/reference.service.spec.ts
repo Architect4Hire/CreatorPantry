@@ -8,6 +8,17 @@ import { ReferenceService } from './reference.service';
 
 const UNITS_URL = 'https://gateway.example/api/v1/reference/units';
 const INGREDIENTS_URL = 'https://gateway.example/api/v1/reference/ingredients';
+const CUISINES_URL = 'https://gateway.example/api/v1/reference/cuisines';
+const COURSES_URL = 'https://gateway.example/api/v1/reference/courses';
+const TECHNIQUES_URL = 'https://gateway.example/api/v1/reference/techniques';
+
+function entry(id: string, code: string, displayName: string): Record<string, unknown> {
+  return { id, code, displayName };
+}
+
+function technique(id: string, code: string, requiresSafetyCaution = false): Record<string, unknown> {
+  return { id, code, displayName: code, requiresSafetyCaution };
+}
 
 function ingredient(id: string, canonicalName: string, aliases: readonly string[] = []): Record<string, unknown> {
   return { id, canonicalName, foodCategoryCode: null, defaultCountUnitCode: null, aliases };
@@ -128,6 +139,83 @@ describe('ReferenceService', () => {
     http.expectNone((request) => request.url === UNITS_URL);
   });
 
+
+  // The three vocabularies that describe a dish. Global routes: nothing about the request may name a
+  // workspace, because reference data has no WorkspaceId to filter by (tenancy.md).
+  it('reads each dish vocabulary from its own global route', async () => {
+    const cuisines = service.listCuisines();
+    const cuisineReq = http.expectOne((request) => request.url === CUISINES_URL);
+    expect(cuisineReq.request.withCredentials).toBeTrue();
+    expect(cuisineReq.request.url).not.toContain('workspace');
+    cuisineReq.flush({ items: [entry('c1', 'levantine', 'Levantine')], nextCursor: null });
+
+    const courses = service.listCourses();
+    http.expectOne((request) => request.url === COURSES_URL)
+      .flush({ items: [entry('k1', 'salad', 'Salad')], nextCursor: null });
+
+    const techniques = service.listTechniques();
+    http.expectOne((request) => request.url === TECHNIQUES_URL)
+      .flush({ items: [technique('t1', 'grill')], nextCursor: null });
+
+    expect(await cuisines).toEqual({ status: 'found', entries: [{ id: 'c1', code: 'levantine', displayName: 'Levantine' }] });
+    expect(await courses).toEqual({ status: 'found', entries: [{ id: 'k1', code: 'salad', displayName: 'Salad' }] });
+    expect(await techniques).toEqual({
+      status: 'found',
+      techniques: [{ id: 't1', code: 'grill', displayName: 'grill', requiresSafetyCaution: false }],
+    });
+  });
+
+  // The flag decides whether a surface showing this method must carry a caution, so dropping it silently
+  // would turn "no caution attached" into "no caution needed" (.claude/rules/ai.md).
+  it('carries each technique’s caution flag through', async () => {
+    const call = service.listTechniques();
+    http.expectOne((request) => request.url === TECHNIQUES_URL).flush({
+      items: [technique('t1', 'pressure-canning', true), technique('t2', 'grill')],
+      nextCursor: null,
+    });
+
+    const outcome = await call;
+    expect(outcome.status === 'found' && outcome.techniques.map((each) => each.requiresSafetyCaution)).toEqual([
+      true,
+      false,
+    ]);
+  });
+
+  it('follows the cursor and caches each vocabulary for the session', async () => {
+    const call = service.listCuisines();
+
+    http.expectOne((request) => request.url === CUISINES_URL && request.params.get('cursor') === null)
+      .flush({ items: [entry('c1', 'levantine', 'Levantine')], nextCursor: 'page-2' });
+    await tick();
+
+    http.expectOne((request) => request.url === CUISINES_URL && request.params.get('cursor') === 'page-2')
+      .flush({ items: [entry('c2', 'thai', 'Thai')], nextCursor: null });
+
+    const outcome = await call;
+    expect(outcome.status === 'found' && outcome.entries.map((each) => each.code)).toEqual(['levantine', 'thai']);
+
+    expect((await service.listCuisines()).status).toBe('found');
+    http.expectNone((request) => request.url === CUISINES_URL);
+  });
+
+  // A failure is not cached: the next caller tries again rather than inheriting an outage.
+  it('answers unavailable on a failed vocabulary read and retries afterwards', async () => {
+    const failed = service.listCourses();
+    http.expectOne((request) => request.url === COURSES_URL).flush({}, { status: 500, statusText: 'Server Error' });
+    expect(await failed).toEqual({ status: 'unavailable' });
+
+    const retried = service.listCourses();
+    http.expectOne((request) => request.url === COURSES_URL)
+      .flush({ items: [entry('k1', 'salad', 'Salad')], nextCursor: null });
+    expect((await retried).status).toBe('found');
+  });
+
+  it('answers unavailable when a vocabulary page cannot be decoded', async () => {
+    const call = service.listCuisines();
+    http.expectOne((request) => request.url === CUISINES_URL).flush({ items: [{ id: 'c1' }], nextCursor: null });
+
+    expect(await call).toEqual({ status: 'unavailable' });
+  });
 
   // The ingredient catalogue is far too large to hold client-side, so this is a search: one page, and typing
   // more is how the creator narrows it. Nothing about the request may name a workspace — reference data is

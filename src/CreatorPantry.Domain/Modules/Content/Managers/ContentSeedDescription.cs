@@ -42,6 +42,13 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 /// new dish. The cuisine, dish type and method beside the title are then the recipe's own, so they describe it
 /// rather than suggest it. The title is creator content, like a theme's name.
 /// </para>
+/// <para>
+/// <strong>A seed built around a subject the creator typed names it too, and differently.</strong> There is no
+/// recipe behind the name, so the cuisine, dish type and method beside it are the token's suggestions rather
+/// than anything known about the dish — which is why the line reads "Develop "X" as a Thai main course" and
+/// not "Plan a post about "X", a Thai main course". The first proposes; the second would state that the thing
+/// the creator named is Thai, which nothing here knows.
+/// </para>
 /// </remarks>
 internal static class ContentSeedDescription
 {
@@ -60,7 +67,8 @@ internal static class ContentSeedDescription
         ContentSeedFacetServiceModel? channel,
         ContentSeedDayServiceModel day,
         ContentSeedFacetServiceModel? occasion,
-        string? recipeTitle = null)
+        string? recipeTitle = null,
+        string? subjectName = null)
     {
         var line = new StringBuilder();
 
@@ -76,7 +84,20 @@ internal static class ContentSeedDescription
 
         if (recipeTitle is null)
         {
-            line.Append(CultureInfo.InvariantCulture, $"Develop a {subject ?? "recipe"}");
+            // The creator's own name, verbatim and quoted so it is plain where their words start and stop. What
+            // follows is proposed for it rather than claimed about it: nothing here knows what the dish is.
+            if (subjectName is null)
+            {
+                line.Append(CultureInfo.InvariantCulture, $"Develop a {subject ?? "recipe"}");
+            }
+            else if (subject is null)
+            {
+                line.Append(CultureInfo.InvariantCulture, $"Develop \"{subjectName}\"");
+            }
+            else
+            {
+                line.Append(CultureInfo.InvariantCulture, $"Develop \"{subjectName}\" as a {subject}");
+            }
 
             if (method is not null)
             {

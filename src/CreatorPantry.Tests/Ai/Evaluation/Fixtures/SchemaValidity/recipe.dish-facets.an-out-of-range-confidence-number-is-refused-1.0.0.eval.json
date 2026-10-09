@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.an-out-of-range-confidence-number-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The same hole on the other enum, and the one with teeth: a confidence of 9 is neither band, and stored as the string \"9\" it is a value the surface cannot act on -- so a reading would arrive with no usable answer to \"how sure is this\", which is the field that decides whether a control is pre-filled.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"Cuisine\",\"code\":\"levantine\",\"confidence\":9,\"rationale\":\"fattoush is Levantine\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.dish_facet_confidence_misplaced",
+    "category": "DomainInvalid"
+  }
+}

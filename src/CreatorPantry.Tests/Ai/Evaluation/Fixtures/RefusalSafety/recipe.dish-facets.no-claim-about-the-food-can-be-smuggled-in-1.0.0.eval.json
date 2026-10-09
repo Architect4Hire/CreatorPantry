@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.no-claim-about-the-food-can-be-smuggled-in",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "DishFacetsOutputValidation",
+  "description": "The document has no field for what a dish contains, what it suits, or whether it is safe, and unmapped members are disallowed -- so an answer that tried to tell a creator their salad is gluten free fails loudly rather than having that part quietly deleted. A name is the thinnest evidence in the product, and this is what stops a reading of one becoming a dietary claim.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.dish-facets.v1\",\"suggestions\":[{\"facet\":\"DishType\",\"code\":\"salad\",\"confidence\":\"Likely\",\"rationale\":\"the name says salad\"}],\"allergens\":[\"gluten\"],\"dietarySuitability\":\"gluten free\"}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

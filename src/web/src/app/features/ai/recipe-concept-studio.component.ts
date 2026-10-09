@@ -30,7 +30,7 @@ import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { HANDOFF_ROUTES, HandoffDestination } from '../../shared/use-this-in/handoff-destinations';
-import { UseThisInComponent } from '../../shared/use-this-in/use-this-in.component';
+import { HandoffSeed, UseThisInComponent } from '../../shared/use-this-in/use-this-in.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
 
@@ -140,6 +140,14 @@ export class RecipeConceptStudioComponent {
 
   // ---- Brief fields ----
 
+  /**
+   * What the creator calls the dish, when they already know. Empty for none.
+   *
+   * The subject the rest of the brief describes: given one, every concept that comes back is a different take
+   * on that dish rather than a different dish. The prompt says so, and says that a name tells it nothing about
+   * cuisine or method.
+   */
+  readonly dishName = signal('');
   readonly audience = signal('');
   readonly course = signal('');
   readonly cuisine = signal('');
@@ -336,6 +344,27 @@ export class RecipeConceptStudioComponent {
       : { kind: 'RecipeConcept', conceptRequestId, conceptId: concept.targetId };
   });
 
+  /**
+   * What the new piece of work starts knowing, so a hand-off does not ask the creator what they just said.
+   *
+   * Only the working title, and only because the destination has a field for it: the Image Studio and the
+   * Content Pipeline both open on "what it is called", and arriving at an empty one — having named the dish a
+   * moment earlier — is the seam a creator feels. Everything else about the concept travels as the context's
+   * source reference rather than as a copy, which is the rule a context keeps (content.md).
+   *
+   * **The creator's own name for the dish wins over the concept's title**, which is the model's wording for
+   * one variation of it. Where they named nothing, the chosen concept's title is the only thing that says what
+   * the work is about, and a title they can edit beats an empty box. Either way it is a starting value in a
+   * field that is theirs to reword, never a claim about what they wrote.
+   */
+  readonly handoffSeed = computed<HandoffSeed | null>(() => {
+    const typed = this.dishName().trim();
+    const chosen = this.selectedConceptSignal();
+    const workingTitle = typed !== '' ? typed : (chosen?.title.trim() ?? '');
+
+    return workingTitle === '' ? null : { workingTitle };
+  });
+
   private readonly draftingSignal = signal(false);
 
   /** A draft of the chosen concept is being asked for. */
@@ -412,6 +441,7 @@ export class RecipeConceptStudioComponent {
 
   private currentBrief(): RequestRecipeConceptsRequest {
     return {
+      dishName: this.dishName(),
       audience: this.audience(),
       course: this.course(),
       cuisine: this.cuisine(),

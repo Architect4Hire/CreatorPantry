@@ -1,0 +1,16 @@
+{
+  "id": "recipe.dish-facets.a-control-character-in-a-rationale-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "DishFacetsOutputValidation",
+  "description": "A rationale is rendered beside a form control, so a control character in it is text the creator cannot see and the screen cannot lay out. Tab, newline and carriage return are permitted; nothing else is. The character arrives properly escaped, which is the only way this rule is reachable -- a raw control byte is refused one stage earlier as malformed JSON.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"fixture.dish-facets.v1\", \"suggestions\": [{\"facet\": \"DishType\", \"code\": \"salad\", \"confidence\": \"Likely\", \"rationale\": \"the name says\\u0007 salad\"}]}",
+    "expectedSchemaVersion": "fixture.dish-facets.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

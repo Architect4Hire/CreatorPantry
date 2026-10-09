@@ -224,7 +224,7 @@ describe('prompt library models', () => {
       expect(draft.prompt.conceptRequestId).toBeNull();
       expect(draft.prompt.chosen).toBeNull();
       expect(draft.prompt.generated).toBeNull();
-      expect(draft.images).toEqual({ operationId: null, keepers: [] });
+      expect(draft.images).toEqual({ operationId: null });
     });
 
     it('leaves the channel unset when it is retired or unknown, since the studio could not use it', () => {

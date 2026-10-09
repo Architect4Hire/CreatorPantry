@@ -223,6 +223,55 @@ public sealed class PhotographyConceptAiTaskHandlerTests : IAsyncDisposable
     }
 
     /// <summary>
+    /// A dish name reaches the prompt, and reaches it as data.
+    /// </summary>
+    /// <remarks>
+    /// It is the plainest statement of what the subject is, which is the argument for folding it into the task
+    /// and the reason it must not be: a name carries an injected instruction as easily as a description does.
+    /// So it travels in the untrusted segment beside the concept and the overrides (ai.md).
+    /// </remarks>
+    [Fact]
+    public async Task A_dish_name_lands_fenced_in_the_user_message_and_never_in_the_system_message()
+    {
+        const string name = "Fattoush salad with radishes and grilled chicken shawarma";
+
+        var client = FakeChatClient.Returning(OneConcept);
+
+        await Run(client, inputs: new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PhotographyConceptInputs.DishName] = name,
+        });
+
+        var user = client.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+        var system = client.LastMessages!.Single(message => message.Role == ChatRole.System).Text;
+
+        Assert.Contains(name, user, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fattoush", system, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A request with nothing in it at all still has no untrusted segment, so a name alone is what adds one.
+    /// </summary>
+    [Fact]
+    public async Task A_dish_name_alone_is_enough_to_give_the_prompt_an_untrusted_segment()
+    {
+        var bare = FakeChatClient.Returning(OneConcept);
+        await Run(bare, inputs: null);
+        var withoutName = bare.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+
+        var named = FakeChatClient.Returning(OneConcept);
+        await Run(named, inputs: new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PhotographyConceptInputs.DishName] = "Soda bread",
+        });
+        var withName = named.LastMessages!.Single(message => message.Role == ChatRole.User).Text;
+
+        Assert.DoesNotContain("UNTRUSTED", withoutName, StringComparison.Ordinal);
+        Assert.Contains("UNTRUSTED", withName, StringComparison.Ordinal);
+        Assert.Contains("Soda bread", withName, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// A recipe is read only inside the resolved workspace, so a neighbour's id cannot reach a prompt.
     /// </summary>
     /// <remarks>

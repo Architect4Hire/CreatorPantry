@@ -412,6 +412,16 @@ internal sealed class CreativeContextBusiness(
     }
 
     /// <summary>The same notion of "one source" the table's filtered unique indexes hold.</summary>
+    /// <summary>
+    /// Whether the context already names this source for this purpose.
+    /// </summary>
+    /// <remarks>
+    /// <strong>The purpose is part of the identity for a picture, and only for a picture.</strong> A work can
+    /// take cues from a picture and also produce pictures of its own, so the same picture named once as a cue
+    /// and once as a keeper is two facts rather than a repeat (AF.4.3) — which is why the two picture kinds
+    /// are unique per purpose in the store too. Every other kind is named once however it is used: a recipe
+    /// this work is about does not become a different source by being called something else.
+    /// </remarks>
     private static bool NamesSameSource(
         CreativeContextReference existing, CreativeContextReferenceInputViewModel input) =>
         existing.Kind == input.Kind && input.Kind switch
@@ -419,11 +429,17 @@ internal sealed class CreativeContextBusiness(
             CreativeContextReferenceKind.Recipe => existing.RecipeId == input.RecipeId,
             CreativeContextReferenceKind.RecipeConcept =>
                 existing.ConceptRequestId == input.ConceptRequestId && existing.ConceptId == input.ConceptId,
-            CreativeContextReferenceKind.DamAsset => existing.MediaAssetId == input.MediaAssetId,
-            CreativeContextReferenceKind.GeneratedImage => existing.GeneratedImageId == input.GeneratedImageId,
+            CreativeContextReferenceKind.DamAsset =>
+                existing.MediaAssetId == input.MediaAssetId && SamePurpose(existing, input),
+            CreativeContextReferenceKind.GeneratedImage =>
+                existing.GeneratedImageId == input.GeneratedImageId && SamePurpose(existing, input),
             CreativeContextReferenceKind.PromptRecord => existing.PromptRecordId == input.PromptRecordId,
             _ => false,
         };
+
+    private static bool SamePurpose(
+        CreativeContextReference existing, CreativeContextReferenceInputViewModel input) =>
+        existing.Purpose == (input.Purpose ?? CreativeContextReferencePurpose.Source);
 
     private OperationResult<CreativeContextServiceModel>? RefuseChannels(
         IReadOnlyList<string> channelKeys, IReadOnlyList<string> alreadyChosen)
@@ -498,6 +514,10 @@ internal sealed class CreativeContextBusiness(
             Id = Guid.NewGuid(),
             CreativeContextId = contextId,
             Kind = input.Kind!.Value,
+
+            // Absent is Source: a caller that names a source without saying what it is for is naming
+            // something the work draws on, which is every reference made before AF.4.3.
+            Purpose = input.Purpose ?? CreativeContextReferencePurpose.Source,
             SortOrder = sortOrder,
             RecipeId = input.RecipeId,
             RecipeVersionId = input.RecipeVersionId,
@@ -529,6 +549,7 @@ internal sealed class CreativeContextBusiness(
             .Select(reference => new CreativeContextReferenceServiceModel(
                 reference.Id,
                 reference.Kind,
+                reference.Purpose,
                 reference.SortOrder,
                 reference.RecipeId,
                 reference.RecipeVersionId,

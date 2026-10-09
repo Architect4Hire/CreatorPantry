@@ -80,6 +80,11 @@ public static class AiTaskCatalog
     /// <summary>IMG-004: structured observations of a reference image, and a prompt drawn from them.</summary>
     public const string ReferenceImageAnalysis = "image.reference-analysis";
 
+    /// <summary>
+    /// Which cuisine, course and technique a dish name most likely names, each from the platform vocabulary.
+    /// </summary>
+    public const string DishFacetSuggestion = "recipe.dish-facets";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -97,6 +102,7 @@ public static class AiTaskCatalog
         [PhotographyConcept] = AiTaskType.PhotographyConcept,
         [ImagePrompt] = AiTaskType.ImagePrompt,
         [ReferenceImageAnalysis] = AiTaskType.ReferenceImageAnalysis,
+        [DishFacetSuggestion] = AiTaskType.DishFacetSuggestion,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -180,6 +186,14 @@ public static class AiTaskCatalog
     /// is the one thing no earlier entry in this list does. Its channel, its creator concept and its scene and
     /// style overrides have nowhere to travel on the generic contract either.
     /// </para>
+    /// <para>
+    /// <see cref="AiTaskType.DishFacetSuggestion"/> needs it for the first two reasons in their starkest
+    /// form. The dish name is not merely a field it would like — it is the <strong>entire</strong> input, so a
+    /// request without one is not an under-directed version of this task but nothing at all; and its scope is
+    /// fixed server-side at <see cref="AiOperationScope.NotApplicable"/>, because reading a name addresses no
+    /// part of any recipe. Like <see cref="AiTaskType.RecipeConcepts"/> it names no recipe, which is the
+    /// point of it: a creator asks for this when the dish is not in their library yet.
+    /// </para>
     /// </remarks>
     public static bool RequiresTaskInputs(AiTaskType task) =>
         task is AiTaskType.IngredientSubstitution or AiTaskType.RecipeAdaptation or AiTaskType.RecipeReview
@@ -187,7 +201,8 @@ public static class AiTaskCatalog
             or AiTaskType.RecipeRevision or AiTaskType.EditorialPackage
             or AiTaskType.SeoPackage or AiTaskType.BrandGuideProposal
             or AiTaskType.BrandStyleTestDrive or AiTaskType.PhotographyConcept
-            or AiTaskType.ImagePrompt or AiTaskType.ReferenceImageAnalysis;
+            or AiTaskType.ImagePrompt or AiTaskType.ReferenceImageAnalysis
+            or AiTaskType.DishFacetSuggestion;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

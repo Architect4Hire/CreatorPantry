@@ -29,6 +29,16 @@ public static partial class ContentSeedPolicy
     public const int KeyMaxLength = 64;
 
     /// <summary>
+    /// The longest typed subject accepted, matching <c>CreativeContextPolicy.WorkingTitleMaxLength</c>.
+    /// </summary>
+    /// <remarks>
+    /// The same number because it is the same words: a subject is the creative context's working title, sent by
+    /// a surface that has no recipe to name instead. A different bound here would let a creator type a name the
+    /// work keeps and the idea refuses.
+    /// </remarks>
+    public const int SubjectMaxLength = 200;
+
+    /// <summary>
     /// The facet names mixed into the selection hash. Stable strings, because changing one re-points every token
     /// at a different answer for that facet.
     /// </summary>
