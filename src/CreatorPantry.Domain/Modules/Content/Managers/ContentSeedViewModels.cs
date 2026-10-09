@@ -41,4 +41,20 @@ public sealed record ContentSeedQueryViewModel
 
     /// <summary>An <c>Occasion.Key</c>, such as <c>weeknight</c>.</summary>
     public string? Occasion { get; init; }
+
+    /// <summary>
+    /// A recipe of this workspace to build the idea around. Its cuisine, course and primary technique become the
+    /// seed's cuisine, dish type and method, and its title is named in the description.
+    /// </summary>
+    /// <remarks>
+    /// Read through the recipe module's facade in the resolved workspace, so a recipe that does not exist and one
+    /// that belongs to another workspace are refused alike.
+    /// </remarks>
+    public Guid? RecipeId { get; init; }
+
+    /// <summary>
+    /// The version of <see cref="RecipeId"/> to read, when the caller pinned one. Absent reads the recipe as it
+    /// currently stands. Refused without a <see cref="RecipeId"/>.
+    /// </summary>
+    public Guid? RecipeVersionId { get; init; }
 }

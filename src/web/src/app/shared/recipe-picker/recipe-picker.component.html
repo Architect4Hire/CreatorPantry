@@ -1,6 +1,6 @@
 <cp-form-section
   heading="A recipe"
-  intro="Link the recipe this picture is of, and the looks and the prompt are planned around it. Optional."
+  [intro]="intro()"
   [sectionId]="idPrefix()"
 >
   @if (action(); as state) {

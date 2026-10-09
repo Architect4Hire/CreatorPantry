@@ -10,6 +10,7 @@ import {
   ContentPipelineDraft,
   ContentPipelinePromptState,
   isContentPipelineBriefEdited,
+  linkedRecipeKey,
 } from '../../models/content-pipeline.models';
 import { LinkedRecipe } from '../../models/creative-context.models';
 import { CreativeContextSession } from '../../services/creative-context-session';
@@ -90,6 +91,17 @@ export class ContentPipelinePromptStepComponent {
     const draft = this.draft();
     this.changed.emit({ ...draft, config: { ...draft.config, brief } });
   }
+
+  /**
+   * The linked recipe's title, where this step already knows it: the picked idea carries it when it was built
+   * around the same recipe. Null otherwise — the recipe is still what the looks are planned around, and the
+   * line says so without a name rather than reading the recipe again for one.
+   */
+  protected readonly recipeTitle = computed(() => {
+    const built = this.draft().seed.accepted?.recipe ?? null;
+
+    return built !== null && linkedRecipeKey(built) === linkedRecipeKey(this.recipe()) ? built.title : null;
+  });
 
   /** The prompt section is only worth showing once there is a shot to write one for. */
   protected readonly hasPick = computed(() => this.prompt().chosen !== null);

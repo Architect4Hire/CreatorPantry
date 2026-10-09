@@ -126,18 +126,22 @@
 
             @switch (step.slug) {
               @case ('setup') {
-                <cp-content-pipeline-setup-step [config]="draft().config" (changed)="onConfigChanged($event)" />
+                <!-- First, because it decides what everything after it is about: the idea, the looks and the
+                     prompt are all built around the recipe linked here. -->
                 <cp-recipe-picker
                   [workspaceSlug]="workspaceSlug()"
                   [session]="session"
                   idPrefix="cp-pipeline-recipe"
+                  intro="Link the recipe this post is about, and the idea, the looks and the prompt are all built around it. Optional."
                   (announced)="onAnnounced($event)"
                 />
+                <cp-content-pipeline-setup-step [config]="draft().config" (changed)="onConfigChanged($event)" />
               }
               @case ('idea') {
                 <cp-content-pipeline-idea-step
                   [workspaceSlug]="workspaceSlug()"
                   [draft]="draft()"
+                  [recipe]="linkedRecipe()"
                   (changed)="onDraftChanged($event)"
                   (announced)="onAnnounced($event)"
                 />

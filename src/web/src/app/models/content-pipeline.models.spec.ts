@@ -18,14 +18,15 @@ import { ContentSeed } from './content-seed.models';
 
 const SEED: ContentSeed = {
   token: 'abc-123',
-  cuisine: { key: 'thai', displayName: 'Thai', pinned: false },
+  cuisine: { key: 'thai', displayName: 'Thai', pinned: false, fromRecipe: false },
   dishType: null,
-  method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, requiresSafetyCaution: true },
+  method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, fromRecipe: false, requiresSafetyCaution: true },
   photographyStyle: null,
-  channel: { key: 'instagram', displayName: 'Instagram', pinned: true },
+  channel: { key: 'instagram', displayName: 'Instagram', pinned: true, fromRecipe: false },
   day: { day: 'Friday', pinned: true, theme: null },
   occasion: null,
   description: 'Develop a Thai dish using the pressure canning method.',
+  recipe: null,
 };
 
 function draftWith(overrides: Partial<ContentPipelineDraft> = {}): ContentPipelineDraft {
@@ -106,7 +107,16 @@ describe('content-pipeline.models', () => {
         method: 'stir-fry',
         photographyStyle: null,
         occasion: null,
+        recipeId: null,
+        recipeVersionId: null,
       });
+    });
+
+    it('names the recipe linked to the run, at the version that was pinned', () => {
+      const query = contentSeedQueryFor(draftWith(), null, { recipeId: 'recipe-1', recipeVersionId: 'version-1' });
+
+      expect(query.recipeId).toBe('recipe-1');
+      expect(query.recipeVersionId).toBe('version-1');
     });
 
     it('carries a code through when one is given, so a seed can be reproduced', () => {

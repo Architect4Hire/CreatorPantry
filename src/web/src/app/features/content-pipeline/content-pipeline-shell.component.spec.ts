@@ -53,7 +53,7 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const SEED: ContentSeed = {
   token: 'abc-123',
-  cuisine: { key: 'thai', displayName: 'Thai', pinned: false },
+  cuisine: { key: 'thai', displayName: 'Thai', pinned: false, fromRecipe: false },
   dishType: null,
   method: null,
   photographyStyle: null,
@@ -61,6 +61,7 @@ const SEED: ContentSeed = {
   day: { day: 'Wednesday', pinned: false, theme: null },
   occasion: null,
   description: 'Develop a Thai dish.',
+  recipe: null,
 };
 
 function membershipState(role: WorkspaceRole | null, status: 'ready' | 'loading' | 'error') {
@@ -856,7 +857,7 @@ describe('ContentPipelineShellComponent', () => {
       });
       seedToReturn = {
         ...SEED,
-        day: { day: 'Wednesday', pinned: true, theme: { key: 'midweek-noodles', displayName: 'Midweek noodles', pinned: false } },
+        day: { day: 'Wednesday', pinned: true, theme: { key: 'midweek-noodles', displayName: 'Midweek noodles', pinned: false, fromRecipe: false } },
       };
 
       await click('Suggest an idea');

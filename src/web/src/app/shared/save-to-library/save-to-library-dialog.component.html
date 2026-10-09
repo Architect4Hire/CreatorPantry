@@ -1,0 +1,232 @@
+<cp-dialog
+  [open]="open()"
+  title="Save to library"
+  description="Keep this picture in your library, with what you want to say about it."
+  titleId="cp-save-library-heading"
+  (closed)="cancel()"
+  (keydown.escape)="onEscape($event)"
+>
+  @if (alreadyKept(); as asset) {
+    <cp-notice tone="success" role="status">
+      This picture is already in your library as “{{ asset.title }}”. What you entered here was not applied to it.
+      @if (assetLink(); as target) {
+        <a [id]="ids.openAsset" [routerLink]="target">Open it in the library</a>
+      }
+    </cp-notice>
+  } @else if (draft(); as form) {
+    <form class="form" novalidate (submit)="onSubmit($event)">
+      <!-- Optionality is said once, here, rather than field by field. -->
+      <p class="legend">Only the title is needed.</p>
+
+      @if (problem()) {
+        <cp-notice tone="error" role="alert">{{ problem() }}</cp-notice>
+      }
+
+      <div class="preview">
+        @switch (previewState()) {
+          @case ('ready') {
+            <!-- Empty alt: the creator is here to describe this picture, and nothing has described it yet. -->
+            <img [src]="previewUrl()" alt="" />
+          }
+          @case ('loading') {
+            <p class="cp-muted" role="status">Loading the picture…</p>
+          }
+          @case ('gone') {
+            <cp-notice tone="warning" role="status">The picture can't be shown here.</cp-notice>
+          }
+          @default {
+            <cp-notice tone="warning" role="status">
+              The picture could not be loaded. You can still save it.
+              <button cpButton type="button" variant="secondary" size="sm" (click)="retryPreview()">Try again</button>
+            </cp-notice>
+          }
+        }
+      </div>
+
+      <cp-form-section heading="What it is">
+        <cp-field label="Title" [forId]="ids.title" [required]="true" [error]="errorFor('title')">
+          <input
+            type="text"
+            [id]="ids.title"
+            autocomplete="off"
+            [attr.maxlength]="limits.titleMaxLength"
+            [value]="form.title"
+            (input)="setText('title', $event)"
+          />
+        </cp-field>
+
+        <cp-field
+          label="Alt text"
+          [forId]="ids.altText"
+          hint="What the picture shows, in your own words, for anyone who cannot see it."
+          [error]="errorFor('altText')"
+        >
+          <textarea
+            rows="3"
+            [id]="ids.altText"
+            [attr.maxlength]="limits.altTextMaxLength"
+            [value]="form.altText"
+            (input)="setText('altText', $event)"
+          ></textarea>
+        </cp-field>
+
+        <!-- Always here, so the mark is announced when it appears and when an edit takes it away. -->
+        <p class="generated" role="status">
+          @if (altTextIsGenerated()) {
+            <cp-badge tone="purple">Generated</cp-badge>
+            This alt text was written from a reading of the picture, not by you. Check it and change anything that
+            is wrong before you save.
+          }
+        </p>
+      </cp-form-section>
+
+      <cp-form-section heading="Tags" intro="Tags come from this workspace's own list.">
+        @if (chosenTags().length > 0) {
+          <ul class="chosen" aria-label="Tags for this picture">
+            @for (tag of chosenTags(); track tag.id) {
+              <li>
+                <span class="tag-name">{{ tag.name }}</span>
+                <button
+                  cpButton
+                  type="button"
+                  variant="text"
+                  size="sm"
+                  [attr.aria-label]="'Remove the tag ' + tag.name"
+                  (click)="removeTag(tag.id)"
+                >
+                  Remove
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        @switch (tagPhase()) {
+          @case ('loading') {
+            <p class="cp-muted" role="status">Loading your tags…</p>
+          }
+          @case ('unavailable') {
+            <cp-notice tone="warning" role="status">
+              Your tags couldn't be loaded, so none can be added right now. You can still save the picture.
+              <button cpButton type="button" variant="secondary" size="sm" (click)="retryTags()">Try again</button>
+            </cp-notice>
+          }
+          @default {
+            @if (tagsFull()) {
+              <p class="cp-muted">A picture can start with {{ maxTags }} tags. You can add more later.</p>
+            } @else if (addableTags().length === 0) {
+              <p class="cp-muted">
+                @if (chosenTags().length === 0) {
+                  This workspace has no tags yet. A tag is made when you tag a recipe.
+                } @else {
+                  Every tag in this workspace is already on this picture.
+                }
+              </p>
+            } @else {
+              <cp-field label="Add a tag" [forId]="ids.tagIds" [error]="errorFor('tagIds')">
+                <cp-combobox
+                  [inputId]="ids.tagIds"
+                  mode="restricted"
+                  placeholder="Start typing a tag…"
+                  [options]="addableTags()"
+                  [value]="tagQuery()"
+                  (valueChange)="tagQuery.set($event)"
+                  [selected]="tagToAdd()"
+                  (selectedChange)="pickTag($event)"
+                />
+              </cp-field>
+              <div class="cp-actions">
+                <button cpButton type="button" variant="secondary" [disabled]="tagToAdd() === null" (click)="addTag()">
+                  Add tag
+                </button>
+              </div>
+            }
+          }
+        }
+      </cp-form-section>
+
+      <cp-form-section
+        heading="A recipe"
+        intro="Link the recipe this picture is of, so it shows up with that recipe."
+        [problem]="form.recipe ? errorFor('recipe') : ''"
+      >
+        @if (form.recipe; as recipe) {
+          <p class="linked">
+            <span class="tag-name">{{ recipe.title }}</span>
+            <button
+              cpButton
+              type="button"
+              variant="text"
+              size="sm"
+              [id]="ids.recipeRemove"
+              [attr.aria-label]="'Remove the link to ' + recipe.title"
+              (click)="removeRecipe()"
+            >
+              Remove
+            </button>
+          </p>
+        } @else if (noRecipes()) {
+          <p class="cp-muted">You have no recipes yet, so there is nothing to link.</p>
+        } @else {
+          @if (recipeSearch().status === 'unavailable') {
+            <cp-notice tone="warning" role="status">
+              Your recipes couldn't be searched right now. You can still save the picture.
+              <button cpButton type="button" variant="secondary" size="sm" (click)="retryRecipes()">Try again</button>
+            </cp-notice>
+          }
+
+          <!-- Server-filtered, so `filterLocally` is off: a library is too large to hold in a browser. -->
+          <cp-field
+            label="Find a recipe"
+            [forId]="ids.recipe"
+            hint="Type part of its name. Archived recipes are not shown."
+            [error]="errorFor('recipe')"
+          >
+            <cp-combobox
+              [inputId]="ids.recipe"
+              [options]="recipeOptions()"
+              [filterLocally]="false"
+              [resultsLabel]="recipeResultsLabel()"
+              mode="restricted"
+              placeholder="e.g. soda bread"
+              [value]="recipeQuery()"
+              (valueChange)="recipeQuery.set($event)"
+              (selectedChange)="pickRecipe($event)"
+            >
+              <span cpComboboxEmpty>{{ recipeEmptyText() }}</span>
+            </cp-combobox>
+          </cp-field>
+        }
+      </cp-form-section>
+
+      @if (prompt() !== null) {
+        <cp-form-section
+          heading="The prompt"
+          intro="The words that made this picture. Kept, they can be found and used again from your prompt library."
+          [problem]="promptProblem()"
+        >
+          <cp-checkbox
+            label="Keep the prompt in my prompt library"
+            [inputId]="ids.prompt"
+            [checked]="form.keepPrompt"
+            (checkedChange)="setKeepPrompt($event)"
+          />
+        </cp-form-section>
+      }
+
+      <!-- So Enter in a text box saves. The visible Save lives in the dialog's footer, outside this form. -->
+      <button type="submit" hidden tabindex="-1"></button>
+    </form>
+  }
+
+  <div cpDialogActions>
+    @if (alreadyKept() !== null) {
+      <button cpButton type="button" (click)="cancel()">Close</button>
+    } @else {
+      <button cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">Cancel</button>
+      <button cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
+        {{ saving() ? 'Saving…' : 'Save to library' }}
+      </button>
+    }
+  </div>
+</cp-dialog>

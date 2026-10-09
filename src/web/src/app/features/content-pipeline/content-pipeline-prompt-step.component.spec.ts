@@ -7,6 +7,7 @@ import {
   ContentPipelineDraft,
   emptyContentPipelineDraft,
 } from '../../models/content-pipeline.models';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/brand-source-document.service';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { AiWatchOperationOutcome } from '../../services/ai-request';
@@ -22,12 +23,14 @@ const CHOSEN = { conceptRequestId: 'r-concept', conceptId: 'k-1', label: 'Warm m
   template: `<cp-content-pipeline-prompt-step
     workspaceSlug="cozy-fall"
     [draft]="draft()"
+    [recipe]="recipe()"
     (changed)="apply($event)"
     (announced)="announcements.push($event)"
   />`,
 })
 class HostComponent {
   readonly draft = signal<ContentPipelineDraft>(emptyContentPipelineDraft());
+  readonly recipe = signal<LinkedRecipe | null>(null);
   readonly announcements: string[] = [];
 
   apply(next: ContentPipelineDraft): void {
@@ -91,6 +94,54 @@ describe('ContentPipelinePromptStepComponent', () => {
     expect(headings).toEqual(['The brief', 'The look', 'Extras', 'The prompt']);
   });
 
+  describe('a linked recipe', () => {
+    const LINKED: LinkedRecipe = { recipeId: 'recipe-1', recipeVersionId: 'version-1' };
+
+    function ideaAround(recipeVersionId: string): ContentPipelineDraft['seed'] {
+      return {
+        lastToken: 'abc-123',
+        keep: {},
+        accepted: {
+          token: 'abc-123',
+          cuisine: null,
+          dishType: null,
+          method: null,
+          photographyStyle: null,
+          channel: null,
+          day: { day: 'Wednesday', pinned: false, theme: null },
+          occasion: null,
+          description: 'Plan a post about "Lemon Tart".',
+          recipe: { recipeId: 'recipe-1', recipeVersionId, title: 'Lemon Tart' },
+        },
+      };
+    }
+
+    const brief = (): string => el.querySelector('#cp-pipeline-brief')?.textContent ?? '';
+
+    it('says nothing about a recipe when none is linked', async () => {
+      await mount();
+
+      expect(brief()).not.toContain('recipe you linked');
+    });
+
+    it('says the looks and the prompt are planned around it, by name when the idea was built around it', async () => {
+      await mount({ seed: ideaAround('version-1') });
+      host.recipe.set(LINKED);
+      await settle();
+
+      expect(brief()).toContain('planned around the recipe you linked, Lemon Tart.');
+    });
+
+    it('does not borrow a name from an idea built around another version', async () => {
+      await mount({ seed: ideaAround('version-0') });
+      host.recipe.set(LINKED);
+      await settle();
+
+      expect(brief()).toContain('planned around the recipe you linked on the first step');
+      expect(brief()).not.toContain('Lemon Tart');
+    });
+  });
+
   describe('the brief', () => {
     function briefBox(): HTMLTextAreaElement {
       return el.querySelector<HTMLTextAreaElement>('#cp-pipeline-brief-text')!;
@@ -119,6 +170,7 @@ describe('ContentPipelinePromptStepComponent', () => {
             day: { day: 'Wednesday', pinned: false, theme: null },
             occasion: null,
             description: 'An idea.',
+            recipe: null,
           },
         },
       });

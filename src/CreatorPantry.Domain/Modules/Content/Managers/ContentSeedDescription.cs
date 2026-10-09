@@ -37,6 +37,11 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 /// Every facet is optional, so the line is built from the parts that are present. A seed with nothing but a day
 /// still produces a readable sentence.
 /// </para>
+/// <para>
+/// <strong>A seed built around a recipe names the recipe</strong>, and asks for a post about it rather than for a
+/// new dish. The cuisine, dish type and method beside the title are then the recipe's own, so they describe it
+/// rather than suggest it. The title is creator content, like a theme's name.
+/// </para>
 /// </remarks>
 internal static class ContentSeedDescription
 {
@@ -54,7 +59,8 @@ internal static class ContentSeedDescription
         ContentSeedFacetServiceModel? photographyStyle,
         ContentSeedFacetServiceModel? channel,
         ContentSeedDayServiceModel day,
-        ContentSeedFacetServiceModel? occasion)
+        ContentSeedFacetServiceModel? occasion,
+        string? recipeTitle = null)
     {
         var line = new StringBuilder();
 
@@ -65,14 +71,36 @@ internal static class ContentSeedDescription
             ({ } one, { } two) => $"{one.DisplayName} {Lower(two.DisplayName)}",
             ({ } one, null) => $"{one.DisplayName} dish",
             (null, { } two) => Lower(two.DisplayName),
-            _ => "recipe",
+            _ => null,
         };
 
-        line.Append(CultureInfo.InvariantCulture, $"Develop a {subject}");
-
-        if (method is not null)
+        if (recipeTitle is null)
         {
-            line.Append(CultureInfo.InvariantCulture, $" using the {Lower(method.DisplayName)} method");
+            line.Append(CultureInfo.InvariantCulture, $"Develop a {subject ?? "recipe"}");
+
+            if (method is not null)
+            {
+                line.Append(CultureInfo.InvariantCulture, $" using the {Lower(method.DisplayName)} method");
+            }
+        }
+        else
+        {
+            // The recipe exists, so the line asks for a post about it rather than a dish to develop. The title is
+            // the creator's own, verbatim and in quotation marks so it is plain where their words start and stop;
+            // what follows describes the recipe from its own facts: "a Thai main course made using the stir-fry
+            // method".
+            line.Append(CultureInfo.InvariantCulture, $"Plan a post about \"{recipeTitle}\"");
+
+            if (subject is not null)
+            {
+                line.Append(CultureInfo.InvariantCulture, $", a {subject}");
+            }
+
+            if (method is not null)
+            {
+                line.Append(subject is null ? "," : string.Empty);
+                line.Append(CultureInfo.InvariantCulture, $" made using the {Lower(method.DisplayName)} method");
+            }
         }
 
         if (occasion is not null)

@@ -11,12 +11,14 @@ import {
   DamAssetUtilization,
   DamAssetUtilizationPage,
   DamAssetVersion,
+  DamCreatedAsset,
   decodeDamAssetDetail,
   decodeDamAssetRemoval,
   decodeDamAssetSearchPage,
   decodeDamAssetUtilization,
   decodeDamAssetUtilizationPage,
   decodeDamAssetVersion,
+  decodeDamCreatedAsset,
   encodeDamAssetSearchQuery,
 } from '../models/dam-asset.models';
 import { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf } from './ai-request';
@@ -110,6 +112,34 @@ export type DamVersionUploadEvent =
   | { readonly kind: 'progress'; readonly percent: number | null }
   | { readonly kind: 'done'; readonly outcome: DamVersionUploadOutcome };
 
+export type DamAssetKeepOutcome =
+  /**
+   * The picture is in the library as this asset — made by this call, or by an earlier one. The route answers
+   * both the same way, and a repeat applies nothing this request said; `isDamKeepRepeat` tells them apart.
+   */
+  | { readonly status: 'saved'; readonly asset: DamCreatedAsset }
+  /** The title, alt text, tags or recipe were refused, in the server's own words, by request field. */
+  | {
+      readonly status: 'invalid';
+      readonly message: string;
+      readonly fieldErrors: Readonly<Record<string, readonly string[]>>;
+    }
+  /** The prompt was refused, and it took the asset with it: the two commit together or not at all. */
+  | { readonly status: 'prompt_refused'; readonly message: string }
+  /** This key was already spent on a different request. A new key is the remedy, not waiting. */
+  | { readonly status: 'key_reused' }
+  | { readonly status: 'forbidden' }
+  /** Unknown, another workspace's, declined, or expired. One answer for all four; nothing can be saved. */
+  | { readonly status: 'image_gone' }
+  /** Storage could not be reached, or nothing could be committed. Nothing was saved; trying again is safe. */
+  | { readonly status: 'unavailable' };
+
+/** `IdempotencyPolicy.KeyReusedCode`. */
+const KEY_REUSED_CODE = 'idempotency.key_reused';
+
+/** Every `ContentErrorCodes.Prompt*` code: the prompt module's own refusals, whatever status they arrive as. */
+const PROMPT_CODE_PREFIX = 'content.prompt.';
+
 /** `MediaErrorCodes.AssetStaleToken`. */
 const STALE_TOKEN_CODE = 'media.asset.stale.conflict';
 
@@ -134,10 +164,11 @@ const CURSOR_INVALID_CODE = 'media.asset_search.cursor_invalid_request';
 
 /**
  * The typed client for the workspace's asset library: a page of it, one asset in full, its usage history, its
- * picture and the links that download it — and the four changes an asset page offers: editing its metadata,
- * adding a version, logging a use, and removing it from the library (DAM-002 through DAM-010).
+ * picture and the links that download it — the four changes an asset page offers: editing its metadata,
+ * adding a version, logging a use, and removing it from the library (DAM-002 through DAM-010) — and keeping a
+ * generated picture as a new asset (AF.4.1).
  *
- * **It does not create assets.** Uploading a new one, or keeping a generated picture, is another screen's work.
+ * **It does not upload new assets.** That route exists and has no caller here yet.
  *
  * **An asset is named by its id and never by a location.** Every URL built here is the gateway's own route
  * with a workspace slug and a guid in it; the response carries no object key or storage address to pass on.
@@ -387,6 +418,60 @@ export class DamAssetService {
       if (code === 403) return { status: 'forbidden' };
       if (code === 404) return { status: 'not_found' };
 
+      return { status: 'unavailable' };
+    }
+  }
+
+  /**
+   * Keep a staged generated picture as a library asset (AF.4.1). Contributor and above.
+   *
+   * `body` is what `encodeDamKeep` builds: the picture's id, what the creator said about it, an optional recipe
+   * link, and optionally the prompt that made it — which is saved in the same transaction as the asset.
+   *
+   * **A picture is kept exactly once, with or without the key.** A repeat answers with the asset the first call
+   * made and applies nothing from the new request. The key is still sent: it is what makes a retry after a
+   * lost response return the first answer whole, prompt record and all.
+   */
+  async keepGeneratedImage(
+    workspaceSlug: string,
+    body: Record<string, unknown>,
+    idempotencyKey: string,
+  ): Promise<DamAssetKeepOutcome> {
+    const url = this.url(workspaceSlug, '/from-generated-image');
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const raw = await firstValueFrom(
+        this.http.post<unknown>(url, body, {
+          withCredentials: true,
+          headers: { 'Idempotency-Key': idempotencyKey },
+        }),
+      );
+      const asset = decodeDamCreatedAsset(raw);
+
+      return asset ? { status: 'saved', asset } : { status: 'unavailable' };
+    } catch (error) {
+      const code = statusCodeOf(error);
+      const problem = problemCodeOf(error);
+
+      // Before the statuses: the prompt's refusals arrive as the same 400, 403, 404 and 409 the asset's do, and
+      // only the code says the asset itself was fine.
+      if (problem?.startsWith(PROMPT_CODE_PREFIX)) {
+        return { status: 'prompt_refused', message: problemMessageOf(error) ?? 'The prompt could not be saved.' };
+      }
+      if (problem === KEY_REUSED_CODE) return { status: 'key_reused' };
+
+      if (code === 400 || code === 422) {
+        return {
+          status: 'invalid',
+          message: problemMessageOf(error) ?? 'That picture could not be saved.',
+          fieldErrors: decodeFieldErrors(error),
+        };
+      }
+      if (code === 403) return { status: 'forbidden' };
+      if (code === 404) return { status: 'image_gone' };
+
+      // 409 here is a commit that failed with nothing written, and 503 is storage: both are worth trying again.
       return { status: 'unavailable' };
     }
   }

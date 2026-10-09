@@ -38,7 +38,8 @@ public sealed class ContentSeedDescriptionTests
         (string Key, string Name)? channel = null,
         DayOfWeek day = DayOfWeek.Monday,
         (string Key, string Name)? theme = null,
-        (string Key, string Name)? occasion = null) =>
+        (string Key, string Name)? occasion = null,
+        string? recipeTitle = null) =>
         (string)Describe.Invoke(null,
         [
             Facet(cuisine?.Key, cuisine?.Name),
@@ -48,7 +49,43 @@ public sealed class ContentSeedDescriptionTests
             Facet(channel?.Key, channel?.Name),
             new ContentSeedDayServiceModel(day, Pinned: false, Facet(theme?.Key, theme?.Name)),
             Facet(occasion?.Key, occasion?.Name),
+            recipeTitle,
         ])!;
+
+    [Fact]
+    public void A_seed_built_around_a_recipe_names_it_and_describes_it() =>
+        Assert.Equal(
+            "Plan a post about \"Nan's Lemon Tart\", a French dessert made using the bake method, "
+                + "with entertaining in mind. Shot: Dark and moody. Publish on Saturday on Instagram.",
+            Description(
+                cuisine: ("french", "French"),
+                dishType: ("dessert", "Dessert"),
+                method: ("bake", "Bake", false),
+                shot: ("dark-and-moody", "Dark and moody"),
+                channel: ("instagram", "Instagram"),
+                day: DayOfWeek.Saturday,
+                occasion: ("entertaining", "Entertaining"),
+                recipeTitle: "Nan's Lemon Tart"));
+
+    [Theory]
+    [InlineData(false, false, "Plan a post about \"Soda Bread\". Publish on Monday.")]
+    [InlineData(true, false, "Plan a post about \"Soda Bread\", a main course. Publish on Monday.")]
+    [InlineData(false, true, "Plan a post about \"Soda Bread\", made using the bake method. Publish on Monday.")]
+    public void A_recipe_that_states_little_still_reads(bool hasDishType, bool hasMethod, string expected) =>
+        Assert.Equal(
+            expected,
+            Description(
+                dishType: hasDishType ? ("main-course", "Main Course") : null,
+                method: hasMethod ? ("bake", "Bake", false) : null,
+                recipeTitle: "Soda Bread"));
+
+    [Fact]
+    public void A_recipes_own_method_still_carries_its_caution()
+    {
+        var description = Description(method: ("ferment", "Ferment", true), recipeTitle: "Kimchi");
+
+        Assert.Contains("Follow tested, authoritative guidance for this method", description);
+    }
 
     [Fact]
     public void A_full_seed_reads_as_one_brief() =>

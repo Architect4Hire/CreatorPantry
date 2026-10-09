@@ -9,6 +9,14 @@
   </cp-notice>
 }
 
+@if (recipeRefused()) {
+  <cp-notice tone="error" role="alert">
+    The recipe linked to this run couldn't be read, so no idea was made. It may have been archived or removed. Go
+    back a step to link another recipe or remove the link.
+    <button cpButton type="button" variant="secondary" size="sm" (click)="tryAnother()">Try again</button>
+  </cp-notice>
+}
+
 @if (refusedPins().length > 0) {
   <cp-notice tone="error" role="alert">
     Some of what you are keeping cannot be used, so no idea was made. Nothing you chose has been changed.
@@ -30,7 +38,11 @@
 }
 
 @if (seed() === null && state().status === 'idle') {
-  <p>No idea yet. We can put one together from the cooking vocabulary and your own weekly theme.</p>
+  @if (recipe()) {
+    <p>No idea yet. We can put one together around the recipe you linked, with your own weekly theme.</p>
+  } @else {
+    <p>No idea yet. We can put one together from the cooking vocabulary and your own weekly theme.</p>
+  }
   <div class="cp-actions">
     <button cpButton type="button" variant="primary" (click)="tryAnother()">Suggest an idea</button>
   </div>
@@ -42,6 +54,37 @@
     [intro]="accepted() ? 'This is the idea you picked.' : 'Keep the parts you like, then try again for the rest.'"
   >
     <p class="description">{{ idea.description }}</p>
+
+    @if (builtAround(); as title) {
+      <p class="cp-muted">Built around your recipe, {{ title }}.</p>
+    }
+
+    @switch (recipeMismatch()) {
+      @case ('picked_before_linking') {
+        <cp-notice tone="warning" role="status">
+          You picked this idea before linking a recipe, so it is not about that recipe.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="suggestForRecipe()">
+            Suggest one for the recipe
+          </button>
+        </cp-notice>
+      }
+      @case ('other_recipe') {
+        <cp-notice tone="warning" role="status">
+          This idea was built around a different recipe, or an earlier version of the one linked now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="suggestForRecipe()">
+            Suggest one for the recipe
+          </button>
+        </cp-notice>
+      }
+      @case ('recipe_unlinked') {
+        <cp-notice tone="warning" role="status">
+          This idea was built around a recipe that is no longer linked to this run.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="suggestForRecipe()">
+            Suggest a new idea
+          </button>
+        </cp-notice>
+      }
+    }
 
     @if (needsSafetyCaution()) {
       <!-- Shown because this idea's method carries a caution. A method without one renders nothing here: that
@@ -59,6 +102,9 @@
           <span class="facet-value">{{ row.displayName }}</span>
           @if (row.pinned) {
             <cp-badge tone="neutral">You asked for this</cp-badge>
+          }
+          @if (row.fromRecipe) {
+            <cp-badge tone="neutral">From your recipe</cp-badge>
           }
           @if (row.keepable && !accepted()) {
             <button

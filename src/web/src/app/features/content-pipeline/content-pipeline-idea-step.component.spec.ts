@@ -5,20 +5,22 @@ import { Observable, Subject } from 'rxjs';
 import { ConfirmService } from '../../core/confirm.service';
 import { ContentPipelineDraft, emptyContentPipelineDraft } from '../../models/content-pipeline.models';
 import { ContentSeed, ContentSeedQuery } from '../../models/content-seed.models';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 
 function seed(overrides: Partial<ContentSeed> = {}): ContentSeed {
   return {
     token: 'abc-123',
-    cuisine: { key: 'thai', displayName: 'Thai', pinned: false },
-    dishType: { key: 'main-course', displayName: 'Main course', pinned: false },
-    method: { key: 'stir-fry', displayName: 'Stir-fry', pinned: false, requiresSafetyCaution: false },
-    photographyStyle: { key: 'overhead-flat-lay', displayName: 'Overhead flat lay', pinned: false },
-    channel: { key: 'instagram', displayName: 'Instagram', pinned: false },
+    cuisine: { key: 'thai', displayName: 'Thai', pinned: false, fromRecipe: false },
+    dishType: { key: 'main-course', displayName: 'Main course', pinned: false, fromRecipe: false },
+    method: { key: 'stir-fry', displayName: 'Stir-fry', pinned: false, fromRecipe: false, requiresSafetyCaution: false },
+    photographyStyle: { key: 'overhead-flat-lay', displayName: 'Overhead flat lay', pinned: false, fromRecipe: false },
+    channel: { key: 'instagram', displayName: 'Instagram', pinned: false, fromRecipe: false },
     day: { day: 'Wednesday', pinned: false, theme: null },
-    occasion: { key: 'weeknight', displayName: 'Weeknight', pinned: false },
+    occasion: { key: 'weeknight', displayName: 'Weeknight', pinned: false, fromRecipe: false },
     description: 'Develop a Thai main course using the stir-fry method.',
+    recipe: null,
     ...overrides,
   };
 }
@@ -28,12 +30,14 @@ function seed(overrides: Partial<ContentSeed> = {}): ContentSeed {
   template: `<cp-content-pipeline-idea-step
     workspaceSlug="cozy-fall"
     [draft]="draft()"
+    [recipe]="recipe()"
     (changed)="apply($event)"
     (announced)="announcements.push($event)"
   />`,
 })
 class HostComponent {
   readonly draft = signal<ContentPipelineDraft>(emptyContentPipelineDraft());
+  readonly recipe = signal<LinkedRecipe | null>(null);
   readonly emitted: ContentPipelineDraft[] = [];
   readonly announcements: string[] = [];
 
@@ -225,7 +229,7 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({
       status: 'found',
       seed: seed({
-        method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, requiresSafetyCaution: true },
+        method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, fromRecipe: false, requiresSafetyCaution: true },
       }),
     });
 
@@ -247,7 +251,7 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({
       status: 'found',
       seed: seed({
-        method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, requiresSafetyCaution: true },
+        method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, fromRecipe: false, requiresSafetyCaution: true },
       }),
     });
     await click('Pick this idea');
@@ -261,7 +265,7 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await click('Suggest an idea');
     await answer({
       status: 'found',
-      seed: seed({ channel: { key: 'instagram', displayName: 'Instagram', pinned: true } }),
+      seed: seed({ channel: { key: 'instagram', displayName: 'Instagram', pinned: true, fromRecipe: false } }),
     });
 
     expect(el.textContent).toContain('You asked for this');
@@ -273,7 +277,7 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({
       status: 'found',
       seed: seed({
-        day: { day: 'Wednesday', pinned: false, theme: { key: 'midweek', displayName: 'Midweek meals', pinned: false } },
+        day: { day: 'Wednesday', pinned: false, theme: { key: 'midweek', displayName: 'Midweek meals', pinned: false, fromRecipe: false } },
       }),
     });
 
@@ -434,6 +438,136 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await click('Stop keeping cuisine');
 
     expect(latest().seed.keep.cuisine).toBeUndefined();
+  });
+
+  it('shows a refused pin under the name the server gives the field', async () => {
+    // The request binds `Cuisine`; the problem document that comes back names it `cuisine`.
+    const base = emptyContentPipelineDraft();
+    await mount({ ...base, seed: { lastToken: null, keep: { cuisine: 'atlantean' }, accepted: null } });
+    await click('Suggest an idea');
+    await answer({ status: 'refused', fieldErrors: { cuisine: ['That cuisine is no longer available.'] } });
+
+    expect(el.textContent).toContain('That cuisine is no longer available.');
+    expect(buttonWith('Stop keeping cuisine')).toBeTruthy();
+  });
+
+  describe('with a recipe linked to the run', () => {
+    const LINKED: LinkedRecipe = { recipeId: 'recipe-1', recipeVersionId: 'version-1' };
+
+    const aroundRecipe = (overrides: Partial<ContentSeed> = {}): ContentSeed =>
+      seed({
+        cuisine: { key: 'french', displayName: 'French', pinned: false, fromRecipe: true },
+        dishType: { key: 'dessert', displayName: 'Dessert', pinned: false, fromRecipe: true },
+        method: { key: 'bake', displayName: 'Bake', pinned: false, fromRecipe: true, requiresSafetyCaution: false },
+        description: 'Plan a post about "Lemon Tart", a French dessert made using the bake method.',
+        recipe: { ...LINKED, title: 'Lemon Tart' },
+        ...overrides,
+      });
+
+    async function mountLinked(draft: ContentPipelineDraft = emptyContentPipelineDraft()): Promise<void> {
+      fixture = TestBed.createComponent(HostComponent);
+      host = fixture.componentInstance;
+      host.draft.set(draft);
+      host.recipe.set(LINKED);
+      el = fixture.nativeElement;
+      await settle();
+    }
+
+    it('asks for an idea around that recipe, at the version that was linked', async () => {
+      await mountLinked();
+
+      expect(el.textContent).toContain('around the recipe you linked');
+
+      await click('Suggest an idea');
+
+      expect(queries[0].query.recipeId).toBe('recipe-1');
+      expect(queries[0].query.recipeVersionId).toBe('version-1');
+    });
+
+    it("shows the recipe's own parts as the recipe's, and does not offer to keep them", async () => {
+      await mountLinked();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: aroundRecipe() });
+
+      expect(el.textContent).toContain('Plan a post about "Lemon Tart"');
+      expect(el.textContent).toContain('Built around your recipe, Lemon Tart.');
+      expect(el.querySelectorAll('cp-badge').length).toBe(3);
+      expect(el.textContent).toContain('From your recipe');
+
+      const keepable = Array.from(el.querySelectorAll('button[aria-pressed]')).map(
+        (button) => button.getAttribute('aria-label') ?? '',
+      );
+      expect(keepable.some((label) => /cuisine|dish type|method/i.test(label))).toBeFalse();
+      // What the recipe does not decide is still the creator's to keep.
+      expect(keepable.some((label) => /photo style/i.test(label))).toBeTrue();
+    });
+
+    it('asks again for a suggestion when the link changes, with the same code', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+      expect(queries.length).toBe(1);
+
+      host.recipe.set(LINKED);
+      await settle();
+
+      expect(queries.length).toBe(2);
+      expect(queries[1].query.token).toBe('abc-123');
+      expect(queries[1].query.recipeId).toBe('recipe-1');
+
+      // And an answer built around it settles: nothing is asked a third time.
+      await answer({ status: 'found', seed: aroundRecipe() });
+      expect(queries.length).toBe(2);
+    });
+
+    it('leaves a picked idea alone, says it is out of step, and asks again only when told to', async () => {
+      const base = emptyContentPipelineDraft();
+      await mountLinked({ ...base, seed: { lastToken: 'abc-123', keep: {}, accepted: seed() } });
+
+      // A decision is not replaced for the creator.
+      expect(queries.length).toBe(0);
+      expect(el.textContent).toContain('You picked this idea before linking a recipe');
+
+      await click('Suggest one for the recipe');
+
+      expect(host.draft().seed.accepted).toBeNull();
+      expect(queries.length).toBe(1);
+      expect(queries[0].query.token).toBeNull();
+      expect(queries[0].query.recipeId).toBe('recipe-1');
+    });
+
+    it('says a picked idea was built around a recipe that is no longer the one linked', async () => {
+      const base = emptyContentPipelineDraft();
+      const other = aroundRecipe({ recipe: { recipeId: 'recipe-1', recipeVersionId: 'version-0', title: 'Lemon Tart' } });
+      await mountLinked({ ...base, seed: { lastToken: 'abc-123', keep: {}, accepted: other } });
+
+      expect(el.textContent).toContain('an earlier version of the one linked now');
+
+      host.recipe.set(null);
+      await settle();
+
+      expect(el.textContent).toContain('a recipe that is no longer linked');
+      expect(buttonWith('Suggest a new idea')).toBeTruthy();
+    });
+
+    it('says nothing is out of step for an idea picked around the recipe linked now', async () => {
+      const base = emptyContentPipelineDraft();
+      await mountLinked({ ...base, seed: { lastToken: 'abc-123', keep: {}, accepted: aroundRecipe() } });
+
+      expect(el.querySelector('cp-notice')).toBeNull();
+    });
+
+    it('says so when the linked recipe cannot be read, rather than showing nothing', async () => {
+      await mountLinked();
+      await click('Suggest an idea');
+      await answer({ status: 'refused', fieldErrors: { recipeId: ['That recipe could not be found.'] } });
+
+      expect(el.textContent).toContain("couldn't be read, so no idea was made");
+      expect(el.textContent).not.toContain('Some of what you are keeping');
+
+      await click('Try again');
+      expect(queries.length).toBe(2);
+    });
   });
 
   it('reports an outage as an outage, with a way to try again', async () => {

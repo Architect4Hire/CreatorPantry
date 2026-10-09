@@ -1,0 +1,71 @@
+/* The dialog's own chrome belongs to CpDialogComponent, and the sections, headings and field measure to
+   CpFormSectionComponent. Every input and textarea is styled by the CpFieldComponent it sits in, so none is
+   restyled here. Only what is this form's own is. */
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+.legend {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.preview {
+  display: grid;
+  place-items: center;
+  min-height: calc(var(--cp-space-8) * 3);
+  padding: var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+/* Contained, never cropped: the creator is describing this picture, and a crop can hide what they would name. */
+.preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 40vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--cp-radius-sm);
+}
+
+.generated {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.generated:empty {
+  display: none;
+}
+
+.chosen {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chosen li,
+.linked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-1) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.tag-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

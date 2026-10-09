@@ -4,10 +4,12 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
   input,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -32,14 +34,18 @@ import {
   contentPipelineBriefFor,
   isContentPipelineBriefEdited,
   contentSeedQueryFor,
+  linkedRecipeKey,
 } from '../../models/content-pipeline.models';
 import {
   CONTENT_SEED_FIELD_NAMES,
+  CONTENT_SEED_RECIPE_FIELD_NAME,
   CONTENT_SEED_TOKEN_MAX_LENGTH,
   ContentSeed,
   ContentSeedFacet,
+  contentSeedFieldError,
   isContentSeedToken,
 } from '../../models/content-seed.models';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentSeedService } from '../../services/content-seed.service';
 
 /** What each choice means, in a line. The brief itself is shown beneath as the example. */
@@ -64,8 +70,13 @@ interface FacetRow {
   readonly displayName: string;
   /** The server's word: true when the creator asked for this value rather than the seed choosing it. */
   readonly pinned: boolean;
-  /** False for the theme, which follows the day rather than being chosen. */
+  /**
+   * False for the theme, which follows the day rather than being chosen, and for a part taken from the linked
+   * recipe, which is the recipe's to say and not something a re-roll would change.
+   */
   readonly keepable: boolean;
+  /** True when this is the linked recipe's own cuisine, course or method. */
+  readonly fromRecipe: boolean;
 }
 
 type RefusableName = ContentSeedKeepName | 'channel' | 'day';
@@ -76,13 +87,16 @@ interface RefusedPin {
   readonly message: string;
 }
 
-/** The server names a refused pin in PascalCase; this reads its message back under our own name for it. */
+/** The server's message for a refused pin, read back under our own name for it. */
 function errorFor(
   fieldErrors: Record<string, readonly string[]>,
   name: keyof typeof CONTENT_SEED_FIELD_NAMES,
 ): string {
-  return fieldErrors[CONTENT_SEED_FIELD_NAMES[name]]?.[0] ?? '';
+  return contentSeedFieldError(fieldErrors, CONTENT_SEED_FIELD_NAMES[name]);
 }
+
+/** What an idea that no longer matches the linked recipe says about itself. */
+type RecipeMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlinked';
 
 /**
  * Step 2 of the Content Pipeline: an idea to start from, and the creator's decision about it (PIPE-UI-002).
@@ -104,6 +118,10 @@ function errorFor(
  *
  * **The idea never rewrites the creator's own concept.** Copying its wording across is a separate action, and
  * one that asks first when there is something there to lose (.claude/rules/recipes.md).
+ *
+ * **A linked recipe is what the idea is about.** Its cuisine, course and method are the recipe's own, shown as
+ * such and not offered for keeping, and the idea names the recipe. A suggestion follows the link when it changes;
+ * a *picked* idea is a decision, so it is left as it is and said to be out of step, with a way to ask again.
  */
 @Component({
   selector: 'cp-content-pipeline-idea-step',
@@ -128,6 +146,8 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
 
   readonly workspaceSlug = input.required<string>();
   readonly draft = input.required<ContentPipelineDraft>();
+  /** The recipe linked to this run, with its pinned version, or null. The idea is built around it. */
+  readonly recipe = input<LinkedRecipe | null>(null);
   readonly changed = output<ContentPipelineDraft>();
   /** One sentence for the shell's polite live region, so a change of idea is announced once. */
   readonly announced = output<string>();
@@ -195,8 +215,43 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
     return state.status === 'shown' ? state.seed : null;
   });
 
+  /** The recipe the idea on screen was built around, by name, or null when it was built around none. */
+  protected readonly builtAround = computed(() => this.seed()?.recipe?.title ?? null);
+
+  /**
+   * How a *picked* idea is out of step with the recipe linked now, or null when it is not.
+   *
+   * Only ever said about a picked idea: a suggestion is simply asked for again.
+   */
+  protected readonly recipeMismatch = computed<RecipeMismatch | null>(() => {
+    const accepted = this.accepted();
+    if (accepted === null || linkedRecipeKey(accepted.recipe) === linkedRecipeKey(this.recipe())) return null;
+    if (this.recipe() === null) return 'recipe_unlinked';
+
+    return accepted.recipe === null ? 'picked_before_linking' : 'other_recipe';
+  });
+
+  /** True when the server could not read the linked recipe, so no idea was made. */
+  protected readonly recipeRefused = computed(() => {
+    const state = this.state();
+
+    return state.status === 'refused' && contentSeedFieldError(state.fieldErrors, CONTENT_SEED_RECIPE_FIELD_NAME) !== '';
+  });
+
   constructor() {
     this.destroyRef.onDestroy(() => this.request?.unsubscribe());
+
+    // A suggestion follows the linked recipe: the same code, asked for again around the recipe as it is now.
+    // A picked idea is not touched here — that is a decision, and `recipeMismatch` says it is out of step.
+    effect(() => {
+      const key = linkedRecipeKey(this.recipe());
+
+      untracked(() => {
+        const state = this.state();
+        if (state.status !== 'shown' || this.accepted() !== null) return;
+        if (linkedRecipeKey(state.seed.recipe) !== key) this.run(state.seed.token);
+      });
+    });
   }
 
   ngOnInit(): void {
@@ -218,7 +273,8 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
         label: CONTENT_SEED_FACET_LABELS[name],
         displayName: facet.displayName,
         pinned: facet.pinned,
-        keepable: true,
+        keepable: !facet.fromRecipe,
+        fromRecipe: facet.fromRecipe,
       });
     };
 
@@ -235,6 +291,7 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
       displayName: seed.day.day,
       pinned: seed.day.pinned,
       keepable: true,
+      fromRecipe: false,
     });
 
     // The theme is not keepable: it follows whichever day is chosen, and it belongs to the workspace's own week
@@ -246,6 +303,7 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
         displayName: seed.day.theme.displayName,
         pinned: false,
         keepable: false,
+        fromRecipe: false,
       });
     }
 
@@ -411,6 +469,19 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   }
 
   /**
+   * Let go of a picked idea that is out of step with the linked recipe, and ask for one that is not.
+   *
+   * The creator's to press: the idea they picked is a decision, and nothing replaces it for them.
+   */
+  protected suggestForRecipe(): void {
+    const draft = this.draft();
+    if (draft.seed.accepted === null) return;
+
+    this.changed.emit({ ...draft, seed: { ...draft.seed, accepted: null } });
+    this.run(null);
+  }
+
+  /**
    * Choose what the picture is planned from.
    *
    * The choice makes the brief: the description as written, the idea's wording, or the description with the
@@ -456,7 +527,7 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
     this.request?.unsubscribe();
     this.state.set({ status: 'generating' });
 
-    const query = contentSeedQueryFor(this.draft(), token);
+    const query = contentSeedQueryFor(this.draft(), token, this.recipe());
     this.request = this.seeds.generate(this.workspaceSlug(), query).subscribe((outcome) => {
       switch (outcome.status) {
         case 'found': {

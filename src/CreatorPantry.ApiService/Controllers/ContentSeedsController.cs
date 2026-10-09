@@ -43,6 +43,13 @@ public sealed class ContentSeedsController(IContentSeedFacade contentSeeds) : Co
     /// profile lists default channels, the channel is drawn from those, because the creator has already said where
     /// they publish.
     ///
+    /// `recipeId` builds the idea around one of the workspace's own recipes, optionally at a pinned
+    /// `recipeVersionId`. The recipe's cuisine, course and primary technique become the seed's cuisine, dish type
+    /// and method, each marked `fromRecipe`; one the recipe leaves unset is absent rather than chosen at random,
+    /// unless it was pinned. The description names the recipe by its title and the response echoes it as `recipe`.
+    /// A recipe that does not exist, or belongs to another workspace, answers `400 content.seed.invalid` with a
+    /// `recipeId` field error — the same answer for both.
+    ///
     /// A facet can be absent from the response. A workspace with no theme on the chosen day is the normal case and
     /// yields a day with no theme, never an error. `method` carries `requiresSafetyCaution`: `true` means a client
     /// showing this seed must show an explicit caution, and `false` means only that no caution has been attached —

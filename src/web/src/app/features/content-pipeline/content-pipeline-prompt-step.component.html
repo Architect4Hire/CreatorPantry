@@ -16,6 +16,16 @@
     </cp-notice>
   }
 
+  @if (recipe()) {
+    <p class="cp-muted">
+      @if (recipeTitle(); as title) {
+        The looks and the prompt are also planned around the recipe you linked, {{ title }}.
+      } @else {
+        The looks and the prompt are also planned around the recipe you linked on the first step.
+      }
+    </p>
+  }
+
   <cp-field label="Brief" forId="cp-pipeline-brief-text" [error]="briefError()">
     <textarea
       id="cp-pipeline-brief-text"

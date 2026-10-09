@@ -5,7 +5,11 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 /// True when the caller asked for this value rather than the seed choosing it. Lets a client show at a glance
 /// which parts of an idea are the creator's and which are the generator's.
 /// </param>
-public sealed record ContentSeedFacetServiceModel(string Key, string DisplayName, bool Pinned);
+/// <param name="FromRecipe">
+/// True when the value is the linked recipe's own — its cuisine or its course — rather than the caller's pin or
+/// the seed's choice. Never true together with <paramref name="Pinned"/>.
+/// </param>
+public sealed record ContentSeedFacetServiceModel(string Key, string DisplayName, bool Pinned, bool FromRecipe = false);
 
 /// <summary>
 /// The method facet, which carries one fact the others do not.
@@ -15,11 +19,21 @@ public sealed record ContentSeedFacetServiceModel(string Key, string DisplayName
 /// must show one. <c>false</c> means no caution has been attached — it is <em>not</em> a statement that the
 /// technique is safe, and no client may render it as one.
 /// </param>
+/// <param name="FromRecipe">True when this is the linked recipe's own primary technique.</param>
 public sealed record ContentSeedMethodServiceModel(
     string Key,
     string DisplayName,
     bool Pinned,
-    bool RequiresSafetyCaution);
+    bool RequiresSafetyCaution,
+    bool FromRecipe = false);
+
+/// <summary>
+/// The recipe a seed was built around, echoed so a client can tell which recipe — and which version of it — an
+/// idea on screen describes.
+/// </summary>
+/// <param name="RecipeVersionId">The version read, or null when the recipe was read as it currently stands.</param>
+/// <param name="Title">The creator's own title, exactly as entered. Creator content, not platform text.</param>
+public sealed record ContentSeedRecipeServiceModel(Guid RecipeId, Guid? RecipeVersionId, string Title);
 
 /// <summary>
 /// The day a seed is for, and the workspace's own theme for that day when it has one.
@@ -57,8 +71,10 @@ public sealed record ContentSeedDayServiceModel(DayOfWeek Day, bool Pinned, Cont
 /// creator's own words, because a weekly theme's display name is free text they wrote. So it is creator content
 /// rather than platform text, and a prompt that includes it must delimit it as untrusted source material like any
 /// other creator input (ai.md). Nothing here calls a model today, which is the only reason this is a note and not
-/// a rule being broken.
+/// a rule being broken. A seed built around a recipe also carries that recipe's title, which is creator content
+/// for the same reason.
 /// </remarks>
+/// <param name="Recipe">The recipe this seed was built around, or null for a seed with none.</param>
 public sealed record ContentSeedServiceModel(
     string Token,
     ContentSeedFacetServiceModel? Cuisine,
@@ -68,4 +84,5 @@ public sealed record ContentSeedServiceModel(
     ContentSeedFacetServiceModel? Channel,
     ContentSeedDayServiceModel Day,
     ContentSeedFacetServiceModel? Occasion,
-    string Description);
+    string Description,
+    ContentSeedRecipeServiceModel? Recipe = null);

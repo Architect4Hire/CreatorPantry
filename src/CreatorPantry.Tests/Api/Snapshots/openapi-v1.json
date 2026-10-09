@@ -5376,7 +5376,7 @@
           "ContentSeeds"
         ],
         "summary": "Returns one content idea for the workspace.",
-        "description": "A starting point for a piece of content, assembled from platform vocabulary \u2014 cuisine, dish type, method,\nphotography style, channel, occasion \u2014 plus the workspace\u0027s own weekly theme for the chosen day. **Nothing\nis written and no model is called.** The seed is a suggestion, not a record: there is no seed to fetch\nlater, and \u0060GET\u0060 is the whole feature.\n\n\u0060token\u0060 is what makes a seed reproducible. The response always carries the token that produced it; sending\nthat token back returns the same seed. Reproducibility holds against the same catalogue state and the same\nweek, not forever \u2014 retiring the entry a token selected changes that facet, as does rewriting the theme for\nthe chosen day. Adding an entry usually changes nothing, because each candidate is scored independently\nrather than selected by position. A token of your own is fine: any run of up to 64 letters, digits, hyphens\nor underscores works, so \u0060spring-bakes\u0060 is a valid seed.\n\nAny facet can be pinned and the rest are chosen around it. A pinned key that no catalogue has, or that\nnames a retired entry, answers \u0060400 content.seed.invalid\u0060 with a field error rather than quietly choosing\nsomething else. Facets are otherwise uniform over active entries \u2014 there is no popularity data to weight\nthem by and inventing some would be a fabricated metric \u2014 with one exception: when the workspace\u0027s brand\nprofile lists default channels, the channel is drawn from those, because the creator has already said where\nthey publish.\n\nA facet can be absent from the response. A workspace with no theme on the chosen day is the normal case and\nyields a day with no theme, never an error. \u0060method\u0060 carries \u0060requiresSafetyCaution\u0060: \u0060true\u0060 means a client\nshowing this seed must show an explicit caution, and \u0060false\u0060 means only that no caution has been attached \u2014\nit is never a statement that a technique is safe. Every member including a Viewer may read. The response is\n\u0060no-store\u0060.",
+        "description": "A starting point for a piece of content, assembled from platform vocabulary \u2014 cuisine, dish type, method,\nphotography style, channel, occasion \u2014 plus the workspace\u0027s own weekly theme for the chosen day. **Nothing\nis written and no model is called.** The seed is a suggestion, not a record: there is no seed to fetch\nlater, and \u0060GET\u0060 is the whole feature.\n\n\u0060token\u0060 is what makes a seed reproducible. The response always carries the token that produced it; sending\nthat token back returns the same seed. Reproducibility holds against the same catalogue state and the same\nweek, not forever \u2014 retiring the entry a token selected changes that facet, as does rewriting the theme for\nthe chosen day. Adding an entry usually changes nothing, because each candidate is scored independently\nrather than selected by position. A token of your own is fine: any run of up to 64 letters, digits, hyphens\nor underscores works, so \u0060spring-bakes\u0060 is a valid seed.\n\nAny facet can be pinned and the rest are chosen around it. A pinned key that no catalogue has, or that\nnames a retired entry, answers \u0060400 content.seed.invalid\u0060 with a field error rather than quietly choosing\nsomething else. Facets are otherwise uniform over active entries \u2014 there is no popularity data to weight\nthem by and inventing some would be a fabricated metric \u2014 with one exception: when the workspace\u0027s brand\nprofile lists default channels, the channel is drawn from those, because the creator has already said where\nthey publish.\n\n\u0060recipeId\u0060 builds the idea around one of the workspace\u0027s own recipes, optionally at a pinned\n\u0060recipeVersionId\u0060. The recipe\u0027s cuisine, course and primary technique become the seed\u0027s cuisine, dish type\nand method, each marked \u0060fromRecipe\u0060; one the recipe leaves unset is absent rather than chosen at random,\nunless it was pinned. The description names the recipe by its title and the response echoes it as \u0060recipe\u0060.\nA recipe that does not exist, or belongs to another workspace, answers \u0060400 content.seed.invalid\u0060 with a\n\u0060recipeId\u0060 field error \u2014 the same answer for both.\n\nA facet can be absent from the response. A workspace with no theme on the chosen day is the normal case and\nyields a day with no theme, never an error. \u0060method\u0060 carries \u0060requiresSafetyCaution\u0060: \u0060true\u0060 means a client\nshowing this seed must show an explicit caution, and \u0060false\u0060 means only that no caution has been attached \u2014\nit is never a statement that a technique is safe. Every member including a Viewer may read. The response is\n\u0060no-store\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -5449,6 +5449,24 @@
             "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "RecipeId",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "RecipeVersionId",
+            "in": "query",
+            "description": "Optional. A \u0060token\u0060 to reproduce an earlier seed, and any facet the creator has already decided, given as\nthat facet\u0027s stable key.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -20757,6 +20775,16 @@
           },
           "description": {
             "type": "string"
+          },
+          "recipe": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentSeedRecipe"
+              }
+            ]
           }
         }
       },
@@ -20802,6 +20830,10 @@
           },
           "pinned": {
             "type": "boolean"
+          },
+          "fromRecipe": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -20825,6 +20857,34 @@
           },
           "requiresSafetyCaution": {
             "type": "boolean"
+          },
+          "fromRecipe": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ContentSeedRecipe": {
+        "required": [
+          "recipeId",
+          "recipeVersionId",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },

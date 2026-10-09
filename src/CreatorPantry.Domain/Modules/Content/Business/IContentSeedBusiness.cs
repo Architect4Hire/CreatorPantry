@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Vocabulary.Facade;
 
 namespace CreatorPantry.Domain.Modules.Content.Business;
@@ -32,6 +33,15 @@ public interface IContentSeedBusiness
     /// permitted shape of cross-module traffic and the reason this feature has no data layer of its own: it owns no
     /// table, so there is nothing below it to compose. Every one of those calls is a read.
     /// </para>
+    /// <para>
+    /// <strong>A seed can be built around a recipe.</strong> When the caller names one, the recipe is read through
+    /// the recipe module's facade and its own cuisine, course and primary technique <em>are</em> the seed's
+    /// cuisine, dish type and method. The token never chooses any of those three for a recipe that leaves one
+    /// unset — an idea for a lemon tart that suggested a stir-fry would contradict the recipe it is for — so an
+    /// unset one is absent unless the caller pinned it. Where the recipe states one, it wins over a pin: the
+    /// recipe is the canonical fact. The token still chooses the photography style, channel, occasion and day.
+    /// The same token and the same recipe version return the same seed.
+    /// </para>
     /// </remarks>
     Task<OperationResult<ContentSeedServiceModel>> GenerateAsync(
         ContentSeedQueryViewModel model, CancellationToken cancellationToken);
@@ -44,6 +54,7 @@ internal sealed class ContentSeedBusiness(
     IContentChannelCatalog channels,
     IPhotographyStyleCatalog photographyStyles,
     IOccasionCatalog occasions,
+    IRecipeFacade recipes,
     IContentSeedTokenSource tokens) : IContentSeedBusiness
 {
     /// <summary>
@@ -68,13 +79,18 @@ internal sealed class ContentSeedBusiness(
 
         var failures = new List<(string Field, string Error)>();
 
-        var cuisine = Resolve(
+        var recipe = await RecipeAsync(model, failures, cancellationToken);
+
+        var cuisine = ResolveAround(
+            recipe, recipe?.CuisineId, entry => entry.Id,
             token, ContentSeedPolicy.Facets.Cuisine, nameof(model.Cuisine), model.Cuisine,
             cuisines, entry => entry.Code, failures);
-        var dishType = Resolve(
+        var dishType = ResolveAround(
+            recipe, recipe?.CourseId, entry => entry.Id,
             token, ContentSeedPolicy.Facets.DishType, nameof(model.DishType), model.DishType,
             courses, entry => entry.Code, failures);
-        var method = Resolve(
+        var method = ResolveAround(
+            recipe, recipe?.PrimaryTechniqueId, entry => entry.Id,
             token, ContentSeedPolicy.Facets.Method, nameof(model.Method), model.Method,
             techniques, entry => entry.Code, failures);
 
@@ -107,11 +123,19 @@ internal sealed class ContentSeedBusiness(
             ?? Enum.Parse<DayOfWeek>(
                 ContentSeedSelector.Select(token, ContentSeedPolicy.Facets.Day, Days, name => name)!);
 
-        var cuisineFacet = Facet(cuisine.Pinned, cuisine.Chosen?.Code, cuisine.Chosen?.DisplayName);
-        var dishTypeFacet = Facet(dishType.Pinned, dishType.Chosen?.Code, dishType.Chosen?.DisplayName);
+        var cuisineFacet = Facet(
+            cuisine.Pinned, cuisine.Chosen?.Code, cuisine.Chosen?.DisplayName, cuisine.FromRecipe);
+        var dishTypeFacet = Facet(
+            dishType.Pinned, dishType.Chosen?.Code, dishType.Chosen?.DisplayName, dishType.FromRecipe);
+
+        // A recipe's own technique carries its caution exactly as a drawn or pinned one does.
         var methodFacet = method.Chosen is { } chosenMethod
             ? new ContentSeedMethodServiceModel(
-                chosenMethod.Code, chosenMethod.DisplayName, method.Pinned, chosenMethod.RequiresSafetyCaution)
+                chosenMethod.Code,
+                chosenMethod.DisplayName,
+                method.Pinned,
+                chosenMethod.RequiresSafetyCaution,
+                method.FromRecipe)
             : null;
         var styleFacet = Facet(style.Pinned, style.Chosen?.Key, style.Chosen?.DisplayName);
         var channelFacet = Facet(channel.Pinned, channel.Chosen?.Key, channel.Chosen?.DisplayName);
@@ -128,7 +152,67 @@ internal sealed class ContentSeedBusiness(
             dayFacet,
             occasionFacet,
             ContentSeedDescription.For(
-                cuisineFacet, dishTypeFacet, methodFacet, styleFacet, channelFacet, dayFacet, occasionFacet)));
+                cuisineFacet, dishTypeFacet, methodFacet, styleFacet, channelFacet, dayFacet, occasionFacet,
+                recipe?.Title),
+            recipe is null
+                ? null
+                : new ContentSeedRecipeServiceModel(recipe.RecipeId, recipe.RecipeVersionId, recipe.Title)));
+    }
+
+    /// <summary>What a seed takes from the recipe it is built around, and nothing else of it.</summary>
+    private sealed record RecipeFacts(
+        Guid RecipeId,
+        Guid? RecipeVersionId,
+        string Title,
+        Guid? CuisineId,
+        Guid? CourseId,
+        Guid? PrimaryTechniqueId);
+
+    /// <summary>
+    /// The recipe the caller named, or null when they named none — or named one that cannot be read, which is
+    /// recorded as a failure.
+    /// </summary>
+    /// <remarks>
+    /// Facade to facade, in the resolved workspace: a recipe that does not exist and one that belongs to another
+    /// workspace get the same answer, so neither discloses the other (tenancy.md). A pinned version is read as it
+    /// was archived, so an idea is built around the recipe the creator linked rather than one it has since become.
+    /// </remarks>
+    private async Task<RecipeFacts?> RecipeAsync(
+        ContentSeedQueryViewModel model,
+        List<(string Field, string Error)> failures,
+        CancellationToken cancellationToken)
+    {
+        if (model.RecipeId is not { } recipeId)
+        {
+            return null;
+        }
+
+        if (model.RecipeVersionId is { } versionId)
+        {
+            var pinned = await recipes.GetSnapshotAsync(recipeId, versionId, cancellationToken);
+            if (pinned.Succeeded)
+            {
+                var header = pinned.Value!.Document.Recipe;
+
+                return new RecipeFacts(
+                    recipeId, versionId, header.Title, header.CuisineId, header.CourseId, header.PrimaryTechniqueId);
+            }
+        }
+        else
+        {
+            var detail = await recipes.GetDetailAsync(recipeId, cancellationToken);
+            if (detail.Succeeded)
+            {
+                var current = detail.Value!;
+
+                return new RecipeFacts(
+                    recipeId, null, current.Title, current.CuisineId, current.CourseId, current.PrimaryTechniqueId);
+            }
+        }
+
+        failures.Add((nameof(model.RecipeId), "That recipe could not be found."));
+
+        return null;
     }
 
     private const string CannotGenerate = "A content seed could not be generated.";
@@ -183,8 +267,50 @@ internal sealed class ContentSeedBusiness(
             theme is null ? null : new ContentSeedFacetServiceModel(theme.Key, theme.DisplayName, Pinned: false));
     }
 
-    private static ContentSeedFacetServiceModel? Facet(bool pinned, string? key, string? displayName) =>
-        key is null || displayName is null ? null : new ContentSeedFacetServiceModel(key, displayName, pinned);
+    private static ContentSeedFacetServiceModel? Facet(
+        bool pinned, string? key, string? displayName, bool fromRecipe = false) =>
+        key is null || displayName is null
+            ? null
+            : new ContentSeedFacetServiceModel(key, displayName, pinned, fromRecipe);
+
+    /// <summary>
+    /// Resolves one of the three facets a recipe can state: the recipe's own entry when the seed is built around
+    /// one, and otherwise exactly what <see cref="Resolve{T}"/> answers.
+    /// </summary>
+    /// <remarks>
+    /// With a recipe, the token is never asked. What the recipe states is the answer; an entry it names that has
+    /// since been retired is absent rather than replaced, because a substitute would be a fact about the recipe
+    /// that is not true. What it leaves unset is absent too, unless the caller pinned it.
+    /// </remarks>
+    private static (T? Chosen, bool Pinned, bool FromRecipe) ResolveAround<T>(
+        RecipeFacts? recipe,
+        Guid? recipeEntryId,
+        Func<T, Guid> idOf,
+        string token,
+        string facet,
+        string field,
+        string? pinnedKey,
+        IReadOnlyList<T> candidates,
+        Func<T, string> keyOf,
+        List<(string Field, string Error)> failures)
+        where T : class
+    {
+        if (recipe is not null && recipeEntryId is { } entryId)
+        {
+            var own = candidates.FirstOrDefault(candidate => idOf(candidate) == entryId);
+
+            return (own, Pinned: false, FromRecipe: own is not null);
+        }
+
+        if (recipe is not null && ContentSeedInputChecks.Normalize(pinnedKey) is null)
+        {
+            return (null, Pinned: false, FromRecipe: false);
+        }
+
+        var (chosen, pinned) = Resolve(token, facet, field, pinnedKey, candidates, keyOf, failures);
+
+        return (chosen, pinned, FromRecipe: false);
+    }
 
     /// <summary>
     /// Resolves one facet over a database-backed catalogue: the pinned entry, or the one this token selects.

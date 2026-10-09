@@ -565,10 +565,17 @@ export function cleanOverrides(values: readonly string[]): readonly string[] {
  * What the next seed request asks for.
  *
  * Channel and day come from `setup` and the other five from the keep map, which is the one place each of those
- * values lives. `token` is the caller's: pass one to reproduce a seed, or leave it out for a new one.
+ * values lives. `token` is the caller's: pass one to reproduce a seed, or leave it out for a new one. `recipe`
+ * is the one linked to the run, read from its creative context: the idea is built around it.
  */
-export function contentSeedQueryFor(draft: ContentPipelineDraft, token?: string | null): ContentSeedQuery {
+export function contentSeedQueryFor(
+  draft: ContentPipelineDraft,
+  token?: string | null,
+  recipe: LinkedRecipe | null = null,
+): ContentSeedQuery {
   return {
+    recipeId: recipe?.recipeId ?? null,
+    recipeVersionId: recipe?.recipeVersionId ?? null,
     token: token ?? null,
     channel: draft.config.channelKey,
     day: draft.config.day,

@@ -1,5 +1,6 @@
 import {
   CONTENT_SEED_TOKEN_MAX_LENGTH,
+  contentSeedFieldError,
   contentSeedQueryParams,
   decodeContentSeed,
   isContentSeedToken,
@@ -82,6 +83,34 @@ describe('content-seed.models', () => {
       expect(decodeContentSeed(seedPayload({ token: 7 }))).toBeNull();
     });
 
+    it('reads which parts are the linked recipe\'s own, and the recipe the idea was built around', () => {
+      const seed = decodeContentSeed(
+        seedPayload({
+          cuisine: { ...facet('thai', 'Thai'), fromRecipe: true },
+          recipe: { recipeId: 'recipe-1', recipeVersionId: null, title: 'Green Curry' },
+        }),
+      );
+
+      expect(seed?.cuisine?.fromRecipe).toBeTrue();
+      expect(seed?.dishType?.fromRecipe).toBeFalse();
+      expect(seed?.recipe).toEqual({ recipeId: 'recipe-1', recipeVersionId: null, title: 'Green Curry' });
+    });
+
+    it('reads an idea kept before seeds knew about recipes as one built around none', () => {
+      // A picked idea is stored whole on the device, so an older one has neither field.
+      const seed = decodeContentSeed(seedPayload());
+
+      expect(seed?.recipe).toBeNull();
+      expect(seed?.cuisine?.fromRecipe).toBeFalse();
+      expect(seed?.method?.fromRecipe).toBeFalse();
+    });
+
+    it('refuses a malformed recipe, which is not the same as none', () => {
+      expect(decodeContentSeed(seedPayload({ recipe: { title: 'Green Curry' } }))).toBeNull();
+      expect(decodeContentSeed(seedPayload({ recipe: 'recipe-1' }))).toBeNull();
+      expect(decodeContentSeed(seedPayload({ cuisine: { ...facet('thai', 'Thai'), fromRecipe: 'yes' } }))).toBeNull();
+    });
+
     it('refuses anything that is not an object', () => {
       expect(decodeContentSeed(null)).toBeNull();
       expect(decodeContentSeed('a seed')).toBeNull();
@@ -115,6 +144,18 @@ describe('content-seed.models', () => {
       });
     });
 
+    it('names the linked recipe and its pinned version', () => {
+      expect(contentSeedQueryParams({ recipeId: 'recipe-1', recipeVersionId: 'version-1' })).toEqual({
+        RecipeId: 'recipe-1',
+        RecipeVersionId: 'version-1',
+      });
+      expect(contentSeedQueryParams({ recipeId: 'recipe-1', recipeVersionId: null })).toEqual({ RecipeId: 'recipe-1' });
+    });
+
+    it('never sends a version without its recipe, which the server refuses', () => {
+      expect(contentSeedQueryParams({ recipeId: null, recipeVersionId: 'version-1' })).toEqual({});
+    });
+
     it('leaves out what was not asked for, rather than sending it empty', () => {
       expect(contentSeedQueryParams({})).toEqual({});
       expect(contentSeedQueryParams({ token: null, cuisine: '  ', day: null })).toEqual({});
@@ -122,6 +163,15 @@ describe('content-seed.models', () => {
 
     it('trims a pasted key', () => {
       expect(contentSeedQueryParams({ token: '  spring-bakes  ' })).toEqual({ Token: 'spring-bakes' });
+    });
+  });
+
+  describe('contentSeedFieldError', () => {
+    it('finds a field under either casing of its first letter', () => {
+      expect(contentSeedFieldError({ Cuisine: ['No.'] }, 'Cuisine')).toBe('No.');
+      expect(contentSeedFieldError({ cuisine: ['No.'] }, 'Cuisine')).toBe('No.');
+      expect(contentSeedFieldError({ recipeId: ['Gone.'] }, 'RecipeId')).toBe('Gone.');
+      expect(contentSeedFieldError({}, 'Cuisine')).toBe('');
     });
   });
 

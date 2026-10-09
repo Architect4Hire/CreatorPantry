@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
@@ -9,7 +10,13 @@ using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Content.Business;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Measurement;
+using CreatorPantry.Domain.Modules.Recipes;
+using CreatorPantry.Domain.Modules.Recipes.Facade;
+using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -91,8 +98,19 @@ public sealed class ContentSeedBusinessTests : IAsyncLifetime
             .AddTenancy()
             .AddApplicationTime()
             .AddAudit()
-            .AddIdempotency(new ConfigurationBuilder().Build())
+            .AddOutbox()
+            .AddIdempotency(new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
+                })
+                .Build())
             .AddVocabularyModule()
+
+            // A seed can be built around a recipe, which is read through the recipe module's own facade.
+            .AddMeasurementModule()
+            .AddIngredientModule()
+            .AddRecipesModule()
             .AddBrandModule()
 
             // The brand profile facade asks the Media module whether a submitted logo is in this workspace's
@@ -590,6 +608,216 @@ public sealed class ContentSeedBusinessTests : IAsyncLifetime
             "Develop a Thai main course using the stir-fry method, with weeknight in mind. "
                 + "Shot: Overhead flat-lay. Publish for Fakeaway Friday on Instagram.",
             seed.Description);
+    }
+
+    [Fact]
+    public async Task A_seed_built_around_a_recipe_takes_its_cuisine_course_and_method_from_it()
+    {
+        var recipe = await RecipeAsync(WorkspaceA, "Nan's Lemon Tart", cuisine: "italian", course: "dessert", technique: "bake");
+
+        // Whatever the token, the three facets a recipe states are the recipe's.
+        foreach (var index in Enumerable.Range(0, 20))
+        {
+            var seed = await SeedAsync(WorkspaceA, new ContentSeedQueryViewModel
+            {
+                Token = $"token-{index}",
+                RecipeId = recipe.RecipeId,
+            });
+
+            Assert.Equal("italian", seed.Cuisine!.Key);
+            Assert.Equal("dessert", seed.DishType!.Key);
+            Assert.Equal("bake", seed.Method!.Key);
+
+            Assert.True(seed.Cuisine.FromRecipe);
+            Assert.True(seed.DishType.FromRecipe);
+            Assert.True(seed.Method.FromRecipe);
+
+            // From the recipe is not the caller's pin, and says so.
+            Assert.False(seed.Cuisine.Pinned);
+            Assert.False(seed.Method.Pinned);
+
+            // The rest is still the token's to choose.
+            Assert.NotNull(seed.PhotographyStyle);
+            Assert.False(seed.PhotographyStyle!.FromRecipe);
+            Assert.NotNull(seed.Occasion);
+
+            Assert.StartsWith(
+                "Plan a post about \"Nan's Lemon Tart\", a Italian dessert made using the bake method", seed.Description);
+            Assert.Equal(new ContentSeedRecipeServiceModel(recipe.RecipeId, null, "Nan's Lemon Tart"), seed.Recipe);
+        }
+    }
+
+    [Fact]
+    public async Task A_recipe_that_states_none_of_them_is_never_given_one_at_random()
+    {
+        // The defect this exists for: a lemon tart with no cuisine recorded must not come back as a Thai stir-fry.
+        var recipe = await RecipeAsync(WorkspaceA, "Soda Bread");
+
+        foreach (var index in Enumerable.Range(0, 30))
+        {
+            var seed = await SeedAsync(WorkspaceA, new ContentSeedQueryViewModel
+            {
+                Token = $"token-{index}",
+                RecipeId = recipe.RecipeId,
+            });
+
+            Assert.Null(seed.Cuisine);
+            Assert.Null(seed.DishType);
+            Assert.Null(seed.Method);
+            Assert.StartsWith("Plan a post about \"Soda Bread\"", seed.Description);
+            Assert.DoesNotContain("Develop", seed.Description);
+        }
+    }
+
+    [Fact]
+    public async Task The_recipe_wins_where_it_states_a_facet_and_a_pin_fills_one_it_leaves_unset()
+    {
+        var recipe = await RecipeAsync(WorkspaceA, "Green Curry", cuisine: "thai");
+
+        var seed = await SeedAsync(WorkspaceA, new ContentSeedQueryViewModel
+        {
+            RecipeId = recipe.RecipeId,
+            Cuisine = "italian",
+            Method = "stir-fry",
+        });
+
+        Assert.Equal("thai", seed.Cuisine!.Key);
+        Assert.True(seed.Cuisine.FromRecipe);
+
+        Assert.Equal("stir-fry", seed.Method!.Key);
+        Assert.True(seed.Method.Pinned);
+        Assert.False(seed.Method.FromRecipe);
+
+        Assert.Null(seed.DishType);
+    }
+
+    [Fact]
+    public async Task A_pinned_version_is_read_as_it_was_archived()
+    {
+        var recipe = await RecipeAsync(WorkspaceA, "Green Curry", cuisine: "thai");
+
+        // The live recipe moves on; the version the creator linked does not.
+        await using (var scope = ScopeFor(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var live = await db.Recipes.SingleAsync(entry => entry.Id == recipe.RecipeId, Ct);
+            live.CuisineId = await VocabularyIdAsync(db.Cuisines, "italian");
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var pinned = await SeedAsync(WorkspaceA, new ContentSeedQueryViewModel
+        {
+            RecipeId = recipe.RecipeId,
+            RecipeVersionId = recipe.VersionId,
+        });
+        var current = await SeedAsync(WorkspaceA, new ContentSeedQueryViewModel { RecipeId = recipe.RecipeId });
+
+        Assert.Equal("thai", pinned.Cuisine!.Key);
+        Assert.Equal(recipe.VersionId, pinned.Recipe!.RecipeVersionId);
+        Assert.Equal("italian", current.Cuisine!.Key);
+        Assert.Null(current.Recipe!.RecipeVersionId);
+    }
+
+    [Fact]
+    public async Task The_same_token_and_recipe_return_the_same_seed()
+    {
+        var recipe = await RecipeAsync(WorkspaceA, "Green Curry", cuisine: "thai");
+        var query = new ContentSeedQueryViewModel { Token = "spring-bakes", RecipeId = recipe.RecipeId };
+
+        Assert.Equal(await SeedAsync(WorkspaceA, query), await SeedAsync(WorkspaceA, query));
+    }
+
+    [Fact]
+    public async Task A_recipes_own_safety_critical_method_carries_its_caution()
+    {
+        var recipe = await RecipeAsync(WorkspaceA, "Kimchi", technique: "ferment");
+
+        var seed = await SeedAsync(WorkspaceA, new ContentSeedQueryViewModel { RecipeId = recipe.RecipeId });
+
+        Assert.True(seed.Method!.RequiresSafetyCaution);
+        Assert.Contains("Follow tested, authoritative guidance", seed.Description);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_recipe_is_refused_exactly_as_one_that_does_not_exist()
+    {
+        var theirs = await RecipeAsync(WorkspaceB, "B's Secret Brownies", cuisine: "thai");
+
+        var foreign = await RefusalAsync(WorkspaceA, new ContentSeedQueryViewModel { RecipeId = theirs.RecipeId });
+        var foreignVersion = await RefusalAsync(WorkspaceA, new ContentSeedQueryViewModel
+        {
+            RecipeId = theirs.RecipeId,
+            RecipeVersionId = theirs.VersionId,
+        });
+        var missing = await RefusalAsync(WorkspaceA, new ContentSeedQueryViewModel { RecipeId = Guid.NewGuid() });
+
+        Assert.Equal(ContentErrorCodes.ContentSeedInvalid, foreign.Code);
+        Assert.Equal(missing.FieldErrors["recipeId"], foreign.FieldErrors["recipeId"]);
+        Assert.Equal(missing.FieldErrors["recipeId"], foreignVersion.FieldErrors["recipeId"]);
+
+        // Nothing of it reaches the answer.
+        Assert.DoesNotContain("Brownies", foreign.Message);
+        Assert.All(foreign.FieldErrors.Values.SelectMany(errors => errors), error => Assert.DoesNotContain("Brownies", error));
+
+        // And its owner still gets it.
+        var own = await SeedAsync(WorkspaceB, new ContentSeedQueryViewModel { RecipeId = theirs.RecipeId });
+        Assert.Contains("B's Secret Brownies", own.Description);
+    }
+
+    [Fact]
+    public async Task A_version_of_another_recipe_is_refused()
+    {
+        var one = await RecipeAsync(WorkspaceA, "Green Curry");
+        var other = await RecipeAsync(WorkspaceA, "Soda Bread");
+
+        var error = await RefusalAsync(WorkspaceA, new ContentSeedQueryViewModel
+        {
+            RecipeId = one.RecipeId,
+            RecipeVersionId = other.VersionId,
+        });
+
+        Assert.Contains("recipeId", error.FieldErrors.Keys);
+    }
+
+    [Fact]
+    public async Task A_version_without_its_recipe_is_refused()
+    {
+        await using var scope = ScopeFor(WorkspaceA);
+        var result = await scope.ServiceProvider.GetRequiredService<IContentSeedFacade>()
+            .GenerateAsync(new ContentSeedQueryViewModel { RecipeVersionId = Guid.NewGuid() }, Ct);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("recipeVersionId", result.Error!.FieldErrors.Keys);
+    }
+
+    private static async Task<Guid?> VocabularyIdAsync<T>(DbSet<T> set, string? code)
+        where T : ControlledVocabulary =>
+        code is null ? null : (await set.SingleAsync(entry => entry.Code == code, Ct)).Id;
+
+    /// <summary>A recipe created through the recipe seam, so its first version has a snapshot to read.</summary>
+    private async Task<(Guid RecipeId, Guid VersionId)> RecipeAsync(
+        Guid workspaceId, string title, string? cuisine = null, string? course = null, string? technique = null)
+    {
+        await using var scope = ScopeFor(workspaceId);
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var created = await scope.ServiceProvider.GetRequiredService<IRecipeFacade>().CreateAsync(
+            Actor,
+            new CreateRecipeViewModel
+            {
+                Title = title,
+                CuisineId = await VocabularyIdAsync(db.Cuisines, cuisine),
+                CourseId = await VocabularyIdAsync(db.Courses, course),
+                PrimaryTechniqueId = technique is null
+                    ? null
+                    : (await db.CookingTechniques.SingleAsync(entry => entry.Code == technique, Ct)).Id,
+            },
+            idempotencyKey: null,
+            Ct);
+
+        Assert.True(created.Result.Succeeded, created.Result.Error?.Message);
+
+        return (created.Result.Value!.RecipeId, created.Result.Value.VersionId);
     }
 
     private async Task ReplaceWeekAsync(Guid workspaceId, DayOfWeek day, string key, string displayName)

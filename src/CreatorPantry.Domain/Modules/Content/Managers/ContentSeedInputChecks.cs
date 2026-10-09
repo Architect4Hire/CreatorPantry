@@ -31,6 +31,11 @@ internal static class ContentSeedInputChecks
             yield return (nameof(model.Day), "Name a day of the week, such as Monday.");
         }
 
+        if (model.RecipeId is null && model.RecipeVersionId is not null)
+        {
+            yield return (nameof(model.RecipeVersionId), "A recipe version needs the recipe it belongs to.");
+        }
+
         // The pinned facet keys are checked for length only. Their real test is whether a catalogue has them,
         // which Business asks, and a key that is merely unknown gets the same answer as one shaped wrongly — so
         // a second shape rule here would only ever duplicate it.

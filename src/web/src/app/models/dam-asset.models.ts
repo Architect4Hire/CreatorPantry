@@ -1047,3 +1047,231 @@ export function damPictureOf(asset: DamAssetDetail): DamAssetPicture {
     currentVersionNumber: asset.currentVersion?.versionNumber ?? 0,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Keeping a generated picture as a library asset (AF.4.1).
+// ---------------------------------------------------------------------------
+
+/**
+ * An asset as the create routes report it. Mirrors `MediaAssetServiceModel`.
+ *
+ * **`recipeId` is not proof of a link.** When the picture was already in the library the route answers with
+ * the asset the first save made and echoes the recipe this request named, without writing anything. Read the
+ * asset's own detail to know what it is linked to.
+ */
+export interface DamCreatedAsset {
+  readonly id: string;
+  readonly title: string;
+  readonly kind: DamAssetKind;
+  readonly currentVersionNumber: number;
+  readonly mediaType: string;
+  readonly width: number;
+  readonly height: number;
+  readonly sizeBytes: number;
+  readonly sourceGeneratedImageId: string | null;
+  /** The prompt saved beside the asset by this request, or null when none was. */
+  readonly promptRecordId: string | null;
+  readonly recipeId: string | null;
+  readonly createdAt: string;
+}
+
+export function decodeDamCreatedAsset(value: unknown): DamCreatedAsset | null {
+  if (!isRecord(value)) return null;
+
+  const {
+    id,
+    title,
+    currentVersionNumber,
+    mediaType,
+    width,
+    height,
+    sizeBytes,
+    sourceGeneratedImageId,
+    promptRecordId,
+    recipeId,
+    createdAt,
+  } = value;
+  const kind = decodeEnum<DamAssetKind>(KINDS, value['kind']);
+
+  if (
+    typeof id !== 'string' ||
+    id === '' ||
+    typeof title !== 'string' ||
+    kind === null ||
+    typeof currentVersionNumber !== 'number' ||
+    typeof mediaType !== 'string' ||
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    typeof sizeBytes !== 'number' ||
+    !isStringOrNull(sourceGeneratedImageId ?? null) ||
+    !isStringOrNull(promptRecordId ?? null) ||
+    !isStringOrNull(recipeId ?? null) ||
+    typeof createdAt !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    kind,
+    currentVersionNumber,
+    mediaType,
+    width,
+    height,
+    sizeBytes,
+    sourceGeneratedImageId: (sourceGeneratedImageId as string | null | undefined) ?? null,
+    promptRecordId: (promptRecordId as string | null | undefined) ?? null,
+    recipeId: (recipeId as string | null | undefined) ?? null,
+    createdAt,
+  };
+}
+
+/** `MediaAssetInputChecks.MaxTags`: the most tags one asset may carry when it is created. */
+export const DAM_KEEP_MAX_TAGS = 25;
+
+/**
+ * The prompt that made a picture, as the surface that asked for it holds it. Mirrors `PromptRecordSaveInput`.
+ *
+ * Lineage, not form input: the save dialog sends it as given or not at all. A `Manual` prompt names no
+ * proposal, draft or template; any other source names all of them, which is the caller's to get right.
+ */
+export interface DamKeepPrompt {
+  readonly channelKey: string;
+  readonly imageKind: PromptImageKind;
+  readonly text: string;
+  readonly source: PromptRecordSource;
+  readonly label?: string | null;
+  readonly generatedText?: string | null;
+  readonly aiProposalId?: string | null;
+  readonly recipeId?: string | null;
+  readonly recipeVersionId?: string | null;
+  readonly promptTemplateId?: string | null;
+  readonly promptTemplateVersion?: string | null;
+  readonly promptTemplateBodyChecksum?: string | null;
+}
+
+/** A recipe as the save dialog names it: the id to send, and the title to show. */
+export interface DamKeepRecipe {
+  readonly id: string;
+  readonly title: string;
+}
+
+/** What a creator says about a generated picture as it goes into the library. */
+export interface DamKeepDraft {
+  readonly title: string;
+  readonly altText: string;
+  readonly tagIds: readonly string[];
+  readonly recipe: DamKeepRecipe | null;
+  /** Whether the prompt goes into the prompt library too. Means nothing when there is no prompt to keep. */
+  readonly keepPrompt: boolean;
+}
+
+export type DamKeepField = 'title' | 'altText' | 'tagIds' | 'recipe';
+
+export const DAM_KEEP_FIELDS: readonly DamKeepField[] = ['title', 'altText', 'tagIds', 'recipe'];
+
+/** True when two drafts would send the same request. Text is compared trimmed, tags as a set. */
+export function sameDamKeepDraft(a: DamKeepDraft, b: DamKeepDraft): boolean {
+  return (
+    a.title.trim() === b.title.trim() &&
+    a.altText.trim() === b.altText.trim() &&
+    sameTagSet(a.tagIds, b.tagIds) &&
+    (a.recipe?.id ?? null) === (b.recipe?.id ?? null) &&
+    a.keepPrompt === b.keepPrompt
+  );
+}
+
+/** What stands in the way of saving, by field. Empty when the draft may be sent. */
+export function validateDamKeepDraft(draft: DamKeepDraft): Readonly<Partial<Record<DamKeepField, string>>> {
+  const errors: Partial<Record<DamKeepField, string>> = {};
+
+  if (draft.title.trim() === '') {
+    errors.title = 'A picture needs a title.';
+  } else if (draft.title.trim().length > DAM_ASSET_LIMITS.titleMaxLength) {
+    errors.title = `The title can be at most ${DAM_ASSET_LIMITS.titleMaxLength} characters.`;
+  }
+  if (draft.altText.trim().length > DAM_ASSET_LIMITS.altTextMaxLength) {
+    errors.altText = `Alt text can be at most ${DAM_ASSET_LIMITS.altTextMaxLength} characters.`;
+  }
+  if (draft.tagIds.length > DAM_KEEP_MAX_TAGS) {
+    errors.tagIds = `A picture can start with at most ${DAM_KEEP_MAX_TAGS} tags.`;
+  }
+
+  return errors;
+}
+
+/**
+ * The body of `POST /dam-assets/from-generated-image`.
+ *
+ * **Nothing about the bytes, and no workspace**: the server reads the media facts from the staged picture's
+ * own row. Empty alt text is left out rather than sent blank, and so are an empty tag list and an absent
+ * recipe. The prompt is sent only when the creator asked to keep it, naming the picture it made.
+ */
+export function encodeDamKeep(
+  generatedImageId: string,
+  draft: DamKeepDraft,
+  prompt: DamKeepPrompt | null,
+): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { title: draft.title.trim() };
+  const altText = draft.altText.trim();
+  if (altText !== '') metadata['altText'] = altText;
+  if (draft.tagIds.length > 0) metadata['workspaceTagIds'] = [...draft.tagIds];
+
+  const body: Record<string, unknown> = { generatedImageId, metadata };
+  if (draft.recipe !== null) body['recipeLink'] = { recipeId: draft.recipe.id };
+
+  if (prompt !== null && draft.keepPrompt) {
+    const sent: Record<string, unknown> = {
+      channelKey: prompt.channelKey,
+      imageKind: prompt.imageKind,
+      text: prompt.text,
+      source: prompt.source,
+      generatedImageId,
+    };
+    const optional = [
+      'label',
+      'generatedText',
+      'aiProposalId',
+      'recipeId',
+      'recipeVersionId',
+      'promptTemplateId',
+      'promptTemplateVersion',
+      'promptTemplateBodyChecksum',
+    ] as const;
+    for (const key of optional) {
+      const value = prompt[key];
+      if (value !== null && value !== undefined && value !== '') sent[key] = value;
+    }
+
+    body['prompt'] = sent;
+  }
+
+  return body;
+}
+
+/** The server's name for a refused field, mapped to the dialog's. Null for one the dialog has no control for. */
+export function damKeepFieldFor(serverField: string): DamKeepField | null {
+  // A nested name arrives as `metadata.title` from the binder and as `Title` from the domain's own checks.
+  const last = serverField.split('.').pop() ?? '';
+  const name = last.charAt(0).toLowerCase() + last.slice(1);
+
+  if (name === 'title' || name === 'altText') return name;
+  if (name === 'workspaceTagIds' || name === 'tagIds' || name === 'tags') return 'tagIds';
+  if (name === 'recipeId' || name === 'recipeLink') return 'recipe';
+
+  return null;
+}
+
+/**
+ * True when the answer to a save reads as the asset an *earlier* save made.
+ *
+ * **An inference, because the route does not say.** A picture is kept exactly once, and a repeat answers `201`
+ * with the first asset and applies nothing from the new request. Two things give that away: the title is not
+ * the one sent, or a prompt was sent and none was recorded. A repeat that sent the same title and no prompt is
+ * indistinguishable from a first save — and harmless to treat as one, since nothing the creator entered
+ * differs from what is stored under that title.
+ */
+export function isDamKeepRepeat(sent: DamKeepDraft, promptSent: boolean, asset: DamCreatedAsset): boolean {
+  return asset.title.trim() !== sent.title.trim() || (promptSent && asset.promptRecordId === null);
+}

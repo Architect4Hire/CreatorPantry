@@ -108,6 +108,8 @@ export class RecipePickerComponent {
   readonly session = input.required<CreativeContextSession>();
   /** Unique on the page, so two pickers never share a control id. */
   readonly idPrefix = input('cp-recipe-picker');
+  /** What linking a recipe does on this surface, which differs: only the pipeline has an idea to build. */
+  readonly intro = input('Link the recipe this picture is of, and the looks and the prompt are planned around it. Optional.');
 
   /** One sentence for the surface's polite live region when the link changes. */
   readonly announced = output<string>();

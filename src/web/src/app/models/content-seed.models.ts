@@ -39,6 +39,11 @@ export interface ContentSeedFacet {
   readonly displayName: string;
   /** True when the caller asked for this value rather than the seed choosing it. */
   readonly pinned: boolean;
+  /**
+   * True when the value is the linked recipe's own — its cuisine, course or primary technique — rather than a
+   * pin or the seed's choice. Never true together with {@link pinned}.
+   */
+  readonly fromRecipe: boolean;
 }
 
 /** The method facet, which carries one fact the others do not. */
@@ -61,6 +66,18 @@ export interface ContentSeedDay {
   readonly theme: ContentSeedFacet | null;
 }
 
+/**
+ * The recipe a seed was built around, echoed so a surface can tell which recipe — and which version of it — an
+ * idea describes. Structurally a `LinkedRecipe` with the creator's own title beside it.
+ */
+export interface ContentSeedRecipe {
+  readonly recipeId: string;
+  /** The version read, or null when the recipe was read as it currently stands. */
+  readonly recipeVersionId: string | null;
+  /** The creator's title, exactly as entered. */
+  readonly title: string;
+}
+
 /** One content idea, assembled from reference vocabulary and the workspace's own week. */
 export interface ContentSeed {
   /** What produced this seed. Send it back to reproduce or share it. */
@@ -81,14 +98,31 @@ export interface ContentSeed {
    * instructions for a model (.claude/rules/ai.md).
    */
   readonly description: string;
+  /** The recipe this idea was built around, or null for an idea with none. */
+  readonly recipe: ContentSeedRecipe | null;
 }
 
 function decodeFacet(value: unknown): ContentSeedFacet | null {
   if (!isRecord(value)) return null;
-  const { key, displayName, pinned } = value;
+  const { key, displayName, pinned, fromRecipe } = value;
   if (typeof key !== 'string' || typeof displayName !== 'string' || typeof pinned !== 'boolean') return null;
+  // Absent reads as false: an idea picked before seeds could be built around a recipe is kept on the device
+  // without it, and that idea was not.
+  if (fromRecipe !== undefined && typeof fromRecipe !== 'boolean') return null;
 
-  return { key, displayName, pinned };
+  return { key, displayName, pinned, fromRecipe: fromRecipe === true };
+}
+
+/** The echoed recipe: absent is a valid answer, a malformed one is not. */
+function decodeRecipe(value: unknown): { readonly recipe: ContentSeedRecipe | null } | null {
+  if (value === null || value === undefined) return { recipe: null };
+  if (!isRecord(value)) return null;
+
+  const { recipeId, recipeVersionId, title } = value;
+  if (typeof recipeId !== 'string' || recipeId === '' || typeof title !== 'string') return null;
+  if (recipeVersionId !== null && recipeVersionId !== undefined && typeof recipeVersionId !== 'string') return null;
+
+  return { recipe: { recipeId, recipeVersionId: recipeVersionId ?? null, title } };
 }
 
 /** An optional facet: absent is a valid answer, a malformed one is not, and the two must not be confused. */
@@ -132,8 +166,10 @@ export function decodeContentSeed(value: unknown): ContentSeed | null {
   const channel = decodeOptionalFacet(value['channel']);
   const occasion = decodeOptionalFacet(value['occasion']);
   const day = decodeDay(value['day']);
+  const recipe = decodeRecipe(value['recipe']);
 
   if (
+    recipe === null ||
     typeof token !== 'string' ||
     token.length === 0 ||
     typeof description !== 'string' ||
@@ -158,6 +194,7 @@ export function decodeContentSeed(value: unknown): ContentSeed | null {
     day,
     occasion: occasion.facet,
     description,
+    recipe: recipe.recipe,
   };
 }
 
@@ -204,6 +241,9 @@ export const CONTENT_SEED_PIN_NAMES: readonly ContentSeedPinName[] = [
 export interface ContentSeedQuery extends ContentSeedPins {
   readonly token?: string | null;
   readonly day?: DayOfWeek | null;
+  /** A recipe of the workspace to build the idea around, and the version of it the creator pinned, if any. */
+  readonly recipeId?: string | null;
+  readonly recipeVersionId?: string | null;
 }
 
 /**
@@ -231,6 +271,9 @@ export function contentSeedQueryParams(query: ContentSeedQuery): Record<string, 
   put('Channel', query.channel);
   put('Occasion', query.occasion);
   if (query.day) params['Day'] = query.day;
+  put('RecipeId', query.recipeId);
+  // A version means nothing without its recipe, and the server refuses one sent alone.
+  if (params['RecipeId']) put('RecipeVersionId', query.recipeVersionId);
 
   return params;
 }
@@ -246,6 +289,21 @@ export const CONTENT_SEED_FIELD_NAMES: Readonly<Record<ContentSeedPinName | 'tok
   channel: 'Channel',
   occasion: 'Occasion',
 };
+
+/** The field a refusal names when the recipe asked for cannot be read in this workspace. */
+export const CONTENT_SEED_RECIPE_FIELD_NAME = 'RecipeId';
+
+/**
+ * The first message a refusal carries for one field, or an empty string.
+ *
+ * Matched without regard to the first letter's case: the request binds `Cuisine`, and the server's problem
+ * document names the same field `cuisine`.
+ */
+export function contentSeedFieldError(fieldErrors: Record<string, readonly string[]>, field: string): string {
+  const camel = field.charAt(0).toLowerCase() + field.slice(1);
+
+  return (fieldErrors[field] ?? fieldErrors[camel])?.[0] ?? '';
+}
 
 /** `ContentErrorCodes.ContentSeedInvalid`. */
 export const CONTENT_SEED_INVALID_CODE = 'content.seed.invalid';

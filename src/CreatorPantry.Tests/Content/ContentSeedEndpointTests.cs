@@ -249,6 +249,72 @@ public sealed class ContentSeedEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_seed_is_built_around_the_workspaces_own_recipe_and_never_anothers()
+    {
+        Guid thai;
+        await using (var scope = _fixture.Api.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            thai = (await db.Cuisines.SingleAsync(cuisine => cuisine.Code == "thai", Ct)).Id;
+        }
+
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        var created = await ownerB.PostAsJsonAsync(
+            $"/api/v1/workspaces/{_fixture.WorkspaceB.Slug}/recipes",
+            new { title = "B's Green Curry", cuisineId = thai },
+            Ct);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var recipe = await BodyOf(created);
+        var recipeId = recipe.GetProperty("recipeId").GetGuid();
+        var versionId = recipe.GetProperty("versionId").GetGuid();
+
+        var answered = await ownerB.GetAsync(
+            SeedsIn(_fixture.WorkspaceB, $"?recipeId={recipeId}&recipeVersionId={versionId}"), Ct);
+        Assert.Equal("no-store", answered.Headers.CacheControl!.ToString());
+        var fromB = await BodyOf(answered);
+
+        Assert.Equal("thai", FacetKey(fromB, "cuisine"));
+        Assert.True(fromB.GetProperty("cuisine").GetProperty("fromRecipe").GetBoolean());
+        Assert.False(fromB.GetProperty("cuisine").GetProperty("pinned").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, fromB.GetProperty("dishType").ValueKind);
+        Assert.Equal(recipeId, fromB.GetProperty("recipe").GetProperty("recipeId").GetGuid());
+        Assert.Equal(versionId, fromB.GetProperty("recipe").GetProperty("recipeVersionId").GetGuid());
+        Assert.Equal("B's Green Curry", fromB.GetProperty("recipe").GetProperty("title").GetString());
+        Assert.StartsWith("Plan a post about \"B's Green Curry\"", fromB.GetProperty("description").GetString()!);
+
+        // A's owner, on A's route, naming B's recipe: refused as a recipe that is not there, with nothing of it.
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var response = await ownerA.GetAsync(SeedsIn(_fixture.WorkspaceA, $"?recipeId={recipeId}"), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var text = await response.Content.ReadAsStringAsync(Ct);
+        Assert.DoesNotContain("Green Curry", text);
+
+        // Naming its version as well changes nothing.
+        var withVersion = await ownerA.GetAsync(
+            SeedsIn(_fixture.WorkspaceA, $"?recipeId={recipeId}&recipeVersionId={versionId}"), Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, withVersion.StatusCode);
+        Assert.DoesNotContain("Green Curry", await withVersion.Content.ReadAsStringAsync(Ct));
+
+        var unknown = await ownerA.GetAsync(SeedsIn(_fixture.WorkspaceA, $"?recipeId={Guid.NewGuid()}"), Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+        Assert.Equal(
+            (await BodyOf(unknown)).GetProperty("errors").GetProperty("recipeId").ToString(),
+            JsonDocument.Parse(text).RootElement.GetProperty("errors").GetProperty("recipeId").ToString());
+    }
+
+    [Fact]
+    public async Task A_seed_with_no_recipe_says_so()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var body = await BodyOf(await client.GetAsync(SeedsIn(_fixture.WorkspaceA), Ct));
+
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("recipe").ValueKind);
+        Assert.False(body.GetProperty("cuisine").GetProperty("fromRecipe").GetBoolean());
+    }
+
+    [Fact]
     public async Task Generating_seeds_writes_nothing()
     {
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
