@@ -5501,6 +5501,688 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts": {
+      "get": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "Lists the workspace\u0027s live creative contexts, most recently updated first.",
+        "description": "Every member including a Viewer may read. Cursor-paged: follow \u0060nextCursor\u0060 until it is null. A cursor\nis bound to the workspace it was issued for \u2014 \u0060content.creative_context.cursor.invalid\u0060 says to start\nagain without one. \u0060limit\u0060 is clamped rather than refused.\n\n**Archived contexts are not listed**; they remain readable by id. Each row is a summary \u2014 title,\nchannels, day, theme and how many sources it names \u2014 and never the picture description, which the\ndetail route publishes. Because the order is by last update, a context edited while a client pages can\nmove to the front; a client that needs every row re-lists rather than trusting a long-held cursor.\nThe response is \u0060no-store\u0060: it is workspace-private creator content.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContextSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContextSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContextSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "Starts a creative context, optionally from one source.",
+        "description": "Contributor and above. **\u0060from\u0060 makes a hand-off one call**: send the source a creator chose on one\nscreen and open the next screen with the id this returns.\n\nA source is resolved inside this workspace before anything is stored. One that does not exist, belongs\nto another workspace, or is archived, deleted, declined or expired answers\n\u0060422 content.creative_context.reference.unprocessable\u0060 \u2014 **one code and one sentence for all of them**,\nso an id cannot be used to ask what another workspace holds. \u0060SocialPackage\u0060 is not accepted yet and is\na \u0060400\u0060.\n\nA channel key that names no channel, or one that has been retired, answers\n\u0060422 content.creative_context.channel.unprocessable\u0060; a theme key that is not one of this workspace\u0027s\nlive themes answers \u0060422 content.creative_context.theme.unprocessable\u0060. Blank text is stored as absent.\n\u0060409 content.creative_context.conflict\u0060 means the write itself failed and nothing was stored; retry it.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. Replaying a key with the same body returns the context the first call created, with\n\u0060Idempotency-Replayed: true\u0060; the same key with a different body answers\n\u0060422 idempotency.key_reused\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCreativeContext"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCreativeContext"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCreativeContext"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}": {
+      "get": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "Reads one creative context of the workspace named by the route, in full.",
+        "description": "Every member including a Viewer may read. An archived context is still readable here.\n\n**A reference is ids and nothing else.** It carries no title, alt text, preview or availability: a\ncontext points at its sources and never copies them, so resolve an id through its own route to show it.\nA source that has since been archived, deleted, declined or expired is still listed \u2014 the reference is\nthe record that the work used it.\n\n\u0060concurrencyToken\u0060 is opaque; send it back as \u0060expectedConcurrencyToken\u0060 on the next edit. An unknown id\nanswers \u0060404 content.creative_context.not_found\u0060, and **another workspace\u0027s context answers exactly\nthat** \u2014 the same code, sentence and body. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The context to read. Constrained to a Guid, so a malformed id never reaches this action: routing answers\n404 with the edge\u0027s generic \u0060not_found\u0060 code.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "Edits a creative context\u0027s words, channels, day, theme or archived state.",
+        "description": "Contributor and above. **A field left out is untouched; a field sent as \u0060null\u0060 is cleared.**\n\u0060channelKeys\u0060 replaces the ordered set. \u0060archived: true\u0060 takes the context out of the recent list and\n\u0060false\u0060 puts it back; there is no delete.\n\n\u0060expectedConcurrencyToken\u0060 is required. When the context has changed since that read the answer is\n\u0060409 content.creative_context.stale.conflict\u0060 and **nothing is written** \u2014 keep what the creator typed,\nre-read, and send again. A token that could never have been issued is a \u0060400\u0060. An edit that changes\nnothing writes nothing and returns the same token.\n\nOnly a newly chosen channel or theme is checked against the catalogue: one this context already holds\nmay stay after it is retired, so retiring a channel never makes existing work uneditable. Sources are\nchanged through the references routes, not here.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The context to edit.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCreativeContext"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCreativeContext"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCreativeContext"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/references": {
+      "post": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "Adds one source to a creative context, after those it already names.",
+        "description": "Contributor and above. Returns the whole context, so the client holds the next token.\n\nThe source is resolved exactly as on create, with the same single\n\u0060422 content.creative_context.reference.unprocessable\u0060 for every way it can fail to be usable. A source\nthis context already names answers \u0060409 content.creative_context.reference.duplicate.conflict\u0060 \u2014 a\nrecipe is one source whichever version is pinned. A context names at most 20 sources;\nthe next is \u0060422 content.creative_context.reference_limit.unprocessable\u0060.\n\n\u0060expectedConcurrencyToken\u0060 is required and a stale one is\n\u0060409 content.creative_context.stale.conflict\u0060, as on the edit route. **Retrying after a lost response\ntherefore cannot add the source twice**: the first call moved the token.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The context to add to.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCreativeContextReference"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCreativeContextReference"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCreativeContextReference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/references/{referenceId}": {
+      "delete": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "Stops a creative context naming a source.",
+        "description": "Contributor and above. **Only the reference goes; the recipe, picture or prompt it named is\nuntouched.** Returns the whole context. The remaining references keep their \u0060sortOrder\u0060, so the order\nis unchanged and the numbers may have a gap.\n\nThe token is a query parameter because a \u0060DELETE\u0060 carries no body. A stale one is\n\u0060409 content.creative_context.stale.conflict\u0060; an unknown context or reference, or another workspace\u0027s,\nis \u0060404 content.creative_context.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The context to change.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "referenceId",
+            "in": "path",
+            "description": "The reference to remove \u2014 its own \u0060id\u0060, not the id of what it names.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "expectedConcurrencyToken",
+            "in": "query",
+            "description": "The \u0060concurrencyToken\u0060 of the read this was composed against.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/dam-assets": {
       "get": {
         "tags": [
@@ -15200,7 +15882,7 @@
           "ReferenceImageRequests"
         ],
         "summary": "Reads one reference image and composes a prompt from what it shows.",
-        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: nothing\nis read yet, and the model is called by the worker afterwards (api-contract.md). The \u0060Location\u0060 header\npoints at the status resource to poll.\n\n**The image is named, not uploaded here.** \u0060referenceDocumentId\u0060 is one of the workspace\u0027s own brand\nsource documents \u2014 uploaded through the route that exists for uploading, where its signature, decoded\nformat, dimensions and size were inspected and its workspace established. JPEG, PNG, WEBP and GIF are\nreadable; a document whose current version is anything else, one this workspace does not have, and one\nthat does not exist all answer \u0060404 ai.referenceImage.not_found\u0060 \u2014 one answer, because each is a client\nnaming something it was not shown.\n\n**The version is pinned when the request is made.** The bytes the model reads are the ones attached,\neven if the document is replaced in the minutes before the worker claims the operation.\n\n**The image is untrusted material, and so is the note.** Both are sent as material to describe rather\nthan as instructions. Writing photographed into the image is described as part of what the picture\nshows; it is not obeyed.\n\n**What the answer will not contain.** No identification of a person, no claim about who owns a brand,\na product or the photograph, and no statement about the food\u0027s safety, nutrition, allergens or dietary\nsuitability \u2014 each is refused rather than returned. Every observation carries its own confidence\n(\u0060Clear\u0060, \u0060Probable\u0060, \u0060Unclear\u0060), because a confident misreading of someone\u0027s reference is worse than\nan uncertain one. An animated GIF is read as its opening frame, with a warning saying so.\n\n**Nothing is rendered and no recipe changes.** The answer is observations plus one prompt and a list\nof things to avoid; it proposes no recipe edit, and the creator\u0027s edit of the prompt is what becomes\nauthoritative when they save it to their library.",
+        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: nothing\nis read yet, and the model is called by the worker afterwards (api-contract.md). The \u0060Location\u0060 header\npoints at the status resource to poll.\n\n**The image is named, not uploaded here.** It is a picture this workspace already holds, and \u0060source\u0060\nsays which kind: \u0060BrandDocument\u0060 with \u0060referenceDocumentId\u0060, \u0060DamAsset\u0060 with \u0060mediaAssetId\u0060 (and\noptionally \u0060mediaAssetVersionNumber\u0060), or \u0060GeneratedImage\u0060 with \u0060generatedImageId\u0060. Send exactly one\nsource and only that source\u0027s ids; anything else is a \u0060400\u0060 naming the field. A body carrying only\n\u0060referenceDocumentId\u0060, with no \u0060source\u0060, is a \u0060BrandDocument\u0060 \u2014 the shape this route took before it\naccepted the other two.\n\nJPEG, PNG, WEBP and GIF are readable. A picture that is anything else, one too large to send, one this\nworkspace does not have, a removed asset, a version the asset does not have, a declined or expired\ngenerated image, and one that does not exist all answer \u0060404 ai.referenceImage.not_found\u0060 \u2014 one answer\nfor every source, because each is a client naming something it was not shown.\n\n**The version is pinned when the request is made.** The bytes the model reads are the ones named,\neven if the document or the asset is replaced in the minutes before the worker claims the operation.\nAn asset named without a version is pinned to its current one.\n\n**A reading of a library asset or a generated image may be kept with that picture**, so that later\nwork on it need not look twice. Only what was observed is kept \u2014 never the prompt \u2014 and only for a\nrequest with no note, about a picture with a single frame.\n\n**The image is untrusted material, and so is the note.** Both are sent as material to describe rather\nthan as instructions. Writing photographed into the image is described as part of what the picture\nshows; it is not obeyed.\n\n**What the answer will not contain.** No identification of a person, no claim about who owns a brand,\na product or the photograph, and no statement about the food\u0027s safety, nutrition, allergens or dietary\nsuitability \u2014 each is refused rather than returned. Every observation carries its own confidence\n(\u0060Clear\u0060, \u0060Probable\u0060, \u0060Unclear\u0060), because a confident misreading of someone\u0027s reference is worse than\nan uncertain one. An animated GIF is read as its opening frame, with a warning saying so.\n\n**Nothing is rendered and no recipe changes.** The answer is observations plus one prompt and a list\nof things to avoid; it proposes no recipe edit, and the creator\u0027s edit of the prompt is what becomes\nauthoritative when they save it to their library.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -16478,6 +17160,27 @@
           }
         }
       },
+      "AddCreativeContextReference": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reference": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreativeContextReferenceInput"
+              }
+            ]
+          }
+        }
+      },
       "AiAdaptationGoal": {
         "enum": [
           "Unspecified",
@@ -17278,6 +17981,14 @@
           "Unspecified",
           "Credits",
           "Tokens"
+        ],
+        "type": "string"
+      },
+      "AiReferenceImageSource": {
+        "enum": [
+          "BrandDocument",
+          "DamAsset",
+          "GeneratedImage"
         ],
         "type": "string"
       },
@@ -20384,6 +21095,58 @@
           }
         }
       },
+      "CreateCreativeContext": {
+        "type": "object",
+        "properties": {
+          "workingTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureBrief": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "weeklyThemeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreativeContextReferenceInput"
+              }
+            ]
+          }
+        }
+      },
       "CreatedRecipe": {
         "required": [
           "recipeId",
@@ -20811,6 +21574,371 @@
         "properties": {
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "CreativeContext": {
+        "required": [
+          "id",
+          "workingTitle",
+          "pictureBrief",
+          "briefSource",
+          "workingBrief",
+          "channelKeys",
+          "day",
+          "weeklyThemeKey",
+          "references",
+          "createdAt",
+          "updatedAt",
+          "archivedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workingTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureBrief": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "briefSource": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreativeContextBriefSource"
+              }
+            ]
+          },
+          "workingBrief": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "weeklyThemeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreativeContextReference"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "CreativeContextBriefSource": {
+        "enum": [
+          "Description",
+          "Idea",
+          "Combined"
+        ],
+        "type": "string"
+      },
+      "CreativeContextReference": {
+        "required": [
+          "id",
+          "kind",
+          "sortOrder",
+          "recipeId",
+          "recipeVersionId",
+          "conceptRequestId",
+          "conceptId",
+          "mediaAssetId",
+          "mediaAssetVersionNumber",
+          "generatedImageId",
+          "promptRecordId",
+          "addedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CreativeContextReferenceKind"
+          },
+          "sortOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "conceptRequestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "conceptId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreativeContextReferenceInput": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreativeContextReferenceKind"
+              }
+            ]
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "conceptRequestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "conceptId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CreativeContextReferenceKind": {
+        "enum": [
+          "Recipe",
+          "RecipeConcept",
+          "DamAsset",
+          "GeneratedImage",
+          "PromptRecord",
+          "SocialPackage"
+        ],
+        "type": "string"
+      },
+      "CreativeContextSummary": {
+        "required": [
+          "id",
+          "workingTitle",
+          "channelKeys",
+          "day",
+          "weeklyThemeKey",
+          "referenceCount",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workingTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "weeklyThemeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreativeContextSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreativeContextSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -22832,6 +23960,82 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "PatchCreativeContext": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workingTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureBrief": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "briefSource": {
+            "enum": [
+              "Description",
+              "Idea",
+              "Combined"
+            ],
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workingBrief": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "day": {
+            "enum": [
+              "Sunday",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday"
+            ],
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "weeklyThemeKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "archived": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -26079,8 +27283,45 @@
       "RequestReferenceImageAnalysis": {
         "type": "object",
         "properties": {
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Where the picture comes from: BrandDocument, DamAsset or GeneratedImage. Send the ids for that source and no others. Omitted, a request naming referenceDocumentId is a BrandDocument.",
+                "$ref": "#/components/schemas/AiReferenceImageSource"
+              }
+            ]
+          },
           "referenceDocumentId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "note": {
@@ -28213,6 +29454,9 @@
     },
     {
       "name": "ContentSeeds"
+    },
+    {
+      "name": "CreativeContexts"
     },
     {
       "name": "DamAssets"

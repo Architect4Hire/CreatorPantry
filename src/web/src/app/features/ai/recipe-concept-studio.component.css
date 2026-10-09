@@ -103,12 +103,36 @@
 }
 
 .studio-selection {
+  display: grid;
+  gap: var(--cp-space-3);
   margin: 0;
-  padding: var(--cp-space-3);
+  padding: var(--cp-space-4);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface-subtle);
   color: var(--cp-text);
   font-size: var(--cp-font-size-sm);
+}
+
+.studio-selection-heading,
+.studio-selection-text {
+  margin: 0;
+}
+
+.studio-selection-heading {
+  font-size: var(--cp-font-size-md);
+}
+
+/* The action and the line that says what pressing it costs and does not do, kept together when they wrap. */
+.studio-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.studio-selection-hint {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
 }
 
 /* Separated from the concepts above it the way the advisory surface separates its own general warnings, so

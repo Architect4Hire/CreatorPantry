@@ -75,6 +75,30 @@ public interface IMediaAssetDataLayer
     /// <inheritdoc cref="IMediaAssetRepository.VersionExistsAsync"/>
     Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IMediaAssetRepository.DescribeAsync"/>
+    Task<MediaAssetDescription?> DescribeAsync(Guid mediaAssetId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What one version of a live asset holds, without touching storage: its type, size and checksum (AF.3.4).
+    /// </summary>
+    /// <param name="versionNumber">The version, or null for the asset's current one.</param>
+    /// <returns>
+    /// Null for an unknown asset, another workspace's, a removed one, and a version the asset does not have.
+    /// </returns>
+    Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Opens one version's bytes for another module to read (AF.3.4).
+    /// </summary>
+    /// <remarks>
+    /// The same lookup and the same open as the render routes, so there is no softer way to an asset's bytes
+    /// than the one a creator's own download takes: the row is found inside the workspace filter first, and
+    /// storage is asked only for a key that row holds.
+    /// </remarks>
+    Task<MediaPictureOpen> OpenPictureAsync(
+        Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IMediaAssetRepository.FindByGeneratedImageAsync"/>
     Task<MediaAsset?> FindByGeneratedImageAsync(Guid generatedImageId, CancellationToken cancellationToken);
 
@@ -331,6 +355,43 @@ internal sealed class MediaAssetDataLayer(
 
     public Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
         assets.VersionExistsAsync(mediaAssetId, versionNumber, cancellationToken);
+
+    public Task<MediaAssetDescription?> DescribeAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
+        assets.DescribeAsync(mediaAssetId, cancellationToken);
+
+    public async Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken)
+    {
+        var version = versionNumber is { } number
+            ? await assets.FindVersionObjectAsync(mediaAssetId, number, cancellationToken)
+            : await assets.FindCurrentVersionObjectAsync(mediaAssetId, cancellationToken);
+
+        // The key stays here. What crosses the boundary is only what a caller needs to decide whether to ask.
+        return version is null
+            ? null
+            : new MediaPictureTarget(
+                version.VersionNumber, version.MediaType, version.SizeBytes, version.ContentChecksum);
+    }
+
+    public async Task<MediaPictureOpen> OpenPictureAsync(
+        Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken)
+    {
+        var opened = await OpenVersionAsync(mediaAssetId, versionNumber, naming: false, cancellationToken);
+
+        return opened.Outcome switch
+        {
+            MediaAssetOpenOutcome.Opened => new MediaPictureOpen(
+                MediaPictureOpenOutcome.Opened,
+                new MediaPictureContent(
+                    opened.Render!,
+                    opened.Render!.Content,
+                    opened.Render.MediaType,
+                    opened.Render.ContentChecksum,
+                    opened.Render.VersionNumber)),
+            MediaAssetOpenOutcome.StorageUnavailable => new MediaPictureOpen(MediaPictureOpenOutcome.StorageUnavailable),
+            _ => new MediaPictureOpen(MediaPictureOpenOutcome.NotFound),
+        };
+    }
 
     public Task<(IReadOnlyList<MediaAssetSearchRecord> Rows, bool HasMore, int? Total)> SearchAsync(
         MediaAssetSearchCriteria criteria, CancellationToken cancellationToken) =>

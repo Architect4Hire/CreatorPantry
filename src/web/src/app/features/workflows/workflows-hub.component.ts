@@ -17,6 +17,7 @@ import {
   ContentPipelineDraftService,
 } from '../../services/content-pipeline-draft.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 
 /**
  * `loading` and `unavailable` are how reading the creator's memberships can end; `not_found` is the one
@@ -99,7 +100,7 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
                   <p class="plain">
                     You were on <strong>{{ kept.label }}</strong>, step {{ kept.number }} of {{ total }}.
                     @if (kept.when) {
-                      Kept on this device {{ kept.when }}.
+                      You last worked on it here {{ kept.when }}.
                     }
                   </p>
                   <div class="cp-actions">
@@ -169,8 +170,10 @@ export class WorkflowsHubComponent {
   protected readonly total = CONTENT_PIPELINE_STEP_COUNT;
 
   readonly workspaceSlug = signal('');
-  /** The kept draft for this owner, or null. Never another owner's: it is cleared before the next is read. */
+  /** The kept run for this owner, or null. Never another owner's: it is cleared before the next is read. */
   private readonly kept = signal<ContentPipelineDraft | null>(null);
+  /** The creative context that run is on, or null for one this device holds that is not on a context yet. */
+  private readonly keptContextId = signal<string | null>(null);
   protected readonly discarded = signal(false);
 
   /** The owner key whose draft is in hand, so the same one is not read twice. */
@@ -207,8 +210,9 @@ export class WorkflowsHubComponent {
   /** Where the creator got to, or null when there is nothing to go back to. */
   protected readonly resume = computed(() => {
     const draft = this.kept();
-    // A draft that is all defaults is not a journey in progress, which is the pipeline's own reading too.
-    if (draft === null || isContentPipelineDraftEmpty(draft)) return null;
+    // A draft that is all defaults is not a journey in progress, which is the pipeline's own reading too. A
+    // run on a context is one however little of it is on this device: the rest is on the server.
+    if (draft === null || (this.keptContextId() === null && isContentPipelineDraftEmpty(draft))) return null;
 
     const index = Math.max(0, contentPipelineStepIndex(draft.furthestStep));
     const step = CONTENT_PIPELINE_STEPS[index];
@@ -246,6 +250,7 @@ export class WorkflowsHubComponent {
         // Nothing of the previous workspace may still be showing while the next one's draft is being read.
         this.workspaceSlug.set(slug);
         this.kept.set(null);
+        this.keptContextId.set(null);
         this.discarded.set(false);
         this.loadedKey.set(null);
       });
@@ -262,9 +267,15 @@ export class WorkflowsHubComponent {
         membershipId: membership.membershipId,
       };
       const read = membership.role === 'Viewer' ? { draft: null, discarded: false } : this.drafts.read(owner);
+      // A whole draft not yet on a context comes first: opening the pipeline files it, and it is the creator's
+      // most recent unsaved work. Otherwise, the run this device last had open on a context (AF.3.1).
+      const unfiled = read.draft !== null && !isContentPipelineDraftEmpty(read.draft) ? read.draft : null;
+      const last = membership.role === 'Viewer' || unfiled !== null ? null : this.drafts.lastContextId(owner);
+      const kept = last === null ? null : this.drafts.readKept(owner, last);
 
-      this.kept.set(read.draft);
-      this.discarded.set(read.discarded);
+      this.kept.set(unfiled ?? kept?.kept?.draft ?? null);
+      this.keptContextId.set(kept?.kept ? last : null);
+      this.discarded.set(read.discarded || (kept?.discarded ?? false));
       this.loadedKey.set(key);
     });
   }
@@ -278,7 +289,12 @@ export class WorkflowsHubComponent {
   }
 
   private linkTo(step: string): readonly string[] {
-    return ['/', this.workspaceSlug(), 'workflows', 'content-pipeline', step];
+    const contextId = this.keptContextId();
+    const base = ['/', this.workspaceSlug()];
+
+    return contextId === null
+      ? [...base, 'workflows', 'content-pipeline', step]
+      : [...base, ...HANDOFF_ROUTES.contentPipeline(contextId), step];
   }
 
   protected retry(): void {

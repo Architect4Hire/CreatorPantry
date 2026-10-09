@@ -7,3 +7,11 @@ h4 {
 h4:first-of-type {
   margin-top: 0;
 }
+
+.brief-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}

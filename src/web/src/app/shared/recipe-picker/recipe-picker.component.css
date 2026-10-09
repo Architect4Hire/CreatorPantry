@@ -1,0 +1,19 @@
+:host {
+  display: block;
+}
+
+.linked {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.summary {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+}
+
+.title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

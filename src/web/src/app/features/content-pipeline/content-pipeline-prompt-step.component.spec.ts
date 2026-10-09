@@ -81,14 +81,80 @@ describe('ContentPipelinePromptStepComponent', () => {
     });
   });
 
-  it('lays the work out as three named sections, in the order it happens', async () => {
+  it('lays the work out as named sections, the brief first, in the order it happens', async () => {
     await mount();
 
     const headings = Array.from(el.querySelectorAll('cp-form-section h3, cp-form-section h2')).map((heading) =>
       heading.textContent?.trim(),
     );
 
-    expect(headings).toEqual(['The look', 'Extras', 'The prompt']);
+    expect(headings).toEqual(['The brief', 'The look', 'Extras', 'The prompt']);
+  });
+
+  describe('the brief', () => {
+    function briefBox(): HTMLTextAreaElement {
+      return el.querySelector<HTMLTextAreaElement>('#cp-pipeline-brief-text')!;
+    }
+
+    async function mountWith(config: Partial<ContentPipelineDraft['config']>): Promise<void> {
+      const base = emptyContentPipelineDraft();
+      await mount({ config: { ...base.config, ...config } });
+    }
+
+    it('shows the chosen brief at the head of the step, with where it came from', async () => {
+      const base = emptyContentPipelineDraft();
+      // With the idea it was combined from still picked, so the brief reads as exactly what the choice makes.
+      await mount({
+        config: { ...base.config, concept: 'Mine.', briefSource: 'Combined', brief: 'Mine.\n\nAn idea.' },
+        seed: {
+          lastToken: 'abc-123',
+          keep: {},
+          accepted: {
+            token: 'abc-123',
+            cuisine: null,
+            dishType: null,
+            method: null,
+            photographyStyle: null,
+            channel: null,
+            day: { day: 'Wednesday', pinned: false, theme: null },
+            occasion: null,
+            description: 'An idea.',
+          },
+        },
+      });
+
+      expect(briefBox().value).toBe('Mine.\n\nAn idea.');
+      expect(el.querySelector('#cp-pipeline-brief')?.textContent).toContain('Combine them');
+      expect(el.querySelector('#cp-pipeline-brief')?.textContent).not.toContain('Edited since you chose it');
+    });
+
+    it('lets the creator edit it, changing the brief and neither of the things it was made from', async () => {
+      await mountWith({ concept: 'Mine.', briefSource: 'Description', brief: 'Mine.' });
+
+      briefBox().value = 'Mine, and steam.';
+      briefBox().dispatchEvent(new Event('input'));
+      await settle();
+
+      expect(host.draft().config.brief).toBe('Mine, and steam.');
+      expect(host.draft().config.concept).toBe('Mine.');
+      expect(host.draft().config.briefSource).toBe('Description');
+      expect(el.querySelector('#cp-pipeline-brief')?.textContent).toContain('Edited since you chose it');
+    });
+
+    it('says when it is too long, beside the box, and cuts nothing', async () => {
+      const long = 'a'.repeat(1001);
+      await mountWith({ briefSource: 'Idea', brief: long });
+
+      expect(el.querySelector('#cp-pipeline-brief')?.textContent).toContain('Keep the brief to 1000 or fewer');
+      expect(briefBox().value.length).toBe(1001);
+    });
+
+    it('says so when none was chosen, and still lets one be written', async () => {
+      await mountWith({ concept: 'A description nobody chose to work from.' });
+
+      expect(el.querySelector('#cp-pipeline-brief')?.textContent).toContain('No brief has been chosen yet');
+      expect(briefBox().value).withContext('the description is not read in its place').toBe('');
+    });
   });
 
   it('names every section to a screen reader, so each is a landmark rather than a run of text', async () => {

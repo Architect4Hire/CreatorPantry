@@ -9,6 +9,8 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
+using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.Media.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
 
@@ -45,6 +47,8 @@ internal sealed class AiReferenceImageRequestBusiness(
     IAiOperationDataLayer operations,
     IAiRequestQuotaGate quota,
     IBrandSourceDocumentFacade documents,
+    IMediaAssetLookupFacade mediaAssets,
+    IGeneratedImageLookupFacade generatedImages,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiReferenceImageRequestBusiness
@@ -74,7 +78,7 @@ internal sealed class AiReferenceImageRequestBusiness(
 
         var reference = await ResolveReferenceAsync(model, cancellationToken);
 
-        if (reference is not { } versionNumber)
+        if (reference is null)
         {
             return Refuse(
                 AiReferenceImageRequestErrors.ReferenceNotFound,
@@ -97,7 +101,7 @@ internal sealed class AiReferenceImageRequestBusiness(
                 Scope = AiOperationScope.NotApplicable,
                 Status = AiOperationStatus.Requested,
                 IdempotencyKey = idempotencyKey,
-                TaskInputsJson = SerializeInputs(model, versionNumber),
+                TaskInputsJson = SerializeInputs(model, reference),
                 RequestedByMembershipId = workspace.MembershipId,
                 RequestedAt = now,
                 StatusChangedAt = now,
@@ -150,37 +154,105 @@ internal sealed class AiReferenceImageRequestBusiness(
     /// because a document can be replaced between the two.
     /// </para>
     /// </remarks>
-    private async Task<int?> ResolveReferenceAsync(
+    /// <summary>
+    /// The picture the request names, resolved inside this workspace and pinned — or null when it cannot be
+    /// read, for any reason.
+    /// </summary>
+    /// <remarks>
+    /// Metadata only. Each source is asked through its own module's facade, under the workspace filter, what
+    /// the picture is; no bytes are opened until the worker has claimed the operation and resolved the
+    /// workspace again. One null for every cause, so the route gives one answer (tenancy.md).
+    /// </remarks>
+    private async Task<IReadOnlyDictionary<string, string>?> ResolveReferenceAsync(
         RequestReferenceImageAnalysisViewModel model, CancellationToken cancellationToken)
     {
-        var document = await documents.GetAsync(model.ReferenceDocumentId, cancellationToken);
-
-        if (!document.Succeeded || document.Value is null)
+        switch (AiReferenceImageSources.Of(model))
         {
-            return null;
+            case AiReferenceImageSource.BrandDocument when model.ReferenceDocumentId is { } documentId:
+            {
+                var document = await documents.GetAsync(documentId, cancellationToken);
+
+                if (!document.Succeeded || document.Value is null)
+                {
+                    return null;
+                }
+
+                var current = document.Value.CurrentVersion;
+
+                return Readable(current.MediaType, current.SizeBytes)
+                    ? Named(
+                        AiReferenceImageSource.BrandDocument,
+                        (ReferenceImageInputs.ReferenceDocumentId, documentId.ToString()),
+                        (ReferenceImageInputs.ReferenceVersionNumber, Number(current.VersionNumber)))
+                    : null;
+            }
+
+            case AiReferenceImageSource.DamAsset when model.MediaAssetId is { } assetId:
+            {
+                var target = await mediaAssets.ResolvePictureAsync(
+                    assetId, model.MediaAssetVersionNumber, cancellationToken);
+
+                // The version comes back from the lookup even when the request named none: that is the pin.
+                return target is { VersionNumber: { } versionNumber } && Readable(target.MediaType, target.SizeBytes)
+                    ? Named(
+                        AiReferenceImageSource.DamAsset,
+                        (ReferenceImageInputs.MediaAssetId, assetId.ToString()),
+                        (ReferenceImageInputs.MediaAssetVersionNumber, Number(versionNumber)))
+                    : null;
+            }
+
+            case AiReferenceImageSource.GeneratedImage when model.GeneratedImageId is { } imageId:
+            {
+                var target = await generatedImages.ResolvePictureAsync(imageId, cancellationToken);
+
+                return target is not null && Readable(target.MediaType, target.SizeBytes)
+                    ? Named(
+                        AiReferenceImageSource.GeneratedImage,
+                        (ReferenceImageInputs.GeneratedImageId, imageId.ToString()))
+                    : null;
+            }
+
+            default:
+                return null;
         }
-
-        var current = document.Value.CurrentVersion;
-
-        // The size too, and not only the type. Brand uploads may be far larger than one request can carry
-        // (BrandPolicy.SourceUploadMaxBytes against PromptEnvelopePolicy.ImageMaxBytes), so without this a
-        // large image is accepted with 202, charged against the allowance, queued, and then guaranteed to
-        // fail in the worker minutes later. Refusing it here costs the creator nothing and tells them now.
-        return ImageMediaTypes.Contains(current.MediaType)
-            && current.SizeBytes > 0
-            && current.SizeBytes <= PromptEnvelopePolicy.ImageMaxBytes
-                ? current.VersionNumber
-                : null;
     }
 
-    private static string SerializeInputs(RequestReferenceImageAnalysisViewModel model, int versionNumber)
+    /// <summary>
+    /// Whether a stored picture of that type and size is one this can send.
+    /// </summary>
+    /// <remarks>
+    /// The size too, and not only the type. A stored picture may be far larger than one request can carry
+    /// (<see cref="PromptEnvelopePolicy.ImageMaxBytes"/>), so without this a large image is accepted with 202,
+    /// charged against the allowance, queued, and then guaranteed to fail in the worker minutes later.
+    /// Refusing it here costs the creator nothing and tells them now.
+    /// </remarks>
+    private static bool Readable(string mediaType, long sizeBytes) =>
+        ImageMediaTypes.Contains(mediaType)
+        && sizeBytes > 0
+        && sizeBytes <= PromptEnvelopePolicy.ImageMaxBytes;
+
+    private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static Dictionary<string, string> Named(
+        AiReferenceImageSource source, params (string Key, string Value)[] ids)
     {
-        var values = new Dictionary<string, string>(3, StringComparer.Ordinal)
+        var values = new Dictionary<string, string>(4, StringComparer.Ordinal)
         {
-            [ReferenceImageInputs.ReferenceDocumentId] = model.ReferenceDocumentId.ToString(),
-            [ReferenceImageInputs.ReferenceVersionNumber] =
-                versionNumber.ToString(CultureInfo.InvariantCulture),
+            [ReferenceImageInputs.Source] = source.ToString(),
         };
+
+        foreach (var (key, value) in ids)
+        {
+            values[key] = value;
+        }
+
+        return values;
+    }
+
+    private static string SerializeInputs(
+        RequestReferenceImageAnalysisViewModel model, IReadOnlyDictionary<string, string> reference)
+    {
+        var values = new Dictionary<string, string>(reference, StringComparer.Ordinal);
 
         if (!string.IsNullOrWhiteSpace(model.Note))
         {

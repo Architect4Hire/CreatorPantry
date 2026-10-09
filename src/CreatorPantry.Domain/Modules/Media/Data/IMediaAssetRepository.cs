@@ -26,6 +26,16 @@ public interface IMediaAssetRepository
     /// </remarks>
     Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// What a creator has said this workspace's live asset shows, and which version is current — or null when
+    /// there is no live asset with that id.
+    /// </summary>
+    /// <remarks>
+    /// Two columns and nothing else: no title, no bytes, no object key. Null for an unknown id, another
+    /// workspace's asset and a soft-deleted one alike, exactly as <see cref="ExistsAsync"/> answers false.
+    /// </remarks>
+    Task<MediaAssetDescription?> DescribeAsync(Guid mediaAssetId, CancellationToken cancellationToken);
+
     /// <summary>The asset and its versions, or null when this workspace holds none with that id.</summary>
     Task<MediaAsset?> FindAsync(Guid mediaAssetId, CancellationToken cancellationToken);
 
@@ -225,6 +235,15 @@ internal sealed class MediaAssetRepository(CreatorPantryDbContext context) : IMe
         context.MediaAssets
             .AsNoTracking()
             .AnyAsync(asset => asset.Id == mediaAssetId && asset.DeletedAt == null, cancellationToken);
+
+    public Task<MediaAssetDescription?> DescribeAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
+        context.MediaAssets
+            .AsNoTracking()
+
+            // Inside the filtered set, and live only, as above.
+            .Where(asset => asset.Id == mediaAssetId && asset.DeletedAt == null)
+            .Select(asset => new MediaAssetDescription(asset.AltText, asset.CurrentVersionNumber, asset.CurrentVersionNumber))
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
         context.MediaAssetVersions

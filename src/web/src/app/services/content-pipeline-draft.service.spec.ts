@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 
 import {
   ContentPipelineDraft,
+  ContentPipelineKeptRun,
   emptyContentPipelineDraft,
   encodeContentPipelineDraft,
 } from '../models/content-pipeline.models';
@@ -175,5 +176,114 @@ describe('ContentPipelineDraftService', () => {
     localStorage.setItem('cp.pipeline.ws-cozy.m-rae', encodeContentPipelineDraft(draftWith('Ours')));
 
     expect(service.read(RAE_AT_COZY).draft?.config.concept).toBe('Ours');
+  });
+
+  describe('work that is on a creative context', () => {
+    const run = (finalPrompt: string): ContentPipelineKeptRun => {
+      const base = draftWith('The picture, which belongs on the context.');
+
+      return { draft: { ...base, prompt: { ...base.prompt, finalPrompt, promptSource: 'creator' } }, unsent: null };
+    };
+
+    it('keeps it by context, and never keeps the channel, day or picture with it', () => {
+      const base = draftWith('The picture, which belongs on the context.');
+      service.writeKept(RAE_AT_COZY, 'ctx-1', {
+        draft: { ...base, config: { ...base.config, channelKey: 'instagram', day: 'Friday', scene: ['marble slab'] } },
+        unsent: null,
+      });
+
+      const { kept } = service.readKept(RAE_AT_COZY, 'ctx-1');
+
+      expect(kept?.draft.config.scene).toEqual(['marble slab']);
+      expect(kept?.draft.config.channelKey).toBeNull();
+      expect(kept?.draft.config.day).toBeNull();
+      expect(kept?.draft.config.concept).toBe('');
+      expect(localStorage.getItem('cp.pipeline.ws-cozy.m-rae.ctx-1')).not.toContain('belongs on the context');
+    });
+
+    it('keeps words that have not reached the server, and only those', () => {
+      service.writeKept(RAE_AT_COZY, 'ctx-1', { ...run('A prompt.'), unsent: { pictureBrief: 'Typed on a train.' } });
+
+      expect(service.readKept(RAE_AT_COZY, 'ctx-1').kept?.unsent).toEqual({ pictureBrief: 'Typed on a train.' });
+    });
+
+    it('keeps each context apart, and apart from unfiled work', () => {
+      service.write(RAE_AT_COZY, draftWith('Unfiled.'));
+      service.writeKept(RAE_AT_COZY, 'ctx-1', run('First.'));
+      service.writeKept(RAE_AT_COZY, 'ctx-2', run('Second.'));
+
+      service.clearKept(RAE_AT_COZY, 'ctx-1');
+
+      expect(service.readKept(RAE_AT_COZY, 'ctx-1').kept).toBeNull();
+      expect(service.readKept(RAE_AT_COZY, 'ctx-2').kept?.draft.prompt.finalPrompt).toBe('Second.');
+      expect(service.read(RAE_AT_COZY).draft?.config.concept).toBe('Unfiled.');
+    });
+
+    it("never hands one workspace's or one member's kept work, last context or filing attempt to another", () => {
+      service.writeKept(RAE_AT_COZY, 'ctx-1', run('Rae at Cozy.'));
+      service.rememberContext(RAE_AT_COZY, 'ctx-1');
+      service.filing(RAE_AT_COZY).write({
+        key: 'key-1',
+        fields: { channelKey: null, day: null, pictureBrief: 'Rae at Cozy.', weeklyThemeKey: null, briefSource: null, workingBrief: '' },
+      });
+
+      for (const other of [SAM_AT_COZY, RAE_AT_OTHER]) {
+        expect(service.readKept(other, 'ctx-1').kept).toBeNull();
+        expect(service.lastContextId(other)).toBeNull();
+        expect(service.filing(other).read()).toBeNull();
+      }
+      expect(service.lastContextId(RAE_AT_COZY)).toBe('ctx-1');
+      expect(service.filing(RAE_AT_COZY).read()?.key).toBe('key-1');
+    });
+
+    it('forgets the last context when asked, and a filing attempt once it is cleared', () => {
+      service.rememberContext(RAE_AT_COZY, 'ctx-1');
+      service.filing(RAE_AT_COZY).write({
+        key: 'key-1',
+        fields: { channelKey: null, day: null, pictureBrief: '', weeklyThemeKey: null, briefSource: null, workingBrief: '' },
+      });
+
+      service.forgetContext(RAE_AT_COZY);
+      service.filing(RAE_AT_COZY).clear();
+
+      expect(service.lastContextId(RAE_AT_COZY)).toBeNull();
+      expect(service.filing(RAE_AT_COZY).read()).toBeNull();
+    });
+
+    it('throws away a filing attempt it cannot read rather than replaying something else', () => {
+      localStorage.setItem('cp.pipeline.filing.ws-cozy.m-rae', '{"key":"key-1","fields":{"day":"Someday"}}');
+
+      expect(service.filing(RAE_AT_COZY).read()).toBeNull();
+      expect(localStorage.getItem('cp.pipeline.filing.ws-cozy.m-rae')).toBeNull();
+    });
+
+    it('reports kept work it cannot read, and throws it away', () => {
+      localStorage.setItem('cp.pipeline.ws-cozy.m-rae.ctx-1', '{"v":5,"unsent":{"day":"Someday"}}');
+
+      expect(service.readKept(RAE_AT_COZY, 'ctx-1')).toEqual({ kept: null, discarded: true });
+      expect(localStorage.getItem('cp.pipeline.ws-cozy.m-rae.ctx-1')).toBeNull();
+    });
+
+    it('drops kept work, the last context and a filing attempt when the session goes anonymous', () => {
+      service.writeKept(RAE_AT_COZY, 'ctx-1', { ...run('A prompt.'), unsent: { pictureBrief: 'Unsent words.' } });
+      service.rememberContext(RAE_AT_COZY, 'ctx-1');
+      service.filing(RAE_AT_COZY).write({
+        key: 'key-1',
+        fields: { channelKey: null, day: null, pictureBrief: 'Words.', weeklyThemeKey: null, briefSource: null, workingBrief: '' },
+      });
+
+      session.set({ status: 'anonymous' });
+      TestBed.tick();
+
+      expect(Object.keys(localStorage).filter((key) => key.startsWith('cp.pipeline.'))).toEqual([]);
+      expect(service.readKept(RAE_AT_COZY, 'ctx-1').kept).toBeNull();
+    });
+
+    it('refuses to keep anything once the session has gone', () => {
+      session.set({ status: 'expired' });
+
+      expect(service.writeKept(RAE_AT_COZY, 'ctx-1', run('A prompt.'))).toBeFalse();
+      expect(service.readKept(RAE_AT_COZY, 'ctx-1').kept).toBeNull();
+    });
   });
 });

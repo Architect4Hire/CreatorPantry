@@ -1,12 +1,42 @@
 <cp-form-section
+  heading="The brief"
+  intro="What the picture is planned from. Change it here if it is not quite right — your description and the idea you picked stay as they are."
+  sectionId="cp-pipeline-brief"
+>
+  @if (briefSourceLabel(); as label) {
+    <p class="brief-source">
+      <cp-badge tone="neutral">{{ label }}</cp-badge>
+      @if (briefEdited()) {
+        <span class="cp-muted">Edited since you chose it.</span>
+      }
+    </p>
+  } @else if (brief().trim() === '') {
+    <cp-notice role="note">
+      No brief has been chosen yet. Go back a step to choose what to work from, or write one here.
+    </cp-notice>
+  }
+
+  <cp-field label="Brief" forId="cp-pipeline-brief-text" [error]="briefError()">
+    <textarea
+      id="cp-pipeline-brief-text"
+      name="pipelineBrief"
+      rows="5"
+      [ngModel]="brief()"
+      (ngModelChange)="onBriefText($event)"
+    ></textarea>
+  </cp-field>
+</cp-form-section>
+
+<cp-form-section
   heading="The look"
-  intro="A few looks planned from what you set up, and the one shot we will write a prompt for."
+  intro="A few looks planned from the brief above, and the one shot we will write a prompt for."
 >
   <cp-content-pipeline-concept-panel
     [workspaceSlug]="workspaceSlug()"
     [config]="config()"
     [prompt]="prompt()"
-    [idea]="idea()"
+    [brief]="brief()"
+    [recipe]="recipe()"
     (changed)="onPrompt($event)"
     (announced)="onAnnounced($event)"
   />
@@ -14,7 +44,7 @@
 
 <cp-form-section
   heading="Extras"
-  intro="A brief to work from, and a photograph to take cues from. Both optional."
+  intro="A brief to work from, and a picture to take cues from. Both optional."
 >
   <h4>A brief</h4>
   <p class="cp-muted">
@@ -27,10 +57,12 @@
     (selectedChange)="onBrief($event)"
   />
 
-  <h4>A reference photograph</h4>
+  <h4>A reference picture</h4>
   <cp-content-pipeline-reference-panel
     [workspaceSlug]="workspaceSlug()"
     [prompt]="prompt()"
+    [session]="session()"
+    [runOperationId]="draft().images.operationId"
     (changed)="onPrompt($event)"
     (announced)="onAnnounced($event)"
   />
@@ -44,6 +76,7 @@
       [workspaceSlug]="workspaceSlug()"
       [config]="config()"
       [prompt]="prompt()"
+      [recipe]="recipe()"
       (changed)="onPrompt($event)"
       (announced)="onAnnounced($event)"
     />

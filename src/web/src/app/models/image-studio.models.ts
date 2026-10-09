@@ -11,13 +11,16 @@ import {
   ContentPipelineImagesState,
   ContentPipelinePromptState,
   DEFAULT_VARIANT_COUNT,
+  contentPipelineConfigWith,
   decodeContentPipelineConfig,
   decodeContentPipelineImagesState,
   decodeContentPipelinePromptState,
+  decodeUnsentFields,
   emptyContentPipelineConfig,
   emptyContentPipelineImagesState,
   emptyContentPipelinePromptState,
 } from './content-pipeline.models';
+import { CreativeContextFields, EMPTY_CREATIVE_CONTEXT_FIELDS } from './creative-context-fields.models';
 import { isRecord } from './recipe.models';
 
 /** One creator's unfinished Image Studio work in one workspace. */
@@ -44,6 +47,10 @@ export interface ImageStudioDraft {
  * `CONTENT_PIPELINE_DRAFT_VERSION` records. Raise this on any change to this shape *or* to the pipeline state
  * it is built from — the three blocks are decoded by the pipeline's own decoders, so a change there is a change
  * here.
+ *
+ * **Version 1 is the last shape that holds the studio's whole work**, and the one exception to "never
+ * migrated": since AF.3.1 that work lives on a creative context, so a v1 draft found on a device is work not
+ * yet filed on one. It is filed once and removed — see {@link IMAGE_STUDIO_WORK_VERSION}.
  */
 export const IMAGE_STUDIO_DRAFT_VERSION = 1;
 
@@ -85,6 +92,13 @@ export function isImageStudioDraftEmpty(draft: ImageStudioDraft): boolean {
  * here throws.
  */
 export function decodeImageStudioDraft(raw: string | null | undefined): ImageStudioDraft | null {
+  const parsed = parseStored(raw, IMAGE_STUDIO_DRAFT_VERSION);
+
+  return parsed === null ? null : decodeDraftBody(parsed);
+}
+
+/** Stored JSON of one version, as a record, or null for anything else. */
+function parseStored(raw: string | null | undefined, version: number): Record<string, unknown> | null {
   if (typeof raw !== 'string' || raw.length === 0) return null;
   if (raw.length > CONTENT_PIPELINE_LIMITS.storedMaxChars) return null;
 
@@ -95,8 +109,10 @@ export function decodeImageStudioDraft(raw: string | null | undefined): ImageStu
     return null;
   }
 
-  if (!isRecord(parsed) || parsed['v'] !== IMAGE_STUDIO_DRAFT_VERSION) return null;
+  return isRecord(parsed) && parsed['v'] === version ? parsed : null;
+}
 
+function decodeDraftBody(parsed: Record<string, unknown>): ImageStudioDraft | null {
   const config = decodeContentPipelineConfig(parsed['config']);
   const prompt = decodeContentPipelinePromptState(parsed['prompt']);
   const images = decodeContentPipelineImagesState(parsed['images']);
@@ -115,4 +131,40 @@ export function decodeImageStudioDraft(raw: string | null | undefined): ImageStu
 
 export function encodeImageStudioDraft(draft: ImageStudioDraft): string {
   return JSON.stringify({ v: IMAGE_STUDIO_DRAFT_VERSION, ...draft });
+}
+
+/**
+ * The version of what this device keeps for studio work that is on a creative context (AF.3.1).
+ *
+ * The v1 blocks with the channel and the picture left out — the context holds those — and any edit to them
+ * that has not been sent yet.
+ */
+export const IMAGE_STUDIO_WORK_VERSION = 2;
+
+/** What this device keeps for the studio's work on one creative context. */
+export interface ImageStudioKeptWork {
+  /** The work, with the channel and picture empty: the context supplies them when it is read. */
+  readonly draft: ImageStudioDraft;
+  /** Edits to the context's own fields that have not reached the server, or null. */
+  readonly unsent: Partial<CreativeContextFields> | null;
+}
+
+export function decodeImageStudioWork(raw: string | null | undefined): ImageStudioKeptWork | null {
+  const parsed = parseStored(raw, IMAGE_STUDIO_WORK_VERSION);
+  if (parsed === null) return null;
+
+  const draft = decodeDraftBody(parsed);
+  const unsent = decodeUnsentFields(parsed['unsent']);
+  if (draft === null || unsent === undefined) return null;
+
+  return {
+    draft: { ...draft, config: contentPipelineConfigWith(draft.config, EMPTY_CREATIVE_CONTEXT_FIELDS) },
+    unsent,
+  };
+}
+
+export function encodeImageStudioWork(draft: ImageStudioDraft, unsent: Partial<CreativeContextFields> | null): string {
+  const { variantCount, scene, style } = draft.config;
+
+  return JSON.stringify({ v: IMAGE_STUDIO_WORK_VERSION, ...draft, config: { variantCount, scene, style }, unsent });
 }

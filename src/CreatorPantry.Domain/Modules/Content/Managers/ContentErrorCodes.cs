@@ -82,4 +82,58 @@ public static class ContentErrorCodes
     /// filters are wrong" from "start the list again" — the only one of the two it can act on automatically.
     /// </remarks>
     public const string PromptCursorInvalid = "content.prompt.cursor.invalid";
+
+    /// <summary>The creative context failed shape validation. Carries field errors.</summary>
+    public const string CreativeContextInvalid = "content.creative_context.invalid";
+
+    /// <summary>The caller's role may read creative contexts but not change them.</summary>
+    public const string CreativeContextForbidden = "content.creative_context.forbidden";
+
+    /// <summary>
+    /// No such creative context, or no such reference on it, in the resolved workspace.
+    /// </summary>
+    /// <remarks>
+    /// One code for an unknown id and for another workspace's, because the query filter means the server never
+    /// sees the other row: by the time the answer is null those were never two conditions here.
+    /// </remarks>
+    public const string CreativeContextNotFound = "content.creative_context.not_found";
+
+    /// <summary>
+    /// The context has changed since the read this edit was composed against.
+    /// </summary>
+    /// <remarks>
+    /// Nothing was written. The creator's attempted change is theirs to keep: the client re-reads, shows both,
+    /// and sends again with the new token.
+    /// </remarks>
+    public const string CreativeContextStale = "content.creative_context.stale.conflict";
+
+    /// <summary>
+    /// A new context could not be written just then and nothing was stored. Worth retrying as it stands.
+    /// </summary>
+    public const string CreativeContextNotSaved = "content.creative_context.conflict";
+
+    /// <summary>
+    /// The reference names something this workspace cannot point new work at.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately one code and one sentence for a target that does not exist, one that belongs to another
+    /// workspace, and one that is archived, deleted, declined or expired. Telling them apart would let an id be
+    /// used to ask what a neighbour owns.
+    /// </remarks>
+    public const string CreativeContextReferenceUnprocessable = "content.creative_context.reference.unprocessable";
+
+    /// <summary>The context already names that source. A source is named once.</summary>
+    public const string CreativeContextReferenceDuplicate = "content.creative_context.reference.duplicate.conflict";
+
+    /// <summary>The context already holds as many references as one piece of work may.</summary>
+    public const string CreativeContextReferenceLimit = "content.creative_context.reference_limit.unprocessable";
+
+    /// <summary>A channel key names no channel, or newly chooses one that has been retired.</summary>
+    public const string CreativeContextChannelUnprocessable = "content.creative_context.channel.unprocessable";
+
+    /// <summary>The theme key is not a theme of this workspace, or newly chooses a retired one.</summary>
+    public const string CreativeContextThemeUnprocessable = "content.creative_context.theme.unprocessable";
+
+    /// <summary>The cursor was not issued for this workspace's list. Start again without one.</summary>
+    public const string CreativeContextCursorInvalid = "content.creative_context.cursor.invalid";
 }

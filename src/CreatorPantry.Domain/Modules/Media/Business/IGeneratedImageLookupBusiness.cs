@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Media.Data;
+using CreatorPantry.Domain.Modules.Media.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Business;
 
@@ -7,6 +8,15 @@ public interface IGeneratedImageLookupBusiness
 {
     /// <inheritdoc cref="IGeneratedImageRepository.ExistsAsync"/>
     Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageRepository.IsAvailableAsync"/>
+    Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageDataLayer.ResolvePictureAsync"/>
+    Task<MediaPictureTarget?> ResolvePictureAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageDataLayer.OpenPictureAsync"/>
+    Task<MediaPictureOpen> OpenPictureAsync(Guid generatedImageId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageLookupBusiness"/>
@@ -20,4 +30,20 @@ internal sealed class GeneratedImageLookupBusiness(IGeneratedImageDataLayer imag
             // AiProposalLookupBusiness does.
             ? Task.FromResult(false)
             : images.ExistsAsync(generatedImageId, cancellationToken);
+
+    public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        generatedImageId == Guid.Empty
+            ? Task.FromResult(false)
+            : images.IsAvailableAsync(generatedImageId, cancellationToken);
+
+    public Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid generatedImageId, CancellationToken cancellationToken) =>
+        generatedImageId == Guid.Empty
+            ? Task.FromResult<MediaPictureTarget?>(null)
+            : images.ResolvePictureAsync(generatedImageId, cancellationToken);
+
+    public Task<MediaPictureOpen> OpenPictureAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        generatedImageId == Guid.Empty
+            ? Task.FromResult(new MediaPictureOpen(MediaPictureOpenOutcome.NotFound))
+            : images.OpenPictureAsync(generatedImageId, cancellationToken);
 }

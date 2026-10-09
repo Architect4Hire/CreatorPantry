@@ -66,6 +66,17 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IValidator<SavePromptRecordViewModel>, SavePromptRecordViewModelValidator>();
         services.AddScoped<IValidator<PromptSearchViewModel>, PromptSearchViewModelValidator>();
 
+        services.AddScoped<ICreativeContextRepository, CreativeContextRepository>();
+        services.AddScoped<ICreativeContextDataLayer, CreativeContextDataLayer>();
+        services.AddScoped<ICreativeContextBusiness, CreativeContextBusiness>();
+        services.AddScoped<ICreativeContextFacade, CreativeContextFacade>();
+        services.AddScoped<ICreativeContextPackageBusiness, CreativeContextPackageBusiness>();
+        services.AddScoped<ICreativeContextPackageFacade, CreativeContextPackageFacade>();
+        services.AddScoped<IValidator<CreateCreativeContextViewModel>, CreateCreativeContextViewModelValidator>();
+        services.AddScoped<IValidator<PatchCreativeContextViewModel>, PatchCreativeContextViewModelValidator>();
+        services.AddScoped<IValidator<AddCreativeContextReferenceViewModel>, AddCreativeContextReferenceViewModelValidator>();
+        services.AddScoped<IValidator<CreativeContextListViewModel>, CreativeContextListViewModelValidator>();
+
         // The seed generator owns no table, so it has no repository or data layer: it composes this module's
         // weekly themes with the vocabulary and brand facades and the three code-owned catalogues.
         services.AddContentChannelCatalog();

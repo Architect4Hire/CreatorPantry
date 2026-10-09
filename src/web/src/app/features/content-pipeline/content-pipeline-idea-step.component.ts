@@ -14,6 +14,8 @@ import { Subscription } from 'rxjs';
 import {
   CpBadgeComponent,
   CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
@@ -23,8 +25,12 @@ import { ConfirmService } from '../../core/confirm.service';
 import {
   CONTENT_SEED_FACET_LABELS,
   CONTENT_SEED_KEEP_NAMES,
+  CONTENT_PIPELINE_BRIEF_SOURCE_LABELS,
+  ContentPipelineBriefSource,
   ContentPipelineDraft,
   ContentSeedKeepName,
+  contentPipelineBriefFor,
+  isContentPipelineBriefEdited,
   contentSeedQueryFor,
 } from '../../models/content-pipeline.models';
 import {
@@ -35,6 +41,13 @@ import {
   isContentSeedToken,
 } from '../../models/content-seed.models';
 import { ContentSeedService } from '../../services/content-seed.service';
+
+/** What each choice means, in a line. The brief itself is shown beneath as the example. */
+const BRIEF_CHOICE_HINTS: Readonly<Record<ContentPipelineBriefSource, string>> = {
+  Description: 'Only what you wrote on the first step.',
+  Idea: 'Only the idea you picked. Your description is kept, and not used.',
+  Combined: 'Your description as you wrote it, with the idea underneath.',
+};
 
 /** Where the step has got to. An idea on screen is a suggestion; only `accepted` on the draft is a decision. */
 type IdeaState =
@@ -99,6 +112,7 @@ function errorFor(
     FormsModule,
     CpBadgeComponent,
     CpButtonComponent,
+    CpChoiceGroupComponent,
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
@@ -119,6 +133,51 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   readonly announced = output<string>();
 
   protected readonly tokenMaxLength = CONTENT_SEED_TOKEN_MAX_LENGTH;
+
+  /** The creator's own description of the picture, from the setup step. Shown, never changed, here. */
+  protected readonly description = computed(() => this.draft().config.concept);
+
+  /** The choice is offered once there are two things to choose between: a description, and a picked idea. */
+  protected readonly offersBriefChoice = computed(
+    () => this.draft().seed.accepted !== null && this.description().trim() !== '',
+  );
+
+  /**
+   * The three ways to plan the picture, each showing exactly the brief it would make.
+   *
+   * The text is the example so the creator reads what will be worked from before choosing, rather than
+   * choosing a label and finding out on the next step.
+   */
+  protected readonly briefChoices = computed<readonly CpChoiceOption[]>(() => {
+    const idea = this.draft().seed.accepted?.description ?? null;
+    const description = this.description();
+
+    return (['Description', 'Idea', 'Combined'] as const).map((source) => ({
+      value: source,
+      label: CONTENT_PIPELINE_BRIEF_SOURCE_LABELS[source],
+      hint: BRIEF_CHOICE_HINTS[source],
+      example: contentPipelineBriefFor(source, description, idea) ?? undefined,
+    }));
+  });
+
+  /**
+   * Raised when a choice is declined, so the group is handed its value afresh.
+   *
+   * The group marks a tile the moment it is clicked. When the creator then keeps their edited brief, the
+   * choice on the run has not changed — so without this nothing would tell the group to put its mark back,
+   * and the screen would show a choice that was never made.
+   */
+  private readonly declined = signal(0);
+
+  protected readonly briefChoice = computed<readonly string[]>(() => {
+    this.declined();
+    const source = this.draft().config.briefSource;
+
+    return source === null ? [] : [source];
+  });
+
+  /** True when the brief on the run is no longer simply what its choice makes. */
+  protected readonly briefEdited = computed(() => isContentPipelineBriefEdited(this.draft()));
   protected readonly state = signal<IdeaState>({ status: 'idle' });
   /** A code the creator typed or pasted, to come back to an idea they or someone else already had. */
   protected readonly tokenEntry = signal('');
@@ -323,8 +382,13 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
     if (state.status !== 'shown') return;
 
     const draft = this.draft();
+    // With no description there is nothing to choose between: the idea is what the picture is planned from,
+    // and that is recorded as the choice it is rather than left for a later step to assume. A brief already
+    // on the run — one resumed from another device, say — is the creator's and is left alone.
+    const onlyIdea = draft.config.concept.trim() === '' && draft.config.briefSource === null && draft.config.brief === '';
     this.changed.emit({
       ...draft,
+      config: onlyIdea ? { ...draft.config, briefSource: 'Idea', brief: state.seed.description } : draft.config,
       seed: { ...draft.seed, lastToken: state.seed.token, accepted: state.seed },
     });
     this.announced.emit('Idea picked.');
@@ -347,29 +411,39 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   }
 
   /**
-   * Copy the idea's wording into the creator's own concept.
+   * Choose what the picture is planned from.
    *
-   * Never automatic, and never silent: the concept is the creator's own words and this would replace them, so
-   * where there is something there it asks first (.claude/rules/recipes.md, EASE-005).
+   * The choice makes the brief: the description as written, the idea's wording, or the description with the
+   * idea's wording below it. **Neither source is changed** — the description stays the creator's own, which is
+   * why this replaced an action that copied the idea over it. A brief they have since edited is theirs, so
+   * replacing it asks first (.claude/rules/recipes.md, EASE-005).
    */
-  protected async useAsConcept(): Promise<void> {
-    const seed = this.seed();
-    if (seed === null) return;
-
+  protected async chooseBrief(values: readonly string[]): Promise<void> {
+    const source = values[0] as ContentPipelineBriefSource | undefined;
     const draft = this.draft();
-    if (draft.config.concept.trim() !== '') {
+    const accepted = draft.seed.accepted;
+    if (source === undefined || accepted === null || source === draft.config.briefSource) return;
+
+    const brief = contentPipelineBriefFor(source, draft.config.concept, accepted.description);
+    if (brief === null) return;
+
+    if (isContentPipelineBriefEdited(draft)) {
       const replace = await this.confirm.confirm({
-        title: 'Replace what you wrote?',
-        message:
-          'This will put the idea’s wording in place of the description you wrote. Your own words will be gone.',
-        confirmLabel: 'Replace my description',
-        cancelLabel: 'Keep my description',
+        title: 'Replace the brief you edited?',
+        message: 'You changed the brief after choosing it. Choosing again puts it back to what this choice makes.',
+        confirmLabel: 'Replace my edits',
+        cancelLabel: 'Keep my edits',
       });
-      if (!replace) return;
+      if (!replace) {
+        this.declined.update((count) => count + 1);
+        return;
+      }
     }
 
-    this.changed.emit({ ...draft, config: { ...draft.config, concept: seed.description } });
-    this.announced.emit('The idea’s wording is now your description.');
+    // Re-read after the dialog: the draft could have moved on behind it.
+    const latest = this.draft();
+    this.changed.emit({ ...latest, config: { ...latest.config, briefSource: source, brief } });
+    this.announced.emit(`${CONTENT_PIPELINE_BRIEF_SOURCE_LABELS[source]}. The brief is set.`);
   }
 
   /**

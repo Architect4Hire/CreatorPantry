@@ -13,6 +13,7 @@ import { RequestPhotographyConceptsRequest } from '../../models/photography-conc
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
 import { PhotographyConceptService } from '../../services/photography-concept.service';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentPipelineConceptPanelComponent } from './content-pipeline-concept-panel.component';
 
 function row(overrides: Partial<AiProposedChange>): AiProposedChange {
@@ -74,7 +75,8 @@ const TWO_LOOKS = proposal([
     workspaceSlug="cozy-fall"
     [config]="config()"
     [prompt]="prompt()"
-    [idea]="idea()"
+    [brief]="brief()"
+    [recipe]="recipe()"
     (changed)="apply($event)"
     (announced)="announcements.push($event)"
   />`,
@@ -82,7 +84,9 @@ const TWO_LOOKS = proposal([
 class HostComponent {
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly prompt = signal<ContentPipelinePromptState>(emptyContentPipelinePromptState());
-  readonly idea = signal<string | null>('Develop a Thai main course using the stir-fry method.');
+  /** The brief the surface hands in: whatever the creator chose to plan the picture from. */
+  readonly brief = signal('Develop a Thai main course using the stir-fry method.');
+  readonly recipe = signal<LinkedRecipe | null>(null);
   readonly announcements: string[] = [];
 
   apply(next: ContentPipelinePromptState): void {
@@ -179,15 +183,18 @@ describe('ContentPipelineConceptPanelComponent', () => {
   it('asks with the channel, scene, style and wording from the step before', async () => {
     await mount(undefined, {
       channelKey: 'instagram',
-      concept: 'A tight crop.',
       scene: ['marble slab'],
       style: ['soft light'],
     });
+    host.brief.set('A tight crop.');
+    await settle();
 
     await click('Plan some looks');
 
     expect(requests[0]).toEqual({
       channelKey: 'instagram',
+      recipeId: null,
+      recipeVersionId: null,
       creatorConcept: 'A tight crop.',
       sceneOverrides: ['marble slab'],
       styleOverrides: ['soft light'],
@@ -195,25 +202,99 @@ describe('ContentPipelineConceptPanelComponent', () => {
     expect(host.prompt().conceptRequestId).toBe('r-concept');
   });
 
-  it('plans around the idea the creator picked when they wrote no description of their own', async () => {
+  it('names the linked recipe and its pinned version on the request', async () => {
+    await mount();
+    host.recipe.set({ recipeId: 'r-soda', recipeVersionId: 'v-soda-2' });
+    await settle();
+
+    await click('Plan some looks');
+
+    expect(requests[0].recipeId).toBe('r-soda');
+    expect(requests[0].recipeVersionId).toBe('v-soda-2');
+    expect(host.prompt().plannedRecipe).toBe('r-soda@v-soda-2');
+  });
+
+  it('sends neither id when no recipe is linked', async () => {
     await mount();
 
     await click('Plan some looks');
 
-    expect(requests[0].creatorConcept).toBe('Develop a Thai main course using the stir-fry method.');
+    expect(requests[0].recipeId).toBeNull();
+    expect(requests[0].recipeVersionId).toBeNull();
+    expect(host.prompt().plannedRecipe).toBe('');
   });
 
-  it('keeps the description the creator wrote over the idea, because those are their words', async () => {
-    await mount(undefined, { concept: 'A tight crop.' });
+  it('says when the linked recipe has changed since the looks were planned, and asks nothing on its own', async () => {
+    await mount();
+    host.recipe.set({ recipeId: 'r-soda', recipeVersionId: 'v-soda-1' });
+    await settle();
+    await click('Plan some looks');
+    expect(el.textContent).not.toContain('planned around the earlier one');
+
+    host.recipe.set({ recipeId: 'r-soda', recipeVersionId: 'v-soda-2' });
+    await settle();
+    expect(el.textContent).toContain('planned around the earlier one');
+
+    host.recipe.set(null);
+    await settle();
+    expect(el.textContent).withContext('unlinking counts too').toContain('planned around the earlier one');
+    expect(requests.length).toBe(1);
+  });
+
+  it('sends the brief it is handed as the creator concept, exactly', async () => {
+    await mount();
+    host.brief.set('A tight crop of the first slice.\n\nDevelop a Thai main course.');
+    await settle();
 
     await click('Plan some looks');
 
-    expect(requests[0].creatorConcept).toBe('A tight crop.');
+    expect(requests[0].creatorConcept).toBe('A tight crop of the first slice.\n\nDevelop a Thai main course.');
+  });
+
+  it('reads the brief from nowhere else: a description on the config is not a fallback', async () => {
+    await mount(undefined, { concept: 'A description that was not chosen.' });
+    host.brief.set('');
+    await settle();
+
+    expect(buttonWith('Plan some looks')!.disabled).withContext('no brief, no scene, no style').toBeTrue();
+
+    host.brief.set('The idea that was chosen.');
+    await settle();
+    await click('Plan some looks');
+
+    expect(requests.length).toBe(1);
+    expect(requests[0].creatorConcept).toBe('The idea that was chosen.');
+  });
+
+  it('holds the ask for a brief that is too long, says so, and cuts nothing', async () => {
+    await mount();
+    const long = 'a'.repeat(1001);
+    host.brief.set(long);
+    await settle();
+
+    expect(el.textContent).toContain('longer than 1000 characters');
+    expect(buttonWith('Plan some looks')!.disabled).toBeTrue();
+    expect(requests.length).toBe(0);
+    expect(host.brief()).toBe(long);
+  });
+
+  it('remembers the brief the looks were planned from, and says when it has changed since', async () => {
+    await mount();
+    await click('Plan some looks');
+
+    expect(host.prompt().plannedBrief).toBe('Develop a Thai main course using the stir-fry method.');
+    expect(el.textContent).not.toContain('planned from the earlier one');
+
+    host.brief.set('Something else entirely.');
+    await settle();
+
+    expect(el.textContent).toContain('planned from the earlier one');
+    expect(requests.length).withContext('saying so is not asking again').toBe(1);
   });
 
   it('asks for nothing, and says why, when there is no subject to plan around', async () => {
     await mount(undefined, { channelKey: 'instagram' });
-    host.idea.set(null);
+    host.brief.set('');
     await settle();
 
     expect(el.textContent).toContain('nothing to plan a look around yet');

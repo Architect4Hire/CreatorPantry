@@ -23,6 +23,13 @@ public interface IGeneratedImageRepository
     /// </remarks>
     Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Whether this workspace holds that image and it is still one a creator can work from: staged or kept,
+    /// and not declined or expired.
+    /// </summary>
+    /// <remarks>False for an unknown id and for another workspace's image, exactly as <see cref="ExistsAsync"/>.</remarks>
+    Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
     /// <summary>The image, tracked, or null when this workspace holds none with that id.</summary>
     /// <remarks>
     /// No <c>WorkspaceId</c> predicate and no <c>IgnoreQueryFilters</c>: the key seek happens inside the
@@ -75,6 +82,16 @@ internal sealed class GeneratedImageRepository(CreatorPantryDbContext context) :
             // No WorkspaceId predicate: the key seek happens inside the filtered set, so another workspace's
             // image is not found rather than found and rejected.
             .AnyAsync(image => image.Id == generatedImageId, cancellationToken);
+
+    public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        context.GeneratedImages
+            .AsNoTracking()
+
+            // Inside the filtered set, as above.
+            .AnyAsync(
+                image => image.Id == generatedImageId
+                    && (image.Status == GeneratedImageStatus.Staged || image.Status == GeneratedImageStatus.Kept),
+                cancellationToken);
 
     public Task<GeneratedImage?> FindAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
         context.GeneratedImages.FirstOrDefaultAsync(

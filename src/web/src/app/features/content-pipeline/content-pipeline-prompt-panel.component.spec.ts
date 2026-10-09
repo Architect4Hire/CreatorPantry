@@ -14,6 +14,7 @@ import { RequestImagePromptRequest } from '../../models/image-prompt.models';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
 import { ImagePromptService } from '../../services/image-prompt.service';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentPipelinePromptPanelComponent } from './content-pipeline-prompt-panel.component';
 
 const CHOSEN = { conceptRequestId: 'r-concept', conceptId: 'k-1', label: 'Warm morning', shotKind: 'Hero' as const };
@@ -80,10 +81,12 @@ function readyOperation(
     workspaceSlug="cozy-fall"
     [config]="config()"
     [prompt]="prompt()"
+    [recipe]="recipe()"
     (changed)="apply($event)"
   />`,
 })
 class HostComponent {
+  readonly recipe = signal<LinkedRecipe | null>(null);
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly prompt = signal<ContentPipelinePromptState>({ ...emptyContentPipelinePromptState(), chosen: CHOSEN });
 
@@ -212,10 +215,32 @@ describe('ContentPipelinePromptPanelComponent', () => {
       conceptId: 'k-1',
       shotKind: 'Hero',
       channelKey: 'instagram',
+      recipeId: null,
+      recipeVersionId: null,
       briefDocumentId: 'd-brief',
       sceneOverrides: ['marble slab'],
       styleOverrides: ['soft light'],
     });
+  });
+
+  it('names the linked recipe and its pinned version on the request', async () => {
+    await mount();
+    host.recipe.set({ recipeId: 'r-soda', recipeVersionId: 'v-soda-2' });
+    await settle();
+
+    await click('Write the prompt');
+
+    expect(requests[0].recipeId).toBe('r-soda');
+    expect(requests[0].recipeVersionId).toBe('v-soda-2');
+  });
+
+  it('sends neither id when no recipe is linked', async () => {
+    await mount();
+
+    await click('Write the prompt');
+
+    expect(requests[0].recipeId).toBeNull();
+    expect(requests[0].recipeVersionId).toBeNull();
   });
 
   it('seeds the empty box with what was written, and keeps the wording beside it', async () => {

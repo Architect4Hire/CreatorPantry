@@ -133,6 +133,55 @@ describe('photography-concept.models', () => {
       ).toEqual({});
     });
 
+    it('names the linked recipe and its pinned version', () => {
+      expect(
+        encodeRequestPhotographyConcepts({
+          channelKey: null,
+          recipeId: 'r-soda',
+          recipeVersionId: 'v-soda-2',
+          creatorConcept: '',
+          sceneOverrides: [],
+          styleOverrides: [],
+        }),
+      ).toEqual({ recipeId: 'r-soda', recipeVersionId: 'v-soda-2' });
+    });
+
+    it('names a recipe that has no saved version by the recipe alone', () => {
+      expect(
+        encodeRequestPhotographyConcepts({
+          channelKey: null,
+          recipeId: 'r-new',
+          recipeVersionId: null,
+          creatorConcept: '',
+          sceneOverrides: [],
+          styleOverrides: [],
+        }),
+      ).toEqual({ recipeId: 'r-new' });
+    });
+
+    it('sends neither id for an unlinked run, and never a version without its recipe', () => {
+      const unlinked = encodeRequestPhotographyConcepts({
+        channelKey: 'instagram',
+        recipeId: null,
+        recipeVersionId: null,
+        creatorConcept: 'A tight crop.',
+        sceneOverrides: [],
+        styleOverrides: [],
+      });
+      const orphan = encodeRequestPhotographyConcepts({
+        channelKey: null,
+        recipeId: null,
+        recipeVersionId: 'v-soda-2',
+        creatorConcept: '',
+        sceneOverrides: [],
+        styleOverrides: [],
+      });
+
+      expect('recipeId' in unlinked).toBeFalse();
+      expect('recipeVersionId' in unlinked).toBeFalse();
+      expect(orphan).toEqual({});
+    });
+
     it('sends every part the creator gave, with the concept trimmed', () => {
       expect(
         encodeRequestPhotographyConcepts({

@@ -372,9 +372,60 @@
     }
 
     @if (selectedConcept(); as chosen) {
-      <p class="studio-selection" role="status">
-        You've chosen “{{ chosen.title }}.” Turning a concept into a recipe draft isn't built yet.
-      </p>
+      <!--
+        The one next step for a chosen concept, directly under the list it was chosen from. A named region, so
+        it can be found again; the sentence is a status, so choosing is announced without moving focus.
+      -->
+      <section class="studio-selection" aria-labelledby="studio-selection-heading">
+        <h3 class="studio-selection-heading" id="studio-selection-heading">Your chosen concept</h3>
+        <p class="studio-selection-text" role="status">
+          You've chosen “{{ chosen.title }}.” Draft it as a recipe to review, edit and save.
+        </p>
+
+        <!-- Only when the server has actually refused this request: a spent allowance is already said once,
+             above the brief, and saying it twice on one page would be noise. -->
+        @if (draftQuotaRefusal(); as refused) {
+          <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="refused" />
+        }
+
+        @if (draftProblem(); as problem) {
+          <cp-notice tone="error" role="alert" class="studio-selection-problem">{{ problem }}</cp-notice>
+        }
+
+        <div class="studio-selection-actions">
+          <!--
+            aria-disabled rather than disabled, as on the brief's own action: a disabled button drops focus to
+            the body the moment it is pressed, and whoever pressed it most needs to hear what happened next.
+          -->
+          <button
+            cpButton
+            type="button"
+            variant="primary"
+            class="studio-draft"
+            [attr.aria-disabled]="canDraft() ? null : 'true'"
+            [attr.aria-label]="drafting() ? 'Starting your draft of ' + chosen.title + '…' : null"
+            (click)="draftChosen()"
+          >
+            {{ drafting() ? 'Starting your draft…' : 'Draft this recipe' }}
+          </button>
+          <span class="studio-selection-hint">Uses your AI allowance. Nothing is saved until you accept the draft.</span>
+        </div>
+
+        <!--
+          After the one primary action, and visibly second to it: both of these are secondary buttons under a
+          quieter heading. Held while a draft is being asked for, so two requests are not on their way at once.
+        -->
+        @if (handoffSource(); as source) {
+          <cp-use-this-in
+            class="studio-handoff"
+            heading="Or use this concept in…"
+            [workspaceSlug]="workspaceSlug"
+            [source]="source"
+            [destinations]="handoffDestinations"
+            [disabled]="drafting()"
+          />
+        }
+      </section>
     }
 
     @if (state() === 'proposed' && conceptCards().length > 0) {

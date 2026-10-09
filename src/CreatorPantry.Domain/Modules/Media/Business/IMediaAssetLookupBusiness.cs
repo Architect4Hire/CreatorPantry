@@ -18,6 +18,26 @@ public interface IMediaAssetLookupBusiness
     /// <inheritdoc cref="Facade.IMediaAssetLookupFacade.ResolveLinkTargetAsync"/>
     Task<MediaAssetLinkTarget> ResolveLinkTargetAsync(
         Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What a creator has said one of this workspace's live assets shows, for the version asked for or the
+    /// current one — or null when the asset is not there, is deleted, or has no such version.
+    /// </summary>
+    /// <remarks>
+    /// The alt text is the asset's, not a version's: a creator describes the picture, and a new version of it
+    /// is the same picture improved. The version number is returned so a caller can record which bytes the
+    /// description stood beside.
+    /// </remarks>
+    Task<MediaAssetDescription?> DescribeAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetDataLayer.ResolvePictureAsync"/>
+    Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetDataLayer.OpenPictureAsync"/>
+    Task<MediaPictureOpen> OpenPictureAsync(
+        Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IMediaAssetLookupBusiness"/>
@@ -51,4 +71,39 @@ internal sealed class MediaAssetLookupBusiness(IMediaAssetDataLayer assets) : IM
             ? MediaAssetLinkTarget.Linkable
             : MediaAssetLinkTarget.VersionNotFound;
     }
+
+    public async Task<MediaAssetDescription?> DescribeAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken)
+    {
+        if (mediaAssetId == Guid.Empty)
+        {
+            return null;
+        }
+
+        var current = await assets.DescribeAsync(mediaAssetId, cancellationToken);
+
+        if (current is null || versionNumber is not { } pinned)
+        {
+            return current;
+        }
+
+        // A pin names one version; a pin the asset does not have describes nothing.
+        return pinned >= 1 && await assets.VersionExistsAsync(mediaAssetId, pinned, cancellationToken)
+            ? current with { VersionNumber = pinned }
+            : null;
+    }
+
+    public Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+
+        // An empty id was never issued and a version below one names nothing: neither is worth a query.
+        mediaAssetId == Guid.Empty || versionNumber is < 1
+            ? Task.FromResult<MediaPictureTarget?>(null)
+            : assets.ResolvePictureAsync(mediaAssetId, versionNumber, cancellationToken);
+
+    public Task<MediaPictureOpen> OpenPictureAsync(
+        Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
+        mediaAssetId == Guid.Empty || versionNumber < 1
+            ? Task.FromResult(new MediaPictureOpen(MediaPictureOpenOutcome.NotFound))
+            : assets.OpenPictureAsync(mediaAssetId, versionNumber, cancellationToken);
 }

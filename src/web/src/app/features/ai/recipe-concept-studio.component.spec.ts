@@ -1,12 +1,16 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed, discardPeriodicTasks, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 
 import { MyWorkspaceMembership, WorkspaceRole } from '../../models/auth.models';
 import { AiProposalDetail, AiProposalStatus, AiProposalWarning, AiProposedChange } from '../../models/ai-proposal.models';
 import { RequestRecipeConceptsRequest } from '../../models/recipe-concept.models';
+import { AiRequestOutcome } from '../../services/ai-request';
 import { RecipeConceptService, RequestConceptsOutcome, WatchConceptsOutcome } from '../../services/recipe-concept.service';
+import { CreativeContextDraft } from '../../models/creative-context.models';
+import { CreativeContextCreateOutcome, CreativeContextService } from '../../services/creative-context.service';
+import { RecipeDraftService, RequestRecipeDraftRequest } from '../../services/recipe-draft.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { RecipeConceptStudioComponent } from './recipe-concept-studio.component';
 
@@ -147,20 +151,70 @@ class StubRecipeConceptService {
   }
 }
 
+/** Answers a draft request with {@link outcome}, or holds it open on {@link pending} when a test needs to. */
+class StubRecipeDraftService {
+  outcome: AiRequestOutcome = {
+    status: 'accepted',
+    operation: operation({ aiProposalRequestId: 'draft-1', taskType: 'RecipeFirstDraft' }),
+    replayed: false,
+  };
+  pending: Promise<AiRequestOutcome> | null = null;
+  calls: { request: RequestRecipeDraftRequest; key: string }[] = [];
+
+  requestDraft(_slug: string, request: RequestRecipeDraftRequest, key: string): Promise<AiRequestOutcome> {
+    this.calls.push({ request, key });
+    return this.pending ?? Promise.resolve(this.outcome);
+  }
+}
+
+/** Answers a context create with {@link outcome}, recording what it was asked to start from. */
+class StubCreativeContextService {
+  outcome: CreativeContextCreateOutcome = {
+    status: 'created',
+    context: {
+      id: 'ctx-1',
+      workingTitle: null,
+      pictureBrief: null,
+      briefSource: null,
+      workingBrief: null,
+      channelKeys: [],
+      day: null,
+      weeklyThemeKey: null,
+      references: [],
+      createdAt: '2026-10-09T12:00:00+00:00',
+      updatedAt: '2026-10-09T12:00:00+00:00',
+      archivedAt: null,
+      concurrencyToken: 'AAAAAAAAB9E=',
+    },
+  };
+  calls: { slug: string; draft: CreativeContextDraft; key: string }[] = [];
+
+  create(slug: string, draft: CreativeContextDraft, key: string): Observable<CreativeContextCreateOutcome> {
+    this.calls.push({ slug, draft, key });
+
+    return of(this.outcome);
+  }
+}
+
 describe('RecipeConceptStudioComponent', () => {
   let service: StubRecipeConceptService;
+  let drafts: StubRecipeDraftService;
   let memberships: StubMembershipService;
   let fixture: ComponentFixture<RecipeConceptStudioComponent>;
-  let selections: unknown[];
+  let contexts: StubCreativeContextService;
 
   function configure(role: WorkspaceRole = 'Contributor'): void {
     service = new StubRecipeConceptService();
+    drafts = new StubRecipeDraftService();
+    contexts = new StubCreativeContextService();
     memberships = new StubMembershipService();
     memberships.state.set({ status: 'ready', memberships: [membership(role)] });
 
     TestBed.configureTestingModule({
       providers: [
         { provide: RecipeConceptService, useValue: service },
+        { provide: RecipeDraftService, useValue: drafts },
+        { provide: CreativeContextService, useValue: contexts },
         { provide: WorkspaceMembershipService, useValue: memberships },
         {
           provide: ActivatedRoute,
@@ -174,8 +228,6 @@ describe('RecipeConceptStudioComponent', () => {
     });
 
     fixture = TestBed.createComponent(RecipeConceptStudioComponent);
-    selections = [];
-    fixture.componentInstance.conceptSelected.subscribe((event) => selections.push(event));
   }
 
   function render(role: WorkspaceRole = 'Contributor'): HTMLElement {
@@ -322,7 +374,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     click('Choose this concept');
 
-    expect(selections.length).toBe(1);
+    expect(fixture.componentInstance.selectedConcept()?.title).toBe('Slow-roasted tomato soup');
     expect(element().querySelector('.studio-selection')?.textContent).toContain('chosen');
   }));
 
@@ -340,7 +392,6 @@ describe('RecipeConceptStudioComponent', () => {
     buttons('Choose this concept')[0].click();
     settle();
 
-    expect(selections.length).toBe(2);
     expect(fixture.componentInstance.selectedConcept()?.title).toBe('Quick weeknight noodles');
   }));
 
@@ -497,4 +548,424 @@ describe('RecipeConceptStudioComponent', () => {
     expect(fields.length).toBe(11);
     expect(fields.every((field) => field.closest('cp-form-section') !== null)).toBeTrue();
   }));
+
+  // ---- Drafting the chosen concept (AF.2.1) ----
+
+  describe('drafting the chosen concept', () => {
+    function draftNavigations(): unknown[][] {
+      const navigate = TestBed.inject(Router).navigate as jasmine.Spy;
+
+      return navigate.calls
+        .allArgs()
+        .filter((args) => Array.isArray(args[0]) && (args[0] as unknown[]).includes('draft'));
+    }
+
+    /** A brief typed, concepts returned, the first one chosen. */
+    function chooseFirst(): void {
+      render();
+      typeInto('concept-audience', 'Busy parents');
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+      buttons('Choose this concept')[0].click();
+      settle();
+    }
+
+    function draftButton(): HTMLButtonElement {
+      const found = element().querySelector<HTMLButtonElement>('button.studio-draft');
+      if (!found) throw new Error('no draft button');
+      return found;
+    }
+
+    function pressDraft(): void {
+      draftButton().click();
+      settle();
+      settle();
+    }
+
+    /** Everything a refusal must leave exactly as it was. */
+    function expectNothingLost(): void {
+      expect(draftNavigations()).toEqual([]);
+      expect(input('concept-audience').value).toBe('Busy parents');
+      expect(element().textContent).toContain('Slow-roasted tomato soup');
+      expect(element().textContent).toContain('Quick weeknight noodles');
+      expect(fixture.componentInstance.selectedConcept()?.title).toBe('Slow-roasted tomato soup');
+      expect(draftButton().getAttribute('aria-disabled')).toBeNull();
+      expect(draftButton().textContent?.trim()).toBe('Draft this recipe');
+    }
+
+    it('offers nothing to draft until a concept is chosen', fakeAsync(() => {
+      render();
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+
+      expect(element().querySelector('button.studio-draft')).toBeNull();
+
+      buttons('Choose this concept')[0].click();
+      settle();
+
+      expect(draftButton().textContent?.trim()).toBe('Draft this recipe');
+      expect(draftButton().classList).toContain('cp-button--primary');
+    }));
+
+    it('no longer says drafting is not built', fakeAsync(() => {
+      chooseFirst();
+
+      expect(element().textContent).not.toContain("isn't built yet");
+      expect(element().querySelector('.studio-selection [role="status"]')?.textContent).toContain(
+        'Slow-roasted tomato soup',
+      );
+    }));
+
+    it('asks for a draft of the chosen concept, with the brief, and opens the page that reviews it', fakeAsync(() => {
+      chooseFirst();
+
+      pressDraft();
+
+      expect(drafts.calls.length).toBe(1);
+      expect(drafts.calls[0].request.sourceConceptRequestId).toBe(REQUEST_ID);
+      expect(drafts.calls[0].request.sourceConceptId).toBe('concept-1');
+      expect(drafts.calls[0].request.brief?.audience).toBe('Busy parents');
+
+      // The plain review route, named by the request it will watch. No recipe exists yet.
+      expect(draftNavigations()).toEqual([
+        [['/', 'cozy-fall', 'ai-recipe-studio', 'draft'], { queryParams: { request: 'draft-1' } }],
+      ]);
+    }));
+
+    it('drafts the concept that is chosen now, not the one chosen first', fakeAsync(() => {
+      chooseFirst();
+      buttons('Choose this concept')[0].click();
+      settle();
+
+      pressDraft();
+
+      expect(drafts.calls[0].request.sourceConceptId).toBe('concept-2');
+    }));
+
+    it('says it is working, keeps focus, and sends one request however often it is pressed', fakeAsync(() => {
+      chooseFirst();
+      let answer: (outcome: AiRequestOutcome) => void = () => undefined;
+      drafts.pending = new Promise<AiRequestOutcome>((resolve) => (answer = resolve));
+
+      draftButton().focus();
+      draftButton().click();
+      settle();
+      draftButton().click();
+      draftButton().click();
+      settle();
+
+      expect(drafts.calls.length).toBe(1);
+      expect(draftButton().textContent?.trim()).toBe('Starting your draft…');
+      expect(draftButton().getAttribute('aria-disabled')).toBe('true');
+
+      // The visible words shorten; the name a screen reader hears still says which concept.
+      expect(draftButton().getAttribute('aria-label')).toContain('Slow-roasted tomato soup');
+
+      // aria-disabled, not disabled: the button is still there to hold focus.
+      expect(draftButton().disabled).toBeFalse();
+      expect(document.activeElement).toBe(draftButton());
+
+      answer({ status: 'unavailable' });
+      settle();
+      settle();
+
+      expect(document.activeElement).toBe(draftButton());
+    }));
+
+    const refusals: readonly (readonly [AiRequestOutcome, string])[] = [
+      [{ status: 'refused', code: 'ai.recipeConcept.not_found', message: 'x' }, 'can no longer be drafted from'],
+      [{ status: 'refused', code: 'ai.recipeFirstDraft.too_large', message: 'x' }, 'too long to draft from together'],
+      [{ status: 'task_not_enabled' }, 'switched off for now'],
+      [{ status: 'idempotency_key_conflict' }, 'clashed with another'],
+      [{ status: 'forbidden' }, 'does not permit asking for a recipe draft'],
+      [{ status: 'unavailable' }, "Couldn't reach the server"],
+      [{ status: 'validation_failed', fieldErrors: { audience: ['Too long.'] } }, 'needs changing before this can be drafted'],
+    ];
+
+    for (const [outcome, words] of refusals) {
+      const name = outcome.status === 'refused' ? `refused (${outcome.code})` : outcome.status;
+
+      it(`stays put and says why on '${name}', with the brief, the concepts and the choice untouched`, fakeAsync(() => {
+        chooseFirst();
+        drafts.outcome = outcome;
+
+        pressDraft();
+
+        const alert = element().querySelector('.studio-selection [role="alert"]');
+        expect(alert?.textContent).toContain(words);
+        expectNothingLost();
+      }));
+    }
+
+    it('shows a field error from the server against its own field in the brief', fakeAsync(() => {
+      chooseFirst();
+      drafts.outcome = { status: 'validation_failed', fieldErrors: { audience: ['Keep this under 200 characters.'] } };
+
+      pressDraft();
+
+      expect(element().textContent).toContain('Keep this under 200 characters.');
+      expect(input('concept-audience').getAttribute('aria-invalid')).toBe('true');
+    }));
+
+    for (const refusal of [
+      {
+        status: 'quota_exhausted',
+        unit: 'Credits',
+        allowance: 100,
+        remaining: 2,
+        required: 5,
+        resetsAt: '2026-11-01T00:00:00+00:00',
+      },
+      { status: 'account_suspended', unit: 'Credits' },
+    ] as const) {
+      it(`hands '${refusal.status}' to the allowance notice by the action, and loses nothing`, fakeAsync(() => {
+        chooseFirst();
+        drafts.outcome = refusal as AiRequestOutcome;
+
+        pressDraft();
+
+        // Worded by the one component that words allowance refusals, beside the action that was refused.
+        const notice = element().querySelector('.studio-selection cp-ai-allowance-notice');
+        expect(notice).not.toBeNull();
+        expect(notice!.textContent?.trim()).not.toBe('');
+        expect(element().querySelector('.studio-selection cp-notice[role="alert"]')).toBeNull();
+        expect(draftNavigations()).toEqual([]);
+        expect(input('concept-audience').value).toBe('Busy parents');
+        expect(fixture.componentInstance.selectedConcept()?.title).toBe('Slow-roasted tomato soup');
+        expect(element().textContent).toContain('Quick weeknight noodles');
+      }));
+    }
+
+    it('retries under the same key when the server could not be reached, so one draft is bought', fakeAsync(() => {
+      chooseFirst();
+      drafts.outcome = { status: 'unavailable' };
+
+      pressDraft();
+      pressDraft();
+
+      expect(drafts.calls.length).toBe(2);
+      expect(drafts.calls[1].key).toBe(drafts.calls[0].key);
+    }));
+
+    it('takes a new key once the server has given a definite answer', fakeAsync(() => {
+      chooseFirst();
+      drafts.outcome = { status: 'task_not_enabled' };
+
+      pressDraft();
+      pressDraft();
+
+      expect(drafts.calls[1].key).not.toBe(drafts.calls[0].key);
+    }));
+
+    it('takes a new key for a different concept, even while the first is unanswered', fakeAsync(() => {
+      chooseFirst();
+      drafts.outcome = { status: 'unavailable' };
+      pressDraft();
+
+      // The other concept. Its request is a different request: the first key must not be spent on it.
+      buttons('Choose this concept')[0].click();
+      settle();
+      pressDraft();
+
+      expect(drafts.calls[1].request.sourceConceptId).toBe('concept-2');
+      expect(drafts.calls[1].key).not.toBe(drafts.calls[0].key);
+    }));
+
+    it('clears what the last concept was refused for when another is chosen', fakeAsync(() => {
+      chooseFirst();
+      drafts.outcome = { status: 'task_not_enabled' };
+      pressDraft();
+      expect(element().querySelector('.studio-selection [role="alert"]')).not.toBeNull();
+
+      buttons('Choose this concept')[0].click();
+      settle();
+
+      expect(element().querySelector('.studio-selection [role="alert"]')).toBeNull();
+    }));
+
+    it('clears the message as soon as the same concept is tried again', fakeAsync(() => {
+      chooseFirst();
+      drafts.outcome = { status: 'unavailable' };
+      pressDraft();
+
+      let answer: (outcome: AiRequestOutcome) => void = () => undefined;
+      drafts.pending = new Promise<AiRequestOutcome>((resolve) => (answer = resolve));
+      draftButton().click();
+      settle();
+
+      expect(element().querySelector('.studio-selection [role="alert"]')).toBeNull();
+
+      answer({ status: 'unavailable' });
+      settle();
+      settle();
+    }));
+
+    it('does not let a role that cannot ask press it', fakeAsync(() => {
+      chooseFirst();
+      memberships.state.set({ status: 'ready', memberships: [membership('Viewer')] });
+      fixture.detectChanges();
+
+      expect(draftButton().getAttribute('aria-disabled')).toBe('true');
+
+      pressDraft();
+
+      expect(drafts.calls.length).toBe(0);
+    }));
+  });
+
+  // ---- Taking the chosen concept elsewhere (AF.2.3) ----
+
+  describe('using the chosen concept elsewhere', () => {
+    function chooseFirst(): void {
+      render();
+      typeInto('concept-audience', 'Busy parents');
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+      buttons('Choose this concept')[0].click();
+      settle();
+    }
+
+    function handoff(): HTMLElement | null {
+      return element().querySelector<HTMLElement>('cp-use-this-in');
+    }
+
+    function handoffButtons(): HTMLButtonElement[] {
+      return Array.from(handoff()?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    }
+
+    function contextNavigations(): unknown[][] {
+      const navigate = TestBed.inject(Router).navigate as jasmine.Spy;
+
+      return navigate.calls
+        .allArgs()
+        .filter((args) => Array.isArray(args[0]) && (args[0] as unknown[]).includes('context'));
+    }
+
+    it('offers nowhere to take a concept until one is chosen', fakeAsync(() => {
+      render();
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+
+      expect(handoff()).toBeNull();
+    }));
+
+    it('offers a picture and a content run, in that order, under their own heading', fakeAsync(() => {
+      chooseFirst();
+
+      expect(handoff()!.querySelector('.heading')?.textContent).toBe('Or use this concept in…');
+      expect(handoffButtons().map((button) => button.textContent?.trim())).toEqual([
+        'Make a picture',
+        'Start a content run',
+      ]);
+    }));
+
+    it('keeps drafting the recipe as the one primary action, ahead of the other two', fakeAsync(() => {
+      chooseFirst();
+
+      const selection = element().querySelector('.studio-selection')!;
+      const primaries = Array.from(selection.querySelectorAll('button.cp-button--primary'));
+
+      expect(primaries.map((button) => button.textContent?.trim())).toEqual(['Draft this recipe']);
+      expect(handoffButtons().every((button) => button.classList.contains('cp-button--secondary'))).toBeTrue();
+
+      // First in the region, so it is first in reading order and first in the tab order.
+      const all = Array.from(selection.querySelectorAll('button'));
+      expect(all[0].textContent?.trim()).toBe('Draft this recipe');
+      expect(all.slice(1).map((button) => button.textContent?.trim())).toEqual(['Make a picture', 'Start a content run']);
+    }));
+
+    it('hands over the chosen concept by id, with nothing of the brief or the concepts words', fakeAsync(() => {
+      chooseFirst();
+
+      handoffButtons()[0].click();
+      settle();
+      settle();
+
+      expect(contexts.calls.length).toBe(1);
+      expect(contexts.calls[0].slug).toBe('cozy-fall');
+
+      // The request the concept came from and the concept inside it. No title copied, no audience, no seed:
+      // the context points at the concept, and the working title stays the creator's to write.
+      expect(contexts.calls[0].draft).toEqual({
+        from: { kind: 'RecipeConcept', conceptRequestId: REQUEST_ID, conceptId: 'concept-1' },
+      });
+    }));
+
+    for (const [index, label, route] of [
+      [0, 'Make a picture', ['/', 'cozy-fall', 'image-studio', 'context', 'ctx-1']],
+      [1, 'Start a content run', ['/', 'cozy-fall', 'workflows', 'content-pipeline', 'context', 'ctx-1']],
+    ] as const) {
+      it(`opens '${label}' with the new contexts id in the route`, fakeAsync(() => {
+        chooseFirst();
+
+        handoffButtons()[index].click();
+        settle();
+        settle();
+
+        expect(contextNavigations()).toEqual([[[...route]]]);
+
+        // And no draft was asked for: these two never spend the allowance.
+        expect(drafts.calls.length).toBe(0);
+      }));
+    }
+
+    it('hands over whichever concept is chosen now', fakeAsync(() => {
+      chooseFirst();
+      buttons('Choose this concept')[0].click();
+      settle();
+
+      handoffButtons()[0].click();
+      settle();
+      settle();
+
+      expect(contexts.calls[0].draft.from).toEqual({
+        kind: 'RecipeConcept',
+        conceptRequestId: REQUEST_ID,
+        conceptId: 'concept-2',
+      });
+    }));
+
+    it('stays in the studio with everything intact when the context cannot be started', fakeAsync(() => {
+      chooseFirst();
+      contexts.outcome = { status: 'unavailable' };
+
+      handoffButtons()[0].click();
+      settle();
+      settle();
+
+      expect(contextNavigations()).toEqual([]);
+      expect(handoff()!.querySelector('[role="alert"]')?.textContent).toContain('could not be started');
+      expect(input('concept-audience').value).toBe('Busy parents');
+      expect(element().textContent).toContain('Quick weeknight noodles');
+      expect(fixture.componentInstance.selectedConcept()?.title).toBe('Slow-roasted tomato soup');
+    }));
+
+    it('holds the other two while a draft is being asked for, so two requests are not on their way at once', fakeAsync(() => {
+      chooseFirst();
+      let answer: (outcome: AiRequestOutcome) => void = () => undefined;
+      drafts.pending = new Promise<AiRequestOutcome>((resolve) => (answer = resolve));
+
+      element().querySelector<HTMLButtonElement>('button.studio-draft')!.click();
+      settle();
+
+      expect(handoffButtons().every((button) => button.getAttribute('aria-disabled') === 'true')).toBeTrue();
+
+      handoffButtons()[0].click();
+      settle();
+      expect(contexts.calls.length).toBe(0);
+
+      answer({ status: 'unavailable' });
+      settle();
+      settle();
+
+      expect(handoffButtons().every((button) => button.getAttribute('aria-disabled') === null)).toBeTrue();
+    }));
+
+    it('no longer publishes a selection for a host to act on', fakeAsync(() => {
+      chooseFirst();
+
+      // The studio acts on a chosen concept itself now. An output nothing consumes is a promise nobody keeps.
+      expect('conceptSelected' in fixture.componentInstance).toBeFalse();
+    }));
+  });
 });

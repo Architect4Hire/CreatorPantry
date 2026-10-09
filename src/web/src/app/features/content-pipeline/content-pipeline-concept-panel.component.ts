@@ -13,7 +13,13 @@ import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpNoticeComp
 import { AiOperationStatusComponent } from '../ai/ai-operation-status.component';
 import { AiOperationTracker } from '../ai/ai-operation-tracker';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
-import { ContentPipelineConfig, ContentPipelinePromptState } from '../../models/content-pipeline.models';
+import {
+  CONTENT_PIPELINE_LIMITS,
+  ContentPipelineConfig,
+  ContentPipelinePromptState,
+  linkedRecipeKey,
+} from '../../models/content-pipeline.models';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import {
   PHOTOGRAPHY_SHOT_KIND_LABELS,
   PhotographyConcept,
@@ -69,10 +75,18 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
   readonly config = input.required<ContentPipelineConfig>();
   readonly prompt = input.required<ContentPipelinePromptState>();
   /**
-   * The wording of the idea the creator picked, where the surface has one. Used as the brief only when they wrote
-   * no description of their own, and never written into `config.concept` — those are their words, and this is not.
+   * What the picture is of, as the creator chose it: the one thing sent as `creatorConcept` (AF.3.2).
+   *
+   * Required, and read from nowhere else. This panel used to take the description and fall back to a picked
+   * idea when there was none, which made what a look was planned from depend on what happened to be empty.
+   * Each surface now says: the pipeline hands in the brief the creator chose, Image Studio their description.
    */
-  readonly idea = input<string | null>(null);
+  readonly brief = input.required<string>();
+  /**
+   * The recipe the picture is of, where the creator linked one, with the version pinned when they did (AF.3.3).
+   * Sent as `recipeId` and `recipeVersionId`; null sends neither.
+   */
+  readonly recipe = input<LinkedRecipe | null>(null);
   readonly changed = output<ContentPipelinePromptState>();
   readonly announced = output<string>();
 
@@ -134,11 +148,35 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
 
   protected readonly hasPick = computed(() => this.prompt().chosen !== null);
 
-  /** What the picture is of: the creator's own description, or failing that the idea they picked. */
-  private readonly brief = computed(() => {
-    const concept = this.config().concept;
+  /**
+   * True when the brief is longer than the route accepts.
+   *
+   * Reachable honestly — a full description with an idea below it — so it is said and the ask is held, never
+   * cut to fit: the words are the creator's, and which of them to lose is their decision.
+   */
+  protected readonly briefTooLong = computed(() => this.brief().trim().length > CONTENT_PIPELINE_LIMITS.conceptMaxLength);
+  protected readonly briefMaxLength = CONTENT_PIPELINE_LIMITS.conceptMaxLength;
 
-    return concept.trim() === '' ? (this.idea() ?? '') : concept;
+  /**
+   * True when the looks on screen were planned from a brief that has since changed.
+   *
+   * Said, with a way to plan again, and never acted on: planning spends the allowance, and the looks already
+   * here are still the creator's to use.
+   */
+  protected readonly plannedFromOlderBrief = computed(() => {
+    const planned = this.prompt().plannedBrief;
+
+    return this.prompt().conceptRequestId !== null && planned !== null && planned.trim() !== this.brief().trim();
+  });
+
+  /**
+   * True when the looks on screen were planned around a different recipe — or version of it, or none — than
+   * the one linked now. Said, and never acted on, for the reason a changed brief is.
+   */
+  protected readonly plannedFromOtherRecipe = computed(() => {
+    const planned = this.prompt().plannedRecipe;
+
+    return this.prompt().conceptRequestId !== null && planned !== null && planned !== linkedRecipeKey(this.recipe());
   });
 
   /**
@@ -160,7 +198,7 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
   });
 
   /** True when there is nothing in the way of asking: something to plan around, and nothing already in flight. */
-  protected readonly canAsk = computed(() => !this.tracker.busy() && this.hasSubject());
+  protected readonly canAsk = computed(() => !this.tracker.busy() && this.hasSubject() && !this.briefTooLong());
 
   protected readonly refusalFieldErrors = computed(() => {
     const phase = this.tracker.phase();
@@ -181,15 +219,19 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
   }
 
   protected async ask(): Promise<void> {
-    if (!this.hasSubject()) return;
+    if (!this.hasSubject() || this.briefTooLong()) return;
 
     const config = this.config();
+    const brief = this.brief();
+    const recipe = this.recipe();
     const requestId = await this.tracker.submit(() =>
       this.concepts.request(
         this.workspaceSlug(),
         {
           channelKey: config.channelKey,
-          creatorConcept: this.brief(),
+          recipeId: recipe?.recipeId ?? null,
+          recipeVersionId: recipe?.recipeVersionId ?? null,
+          creatorConcept: brief,
           sceneOverrides: config.scene,
           styleOverrides: config.style,
         },
@@ -206,7 +248,13 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
     this.idempotency.clear();
     // The pick goes with the request it came from — a concept id only resolves against its own proposal — and so
     // does any prompt composed for it.
-    this.changed.emit({ ...this.clearedForNewPick(), conceptRequestId: requestId, chosen: null });
+    this.changed.emit({
+      ...this.clearedForNewPick(),
+      conceptRequestId: requestId,
+      plannedBrief: brief,
+      plannedRecipe: linkedRecipeKey(recipe),
+      chosen: null,
+    });
     this.announced.emit('Looking for some looks to choose from.');
   }
 

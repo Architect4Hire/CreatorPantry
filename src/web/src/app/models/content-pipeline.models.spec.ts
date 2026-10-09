@@ -124,6 +124,8 @@ describe('content-pipeline.models', () => {
           scene: ['marble slab'],
           style: ['soft window light'],
           concept: 'A tight crop of the first slice.',
+          briefSource: 'Combined',
+          brief: 'A tight crop of the first slice.\n\nDevelop a Thai dish.',
         },
         seed: { lastToken: 'abc-123', keep: { cuisine: 'thai' }, accepted: SEED },
         furthestStep: 'idea',
@@ -182,6 +184,8 @@ describe('content-pipeline.models', () => {
         ...base,
         prompt: {
           conceptRequestId: 'r-1',
+          plannedBrief: 'A tight crop.',
+          plannedRecipe: 'r-soda@v-soda-2',
           chosen: { conceptRequestId: 'r-1', conceptId: 'k-1', label: 'Warm morning', shotKind: 'Hero' },
           brief: { documentId: 'd-brief', title: 'Autumn brief' },
           reference: { documentId: 'd-ref', title: 'A loaf I like' },

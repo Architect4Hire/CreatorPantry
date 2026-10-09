@@ -1,0 +1,49 @@
+@if (destinations().length > 0) {
+  <div class="handoff" role="group" [attr.aria-labelledby]="headingId" [attr.aria-busy]="opening() !== null ? 'true' : null">
+    <p class="heading" [id]="headingId">{{ heading() }}</p>
+
+    <ul class="destinations">
+      @for (destination of destinations(); track destination.key) {
+        <li class="destination">
+          <button
+            cpButton
+            type="button"
+            [variant]="destination.primary ? 'primary' : 'secondary'"
+            [attr.data-destination]="destination.key"
+            [attr.aria-disabled]="blocked() ? 'true' : null"
+            [attr.aria-describedby]="detailId(destination)"
+            [attr.aria-label]="opening() === destination ? progress() : null"
+            (click)="choose(destination)"
+          >
+            {{ opening() === destination ? 'Opening…' : destination.label }}
+          </button>
+          @if (destination.detail) {
+            <span class="detail" [id]="detailId(destination)">{{ destination.detail }}</span>
+          }
+        </li>
+      }
+    </ul>
+
+    <!-- Always present, so a screen reader is already listening when there is something to say. -->
+    <cp-notice class="progress" role="status" [quiet]="true">{{ progress() }}</cp-notice>
+
+    @switch (failure()) {
+      @case ('source_unavailable') {
+        <cp-notice tone="error" role="alert">
+          This could not be used to start new work. It, or a channel or themed day chosen with it, may have
+          been archived or removed. Nothing here has changed.
+        </cp-notice>
+      }
+      @case ('forbidden') {
+        <cp-notice tone="warning" role="alert">
+          You can view this workspace but not start new work in it. Ask an owner for a contributor role.
+        </cp-notice>
+      }
+      @case ('unavailable') {
+        <cp-notice tone="error" role="alert">
+          That could not be started just now. Nothing here has changed — choose where to use it again to retry.
+        </cp-notice>
+      }
+    }
+  </div>
+}

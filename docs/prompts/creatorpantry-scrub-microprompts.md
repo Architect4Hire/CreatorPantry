@@ -5508,7 +5508,9 @@ creator writes one.*
 
 ## Phase 13 — Social packages, content board, and publishing
 
-### 13.1 Social package model
+### 13.1 Social package model - skip
+
+*Superseded by AF.6.1 (`creatorpantry-ai-fluency-scrub-prompts.md`): creator-selected channels replace the seven fixed outputs. Kept for the record; do not run.*
 
 ```text
 SCOPE: Add workspace-owned SocialPackage and SocialRevision pinned to source prompt and optional recipe/
@@ -5521,7 +5523,9 @@ BEHAVIOR: Show lifecycle/indexes, wait for approval, implement configuration/mig
 and test staleness and workspace scoping.
 ```
 
-### 13.2 Seven-output social generation
+### 13.2 Seven-output social generation - skip
+
+*Superseded by AF.6.3–AF.6.4 (`creatorpantry-ai-fluency-scrub-prompts.md`). Kept for the record; do not run.*
 
 ```text
 SCOPE: Implement SOC-001 through the shared AI lifecycle for Instagram, TikTok, Pinterest, Facebook, X,
@@ -5533,7 +5537,7 @@ BEHAVIOR: Show output schema and platform rules, wait for approval, implement ta
 fixtures for limits, claims, missing source, injection, staleness, and workspace isolation.
 ```
 
-### 13.3 Social Studio UI
+### 13.3 Social Studio UI - skip
 
 ```text
 SCOPE: Build SOCIAL-UI-001 through 004: choose saved/pasted prompt or brief, channel/theme, generate,
@@ -5547,6 +5551,8 @@ run design-review.
 ```
 
 ### 13.3a Content Pipeline social step
+
+*Superseded by AF.6.5 (`creatorpantry-ai-fluency-scrub-prompts.md`). Kept for the record; do not run.*
 
 ```text
 SCOPE: Extend only the Content Pipeline after keeper selection with source/version summary, optional
@@ -5633,6 +5639,8 @@ replay, transaction-failure, and isolation tests.
 ```
 
 ### 13.7a Content Pipeline keeper commit
+
+*Narrowed by AF.4.3 (`creatorpantry-ai-fluency-scrub-prompts.md`), which delivers the DAM save and prompt lineage. The board card remains here.*
 
 ```text
 SCOPE: Add only the final pipeline commit action that idempotently saves the selected staged image to DAM,

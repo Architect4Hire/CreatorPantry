@@ -67,6 +67,12 @@ public static class MediaServiceCollectionExtensions
         services.AddScoped<IMediaAssetLookupBusiness, MediaAssetLookupBusiness>();
         services.AddScoped<IMediaAssetLookupFacade, MediaAssetLookupFacade>();
 
+        // Stored picture analyses (AF.3.4): what a model saw in a picture, kept so it need not look twice.
+        services.AddScoped<IMediaPictureAnalysisRepository, MediaPictureAnalysisRepository>();
+        services.AddScoped<IMediaPictureAnalysisDataLayer, MediaPictureAnalysisDataLayer>();
+        services.AddScoped<IMediaPictureAnalysisBusiness, MediaPictureAnalysisBusiness>();
+        services.AddScoped<IMediaPictureAnalysisFacade, MediaPictureAnalysisFacade>();
+
         return services;
     }
 

@@ -123,11 +123,17 @@ describe('app routes', () => {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
 
-    // 'image-studio' is the Image Studio (12.10c), no longer a placeholder. One page, so no route tree of its
-    // own and no guard: every change is kept as it is made, and leaving loses nothing.
+    // 'image-studio' is the Image Studio (12.10c), no longer a placeholder. One page at two addresses: its
+    // index, and `context/:contextId` for a studio opened with a creative context (AF.1.4). No guard on
+    // either: every change is kept as it is made, and leaving loses nothing.
     const imageStudio = workspaceRoute.children!.find((route) => route.path === 'image-studio')!;
-    expect(await imageStudio.loadComponent!()).toBe(ImageStudioComponent);
-    expect(imageStudio.canDeactivate).toBeUndefined();
+    expect(imageStudio.children!.map((route) => route.path)).toEqual(['', 'context/:contextId']);
+    for (const route of imageStudio.children!) {
+      expect(await route.loadComponent!()).withContext(route.path!).toBe(ImageStudioComponent);
+      expect(route.canDeactivate).withContext(route.path!).toBeUndefined();
+      expect(route.data?.['title']).withContext(route.path!).toBe('Image Studio');
+    }
+    expect(imageStudio.children![0].pathMatch).toBe('full');
 
     // 'dam' is the DAM (12.10e, 12.10f), no longer a placeholder: the library at its index and one asset
     // beside it. The library is a read, so there is nothing to lose by leaving it and no guard.
@@ -187,6 +193,12 @@ describe('app routes', () => {
     const draftReviewRoute = aiRecipeStudioChildren.find((route) => route.path === 'draft')!;
     expect(await draftReviewRoute.loadComponent!()).toBe(RecipeFirstDraftReviewComponent);
 
+    // The same review opened for a creative context (AF.1.4), behind the same guard: an unsaved edit is no
+    // safer to leave because the address has an id in it.
+    const draftForContextRoute = aiRecipeStudioChildren.find((route) => route.path === 'draft/context/:contextId')!;
+    expect(await draftForContextRoute.loadComponent!()).toBe(RecipeFirstDraftReviewComponent);
+    expect(draftForContextRoute.canDeactivate).toEqual(draftReviewRoute.canDeactivate);
+
     // 'recipes' is a nested grouping instead of a single placeholder: an index library route plus
     // 'new'/':recipeId' editor routes, so it resolves through loadChildren rather than loadComponent.
     const recipesRoute = workspaceRoute.children!.find((route) => route.path === 'recipes')!;
@@ -241,7 +253,11 @@ describe("the Content Pipeline's place in the route tree", () => {
     const pipeline = workflows?.children?.find((route) => route.path === 'content-pipeline');
     const children = (await pipeline?.loadChildren?.()) as Routes;
 
-    expect(children.map((route) => route.path)).toEqual(['', ':step']);
+    // The context routes come before ':step'. A step is one segment and so is `context`, so the other order
+    // would hand `context/<id>` to nobody and `context` to the step route first.
+    expect(children.map((route) => route.path)).toEqual(['', 'context/:contextId', 'context/:contextId/:step', ':step']);
     expect(children[0].redirectTo).toBe('setup');
+    expect(children[1].redirectTo).toBe('context/:contextId/setup');
+    expect(children[1].pathMatch).toBe('full');
   });
 });

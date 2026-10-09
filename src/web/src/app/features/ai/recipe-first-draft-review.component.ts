@@ -12,7 +12,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
@@ -23,6 +23,7 @@ import {
   CpCardComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
+  CpNoticeComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -42,7 +43,7 @@ import {
   draftFromProposal,
   missingRequiredFieldsOf,
 } from '../../models/recipe-draft.models';
-import { RecipeDraftService, WatchRecipeDraftOutcome } from '../../services/recipe-draft.service';
+import { RecipeDraftRewrite, RecipeDraftService, WatchRecipeDraftOutcome } from '../../services/recipe-draft.service';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
 
 /** Same cadence as the other two AI surfaces, so all three behave identically. */
@@ -60,7 +61,11 @@ export type FirstDraftReviewState =
   | 'expired'
   | 'gone'
   | 'forbidden'
-  | 'discarded';
+  | 'discarded'
+  /** Already turned into a recipe. Nothing left to decide here. */
+  | 'accepted'
+  /** Already turned down, on the server's record. */
+  | 'rejected';
 
 /**
  * A value the creator rewrote before anything was accepted, or the withdrawal of one.
@@ -77,6 +82,25 @@ export interface RecipeDraftFieldEdit {
   readonly value: string | null;
 }
 
+/** What the template addresses a recipe-level field by, in place of a change id. */
+const RECIPE_LEVEL = 'recipe';
+
+/** A recipe-level field's name as the page labels it, for saying which one could not be carried. */
+const RECIPE_FIELD_LABELS: Readonly<Record<string, string>> = {
+  title: 'Title',
+  description: 'Description',
+  notes: 'Notes',
+  yieldText: 'Yield',
+  yieldQuantity: 'Yield quantity',
+  yieldUnitText: 'Yield unit',
+  servingCount: 'Servings',
+  servingSize: 'Serving size',
+  prepTimeMinutes: 'Prep time',
+  cookTimeMinutes: 'Cook time',
+  restTimeMinutes: 'Rest time',
+  totalTimeMinutes: 'Total time',
+};
+
 /** One editable box on screen. The key is what an edit is stored and emitted under. */
 interface EditTarget {
   readonly key: string;
@@ -89,15 +113,14 @@ interface EditTarget {
 /**
  * Review one AIREC-002 structured first draft: read it, rewrite parts of it, or discard it.
  *
- * **Nothing here creates a recipe, and nothing here is saved.** There is no route this page can call that
- * writes one — see {@link RecipeDraftService}, which has a single read method. Accepting a draft into a new
- * `Recipe` is a separate, explicit step with its own transaction; this page produces a reviewed draft and
- * the creator's own edits, and that is all.
+ * **Nothing is created until the creator says so, twice.** Reading and rewriting change nothing anywhere. A
+ * recipe exists only after "Create recipe from this draft" is pressed and then confirmed (AF.2.2) — one call,
+ * which either creates the recipe and records the decision or writes nothing at all. The draft stays labelled
+ * as generated and stays editable right up to that point.
  *
- * **Discarding is client-side, and the page says so rather than implying otherwise.** A workspace-level AI
- * request has no disposition route — the same narrowness the Concept Studio documents — so there is nothing
- * to tell the server. The draft is left to expire on its own, and the wording never claims a rejection was
- * recorded.
+ * **Discarding is still client-side, and the page says so rather than implying otherwise.** It clears the
+ * draft from this page and leaves it to expire; the wording never claims a rejection was recorded, because
+ * none is.
  *
  * **This is a different shape of problem from `cp-ai-proposal-panel`, for the reason the Concept Studio gives.**
  * That panel reviews a field-level diff against an existing recipe, per change, against a disposition
@@ -120,6 +143,8 @@ interface EditTarget {
     CpCardComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
+    CpNoticeComponent,
+    RouterLink,
   ],
   templateUrl: './recipe-first-draft-review.component.html',
   styleUrl: './recipe-first-draft-review.component.css',
@@ -144,6 +169,9 @@ export class RecipeFirstDraftReviewComponent {
 
   /** The creator discarded the draft. Nothing was sent anywhere; the host may clear its own state. */
   readonly discarded = output<void>();
+
+  /** A recipe now exists for this draft. Emitted just before the editor opens on it. */
+  readonly accepted = output<{ readonly recipeId: string; readonly replayed: boolean }>();
 
   private readonly requestIdSignal = signal<string | null>(null);
   readonly requestId = this.requestIdSignal.asReadonly();
@@ -306,11 +334,13 @@ export class RecipeFirstDraftReviewComponent {
         return 'failed';
       case 'Expired':
         return 'expired';
-      // Never reached: nothing decides a first-draft request today.
+      // Decided already. The draft is still readable, and there is nothing left to accept: showing the
+      // action again would offer to build a second recipe from a draft that has one.
       case 'Accepted':
       case 'PartiallyAccepted':
+        return 'accepted';
       case 'Rejected':
-        return 'proposed';
+        return 'rejected';
     }
   });
 
@@ -562,6 +592,195 @@ export class RecipeFirstDraftReviewComponent {
     this.discarded.emit();
   }
 
+  // -------------------------------------------------------------------------
+  // Accepting the draft into a recipe
+  // -------------------------------------------------------------------------
+
+  private readonly acceptingSignal = signal(false);
+
+  /** The acceptance is on its way. */
+  readonly accepting = this.acceptingSignal.asReadonly();
+
+  private readonly acceptProblemSignal = signal<string | null>(null);
+
+  /** Why the last attempt to create the recipe did not, in words. */
+  readonly acceptProblem = this.acceptProblemSignal.asReadonly();
+
+  /**
+   * The creator's rewrites as the acceptance route takes them, and any it cannot take.
+   *
+   * A line, step or item is addressed by its own `Add` row. A recipe-level field is addressed on screen as
+   * `recipe:<field>` and has to be matched to the `Set` row that proposed it — and when the draft proposed
+   * none, there is no row for the creator's wording to replace, so it cannot be carried.
+   */
+  private readonly rewritePlan = computed<{
+    readonly rewrites: readonly RecipeDraftRewrite[];
+    readonly uncarried: readonly string[];
+  }>(() => {
+    const changes = this.operation()?.proposal?.changes ?? [];
+    const rewrites: RecipeDraftRewrite[] = [];
+    const uncarried: string[] = [];
+
+    for (const [key, value] of this.editsSignal()) {
+      const separator = key.indexOf(':');
+      const changeId = key.slice(0, separator);
+      const field = key.slice(separator + 1);
+
+      if (changeId !== RECIPE_LEVEL) {
+        rewrites.push({ changeId, field, value });
+        continue;
+      }
+
+      const row = changes.find(
+        (change) => change.changeKind === 'Set' && change.targetKind === 'Recipe' && change.fieldName === field,
+      );
+
+      if (row) rewrites.push({ changeId: row.changeId, field, value });
+      else uncarried.push(RECIPE_FIELD_LABELS[field] ?? field);
+    }
+
+    return { rewrites, uncarried };
+  });
+
+  /**
+   * Why the recipe cannot be created yet, or null when it can be asked for.
+   *
+   * Each of these is something the server would refuse, said here first and in terms the creator can act on
+   * — and the first one is something it would not refuse but should not be sent: text still in an open box
+   * would be left behind.
+   */
+  readonly acceptBlocker = computed<string | null>(() => {
+    if (this.editingKey() !== null || this.inProgressSignal().size > 0) {
+      return 'Finish or cancel the edit you have open first, so it is not left behind.';
+    }
+
+    const { uncarried } = this.rewritePlan();
+
+    if (uncarried.length > 0) {
+      const fields = uncarried.join(', ').toLowerCase();
+
+      return (
+        `This draft did not include ${fields}, so what you wrote there cannot be carried into a recipe. ` +
+        'Remove that edit, or discard this draft and ask for another.'
+      );
+    }
+
+    const title = this.valueOf(`${RECIPE_LEVEL}:title`, this.draft().title);
+
+    if (title === null || title.trim().length === 0) {
+      return 'A recipe needs a title, and this draft has none. Discard it and ask for another.';
+    }
+
+    return null;
+  });
+
+  readonly canAccept = computed(
+    () => this.state() === 'proposed' && !this.accepting() && this.acceptBlocker() === null,
+  );
+
+  /**
+   * Turns the reviewed draft, with the creator's rewrites, into a new recipe — after asking.
+   *
+   * The whole draft is accepted: every part is named, because that is how the request states what was
+   * reviewed. Retrying is safe without anything minted here: the server recognises a draft that has already
+   * been accepted and answers with the recipe it became, never a second one.
+   */
+  async accept(): Promise<void> {
+    const requestId = this.requestIdSignal();
+    const proposal = this.operation()?.proposal ?? null;
+
+    // `aria-disabled` keeps the button focusable, so a second press arrives here and is refused here.
+    if (requestId === null || proposal === null || !this.canAccept()) return;
+
+    // Held from before the question is asked, so a second press while the dialog is open cannot ask twice —
+    // and separately from `accepting`, so the button does not claim to be creating anything while the
+    // creator is still deciding.
+    if (this.acceptAsked) return;
+    this.acceptAsked = true;
+
+    try {
+      await this.confirmAndAccept(requestId, proposal.changes.map((change) => change.changeId));
+    } finally {
+      this.acceptAsked = false;
+      this.acceptingSignal.set(false);
+    }
+  }
+
+  /** True from the moment the question is asked until its answer has been acted on. */
+  private acceptAsked = false;
+
+  private async confirmAndAccept(requestId: string, acceptedChangeIds: readonly string[]): Promise<void> {
+    const { rewrites } = this.rewritePlan();
+
+    this.acceptProblemSignal.set(null);
+
+    const confirmed = await this.confirmService.confirm({
+      title: 'Create a recipe from this draft?',
+      message:
+        'A new recipe will be added to your library from this draft' +
+        (rewrites.length > 0
+          ? `, with your ${rewrites.length === 1 ? 'rewrite' : `${rewrites.length} rewrites`} in place of the suggestions.`
+          : ', as it is shown here.') +
+        (this.hasSafetyCaution()
+          ? ' It carries a safety caution above — check that part before you publish anything from it.'
+          : '') +
+        ' You can keep editing it afterwards.',
+      confirmLabel: 'Create recipe',
+      cancelLabel: 'Keep reviewing',
+
+      // Not the danger tone: this creates something and loses nothing.
+      tone: 'neutral',
+    });
+
+    if (!confirmed) return;
+
+    this.acceptingSignal.set(true);
+
+    const outcome = await this.drafts.acceptDraft(this.workspaceSlug, requestId, { acceptedChangeIds, rewrites });
+
+    this.acceptingSignal.set(false);
+
+    switch (outcome.status) {
+      case 'accepted':
+        // Only now. The rewrites are in the recipe, so there is nothing left here to lose and the leave
+        // guard must not ask about them on the way to the editor.
+        this.editsSignal.set(new Map());
+        this.inProgressSignal.set(new Map());
+        this.editDraft.set('');
+        this.accepted.emit({ recipeId: outcome.recipeId, replayed: outcome.replayed });
+        await this.router.navigate(['/', this.workspaceSlug, 'recipes', outcome.recipeId]);
+        return;
+
+      case 'refused':
+        this.acceptProblemSignal.set(outcome.message);
+        return;
+
+      case 'already_decided':
+        this.acceptProblemSignal.set(
+          'This draft has already been decided, so no recipe was created from it just now. Checking where it stands…',
+        );
+
+        // Its real status decides what this page offers next, so it is read again rather than guessed.
+        this.checkAgain();
+        return;
+
+      case 'not_found':
+        this.watchProblem.set('not_found');
+        return;
+
+      case 'forbidden':
+        this.acceptProblemSignal.set('Your role in this workspace does not permit creating recipes.');
+        return;
+
+      case 'unavailable':
+        this.acceptProblemSignal.set(
+          "Couldn't reach the server, so we don't know whether the recipe was created. Try again — if it was, " +
+            'you will be taken to that recipe rather than getting a second one.',
+        );
+        return;
+    }
+  }
+
   /**
    * Used by the route's <c>CanDeactivateFn</c>: resolves immediately when there is nothing to lose, and
    * otherwise asks the creator.
@@ -577,8 +796,8 @@ export class RecipeFirstDraftReviewComponent {
       .confirm({
         title: 'Leave your edits behind?',
         message:
-          "Your rewrites to this draft haven't been kept anywhere — there is nowhere to save them to yet. "
-          + 'If you leave now, they are lost. The draft itself will still be here.',
+          "Your rewrites to this draft haven't been kept anywhere — they are only saved when you create the "
+          + 'recipe. If you leave now, they are lost. The draft itself will still be here.',
         confirmLabel: 'Leave',
         cancelLabel: 'Keep reviewing',
         tone: 'danger',

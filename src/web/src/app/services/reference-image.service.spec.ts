@@ -41,7 +41,7 @@ describe('ReferenceImageService', () => {
   afterEach(() => http.verify());
 
   it('names the image and sends no bytes, because the upload route already inspected them', async () => {
-    const pending = service.request('cozy-fall', { referenceDocumentId: 'd-1', note: 'the light' }, 'key-1');
+    const pending = service.request('cozy-fall', { picture: { source: 'BrandDocument', referenceDocumentId: 'd-1' }, note: 'the light' }, 'key-1');
 
     const request = http.expectOne(BASE);
     expect(request.request.body).toEqual({ referenceDocumentId: 'd-1', note: 'the light' });
@@ -52,7 +52,7 @@ describe('ReferenceImageService', () => {
   });
 
   it('leaves the note out when there is none', async () => {
-    const pending = service.request('cozy-fall', { referenceDocumentId: 'd-1', note: '   ' }, 'key-1');
+    const pending = service.request('cozy-fall', { picture: { source: 'BrandDocument', referenceDocumentId: 'd-1' }, note: '   ' }, 'key-1');
 
     const request = http.expectOne(BASE);
     expect(request.request.body).toEqual({ referenceDocumentId: 'd-1' });
@@ -62,7 +62,7 @@ describe('ReferenceImageService', () => {
   });
 
   it('answers one refusal for a document that is missing, a neighbour’s, or not an image', async () => {
-    const pending = service.request('cozy-fall', { referenceDocumentId: 'd-1', note: '' }, 'key-1');
+    const pending = service.request('cozy-fall', { picture: { source: 'BrandDocument', referenceDocumentId: 'd-1' }, note: '' }, 'key-1');
 
     http
       .expectOne(BASE)

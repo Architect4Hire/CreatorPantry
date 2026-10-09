@@ -2,13 +2,11 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { BehaviorSubject, combineLatest, map, of, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, tap } from 'rxjs';
 import { CpBadgeComponent, CpButtonComponent, CpCardComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { ClipboardService } from '../../core/clipboard.service';
-import { ConfirmService } from '../../core/confirm.service';
 import { ContentChannel } from '../../models/brand-profile.models';
-import { isImageStudioDraftEmpty } from '../../models/image-studio.models';
 import {
   PROMPT_IMAGE_KIND_LABELS,
   PROMPT_SOURCE_LABELS,
@@ -18,9 +16,11 @@ import {
   promptTitle,
 } from '../../models/prompt-library.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
+import { CreativeContextService } from '../../services/creative-context.service';
 import { ImageStudioDraftOwner, ImageStudioDraftService } from '../../services/image-studio-draft.service';
 import { PromptLibraryService } from '../../services/prompt-library.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 
 type DetailState =
   | { readonly status: 'loading' }
@@ -43,10 +43,9 @@ type ReuseAccess = 'checking' | 'unknown' | 'view_only' | 'allowed';
  * there is no edit and no delete here or anywhere. The three things a creator can do with one are take a copy
  * of its words, download it, or start something new from it.
  *
- * **Reuse starts new work and leaves the prompt alone.** It writes a fresh Image Studio draft holding a copy
- * of the text and goes there. The studio keeps one draft per person per workspace, so starting from this
- * prompt replaces whatever is unfinished there — which is the one thing on this page that can lose work, and
- * so the one thing that asks first (`ConfirmService`).
+ * **Reuse starts new work and leaves the prompt alone.** It makes a creative context that names this prompt as
+ * its source, keeps a copy of the text beside it for Image Studio, and goes there. Whatever is unfinished in
+ * the studio stays on its own context, so nothing on this page can lose work.
  *
  * **Downloads are links to the server's own routes.** The server names the file and sets the disposition;
  * nothing here builds a filename, and nothing here knows where anything is stored.
@@ -70,8 +69,8 @@ export class PromptDetailComponent {
   private readonly brand = inject(BrandProfileService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly studioDrafts = inject(ImageStudioDraftService);
+  private readonly contexts = inject(CreativeContextService);
   private readonly clipboard = inject(ClipboardService);
-  private readonly confirm = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -86,6 +85,7 @@ export class PromptDetailComponent {
   protected readonly copyFailed = signal(false);
   protected readonly reuseProblem = signal('');
   protected readonly reusing = signal(false);
+  private reuseAttempt: { readonly signature: string; readonly key: string } | null = null;
 
   private readonly retry$ = new BehaviorSubject<void>(undefined);
 
@@ -235,8 +235,9 @@ export class PromptDetailComponent {
   /**
    * Start new work in Image Studio from this prompt.
    *
-   * The saved prompt is not touched: its words are copied into a new draft. An unfinished studio draft is the
-   * creator's own work, so replacing it asks first — and dismissing the question means "keep what I have".
+   * The saved prompt is not touched. A new creative context is made that names it as its source (AF.3.1), a
+   * copy of its words is put beside that context on this device, and the studio is opened on it. Nothing
+   * already in the studio is replaced — that work stays on its own context — so there is nothing to ask first.
    */
   protected async reuse(): Promise<void> {
     const prompt = this.prompt();
@@ -253,44 +254,75 @@ export class PromptDetailComponent {
     this.reuseProblem.set('');
 
     try {
-      const kept = this.studioDrafts.read(owner).draft;
+      const draft = imageStudioDraftFromPrompt(prompt, this.channels());
+      const channelKey = draft.config.channelKey;
 
-      if (kept !== null && !isImageStudioDraftEmpty(kept)) {
-        const replace = await this.confirm.confirm({
-          title: 'Replace what is in Image Studio?',
-          message:
-            'Image Studio already has unfinished work in it. Starting from this prompt throws that away, including any prompt written there. The prompt saved in your library is not changed.',
-          confirmLabel: 'Replace it',
-          cancelLabel: 'Keep what I have',
-        });
-        if (!replace) return;
+      const outcome = await firstValueFrom(
+        this.contexts.create(
+          slug,
+          {
+            ...(channelKey !== null ? { channelKeys: [channelKey] } : {}),
+            from: { kind: 'PromptRecord', promptRecordId: prompt.promptRecordId },
+          },
+          this.reuseKeyFor(slug, prompt.promptRecordId, channelKey),
+        ),
+      );
 
-        // Re-read: another prompt, workspace or person could have arrived behind the dialog, and writing under
-        // the owner captured before it would replace the wrong creator's work.
-        const current = this.membership();
-        if (
-          this.prompt() !== prompt ||
-          this.workspaceSlug() !== slug ||
-          current === null ||
-          current.workspaceId !== owner.workspaceId ||
-          current.membershipId !== owner.membershipId
-        ) {
+      // Another prompt, workspace or person could have arrived while that was being answered, and writing
+      // under the owner captured before it would put this prompt's words in the wrong creator's studio.
+      const current = this.membership();
+      if (
+        this.prompt() !== prompt ||
+        this.workspaceSlug() !== slug ||
+        current === null ||
+        current.workspaceId !== owner.workspaceId ||
+        current.membershipId !== owner.membershipId
+      ) {
+        return;
+      }
+
+      if (outcome.status !== 'created') {
+        // A reused key now names a different request; the next try needs a new one.
+        if (outcome.status === 'key_reused') this.reuseAttempt = null;
+
+        this.reuseProblem.set(
+          outcome.status === 'forbidden'
+            ? 'You do not have permission to start new work in this workspace.'
+            : outcome.status === 'source_unavailable'
+              ? "This prompt can't be used to start new work right now. It may have been removed."
+              : "This couldn't be started right now. Nothing was changed — try once more.",
+        );
+        return;
+      }
+
+      const contextId = outcome.context.id;
+
+      // Asking twice gets the same context back. If the creator has already worked on it in the studio, what
+      // they did there is theirs and is not put back to the saved wording.
+      if (this.studioDrafts.readKept(owner, contextId).kept === null) {
+        const written = this.studioDrafts.writeKept(owner, contextId, { draft, unsent: null });
+        if (!written) {
+          // A refused write means the session has lapsed. Going to the studio now would open it without the
+          // prompt, which would look like it had been lost.
+          this.reuseProblem.set("This couldn't be started because you are no longer signed in. Sign in again, then try once more.");
           return;
         }
       }
 
-      const written = this.studioDrafts.write(owner, imageStudioDraftFromPrompt(prompt, this.channels()));
-      if (!written) {
-        // A refused write means the session has lapsed. Going to the studio now would open it empty, which
-        // would look like the prompt had been lost.
-        this.reuseProblem.set("This couldn't be started because you are no longer signed in. Sign in again, then try once more.");
-        return;
-      }
-
-      await this.router.navigate(['/', slug, 'image-studio']);
+      this.studioDrafts.rememberContext(owner, contextId);
+      await this.router.navigate(['/', slug, ...HANDOFF_ROUTES.imageStudio(contextId)]);
     } finally {
       this.reusing.set(false);
     }
+  }
+
+  /** One key per prompt, channel and workspace, reused across retries so a lost answer does not make a second context. */
+  private reuseKeyFor(slug: string, promptRecordId: string, channelKey: string | null): string {
+    const signature = JSON.stringify([slug, promptRecordId, channelKey]);
+
+    if (this.reuseAttempt?.signature !== signature) this.reuseAttempt = { signature, key: crypto.randomUUID() };
+
+    return this.reuseAttempt.key;
   }
 
   private async loadChannels(): Promise<void> {

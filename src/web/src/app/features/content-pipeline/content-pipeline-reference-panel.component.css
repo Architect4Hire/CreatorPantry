@@ -3,7 +3,7 @@
   gap: var(--cp-space-4);
 }
 
-h4 {
+.heading {
   margin: 0;
   font-family: var(--cp-font-display);
   font-size: var(--cp-font-size-lg);
@@ -54,4 +54,44 @@ h4 {
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface-subtle);
   white-space: pre-wrap;
+}
+
+.chosen {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+
+.chosen-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+.chosen-name {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* A reference is a small thing beside the work, never the size of a result. */
+.thumbnail {
+  max-width: 12rem;
+}
+
+.run-pictures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-pictures > li {
+  display: grid;
+  gap: var(--cp-space-2);
+  align-content: start;
 }

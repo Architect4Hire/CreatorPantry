@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Media.Business;
+using CreatorPantry.Domain.Modules.Media.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Facade;
 
@@ -22,6 +23,28 @@ public interface IGeneratedImageLookupFacade
 {
     /// <inheritdoc cref="IGeneratedImageLookupBusiness.ExistsAsync"/>
     Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageLookupBusiness.IsAvailableAsync"/>
+    /// <remarks>
+    /// For a module about to point new work at an image (AF.1.3), where <see cref="ExistsAsync"/> is not enough:
+    /// a declined or expired image still has its row, and offering it as a source would hand a creator a
+    /// picture that is no longer there.
+    /// </remarks>
+    Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageLookupBusiness.ResolvePictureAsync"/>
+    /// <remarks>
+    /// For a module about to ask for a generated picture's bytes (AF.3.4): metadata first, so one that is
+    /// declined, expired, not this workspace's or too large to send is refused before anything is queued.
+    /// </remarks>
+    Task<MediaPictureTarget?> ResolvePictureAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageLookupBusiness.OpenPictureAsync"/>
+    /// <remarks>
+    /// The bytes themselves, authorised again at the moment they are read. A picture declined or collected
+    /// since <see cref="ResolvePictureAsync"/> answered is not found. The caller disposes what it is handed.
+    /// </remarks>
+    Task<MediaPictureOpen> OpenPictureAsync(Guid generatedImageId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageLookupFacade"/>
@@ -30,4 +53,14 @@ internal sealed class GeneratedImageLookupFacade(IGeneratedImageLookupBusiness b
 {
     public Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
         business.ExistsAsync(generatedImageId, cancellationToken);
+
+    public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        business.IsAvailableAsync(generatedImageId, cancellationToken);
+
+    public Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid generatedImageId, CancellationToken cancellationToken) =>
+        business.ResolvePictureAsync(generatedImageId, cancellationToken);
+
+    public Task<MediaPictureOpen> OpenPictureAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        business.OpenPictureAsync(generatedImageId, cancellationToken);
 }

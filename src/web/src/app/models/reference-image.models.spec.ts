@@ -119,13 +119,42 @@ describe('reference-image.models', () => {
     expect(referenceReadingWarnings(null)).toEqual([]);
   });
 
-  it('sends the document, and the note only when there is one', () => {
-    expect(encodeRequestReferenceImage({ referenceDocumentId: 'd1', note: '  ' })).toEqual({
-      referenceDocumentId: 'd1',
-    });
-    expect(encodeRequestReferenceImage({ referenceDocumentId: 'd1', note: ' the light ' })).toEqual({
+  it('sends a Brand Library document as the body it always was, and the note only when there is one', () => {
+    const picture = { source: 'BrandDocument', referenceDocumentId: 'd1' } as const;
+
+    // No `source`: an older server, and this one, both read a lone document id as a brand document.
+    expect(encodeRequestReferenceImage({ picture, note: '  ' })).toEqual({ referenceDocumentId: 'd1' });
+    expect(encodeRequestReferenceImage({ picture, note: ' the light ' })).toEqual({
       referenceDocumentId: 'd1',
       note: 'the light',
     });
+  });
+
+  it('names a library picture by its source, its id and the version it was chosen at', () => {
+    expect(
+      encodeRequestReferenceImage({
+        picture: { source: 'DamAsset', mediaAssetId: 'a1', mediaAssetVersionNumber: 3 },
+        note: '',
+      }),
+    ).toEqual({ source: 'DamAsset', mediaAssetId: 'a1', mediaAssetVersionNumber: 3 });
+
+    // No version chosen: none is sent, and the server reads the current one.
+    expect(
+      encodeRequestReferenceImage({
+        picture: { source: 'DamAsset', mediaAssetId: 'a1', mediaAssetVersionNumber: null },
+        note: '',
+      }),
+    ).toEqual({ source: 'DamAsset', mediaAssetId: 'a1' });
+  });
+
+  it('names a generated picture by its source and id, and never another source’s id beside it', () => {
+    const body = encodeRequestReferenceImage({
+      picture: { source: 'GeneratedImage', generatedImageId: 'g1' },
+      note: 'the crop',
+    });
+
+    expect(body).toEqual({ source: 'GeneratedImage', generatedImageId: 'g1', note: 'the crop' });
+    expect('referenceDocumentId' in body).toBeFalse();
+    expect('mediaAssetId' in body).toBeFalse();
   });
 });

@@ -308,8 +308,21 @@
   border-top: 1px solid var(--cp-border);
 }
 
+.draft-actions-heading {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+/* The two ways out of the review, side by side while there is room and stacked when there is not. */
+.draft-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
 .draft-actions-note {
   margin: 0;
+  max-width: var(--cp-measure-field);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-xs);
 }

@@ -133,14 +133,277 @@ describe('RecipeDraftService', () => {
   });
 
   /**
-   * The absences are the contract. A workspace-level request has no disposition route, and nothing in the app
-   * asks for a first draft yet — a typed method for either would be a promise this client cannot keep.
+   * The absence is the contract. There is no reject method: discarding a draft is still client-side, and a
+   * typed call for it before a screen sends one would be a promise this client does not keep.
    */
-  it('offers reading and nothing else', () => {
+  it('offers asking, accepting and reading, and no way to reject', () => {
     const methods = Object.getOwnPropertyNames(RecipeDraftService.prototype).filter(
       (name) => name !== 'constructor',
     );
 
-    expect(methods).toEqual(['watchStatus']);
+    expect(methods).toEqual(['requestDraft', 'acceptDraft', 'watchStatus']);
+  });
+
+  describe('acceptDraft', () => {
+    const URL = `${STATUS_URL}/acceptance`;
+    const RECIPE_ID = '7c000000-0000-4000-8000-0000000000aa';
+
+    const request = {
+      acceptedChangeIds: ['c1', 'c2', 'c3'],
+      rewrites: [{ changeId: 'c2', field: 'displayText', value: '3 tbsp doubanjiang' }],
+    };
+
+    function reply(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        aiProposalRequestId: REQUEST_ID,
+        status: 'Accepted',
+        recipeId: RECIPE_ID,
+        recipeVersionNumber: 1,
+        acceptedChangeCount: 3,
+        rejectedChangeCount: 0,
+        rewrittenChangeCount: 1,
+        droppedChangeCount: 0,
+        replayed: false,
+        decidedAt: '2026-10-09T12:00:00+00:00',
+        ...overrides,
+      };
+    }
+
+    it('posts the whole draft, named part by part, with the rewrites — and no idempotency key', async () => {
+      const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+      const sent = http.expectOne(URL);
+      expect(sent.request.method).toBe('POST');
+      expect(sent.request.withCredentials).toBeTrue();
+
+      // The route's own rule makes a retry safe. A key minted here would be a second account of it.
+      expect(sent.request.headers.has('Idempotency-Key')).toBeFalse();
+      expect(sent.request.body).toEqual({
+        decision: 'AcceptAll',
+        acceptedChangeIds: ['c1', 'c2', 'c3'],
+        edits: [{ changeId: 'c2', field: 'displayText', value: '3 tbsp doubanjiang' }],
+      });
+      sent.flush(reply());
+
+      expect(await pending).toEqual({ status: 'accepted', recipeId: RECIPE_ID, replayed: false });
+    });
+
+    it('names no workspace and no recipe in the body', async () => {
+      const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+      const sent = http.expectOne(URL);
+      const body = JSON.stringify(sent.request.body);
+      expect(body).not.toContain('workspace');
+      expect(body).not.toContain('recipeId');
+      sent.flush(reply());
+      await pending;
+    });
+
+    it('reports a replayed acceptance as the same recipe, and says it was a replay', async () => {
+      const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+      http.expectOne(URL).flush(reply({ replayed: true }));
+
+      expect(await pending).toEqual({ status: 'accepted', recipeId: RECIPE_ID, replayed: true });
+    });
+
+    it('treats a decision with no recipe behind it as already decided, not as a recipe', async () => {
+      const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+      http.expectOne(URL).flush(reply({ status: 'Rejected', recipeId: null, replayed: true }));
+
+      expect((await pending).status).toBe('already_decided');
+    });
+
+    it('treats a body it cannot read as unavailable, never as an acceptance', async () => {
+      const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+      http.expectOne(URL).flush('nonsense');
+
+      expect((await pending).status).toBe('unavailable');
+    });
+
+    it('keeps the server’s own sentence when it will not build a recipe from what was sent', async () => {
+      const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+      http.expectOne(URL).flush(
+        { code: 'ai.recipeDraftSelection.invalid_request', title: 'A recipe needs a title.' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+      expect(await pending).toEqual({ status: 'refused', message: 'A recipe needs a title.' });
+    });
+
+    const failures = [
+      [400, 'ai.recipeDraftAcceptance.invalid_request', 'refused'],
+      [409, 'ai.recipeDraft.conflict', 'already_decided'],
+      [404, 'ai.recipeDraft.not_found', 'not_found'],
+      [403, 'ai.recipeDraftAcceptance.forbidden', 'forbidden'],
+      [500, 'internal', 'unavailable'],
+      [0, 'network', 'unavailable'],
+    ] as const;
+
+    for (const [status, code, expected] of failures) {
+      it(`answers '${expected}' to a ${status} ${code}`, async () => {
+        const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
+
+        const sent = http.expectOne(URL);
+        if (status === 0) sent.error(new ProgressEvent('error'));
+        else sent.flush({ code, title: 'No.' }, { status, statusText: 'Refused' });
+
+        expect((await pending).status).toBe(expected);
+      });
+    }
+  });
+
+  describe('requestDraft', () => {
+    const CONCEPT_REQUEST = '9f000000-0000-4000-8000-0000000000c1';
+    const CONCEPT = '9f000000-0000-4000-8000-0000000000c2';
+
+    const request = {
+      sourceConceptRequestId: CONCEPT_REQUEST,
+      sourceConceptId: CONCEPT,
+      brief: null,
+    };
+
+    function problem(code: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+      return { code, title: 'The server’s own sentence.', traceId: 'trace-1', ...extra };
+    }
+
+    it('posts the chosen concept to the workspace route with credentials and the idempotency key', async () => {
+      const pending = service.requestDraft('cozy-fall', request, 'key-1');
+
+      const sent = http.expectOne(BASE);
+      expect(sent.request.method).toBe('POST');
+      expect(sent.request.withCredentials).toBeTrue();
+      expect(sent.request.headers.get('Idempotency-Key')).toBe('key-1');
+      expect(sent.request.body).toEqual({ sourceConceptRequestId: CONCEPT_REQUEST, sourceConceptId: CONCEPT });
+      sent.flush(statusPayload(), { status: 202, statusText: 'Accepted' });
+
+      const outcome = await pending;
+      expect(outcome.status).toBe('accepted');
+      if (outcome.status === 'accepted') {
+        expect(outcome.operation.aiProposalRequestId).toBe(REQUEST_ID);
+        expect(outcome.replayed).toBeFalse();
+      }
+    });
+
+    it('sends the brief with the concept, leaving out what the creator left blank', async () => {
+      const pending = service.requestDraft(
+        'cozy-fall',
+        {
+          ...request,
+          brief: {
+            audience: 'Busy parents',
+            course: null,
+            cuisine: '   ',
+            dietaryGoals: null,
+            availableIngredients: null,
+            exclusions: ' no nuts ',
+            equipment: null,
+            skill: null,
+            season: null,
+            timeBudget: null,
+            creatorStyle: null,
+          },
+        },
+        'key-1',
+      );
+
+      const sent = http.expectOne(BASE);
+      expect(sent.request.body).toEqual({
+        audience: 'Busy parents',
+        exclusions: 'no nuts',
+        sourceConceptRequestId: CONCEPT_REQUEST,
+        sourceConceptId: CONCEPT,
+      });
+      sent.flush(statusPayload(), { status: 202, statusText: 'Accepted' });
+      await pending;
+    });
+
+    it('names no workspace anywhere but the path', async () => {
+      const pending = service.requestDraft('cozy-fall', request, 'key-1');
+
+      const sent = http.expectOne(BASE);
+      expect(JSON.stringify(sent.request.body)).not.toContain('workspace');
+      sent.flush(statusPayload(), { status: 202, statusText: 'Accepted' });
+      await pending;
+    });
+
+    it('reports a replayed request as accepted, and says it was a replay', async () => {
+      const pending = service.requestDraft('cozy-fall', request, 'key-1');
+
+      http
+        .expectOne(BASE)
+        .flush(statusPayload(), { status: 202, statusText: 'Accepted', headers: { 'Idempotent-Replayed': 'true' } });
+
+      const outcome = await pending;
+      expect(outcome.status).toBe('accepted');
+      if (outcome.status === 'accepted') expect(outcome.replayed).toBeTrue();
+    });
+
+    it('treats a body it cannot read as unavailable', async () => {
+      const pending = service.requestDraft('cozy-fall', request, 'key-1');
+
+      http.expectOne(BASE).flush({ nonsense: true }, { status: 202, statusText: 'Accepted' });
+
+      expect((await pending).status).toBe('unavailable');
+    });
+
+    const refusals = [
+      [400, 'ai.recipeFirstDraft.not_enabled', 'task_not_enabled'],
+      [400, 'ai.recipeFirstDraft.invalid_request', 'validation_failed'],
+      [400, 'ai.recipeFirstDraft.too_large', 'refused'],
+      [404, 'ai.recipeConcept.not_found', 'refused'],
+      [422, 'idempotency.key_reused', 'idempotency_key_conflict'],
+      [403, 'ai.quota.suspended', 'account_suspended'],
+      [403, 'workspace.forbidden', 'forbidden'],
+      [500, 'internal', 'unavailable'],
+      [0, 'network', 'unavailable'],
+    ] as const;
+
+    for (const [status, code, expected] of refusals) {
+      it(`answers '${expected}' to a ${status} ${code}`, async () => {
+        const pending = service.requestDraft('cozy-fall', request, 'key-1');
+
+        const sent = http.expectOne(BASE);
+        if (status === 0) sent.error(new ProgressEvent('error'));
+        else sent.flush(problem(code), { status, statusText: 'Refused' });
+
+        expect((await pending).status).toBe(expected);
+      });
+    }
+
+    it('keeps the code and the server’s own sentence on a refusal, so the screen can tell the two apart', async () => {
+      const pending = service.requestDraft('cozy-fall', request, 'key-1');
+
+      http.expectOne(BASE).flush(problem('ai.recipeFirstDraft.too_large'), { status: 400, statusText: 'Bad Request' });
+
+      const outcome = await pending;
+      expect(outcome).toEqual({
+        status: 'refused',
+        code: 'ai.recipeFirstDraft.too_large',
+        message: 'The server’s own sentence.',
+      });
+    });
+
+    it('tells a spent allowance from the edge’s own rate limit, which is also a 429', async () => {
+      const spent = service.requestDraft('cozy-fall', request, 'key-1');
+      http.expectOne(BASE).flush(
+        problem('ai.quota.exhausted', {
+          unit: 'Credits',
+          allowance: 100,
+          remaining: 2,
+          required: 5,
+          resetsAt: '2026-11-01T00:00:00+00:00',
+        }),
+        { status: 429, statusText: 'Too Many Requests' },
+      );
+      expect((await spent).status).toBe('quota_exhausted');
+
+      const limited = service.requestDraft('cozy-fall', request, 'key-2');
+      http.expectOne(BASE).flush(problem('rate_limited'), { status: 429, statusText: 'Too Many Requests' });
+      expect((await limited).status).toBe('unavailable');
+    });
   });
 });

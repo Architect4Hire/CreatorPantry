@@ -2,8 +2,8 @@
   <header class="page-header">
     <h1 id="image-studio-heading">Image Studio</h1>
     <p class="lede">
-      Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept on this device,
-      so you can stop and pick up later.
+      Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept as you go, so
+      you can stop and pick up later.
     </p>
   </header>
 
@@ -39,6 +39,33 @@
         </div>
       </cp-card>
     }
+    @case ('context_not_found') {
+      <cp-card>
+        <div class="refusal">
+          <cp-notice tone="error" role="alert">
+            We couldn't find this piece of work. It may have been removed, or the link may be wrong.
+          </cp-notice>
+          <a cpButton variant="secondary" [routerLink]="startLink()">Start something new</a>
+        </div>
+      </cp-card>
+    }
+    @case ('context_unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          This piece of work couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('filing_failed') {
+      <cp-card>
+        <cp-notice tone="warning" role="alert">
+          Your unfinished work couldn't be saved to your workspace right now. It is still on this device, and
+          nothing has been lost.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
     @case ('ready') {
       <cp-anchor-nav
         [items]="sections"
@@ -66,6 +93,12 @@
             </p>
 
             <section id="cp-studio-brief" class="brief" tabindex="-1" aria-label="The brief">
+              <cp-recipe-picker
+                [workspaceSlug]="workspaceSlug()"
+                [session]="session"
+                idPrefix="cp-studio-recipe"
+                (announced)="onAnnounced($event)"
+              />
               <cp-content-pipeline-setup-step [config]="config()" [showDay]="false" (changed)="onConfig($event)" />
             </section>
 
@@ -78,6 +111,8 @@
                 [workspaceSlug]="workspaceSlug()"
                 [config]="config()"
                 [prompt]="prompt()"
+                [brief]="config().concept"
+                [recipe]="linkedRecipe()"
                 (changed)="onPrompt($event)"
                 (announced)="onAnnounced($event)"
               />
@@ -85,7 +120,7 @@
 
             <cp-form-section
               heading="Extras"
-              intro="A brief to work from, and a photograph to take cues from. Both optional."
+              intro="A brief to work from, and a picture to take cues from. Both optional."
               sectionId="cp-studio-extras"
             >
               <h3 class="sub">A brief</h3>
@@ -99,10 +134,13 @@
                 (selectedChange)="onBrief($event)"
               />
 
-              <h3 class="sub">A reference photograph</h3>
+              <h3 class="sub">A reference picture</h3>
               <cp-content-pipeline-reference-panel
                 [workspaceSlug]="workspaceSlug()"
                 [prompt]="prompt()"
+                [session]="session"
+                [headingLevel]="4"
+                [runOperationId]="draft().images.operationId"
                 (changed)="onPrompt($event)"
                 (announced)="onAnnounced($event)"
               />
@@ -119,6 +157,7 @@
                 [workspaceSlug]="workspaceSlug()"
                 [config]="config()"
                 [prompt]="prompt()"
+                [recipe]="linkedRecipe()"
                 (changed)="onPrompt($event)"
                 (announced)="onAnnounced($event)"
               />
@@ -135,6 +174,8 @@
               (changed)="onImages($event)"
               (announced)="onAnnounced($event)"
             />
+
+            <cp-creative-context-save-notice [session]="session" />
 
             <p class="saved cp-muted" role="status">{{ savedText() }}</p>
 

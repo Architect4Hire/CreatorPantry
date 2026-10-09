@@ -10,10 +10,12 @@
     Said once, plainly, at the top. Every state below repeats some form of it, because a creator may read
     only one of them — but this is the line the whole page rests on.
   -->
-  <p class="draft-lede">
-    A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this
-    page is saved.
-  </p>
+  @if (state() !== 'accepted') {
+    <p class="draft-lede">
+      A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this
+      page is saved until you create one from it.
+    </p>
+  }
 
   @if (state() === 'idle') {
     <cp-empty-state
@@ -331,13 +333,62 @@
         }
       </section>
 
-      <div class="draft-actions">
-        <button cpButton type="button" variant="danger" (click)="discard()">Discard draft</button>
-        <p class="draft-actions-note">
-          Turning a reviewed draft into a recipe isn't built yet. Discarding clears it from this page and
-          leaves it to expire — nothing is sent anywhere.
+      <!--
+        The end of the review: keep it or leave it. A named region so it can be found from anywhere in a long
+        draft, with whatever stands in the way of creating the recipe said directly above the action.
+      -->
+      <section class="draft-actions" aria-labelledby="draft-actions-heading">
+        <h3 class="draft-actions-heading" id="draft-actions-heading">Keep this draft?</h3>
+
+        @if (acceptBlocker(); as blocker) {
+          <cp-notice tone="warning" role="status" class="draft-accept-blocker" id="draft-accept-blocker">
+            {{ blocker }}
+          </cp-notice>
+        }
+
+        @if (acceptProblem(); as problem) {
+          <cp-notice tone="error" role="alert" class="draft-accept-problem">{{ problem }}</cp-notice>
+        }
+
+        <div class="draft-actions-buttons">
+          <!--
+            aria-disabled rather than disabled: a disabled button drops focus to the body the moment it is
+            pressed, and the reason it is unavailable is the notice it points at.
+          -->
+          <button
+            cpButton
+            type="button"
+            variant="primary"
+            class="draft-accept"
+            [attr.aria-disabled]="canAccept() ? null : 'true'"
+            [attr.aria-describedby]="acceptBlocker() ? 'draft-accept-blocker' : 'draft-actions-note'"
+            (click)="accept()"
+          >
+            {{ accepting() ? 'Creating your recipe…' : 'Create recipe from this draft' }}
+          </button>
+          <button cpButton type="button" variant="danger" class="draft-discard" (click)="discard()">
+            Discard draft
+          </button>
+        </div>
+
+        <p class="draft-actions-note" id="draft-actions-note">
+          Creating the recipe adds it to your library with your rewrites, and you will be asked to confirm
+          first. Discarding clears the draft from this page and leaves it to expire — nothing is sent anywhere.
         </p>
+      </section>
+    }
+
+    @if (state() === 'accepted') {
+      <div class="draft-notice" role="status">
+        <p>This draft has already become a recipe, so there is nothing left to decide here.</p>
+        <a cpButton variant="secondary" size="sm" [routerLink]="['/', workspaceSlug, 'recipes']">
+          Open your recipe library
+        </a>
       </div>
+    }
+
+    @if (state() === 'rejected') {
+      <p class="draft-notice" role="status">This draft was turned down, and no recipe was created from it.</p>
     }
   }
 </div>

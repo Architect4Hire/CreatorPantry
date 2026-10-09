@@ -1012,6 +1012,15 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
     {
         public Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("No test here names a generated image.");
+
+        public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here names a generated image.");
+
+        public Task<MediaPictureTarget?> ResolvePictureAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here reads a generated image.");
+
+        public Task<MediaPictureOpen> OpenPictureAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here reads a generated image.");
     }
 
     /// <inheritdoc cref="NoGeneratedImages"/>
@@ -1023,6 +1032,18 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
         public Task<CreatorPantry.Domain.Modules.Media.Managers.MediaAssetLinkTarget> ResolveLinkTargetAsync(
             Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
             throw new NotSupportedException("No test here links a DAM asset.");
+
+        public Task<CreatorPantry.Domain.Modules.Media.Managers.MediaAssetDescription?> DescribeAsync(
+            Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here describes a DAM asset.");
+
+        public Task<MediaPictureTarget?> ResolvePictureAsync(
+            Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here reads a DAM asset.");
+
+        public Task<MediaPictureOpen> OpenPictureAsync(
+            Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("No test here reads a DAM asset.");
     }
 
     private sealed class StoppedClock : IClock

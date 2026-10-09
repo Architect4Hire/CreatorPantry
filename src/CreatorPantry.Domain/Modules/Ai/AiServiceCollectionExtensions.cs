@@ -60,6 +60,8 @@ public static class AiServiceCollectionExtensions
         // gate in behind it.
         services.AddScoped<IAiProposalLookupBusiness, AiProposalLookupBusiness>();
         services.AddScoped<IAiProposalLookupFacade, AiProposalLookupFacade>();
+        services.AddScoped<IAiConceptLookupBusiness, AiConceptLookupBusiness>();
+        services.AddScoped<IAiConceptLookupFacade, AiConceptLookupFacade>();
 
         // Concrete rather than behind an interface: it is the documented cross-workspace carve-out, and giving
         // it an interface would invite something else to be registered as one.

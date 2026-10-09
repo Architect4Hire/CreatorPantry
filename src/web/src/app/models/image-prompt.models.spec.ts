@@ -90,6 +90,40 @@ describe('image-prompt.models', () => {
     ).toEqual({ conceptRequestId: 'r1', conceptId: 'k1', shotKind: 'Hero' });
   });
 
+  it('names the linked recipe and its pinned version, and neither for an unlinked run', () => {
+    const base = {
+      conceptRequestId: 'r1',
+      conceptId: 'k1',
+      shotKind: 'Hero' as const,
+      channelKey: null,
+      briefDocumentId: null,
+      sceneOverrides: [],
+      styleOverrides: [],
+    };
+
+    expect(encodeRequestImagePrompt({ ...base, recipeId: 'r-soda', recipeVersionId: 'v-soda-2' })).toEqual({
+      conceptRequestId: 'r1',
+      conceptId: 'k1',
+      shotKind: 'Hero',
+      recipeId: 'r-soda',
+      recipeVersionId: 'v-soda-2',
+    });
+    expect(encodeRequestImagePrompt({ ...base, recipeId: 'r-new', recipeVersionId: null })).toEqual({
+      conceptRequestId: 'r1',
+      conceptId: 'k1',
+      shotKind: 'Hero',
+      recipeId: 'r-new',
+    });
+
+    const unlinked = encodeRequestImagePrompt({ ...base, recipeId: null, recipeVersionId: null });
+    expect('recipeId' in unlinked).toBeFalse();
+    expect('recipeVersionId' in unlinked).toBeFalse();
+    // A version without its recipe is refused by the route, so it is never sent.
+    expect(encodeRequestImagePrompt({ ...base, recipeId: null, recipeVersionId: 'v-soda-2' })).toEqual(
+      encodeRequestImagePrompt(base),
+    );
+  });
+
   it('sends the brief and the overrides when there are any', () => {
     expect(
       encodeRequestImagePrompt({

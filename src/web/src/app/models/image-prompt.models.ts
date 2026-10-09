@@ -77,6 +77,10 @@ export interface RequestImagePromptRequest {
   readonly conceptId: string;
   readonly shotKind: PhotographyShotKind;
   readonly channelKey: string | null;
+  /** The recipe being photographed, where the creator linked one. Null sends no recipe at all. */
+  readonly recipeId?: string | null;
+  /** The version pinned when it was linked. Never sent without {@link recipeId}. */
+  readonly recipeVersionId?: string | null;
   /** A brief the creator uploaded, as a brand source document of theirs. Its text is untrusted. */
   readonly briefDocumentId: string | null;
   readonly sceneOverrides: readonly string[];
@@ -91,6 +95,11 @@ export function encodeRequestImagePrompt(request: RequestImagePromptRequest): Re
   };
 
   if (request.channelKey) body['channelKey'] = request.channelKey;
+  if (request.recipeId) {
+    body['recipeId'] = request.recipeId;
+    // Inside the recipe's own branch: the route refuses a version that arrives without its recipe.
+    if (request.recipeVersionId) body['recipeVersionId'] = request.recipeVersionId;
+  }
   if (request.briefDocumentId) body['briefDocumentId'] = request.briefDocumentId;
   if (request.sceneOverrides.length > 0) body['sceneOverrides'] = [...request.sceneOverrides];
   if (request.styleOverrides.length > 0) body['styleOverrides'] = [...request.styleOverrides];

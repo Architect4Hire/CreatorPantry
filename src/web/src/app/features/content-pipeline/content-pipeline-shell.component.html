@@ -14,8 +14,8 @@
   <header class="page-header">
     <h1 id="pipeline-heading">Content Pipeline</h1>
     <p class="lede">
-      From an idea to finished posts, one step at a time. What you fill in is kept on this device, so you can stop
-      and pick up later.
+      From an idea to finished posts, one step at a time. What you fill in is kept as you go, so you can stop and
+      pick up later.
     </p>
   </header>
 
@@ -49,12 +49,37 @@
         <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'workflows']">Back to workflows</a>
       </cp-card>
     }
+    @case ('context_not_found') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          We couldn't find this piece of work. It may have been removed, or the link may be wrong.
+        </cp-notice>
+        <a cpButton variant="secondary" [routerLink]="startLink()">Start a new run</a>
+      </cp-card>
+    }
+    @case ('context_unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          This piece of work couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryContext()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('filing_failed') {
+      <cp-card>
+        <cp-notice tone="warning" role="alert">
+          Your unfinished run couldn't be saved to your workspace right now. It is still on this device, and
+          nothing has been lost.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryFiling()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
     @case ('resumable') {
       <cp-card>
         <section class="resume" aria-labelledby="resume-heading">
           <h2 id="resume-heading" tabindex="-1">Pick up where you left off</h2>
           <p>
-            You were on <strong>{{ resumeStep().label }}</strong>. {{ savedText() }}
+            You were on <strong>{{ resumeStep().label }}</strong>. {{ keptText() }}
           </p>
           <div class="cp-actions">
             <button cpButton type="button" variant="primary" (click)="resume()">Continue</button>
@@ -102,6 +127,12 @@
             @switch (step.slug) {
               @case ('setup') {
                 <cp-content-pipeline-setup-step [config]="draft().config" (changed)="onConfigChanged($event)" />
+                <cp-recipe-picker
+                  [workspaceSlug]="workspaceSlug()"
+                  [session]="session"
+                  idPrefix="cp-pipeline-recipe"
+                  (announced)="onAnnounced($event)"
+                />
               }
               @case ('idea') {
                 <cp-content-pipeline-idea-step
@@ -115,6 +146,8 @@
                 <cp-content-pipeline-prompt-step
                   [workspaceSlug]="workspaceSlug()"
                   [draft]="draft()"
+                  [recipe]="linkedRecipe()"
+                  [session]="session"
                   (changed)="onDraftChanged($event)"
                   (announced)="onAnnounced($event)"
                 />
@@ -132,6 +165,8 @@
               }
             }
 
+            <cp-creative-context-save-notice [session]="session" />
+
             <p class="saved cp-muted" role="status">{{ savedText() }}</p>
 
             <div class="cp-actions">
@@ -148,7 +183,9 @@
             </div>
 
             @if (step.slug === 'idea' && !canContinue()) {
-              <p class="cp-muted">Pick an idea to carry on.</p>
+              <p class="cp-muted">
+                {{ needsBriefChoice() ? 'Choose what to work from to carry on.' : 'Pick an idea to carry on.' }}
+              </p>
             }
             @if (step.slug === 'prompt' && !canContinue()) {
               <p class="cp-muted">Write the prompt, or have one written, to carry on.</p>

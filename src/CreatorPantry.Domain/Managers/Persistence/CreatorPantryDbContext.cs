@@ -510,6 +510,24 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// </remarks>
     public DbSet<PromptRecord> PromptRecords => Set<PromptRecord>();
 
+    /// <remarks>
+    /// What one piece of creative work is about (baseline B-31): the creator's words, the channels and day it
+    /// is for, and the records it draws on. Mutable, and it points rather than copies — no recipe text, image
+    /// bytes or prompt body is ever stored here.
+    /// </remarks>
+    public DbSet<CreativeContext> CreativeContexts => Set<CreativeContext>();
+
+    /// <inheritdoc cref="CreativeContexts"/>
+    /// <remarks>Interior to the <see cref="CreativeContext"/> aggregate, as is the set below.</remarks>
+    public DbSet<CreativeContextChannel> CreativeContextChannels => Set<CreativeContextChannel>();
+
+    /// <inheritdoc cref="CreativeContextChannels"/>
+    /// <remarks>
+    /// One source named by kind and id, workspace-paired to its target wherever that target has a table, so a
+    /// context naming another workspace's record is unrepresentable.
+    /// </remarks>
+    public DbSet<CreativeContextReference> CreativeContextReferences => Set<CreativeContextReference>();
+
     /// <summary>One request to generate images from one prompt (IMG-003).</summary>
     /// <remarks>
     /// Metadata only. The files live in private staging storage under the opaque key each image carries, and
@@ -547,6 +565,9 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <inheritdoc cref="MediaAssets"/>
     /// <remarks>A history of where an asset went out, not a status (DAM-009).</remarks>
     public DbSet<MediaAssetUtilization> MediaAssetUtilizations => Set<MediaAssetUtilization>();
+
+    /// <summary>What a model saw in a library asset version or a generated image, kept per picture (AF.3.4).</summary>
+    public DbSet<MediaPictureAnalysis> MediaPictureAnalyses => Set<MediaPictureAnalysis>();
 
     /// <inheritdoc cref="MediaAssets"/>
     /// <remarks>Links the shared <see cref="WorkspaceTags"/> vocabulary, not a tag table of its own.</remarks>

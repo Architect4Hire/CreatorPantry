@@ -142,19 +142,52 @@ export function referenceReadingWarnings(detail: AiProposalDetail | null): reado
   return detail === null ? [] : detail.warnings;
 }
 
+/**
+ * Which picture to read (AF.3.4): one of the workspace's own, named by where it lives. Exactly one, which is
+ * why this is a union and not three optional ids — a request naming two pictures is refused, so it is not a
+ * request that can be built.
+ *
+ * Only ids. The picture is never uploaded, copied or re-sent by the browser: the server reads the one it
+ * already holds.
+ */
+export type ReferenceImagePicture =
+  /** An uploaded image in the Brand Library. */
+  | { readonly source: 'BrandDocument'; readonly referenceDocumentId: string }
+  /** A picture in the library, at one of its versions. Null reads its current version. */
+  | { readonly source: 'DamAsset'; readonly mediaAssetId: string; readonly mediaAssetVersionNumber: number | null }
+  /** A generated picture that is still staged, or was kept. */
+  | { readonly source: 'GeneratedImage'; readonly generatedImageId: string };
+
 /** What a client sends to ask for a reading. */
 export interface RequestReferenceImageRequest {
-  /** The uploaded image to read, as a brand source document of this workspace. */
-  readonly referenceDocumentId: string;
+  readonly picture: ReferenceImagePicture;
   /** What the creator is looking for in the reference. Optional, and untrusted. */
   readonly note: string;
 }
 
 export function encodeRequestReferenceImage(request: RequestReferenceImageRequest): Record<string, unknown> {
-  const body: Record<string, unknown> = { referenceDocumentId: request.referenceDocumentId };
+  const body = encodeReferenceImagePicture(request.picture);
   if (request.note.trim()) body['note'] = request.note.trim();
 
   return body;
+}
+
+function encodeReferenceImagePicture(picture: ReferenceImagePicture): Record<string, unknown> {
+  switch (picture.source) {
+    case 'BrandDocument':
+      // No `source`: this is the body the route took before it had one, and it still reads it as this.
+      return { referenceDocumentId: picture.referenceDocumentId };
+    case 'DamAsset':
+      return {
+        source: picture.source,
+        mediaAssetId: picture.mediaAssetId,
+        ...(picture.mediaAssetVersionNumber !== null
+          ? { mediaAssetVersionNumber: picture.mediaAssetVersionNumber }
+          : {}),
+      };
+    case 'GeneratedImage':
+      return { source: picture.source, generatedImageId: picture.generatedImageId };
+  }
 }
 
 /** `AiPolicy.PhotographyCreatorConceptMaxLength`, which bounds the note as well. */

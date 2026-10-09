@@ -39,6 +39,30 @@ public interface IMediaAssetLookupFacade
     /// </returns>
     Task<MediaAssetLinkTarget> ResolveLinkTargetAsync(
         Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetLookupBusiness.DescribeAsync"/>
+    /// <remarks>
+    /// For a module grounding a generation on a picture (AF.1.5). One null for an unknown asset, another
+    /// workspace's, a removed one and a version the asset does not have, so nothing is disclosed by asking.
+    /// </remarks>
+    Task<MediaAssetDescription?> DescribeAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetLookupBusiness.ResolvePictureAsync"/>
+    /// <remarks>
+    /// For a module about to ask for a picture's bytes (AF.3.4): metadata first, so a picture that is not
+    /// there, not this workspace's, or too large to send is refused before anything is queued or charged.
+    /// </remarks>
+    Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IMediaAssetLookupBusiness.OpenPictureAsync"/>
+    /// <remarks>
+    /// The bytes themselves, authorised again at the moment they are read — which may be minutes after
+    /// <see cref="ResolvePictureAsync"/> answered, in a worker. The caller disposes what it is handed.
+    /// </remarks>
+    Task<MediaPictureOpen> OpenPictureAsync(
+        Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IMediaAssetLookupFacade"/>
@@ -50,4 +74,16 @@ internal sealed class MediaAssetLookupFacade(IMediaAssetLookupBusiness business)
     public Task<MediaAssetLinkTarget> ResolveLinkTargetAsync(
         Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
         business.ResolveLinkTargetAsync(mediaAssetId, versionNumber, cancellationToken);
+
+    public Task<MediaAssetDescription?> DescribeAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+        business.DescribeAsync(mediaAssetId, versionNumber, cancellationToken);
+
+    public Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+        business.ResolvePictureAsync(mediaAssetId, versionNumber, cancellationToken);
+
+    public Task<MediaPictureOpen> OpenPictureAsync(
+        Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
+        business.OpenPictureAsync(mediaAssetId, versionNumber, cancellationToken);
 }

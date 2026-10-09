@@ -24,7 +24,7 @@ public sealed class ReferenceImageRequestsController(IAiReferenceImageRequestFac
     /// caller's membership before the action runs (tenancy.md).
     /// </param>
     /// <param name="model">
-    /// The uploaded image to read, and an optional note about what the creator is looking for. It carries no
+    /// Which picture to read, and an optional note about what the creator is looking for. It carries no
     /// bytes, no media type, no model, no provider and no rendering setting; see
     /// <see cref="RequestReferenceImageAnalysisViewModel"/>.
     /// </param>
@@ -38,15 +38,25 @@ public sealed class ReferenceImageRequestsController(IAiReferenceImageRequestFac
     /// is read yet, and the model is called by the worker afterwards (api-contract.md). The `Location` header
     /// points at the status resource to poll.
     ///
-    /// **The image is named, not uploaded here.** `referenceDocumentId` is one of the workspace's own brand
-    /// source documents — uploaded through the route that exists for uploading, where its signature, decoded
-    /// format, dimensions and size were inspected and its workspace established. JPEG, PNG, WEBP and GIF are
-    /// readable; a document whose current version is anything else, one this workspace does not have, and one
-    /// that does not exist all answer `404 ai.referenceImage.not_found` — one answer, because each is a client
-    /// naming something it was not shown.
+    /// **The image is named, not uploaded here.** It is a picture this workspace already holds, and `source`
+    /// says which kind: `BrandDocument` with `referenceDocumentId`, `DamAsset` with `mediaAssetId` (and
+    /// optionally `mediaAssetVersionNumber`), or `GeneratedImage` with `generatedImageId`. Send exactly one
+    /// source and only that source's ids; anything else is a `400` naming the field. A body carrying only
+    /// `referenceDocumentId`, with no `source`, is a `BrandDocument` — the shape this route took before it
+    /// accepted the other two.
     ///
-    /// **The version is pinned when the request is made.** The bytes the model reads are the ones attached,
-    /// even if the document is replaced in the minutes before the worker claims the operation.
+    /// JPEG, PNG, WEBP and GIF are readable. A picture that is anything else, one too large to send, one this
+    /// workspace does not have, a removed asset, a version the asset does not have, a declined or expired
+    /// generated image, and one that does not exist all answer `404 ai.referenceImage.not_found` — one answer
+    /// for every source, because each is a client naming something it was not shown.
+    ///
+    /// **The version is pinned when the request is made.** The bytes the model reads are the ones named,
+    /// even if the document or the asset is replaced in the minutes before the worker claims the operation.
+    /// An asset named without a version is pinned to its current one.
+    ///
+    /// **A reading of a library asset or a generated image may be kept with that picture**, so that later
+    /// work on it need not look twice. Only what was observed is kept — never the prompt — and only for a
+    /// request with no note, about a picture with a single frame.
     ///
     /// **The image is untrusted material, and so is the note.** Both are sent as material to describe rather
     /// than as instructions. Writing photographed into the image is described as part of what the picture

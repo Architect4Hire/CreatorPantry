@@ -89,8 +89,28 @@ public interface IGeneratedImageDataLayer
     /// <inheritdoc cref="IGeneratedImageRepository.ExistsAsync"/>
     Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IGeneratedImageRepository.IsAvailableAsync"/>
+    Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
     /// <summary>Opens one staged image of the resolved workspace for reading.</summary>
     Task<StagedImageOpen> OpenAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What one available generated image holds, without touching storage: its type, size and checksum
+    /// (AF.3.4).
+    /// </summary>
+    /// <returns>
+    /// Null for an unknown image, another workspace's, and one that is declined, expired or purged — the same
+    /// images <see cref="OpenAsync"/> answers as not found, so asking first and opening later cannot disagree.
+    /// </returns>
+    Task<MediaPictureTarget?> ResolvePictureAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <summary>Opens an available generated image's bytes for another module to read (AF.3.4).</summary>
+    /// <remarks>
+    /// <see cref="OpenAsync"/> itself, with only its answer reshaped: there is one rule for which images may
+    /// be read, and a second copy of it here would be a softer way in the day the two drifted.
+    /// </remarks>
+    Task<MediaPictureOpen> OpenPictureAsync(Guid generatedImageId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Opens a staged image so DAM-001 can copy it, and reports the dimensions its row recorded.
@@ -144,6 +164,9 @@ internal sealed class GeneratedImageDataLayer(
     public Task<bool> ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
         images.ExistsAsync(generatedImageId, cancellationToken);
 
+    public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        images.IsAvailableAsync(generatedImageId, cancellationToken);
+
     public async Task<StagedImageOpen> OpenAsync(Guid generatedImageId, CancellationToken cancellationToken)
     {
         var image = await images.FindAsync(generatedImageId, cancellationToken);
@@ -196,6 +219,39 @@ internal sealed class GeneratedImageDataLayer(
                 // The stored media type, established from the bytes at staging — so the extension
                 // describes what is there rather than repeating anything a provider claimed (IMG-005).
                 GeneratedImageDownloadFileName.For(image.VariantIndex, image.MediaType)));
+    }
+
+    public async Task<MediaPictureTarget?> ResolvePictureAsync(
+        Guid generatedImageId, CancellationToken cancellationToken)
+    {
+        var image = await images.FindAsync(generatedImageId, cancellationToken);
+
+        // The rule OpenAsync applies, applied to the row alone.
+        return image is null
+            || image.ObjectDeletedAt is not null
+            || image.Status is GeneratedImageStatus.Rejected or GeneratedImageStatus.Expired
+                ? null
+                : new MediaPictureTarget(null, image.MediaType, image.SizeBytes, image.ContentChecksum);
+    }
+
+    public async Task<MediaPictureOpen> OpenPictureAsync(
+        Guid generatedImageId, CancellationToken cancellationToken)
+    {
+        var opened = await OpenAsync(generatedImageId, cancellationToken);
+
+        return opened.Outcome switch
+        {
+            StagedImageOpenOutcome.Opened => new MediaPictureOpen(
+                MediaPictureOpenOutcome.Opened,
+                new MediaPictureContent(
+                    opened.Download!,
+                    opened.Download!.Content,
+                    opened.Download.MediaType,
+                    opened.Download.ContentChecksum,
+                    versionNumber: null)),
+            StagedImageOpenOutcome.StorageUnavailable => new MediaPictureOpen(MediaPictureOpenOutcome.StorageUnavailable),
+            _ => new MediaPictureOpen(MediaPictureOpenOutcome.NotFound),
+        };
     }
 
     public async Task<StagedImageForKeep> OpenForKeepAsync(

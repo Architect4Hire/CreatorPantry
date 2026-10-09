@@ -9,6 +9,7 @@ import { RequestReferenceImageRequest } from '../../models/reference-image.model
 import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/brand-source-document.service';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
+import { GeneratedImageService } from '../../services/generated-image.service';
 import { ReferenceImageService } from '../../services/reference-image.service';
 import { ContentPipelineReferencePanelComponent } from './content-pipeline-reference-panel.component';
 
@@ -147,6 +148,8 @@ describe('ContentPipelineReferencePanelComponent', () => {
             },
           },
         },
+        // The panel reads a run's pictures only when it has a run and a session, and this host gives it neither.
+        { provide: GeneratedImageService, useValue: { watch: () => of() } },
         {
           provide: AiUsageService,
           useValue: { allowance: signal<AiAllowanceState>({ kind: 'unknown' }), ensureLoaded: () => Promise.resolve() },
@@ -175,7 +178,7 @@ describe('ContentPipelineReferencePanelComponent', () => {
   it('asks for nothing, and offers no reading, until a photograph is attached', async () => {
     await mount();
 
-    expect(buttonWith('Read this photograph')).toBeNull();
+    expect(buttonWith('Read this picture')).toBeNull();
     expect(requests.length).toBe(0);
   });
 
@@ -187,15 +190,18 @@ describe('ContentPipelineReferencePanelComponent', () => {
     note.dispatchEvent(new Event('input'));
     await settle();
 
-    await click('Read this photograph');
+    await click('Read this picture');
 
-    expect(requests[0]).toEqual({ referenceDocumentId: 'd-ref', note: '  the light  ' });
+    expect(requests[0]).toEqual({
+      picture: { source: 'BrandDocument', referenceDocumentId: 'd-ref' },
+      note: '  the light  ',
+    });
     expect(host.prompt().referenceRequestId).toBe('r-ref');
   });
 
   it('shows every observation with how sure it is, in words', async () => {
     await mount({ reference: REFERENCE });
-    await click('Read this photograph');
+    await click('Read this picture');
     await answerWatch(READING);
 
     expect(el.textContent).toContain('Hard side light from the left');
@@ -213,7 +219,7 @@ describe('ContentPipelineReferencePanelComponent', () => {
 
   it('says no observations came back, without judging the photograph', async () => {
     await mount({ reference: REFERENCE });
-    await click('Read this photograph');
+    await click('Read this picture');
     await answerWatch(proposal([row({ changeKind: 'Add', afterValue: 'A loaf.', proposedPosition: 0 })]));
 
     expect(el.textContent).toContain('No observations came back');
@@ -223,7 +229,7 @@ describe('ContentPipelineReferencePanelComponent', () => {
 
   it('offers the wording it drew without taking an empty prompt box as permission to ask', async () => {
     await mount({ reference: REFERENCE });
-    await click('Read this photograph');
+    await click('Read this picture');
     await answerWatch(READING);
 
     await click('Use this as my prompt');
@@ -236,7 +242,7 @@ describe('ContentPipelineReferencePanelComponent', () => {
 
   it('asks before replacing a prompt the creator already has, and leaves it alone on a no', async () => {
     await mount({ reference: REFERENCE, finalPrompt: 'My own prompt.', promptSource: 'creator' });
-    await click('Read this photograph');
+    await click('Read this picture');
     await answerWatch(READING);
 
     confirmAnswer = false;
@@ -251,7 +257,7 @@ describe('ContentPipelineReferencePanelComponent', () => {
 
   it('abandons a reading when a different photograph is attached, because it read another picture', async () => {
     await mount({ reference: REFERENCE });
-    await click('Read this photograph');
+    await click('Read this picture');
     await answerWatch(READING);
     expect(el.textContent).toContain('Hard side light');
 
@@ -276,15 +282,15 @@ describe('ContentPipelineReferencePanelComponent', () => {
       message: 'That file cannot be read as a photograph.',
     };
     await mount({ reference: REFERENCE });
-    await click('Read this photograph');
+    await click('Read this picture');
 
     expect(el.textContent).toContain('That file cannot be read as a photograph.');
-    expect(el.textContent).toContain('Choose a different photograph');
+    expect(el.textContent).toContain('Remove this picture and choose a different one');
   });
 
   it('offers to stop checking rather than to cancel', async () => {
     await mount({ reference: REFERENCE });
-    await click('Read this photograph');
+    await click('Read this picture');
 
     expect(buttonWith('Cancel')).toBeNull();
     await click('Stop checking');

@@ -153,6 +153,10 @@ export function generalPhotographyWarnings(detail: AiProposalDetail | null): rea
 /** What a client sends to ask for concepts. Every field optional, which is this capability's shape. */
 export interface RequestPhotographyConceptsRequest {
   readonly channelKey: string | null;
+  /** The recipe being photographed, where the creator linked one. Null sends no recipe at all. */
+  readonly recipeId?: string | null;
+  /** The version pinned when it was linked. Never sent without {@link recipeId}. */
+  readonly recipeVersionId?: string | null;
   readonly creatorConcept: string;
   readonly sceneOverrides: readonly string[];
   readonly styleOverrides: readonly string[];
@@ -169,6 +173,11 @@ export function encodeRequestPhotographyConcepts(
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (request.channelKey) body['channelKey'] = request.channelKey;
+  if (request.recipeId) {
+    body['recipeId'] = request.recipeId;
+    // Inside the recipe's own branch: the route refuses a version that arrives without its recipe.
+    if (request.recipeVersionId) body['recipeVersionId'] = request.recipeVersionId;
+  }
   if (request.creatorConcept.trim()) body['creatorConcept'] = request.creatorConcept.trim();
   if (request.sceneOverrides.length > 0) body['sceneOverrides'] = [...request.sceneOverrides];
   if (request.styleOverrides.length > 0) body['styleOverrides'] = [...request.styleOverrides];

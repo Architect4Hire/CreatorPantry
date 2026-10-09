@@ -11,6 +11,8 @@ import { ContentChannel } from '../../models/brand-profile.models';
 import { ImageStudioDraft, emptyImageStudioDraft } from '../../models/image-studio.models';
 import { PromptDetail } from '../../models/prompt-library.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
+import { FakeCreativeContextService } from '../../services/creative-context.fake';
+import { CreativeContextService } from '../../services/creative-context.service';
 import { ImageStudioDraftOwner, ImageStudioDraftService } from '../../services/image-studio-draft.service';
 import { PromptDetailOutcome, PromptLibraryService } from '../../services/prompt-library.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
@@ -72,7 +74,9 @@ describe('PromptDetailComponent', () => {
   let confirmSpy: jasmine.Spy<(request: ConfirmRequest) => Promise<boolean>>;
   let memberships: ReturnType<typeof signal<MyMembershipsState>>;
   let stored: Record<string, ImageStudioDraft | null>;
-  let writes: { key: string; draft: ImageStudioDraft }[];
+  let writes: { key: string; contextId: string; draft: ImageStudioDraft }[];
+  let remembered: Record<string, string>;
+  let server: FakeCreativeContextService;
   let writeAccepted: boolean;
   let membershipLoads: number;
 
@@ -118,6 +122,8 @@ describe('PromptDetailComponent', () => {
   ): Promise<void> {
     stored = { ...(options.drafts ?? {}) };
     writes = [];
+    remembered = {};
+    server = new FakeCreativeContextService();
     writeAccepted = true;
     membershipLoads = 0;
     copySpy = jasmine.createSpy('copy').and.resolveTo(true);
@@ -139,7 +145,7 @@ describe('PromptDetailComponent', () => {
         provideRouter([
           { path: ':workspaceSlug/prompt-library', pathMatch: 'full', component: LibraryStubComponent },
           { path: ':workspaceSlug/prompt-library/:promptRecordId', component: PromptDetailComponent },
-          { path: ':workspaceSlug/image-studio', component: StudioStubComponent },
+          { path: ':workspaceSlug/image-studio/context/:contextId', component: StudioStubComponent },
         ]),
         {
           provide: PromptLibraryService,
@@ -171,15 +177,25 @@ describe('PromptDetailComponent', () => {
         {
           provide: ImageStudioDraftService,
           useValue: {
-            read: (owner: ImageStudioDraftOwner) => ({ draft: stored[ownerKey(owner)] ?? null, discarded: false }),
-            write: (owner: ImageStudioDraftOwner, draft: ImageStudioDraft) => {
+            // What the studio already keeps for a context, by owner and context id as the real store does.
+            readKept: (owner: ImageStudioDraftOwner, contextId: string) => {
+              const draft = stored[`${ownerKey(owner)}.${contextId}`] ?? null;
+
+              return { kept: draft === null ? null : { draft, unsent: null }, discarded: false };
+            },
+            writeKept: (owner: ImageStudioDraftOwner, contextId: string, kept: { draft: ImageStudioDraft }) => {
               if (!writeAccepted) return false;
-              writes.push({ key: ownerKey(owner), draft });
+              stored[`${ownerKey(owner)}.${contextId}`] = kept.draft;
+              writes.push({ key: ownerKey(owner), contextId, draft: kept.draft });
 
               return true;
             },
+            rememberContext: (owner: ImageStudioDraftOwner, contextId: string) => {
+              remembered[ownerKey(owner)] = contextId;
+            },
           },
         },
+        { provide: CreativeContextService, useValue: server },
         { provide: ClipboardService, useValue: { copy: copySpy } },
         { provide: ConfirmService, useValue: { confirm: confirmSpy } },
       ],
@@ -354,7 +370,7 @@ describe('PromptDetailComponent', () => {
 
   // ---- Reuse ----
 
-  it('starts new work in Image Studio from a copy of the prompt, and goes there', async () => {
+  it('starts new work in Image Studio on a context that names the prompt, and goes there', async () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
     await create();
 
@@ -362,12 +378,19 @@ describe('PromptDetailComponent', () => {
     await settle();
 
     expect(confirmSpy).not.toHaveBeenCalled();
+    expect(server.creates.length).toBe(1);
+    expect(server.creates[0].slug).toBe(SLUG);
+    expect(server.creates[0].draft).toEqual({
+      channelKeys: ['instagram'],
+      from: { kind: 'PromptRecord', promptRecordId: 'p1' },
+    });
     expect(writes.length).toBe(1);
     expect(writes[0].key).toBe('w1.m1');
+    expect(writes[0].contextId).toBe('ctx-1');
     expect(writes[0].draft.prompt.finalPrompt).toBe('A tight crop of chili,\nsoft window light.');
     expect(writes[0].draft.prompt.promptSource).toBe('creator');
-    expect(writes[0].draft.config.channelKey).toBe('instagram');
-    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/image-studio`);
+    expect(remembered['w1.m1']).toBe('ctx-1');
+    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/image-studio/context/ctx-1`);
   });
 
   it('reuses by reading only: nothing is sent to the prompt routes beyond the one read', async () => {
@@ -381,45 +404,72 @@ describe('PromptDetailComponent', () => {
     expect(getSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('asks before replacing unfinished studio work, and replaces it on a yes', async () => {
+  it('replaces nothing already in the studio, so it has nothing to ask first', async () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
-    await create({ drafts: { 'w1.m1': unfinishedStudio() } });
-
-    button('Use in Image Studio').click();
-    await settle();
-
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(confirmSpy.calls.mostRecent().args[0].message).toContain('not changed');
-    expect(writes.length).toBe(1);
-    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/image-studio`);
-  });
-
-  it('keeps the unfinished studio work and stays put on a no', async () => {
-    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
-    await create({ drafts: { 'w1.m1': unfinishedStudio() } });
-    confirmSpy.and.resolveTo(false);
-
-    button('Use in Image Studio').click();
-    await settle();
-
-    expect(writes).toEqual([]);
-    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/prompt-library/p1`);
-    expect(button('Use in Image Studio').disabled).toBeFalse();
-  });
-
-  it("does not ask about another workspace's studio draft, and never writes under it", async () => {
-    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
-    // Unfinished work exists — in workspace B. Workspace A's studio is empty, so nothing is at stake here.
-    await create({ drafts: { 'w2.m2': unfinishedStudio() } });
+    const unfinished = unfinishedStudio();
+    await create({ drafts: { 'w1.m1.ctx-earlier': unfinished } });
 
     button('Use in Image Studio').click();
     await settle();
 
     expect(confirmSpy).not.toHaveBeenCalled();
-    expect(writes.map((write) => write.key)).toEqual(['w1.m1']);
+    expect(stored['w1.m1.ctx-earlier']).withContext('the earlier work is still on its own context').toBe(unfinished);
+    expect(writes.map((write) => write.contextId)).toEqual(['ctx-1']);
   });
 
-  it('stays and explains when the draft could not be kept, rather than opening an empty studio', async () => {
+  it('starts separate work each time it is asked, and never puts the saved wording back over work already done', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
+    await create();
+
+    button('Use in Image Studio').click();
+    await settle();
+    // In the studio the creator changes the prompt, which is kept for that context on this device.
+    const edited = { ...writes[0].draft, prompt: { ...writes[0].draft.prompt, finalPrompt: 'Changed in the studio.' } };
+    stored['w1.m1.ctx-1'] = edited;
+
+    await harness.navigateByUrl(`/${SLUG}/prompt-library/p1`, PromptDetailComponent);
+    await settle();
+    button('Use in Image Studio').click();
+    await settle();
+
+    expect(stored['w1.m1.ctx-1']).withContext('the first piece of work is as the creator left it').toBe(edited);
+    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/image-studio/context/ctx-2`);
+  });
+
+  it('stays and explains when the context could not be made, and makes one context across the retry', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
+    await create();
+    server.offline = true;
+
+    button('Use in Image Studio').click();
+    await settle();
+
+    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/prompt-library/p1`);
+    expect(text()).toContain("couldn't be started right now");
+    expect(writes).toEqual([]);
+    expect(button('Use in Image Studio').disabled).toBeFalse();
+
+    server.offline = false;
+    button('Use in Image Studio').click();
+    await settle();
+
+    expect(server.creates.length).toBe(1);
+    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/image-studio/context/ctx-1`);
+  });
+
+  it('says so when the prompt can no longer be used as a source', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
+    await create();
+    server.refuseCreateWith = 'source_unavailable';
+
+    button('Use in Image Studio').click();
+    await settle();
+
+    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/prompt-library/p1`);
+    expect(text()).toContain("can't be used to start new work");
+  });
+
+  it('stays and explains when the copy could not be kept, rather than opening the studio without the prompt', async () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
     await create();
     writeAccepted = false;
@@ -488,7 +538,8 @@ describe('PromptDetailComponent', () => {
     await settle();
 
     expect(writes.map((write) => write.key)).toEqual(['w2.m2']);
-    expect(TestBed.inject(Router).url).toBe(`/${OTHER_SLUG}/image-studio`);
+    expect(server.creates.map((made) => made.slug)).toEqual([OTHER_SLUG]);
+    expect(TestBed.inject(Router).url).toBe(`/${OTHER_SLUG}/image-studio/context/ctx-1`);
   });
 
   // ---- Accessibility ----

@@ -299,32 +299,122 @@ describe('ContentPipelineIdeaStepComponent', () => {
     expect(el.textContent).toContain('Develop a Thai main course');
   });
 
-  it('copies the wording into an empty description without asking', async () => {
-    await mount();
-    await click('Suggest an idea');
-    await answer({ status: 'found', seed: seed() });
-    await click('Use this wording as my description');
+  describe('choosing what to work from', () => {
+    const IDEA = 'Develop a Thai main course using the stir-fry method.';
+    const MINE = 'A tight crop of the first slice.';
 
-    expect(confirmCalls).toBe(0);
-    expect(latest().config.concept).toBe('Develop a Thai main course using the stir-fry method.');
-  });
+    function choices(): HTMLInputElement[] {
+      return Array.from(el.querySelectorAll<HTMLInputElement>('#cp-pipeline-brief-choice input[type="radio"]'));
+    }
 
-  it("asks before replacing words the creator wrote, and leaves them alone when the answer is no", async () => {
-    const base = emptyContentPipelineDraft();
-    await mount({ ...base, config: { ...base.config, concept: 'My own words.' } });
-    await click('Suggest an idea');
-    await answer({ status: 'found', seed: seed() });
+    async function choose(index: number): Promise<void> {
+      choices()[index].click();
+      await settle();
+    }
 
-    confirmAnswer = false;
-    await click('Use this wording as my description');
+    async function picked(concept: string): Promise<void> {
+      const base = emptyContentPipelineDraft();
+      await mount({ ...base, config: { ...base.config, concept } });
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+      await click('Pick this idea');
+    }
 
-    expect(confirmCalls).toBe(1);
-    expect(host.draft().config.concept).toBe('My own words.');
+    it('offers no way to put the idea in place of the description', async () => {
+      await picked(MINE);
 
-    confirmAnswer = true;
-    await click('Use this wording as my description');
+      expect(buttonWith('Use this wording as my description')).toBeFalsy();
+    });
 
-    expect(latest().config.concept).toBe('Develop a Thai main course using the stir-fry method.');
+    it('records the idea as the brief when there is no description to choose against, and asks nothing', async () => {
+      await picked('');
+
+      expect(choices().length).toBe(0);
+      expect(latest().config.briefSource).toBe('Idea');
+      expect(latest().config.brief).toBe(IDEA);
+      expect(latest().config.concept).withContext('the description is not filled in for them').toBe('');
+    });
+
+    it('asks once there is a description and a picked idea, with nothing chosen for the creator', async () => {
+      await picked(MINE);
+
+      expect(choices().length).toBe(3);
+      expect(choices().some((choice) => choice.checked)).toBeFalse();
+      expect(latest().config.briefSource).toBeNull();
+      expect(latest().config.brief).toBe('');
+    });
+
+    it('shows, on each choice, exactly the brief it would make', async () => {
+      await picked(MINE);
+
+      const section = el.querySelector('#cp-pipeline-brief-choice')!.textContent ?? '';
+      expect(section).toContain('Work from my description');
+      expect(section).toContain('Work from this idea');
+      expect(section).toContain('Combine them');
+      expect(section).toContain(MINE);
+      expect(section).toContain(IDEA);
+    });
+
+    it('works from the description as it was written', async () => {
+      await picked(MINE);
+      await choose(0);
+
+      expect(latest().config.briefSource).toBe('Description');
+      expect(latest().config.brief).toBe(MINE);
+    });
+
+    it('works from the idea, and leaves the description exactly as it was', async () => {
+      await picked(MINE);
+      await choose(1);
+
+      expect(latest().config.briefSource).toBe('Idea');
+      expect(latest().config.brief).toBe(IDEA);
+      expect(latest().config.concept).toBe(MINE);
+    });
+
+    it('combines them by putting the idea below the description, which is not rewritten', async () => {
+      await picked(MINE);
+      await choose(2);
+
+      expect(latest().config.briefSource).toBe('Combined');
+      expect(latest().config.brief).toBe(`${MINE}\n\n${IDEA}`);
+      expect(latest().config.concept).toBe(MINE);
+      expect(host.announcements).toContain('Combine them. The brief is set.');
+    });
+
+    it('asks before a new choice replaces a brief the creator edited, and keeps it on a no', async () => {
+      await picked(MINE);
+      await choose(0);
+      host.draft.set({ ...host.draft(), config: { ...host.draft().config, brief: 'A tight crop, and steam.' } });
+      await settle();
+      expect(el.textContent).toContain('You have edited the brief');
+
+      confirmAnswer = false;
+      await choose(2);
+
+      expect(confirmCalls).toBe(1);
+      expect(host.draft().config.briefSource).toBe('Description');
+      expect(host.draft().config.brief).toBe('A tight crop, and steam.');
+      expect(choices().map((choice) => choice.checked))
+        .withContext('the mark goes back to the choice that stands')
+        .toEqual([true, false, false]);
+
+      confirmAnswer = true;
+      await choose(2);
+
+      expect(host.draft().config.briefSource).toBe('Combined');
+      expect(host.draft().config.brief).toBe(`${MINE}\n\n${IDEA}`);
+    });
+
+    it('leaves a brief that came with the run alone when an idea is picked', async () => {
+      const base = emptyContentPipelineDraft();
+      await mount({ ...base, config: { ...base.config, briefSource: 'Idea', brief: 'Chosen on another device.' } });
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+      await click('Pick this idea');
+
+      expect(latest().config.brief).toBe('Chosen on another device.');
+    });
   });
 
   it('shows a refused pin, keeps it, and offers to let it go', async () => {

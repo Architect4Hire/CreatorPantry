@@ -35,6 +35,8 @@ function inProgress(concept = 'A tight crop.'): ContentPipelineDraft {
 let harness: RouterTestingHarness;
 let memberships: ReturnType<typeof signal<MyMembershipsState>>;
 let stored: Record<string, ContentPipelineDraft | null>;
+/** Runs that are on a creative context: what this device kept for each, and the context it last had open. */
+let runs: Record<string, { readonly contextId: string; readonly draft: ContentPipelineDraft } | undefined>;
 let unreadable: Set<string>;
 let reads: string[];
 let loads: number;
@@ -46,6 +48,15 @@ const draftStore = {
     reads.push(key);
 
     return { draft: stored[key] ?? null, discarded: unreadable.delete(key) };
+  },
+  lastContextId: (owner: ContentPipelineDraftOwner): string | null => runs[ownerKey(owner)]?.contextId ?? null,
+  readKept: (owner: ContentPipelineDraftOwner, contextId: string) => {
+    const run = runs[ownerKey(owner)];
+
+    return {
+      kept: run !== undefined && run.contextId === contextId ? { draft: run.draft, unsent: null } : null,
+      discarded: false,
+    };
   },
 };
 
@@ -59,6 +70,7 @@ async function settle(): Promise<void> {
 async function create(
   options: {
     drafts?: Record<string, ContentPipelineDraft | null>;
+    runs?: Record<string, { readonly contextId: string; readonly draft: ContentPipelineDraft }>;
     unreadable?: readonly string[];
     role?: WorkspaceRole;
     state?: MyMembershipsState;
@@ -66,6 +78,7 @@ async function create(
   } = {},
 ): Promise<void> {
   stored = { ...(options.drafts ?? {}) };
+  runs = { ...(options.runs ?? {}) };
   unreadable = new Set(options.unreadable ?? []);
   reads = [];
   loads = 0;
@@ -153,7 +166,7 @@ describe('WorkflowsHubComponent', () => {
       await create({ drafts: { 'w1.m1': inProgress() } });
 
       expect(text()).toContain('You were on Write the prompt, step 3 of 6.');
-      expect(text()).toContain('Kept on this device on');
+      expect(text()).toContain('You last worked on it here on');
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Continue']);
       expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/prompt`);
     });
@@ -168,6 +181,41 @@ describe('WorkflowsHubComponent', () => {
       await create({ drafts: { 'w1.m1': inProgress('A secret shoot.') } });
 
       expect(text()).not.toContain('A secret shoot.');
+    });
+  });
+
+  describe('a run on a creative context', () => {
+    it('sends Continue to the context this device last had open, at the step reached', async () => {
+      await create({ runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } } });
+
+      expect(text()).toContain('You were on Write the prompt, step 3 of 6.');
+      expect(links().map((link) => link.textContent?.trim())).toEqual(['Continue']);
+      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/context/ctx-run/prompt`);
+    });
+
+    it('prefers a whole draft not yet on a context, which opening the pipeline will file', async () => {
+      await create({
+        drafts: { 'w1.m1': { ...inProgress(), furthestStep: 'idea' } },
+        runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } },
+      });
+
+      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/idea`);
+    });
+
+    it("never sends one workspace to the other's context", async () => {
+      await create({ runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } } });
+
+      await harness.navigateByUrl(`/${OTHER_SLUG}/workflows`);
+      await settle();
+
+      expect(links().map((link) => link.textContent?.trim())).toEqual(['Start']);
+      expect(links()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/content-pipeline/setup`);
+    });
+
+    it('reads nothing kept for a Viewer', async () => {
+      await create({ role: 'Viewer', runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } } });
+
+      expect(links().length).toBe(0);
     });
   });
 

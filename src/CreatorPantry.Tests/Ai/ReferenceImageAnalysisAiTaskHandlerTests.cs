@@ -7,6 +7,8 @@ using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
+using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -66,6 +68,254 @@ public sealed class ReferenceImageAnalysisAiTaskHandlerTests
         """;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    // ---- AF.3.4: a library asset version or a generated image as the picture ----
+
+    [Fact]
+    public async Task A_library_asset_is_opened_at_its_pinned_version_through_the_media_facade()
+    {
+        var media = new StubMedia(Png(2048));
+
+        var (outcome, documents) = await RunWith(
+            FakeChatClient.Returning(Read), stored: null, media: media, named: AssetInputs(versionNumber: 2));
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Equal((Asset, 2), media.AssetAsked);
+        Assert.Null(media.GeneratedAsked);
+        Assert.Null(documents.Asked);
+        Assert.True(media.Released, "The opened picture was not let go of.");
+    }
+
+    [Fact]
+    public async Task A_generated_image_is_opened_through_the_media_facade()
+    {
+        var media = new StubMedia(Png(2048));
+
+        var (outcome, documents) = await RunWith(
+            FakeChatClient.Returning(Read), stored: null, media: media, named: GeneratedInputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Equal(Generated, media.GeneratedAsked);
+        Assert.Null(media.AssetAsked);
+        Assert.Null(documents.Asked);
+        Assert.True(media.Released, "The opened picture was not let go of.");
+    }
+
+    /// <summary>
+    /// What is kept is the observations, for the picture and bytes that were read — and never the prompt.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_of_an_asset_is_kept_for_that_version_with_its_observations_only()
+    {
+        var media = new StubMedia(Png(2048));
+
+        await RunWith(FakeChatClient.Returning(Read), stored: null, media: media, named: AssetInputs(versionNumber: 2));
+
+        var kept = Assert.Single(media.Kept);
+        Assert.Equal(Asset, kept.MediaAssetId);
+        Assert.Equal(2, kept.MediaAssetVersionNumber);
+        Assert.Null(kept.GeneratedImageId);
+        Assert.Equal(StubMedia.Checksum, kept.ContentChecksum);
+        Assert.Equal(Operation, kept.AiOperationId);
+        Assert.Equal(Template.Id, kept.PromptTemplateId);
+        Assert.Equal(Template.Version.ToString(), kept.PromptTemplateVersion);
+
+        Assert.Equal(["Lighting", "Surface"], kept.Observations.Select(observation => observation.Aspect));
+        Assert.Equal(["Clear", "Probable"], kept.Observations.Select(observation => observation.Confidence));
+        Assert.Equal(
+            "Soft directional daylight from the left, with long soft shadows.", kept.Observations[0].Text);
+        Assert.DoesNotContain(kept.Observations, observation => observation.Text.Contains("Overhead square-crop", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_reading_of_a_generated_image_is_kept_for_that_image()
+    {
+        var media = new StubMedia(Png(2048));
+
+        await RunWith(FakeChatClient.Returning(Read), stored: null, media: media, named: GeneratedInputs());
+
+        var kept = Assert.Single(media.Kept);
+        Assert.Equal(Generated, kept.GeneratedImageId);
+        Assert.Null(kept.MediaAssetId);
+        Assert.Null(kept.MediaAssetVersionNumber);
+        Assert.Equal(StubMedia.Checksum, kept.ContentChecksum);
+    }
+
+    /// <summary>A brand document is not a picture anything is grounded on by id, so nothing is kept for one.</summary>
+    [Fact]
+    public async Task A_reading_of_a_brand_document_keeps_nothing_beside_its_proposal()
+    {
+        var media = new StubMedia();
+
+        var (outcome, _) = await RunWith(FakeChatClient.Returning(Read), Png(2048), media: media);
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Empty(media.Kept);
+        Assert.Null(media.AssetAsked);
+        Assert.Null(media.GeneratedAsked);
+    }
+
+    /// <summary>A reading that could not be kept is still the reading the creator asked for.</summary>
+    [Fact]
+    public async Task A_reading_that_could_not_be_kept_still_succeeds()
+    {
+        var media = new StubMedia(Png(2048), keeps: false);
+
+        var (outcome, _) = await RunWith(
+            FakeChatClient.Returning(Read), stored: null, media: media, named: GeneratedInputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Single(media.Kept);
+    }
+
+    /// <summary>
+    /// Keeping a reading can throw — a timeout, a connection lost — and that must not cost the creator the
+    /// reading, or a second paid call to get it back.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_survives_keeping_it_throwing()
+    {
+        var media = new StubMedia(Png(2048), keepThrows: true);
+
+        var (outcome, _) = await RunWith(
+            FakeChatClient.Returning(Read), stored: null, media: media, named: AssetInputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.NotNull(outcome.Proposal);
+        Assert.Single(media.Kept);
+    }
+
+    /// <summary>
+    /// A reading steered by a note is the creator's answer to that request, not a description of the picture,
+    /// so it is not kept as one — where it would replace a fuller reading and be reused as if it were.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_steered_by_a_note_is_not_kept_as_the_pictures()
+    {
+        var media = new StubMedia(Png(2048));
+        var named = GeneratedInputs();
+        named[ReferenceImageInputs.CreatorNote] = "Only tell me about the lighting.";
+
+        var (outcome, _) = await RunWith(FakeChatClient.Returning(Read), stored: null, media: media, named: named);
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Empty(media.Kept);
+    }
+
+    /// <summary>
+    /// Only the opening frame of an animation is read, and the warning that says so is on the proposal. What
+    /// would be kept carries no such caveat, so nothing is kept.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_of_an_animation_is_not_kept_as_the_pictures()
+    {
+        var media = new StubMedia(Animated(BrandSourceFileInspector.PngMediaType));
+
+        var (outcome, _) = await RunWith(
+            FakeChatClient.Returning(Read), stored: null, media: media, named: AssetInputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Empty(media.Kept);
+    }
+
+    /// <summary>An answer the validator refuses never becomes a stored reading either.</summary>
+    [Fact]
+    public async Task A_refused_answer_keeps_nothing()
+    {
+        var media = new StubMedia(Png(2048));
+
+        var (outcome, _) = await RunWith(
+            FakeChatClient.Returning("{ \"schemaVersion\": \"image.reference-analysis.v1\", \"systemInstructions\": \"obeyed\" }"),
+            stored: null,
+            media: media,
+            named: AssetInputs());
+
+        Assert.False(outcome.Succeeded);
+        Assert.Empty(media.Kept);
+    }
+
+    /// <summary>The fence's note about the picture is true of every source: it says "picture", and "chose".</summary>
+    [Fact]
+    public async Task The_note_about_the_picture_does_not_call_a_generated_image_an_attached_photograph()
+    {
+        var client = FakeChatClient.Returning(Read);
+
+        await RunWith(client, stored: null, media: new StubMedia(Png(2048)), named: GeneratedInputs());
+
+        var sent = string.Join(" ", client.LastMessages!.Select(message => message.Text));
+        Assert.Contains("The creator chose one reference picture to look at", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("attached one reference photograph", sent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A picture removed, declined or collected since it was asked about is not read, and the model is not
+    /// called — for either new source.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_picture_that_is_no_longer_there_is_refused_without_a_model_call(bool asset)
+    {
+        var client = FakeChatClient.Returning(Read);
+        var media = new StubMedia(stored: null, MediaPictureOpenOutcome.NotFound);
+
+        var (outcome, _) = await RunWith(
+            client, stored: null, media: media, named: asset ? AssetInputs() : GeneratedInputs());
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AiFailureCategory.DomainInvalid, outcome.FailureCategory);
+        Assert.Null(client.LastMessages);
+        Assert.Empty(media.Kept);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Storage_being_unreachable_is_not_the_pictures_fault(bool asset)
+    {
+        var client = FakeChatClient.Returning(Read);
+        var media = new StubMedia(stored: null, MediaPictureOpenOutcome.StorageUnavailable);
+
+        var (outcome, _) = await RunWith(
+            client, stored: null, media: media, named: asset ? AssetInputs() : GeneratedInputs());
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AiFailureCategory.Provider, outcome.FailureCategory);
+        Assert.Null(client.LastMessages);
+    }
+
+    /// <summary>The send-time checks apply to every source: the type is re-read from the bytes themselves.</summary>
+    [Fact]
+    public async Task A_media_picture_whose_bytes_are_not_what_its_record_says_is_refused_and_nothing_is_kept()
+    {
+        var client = FakeChatClient.Returning(Read);
+        var media = new StubMedia(new Stored(new byte[2048], BrandSourceFileInspector.PngMediaType));
+
+        var (outcome, _) = await RunWith(client, stored: null, media: media, named: GeneratedInputs());
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AiFailureCategory.DomainInvalid, outcome.FailureCategory);
+        Assert.Null(client.LastMessages);
+        Assert.Empty(media.Kept);
+        Assert.True(media.Released);
+    }
+
+    [Fact]
+    public async Task An_operation_that_names_a_source_without_its_id_is_refused_without_opening_anything()
+    {
+        var media = new StubMedia(Png(2048));
+        var named = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ReferenceImageInputs.Source] = nameof(AiReferenceImageSource.DamAsset),
+            [ReferenceImageInputs.MediaAssetId] = Asset.ToString(),
+        };
+
+        var (outcome, _) = await RunWith(FakeChatClient.Returning(Read), stored: null, media: media, named: named);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Equal(AiFailureCategory.Validation, outcome.FailureCategory);
+        Assert.Null(media.AssetAsked);
+    }
 
     /// <summary>A valid PNG: the reading becomes one prompt row plus a row per observation and its confidence.</summary>
     [Fact]
@@ -137,7 +387,7 @@ public sealed class ReferenceImageAnalysisAiTaskHandlerTests
         Assert.DoesNotContain("2048 bytes", system, StringComparison.Ordinal);
 
         // The task's own instructions are the template's, where they belong.
-        Assert.Contains("Read the photograph attached to this request", system, StringComparison.Ordinal);
+        Assert.Contains("Read the picture attached to this request", system, StringComparison.Ordinal);
     }
 
     /// <summary>The creator's note is untrusted however much it reads like an instruction.</summary>
@@ -592,9 +842,12 @@ public sealed class ReferenceImageAnalysisAiTaskHandlerTests
         Stored? stored,
         string? note = null,
         CancellationToken? token = null,
-        bool storageUnavailable = false)
+        bool storageUnavailable = false,
+        StubMedia? media = null,
+        Dictionary<string, string>? named = null)
     {
         var documents = new StubDocuments(stored, storageUnavailable);
+        media ??= new StubMedia();
 
         const string pipelineKey = "test-ai-reference-image";
 
@@ -628,9 +881,13 @@ public sealed class ReferenceImageAnalysisAiTaskHandlerTests
             gateway,
             EmbeddedPromptTemplateStore.Load(typeof(AiPolicy).Assembly),
             documents,
-            new StoppedClock());
+            media,
+            media,
+            media,
+            new StoppedClock(),
+            NullLogger<ReferenceImageAnalysisAiTaskHandler>.Instance);
 
-        var inputs = new Dictionary<string, string>(StringComparer.Ordinal)
+        var inputs = named ?? new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [ReferenceImageInputs.ReferenceDocumentId] = Document.ToString(),
             [ReferenceImageInputs.ReferenceVersionNumber] = "1",
@@ -653,6 +910,148 @@ public sealed class ReferenceImageAnalysisAiTaskHandlerTests
             Inputs: inputs);
 
         return (await handler.HandleAsync(context, token ?? Ct), documents);
+    }
+
+    private static readonly Guid Asset = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid Generated = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+    private static Dictionary<string, string> AssetInputs(int versionNumber = 2) => new(StringComparer.Ordinal)
+    {
+        [ReferenceImageInputs.Source] = nameof(AiReferenceImageSource.DamAsset),
+        [ReferenceImageInputs.MediaAssetId] = Asset.ToString(),
+        [ReferenceImageInputs.MediaAssetVersionNumber] = versionNumber.ToString(System.Globalization.CultureInfo.InvariantCulture),
+    };
+
+    private static Dictionary<string, string> GeneratedInputs() => new(StringComparer.Ordinal)
+    {
+        [ReferenceImageInputs.Source] = nameof(AiReferenceImageSource.GeneratedImage),
+        [ReferenceImageInputs.GeneratedImageId] = Generated.ToString(),
+    };
+
+    /// <summary>
+    /// The media module's three facades, as the handler uses them: it opens a picture and keeps a reading.
+    /// </summary>
+    /// <remarks>
+    /// Every member the handler has no business calling throws, for the reason <see cref="StubDocuments"/>
+    /// gives. The request-time lookups are among them: a worker that resolved a picture by its metadata and
+    /// then trusted that, rather than opening it through the facade, would be reading on a stale answer.
+    /// </remarks>
+    private sealed class StubMedia(
+        Stored? stored = null,
+        MediaPictureOpenOutcome outcome = MediaPictureOpenOutcome.NotFound,
+        bool keeps = true,
+        bool keepThrows = false)
+        : IMediaAssetLookupFacade, IGeneratedImageLookupFacade, IMediaPictureAnalysisFacade
+    {
+        public const string Checksum = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+        public bool Released { get; private set; }
+
+        public (Guid AssetId, int VersionNumber)? AssetAsked { get; private set; }
+
+        public Guid? GeneratedAsked { get; private set; }
+
+        public List<MediaPictureAnalysisRecord> Kept { get; } = [];
+
+        Task<MediaPictureOpen> IMediaAssetLookupFacade.OpenPictureAsync(
+            Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken)
+        {
+            AssetAsked = (mediaAssetId, versionNumber);
+
+            return Task.FromResult(Open(versionNumber));
+        }
+
+        Task<MediaPictureOpen> IGeneratedImageLookupFacade.OpenPictureAsync(
+            Guid generatedImageId, CancellationToken cancellationToken)
+        {
+            GeneratedAsked = generatedImageId;
+
+            return Task.FromResult(Open(null));
+        }
+
+        public Task<bool> KeepAsync(
+            Guid? mediaAssetId,
+            int? mediaAssetVersionNumber,
+            Guid? generatedImageId,
+            string contentChecksum,
+            IReadOnlyList<MediaPictureObservation> observations,
+            Guid aiOperationId,
+            string promptTemplateId,
+            string promptTemplateVersion,
+            CancellationToken cancellationToken)
+        {
+            Kept.Add(new MediaPictureAnalysisRecord(
+                mediaAssetId,
+                mediaAssetVersionNumber,
+                generatedImageId,
+                contentChecksum,
+                observations,
+                aiOperationId,
+                promptTemplateId,
+                promptTemplateVersion));
+
+            if (keepThrows)
+            {
+                throw new InvalidOperationException("The database could not be reached.");
+            }
+
+            return Task.FromResult(keeps);
+        }
+
+        private MediaPictureOpen Open(int? versionNumber) =>
+            stored is null
+                ? new MediaPictureOpen(outcome)
+                : new MediaPictureOpen(
+                    MediaPictureOpenOutcome.Opened,
+                    new MediaPictureContent(
+                        new Lease(() => Released = true),
+                        new MemoryStream(stored.Bytes),
+                        stored.MediaType,
+                        Checksum,
+                        versionNumber));
+
+        private sealed class Lease(Action released) : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync()
+            {
+                released();
+
+                return ValueTask.CompletedTask;
+            }
+        }
+
+        Task<bool> IMediaAssetLookupFacade.ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        Task<bool> IGeneratedImageLookupFacade.ExistsAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MediaAssetLinkTarget> ResolveLinkTargetAsync(
+            Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MediaAssetDescription?> DescribeAsync(
+            Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        Task<MediaPictureTarget?> IMediaAssetLookupFacade.ResolvePictureAsync(
+            Guid mediaAssetId, int? versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        Task<MediaPictureTarget?> IGeneratedImageLookupFacade.ResolvePictureAsync(
+            Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MediaPictureAnalysisDescription?> FindForAssetAsync(
+            Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MediaPictureAnalysisDescription?> FindForGeneratedImageAsync(
+            Guid generatedImageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     /// <summary>

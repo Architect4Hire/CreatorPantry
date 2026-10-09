@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -11,6 +11,7 @@ import {
   CpFormSectionComponent,
   CpListShellComponent,
   CpListShellState,
+  CpNoticeComponent,
 } from '@creator-pantry/ui';
 
 import { WorkspaceRole } from '../../models/auth.models';
@@ -22,10 +23,14 @@ import {
   generalConceptWarnings,
 } from '../../models/recipe-concept.models';
 import { AiQuotaRefusal } from '../../models/ai-quota.models';
+import { CreativeContextSource } from '../../models/creative-context.models';
 import { RecipeConceptService, WatchConceptsOutcome } from '../../services/recipe-concept.service';
+import { DRAFT_REQUEST_TOO_LARGE_CODE, RecipeDraftService } from '../../services/recipe-draft.service';
 import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
+import { HANDOFF_ROUTES, HandoffDestination } from '../../shared/use-this-in/handoff-destinations';
+import { UseThisInComponent } from '../../shared/use-this-in/use-this-in.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
 
@@ -60,6 +65,28 @@ interface StudioRefusal {
   readonly message: string;
 }
 
+/**
+ * Where a chosen concept can go besides a recipe draft, in the order offered (AF.2.3).
+ *
+ * Neither is `primary`: the one obvious next step for a concept is drafting its recipe, which is the studio's
+ * own action and needs no creative context. These two start one from the concept and open the destination
+ * with its id; until those pages read it (Phase 3) they open as they always have.
+ */
+export const CONCEPT_HANDOFF_DESTINATIONS: readonly HandoffDestination[] = [
+  {
+    key: 'image-studio',
+    label: 'Make a picture',
+    detail: 'Opens Image Studio to plan a photo for this idea.',
+    route: HANDOFF_ROUTES.imageStudio,
+  },
+  {
+    key: 'content-pipeline',
+    label: 'Start a content run',
+    detail: 'Opens the Content Pipeline to build posts around it.',
+    route: HANDOFF_ROUTES.contentPipeline,
+  },
+];
+
 const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment.";
 
 /**
@@ -90,6 +117,8 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpFieldComponent,
     CpFormSectionComponent,
     CpListShellComponent,
+    CpNoticeComponent,
+    UseThisInComponent,
   ],
   templateUrl: './recipe-concept-studio.component.html',
   styleUrl: './recipe-concept-studio.component.css',
@@ -97,6 +126,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
 })
 export class RecipeConceptStudioComponent {
   private readonly concepts = inject(RecipeConceptService);
+  private readonly drafts = inject(RecipeDraftService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);
   private readonly route = inject(ActivatedRoute);
@@ -107,8 +137,6 @@ export class RecipeConceptStudioComponent {
   readonly shortFieldMaxLength = SHORT_FIELD_MAX_LENGTH;
   readonly listFieldMaxLength = LIST_FIELD_MAX_LENGTH;
 
-  /** A concept a host mounting this page can act on later. Selecting one never calls a create-recipe route. */
-  readonly conceptSelected = output<RecipeConcept>();
 
   // ---- Brief fields ----
 
@@ -292,6 +320,45 @@ export class RecipeConceptStudioComponent {
     () => !this.submitting() && this.canRequest() && !allowanceBlocksNewRequests(this.allowance()),
   );
 
+  /** Where a chosen concept can be taken besides a recipe draft. See {@link CONCEPT_HANDOFF_DESTINATIONS}. */
+  readonly handoffDestinations = CONCEPT_HANDOFF_DESTINATIONS;
+
+  /**
+   * The chosen concept as a creative context would name it: the request it came from and the concept inside
+   * it. Null until both are known. Ids only — the context points at the concept and copies none of its words.
+   */
+  readonly handoffSource = computed<CreativeContextSource | null>(() => {
+    const concept = this.selectedConceptSignal();
+    const conceptRequestId = this.requestIdSignal();
+
+    return concept === null || conceptRequestId === null
+      ? null
+      : { kind: 'RecipeConcept', conceptRequestId, conceptId: concept.targetId };
+  });
+
+  private readonly draftingSignal = signal(false);
+
+  /** A draft of the chosen concept is being asked for. */
+  readonly drafting = this.draftingSignal.asReadonly();
+
+  private readonly draftProblemSignal = signal<string | null>(null);
+
+  /** Why the last draft request for the chosen concept did not go through, in words. */
+  readonly draftProblem = this.draftProblemSignal.asReadonly();
+
+  private readonly draftQuotaRefusalSignal = signal<AiQuotaRefusal | null>(null);
+
+  /** The server's allowance refusal of a draft request. Kept apart from the brief's, so each is said by its own action. */
+  readonly draftQuotaRefusal = this.draftQuotaRefusalSignal.asReadonly();
+
+  /** The key for the draft attempt in hand, and the concept it names. */
+  private draftAttempt: { readonly conceptId: string; readonly key: string } | null = null;
+
+  /** A role that may ask, an allowance not known to be spent, and no request already on its way. */
+  readonly canDraft = computed(
+    () => !this.drafting() && this.canRequest() && !allowanceBlocksNewRequests(this.allowance()),
+  );
+
   readonly conceptCards = computed<readonly RecipeConcept[]>(() =>
     conceptsFromProposal(this.operation()?.proposal ?? null),
   );
@@ -441,6 +508,7 @@ export class RecipeConceptStudioComponent {
     this.watchProblem.set(null);
     this.refusalSignal.set(null);
     this.selectedConceptSignal.set(null);
+    this.forgetDraftAttempt();
     this.consecutiveFailures.set(0);
     this.watching.set(true);
     this.pollStopped.set(false);
@@ -450,6 +518,7 @@ export class RecipeConceptStudioComponent {
   private resetForNewRequest(): void {
     this.watchProblem.set(null);
     this.selectedConceptSignal.set(null);
+    this.forgetDraftAttempt();
     this.consecutiveFailures.set(0);
     this.watching.set(true);
     this.pollStopped.set(false);
@@ -480,8 +549,110 @@ export class RecipeConceptStudioComponent {
 
   /** Sets which concept the creator is looking at going forward. Never creates a recipe. */
   choose(concept: RecipeConcept): void {
+    // A different concept is a different request: what the last one was refused for is no longer about what
+    // is chosen, and its key must not be spent on this one.
+    if (!this.isSelected(concept)) this.forgetDraftAttempt();
+
     this.selectedConceptSignal.set(concept);
-    this.conceptSelected.emit(concept);
+  }
+
+  // -------------------------------------------------------------------------
+  // Drafting the chosen concept
+  // -------------------------------------------------------------------------
+
+  /**
+   * Asks for a first draft of the chosen concept and, once it is queued, opens the page that reviews it.
+   *
+   * Nothing here creates a recipe: a draft is a proposal the creator reviews and accepts on the next page.
+   * And nothing here touches the brief or the concepts — on any refusal the creator is exactly where they
+   * were, with what they typed still typed and what they chose still chosen.
+   */
+  async draftChosen(): Promise<void> {
+    const concept = this.selectedConceptSignal();
+    const conceptRequestId = this.requestIdSignal();
+
+    // `aria-disabled` keeps the button focusable, so a second press arrives here and is refused here.
+    if (concept === null || conceptRequestId === null || !this.canDraft()) return;
+
+    this.draftingSignal.set(true);
+    this.draftProblemSignal.set(null);
+    this.draftQuotaRefusalSignal.set(null);
+
+    // One key per concept, kept only while this concept's attempt is unanswered.
+    if (this.draftAttempt?.conceptId !== concept.targetId) {
+      this.draftAttempt = { conceptId: concept.targetId, key: crypto.randomUUID() };
+    }
+
+    const outcome = await this.drafts.requestDraft(
+      this.workspaceSlug,
+      { sourceConceptRequestId: conceptRequestId, sourceConceptId: concept.targetId, brief: this.currentBrief() },
+      this.draftAttempt.key,
+    );
+
+    this.draftingSignal.set(false);
+
+    switch (outcome.status) {
+      case 'accepted':
+        this.draftAttempt = null;
+
+        // The run has been paid for, so the balance on screen is already out of date.
+        void this.usage.refresh();
+        await this.router.navigate(['/', this.workspaceSlug, 'ai-recipe-studio', 'draft'], {
+          queryParams: { request: outcome.operation.aiProposalRequestId },
+        });
+        return;
+
+      // Handed to the allowance notice, the one place that words a spent allowance and a switched-off account
+      // differently.
+      case 'quota_exhausted':
+      case 'account_suspended':
+        this.draftAttempt = null;
+        this.draftQuotaRefusalSignal.set(outcome);
+        void this.usage.refresh();
+        return;
+
+      case 'refused':
+        this.draftAttempt = null;
+        this.draftProblemSignal.set(
+          outcome.code === DRAFT_REQUEST_TOO_LARGE_CODE
+            ? 'Your brief and this concept are too long to draft from together. Shorten the brief above and try again.'
+            : 'That concept can no longer be drafted from. Ask for concepts again and choose one of those.',
+        );
+        return;
+
+      case 'validation_failed':
+        this.draftAttempt = null;
+        this.fieldErrorsSignal.set(outcome.fieldErrors);
+        this.draftProblemSignal.set('Something in the brief above needs changing before this can be drafted.');
+        return;
+
+      case 'task_not_enabled':
+        this.draftAttempt = null;
+        this.draftProblemSignal.set('Recipe drafting is switched off for now, so this can’t be asked for.');
+        return;
+
+      case 'idempotency_key_conflict':
+        this.draftAttempt = null;
+        this.draftProblemSignal.set('That attempt clashed with another. Try once more.');
+        return;
+
+      case 'forbidden':
+        this.draftAttempt = null;
+        this.draftProblemSignal.set('Your role in this workspace does not permit asking for a recipe draft.');
+        return;
+
+      case 'unavailable':
+        // The key is kept: this attempt may have reached the server even though the answer did not come back,
+        // and re-sending the same key is what stops a second draft being bought for it.
+        this.draftProblemSignal.set(COULD_NOT_REACH_SERVER);
+        return;
+    }
+  }
+
+  private forgetDraftAttempt(): void {
+    this.draftAttempt = null;
+    this.draftProblemSignal.set(null);
+    this.draftQuotaRefusalSignal.set(null);
   }
 
   isSelected(concept: RecipeConcept): boolean {

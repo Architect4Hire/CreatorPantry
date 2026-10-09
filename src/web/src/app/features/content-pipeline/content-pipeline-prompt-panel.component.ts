@@ -23,6 +23,7 @@ import {
   isGeneratedPromptSource,
   promptReplacementNeedsAsking,
 } from '../../models/content-pipeline.models';
+import { LinkedRecipe } from '../../models/creative-context.models';
 import { composedPromptWarnings, decodeComposedImagePrompt } from '../../models/image-prompt.models';
 import { PHOTOGRAPHY_SHOT_KIND_LABELS } from '../../models/photography-concept.models';
 import { AiUsageService } from '../../services/ai-usage.service';
@@ -67,6 +68,11 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
   readonly workspaceSlug = input.required<string>();
   readonly config = input.required<ContentPipelineConfig>();
   readonly prompt = input.required<ContentPipelinePromptState>();
+  /**
+   * The recipe the picture is of, where the creator linked one, with the version pinned when they did (AF.3.3).
+   * Sent as `recipeId` and `recipeVersionId`; null sends neither.
+   */
+  readonly recipe = input<LinkedRecipe | null>(null);
   readonly changed = output<ContentPipelinePromptState>();
   readonly announced = output<string>();
 
@@ -192,6 +198,7 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
     if (pick === null) return;
 
     const config = this.config();
+    const recipe = this.recipe();
     const requestId = await this.tracker.submit(() =>
       this.prompts.request(
         this.workspaceSlug(),
@@ -200,6 +207,8 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
           conceptId: pick.conceptId,
           shotKind: pick.shotKind,
           channelKey: config.channelKey,
+          recipeId: recipe?.recipeId ?? null,
+          recipeVersionId: recipe?.recipeVersionId ?? null,
           briefDocumentId: latest.brief?.documentId ?? null,
           sceneOverrides: config.scene,
           styleOverrides: config.style,

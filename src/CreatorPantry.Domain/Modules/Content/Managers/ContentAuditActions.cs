@@ -30,4 +30,16 @@ public static class ContentAuditActions
     /// which outlives the row and is the only thing left to name it by.
     /// </remarks>
     public const string WeeklyThemeDeleted = "content.weekly_theme.deleted";
+
+    public const string CreativeContextResourceType = "CreativeContext";
+
+    public const string CreativeContextCreated = "content.creative_context.created";
+
+    /// <summary>
+    /// A context left the recent list. Audited because it is the one change here that takes work out of view;
+    /// ordinary edits are autosaved many times a minute and would bury it.
+    /// </summary>
+    public const string CreativeContextArchived = "content.creative_context.archived";
+
+    public const string CreativeContextRestored = "content.creative_context.restored";
 }

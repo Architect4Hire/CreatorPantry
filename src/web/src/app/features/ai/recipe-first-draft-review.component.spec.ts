@@ -5,7 +5,12 @@ import { Observable } from 'rxjs';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
 import { AiProposalDetail, AiProposalStatus, AiProposalWarning, AiProposedChange } from '../../models/ai-proposal.models';
-import { RecipeDraftService, WatchRecipeDraftOutcome } from '../../services/recipe-draft.service';
+import {
+  AcceptRecipeDraftOutcome,
+  AcceptRecipeDraftRequest,
+  RecipeDraftService,
+  WatchRecipeDraftOutcome,
+} from '../../services/recipe-draft.service';
 import { RecipeDraftFieldEdit, RecipeFirstDraftReviewComponent } from './recipe-first-draft-review.component';
 
 const REQUEST_ID = 'op-draft-1';
@@ -96,6 +101,19 @@ class StubRecipeDraftService {
   statuses: WatchRecipeDraftOutcome[] = [found()];
   watchCalls = 0;
 
+  acceptOutcome: AcceptRecipeDraftOutcome = {
+    status: 'accepted',
+    recipeId: '7c000000-0000-4000-8000-0000000000aa',
+    replayed: false,
+  };
+  pendingAccept: Promise<AcceptRecipeDraftOutcome> | null = null;
+  acceptCalls: { requestId: string; request: AcceptRecipeDraftRequest }[] = [];
+
+  acceptDraft(_slug: string, requestId: string, request: AcceptRecipeDraftRequest): Promise<AcceptRecipeDraftOutcome> {
+    this.acceptCalls.push({ requestId, request });
+    return this.pendingAccept ?? Promise.resolve(this.acceptOutcome);
+  }
+
   watchStatus(): Observable<WatchRecipeDraftOutcome> {
     const index = this.watchCalls++;
     const outcome = this.statuses[Math.min(index, this.statuses.length - 1)];
@@ -112,11 +130,12 @@ class StubRecipeDraftService {
 
 class StubConfirmService {
   answer = true;
+  pending: Promise<boolean> | null = null;
   calls: ConfirmRequest[] = [];
 
   confirm(request: ConfirmRequest): Promise<boolean> {
     this.calls.push(request);
-    return Promise.resolve(this.answer);
+    return this.pending ?? Promise.resolve(this.answer);
   }
 }
 
@@ -525,7 +544,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
   }));
 
   /** frontend.md: unsaved creator edits survive navigation warnings. These have nowhere to be saved to. */
-  it('asks before leaving with rewrites, and says they have nowhere to be kept', fakeAsync(() => {
+  it('asks before leaving with rewrites, and says they are only kept by creating the recipe', fakeAsync(() => {
     service.statuses = [ready()];
     render();
     const component = fixture.componentInstance;
@@ -541,7 +560,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
     tick();
 
     expect(confirmService.calls.length).toBe(1);
-    expect(confirmService.calls[0].message).toContain('nowhere to save them to');
+    expect(confirmService.calls[0].message).toContain('only saved when you create the recipe');
     expect(allowed).toBe(true);
   }));
 
@@ -952,4 +971,310 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(element().querySelector('h2')).toBeNull();
     expect(element().querySelector('.draft-lede')?.textContent).toContain('nothing on this page is saved');
   }));
+
+  // ---- accepting the draft into a recipe (AF.2.2) ------------------------------------------------------
+
+  describe('creating the recipe', () => {
+    const RECIPE_ID = '7c000000-0000-4000-8000-0000000000aa';
+
+    function acceptButton(): HTMLButtonElement | null {
+      return element().querySelector<HTMLButtonElement>('button.draft-accept');
+    }
+
+    function pressAccept(): void {
+      acceptButton()!.click();
+      settle();
+      settle();
+    }
+
+    function navigations(): unknown[][] {
+      const navigate = TestBed.inject(Router).navigate as jasmine.Spy;
+
+      return navigate.calls.allArgs().filter((args) => Array.isArray(args[0]) && (args[0] as unknown[]).includes('recipes'));
+    }
+
+    /** Rewrites one field the way the creator would, through the component's own editor. */
+    function rewrite(changeId: string, field: string, original: string | null, value: string): void {
+      const component = fixture.componentInstance;
+      const target = component.editTarget(changeId, field, field, original);
+      component.startEdit(target);
+      component.editDraft.set(value);
+      component.applyEdit(target);
+      settle();
+    }
+
+    function renderReady(changes: readonly AiProposedChange[] = fullDraftChanges()): AiProposedChange[] {
+      const list = [...changes];
+      service.statuses = [ready(list)];
+      render();
+
+      return list;
+    }
+
+    it('offers the action on a proposed draft, as the one primary action beside discarding', fakeAsync(() => {
+      renderReady();
+
+      expect(acceptButton()!.textContent?.trim()).toBe('Create recipe from this draft');
+      expect(acceptButton()!.classList).toContain('cp-button--primary');
+      expect(acceptButton()!.getAttribute('aria-disabled')).toBeNull();
+      expect(text()).not.toContain("isn't built yet");
+
+      // Still a suggestion, still editable, until that button is pressed and confirmed.
+      expect(element().querySelector('.draft-lede')?.textContent).toContain('No recipe has been created');
+      expect(element().querySelector('button[data-edit-for="recipe:title"]')).not.toBeNull();
+    }));
+
+    it('asks first, and creates nothing when the creator keeps reviewing', fakeAsync(() => {
+      renderReady();
+      confirmService.answer = false;
+
+      pressAccept();
+
+      expect(confirmService.calls.length).toBe(1);
+      expect(confirmService.calls[0].title).toBe('Create a recipe from this draft?');
+      expect(confirmService.calls[0].tone).toBe('neutral');
+      expect(service.acceptCalls.length).toBe(0);
+      expect(navigations()).toEqual([]);
+      expect(acceptButton()!.getAttribute('aria-disabled')).toBeNull();
+    }));
+
+    it('accepts the whole draft by naming every part, and opens the recipe in the editor', fakeAsync(() => {
+      const changes = renderReady();
+      let accepted: unknown = null;
+      fixture.componentInstance.accepted.subscribe((event) => (accepted = event));
+
+      pressAccept();
+
+      expect(service.acceptCalls.length).toBe(1);
+      expect(service.acceptCalls[0].requestId).toBe(REQUEST_ID);
+      expect(service.acceptCalls[0].request.acceptedChangeIds).toEqual(changes.map((change) => change.changeId));
+      expect(service.acceptCalls[0].request.rewrites).toEqual([]);
+      expect(navigations()).toEqual([[['/', 'cozy-fall', 'recipes', RECIPE_ID]]]);
+      expect(accepted).toEqual({ recipeId: RECIPE_ID, replayed: false });
+    }));
+
+    it('carries the creators rewrites, each addressed to the part it replaces', fakeAsync(() => {
+      const changes = renderReady();
+      const titleRow = changes.find((change) => change.fieldName === 'title')!;
+
+      rewrite('recipe', 'title', 'Weeknight Mapo Tofu', 'My Mapo Tofu');
+      rewrite('l1-add', 'displayText', '2 tbsp doubanjiang', '3 tbsp doubanjiang');
+      rewrite('s1-add', 'text', 'Fry the paste.', 'Fry the paste until it smells toasty.');
+
+      pressAccept();
+
+      // A recipe-level field is sent under the row that proposed it, never under the page's own "recipe".
+      expect(service.acceptCalls[0].request.rewrites).toEqual([
+        { changeId: titleRow.changeId, field: 'title', value: 'My Mapo Tofu' },
+        { changeId: 'l1-add', field: 'displayText', value: '3 tbsp doubanjiang' },
+        { changeId: 's1-add', field: 'text', value: 'Fry the paste until it smells toasty.' },
+      ]);
+      expect(confirmService.calls[0].message).toContain('3 rewrites');
+    }));
+
+    it('says in the confirmation when the draft carries a safety caution', fakeAsync(() => {
+      service.statuses = [
+        ready(fullDraftChanges(), [
+          { kind: 'SafetyCaution', message: 'Check the internal temperature.', changeId: null } as AiProposalWarning,
+        ]),
+      ];
+      render();
+
+      pressAccept();
+
+      expect(confirmService.calls[0].message).toContain('safety caution');
+    }));
+
+    it('stops asking about unsaved rewrites once they are in the recipe', fakeAsync(() => {
+      renderReady();
+      rewrite('l1-add', 'displayText', '2 tbsp doubanjiang', '3 tbsp doubanjiang');
+      expect(fixture.componentInstance.hasUnsavedWork()).toBeTrue();
+
+      pressAccept();
+
+      expect(fixture.componentInstance.hasUnsavedWork()).toBeFalse();
+    }));
+
+    it('sends one request however often the button is pressed', fakeAsync(() => {
+      renderReady();
+      let answer: (outcome: AcceptRecipeDraftOutcome) => void = () => undefined;
+      service.pendingAccept = new Promise<AcceptRecipeDraftOutcome>((resolve) => (answer = resolve));
+
+      acceptButton()!.focus();
+      acceptButton()!.click();
+      settle();
+      acceptButton()!.click();
+      acceptButton()!.click();
+      settle();
+
+      expect(confirmService.calls.length).toBe(1);
+      expect(service.acceptCalls.length).toBe(1);
+      expect(acceptButton()!.textContent?.trim()).toBe('Creating your recipe…');
+      expect(acceptButton()!.getAttribute('aria-disabled')).toBe('true');
+
+      // aria-disabled, not disabled: the button is still there to hold focus.
+      expect(acceptButton()!.disabled).toBeFalse();
+      expect(document.activeElement).toBe(acceptButton());
+
+      answer({ status: 'accepted', recipeId: RECIPE_ID, replayed: false });
+      settle();
+      settle();
+
+      expect(navigations().length).toBe(1);
+    }));
+
+    it('does not ask twice while the question is still open', fakeAsync(() => {
+      renderReady();
+      let decide: (confirmed: boolean) => void = () => undefined;
+      confirmService.pending = new Promise<boolean>((resolve) => (decide = resolve));
+
+      acceptButton()!.click();
+      acceptButton()!.click();
+      settle();
+
+      expect(confirmService.calls.length).toBe(1);
+
+      // Still the creator's decision to make: the button does not claim to be creating anything yet.
+      expect(acceptButton()!.textContent?.trim()).toBe('Create recipe from this draft');
+
+      decide(false);
+      settle();
+      settle();
+
+      expect(service.acceptCalls.length).toBe(0);
+    }));
+
+    it('opens the recipe a retried acceptance already created, rather than a second one', fakeAsync(() => {
+      renderReady();
+      service.acceptOutcome = { status: 'unavailable' };
+
+      pressAccept();
+
+      expect(text()).toContain("don't know whether the recipe was created");
+      expect(navigations()).toEqual([]);
+
+      // The first attempt did land. The retry carries no key of its own: the server recognises the draft.
+      service.acceptOutcome = { status: 'accepted', recipeId: RECIPE_ID, replayed: true };
+      pressAccept();
+
+      expect(service.acceptCalls.length).toBe(2);
+      expect(service.acceptCalls[1].request).toEqual(service.acceptCalls[0].request);
+      expect(navigations()).toEqual([[['/', 'cozy-fall', 'recipes', RECIPE_ID]]]);
+    }));
+
+    const failures: readonly (readonly [AcceptRecipeDraftOutcome, string])[] = [
+      [{ status: 'refused', message: 'A recipe needs a title.' }, 'A recipe needs a title.'],
+      [{ status: 'forbidden' }, 'does not permit creating recipes'],
+      [{ status: 'unavailable' }, "Couldn't reach the server"],
+      [{ status: 'already_decided' }, 'already been decided'],
+    ];
+
+    for (const [outcome, words] of failures) {
+      it(`keeps the draft and the creators rewrites on '${outcome.status}', and says why`, fakeAsync(() => {
+        renderReady();
+        rewrite('l1-add', 'displayText', '2 tbsp doubanjiang', '3 tbsp doubanjiang');
+        service.acceptOutcome = outcome;
+
+        pressAccept();
+
+        expect(element().querySelector('.draft-actions [role="alert"]')?.textContent).toContain(words);
+        expect(navigations()).toEqual([]);
+
+        // Nothing typed is lost, and the leave guard still protects it.
+        expect(text()).toContain('3 tbsp doubanjiang');
+        expect(fixture.componentInstance.hasUnsavedWork()).toBeTrue();
+        expect(acceptButton()!.textContent?.trim()).toBe('Create recipe from this draft');
+      }));
+    }
+
+    it('re-reads where the draft stands when the server says it was already decided', fakeAsync(() => {
+      service.statuses = [ready(), found({ status: 'Rejected', proposal: proposal() })];
+      render();
+      service.acceptOutcome = { status: 'already_decided' };
+      const before = service.watchCalls;
+
+      pressAccept();
+      tick(0);
+      settle();
+
+      expect(service.watchCalls).toBeGreaterThan(before);
+      expect(fixture.componentInstance.state()).toBe('rejected');
+      expect(acceptButton()).toBeNull();
+    }));
+
+    it('treats a draft that has gone as gone', fakeAsync(() => {
+      renderReady();
+      service.acceptOutcome = { status: 'not_found' };
+
+      pressAccept();
+
+      expect(fixture.componentInstance.state()).toBe('gone');
+      expect(acceptButton()).toBeNull();
+    }));
+
+    for (const status of ['Expired', 'Failed', 'Rejected', 'Accepted', 'PartiallyAccepted'] as const) {
+      it(`offers no way to create a recipe from a draft that is ${status}`, fakeAsync(() => {
+        service.statuses = [found({ status, proposal: status === 'Expired' || status === 'Failed' ? null : proposal() })];
+        render();
+
+        expect(acceptButton()).toBeNull();
+        expect(Array.from(element().querySelectorAll('button')).some((button) => /create recipe/i.test(button.textContent ?? ''))).toBeFalse();
+      }));
+    }
+
+    it('says an accepted draft has become a recipe, and no longer says none was created', fakeAsync(() => {
+      service.statuses = [found({ status: 'Accepted', proposal: proposal() })];
+      render();
+
+      expect(fixture.componentInstance.state()).toBe('accepted');
+      expect(text()).toContain('already become a recipe');
+      expect(text()).not.toContain('No recipe has been created');
+      expect(element().querySelector('a[cpButton]')?.textContent).toContain('recipe library');
+    }));
+
+    it('says a rejected draft was turned down', fakeAsync(() => {
+      service.statuses = [found({ status: 'Rejected', proposal: proposal() })];
+      render();
+
+      expect(fixture.componentInstance.state()).toBe('rejected');
+      expect(text()).toContain('turned down');
+    }));
+
+    it('will not send while an edit is still open, so half-written words are not left behind', fakeAsync(() => {
+      renderReady();
+      const component = fixture.componentInstance;
+      component.startEdit(component.editTarget('l1-add', 'displayText', 'Ingredient', '2 tbsp doubanjiang'));
+      component.editDraft.set('3 tbsp');
+      settle();
+
+      expect(acceptButton()!.getAttribute('aria-disabled')).toBe('true');
+      expect(element().querySelector('#draft-accept-blocker')?.textContent).toContain('Finish or cancel the edit');
+      expect(acceptButton()!.getAttribute('aria-describedby')).toBe('draft-accept-blocker');
+
+      pressAccept();
+
+      expect(confirmService.calls.length).toBe(0);
+      expect(service.acceptCalls.length).toBe(0);
+    }));
+
+    it('will not send a title the draft has no part for, and says what to do instead', fakeAsync(() => {
+      // No title row at all: the creator can type one on the page, and the server has nothing to put it in.
+      renderReady(fullDraftChanges().filter((change) => change.fieldName !== 'title'));
+      rewrite('recipe', 'title', null, 'My own title');
+
+      expect(acceptButton()!.getAttribute('aria-disabled')).toBe('true');
+      expect(element().querySelector('#draft-accept-blocker')?.textContent).toContain('did not include title');
+
+      pressAccept();
+
+      expect(service.acceptCalls.length).toBe(0);
+    }));
+
+    it('will not send a draft with no title at all', fakeAsync(() => {
+      renderReady(fullDraftChanges().filter((change) => change.fieldName !== 'title'));
+
+      expect(acceptButton()!.getAttribute('aria-disabled')).toBe('true');
+      expect(element().querySelector('#draft-accept-blocker')?.textContent).toContain('needs a title');
+    }));
+  });
 });

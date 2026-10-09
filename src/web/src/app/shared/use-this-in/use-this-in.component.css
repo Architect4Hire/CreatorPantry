@@ -1,0 +1,53 @@
+:host {
+  display: block;
+}
+
+.handoff {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.heading {
+  margin: 0;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+/* A list, because it is one: a screen reader says how many places this can go before reading the first. */
+.destinations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each destination keeps its explanation directly under its own button, so the pair wraps together on a
+   narrow screen instead of the details collecting in a row of their own. */
+.destination {
+  display: grid;
+  gap: var(--cp-space-1);
+  justify-items: start;
+  max-width: 100%;
+}
+
+.detail {
+  max-width: 28ch;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+/* The progress line is for assistive technology: the button already reads "Opening…" for everyone else, and
+   saying it twice on screen would be noise. Hidden the accessible way, not with display:none, which would
+   silence it. */
+.progress {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

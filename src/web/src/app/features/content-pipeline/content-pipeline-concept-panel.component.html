@@ -7,6 +7,31 @@
   </cp-notice>
 }
 
+@if (briefTooLong()) {
+  <cp-notice tone="warning" role="note">
+    The brief is longer than {{ briefMaxLength }} characters, which is as much as a look can be planned from.
+    Shorten it and we can plan some looks. Nothing has been cut.
+  </cp-notice>
+}
+
+@if (plannedFromOlderBrief()) {
+  <cp-notice tone="warning" role="status">
+    The brief has changed since these looks were planned, so they were planned from the earlier one.
+    <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
+      Plan looks from the brief as it is now
+    </button>
+  </cp-notice>
+}
+
+@if (plannedFromOtherRecipe()) {
+  <cp-notice tone="warning" role="status">
+    The linked recipe has changed since these looks were planned, so they were planned around the earlier one.
+    <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
+      Plan looks around the recipe as it is now
+    </button>
+  </cp-notice>
+}
+
 @switch (tracker.phase().kind) {
   @case ('idle') {
     <p>

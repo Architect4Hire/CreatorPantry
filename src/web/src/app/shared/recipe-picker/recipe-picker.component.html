@@ -1,0 +1,122 @@
+<cp-form-section
+  heading="A recipe"
+  intro="Link the recipe this picture is of, and the looks and the prompt are planned around it. Optional."
+  [sectionId]="idPrefix()"
+>
+  @if (action(); as state) {
+    @if (state.status === 'working') {
+      <p class="cp-muted" role="status">{{ state.sentence }}</p>
+    }
+    @if (state.status === 'failed') {
+      <cp-notice tone="error" role="alert">
+        {{ state.sentence }}
+        <button cpButton type="button" variant="secondary" size="sm" (click)="state.retry()">Try again</button>
+      </cp-notice>
+    }
+  }
+
+  @if (reference(); as link) {
+    <div class="linked">
+      @switch (linked().status) {
+        @case ('loading') {
+          <p class="cp-muted" role="status">Reading the linked recipe…</p>
+        }
+        @case ('unavailable') {
+          <cp-notice tone="warning" role="status">
+            A recipe is linked, but it couldn't be read right now. It is still linked.
+            <button cpButton type="button" variant="secondary" size="sm" (click)="retryLinked()">Try again</button>
+          </cp-notice>
+        }
+        @case ('gone') {
+          <cp-notice tone="warning" role="status">
+            The linked recipe is no longer available — it may have been archived or removed. Pictures are no longer
+            planned around it.
+          </cp-notice>
+        }
+      }
+
+      @if (linked(); as state) {
+        @if (state.status === 'ready') {
+          <p class="summary">
+            <span class="title">{{ state.title }}</span>
+            <span class="cp-muted">
+              @if (link.recipeVersionId === null) {
+                No saved version yet, so the recipe as it stands is used.
+              } @else if (state.pinnedNumber !== null) {
+                Version {{ state.pinnedNumber }}, as it was when you linked it.
+              } @else {
+                The version it was at when you linked it.
+              }
+            </span>
+            @if (recipeLink(); as target) {
+              <a [routerLink]="target">Open the recipe</a>
+            }
+          </p>
+
+          @if (state.newer; as newer) {
+            <cp-notice tone="warning" role="status">
+              This recipe has changed since you linked it — it is now at version {{ newer.number }}. The version
+              you linked is still the one being used.
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                [disabled]="busy()"
+                [attr.aria-label]="'Use version ' + newer.number + ' of ' + state.title"
+                (click)="repin()"
+              >
+                Use the new version
+              </button>
+            </cp-notice>
+          }
+        }
+
+        <div class="cp-actions">
+          <button
+            cpButton
+            type="button"
+            variant="text"
+            size="sm"
+            [disabled]="busy()"
+            [attr.aria-label]="state.status === 'ready' ? 'Remove the link to ' + state.title : 'Remove the linked recipe'"
+            (click)="remove()"
+          >
+            Remove
+          </button>
+        </div>
+      }
+    </div>
+  } @else if (libraryEmpty()) {
+    <p class="cp-muted">
+      You have no recipes yet, so there is nothing to link.
+      <a [routerLink]="libraryLink()">Go to your recipes</a>
+    </p>
+  } @else {
+    @if (search().status === 'unavailable') {
+      <cp-notice tone="error" role="alert">
+        Your recipes couldn't be searched right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retrySearch()">Try again</button>
+      </cp-notice>
+    }
+
+    <!-- Server-filtered, so `filterLocally` is off: a library is too large to hold in a browser, and filtering
+         the search's own answers again would hide matches it found by something other than the title. -->
+    <cp-field label="Find a recipe" [forId]="inputId()" hint="Type part of its name. Archived recipes are not shown.">
+      <cp-combobox
+        [inputId]="inputId()"
+        [options]="options()"
+        [filterLocally]="false"
+        [resultsLabel]="resultsLabel()"
+        [disabled]="busy()"
+        mode="restricted"
+        placeholder="e.g. soda bread"
+        [value]="searchText()"
+        (valueChange)="searchText.set($event)"
+        (selectedChange)="onPicked($event)"
+      >
+        <span cpComboboxEmpty>{{ emptyText() }}</span>
+      </cp-combobox>
+    </cp-field>
+  }
+</cp-form-section>

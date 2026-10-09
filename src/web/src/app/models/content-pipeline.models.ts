@@ -16,6 +16,12 @@ import {
   decodeContentSeed,
   isContentSeedToken,
 } from './content-seed.models';
+import { CreativeContextBriefSource, LinkedRecipe } from './creative-context.models';
+import {
+  CreativeContextFields,
+  EMPTY_CREATIVE_CONTEXT_FIELDS,
+  decodeCreativeContextFieldsPart,
+} from './creative-context-fields.models';
 import { GENERATED_IMAGE_PROMPT_MAX_LENGTH } from './generated-image.models';
 import { PhotographyShotKind, decodePhotographyShotKind } from './photography-concept.models';
 import { decodeEnum, isRecord } from './recipe.models';
@@ -190,6 +196,88 @@ export interface ContentPipelineConfig {
   readonly style: readonly string[];
   /** The picture the creator already has in mind, in their own words. Never written over by this product. */
   readonly concept: string;
+  /**
+   * What the creator chose to plan the picture from — their description, the idea they picked, or both — or
+   * null until they have chosen (AF.3.2).
+   */
+  readonly briefSource: ContentPipelineBriefSource | null;
+  /**
+   * The brief that choice made, and theirs to edit from then on. This is what a look is planned from; nothing
+   * reads {@link concept} or an idea in its place. Empty until they have chosen.
+   */
+  readonly brief: string;
+}
+
+/** One string for a linked recipe and its pinned version, for telling two apart. Empty for none. */
+export function linkedRecipeKey(recipe: LinkedRecipe | null): string {
+  return recipe === null ? '' : `${recipe.recipeId}@${recipe.recipeVersionId ?? ''}`;
+}
+
+/** `CreativeContextBriefSource`, under the name the pipeline's own types use. */
+export type ContentPipelineBriefSource = CreativeContextBriefSource;
+
+const BRIEF_SOURCE_VALUES: ReadonlySet<string> = new Set<ContentPipelineBriefSource>(['Description', 'Idea', 'Combined']);
+
+/** How each choice is said to the creator, wherever it is named. */
+export const CONTENT_PIPELINE_BRIEF_SOURCE_LABELS: Readonly<Record<ContentPipelineBriefSource, string>> = {
+  Description: 'Work from my description',
+  Idea: 'Work from this idea',
+  Combined: 'Combine them',
+};
+
+/** What separates the creator's description from the idea's wording in a combined brief: one blank line. */
+const BRIEF_JOIN = '\n\n';
+
+/**
+ * The brief a choice makes, or null when the choice has nothing to make it from.
+ *
+ * **The description is never rewritten.** It is used exactly as typed; "combine" puts the idea's wording
+ * *below* it, after a blank line, so the creator can see where their words end and the suggestion begins.
+ */
+export function contentPipelineBriefFor(
+  source: ContentPipelineBriefSource,
+  description: string,
+  idea: string | null,
+): string | null {
+  const hasDescription = description.trim() !== '';
+  const hasIdea = idea !== null && idea.trim() !== '';
+
+  if (source === 'Description') return hasDescription ? description : null;
+  if (source === 'Idea') return hasIdea ? idea : null;
+
+  return hasDescription && hasIdea ? `${description}${BRIEF_JOIN}${idea}` : null;
+}
+
+/** True when the brief is not simply what its source makes — so replacing it would lose the creator's edits. */
+export function isContentPipelineBriefEdited(draft: ContentPipelineDraft): boolean {
+  const { briefSource, brief, concept } = draft.config;
+  if (brief.trim() === '') return false;
+  if (briefSource === null) return true;
+
+  return contentPipelineBriefFor(briefSource, concept, draft.seed.accepted?.description ?? null) !== brief;
+}
+
+/**
+ * The brief after a change to what it is made from.
+ *
+ * A brief the creator has not touched follows its source: correcting the description on the setup step
+ * corrects a brief chosen from it. One they have edited is theirs and stays as it is. A choice whose source is
+ * gone — the idea was un-picked, the description emptied — and whose brief was never edited is cleared, so the
+ * creator is asked again rather than left planning from wording that is no longer on screen.
+ */
+export function contentPipelineBriefAfter(
+  previous: ContentPipelineDraft,
+  next: ContentPipelineDraft,
+): Pick<ContentPipelineConfig, 'briefSource' | 'brief'> {
+  const { briefSource, brief } = next.config;
+
+  // The creator set the brief or the choice in this change: that is the answer.
+  if (briefSource !== previous.config.briefSource || brief !== previous.config.brief) return { briefSource, brief };
+  if (briefSource === null || isContentPipelineBriefEdited(previous)) return { briefSource, brief };
+
+  const made = contentPipelineBriefFor(briefSource, next.config.concept, next.seed.accepted?.description ?? null);
+
+  return made === null ? { briefSource: null, brief: '' } : { briefSource, brief: made };
 }
 
 /** The five facets a creator can lock on the `idea` step. */
@@ -306,6 +394,18 @@ export interface ContentPipelineGeneratedPrompt {
 export interface ContentPipelinePromptState {
   /** The IMG-001 request last asked for, so its concepts come back after a refresh. */
   readonly conceptRequestId: string | null;
+  /**
+   * The brief that request was sent with, so a look planned from an older brief can be said to be one.
+   *
+   * Null where that is not known — a request made before this was kept — which reads as "not stale": the
+   * alternative is telling a creator their looks are out of date on a guess.
+   */
+  readonly plannedBrief: string | null;
+  /**
+   * The recipe that request named, as {@link linkedRecipeKey} writes it — empty for none — so looks planned
+   * around a recipe that has since been changed or unlinked can be said to be. Null where that is not known.
+   */
+  readonly plannedRecipe: string | null;
   readonly chosen: ContentPipelineChosenShot | null;
   /** A brief to compose from. Optional; its text is untrusted. */
   readonly brief: ContentPipelineDocumentRef | null;
@@ -376,12 +476,16 @@ export function emptyContentPipelineConfig(): ContentPipelineConfig {
     scene: [],
     style: [],
     concept: '',
+    briefSource: null,
+    brief: '',
   };
 }
 
 export function emptyContentPipelinePromptState(): ContentPipelinePromptState {
   return {
     conceptRequestId: null,
+    plannedBrief: null,
+    plannedRecipe: null,
     chosen: null,
     brief: null,
     reference: null,
@@ -419,6 +523,7 @@ export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolea
     config.scene.length === 0 &&
     config.style.length === 0 &&
     config.concept.trim() === '' &&
+    config.brief.trim() === '' &&
     seed.lastToken === null &&
     seed.accepted === null &&
     Object.keys(seed.keep).length === 0 &&
@@ -486,6 +591,10 @@ export function contentSeedQueryFor(draft: ContentPipelineDraft, token?: string 
  * {@link ContentPipelinePromptSource}, and to 4 by 12.10b for {@link ContentPipelineImagesState}. Every discard
  * so far has cost nothing real: the feature is unreleased, so the only earlier drafts are on a developer's own
  * machine.
+ *
+ * **Version 4 is the last shape that holds a whole run**, and the one exception to "never migrated": since
+ * AF.3.1 a run lives on a creative context, so a v4 draft found on a device is work not yet filed on one. It is
+ * filed once and removed — see {@link CONTENT_PIPELINE_RUN_VERSION} for what is kept after that.
  */
 export const CONTENT_PIPELINE_DRAFT_VERSION = 4;
 
@@ -526,6 +635,14 @@ export function decodeContentPipelineConfig(value: unknown): ContentPipelineConf
   if (concept !== undefined && typeof concept !== 'string') return null;
   if (scene === null || style === null) return null;
 
+  const rawBrief = value['brief'];
+  const rawSource = value['briefSource'];
+  if (rawBrief !== undefined && typeof rawBrief !== 'string') return null;
+  // An unrecognised source is dropped with its brief kept: the words are the creator's, and the choice is one
+  // answer they can give again.
+  const briefSource =
+    typeof rawSource === 'string' && BRIEF_SOURCE_VALUES.has(rawSource) ? (rawSource as ContentPipelineBriefSource) : null;
+
   // An unrecognised day is dropped rather than failing the whole draft: the day is one answer among several, and
   // losing the rest of a creator's setup over it would cost more than re-picking it.
   const rawDay = value['day'];
@@ -538,6 +655,8 @@ export function decodeContentPipelineConfig(value: unknown): ContentPipelineConf
     scene,
     style,
     concept: typeof concept === 'string' ? concept.slice(0, CONTENT_PIPELINE_LIMITS.conceptMaxLength) : '',
+    briefSource,
+    brief: typeof rawBrief === 'string' ? rawBrief : '',
   };
 }
 
@@ -612,6 +731,8 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
 
   const finalPrompt = value['finalPrompt'];
   const rawSource = value['promptSource'];
+  const plannedBrief = value['plannedBrief'];
+  const plannedRecipe = value['plannedRecipe'];
 
   if (
     chosen === null ||
@@ -621,6 +742,8 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
     conceptRequestId === null ||
     referenceRequestId === null ||
     promptRequestId === null ||
+    (plannedBrief !== undefined && plannedBrief !== null && typeof plannedBrief !== 'string') ||
+    (plannedRecipe !== undefined && plannedRecipe !== null && typeof plannedRecipe !== 'string') ||
     (finalPrompt !== undefined && typeof finalPrompt !== 'string') ||
     (rawSource !== undefined && typeof rawSource !== 'string')
   ) {
@@ -639,6 +762,9 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
 
   return {
     conceptRequestId: conceptRequestId.id,
+    // A planned brief without its request describes a plan nobody made, so it goes with it.
+    plannedBrief: conceptRequestId.id !== null && typeof plannedBrief === 'string' ? plannedBrief : null,
+    plannedRecipe: conceptRequestId.id !== null && typeof plannedRecipe === 'string' ? plannedRecipe : null,
     chosen: chosen.chosen,
     brief: brief.ref,
     // A reference request without its reference names a reading of nothing, so it goes with it.
@@ -708,6 +834,13 @@ export function keepersStillPresent(
  * is worse than a draft that was lost.
  */
 export function decodeContentPipelineDraft(raw: string | null | undefined): ContentPipelineDraft | null {
+  const parsed = parseStored(raw, CONTENT_PIPELINE_DRAFT_VERSION);
+
+  return parsed === null ? null : decodeDraftBody(parsed);
+}
+
+/** Stored JSON of one version, as a record, or null for anything else. */
+function parseStored(raw: string | null | undefined, version: number): Record<string, unknown> | null {
   if (typeof raw !== 'string' || raw.length === 0) return null;
   if (raw.length > CONTENT_PIPELINE_LIMITS.storedMaxChars) return null;
 
@@ -718,8 +851,10 @@ export function decodeContentPipelineDraft(raw: string | null | undefined): Cont
     return null;
   }
 
-  if (!isRecord(parsed) || parsed['v'] !== CONTENT_PIPELINE_DRAFT_VERSION) return null;
+  return isRecord(parsed) && parsed['v'] === version ? parsed : null;
+}
 
+function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft | null {
   const config = decodeContentPipelineConfig(parsed['config']);
   const seedRaw = parsed['seed'];
   if (config === null || !isRecord(seedRaw)) return null;
@@ -757,4 +892,78 @@ export function decodeContentPipelineDraft(raw: string | null | undefined): Cont
 
 export function encodeContentPipelineDraft(draft: ContentPipelineDraft): string {
   return JSON.stringify({ v: CONTENT_PIPELINE_DRAFT_VERSION, ...draft });
+}
+
+/**
+ * The version of what this device keeps for a run that is on a creative context (AF.3.1).
+ *
+ * The same blocks as a v4 draft with the channel, the day, the picture and the chosen brief left out: those live on the context,
+ * and a second copy here would be free to disagree with it. Beside them, {@link ContentPipelineKeptRun.unsent}.
+ */
+export const CONTENT_PIPELINE_RUN_VERSION = 5;
+
+/** What this device keeps for one run on one creative context. */
+export interface ContentPipelineKeptRun {
+  /** The run, with the channel, day and picture empty: the context supplies them when it is read. */
+  readonly draft: ContentPipelineDraft;
+  /**
+   * Edits to the context's own fields that have not reached the server, or null.
+   *
+   * The one place a context field is ever on the device, and only until it is sent: without it, a creator who
+   * typed while offline and then closed the tab would lose exactly those words.
+   */
+  readonly unsent: Partial<CreativeContextFields> | null;
+}
+
+/** The config with the answers a creative context holds laid over it. */
+export function contentPipelineConfigWith(
+  config: ContentPipelineConfig,
+  fields: Pick<CreativeContextFields, 'channelKey' | 'day' | 'pictureBrief' | 'briefSource' | 'workingBrief'>,
+): ContentPipelineConfig {
+  return {
+    ...config,
+    channelKey: fields.channelKey,
+    day: fields.day,
+    concept: fields.pictureBrief,
+    briefSource: fields.briefSource,
+    brief: fields.workingBrief,
+  };
+}
+
+/**
+ * The unsent block of a kept record: null for none, `undefined` for one that is there and cannot be read.
+ *
+ * Unreadable is a reason to discard the record rather than to drop the block quietly — resuming without it
+ * would show the server's older answer as though it were the creator's latest.
+ */
+export function decodeUnsentFields(raw: unknown): Partial<CreativeContextFields> | null | undefined {
+  if (raw === null || raw === undefined) return null;
+
+  const part = decodeCreativeContextFieldsPart(raw);
+  if (part === null) return undefined;
+
+  return Object.keys(part).length > 0 ? part : null;
+}
+
+export function decodeContentPipelineRun(raw: string | null | undefined): ContentPipelineKeptRun | null {
+  const parsed = parseStored(raw, CONTENT_PIPELINE_RUN_VERSION);
+  if (parsed === null) return null;
+
+  const draft = decodeDraftBody(parsed);
+  const unsent = decodeUnsentFields(parsed['unsent']);
+  if (draft === null || unsent === undefined) return null;
+
+  return {
+    draft: { ...draft, config: contentPipelineConfigWith(draft.config, EMPTY_CREATIVE_CONTEXT_FIELDS) },
+    unsent,
+  };
+}
+
+export function encodeContentPipelineRun(
+  draft: ContentPipelineDraft,
+  unsent: Partial<CreativeContextFields> | null,
+): string {
+  const { variantCount, scene, style } = draft.config;
+
+  return JSON.stringify({ v: CONTENT_PIPELINE_RUN_VERSION, ...draft, config: { variantCount, scene, style }, unsent });
 }

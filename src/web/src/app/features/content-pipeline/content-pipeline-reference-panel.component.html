@@ -1,19 +1,159 @@
 <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
 <p class="cp-muted">
-  A photograph you like, read back to you — what it shows, how sure we are of each part, and wording you can
-  start from. Optional.
+  A picture you like, read back to you — what it shows, how sure we are of each part, and wording you can
+  start from. One picture at a time. Optional.
 </p>
 
-<cp-content-pipeline-document-picker
-  [workspaceSlug]="workspaceSlug()"
-  kind="reference"
-  [selected]="prompt().reference"
-  [disabled]="tracker.busy()"
-  (selectedChange)="onReference($event)"
-/>
+@if (choosing(); as state) {
+  @if (state.status === 'working') {
+    <p class="cp-muted" role="status">{{ state.sentence }}</p>
+  }
+  @if (state.status === 'failed') {
+    <cp-notice tone="error" role="alert">
+      {{ state.sentence }}
+      <button cpButton type="button" variant="secondary" size="sm" (click)="state.retry()">Try again</button>
+    </cp-notice>
+  }
+}
 
-@if (prompt().reference !== null) {
+<ng-template #brandLibrary>
+  <cp-content-pipeline-document-picker
+    [workspaceSlug]="workspaceSlug()"
+    kind="reference"
+    [selected]="prompt().reference"
+    [disabled]="tracker.busy() || busyChoosing()"
+    (selectedChange)="onReference($event)"
+  />
+</ng-template>
+
+@if (picture(); as chosen) {
+  @if (chosen.source === 'BrandDocument') {
+    <!-- The Brand Library's own picker shows what is chosen and removes it, as it always has. -->
+    <ng-container *ngTemplateOutlet="brandLibrary" />
+  } @else {
+    <div class="chosen" tabindex="-1" role="group" aria-label="Your reference picture">
+      <p class="chosen-label">
+        <cp-badge tone="neutral">Reference</cp-badge>
+        <span class="cp-muted">For inspiration only — it is not one of your results, and nothing is copied.</span>
+      </p>
+
+      @if (chosen.source === 'DamAsset') {
+        <cp-dam-linked-asset
+          [workspaceSlug]="workspaceSlug()"
+          [assetId]="chosen.mediaAssetId"
+          [versionNumber]="chosen.mediaAssetVersionNumber"
+          (resolved)="onAssetResolved($event)"
+        />
+      } @else {
+        @if (chosenRunPicture(); as mine) {
+          <div class="thumbnail">
+            <cp-content-pipeline-staged-image
+              [workspaceSlug]="workspaceSlug()"
+              [image]="mine.image"
+              [position]="mine.position"
+              [total]="mine.total"
+            />
+          </div>
+          <p class="chosen-name">Picture {{ mine.position }} from this run</p>
+        } @else {
+          <p class="chosen-name">A generated picture</p>
+        }
+      }
+
+      <div class="cp-actions">
+        <button
+          cpButton
+          type="button"
+          variant="text"
+          size="sm"
+          aria-label="Remove the reference picture"
+          [disabled]="tracker.busy() || busyChoosing()"
+          (click)="removePicture()"
+        >
+          Remove
+        </button>
+      </div>
+    </div>
+  }
+} @else if (session() === null) {
+  <ng-container *ngTemplateOutlet="brandLibrary" />
+} @else {
+  <cp-tabs [tabs]="sourceTabs" ariaLabel="Where to choose a reference picture from" [(selectedId)]="sourceTab">
+    <cp-tab-panel id="library">
+      <cp-dam-asset-picker
+        [workspaceSlug]="workspaceSlug()"
+        [active]="sourceTab() === 'library'"
+        (chosen)="chooseAsset($event)"
+      />
+    </cp-tab-panel>
+
+    <cp-tab-panel id="run">
+      @switch (runPictures().status) {
+        @case ('none') {
+          @if (!hasRun()) {
+            <p class="cp-muted">No pictures have been made in this run yet. Once some have, you can choose one here.</p>
+          }
+        }
+        @case ('loading') {
+          <p class="cp-muted" role="status">Loading this run's pictures…</p>
+        }
+        @case ('unavailable') {
+          <cp-notice tone="error" role="alert">
+            This run's pictures couldn't be loaded right now.
+            <button cpButton type="button" variant="secondary" size="sm" (click)="reloadRunPictures()">
+              Try again
+            </button>
+          </cp-notice>
+        }
+      }
+
+      @if (runPictures(); as run) {
+        @if (run.status === 'found') {
+          @if (run.images.length === 0) {
+            <p class="cp-muted">The pictures from this run are no longer available.</p>
+          } @else {
+            <ul class="run-pictures">
+              @for (image of run.images; track image.id; let index = $index) {
+                <li>
+                  <cp-content-pipeline-staged-image
+                    [workspaceSlug]="workspaceSlug()"
+                    [image]="image"
+                    [position]="index + 1"
+                    [total]="run.images.length"
+                  />
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="busyChoosing()"
+                    [attr.aria-label]="'Choose picture ' + (index + 1) + ' of ' + run.images.length + ' as the reference'"
+                    (click)="chooseRunPicture(image, index + 1)"
+                  >
+                    Choose
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        }
+      }
+    </cp-tab-panel>
+
+    <cp-tab-panel id="brand">
+      <ng-container *ngTemplateOutlet="brandLibrary" />
+    </cp-tab-panel>
+  </cp-tabs>
+}
+
+@if (picture() !== null && pictureGone()) {
+  <cp-notice tone="warning" role="alert">
+    This picture is no longer available, so it can't be read. Remove it and choose another.
+  </cp-notice>
+}
+
+@if (picture() !== null && !pictureGone()) {
   <cp-field
     label="What are you looking for in it?"
     forId="cp-pipeline-reference-note"
@@ -33,7 +173,7 @@
     @case ('idle') {
       <div class="cp-actions">
         <button cpButton type="button" variant="secondary" [disabled]="!canRead()" (click)="read()">
-          Read this photograph
+          Read this picture
         </button>
       </div>
     }
@@ -58,7 +198,7 @@
     }
     @case ('refused') {
       <cp-notice tone="error" role="alert">{{ refusalMessage() }}</cp-notice>
-      <p class="cp-muted">Choose a different photograph, or add one.</p>
+      <p class="cp-muted">Remove this picture and choose a different one.</p>
     }
     @case ('unavailable') {
       <cp-notice tone="error" role="alert">
@@ -69,7 +209,7 @@
     }
     @case ('key_reused') {
       <cp-notice tone="error" role="alert">
-        That was started with details that have since changed. Choose the photograph again.
+        That was started with details that have since changed. Choose the picture again.
       </cp-notice>
     }
     @case ('blocked') {
@@ -117,7 +257,7 @@
 
 @if (reading(); as result) {
   @if (result.observations.length > 0) {
-    <h4>What the photograph shows</h4>
+    <p class="heading" role="heading" [attr.aria-level]="headingLevel()">What the picture shows</p>
     <!-- Confidence is a word on every row, never a hue or a bar: a reading nobody is sure of must not look
          like one they are (.claude/rules/ai.md). -->
     <ul class="observations">
@@ -132,13 +272,19 @@
   } @else {
     <!-- "No observations came back", not "nothing could be read with any confidence" — the second asserts a
          judgement about the photograph that the server never made. -->
-    <cp-notice role="note">No observations came back for this photograph.</cp-notice>
+    <cp-notice role="note">No observations came back for this picture.</cp-notice>
   }
 
+  <!-- Before anything is taken from it: a reading shapes a prompt only on the button below, and this is the
+       way to say "not this one" first. -->
+  <div class="cp-actions">
+    <button cpButton type="button" variant="text" size="sm" (click)="discardReading()">Discard this reading</button>
+  </div>
+
   @if (result.prompt) {
-    <h4>Wording drawn from it</h4>
+    <p class="heading" role="heading" [attr.aria-level]="headingLevel()">Wording drawn from it</p>
     <p class="cp-muted">
-      Drawn from the readings above, including any we were unsure of. Check it against the photograph before you
+      Drawn from the readings above, including any we were unsure of. Check it against the picture before you
       use it.
     </p>
     <p class="drawn">{{ result.prompt }}</p>

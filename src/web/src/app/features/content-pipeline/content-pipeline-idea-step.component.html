@@ -84,8 +84,29 @@
         <button cpButton type="button" variant="primary" (click)="accept()">Pick this idea</button>
         <button cpButton type="button" variant="secondary" (click)="tryAnother()">Try another</button>
       }
-      <button cpButton type="button" variant="text" (click)="useAsConcept()">Use this wording as my description</button>
     </div>
+  </cp-form-section>
+}
+
+@if (offersBriefChoice()) {
+  <cp-form-section
+    heading="What to work from"
+    intro="You described a picture on the first step, and now you have an idea too. Say which the picture should be planned from. Neither is changed by choosing."
+    sectionId="cp-pipeline-brief-choice"
+  >
+    <cp-choice-group
+      label="Plan the picture from"
+      [options]="briefChoices()"
+      [value]="briefChoice()"
+      (valueChange)="chooseBrief($event)"
+    />
+
+    @if (briefEdited()) {
+      <cp-notice role="note">
+        You have edited the brief since choosing, so it no longer reads exactly like the choice above. It is shown,
+        and can be changed, at the top of the next step.
+      </cp-notice>
+    }
   </cp-form-section>
 }
 
