@@ -1,0 +1,60 @@
+:host {
+  display: block;
+}
+
+.trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--cp-space-4);
+  align-items: center;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+}
+
+img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border: var(--cp-space-1) solid var(--cp-surface);
+  border-radius: var(--cp-radius-md);
+  box-shadow: var(--cp-shadow-sm);
+  background: var(--cp-surface-subtle);
+}
+
+img:nth-child(1) {
+  transform: rotate(-3deg);
+}
+
+img:nth-child(2) {
+  transform: translateY(calc(-1 * var(--cp-space-4))) rotate(1.5deg);
+}
+
+img:nth-child(3) {
+  transform: rotate(3deg);
+}
+
+.mirror img:nth-child(1) {
+  transform: rotate(3deg);
+}
+
+.mirror img:nth-child(2) {
+  transform: translateY(calc(-1 * var(--cp-space-4))) rotate(-1.5deg);
+}
+
+.mirror img:nth-child(3) {
+  transform: rotate(-3deg);
+}
+
+@media (min-width: 40rem) {
+  .trio {
+    gap: var(--cp-space-8);
+    padding-block: var(--cp-space-10);
+  }
+
+  img {
+    border-width: var(--cp-space-2);
+  }
+}

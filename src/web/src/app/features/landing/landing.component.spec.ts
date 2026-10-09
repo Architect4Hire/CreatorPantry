@@ -15,7 +15,7 @@ describe('LandingComponent', () => {
     return fixture;
   }
 
-  it('composes all five landing sections, in order, inside <main>', async () => {
+  it('composes the landing sections and both photo trios, in order, inside <main>', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
     const main = el.querySelector('main')!;
@@ -24,7 +24,9 @@ describe('LandingComponent', () => {
     expect(mainChildren).toEqual([
       'cp-landing-hero',
       'cp-landing-value-props',
+      'cp-landing-image-trio',
       'cp-landing-how-it-works',
+      'cp-landing-image-trio',
       'cp-landing-trust',
       'cp-landing-final-cta',
     ]);

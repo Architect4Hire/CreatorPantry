@@ -1,0 +1,5 @@
+<div class="trio" [class.mirror]="mirror()">
+  @for (src of photos; track src) {
+    <img [src]="src" alt="" width="400" height="500" loading="lazy" decoding="async" />
+  }
+</div>
