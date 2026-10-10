@@ -62,7 +62,7 @@ to be unworkable, stop and report.
 ## How this list was built
 
 A code map taken on 2026-10-09 (branch `dev`, after `ced1085 prompts upto 12.10L`). File references below
-come from that map — re-find them before relying on a line number.
+come from that map re-find them before relying on a line number.
 
 The honest finding: **most of this feedback is a missing hand-off, not missing AI.** The backend is ahead of
 the web app in almost every flow.

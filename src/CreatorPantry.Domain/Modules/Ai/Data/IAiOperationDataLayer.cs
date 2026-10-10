@@ -171,6 +171,9 @@ internal interface IAiOperationDataLayer
     /// <summary>The operation and its proposal, for a creator polling a request.</summary>
     Task<AiOperationWithProposal?> GetWithProposalAsync(Guid operationId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IAiOperationRepository.FindProposalForLandingAsync"/>
+    Task<AiProposal?> FindProposalForLandingAsync(Guid operationId, CancellationToken cancellationToken);
+
     /// <param name="reservationId">
     /// The allowance this run was admitted under, so its charge settles in the same transaction as the attempt
     /// records and ledger entries it is computed from. Null when nothing was held — an unmeterable task, or a
@@ -434,6 +437,11 @@ internal sealed class AiOperationDataLayer(
         Guid operationId,
         CancellationToken cancellationToken) =>
         await operations.GetWithProposalAsync(operationId, cancellationToken);
+
+    public Task<AiProposal?> FindProposalForLandingAsync(
+        Guid operationId,
+        CancellationToken cancellationToken) =>
+        operations.FindProposalForLandingAsync(operationId, cancellationToken);
 
     public async Task<AiOperationWriteOutcome> StoreProposalAsync(
         Guid operationId,

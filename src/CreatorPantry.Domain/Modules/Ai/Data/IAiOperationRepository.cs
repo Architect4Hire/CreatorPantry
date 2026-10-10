@@ -40,6 +40,17 @@ internal interface IAiOperationRepository
     Task<AiOperationWithProposal?> GetWithProposalAsync(Guid operationId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// One operation's stored proposal with the provenance a landing step needs, untracked.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="GetWithProposalAsync"/> because of what it loads and what it does not: the
+    /// creative-context provenance, which is where a landed revision's recipe pin, context version and package
+    /// checksum come from, and no warnings, which a landing never reads. Adding the join to the poll's read
+    /// instead would make every poll pay for it.
+    /// </remarks>
+    Task<AiProposal?> FindProposalForLandingAsync(Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The operation and its proposal with every change, tracked, for a disposition to decide about.
     /// </summary>
     /// <remarks>
@@ -173,6 +184,16 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
 
         return new AiOperationWithProposal(operation, proposal);
     }
+
+    /// <inheritdoc cref="FindProposalForLandingAsync"/>
+    public async Task<AiProposal?> FindProposalForLandingAsync(
+        Guid operationId,
+        CancellationToken cancellationToken) =>
+        await context.AiProposals.AsNoTracking()
+            .Include(candidate => candidate.Changes)
+            .Include(candidate => candidate.BrandContext!)
+            .Include(candidate => candidate.CreativeContext!)
+            .FirstOrDefaultAsync(candidate => candidate.AiOperationId == operationId, cancellationToken);
 
     /// <inheritdoc cref="GetAsync"/>
     /// <remarks>

@@ -170,6 +170,15 @@
                   (announced)="onAnnounced($event)"
                 />
               }
+              @case ('posts') {
+                <cp-content-pipeline-posts-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [draft]="draft()"
+                  [session]="session"
+                  (changed)="onDraftChanged($event)"
+                  (announced)="onAnnounced($event)"
+                />
+              }
               @case ('library') {
                 <cp-content-pipeline-library-step
                   [workspaceSlug]="workspaceSlug()"

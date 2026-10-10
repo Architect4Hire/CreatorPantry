@@ -2,6 +2,7 @@ import { AiProposalDetail, AiProposedChange } from './ai-proposal.models';
 import {
   countItems,
   draftFromProposal,
+  ingredientLineStatesAmount,
   missingRequiredFieldsOf,
   otherWarningsOf,
   unresolvedQuestionsOf,
@@ -342,5 +343,28 @@ describe('countItems', () => {
     );
 
     expect(countItems(draft.ingredientGroups)).toBe(3);
+  });
+});
+
+describe('ingredientLineStatesAmount', () => {
+  it('accepts a line that states a number, however it is written', () => {
+    expect(ingredientLineStatesAmount('250 g plain flour, sifted')).toBeTrue();
+    expect(ingredientLineStatesAmount('1 1/2 cups stone-ground cornmeal')).toBeTrue();
+    expect(ingredientLineStatesAmount('1½ cups buttermilk')).toBeTrue();
+    expect(ingredientLineStatesAmount('2 x 400 g tins chopped tomatoes')).toBeTrue();
+  });
+
+  /** The prompt names these as complete lines, so flagging one would be crying wolf. */
+  it('accepts a measure that is not a number', () => {
+    expect(ingredientLineStatesAmount('a pinch of cayenne')).toBeTrue();
+    expect(ingredientLineStatesAmount('Flaky salt, to taste')).toBeTrue();
+    expect(ingredientLineStatesAmount('a handful of parsley, chopped')).toBeTrue();
+    expect(ingredientLineStatesAmount('Butter, for greasing')).toBeTrue();
+  });
+
+  it('rejects a line that only names an ingredient', () => {
+    expect(ingredientLineStatesAmount('plain flour, sifted')).toBeFalse();
+    expect(ingredientLineStatesAmount('buttermilk')).toBeFalse();
+    expect(ingredientLineStatesAmount('unsalted butter, softened')).toBeFalse();
   });
 });

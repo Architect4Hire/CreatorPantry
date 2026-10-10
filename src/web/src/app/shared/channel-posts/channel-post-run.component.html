@@ -1,0 +1,140 @@
+<cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+@if (loading()) {
+  <p class="cp-muted" role="status">Loading your posts…</p>
+} @else {
+  <!-- Above the chooser, because what the posts go with decides what they can say about it. A picture nobody
+       has read says so, and offers to have it read before any post is written (AF.6.6). -->
+  @if (pictures().length > 0) {
+    <cp-form-section
+      heading="The picture these go with"
+      intro="What the posts can say about your picture depends on what is known about it."
+      [sectionId]="sectionIdPrefix() + '-picture'"
+    >
+      @for (picture of pictures(); track picture.referenceId) {
+        <cp-channel-post-picture
+          [workspaceSlug]="workspaceSlug()"
+          [picture]="picture"
+          [reading]="readingPictureId() === picture.referenceId"
+          [canRead]="!blocked()"
+          [problem]="readingProblems()[picture.referenceId] ?? ''"
+          (readRequested)="pictureReadRequested.emit(picture)"
+        />
+      }
+    </cp-form-section>
+  }
+
+  @if (showChooser()) {
+    <cp-form-section
+      heading="Choose where they go"
+      [intro]="wording().chooseIntro"
+      [sectionId]="sectionIdPrefix() + '-choose'"
+    >
+      @if (creativeContextId() === null) {
+        <cp-notice tone="warning" role="status">
+          There is nothing to write about yet. Go back and give this piece of work a title, a recipe or an
+          idea first.
+        </cp-notice>
+      } @else if (options().length === 0) {
+        <cp-notice role="note">
+          Every channel you write for already has a post here. Writing one again is on the post itself.
+        </cp-notice>
+      } @else {
+        <cp-choice-group
+          label="Channels"
+          [options]="options()"
+          [multiple]="true"
+          layout="fit"
+          [value]="chosen()"
+          (valueChange)="onChosen($event)"
+          [idPrefix]="sectionIdPrefix() + '-channel'"
+        />
+      }
+
+      @if (requestProblem(); as problem) {
+        <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
+      }
+
+      @switch (tracker.phase().kind) {
+        @case ('submitting') {
+          <p class="cp-muted" role="status">Asking for your posts…</p>
+        }
+        @case ('watching') {
+          <p class="cp-muted" role="status">Writing them now. This usually takes a few seconds.</p>
+        }
+      }
+
+      @if (tracker.connection() === 'degraded') {
+        <cp-notice tone="warning" role="status">
+          This is the last update we could get, so it may be behind what has actually happened.
+        </cp-notice>
+      }
+
+      @if (tracker.stopped()) {
+        <cp-notice tone="warning" role="status">
+          We stopped checking on your posts. They may still be on their way.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="recheck()">Check again</button>
+        </cp-notice>
+      }
+
+      <div class="cp-actions">
+        <button
+          cpButton
+          type="button"
+          variant="primary"
+          [disabled]="!canAsk()"
+          (click)="ask()"
+        >
+          {{ chosen().length === 1 ? 'Write the post' : 'Write the posts' }}
+        </button>
+        @if (hasPosts()) {
+          <button cpButton type="button" variant="text" (click)="closeChooser()">Not now</button>
+        }
+      </div>
+
+      @if (chosen().length === 0 && options().length > 0) {
+        <p class="cp-muted">Tick at least one channel to carry on.</p>
+      }
+    </cp-form-section>
+  }
+
+  @if (hasPosts()) {
+    <cp-form-section
+      [heading]="wording().reviewHeading"
+      [intro]="wording().reviewIntro"
+      [sectionId]="sectionIdPrefix() + '-review'"
+    >
+      @if (loadFailed()) {
+        <cp-notice tone="warning" role="status">
+          This is the last reading of your posts we could get, so it may be behind what has been saved.
+        </cp-notice>
+      }
+
+      <ul class="posts">
+        @for (card of cards(); track card.channel.channelKey) {
+          <li>
+            <cp-channel-post-review
+              [channel]="card.channel"
+              [channelName]="card.name"
+              [busy]="card.busy"
+              [canRegenerate]="!blocked()"
+              [copied]="card.copied"
+              [idPrefix]="sectionIdPrefix() + '-' + card.channel.channelKey"
+              (intent)="onIntent(card.channel.channelKey, $event)"
+            />
+          </li>
+        }
+      </ul>
+
+      @if (!showChooser() && options().length > 0) {
+        <div class="cp-actions">
+          <button cpButton type="button" variant="secondary" (click)="openChooser()">Write another channel</button>
+        </div>
+      }
+    </cp-form-section>
+  } @else if (loadFailed()) {
+    <cp-notice tone="error" role="alert">
+      Your posts couldn't be read just now. Nothing has been lost — try again in a moment.
+    </cp-notice>
+  }
+}

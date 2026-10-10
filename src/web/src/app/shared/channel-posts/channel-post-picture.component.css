@@ -1,0 +1,96 @@
+:host {
+  display: block;
+}
+
+.picture {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+.picture img {
+  flex: 0 0 auto;
+  width: 10rem;
+  height: 10rem;
+  object-fit: cover;
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+/* Holds the picture's place while the bytes arrive, so the caption does not jump when they do. */
+.missing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 10rem;
+  height: 10rem;
+  margin: 0;
+  padding: var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  text-align: center;
+  font-size: var(--cp-font-size-xs);
+}
+
+figcaption {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  /* min-width: 0 so a long observation cannot hold the row wider than the card. */
+  min-width: 0;
+}
+
+.marks {
+  margin: 0;
+}
+
+.own-words,
+.read-by,
+.unread {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+.observations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.observations > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+.aspect {
+  font-weight: 700;
+}
+
+/* In words, never a colour or a bar: this is the one thing about an observation that must not be missable. */
+.confidence {
+  padding: 0 var(--cp-space-2);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.text {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

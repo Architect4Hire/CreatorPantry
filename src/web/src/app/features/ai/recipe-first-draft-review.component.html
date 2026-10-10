@@ -193,6 +193,15 @@
         @if (ingredientCount() === 0) {
           <p class="draft-notice" role="status">The draft didn't propose any ingredients.</p>
         } @else {
+          <!-- Named while every line is still editable, for the reason missingRequired is: a gap met at
+               acceptance has been told too late. Goes as soon as the amounts are typed in. -->
+          @if (linesWithoutAmount().length; as count) {
+            <cp-notice tone="warning" role="status">
+              {{ count === 1 ? 'One line does not say how much' : count + ' lines do not say how much' }}:
+              {{ linesWithoutAmount().join('; ') }}. Write {{ count === 1 ? 'the amount' : 'the amounts' }} in
+              below before you accept this draft — a line without one cannot be scaled or converted.
+            </cp-notice>
+          }
           @for (group of d.ingredientGroups; track group.changeId; let gi = $index) {
             <cp-card>
               @if (groupHeading(group, gi, d.ingredientGroups.length); as heading) {

@@ -5370,6 +5370,231 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/channel-post-requests": {
+      "post": {
+        "tags": [
+          "ChannelPostRequests"
+        ],
+        "summary": "Asks for one post per named channel, about one piece of creative work.",
+        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: nothing\nhas been written yet, the request is durable, and the model is called by the worker afterwards, so the\nAPI does not stay open around unbounded provider work (api-contract.md). The \u0060Location\u0060 header points\nat the status resource to poll.\n\n**The key names the request.** The same key with the same piece of work and the same channels in the\nsame order is a retry and returns the first answer; the same key with a different context, a different\nset of channels, or the same channels in a different order answers \u0060422 idempotency.key_reused\u0060 \u2014 the\norder is part of the request because the posts come back in it.\n\n**An exhausted allowance is refused here, before any provider is called**: \u0060429 ai.quota.exhausted\u0060\ncarrying what remains, what this would have taken and a \u0060Retry-After\u0060, or \u0060403 ai.quota.suspended\u0060 when\nAI is switched off for the account. Nothing is queued in either case.\n\nA piece of work this workspace does not have answers \u0060404 ai.channelPostsContext.not_found\u0060 \u2014 the same\nanswer, in the same words, that another workspace\u0027s context gets. A channel key that names nothing is a\n\u0060400\u0060; a key that names a **retired** channel is \u0060422 ai.channelPosts.channel.unprocessable\u0060 unless\nthis piece of work already has a post for it, because a post already written for a retired channel can\nstill be written again.\n\n**What comes back is a proposal.** Each body is stored as a revision awaiting a decision, with the\ncount its channel\u0027s writing profile measured beside it; a body over its channel\u0027s limit is stored as\nwritten and flagged, never trimmed. Nothing is accepted until a creator says so.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Writing posts spends the account\u0027s allowance, so a repeat of the same key and the same\nrequest returns the original with \u0060Idempotent-Replayed: true\u0060 rather than buying a second set.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestChannelPosts"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestChannelPosts"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestChannelPosts"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/channel-post-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "ChannelPostRequests"
+        ],
+        "summary": "Where a post-writing request has got to, and the posts it produced.",
+        "description": "Every member including a Viewer may read, and this route writes nothing \u2014 the generated bodies become\npost revisions in the worker, immediately after the proposal commits, so a poll never has to be the\nthing that stores a creator\u0027s content.\n\nPolling before the posts exist is a \u0060200\u0060 carrying a status and a null \u0060package\u0060, not a \u0060404\u0060: the\nrequest resource exists from the moment it was accepted. An unknown id, another workspace\u0027s request,\nand a request that ran a different task all answer \u0060404 ai.channelPostsRequest.not_found\u0060.\n\nA cancelled or failed run answers \u0060200\u0060 with the operation\u0027s status and \u0060failureCategory\u0060 \u2014 \u0060Cancelled\u0060\nwhen the run was cancelled \u2014 rather than an error: the request was accepted, and what became of it is\nthe answer.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as on the request above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The id the request returned. It is the operation\u0027s id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelPostRequestStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelPostRequestStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelPostRequestStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/content-seeds": {
       "get": {
         "tags": [
@@ -5505,6 +5730,432 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/posts": {
+      "get": {
+        "tags": [
+          "CreativeContextPosts"
+        ],
+        "summary": "The posts written for this piece of work, one entry per channel.",
+        "description": "Every member including a Viewer may read. A piece of work with nothing written for it yet is a \u0060204\u0060,\nnot a \u0060404\u0060: there is no package, and reporting the work missing would be untrue. A context this\nworkspace does not have answers \u0060404 content.social.not_found\u0060, the same answer another workspace\u0027s\ngets.\n\nEach channel carries its newest revision, the one last accepted if any, and whether what was accepted\nis still current \u2014 decided from the recipe version the accepted words were pinned to rather than from\nthe status alone. The response is \u0060no-store\u0060: it is workspace-private creator content.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The piece of work.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/posts/{channelKey}": {
+      "patch": {
+        "tags": [
+          "CreativeContextPosts"
+        ],
+        "summary": "Replaces one channel\u0027s words with the creator\u0027s own, as a new revision.",
+        "description": "Contributor or above. \u0060200\u0060 rather than \u0060202\u0060: nothing is generated, and the revision commits before\nthe reply is written. The whole package comes back, because an edit can change what the channel\u0027s\nstaleness and decision state are.\n\n**A new revision, never an overwrite.** The generated body it replaces stays in the history, and\nanything already accepted stays accepted until a decision says otherwise.\n\n\u0060expectedLatestRevisionId\u0060 is the version check: an edit composed against anything but the channel\u0027s\nnewest revision answers \u0060409 content.social.stale.conflict\u0060 with both the server\u0027s state and the\ncreator\u0027s words intact \u2014 reload and send them again. Omit it only for the first words on a channel.\n\nA channel with no writing profile answers \u0060422 content.social.channel.unprocessable\u0060; a channel this\npackage does not have and the catalogue does not know answers the same. An empty or over-long body is a\n\u0060400 content.social.invalid\u0060. A pin the workspace cannot see is\n\u0060422 content.social.source.unprocessable\u0060 \u2014 one sentence for every such refusal, so a write cannot be\nused to ask what a neighbour owns.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The piece of work.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "channelKey",
+            "in": "path",
+            "description": "The channel being edited.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditChannelPost"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditChannelPost"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/EditChannelPost"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/posts/{channelKey}/disposition": {
+      "post": {
+        "tags": [
+          "CreativeContextPosts"
+        ],
+        "summary": "Accepts, rejects, regenerates or reaffirms one channel\u0027s post.",
+        "description": "Contributor at the edge, because \u0060regenerate\u0060 is a drafting move. Accepting, rejecting and reaffirming\nneed **Editor** and the domain enforces it: \u0060403 content.social.forbidden\u0060 for a Contributor, which is\nthe deliberate cost of one policy per route \u2014 the role that may draft a post is not the role that\ndecides a workspace\u0027s content.\n\n\u0060accept\u0060, \u0060reject\u0060 and \u0060reaffirm\u0060 answer \u0060200\u0060 with the package. \u0060regenerate\u0060 answers \u0060202\u0060 with an\noperation to poll and a \u0060Location\u0060 pointing at it, exactly as a first request does.\n\n**Accepting twice does not accept twice.** A repeat of the same acceptance writes nothing, creates no\nsecond accepted revision and records no second audit entry; the package comes back unchanged. The same\nholds for a repeated rejection.\n\n**Regenerating one channel leaves the others exactly as they are** \u2014 it is a request naming that one\nchannel, and nothing in this route can reach a neighbouring slot.\n\n\u0060revisionId\u0060 must name the channel\u0027s newest revision: anything else is\n\u0060409 content.social.stale.conflict\u0060, so a decision composed while looking at an older body cannot land\non words its author has not read. A channel with nothing awaiting that decision is\n\u0060409 content.social.decision.conflict\u0060. Accepting words pinned to a recipe version that is no longer\nthe latest is \u0060409 content.social.source_stale.conflict\u0060 \u2014 edit, regenerate, or reaffirm.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The piece of work.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "channelKey",
+            "in": "path",
+            "description": "The channel being decided about. No decision can reach another channel\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required for \u0060regenerate\u0060 and unused by the other three: writing a channel again spends the account\u0027s\nallowance, and accepting twice is already recognised as one decision made twice.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelPostDisposition"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelPostDisposition"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelPostDisposition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPackage"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -5919,6 +6570,102 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/pictures": {
+      "get": {
+        "tags": [
+          "CreativeContexts"
+        ],
+        "summary": "The pictures this piece of work names, and what is known about what each shows.",
+        "description": "Every member including a Viewer may read. A piece of work that names no picture is an empty list, not a\n\u0060404\u0060; a context this workspace does not have answers\n\u0060404 content.creative_context.not_found\u0060, the same answer another workspace\u0027s gets.\n\n**A picture that no longer resolves is left out**, not listed as unavailable: a declined or expired\ngenerated image and a removed library asset cannot be shown, so there is nothing to offer about them.\n\nEach entry carries the ids its own render route takes, whether the creator kept it or chose it, their\nown alt text where they wrote any, and \u0060reading\u0060 \u2014 what a model saw in the picture, with each\nobservation\u0027s \u0060confidence\u0060 beside its text, or null when nobody has looked.\n\n**A \u0060reading\u0060 is not the creator\u0027s words.** It is model prose about a photograph that no creator has\nreviewed; a surface showing one says so and shows every confidence, because an observation whose label\nis dropped reads as a fact. It is never presented as alt text.\n\nThe response is \u0060no-store\u0060: it is workspace-private creator content.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The piece of work.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreativeContextPicture"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreativeContextPicture"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreativeContextPicture"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -21163,6 +21910,62 @@
           }
         }
       },
+      "ChannelPostDecision": {
+        "enum": [
+          "Unspecified",
+          "Accept",
+          "Reject",
+          "Regenerate",
+          "Reaffirm"
+        ],
+        "type": "string"
+      },
+      "ChannelPostDisposition": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "accept, reject, regenerate, or reaffirm.",
+                "$ref": "#/components/schemas/ChannelPostDecision"
+              }
+            ]
+          },
+          "revisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The revision you are deciding about.",
+            "format": "uuid"
+          }
+        }
+      },
+      "ChannelPostRequestStatus": {
+        "required": [
+          "request",
+          "package"
+        ],
+        "type": "object",
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/AiProposalStatus"
+          },
+          "package": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SocialPackage"
+              }
+            ]
+          }
+        }
+      },
       "CompletePasswordReset": {
         "type": "object",
         "properties": {
@@ -21206,6 +22009,23 @@
             "type": "boolean"
           }
         }
+      },
+      "ContentProposalStatus": {
+        "enum": [
+          "Proposed",
+          "Accepted",
+          "Rejected",
+          "NeedsReview"
+        ],
+        "type": "string"
+      },
+      "ContentRevisionSource": {
+        "enum": [
+          "AiGenerated",
+          "CreatorEdit",
+          "Reaffirmed"
+        ],
+        "type": "string"
       },
       "ContentSeed": {
         "required": [
@@ -21407,6 +22227,16 @@
             "type": "string"
           }
         }
+      },
+      "ContentStaleReasons": {
+        "enum": [
+          "None",
+          "RecipeChanged",
+          "BrandChanged",
+          "VoiceChanged",
+          "TemplateChanged"
+        ],
+        "type": "string"
       },
       "ConvertTemperature": {
         "required": [
@@ -22263,6 +23093,120 @@
         ],
         "type": "string"
       },
+      "CreativeContextPicture": {
+        "required": [
+          "referenceId",
+          "kind",
+          "purpose",
+          "mediaAssetId",
+          "mediaAssetVersionNumber",
+          "generatedImageId",
+          "altText",
+          "reading",
+          "grounding"
+        ],
+        "type": "object",
+        "properties": {
+          "referenceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CreativeContextReferenceKind"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/CreativeContextReferencePurpose"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "generatedImageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "altText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reading": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreativeContextPictureReading"
+              }
+            ]
+          },
+          "grounding": {
+            "$ref": "#/components/schemas/CreativeContextPictureDescriptionSource"
+          }
+        }
+      },
+      "CreativeContextPictureDescriptionSource": {
+        "enum": [
+          "NotDescribed",
+          "CreatorAltText",
+          "StoredAnalysis"
+        ],
+        "type": "string"
+      },
+      "CreativeContextPictureObservation": {
+        "required": [
+          "aspect",
+          "text",
+          "confidence"
+        ],
+        "type": "object",
+        "properties": {
+          "aspect": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          }
+        }
+      },
+      "CreativeContextPictureReading": {
+        "required": [
+          "observations",
+          "readAt"
+        ],
+        "type": "object",
+        "properties": {
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreativeContextPictureObservation"
+            }
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CreativeContextReference": {
         "required": [
           "id",
@@ -22655,6 +23599,26 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "EditChannelPost": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Your words for this post."
+          },
+          "expectedLatestRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The revision you were looking at. Omit only when the channel has no post yet.",
+            "format": "uuid"
           }
         }
       },
@@ -27483,6 +28447,26 @@
           }
         }
       },
+      "RequestChannelPosts": {
+        "type": "object",
+        "properties": {
+          "creativeContextId": {
+            "type": "string",
+            "description": "The creative context the posts are about.",
+            "format": "uuid"
+          },
+          "channelKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "The channels to write for. One to eight known channel keys, no duplicates."
+          }
+        }
+      },
       "RequestDishFacets": {
         "type": "object",
         "properties": {
@@ -28484,6 +29468,229 @@
           "Archived"
         ],
         "type": "string"
+      },
+      "SocialChannel": {
+        "required": [
+          "channelKey",
+          "status",
+          "latest",
+          "accepted",
+          "isCurrent",
+          "staleSince",
+          "staleReasons",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentProposalStatus"
+          },
+          "latest": {
+            "$ref": "#/components/schemas/SocialRevision"
+          },
+          "accepted": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SocialRevision"
+              }
+            ]
+          },
+          "isCurrent": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "staleSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "staleReasons": {
+            "$ref": "#/components/schemas/ContentStaleReasons"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SocialLimitStatus": {
+        "enum": [
+          "NotChecked",
+          "Within",
+          "Over"
+        ],
+        "type": "string"
+      },
+      "SocialPackage": {
+        "required": [
+          "id",
+          "creativeContextId",
+          "channels",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SocialChannel"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SocialRevision": {
+        "required": [
+          "id",
+          "revisionNumber",
+          "parentRevisionId",
+          "source",
+          "body",
+          "characterCount",
+          "characterLimit",
+          "limitStatus",
+          "channelProfileVersion",
+          "aiProposalId",
+          "promptTemplateId",
+          "promptTemplateVersion",
+          "recipeId",
+          "recipeVersionId",
+          "brandProfileRevisionId",
+          "brandStyleGuideVersionId",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "parentRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContentRevisionSource"
+          },
+          "body": {
+            "type": "string"
+          },
+          "characterCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "characterLimit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "limitStatus": {
+            "$ref": "#/components/schemas/SocialLimitStatus"
+          },
+          "channelProfileVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptTemplateId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "promptTemplateVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "brandProfileRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "brandStyleGuideVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "StagedImage": {
         "required": [
@@ -30168,7 +31375,13 @@
       "name": "BrandWritingGuide"
     },
     {
+      "name": "ChannelPostRequests"
+    },
+    {
       "name": "ContentSeeds"
+    },
+    {
+      "name": "CreativeContextPosts"
     },
     {
       "name": "CreativeContexts"

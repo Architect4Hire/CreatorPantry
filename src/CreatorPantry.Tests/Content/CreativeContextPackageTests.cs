@@ -15,6 +15,7 @@ using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
@@ -23,6 +24,7 @@ using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary;
+using CreatorPantry.Tests.Media;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -244,6 +246,44 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
 
     private Task<Guid> ImageAsync(Guid workspaceId) =>
         DbAsync(workspaceId, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+
+    /// <summary>
+    /// Keeps a reading of one picture, the way AF.3.4's handler does.
+    /// </summary>
+    /// <remarks>
+    /// Through the real <see cref="IMediaPictureAnalysisFacade"/>, with the checksum read back from the
+    /// picture itself: the facade refuses a reading whose checksum is not the picture's, and a test that
+    /// supplied its own would be proving nothing about the path the handler takes.
+    /// </remarks>
+    private Task AnalyseAsync(
+        Guid workspaceId,
+        Guid? assetId,
+        Guid? imageId,
+        params (string Aspect, string Text, string Confidence)[] observations) =>
+        InAsync(workspaceId, async services =>
+        {
+            var db = services.GetRequiredService<CreatorPantryDbContext>();
+
+            var checksum = assetId is { } asset
+                ? (await db.MediaAssetVersions.SingleAsync(
+                    version => version.MediaAssetId == asset && version.VersionNumber == 1, Ct)).ContentChecksum
+                : (await db.GeneratedImages.SingleAsync(image => image.Id == imageId!.Value, Ct)).ContentChecksum;
+
+            var kept = await services.GetRequiredService<IMediaPictureAnalysisFacade>().KeepAsync(
+                assetId,
+                assetId is null ? null : 1,
+                imageId,
+                checksum,
+                [.. observations.Select(each => new MediaPictureObservation(each.Aspect, each.Text, each.Confidence))],
+                Guid.NewGuid(),
+                "image.reference-analysis",
+                "1.1.0",
+                Ct);
+
+            Assert.True(kept, "the reading was not kept");
+
+            return true;
+        });
 
     private Task<Guid> ThemeAsync(Guid workspaceId, string key, string name, string? description, DateTimeOffset? retiredAt = null) =>
         DbAsync(workspaceId, async db =>
@@ -603,6 +643,258 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
         Assert.Equal(3, sources.Split(CreativeContextPackage.UndescribedPicture).Length - 1);
         Assert.DoesNotContain("soda bread on linen", sources, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("describedBy", sources, StringComparison.Ordinal);
+    }
+
+    // ---- a stored reading (AF.6.6) -----------------------------------------------------------------------
+
+    /// <summary>
+    /// A generated image has no alt text and never will, so a stored reading is the only thing that can
+    /// describe it — and until AF.6.6 nothing read one.
+    /// </summary>
+    [Fact]
+    public async Task A_read_generated_image_contributes_its_observations_with_their_confidences()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var imageId = await ImageAsync(WorkspaceA);
+        await AnalyseAsync(
+            WorkspaceA,
+            assetId: null,
+            imageId,
+            ("Composition", "Overhead, the loaf off-centre on linen.", "Clear"),
+            ("Lighting", "Soft daylight from the left.", "Clear"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.GeneratedImage,
+            reference => reference.GeneratedImageId = imageId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        Assert.Equal(CreativeContextPictureDescriptionSource.StoredAnalysis, picture.DescriptionSource);
+        Assert.Null(picture.Description);
+        Assert.NotNull(picture.Reading);
+        Assert.Equal(
+            [("Composition", "Clear"), ("Lighting", "Clear")],
+            picture.Reading!.Observations.Select(each => (each.Aspect, each.Confidence)));
+
+        var sources = CreativeContextPromptRenderer.Sources(package)!;
+
+        // Each confidence travels with its own text, because IMediaPictureAnalysisFacade asks every caller to
+        // carry it — a label that was dropped reads as a fact. Only the clear ones are carried at all; the
+        // filter itself is Only_what_the_reading_was_clear_about_is_carried.
+        Assert.Contains("\"confidence\":\"Clear\"", sources, StringComparison.Ordinal);
+        Assert.Contains("Soft daylight from the left.", sources, StringComparison.Ordinal);
+
+        // And it is never offered as the creator's. They did not write it and have not necessarily read it.
+        Assert.Contains(CreativeContextPromptRenderer.ReadingAuthor, sources, StringComparison.Ordinal);
+        Assert.DoesNotContain(CreativeContextPromptRenderer.AltTextAuthor, sources, StringComparison.Ordinal);
+        Assert.DoesNotContain(CreativeContextPackage.UndescribedPicture, sources, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The precedence, which is the decision AF.6.6 turned on: the creator's own reviewed words win, and a
+    /// reading fills the gap where there are none.
+    /// </summary>
+    [Fact]
+    public async Task The_creators_alt_text_wins_over_a_reading_of_the_same_picture()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var assetId = await AssetAsync(WorkspaceA, "A torn soda loaf on a linen cloth.");
+        await AnalyseAsync(WorkspaceA, assetId, imageId: null, ("Composition", "A loaf, off-centre.", "Clear"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset,
+            reference => reference.MediaAssetId = assetId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        Assert.Equal(CreativeContextPictureDescriptionSource.CreatorAltText, picture.DescriptionSource);
+        Assert.Equal("A torn soda loaf on a linen cloth.", picture.Description);
+        Assert.Null(picture.Reading);
+
+        var sources = CreativeContextPromptRenderer.Sources(package)!;
+        Assert.DoesNotContain("A loaf, off-centre.", sources, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task An_undescribed_asset_that_has_been_read_contributes_the_reading()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var assetId = await AssetAsync(WorkspaceA, altText: null);
+        await AnalyseAsync(WorkspaceA, assetId, imageId: null, ("Subject", "A round loaf, torn open.", "Clear"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset,
+            reference => reference.MediaAssetId = assetId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        Assert.Equal(CreativeContextPictureDescriptionSource.StoredAnalysis, picture.DescriptionSource);
+        Assert.Equal("A round loaf, torn open.", Assert.Single(picture.Reading!.Observations).Text);
+    }
+
+    /// <summary>
+    /// A reading of a <em>pinned</em> version is read for that version alone, for the reason alt text from a
+    /// later version is not attributed to an earlier one: a reading belongs to the bytes it was made from.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_of_another_version_does_not_describe_the_pinned_one()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var assetId = await AssetAsync(WorkspaceA, altText: null);
+        await AnalyseAsync(WorkspaceA, assetId, imageId: null, ("Subject", "The first loaf.", "Clear"));
+
+        // A second version, which the context pins. Nobody has read it.
+        await DbAsync(WorkspaceA, async db =>
+        {
+            var asset = await db.MediaAssets.SingleAsync(each => each.Id == assetId, Ct);
+            db.MediaAssetVersions.Add(SeededMediaAsset.VersionOf(asset, versionNumber: 2));
+            asset.CurrentVersionNumber = 2;
+            await db.SaveChangesAsync(Ct);
+
+            return true;
+        });
+
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset, reference =>
+        {
+            reference.MediaAssetId = assetId;
+            reference.MediaAssetVersionNumber = 2;
+        });
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        Assert.Equal(CreativeContextPictureDescriptionSource.NotDescribed, picture.DescriptionSource);
+        Assert.Null(picture.Reading);
+        Assert.DoesNotContain(
+            "The first loaf.", CreativeContextPromptRenderer.Sources(package)!, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Only what the reading was clear about reaches a task, and the rule is code rather than prompt text: a
+    /// guess that reaches a prompt is a guess that can reach a post, plausible-sounding and wrong.
+    /// </summary>
+    [Fact]
+    public async Task Only_what_the_reading_was_clear_about_is_carried()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var imageId = await ImageAsync(WorkspaceA);
+        await AnalyseAsync(
+            WorkspaceA,
+            assetId: null,
+            imageId,
+            ("Composition", "Overhead, the loaf off-centre.", "Clear"),
+            ("Styling", "Probably a linen cloth.", "Probable"),
+            ("Lighting", "Hard to tell where the light is.", "Unclear"),
+            ("Mood", "Nothing stated about this.", "Unspecified"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.GeneratedImage,
+            reference => reference.GeneratedImageId = imageId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        Assert.Equal("Overhead, the loaf off-centre.", Assert.Single(picture.Reading!.Observations).Text);
+        Assert.Contains(CreativeContextOmission.PictureAnalysisOverCap, package.Omissions);
+
+        var sources = CreativeContextPromptRenderer.Sources(package)!;
+        foreach (var guess in new[] { "Probably a linen cloth", "Hard to tell", "Nothing stated" })
+        {
+            Assert.DoesNotContain(guess, sources, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task A_reading_with_nothing_clear_in_it_leaves_the_picture_undescribed()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var imageId = await ImageAsync(WorkspaceA);
+        await AnalyseAsync(WorkspaceA, assetId: null, imageId, ("Styling", "Probably linen.", "Probable"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.GeneratedImage,
+            reference => reference.GeneratedImageId = imageId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        // Looked at, and nothing definite seen — which reads as not described, because that is what it is.
+        Assert.Equal(CreativeContextPictureDescriptionSource.NotDescribed, picture.DescriptionSource);
+        Assert.Null(picture.Reading);
+        Assert.Contains(
+            CreativeContextPackage.UndescribedPicture,
+            CreativeContextPromptRenderer.Sources(package)!,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A read picture is a subject to write about, which is the whole point of reading one. Before AF.6.6 the
+    /// handler asked only for a <em>description</em>, so a piece of work whose only content was a read picture
+    /// was refused as having nothing to write from.
+    /// </summary>
+    [Fact]
+    public async Task A_read_picture_is_something_to_write_from()
+    {
+        var context = await ContextAsync(WorkspaceA, title: null, brief: null);
+        var imageId = await ImageAsync(WorkspaceA);
+        await AnalyseAsync(WorkspaceA, assetId: null, imageId, ("Subject", "A round loaf, torn open.", "Clear"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.GeneratedImage,
+            reference => reference.GeneratedImageId = imageId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        Assert.Null(package.Words?.WorkingTitle);
+        Assert.Empty(package.Recipes);
+        Assert.Equal(
+            CreativeContextPictureDescriptionSource.StoredAnalysis,
+            Assert.Single(package.Pictures).DescriptionSource);
+    }
+
+    [Fact]
+    public async Task A_reading_too_long_to_carry_whole_keeps_the_observations_that_fit_and_says_so()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var imageId = await ImageAsync(WorkspaceA);
+
+        // Four observations of 600 characters each: two fit under the 1,500 cap, and the third would cross it.
+        var long1 = new string('a', 600);
+        var long2 = new string('b', 600);
+        var long3 = new string('c', 600);
+        await AnalyseAsync(
+            WorkspaceA,
+            assetId: null,
+            imageId,
+            ("Composition", long1, "Clear"),
+            ("Lighting", long2, "Clear"),
+            ("Styling", long3, "Clear"));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.GeneratedImage,
+            reference => reference.GeneratedImageId = imageId);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var picture = Assert.Single(package.Pictures);
+
+        // Whole observations, never a cut one: the end of an observation is as likely as its start to be the
+        // part that says what the picture shows.
+        Assert.Equal(2, picture.Reading!.Observations.Count);
+        Assert.Equal(long1, picture.Reading.Observations[0].Text);
+        Assert.Equal(long2, picture.Reading.Observations[1].Text);
+        Assert.Contains(CreativeContextOmission.PictureAnalysisOverCap, package.Omissions);
+        Assert.DoesNotContain(
+            long3, CreativeContextPromptRenderer.Sources(package)!, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A reading is content the task was grounded on, so the checksum has to move when one arrives —
+    /// otherwise a stored proposal could not say which of the two groundings it was written from.
+    /// </summary>
+    [Fact]
+    public async Task Reading_a_picture_changes_the_packages_checksum()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var imageId = await ImageAsync(WorkspaceA);
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.GeneratedImage,
+            reference => reference.GeneratedImageId = imageId);
+
+        var before = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        await AnalyseAsync(WorkspaceA, assetId: null, imageId, ("Composition", "A loaf on linen.", "Clear"));
+
+        var after = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        Assert.NotEqual(before.Checksum, after.Checksum);
     }
 
     [Fact]
@@ -1254,6 +1546,11 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
             db, Now, Ct, title: "B's secret concept"));
         var assetB = await AssetAsync(WorkspaceB, "B's secret picture.");
         var imageB = await ImageAsync(WorkspaceB);
+
+        // And a reading of B's generated image (AF.6.6). A reading is model prose about a neighbour's
+        // photograph, found through a facade filtered by the resolved workspace like every other read — so it
+        // belongs in this test rather than in one of its own.
+        await AnalyseAsync(WorkspaceB, assetId: null, imageB, ("Subject", "B's secret plating.", "Clear"));
         var promptB = await DbAsync(WorkspaceB, async db =>
         {
             var record = new PromptRecord

@@ -70,6 +70,25 @@ public static class CreativeContextPackageSelection
     public const int MaxAltTextLength = 500;
 
     /// <summary>
+    /// How much of one stored reading a package may carry, across every observation in it.
+    /// </summary>
+    /// <remarks>
+    /// A reading may hold sixteen observations of a thousand characters each
+    /// (<c>MediaPictureAnalysisPolicy</c>), which is thirty-two times the alt-text cap and, six pictures over,
+    /// more than the whole package's budget. This is the concept-summary cap — the largest single entry the
+    /// package already carries — so a read picture contributes about as much as a chosen idea does, and
+    /// observations are kept whole: the one that would cross the line is left out rather than cut.
+    /// </remarks>
+    public const int MaxPictureAnalysisLength = 1_500;
+
+    /// <summary>The longest one observation's aspect or confidence label may be carried as.</summary>
+    /// <remarks>
+    /// <c>MediaPictureAnalysisPolicy.LabelMaxLength</c>'s own number, repeated rather than borrowed for the
+    /// reason this file repeats every other bound: a package's shape is this module's to state.
+    /// </remarks>
+    public const int MaxPictureObservationLabelLength = 64;
+
+    /// <summary>
     /// What a task grounds in. A task that is not listed grounds in nothing.
     /// </summary>
     /// <remarks>
@@ -189,7 +208,87 @@ public static class CreativeContextPackageSelection
         EstimateTokens(concept.Title) + EstimateTokens(concept.Summary);
 
     public static int Estimate(CreativeContextPictureEntry picture) =>
-        EstimateTokens(picture.Description ?? CreativeContextPackage.UndescribedPicture);
+        picture.Reading is { } reading
+            ? reading.Observations.Sum(
+                observation => EstimateTokens(observation.Aspect)
+                    + EstimateTokens(observation.Confidence)
+                    + EstimateTokens(observation.Text))
+            : EstimateTokens(picture.Description ?? CreativeContextPackage.UndescribedPicture);
+
+    /// <summary>
+    /// The one confidence a reading's observation may be grounded on.
+    /// </summary>
+    /// <remarks>
+    /// <c>AiReferenceImageConfidence.Clear</c>'s own word. Mirrored rather than referenced for the reason this
+    /// file repeats every other bound, and compared without case so a provider's casing cannot decide what a
+    /// task is told.
+    /// </remarks>
+    public const string ClearConfidence = "Clear";
+
+    /// <summary>
+    /// The observations of one reading a task may be grounded on: the clear ones, as many as fit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Only what the reading was clear about.</strong> A "probable" or "hard to tell" observation is a
+    /// guess about someone's photograph, and a guess that reaches a prompt is a guess that can reach a post —
+    /// plausible-sounding and wrong, which is the one shape of error a creator is least likely to catch. The
+    /// prompt forbids writing one as a fact; this is the same rule in code, where a model cannot decline it
+    /// (ai.md).
+    /// </para>
+    /// <para>
+    /// <strong>A reading with nothing clear in it grounds nothing</strong>, and the picture then reads as one
+    /// nobody has described — which is true: it was looked at and nothing definite was seen.
+    /// </para>
+    /// </remarks>
+    public static (IReadOnlyList<CreativeContextPictureObservation> Kept, bool Omitted) GroundableObservations(
+        IReadOnlyList<CreativeContextPictureObservation> observations)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+
+        var clear = observations
+            .Where(observation => string.Equals(observation.Confidence, ClearConfidence, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var (kept, omitted) = FitReading(clear);
+
+        // "Some were left out" covers both reasons, because a creator and a reviewer need the same one fact:
+        // the task was told less than the reading says.
+        return (kept, omitted || clear.Count != observations.Count);
+    }
+
+    /// <summary>
+    /// The observations of one stored reading that fit, and whether any were left out.
+    /// </summary>
+    /// <remarks>
+    /// In the order the reading gives them, and whole: the first observation that would cross
+    /// <see cref="MaxPictureAnalysisLength"/> ends the list, and everything after it is left out too rather
+    /// than skipped over — a reading read in order is an account of a picture, and one with a hole in the
+    /// middle silently reorders what the model thought worth saying first.
+    /// </remarks>
+    public static (IReadOnlyList<CreativeContextPictureObservation> Kept, bool Omitted) FitReading(
+        IReadOnlyList<CreativeContextPictureObservation> observations)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+
+        var kept = new List<CreativeContextPictureObservation>();
+        var length = 0;
+
+        foreach (var observation in observations)
+        {
+            var cost = observation.Aspect.Length + observation.Confidence.Length + observation.Text.Length;
+
+            if (length + cost > MaxPictureAnalysisLength)
+            {
+                return (kept, true);
+            }
+
+            length += cost;
+            kept.Add(observation);
+        }
+
+        return (kept, false);
+    }
 
     public static int Estimate(CreativeContextPromptEntry prompt) => EstimateTokens(prompt.Text);
 
@@ -297,6 +396,20 @@ public static class CreativeContextPackageSelection
             Field($"{id}:reference", picture.ReferenceId.ToString("N"));
             Field($"{id}:source", picture.DescriptionSource.ToString());
             Field($"{id}:description", picture.Description);
+
+            // A stored reading is content the task was grounded on, so it has to reach the checksum: without
+            // it, the same picture read and unread would hash alike, and a proposal could not say which of
+            // the two it was written from. The instant is in as well — the same pixels read again are a
+            // different grounding, even where the words happen to match.
+            if (picture.Reading is { } reading)
+            {
+                Field($"{id}:readAt", reading.ReadAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+
+                foreach (var observation in reading.Observations)
+                {
+                    Field($"{id}:observation", $"{observation.Aspect}|{observation.Confidence}|{observation.Text}");
+                }
+            }
         }
 
         foreach (var prompt in prompts)

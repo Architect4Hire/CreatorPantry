@@ -61,6 +61,11 @@ h1 {
   gap: var(--cp-space-3);
 }
 
+/* The size the buttons beside it are labelled, so the row reads as one set of controls. */
+.actions cp-checkbox {
+  --cp-checkbox-font-size: var(--cp-font-size-md);
+}
+
 /* The numbers a cook checks before starting, on one line that wraps. */
 .facts {
   display: flex;
@@ -83,6 +88,11 @@ h1 {
 
 cp-notice {
   margin-bottom: var(--cp-space-6);
+}
+
+/* A live region holding its place before it has anything to say takes up no room either. */
+cp-notice.quiet {
+  margin-bottom: 0;
 }
 
 .layout {
@@ -194,18 +204,6 @@ h3 {
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-md);
   white-space: pre-line;
-}
-
-.step cp-checkbox {
-  margin-top: var(--cp-space-2);
-  --cp-checkbox-font-size: var(--cp-font-size-md);
-}
-
-.step.done .step-text,
-.step.done .step-facts,
-.step.done .step-note,
-.step.done .step-number {
-  opacity: 0.55;
 }
 
 .notes {
@@ -387,13 +385,6 @@ h3 {
   .step-note {
     max-width: none;
     font-size: 10.5pt;
-  }
-
-  .step.done .step-text,
-  .step.done .step-facts,
-  .step.done .step-note,
-  .step.done .step-number {
-    opacity: 1;
   }
 
   .prose {

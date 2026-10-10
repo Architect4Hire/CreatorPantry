@@ -1,0 +1,19 @@
+:host {
+  display: block;
+}
+
+/* One card per channel, one per row at phone width and side by side when there is room. The floor is clamped
+   for the reason DESIGN-SYSTEM.md records: an unclamped minmax() floor keeps a full-width track inside a
+   narrower screen and pushes the page sideways. */
+.posts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.posts > li {
+  min-width: 0;
+}

@@ -427,6 +427,26 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers AF.6.4's request seam: posts for one piece of creative work, written channel by channel.
+    /// </summary>
+    /// <remarks>
+    /// Its prerequisite is the <strong>content</strong> module rather than the recipe one: the piece of work,
+    /// the post package and the channel catalogue are all read through that module, and whichever recipe the
+    /// work pins is the context package's business at generation time rather than this seam's at request time.
+    /// </remarks>
+    public static IServiceCollection AddAiChannelPostsSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiChannelPostsRequestBusiness, AiChannelPostsRequestBusiness>();
+        services.AddScoped<IAiChannelPostsRequestFacade, AiChannelPostsRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestChannelPostsViewModel>,
+            RequestChannelPostsViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers 11A.19's brand-context assembler, which grounds a generation in the workspace's brand voice.
     /// </summary>
     /// <remarks>
@@ -510,6 +530,10 @@ public static class AiServiceCollectionExtensions
         // Reads the content module's creative-context package and the channel writing profiles, so this
         // handler adds AddContentModule to the worker's prerequisites.
         services.AddKeyedScoped<IAiTaskHandler, ChannelPostsAiTaskHandler>(AiTaskType.ChannelPosts);
+
+        // The step after the proposal (AF.6.4): the generated bodies become post revisions once the proposal
+        // they name has committed. Keyed by task type like the handlers, and only this task has one.
+        services.AddKeyedScoped<IAiProposalLandingHandler, ChannelPostsProposalLanding>(AiTaskType.ChannelPosts);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

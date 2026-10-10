@@ -1,0 +1,77 @@
+<figure class="picture">
+  @if (source(); as src) {
+    <img [src]="src" [alt]="alt()" width="160" height="160" />
+  } @else if (bytesFailed()) {
+    <p class="cp-muted missing" role="status">This picture couldn't be shown just now.</p>
+  } @else {
+    <p class="cp-muted missing" role="status">Loading the picture…</p>
+  }
+
+  <figcaption>
+    <p class="marks">
+      <cp-badge tone="neutral">{{ purposeWord() }}</cp-badge>
+    </p>
+
+    @if (picture().altText; as alt) {
+      <p class="own-words"><strong>Your words:</strong> {{ alt }}</p>
+      <!-- And they are what the posts go on. A reading, if one exists, is not passed on while these do — so
+           this panel does not offer one, and does not mention one. -->
+      <p class="cp-muted">The posts are written from your words about this picture.</p>
+    }
+
+    @if (hasReading()) {
+      <!-- Shown before it is used, and never as the creator's: this is prose a model wrote about the
+           photograph, and nobody has checked it. -->
+      <p class="read-by">
+        <strong>What a model saw.</strong> These are its words, not yours, and nobody has checked them. The
+        posts are written knowing this much about the picture.
+      </p>
+
+      <ul class="observations">
+        <!-- By position: a reading may hold several observations about one aspect. -->
+        @for (observation of observations(); track $index) {
+          <li>
+            <span class="aspect">{{ observation.aspect }}</span>
+            <!-- The confidence in words beside its own text, because an observation whose label is dropped
+                 reads as a fact. -->
+            <span class="confidence">{{ observation.confidence }}</span>
+            <span class="text">{{ observation.text }}</span>
+          </li>
+        }
+      </ul>
+    } @else if (unread()) {
+      <!-- Said to the creator in the same terms the model is told it in. -->
+      <p class="unread">
+        Nobody has read this picture yet, so the posts will know only that a picture goes with them — nothing
+        about what it shows.
+      </p>
+
+      @if (canRead()) {
+        <div class="cp-actions">
+          <button
+            cpButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            [disabled]="reading()"
+            (click)="readRequested.emit()"
+          >
+            Write to this picture
+          </button>
+        </div>
+        <p class="cp-muted">
+          Reading it uses a little of your AI allowance, once. You'll see what it says before any post is
+          written.
+        </p>
+      }
+
+      @if (reading()) {
+        <p class="cp-muted" role="status">Reading the picture…</p>
+      }
+    }
+
+    @if (problem(); as sentence) {
+      <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
+    }
+  </figcaption>
+</figure>

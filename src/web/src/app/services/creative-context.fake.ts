@@ -4,11 +4,14 @@ import {
   CreativeContext,
   CreativeContextDraft,
   CreativeContextPatch,
+  CreativeContextPictureGrounding,
+  CreativeContextPictureReading,
   CreativeContextReference,
   CreativeContextSource,
 } from '../models/creative-context.models';
 import {
   CreativeContextCreateOutcome,
+  CreativeContextPicturesOutcome,
   CreativeContextReadOutcome,
   CreativeContextWriteOutcome,
 } from './creative-context.service';
@@ -22,6 +25,10 @@ import {
  */
 export class FakeCreativeContextService {
   offline = false;
+  /** Every pictures read this fake answered, for a test that cares that one happened. */
+  readonly pictureReads: { readonly slug: string; readonly id: string }[] = [];
+  /** A reading to answer with for one reference id, for a test that wants a picture already read. */
+  readings: Record<string, CreativeContextPictureReading> = {};
   /** When set, the next create answers with this instead of creating. */
   refuseCreateWith: CreativeContextCreateOutcome['status'] | null = null;
 
@@ -139,6 +146,44 @@ export class FakeCreativeContextService {
     const context = this.stored(slug, id);
 
     return of<CreativeContextReadOutcome>(context ? { status: 'found', context } : { status: 'not_found' });
+  }
+
+  /**
+   * The pictures a stored context names (AF.6.6).
+   *
+   * Derived from the references the fake already holds rather than kept beside them, so a test that adds a
+   * picture gets it here without saying so twice. Nothing is read: a fake has no bytes and no readings, so
+   * every picture reads as one nobody has looked at — which is the state the posts step is most about.
+   */
+  pictures(slug: string, id: string): Observable<CreativeContextPicturesOutcome> {
+    if (this.offline) return of<CreativeContextPicturesOutcome>({ status: 'unavailable' });
+
+    this.pictureReads.push({ slug, id });
+    const context = this.stored(slug, id);
+
+    if (context === null) return of<CreativeContextPicturesOutcome>({ status: 'not_found' });
+
+    const pictures = context.references
+      .filter(
+        (reference) =>
+          (reference.kind === 'DamAsset' && reference.mediaAssetId !== null) ||
+          (reference.kind === 'GeneratedImage' && reference.generatedImageId !== null),
+      )
+      .map((reference) => ({
+        referenceId: reference.id,
+        kind: reference.kind,
+        purpose: reference.purpose,
+        mediaAssetId: reference.mediaAssetId,
+        mediaAssetVersionNumber: reference.mediaAssetVersionNumber,
+        generatedImageId: reference.generatedImageId,
+        altText: null,
+        reading: this.readings[reference.id] ?? null,
+        grounding: (this.readings[reference.id] === undefined
+          ? 'NotDescribed'
+          : 'StoredAnalysis') as CreativeContextPictureGrounding,
+      }));
+
+    return of<CreativeContextPicturesOutcome>({ status: 'found', pictures });
   }
 
   addReference(slug: string, id: string, source: CreativeContextSource, token: string): Observable<CreativeContextWriteOutcome> {

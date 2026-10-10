@@ -83,6 +83,10 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<ISocialPackageDataLayer, SocialPackageDataLayer>();
         services.AddScoped<ISocialPackageBusiness, SocialPackageBusiness>();
         services.AddScoped<ISocialPackageFacade, SocialPackageFacade>();
+        services.AddScoped<IValidator<EditChannelPostViewModel>, EditChannelPostViewModelValidator>();
+        services.AddScoped<
+            IValidator<ChannelPostDispositionViewModel>,
+            ChannelPostDispositionViewModelValidator>();
 
         // The seed generator owns no table, so it has no repository or data layer: it composes this module's
         // weekly themes with the vocabulary and brand facades and the three code-owned catalogues.

@@ -35,6 +35,18 @@ public interface ICreativeContextBusiness
     Task<OperationResult<CreativeContextServiceModel>> AddReferenceAsync(
         Guid contextId, AddCreativeContextReferenceViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The pictures one piece of work names, with what is known about what each shows (AF.6.6).
+    /// </summary>
+    /// <remarks>
+    /// A read for a surface that shows a picture and offers to write about it: the ids its render route takes,
+    /// whether the creator kept it or chose it, their own words about it, and a model's reading of it where
+    /// one has been kept. A picture that no longer resolves in this workspace is left out rather than listed
+    /// as unavailable — nothing can be shown of it, so there is nothing to offer.
+    /// </remarks>
+    Task<OperationResult<IReadOnlyList<CreativeContextPictureServiceModel>>> ListPicturesAsync(
+        Guid contextId, CancellationToken cancellationToken);
+
     Task<OperationResult<CreativeContextServiceModel>> RemoveReferenceAsync(
         Guid contextId, Guid referenceId, string? expectedConcurrencyToken, CancellationToken cancellationToken);
 }
@@ -48,6 +60,7 @@ internal sealed class CreativeContextBusiness(
     IAiConceptLookupFacade concepts,
     IMediaAssetLookupFacade mediaAssets,
     IGeneratedImageLookupFacade generatedImages,
+    IMediaPictureAnalysisFacade analyses,
     IPromptRecordFacade prompts,
     IWorkspaceContext workspace,
     IClock clock) : ICreativeContextBusiness
@@ -136,6 +149,149 @@ internal sealed class CreativeContextBusiness(
         return context is null
             ? Failure(NotFound())
             : OperationResult<CreativeContextServiceModel>.Success(ToServiceModel(context));
+    }
+
+    public async Task<OperationResult<IReadOnlyList<CreativeContextPictureServiceModel>>> ListPicturesAsync(
+        Guid contextId, CancellationToken cancellationToken)
+    {
+        var context = await dataLayer.FindAsync(contextId, cancellationToken);
+
+        if (context is null)
+        {
+            return OperationResult<IReadOnlyList<CreativeContextPictureServiceModel>>.Failure(NotFound());
+        }
+
+        var pictures = new List<CreativeContextPictureServiceModel>();
+
+        foreach (var reference in context.References
+            .Where(reference => reference.Kind is CreativeContextReferenceKind.DamAsset
+                or CreativeContextReferenceKind.GeneratedImage)
+            .OrderBy(reference => reference.SortOrder))
+        {
+            // Re-read through the module that owns the picture, inside this workspace — the same discipline
+            // the package assembler follows, and for the same reason: what a reference said when it was added
+            // is not evidence that the picture is still there to show.
+            var picture = reference.Kind is CreativeContextReferenceKind.DamAsset
+                ? await AssetPictureAsync(reference, cancellationToken)
+                : await ImagePictureAsync(reference, cancellationToken);
+
+            if (picture is not null)
+            {
+                pictures.Add(picture);
+            }
+        }
+
+        return OperationResult<IReadOnlyList<CreativeContextPictureServiceModel>>.Success(pictures);
+    }
+
+    /// <summary>One library picture, or null when this workspace no longer has it.</summary>
+    private async Task<CreativeContextPictureServiceModel?> AssetPictureAsync(
+        CreativeContextReference reference, CancellationToken cancellationToken)
+    {
+        if (reference.MediaAssetId is not { } assetId)
+        {
+            return null;
+        }
+
+        var described = await mediaAssets.DescribeAsync(
+            assetId, reference.MediaAssetVersionNumber, cancellationToken);
+
+        if (described is null)
+        {
+            return null;
+        }
+
+        // Alt text belongs to the current pixels, so a pin to an earlier version is shown without it — the
+        // rule the package assembler states: the creator may have replaced the file and rewritten the words.
+        var altText = described.VersionNumber == described.CurrentVersionNumber ? described.AltText : null;
+
+        var own = string.IsNullOrWhiteSpace(altText) ? null : altText.Trim();
+
+        // The creator's own words win, and a reading is then not shown at all: showing one beside them would
+        // tell a creator their posts know something the package never passes on.
+        var reading = own is null ? await ReadingAsync(assetId, described.VersionNumber, null, cancellationToken) : null;
+
+        return new CreativeContextPictureServiceModel(
+            reference.Id,
+            reference.Kind,
+            reference.Purpose,
+            assetId,
+            described.VersionNumber,
+            GeneratedImageId: null,
+            own,
+            reading,
+            Grounding(own, reading));
+    }
+
+    /// <summary>One generated picture, or null when it is gone, declined or expired.</summary>
+    private async Task<CreativeContextPictureServiceModel?> ImagePictureAsync(
+        CreativeContextReference reference, CancellationToken cancellationToken)
+    {
+        if (reference.GeneratedImageId is not { } imageId
+            || !await generatedImages.IsAvailableAsync(imageId, cancellationToken))
+        {
+            return null;
+        }
+
+        // No alt text, and there never will be: a generated picture is not in the library, so a reading is
+        // the only thing that can say what it shows.
+        var reading = await ReadingAsync(null, null, imageId, cancellationToken);
+
+        return new CreativeContextPictureServiceModel(
+            reference.Id,
+            reference.Kind,
+            reference.Purpose,
+            MediaAssetId: null,
+            MediaAssetVersionNumber: null,
+            imageId,
+            AltText: null,
+            reading,
+            Grounding(null, reading));
+    }
+
+    /// <summary>Which of the three a generation would be told about this picture.</summary>
+    private static CreativeContextPictureDescriptionSource Grounding(
+        string? altText, CreativeContextPictureReadingServiceModel? reading) =>
+        altText is not null
+            ? CreativeContextPictureDescriptionSource.CreatorAltText
+            : reading is not null
+                ? CreativeContextPictureDescriptionSource.StoredAnalysis
+                : CreativeContextPictureDescriptionSource.NotDescribed;
+
+    /// <summary>
+    /// The part of a stored reading a task would be grounded on, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Filtered and capped by the package's own rule</strong>
+    /// (<see cref="CreativeContextPackageSelection.GroundableObservations"/>), so this read cannot show a
+    /// creator an observation no generation will ever see. Every observation keeps the confidence the reading
+    /// gave it, because a surface showing one has to show that too.
+    /// </remarks>
+    private async Task<CreativeContextPictureReadingServiceModel?> ReadingAsync(
+        Guid? assetId, int? versionNumber, Guid? generatedImageId, CancellationToken cancellationToken)
+    {
+        var found = assetId is { } asset && versionNumber is { } version
+            ? await analyses.FindForAssetAsync(asset, version, cancellationToken)
+            : generatedImageId is { } image
+                ? await analyses.FindForGeneratedImageAsync(image, cancellationToken)
+                : null;
+
+        if (found is null)
+        {
+            return null;
+        }
+
+        var observations = found.Observations
+            .Where(observation => !string.IsNullOrWhiteSpace(observation.Text))
+            .Select(observation => new CreativeContextPictureObservation(
+                observation.Aspect, observation.Text.Trim(), observation.Confidence))
+            .ToList();
+
+        var (kept, _) = CreativeContextPackageSelection.GroundableObservations(observations);
+
+        return kept.Count == 0
+            ? null
+            : new CreativeContextPictureReadingServiceModel(kept, found.AnalyzedAt);
     }
 
     public async Task<CursorPageServiceModel<CreativeContextSummaryServiceModel>> ListRecentAsync(

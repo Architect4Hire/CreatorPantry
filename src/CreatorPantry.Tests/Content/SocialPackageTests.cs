@@ -780,6 +780,7 @@ public sealed class SocialPackageTests(SqlServerRecipeFixture fixture) : IClassF
         return new SocialPackageBusiness(
             services.GetRequiredService<ISocialPackageDataLayer>(),
             catalogue ?? services.GetRequiredService<IContentChannelCatalog>(),
+            services.GetRequiredService<IContentChannelProfileCatalog>(),
             role is { } asRole ? new RoleOverride(workspace, asRole) : workspace,
             services.GetRequiredService<IClock>());
     }

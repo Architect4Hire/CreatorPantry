@@ -172,13 +172,16 @@ internal sealed class ChannelPostsAiTaskHandler(
     /// <remarks>
     /// A day, a theme or an undescribed picture alone is not a subject: "it is Monday" and "a picture is
     /// attached" give a model nothing to write except invention, which is the thing this capability may not do.
+    /// A picture somebody has <em>read</em> is a subject, which is the whole point of reading one.
     /// </remarks>
     private static bool HasSomethingToWriteFrom(CreativeContextPackage package) =>
         package.Words?.WorkingTitle is not null
         || package.Words?.PictureBrief is not null
         || package.Recipes.Count > 0
         || package.Concepts.Count > 0
-        || package.Pictures.Any(picture => picture.Description is not null);
+        // A described picture, or one a model has read (AF.6.6): both say something about the subject, and a
+        // reading carries its words in its observations rather than in a description.
+        || package.Pictures.Any(picture => picture.Description is not null || picture.Reading is not null);
 
     private async Task<BrandContextPackage?> AssembleBrandAsync(CancellationToken cancellationToken)
     {

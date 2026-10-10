@@ -24,6 +24,7 @@ import { PhotographyConceptService } from '../../services/photography-concept.se
 import { ReferenceImageService } from '../../services/reference-image.service';
 import { AuthService, SessionState } from '../../services/auth.service';
 import { BrandProfileService } from '../../services/brand-profile.service';
+import { ChannelPostService } from '../../services/channel-post.service';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { FakeCreativeContextService } from '../../services/creative-context.fake';
@@ -201,7 +202,23 @@ async function create(
           load: () => Promise.resolve(),
         },
       },
-      { provide: BrandProfileService, useValue: { listContentChannels: () => Promise.resolve({ status: 'found', channels: [] }) } },
+      {
+        provide: BrandProfileService,
+        useValue: {
+          listContentChannels: () => Promise.resolve({ status: 'found', channels: [] }),
+          getBrandProfile: () => Promise.resolve({ status: 'first_use' }),
+        },
+      },
+
+      // The posts step reads the work's posts as it opens. Nothing written yet is the shell's case: what the
+      // step does with posts is its own and the run's specs.
+      {
+        provide: ChannelPostService,
+        useValue: {
+          readPackage: () => Promise.resolve({ status: 'found', package: null }),
+          watch: () => of({ status: 'unavailable' }),
+        },
+      },
       { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(confirmAnswer) } },
       // The prompt step's clients. Only the concept request is looked at: what it is sent is what FLU-004 is
       // about. None of them answers, so nothing is watched and nothing is spent.
@@ -694,12 +711,14 @@ describe('ContentPipelineShellComponent', () => {
     expect(router.url).toBe(`${PIPELINE}/setup`);
   });
 
-  it('offers a step that is not built yet no action of its own, and lets the creator past it', async () => {
-    // It asks nothing, and the step after it is built (AF.4.3) — stopping here would hide a finished step
-    // behind an unfinished one.
+  it('shows the posts step and lets the creator past it without writing one', async () => {
+    // Built since AF.6.5, and deliberately not a gate: a creator may carry on to their library without
+    // writing a post, and gating it would make a journey about pictures depend on words they did not want.
     await create({ run: { ...reachedImages(), furthestStep: 'posts' }, url: `${RUN}/posts` });
 
-    expect(text()).toContain('coming soon');
+    expect(text()).toContain('Write the posts');
+    expect(text()).toContain('Choose where they go');
+    expect(text()).not.toContain('coming soon');
     expect(text()).toContain('Step 5 of 6');
     expect(button('Continue')?.disabled).toBeFalse();
 

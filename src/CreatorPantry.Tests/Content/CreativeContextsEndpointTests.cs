@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -106,6 +107,61 @@ public sealed class CreativeContextsEndpointTests : IAsyncLifetime
             Ct);
 
     /// <summary>Runs against the API's own database as a member of that workspace.</summary>
+    /// <summary>Every picture the work names, as the AF.6.6 read publishes them.</summary>
+    private static async Task<JsonElement[]> PicturesAsync(GatewayClient client, SeededWorkspace workspace, Guid contextId)
+    {
+        var response = await client.GetAsync($"{ContextIn(workspace, contextId)}/pictures", Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        return [.. (await BodyOf(response)).EnumerateArray()];
+    }
+
+    /// <summary>
+    /// Keeps a reading of one picture, the way AF.3.4's handler does.
+    /// </summary>
+    /// <remarks>
+    /// Through the real facade, with the checksum read back off the picture: it refuses a reading whose
+    /// checksum is not the picture's own, and a test that supplied its own would prove nothing about that.
+    /// </remarks>
+    private Task ReadAsync(
+        SeededWorkspace workspace,
+        Guid? assetId,
+        Guid? imageId,
+        params (string Aspect, string Text, string Confidence)[] observations) =>
+        ServicesAsync(workspace, async services =>
+        {
+            var db = services.GetRequiredService<CreatorPantryDbContext>();
+
+            var checksum = assetId is { } asset
+                ? (await db.MediaAssetVersions.SingleAsync(
+                    version => version.MediaAssetId == asset && version.VersionNumber == 1, Ct)).ContentChecksum
+                : (await db.GeneratedImages.SingleAsync(image => image.Id == imageId!.Value, Ct)).ContentChecksum;
+
+            var kept = await services.GetRequiredService<IMediaPictureAnalysisFacade>().KeepAsync(
+                assetId,
+                assetId is null ? null : 1,
+                imageId,
+                checksum,
+                [.. observations.Select(each => new MediaPictureObservation(each.Aspect, each.Text, each.Confidence))],
+                Guid.NewGuid(),
+                "image.reference-analysis",
+                "1.1.0",
+                Ct);
+
+            Assert.True(kept, "the reading was not kept");
+
+            return true;
+        });
+
+    private async Task<T> ServicesAsync<T>(SeededWorkspace workspace, Func<IServiceProvider, Task<T>> work)
+    {
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
+            workspace.Id, workspace.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
+
+        return await work(scope.ServiceProvider);
+    }
+
     private async Task<T> InAsync<T>(SeededWorkspace workspace, Func<CreatorPantryDbContext, Task<T>> work)
     {
         await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
@@ -559,6 +615,168 @@ public sealed class CreativeContextsEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, cue.StatusCode);
 
         Assert.Equal(["Keeper", "Source"], References(await BodyOf(cue)).Select(each => each.GetProperty("purpose").GetString()));
+    }
+
+    // ---- the pictures read (AF.6.6) ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_pictures_read_carries_what_is_known_about_each_and_nothing_more()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var imageId = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var assetId = await InAsync(A, db => CreativeContextSeeds.MediaAssetAsync(db, A.Id, Now, Ct));
+        await InAsync(A, async db =>
+        {
+            (await db.MediaAssets.SingleAsync(asset => asset.Id == assetId, Ct)).AltText = "A torn loaf on linen.";
+            await db.SaveChangesAsync(Ct);
+
+            return true;
+        });
+
+        var context = await CreatedAsync(client, A);
+        context = await BodyOf(await AddAsync(
+            client, A, context, new { kind = "GeneratedImage", generatedImageId = imageId, purpose = "Keeper" }));
+        await AddAsync(client, A, context, new { kind = "DamAsset", mediaAssetId = assetId });
+
+        // A reading of the generated picture, kept the way AF.3.4's handler keeps one.
+        await ReadAsync(A, null, imageId, ("Composition", "Overhead, off-centre on linen.", "Clear"));
+
+        var pictures = await PicturesAsync(client, A, Id(context));
+
+        Assert.Equal(2, pictures.Length);
+
+        var generated = pictures.Single(each => each.GetProperty("kind").GetString() == "GeneratedImage");
+        Assert.Equal("Keeper", generated.GetProperty("purpose").GetString());
+        Assert.Equal(imageId, generated.GetProperty("generatedImageId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, generated.GetProperty("altText").ValueKind);
+
+        // The reading, with the confidence beside its text: an observation whose label was dropped would read
+        // as a fact, and a surface showing one has to be able to say which it is.
+        var reading = generated.GetProperty("reading");
+        var observation = reading.GetProperty("observations").EnumerateArray().Single();
+        Assert.Equal("Composition", observation.GetProperty("aspect").GetString());
+        // The label is carried and shown even though only clear observations are sent, so a creator reads what
+        // the posts were told rather than inferring it.
+        Assert.Equal("Clear", observation.GetProperty("confidence").GetString());
+        Assert.Equal("Overhead, off-centre on linen.", observation.GetProperty("text").GetString());
+
+        // The library picture: the creator's own words, and nobody has read its pixels.
+        var asset = pictures.Single(each => each.GetProperty("kind").GetString() == "DamAsset");
+        Assert.Equal("Source", asset.GetProperty("purpose").GetString());
+        Assert.Equal("A torn loaf on linen.", asset.GetProperty("altText").GetString());
+        Assert.Equal(JsonValueKind.Null, asset.GetProperty("reading").ValueKind);
+
+        // Which of the three a generation would actually be told, said by the server rather than left for a
+        // surface to infer.
+        Assert.Equal("StoredAnalysis", generated.GetProperty("grounding").GetString());
+        Assert.Equal("CreatorAltText", asset.GetProperty("grounding").GetString());
+    }
+
+    /// <summary>
+    /// The precedence a surface depends on: the creator's own words win, and the reading is then not sent at
+    /// all — so a panel cannot show a creator a reading their posts will never be told.
+    /// </summary>
+    [Fact]
+    public async Task A_picture_with_both_words_and_a_reading_is_grounded_on_the_creators_words()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var assetId = await InAsync(A, db => CreativeContextSeeds.MediaAssetAsync(db, A.Id, Now, Ct));
+        await InAsync(A, async db =>
+        {
+            (await db.MediaAssets.SingleAsync(asset => asset.Id == assetId, Ct)).AltText = "A torn loaf on linen.";
+            await db.SaveChangesAsync(Ct);
+
+            return true;
+        });
+        await ReadAsync(A, assetId, null, ("Composition", "Overhead, off-centre.", "Clear"));
+
+        var context = await CreatedAsync(client, A);
+        await AddAsync(client, A, context, new { kind = "DamAsset", mediaAssetId = assetId });
+
+        var picture = (await PicturesAsync(client, A, Id(context))).Single();
+
+        Assert.Equal("CreatorAltText", picture.GetProperty("grounding").GetString());
+        Assert.Equal("A torn loaf on linen.", picture.GetProperty("altText").GetString());
+        Assert.Equal(JsonValueKind.Null, picture.GetProperty("reading").ValueKind);
+    }
+
+    /// <summary>
+    /// Only what the reading was clear about, here too: this read is what a creator is shown, so an
+    /// observation it carried that no generation would see would be the screen telling them something untrue.
+    /// </summary>
+    [Fact]
+    public async Task The_pictures_read_carries_only_what_the_reading_was_clear_about()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var imageId = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        await ReadAsync(
+            A,
+            null,
+            imageId,
+            ("Composition", "Overhead, off-centre.", "Clear"),
+            ("Styling", "Probably a linen cloth.", "Probable"));
+
+        var context = await CreatedAsync(client, A);
+        await AddAsync(
+            client, A, context, new { kind = "GeneratedImage", generatedImageId = imageId, purpose = "Keeper" });
+
+        var picture = (await PicturesAsync(client, A, Id(context))).Single();
+        var observations = picture.GetProperty("reading").GetProperty("observations").EnumerateArray().ToArray();
+
+        Assert.Single(observations);
+        Assert.Equal("Overhead, off-centre.", observations[0].GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task A_piece_of_work_that_names_no_picture_reads_as_an_empty_list()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var context = await CreatedAsync(client, A);
+
+        Assert.Empty(await PicturesAsync(client, A, Id(context)));
+    }
+
+    [Fact]
+    public async Task A_picture_that_no_longer_resolves_is_left_out_rather_than_listed()
+    {
+        using var client = await SignInAsync(A.OwnerEmail);
+        var imageId = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var context = await CreatedAsync(client, A);
+        await AddAsync(
+            client, A, context, new { kind = "GeneratedImage", generatedImageId = imageId, purpose = "Keeper" });
+
+        // Turned down: there is nothing to show of it, so there is nothing to offer about it either.
+        await InAsync(A, async db =>
+        {
+            var image = await db.GeneratedImages.SingleAsync(each => each.Id == imageId, Ct);
+            image.Status = GeneratedImageStatus.Rejected;
+            await db.SaveChangesAsync(Ct);
+
+            return true;
+        });
+
+        Assert.Empty(await PicturesAsync(client, A, Id(context)));
+    }
+
+    [Fact]
+    public async Task Another_workspaces_pictures_cannot_be_read_through_your_own_context()
+    {
+        using var ours = await SignInAsync(A.OwnerEmail);
+        using var theirs = await SignInAsync(B.OwnerEmail);
+        var imageB = await InAsync(B, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+        var theirContext = await CreatedAsync(theirs, B);
+        await AddAsync(
+            theirs, B, theirContext, new { kind = "GeneratedImage", generatedImageId = imageB, purpose = "Keeper" });
+        await ReadAsync(B, null, imageB, ("Subject", "B's secret plating.", "Clear"));
+
+        var response = await ours.GetAsync(
+            $"{ContextIn(A, Id(theirContext))}/pictures", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(ContentErrorCodes.CreativeContextNotFound, Code(await BodyOf(response)));
+
+        // And their own read still works, so the refusal above is about the workspace rather than the route.
+        Assert.Single(await PicturesAsync(theirs, B, Id(theirContext)));
     }
 
     [Fact]

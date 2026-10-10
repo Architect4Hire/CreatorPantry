@@ -41,6 +41,7 @@ import {
   RecipeDraftStep,
   countItems,
   draftFromProposal,
+  ingredientLineStatesAmount,
   missingRequiredFieldsOf,
 } from '../../models/recipe-draft.models';
 import { RecipeDraftRewrite, RecipeDraftService, WatchRecipeDraftOutcome } from '../../services/recipe-draft.service';
@@ -359,6 +360,24 @@ export class RecipeFirstDraftReviewComponent {
 
   readonly hasSafetyCaution = computed(() =>
     this.warnings().some((warning) => warning.kind === 'SafetyCaution'),
+  );
+
+  /**
+   * Ingredient lines that do not say how much, as they read right now.
+   *
+   * A draft whose lines arrive as "plain flour, sifted" is a shopping list: nothing downstream can scale it,
+   * convert it or be cooked from it. The prompt requires an amount on every line (recipe.first-draft 1.3.0)
+   * and a prompt is not a guarantee, so the gap is named here as well, while the line is still one keystroke
+   * from being fixed.
+   *
+   * Read through {@link valueOf} rather than off the draft, so a creator who types the amount in has answered
+   * the flag and it goes. A flag that outlived its own fix would be noise, and noise is what gets ignored.
+   */
+  readonly linesWithoutAmount = computed<readonly string[]>(() =>
+    this.draft()
+      .ingredientGroups.flatMap((group) => group.items)
+      .map((line) => this.valueOf(`${line.changeId}:displayText`, line.displayText) ?? '')
+      .filter((text) => text.trim().length > 0 && !ingredientLineStatesAmount(text)),
   );
 
   readonly ingredientCount = computed(() => countItems(this.draft().ingredientGroups));

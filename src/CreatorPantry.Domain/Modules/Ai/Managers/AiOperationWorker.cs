@@ -16,7 +16,11 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 public sealed record AiOperationWorkerPassSummary(int Claimed, int Proposed, int Failed, int Skipped);
 
 /// <summary>What one maintenance sweep did.</summary>
-public sealed record AiOperationMaintenanceSummary(int Requeued, int Abandoned, int Expired);
+/// <param name="Landed">
+/// How many stored proposals of a landing task this sweep re-ran the landing step for. Most are no-ops: the
+/// worker lands a proposal as soon as it commits, and this is the retry that heals the gap if it could not.
+/// </param>
+public sealed record AiOperationMaintenanceSummary(int Requeued, int Abandoned, int Expired, int Landed = 0);
 
 /// <summary>
 /// Runs queued AI operations to completion: claims one, resolves and validates the workspace it belongs to,
@@ -249,6 +253,14 @@ internal sealed class AiOperationWorker(
             await PostAsync(quota, held, claim.OperationId, cancellationToken);
         }
 
+        // After the commit, and it has to be: a landing writes rows that name the proposal, and the proposal's
+        // id exists only once it is stored. Not fatal either, and the sweep re-lands what this could not --
+        // see IAiProposalLandingHandler.
+        if (outcome.Succeeded)
+        {
+            await LandAsync(scoped, operation.TaskType, claim.OperationId, cancellationToken);
+        }
+
         return outcome.Succeeded ? ClaimOutcome.Proposed : ClaimOutcome.Failed;
     }
 
@@ -333,8 +345,104 @@ internal sealed class AiOperationWorker(
         var now = clock.UtcNow;
         var (requeued, abandoned) = await claims.RecoverAbandonedLeasesAsync(now, cancellationToken);
         var expired = await claims.ExpireDueAsync(now, cancellationToken);
+        var landed = await RelandAsync(now, cancellationToken);
 
-        return new AiOperationMaintenanceSummary(requeued, abandoned, expired);
+        return new AiOperationMaintenanceSummary(requeued, abandoned, expired, landed);
+    }
+
+    /// <summary>
+    /// Re-runs the landing step for recently stored proposals of a landing task.
+    /// </summary>
+    /// <remarks>
+    /// Almost always a no-op, and that is the design: landing is idempotent, so this costs a question and
+    /// answers it with "already done" for every proposal the worker landed itself. What it buys is the one
+    /// case that would otherwise be lost for good — a worker that stored a proposal and died before landing
+    /// it. Each candidate gets its own scope and its own resolved workspace, exactly like a claimed run.
+    /// </remarks>
+    private async Task<int> RelandAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var candidates = await claims.FindProposalsToLandAsync(
+            AiTaskCatalog.LandedTasks, now - AiPolicy.ProposalLandingWindow, cancellationToken);
+        var landed = 0;
+
+        foreach (var candidate in candidates)
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+
+            try
+            {
+                var resolution = scope.ServiceProvider.GetRequiredService<IWorkspaceResolutionFacade>();
+                var resolved = await resolution.ResolveForOperationAsync(
+                    candidate.WorkspaceId, candidate.RequestedByMembershipId, cancellationToken);
+
+                if (!resolved.Succeeded)
+                {
+                    // In practice a workspace deleted since the proposal was stored. Logged rather than
+                    // passed over in silence: this is the one path on which a proposal that never landed
+                    // stops being recoverable, and nothing else would say so.
+                    logger.LogWarning(
+                        "AI operation {OperationId}'s workspace could not be resolved, so the records its "
+                            + "proposal produces cannot be written.",
+                        candidate.OperationId);
+
+                    continue;
+                }
+
+                // The task type is read back inside the resolved workspace rather than carried out of the
+                // cross-workspace query: a landing handler is keyed by it, and the candidate row is allowed to
+                // carry identifiers only.
+                var operations = scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>();
+                var operation = await operations.GetWithProposalAsync(candidate.OperationId, cancellationToken);
+
+                if (operation is null)
+                {
+                    continue;
+                }
+
+                await LandAsync(
+                    scope.ServiceProvider, operation.Operation.TaskType, candidate.OperationId, cancellationToken);
+                landed++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(
+                    ex, "The landing step for AI operation {OperationId} could not be re-run.", candidate.OperationId);
+            }
+        }
+
+        return landed;
+    }
+
+    /// <summary>
+    /// Runs the landing step registered for a task type, if there is one.
+    /// </summary>
+    /// <remarks>
+    /// Logged and swallowed, the same reasoning <see cref="PostAsync"/> records: the proposal is stored and
+    /// paid for, so reporting a failed landing as a crashed run would requeue work that has already been done
+    /// and spend the allowance again. The creator can read the proposal either way.
+    /// </remarks>
+    private async Task LandAsync(
+        IServiceProvider scoped, AiTaskType taskType, Guid operationId, CancellationToken cancellationToken)
+    {
+        var landing = scoped.GetKeyedService<IAiProposalLandingHandler>(taskType);
+
+        if (landing is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await landing.LandAsync(operationId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(
+                ex,
+                "AI operation {OperationId} stored its proposal but the records it produces were not written; "
+                    + "the maintenance sweep will try again.",
+                operationId);
+        }
     }
 
     /// <summary>

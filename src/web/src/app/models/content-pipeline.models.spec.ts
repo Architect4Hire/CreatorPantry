@@ -44,11 +44,16 @@ describe('content-pipeline.models', () => {
     it('gives the built steps no coming-soon body and every unbuilt one a body', () => {
       const built = CONTENT_PIPELINE_STEPS.filter((step) => step.comingSoon === null).map((step) => step.slug);
 
-      // `library` is built since AF.4.3, and `posts` is the one step still to come (AF.6.5).
-      expect(built).toEqual(['setup', 'idea', 'prompt', 'images', 'library']);
-      for (const step of CONTENT_PIPELINE_STEPS) {
-        if (step.comingSoon !== null) expect(step.comingSoon.length).toBeGreaterThan(0);
-      }
+      // Every step is built as of AF.6.5, which closed `posts` — the last one that was not. The rule stays
+      // rather than being deleted with the last placeholder: the next step added arrives unbuilt, and this
+      // is what holds it to saying so.
+      expect(built).toEqual(['setup', 'idea', 'prompt', 'images', 'posts', 'library']);
+
+      // The loop that checked every unbuilt step for a non-empty body is gone, and the compiler is why: with
+      // every `comingSoon` now `null`, it narrows the type to `null` and calls the branch unreachable. The
+      // rule still holds on the type — `comingSoon: string | null` — and the check comes back with the next
+      // step that ships unbuilt.
+      expect(CONTENT_PIPELINE_STEPS.every((step) => step.comingSoon === null)).toBeTrue();
     });
 
     it('states each built step’s legend once, for the shell to show above its sections', () => {
@@ -58,6 +63,9 @@ describe('content-pipeline.models', () => {
       // The images step's legend carries the one thing a tick on this screen does not mean, because that is
       // the sentence a creator most needs before they rely on having "kept" something.
       expect(CONTENT_PIPELINE_STEPS[3].legend).toContain('library');
+      // The posts step's legend carries the one thing a creator most needs to know before reading generated
+      // words: none of them counts as theirs until they say so (AF.6.5).
+      expect(CONTENT_PIPELINE_STEPS[4].legend).toContain('accepted until you say so');
     });
 
     it('reads a step before the furthest as done and one after it as not started', () => {
@@ -318,6 +326,85 @@ describe('content-pipeline.models', () => {
       const base = draftWith();
 
       expect(isContentPipelineDraftEmpty({ ...base, images: { operationId: 'op-1' } })).toBeFalse();
+    });
+
+    describe("the posts step's own state", () => {
+      it('round-trips the request it is waiting on and the words nobody has saved', () => {
+        const posts = {
+          requestId: 'r-1',
+          requestedChannelKeys: ['instagram', 'pinterest'],
+          unsaved: { instagram: 'My own words.' },
+        };
+
+        expect(decodeContentPipelineDraft(encodeContentPipelineDraft(draftWith({ posts })))?.posts).toEqual(
+          posts,
+        );
+      });
+
+      it('stores the request, the channels it named and the unsaved words — and nothing about a post', () => {
+        const stored = encodeContentPipelineDraft(
+          draftWith({ posts: { requestId: 'r-1', requestedChannelKeys: ['x'], unsaved: {} } }),
+        );
+        const parsed = JSON.parse(stored) as { posts: Record<string, unknown> };
+
+        expect(Object.keys(parsed.posts).sort()).toEqual(['requestId', 'requestedChannelKeys', 'unsaved']);
+
+        // What a post says, where it stands and what measured it are the server's, read from the work. Checked
+        // against this block alone: `accepted` is a word the idea block uses for its own, quite different thing.
+        const block = JSON.stringify(parsed.posts);
+        for (const leak of ['body', 'limitStatus', 'characterCount', 'accepted', 'revisionNumber']) {
+          expect(block).withContext(leak).not.toContain(leak);
+        }
+      });
+
+      /**
+       * The version is deliberately not raised for this block, so a run in progress when the step shipped is
+       * resumed rather than thrown away: "no request and nothing unsaved" is exactly what it had.
+       */
+      it('defaults the posts block when a stored draft has none, rather than discarding the run', () => {
+        const parsed = JSON.parse(encodeContentPipelineDraft(draftWith())) as Record<string, unknown>;
+        delete parsed['posts'];
+
+        const read = decodeContentPipelineDraft(JSON.stringify(parsed));
+
+        expect(read).not.toBeNull();
+        expect(read?.posts).toEqual({ requestId: null, requestedChannelKeys: [], unsaved: {} });
+      });
+
+      it('is discarded when the unsaved words are present and malformed', () => {
+        // Half a set of unsaved words would offer a creator some of what they wrote and silently drop the
+        // rest, which is worse than starting the step again.
+        const stored = encodeContentPipelineDraft(
+          draftWith({ posts: { requestId: null, requestedChannelKeys: [], unsaved: { instagram: 'Words.' } } }),
+        ).replace('"instagram":"Words."', '"instagram":7');
+
+        expect(decodeContentPipelineDraft(stored)).toBeNull();
+      });
+
+      it('is discarded when a requested channel key is not a key', () => {
+        const stored = encodeContentPipelineDraft(
+          draftWith({ posts: { requestId: null, requestedChannelKeys: ['instagram'], unsaved: {} } }),
+        ).replace('["instagram"]', '[{"key":"instagram"}]');
+
+        expect(decodeContentPipelineDraft(stored)).toBeNull();
+      });
+
+      it('is not empty once there are words nobody has saved, so they are offered back', () => {
+        const base = draftWith();
+
+        expect(
+          isContentPipelineDraftEmpty({
+            ...base,
+            posts: { requestId: null, requestedChannelKeys: [], unsaved: { instagram: 'Mine.' } },
+          }),
+        ).toBeFalse();
+        expect(
+          isContentPipelineDraftEmpty({
+            ...base,
+            posts: { requestId: 'r-1', requestedChannelKeys: ['x'], unsaved: {} },
+          }),
+        ).toBeFalse();
+      });
     });
   });
 

@@ -50,6 +50,7 @@ import { CreativeContextSaveNoticeComponent } from '../../shared/creative-contex
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 import { ContentPipelineImagesStepComponent } from './content-pipeline-images-step.component';
 import { ContentPipelineLibraryStepComponent } from './content-pipeline-library-step.component';
+import { ContentPipelinePostsStepComponent } from './content-pipeline-posts-step.component';
 import { ContentPipelinePromptStepComponent } from './content-pipeline-prompt-step.component';
 import { ContentPipelineSetupStepComponent } from './content-pipeline-setup-step.component';
 import { ContentPipelineStepPlaceholderComponent } from './content-pipeline-step-placeholder.component';
@@ -139,6 +140,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     ContentPipelinePromptStepComponent,
     ContentPipelineImagesStepComponent,
     ContentPipelineLibraryStepComponent,
+    ContentPipelinePostsStepComponent,
     ContentPipelineStepPlaceholderComponent,
   ],
   templateUrl: './content-pipeline-shell.component.html',
@@ -279,8 +281,12 @@ export class ContentPipelineShellComponent {
    * which is what picking one is for.
    *
    * **A step that is not built is passed through rather than blocking the journey** (AF.4.3). It asks nothing,
-   * so there is nothing to answer; and the step after it may well be built — the library step is, while the
-   * posts step before it is not. Stopping there would hide a finished step behind an unfinished one.
+   * so there is nothing to answer, and the step after it may well be built — stopping there would hide a
+   * finished step behind an unfinished one. Every step is built as of AF.6.5, and the rule stays: the next
+   * one added will arrive unbuilt like the rest did.
+   *
+   * **The posts step asks nothing required either.** A creator may carry on to their library without writing
+   * a post, and gating it would make a journey about pictures depend on words they did not want.
    */
   readonly canContinue = computed(() => {
     const slug = this.currentSlug();

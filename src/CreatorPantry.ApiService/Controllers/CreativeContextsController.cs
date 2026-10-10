@@ -83,6 +83,43 @@ public sealed class CreativeContextsController(ICreativeContextFacade contexts) 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>The pictures this piece of work names, and what is known about what each shows.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; see the list route.</param>
+    /// <param name="contextId">The piece of work.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Every member including a Viewer may read. A piece of work that names no picture is an empty list, not a
+    /// `404`; a context this workspace does not have answers
+    /// `404 content.creative_context.not_found`, the same answer another workspace's gets.
+    ///
+    /// **A picture that no longer resolves is left out**, not listed as unavailable: a declined or expired
+    /// generated image and a removed library asset cannot be shown, so there is nothing to offer about them.
+    ///
+    /// Each entry carries the ids its own render route takes, whether the creator kept it or chose it, their
+    /// own alt text where they wrote any, and `reading` — what a model saw in the picture, with each
+    /// observation's `confidence` beside its text, or null when nobody has looked.
+    ///
+    /// **A `reading` is not the creator's words.** It is model prose about a photograph that no creator has
+    /// reviewed; a surface showing one says so and shows every confidence, because an observation whose label
+    /// is dropped reads as a fact. It is never presented as alt text.
+    ///
+    /// The response is `no-store`: it is workspace-private creator content.
+    /// </remarks>
+    [HttpGet("{contextId:guid}/pictures")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<IReadOnlyList<CreativeContextPictureServiceModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetPictures(
+        string workspaceSlug, Guid contextId, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await contexts.ListPicturesAsync(contextId, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Starts a creative context, optionally from one source.</summary>
     /// <param name="workspaceSlug">Bound only so the route is well formed; see the list route.</param>
     /// <param name="model">The creator's words, channels, day, theme and an optional source. All optional.</param>

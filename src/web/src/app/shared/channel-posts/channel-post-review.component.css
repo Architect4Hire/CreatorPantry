@@ -1,0 +1,55 @@
+:host {
+  display: block;
+}
+
+.post {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  /* min-width: 0 so a long unbroken word in a post cannot hold a grid track open past its share. */
+  min-width: 0;
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.name {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+.marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+/* The figure beside the pill. Tabular digits so a live count does not shift the row as it changes. */
+.count {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The words as written, including the line breaks the creator typed: a caption's shape is part of it. */
+.body-read {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.body {
+  width: 100%;
+  min-height: 8rem;
+  resize: vertical;
+  font: inherit;
+}

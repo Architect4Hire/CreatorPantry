@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Injector,
   afterNextRender,
   computed,
@@ -13,6 +14,7 @@ import { CpButtonComponent, CpCheckboxComponent, CpEmptyStateComponent, CpNotice
 
 import { APP_NAME } from '../../core/page-title.strategy';
 import { PrintService } from '../../core/print.service';
+import { ScreenWakeService } from '../../core/screen-wake.service';
 import { RecipeDetail } from '../../models/recipe.models';
 import { RecipeService } from '../../services/recipe.service';
 import { ReferenceService } from '../../services/reference.service';
@@ -81,6 +83,10 @@ function bySortOrder<T extends { readonly sortOrder: number }>(items: readonly T
  * never reassembled from quantity and unit — and nothing here scales, converts or sums. Unsaved edits in the
  * editor are not here; the editor's own leave-guard is what says so on the way over.
  *
+ * **It can keep the screen on.** A phone or tablet propped against the flour bag locks itself after a minute
+ * of nobody touching it, which is the length of one step. The option is off until asked for, because a page
+ * that quietly stopped a device from sleeping would be a surprise, and nothing about it is saved either.
+ *
  * **A step's temperature needs a unit to mean anything.** The recipe carries the unit as an id, so the units
  * are read alongside it. When they cannot be, the temperatures are left out and the page says so, rather
  * than printing a bare `350` for a cook to guess the scale of.
@@ -97,6 +103,7 @@ export class RecipeKitchenViewComponent {
   private readonly recipeService = inject(RecipeService);
   private readonly referenceService = inject(ReferenceService);
   private readonly printService = inject(PrintService);
+  private readonly screenWake = inject(ScreenWakeService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly titleService = inject(Title);
@@ -112,9 +119,11 @@ export class RecipeKitchenViewComponent {
   private readonly temperatureUnits = signal<ReadonlyMap<string, string> | null>(null);
 
   private readonly tickedIngredientIds = signal<ReadonlySet<string>>(new Set());
-  private readonly doneStepIds = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
+    // Leaving the kitchen hands the screen back, whether by navigating away or by closing the tab.
+    inject(DestroyRef).onDestroy(() => this.screenWake.release());
+
     void this.load();
   }
 
@@ -210,28 +219,52 @@ export class RecipeKitchenViewComponent {
   // -------------------------------------------------------------------------
   // Ticking off
   // -------------------------------------------------------------------------
+  //
+  // Ingredients only. Steps had a box of their own and it earned nothing: the method is read in order, so
+  // which step is next is where the cook's eye already is, and a box under every step put a control between
+  // each one and the next.
 
-  readonly anyTicked = computed(() => this.tickedIngredientIds().size > 0 || this.doneStepIds().size > 0);
+  readonly anyTicked = computed(() => this.tickedIngredientIds().size > 0);
 
   isIngredientTicked(id: string): boolean {
     return this.tickedIngredientIds().has(id);
-  }
-
-  isStepDone(id: string): boolean {
-    return this.doneStepIds().has(id);
   }
 
   setIngredientTicked(id: string, ticked: boolean): void {
     this.tickedIngredientIds.update((ids) => withMembership(ids, id, ticked));
   }
 
-  setStepDone(id: string, done: boolean): void {
-    this.doneStepIds.update((ids) => withMembership(ids, id, done));
-  }
-
   clearTicks(): void {
     this.tickedIngredientIds.set(new Set());
-    this.doneStepIds.set(new Set());
+  }
+
+  // -------------------------------------------------------------------------
+  // Keeping the screen on
+  // -------------------------------------------------------------------------
+
+  /**
+   * Whether to offer the option at all. A browser that cannot do it is offered nothing, because a control
+   * that does nothing is worse than no control — the creator would prop the phone up and trust it.
+   */
+  readonly canKeepScreenAwake = this.screenWake.isSupported;
+
+  private readonly keepScreenAwakeSignal = signal(false);
+
+  /**
+   * What the creator asked for, not whether a lock is held this instant: the browser drops the lock every
+   * time the page is hidden and the service asks again on the way back, so a box following the lock itself
+   * would untick whenever a timer app was checked.
+   */
+  readonly keepScreenAwake = this.keepScreenAwakeSignal.asReadonly();
+
+  /** True when the device turned the request down, so the page can say the screen may still dim. */
+  readonly screenWakeRefused = this.screenWake.isRefused;
+
+  setKeepScreenAwake(keep: boolean): void {
+    this.keepScreenAwakeSignal.set(keep);
+
+    if (keep) void this.screenWake.hold();
+    else this.screenWake.release();
   }
 
   // -------------------------------------------------------------------------

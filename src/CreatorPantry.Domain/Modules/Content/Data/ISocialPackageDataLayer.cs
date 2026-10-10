@@ -39,6 +39,9 @@ public interface ISocialPackageDataLayer
     /// <inheritdoc cref="ISocialPackageRepository.FindRevisionAsync"/>
     Task<SocialRevision?> FindRevisionAsync(Guid channelId, Guid revisionId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="ISocialPackageRepository.HasRevisionForProposalAsync"/>
+    Task<bool> HasRevisionForProposalAsync(Guid channelId, Guid aiProposalId, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IContentStalenessRepository.GetLatestRecipeVersionAsync"/>
     Task<LatestRecipeVersionRecord?> FindLatestRecipeVersionAsync(Guid recipeId, CancellationToken cancellationToken);
 
@@ -122,6 +125,10 @@ internal sealed class SocialPackageDataLayer(
 
     public Task<SocialRevision?> FindRevisionAsync(Guid channelId, Guid revisionId, CancellationToken cancellationToken) =>
         packages.FindRevisionAsync(channelId, revisionId, cancellationToken);
+
+    public Task<bool> HasRevisionForProposalAsync(
+        Guid channelId, Guid aiProposalId, CancellationToken cancellationToken) =>
+        packages.HasRevisionForProposalAsync(channelId, aiProposalId, cancellationToken);
 
     public Task<LatestRecipeVersionRecord?> FindLatestRecipeVersionAsync(Guid recipeId, CancellationToken cancellationToken) =>
         recipeVersions.GetLatestRecipeVersionAsync(recipeId, cancellationToken);

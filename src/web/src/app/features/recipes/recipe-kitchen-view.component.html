@@ -33,6 +33,14 @@
           </div>
 
           <div class="actions screen-only">
+            <!-- A propped-up phone locks itself inside one step. Off until asked for, and not remembered. -->
+            @if (canKeepScreenAwake) {
+              <cp-checkbox
+                label="Keep screen awake"
+                [checked]="keepScreenAwake()"
+                (checkedChange)="setKeepScreenAwake($event)"
+              />
+            }
             @if (anyTicked()) {
               <button cpButton variant="ghost" type="button" (click)="clearTicks()">Clear ticks</button>
             }
@@ -56,8 +64,24 @@
         <!-- Plain text from first render rather than a live region: it is true on arrival, and it has to
              print, because a page missing an oven temperature should say so on paper as well. -->
         @if (temperaturesMissing()) {
-          <cp-notice tone="warning">
+          <cp-notice class="temperature-notice" tone="warning">
             Some step temperatures couldn't be shown here. Check them in the recipe before you start.
+          </cp-notice>
+        }
+
+        <!-- Here from the first render so a refusal is announced when it arrives, and screen-only because it
+             is about this device rather than the recipe, so it has no business on paper. -->
+        @if (canKeepScreenAwake) {
+          <cp-notice
+            class="screen-only"
+            tone="warning"
+            role="status"
+            [quiet]="!screenWakeRefused()"
+            [class.quiet]="!screenWakeRefused()"
+          >
+            @if (screenWakeRefused()) {
+              This device wouldn't keep the screen on. It may still dim or lock while you cook.
+            }
           </cp-notice>
         }
 
@@ -126,7 +150,7 @@
                      section would restart, so each step carries its own. -->
                 <ol class="step-list">
                   @for (step of group.steps; track step.id) {
-                    <li class="step" [class.done]="isStepDone(step.id)">
+                    <li class="step">
                       <span class="step-number" aria-hidden="true">{{ step.number }}</span>
                       <div class="step-body">
                         <p class="step-text"><span class="cp-sr-only">Step {{ step.number }}. </span>{{ step.text }}</p>
@@ -137,13 +161,6 @@
                         @if (step.note) {
                           <p class="step-note">{{ step.note }}</p>
                         }
-
-                        <cp-checkbox
-                          class="screen-only"
-                          [label]="'Step ' + step.number + ' done'"
-                          [checked]="isStepDone(step.id)"
-                          (checkedChange)="setStepDone(step.id, $event)"
-                        />
                       </div>
                     </li>
                   }

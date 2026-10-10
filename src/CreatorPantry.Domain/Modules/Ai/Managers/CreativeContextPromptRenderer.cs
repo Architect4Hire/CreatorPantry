@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using CreatorPantry.Domain.Modules.Content.Managers;
@@ -33,6 +34,19 @@ public static class CreativeContextPromptRenderer
 {
     /// <summary>Who wrote a concept's words, stated beside them. A fact about provenance, not an instruction.</summary>
     public const string ConceptAuthor = "an earlier AI suggestion, chosen by the creator";
+
+    /// <summary>Whose words a picture's description is, where the creator wrote it.</summary>
+    public const string AltTextAuthor = "the creator's alt text";
+
+    /// <summary>
+    /// Whose words a picture's observations are, where a model read the picture (AF.6.6).
+    /// </summary>
+    /// <remarks>
+    /// It says both halves on purpose: that a model wrote this, and that the creator did not. A reading
+    /// labelled only "a reading of the picture" would be taken for something the creator checked, and nothing
+    /// downstream may present it as their words.
+    /// </remarks>
+    public const string ReadingAuthor = "a model's reading of the picture, not the creator's words";
 
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -125,21 +139,12 @@ public static class CreativeContextPromptRenderer
 
         if (package.Pictures.Count > 0)
         {
-            // A described picture carries the creator's words about it and says whose words they are. An
+            // Three shapes, and which one a picture gets is the package's decision rather than this method's.
+            // A described picture carries the creator's words and says they are the creator's. A read one
+            // carries the observations and says they are a model's, with each confidence beside its text. An
             // undescribed one carries the fixed sentence and nothing else: no id, no kind, no file name —
             // nothing a model could spin into a description of pixels nobody has looked at.
-            payload["pictures"] = package.Pictures
-                .Select(picture => picture.Description is { } description
-                    ? new Dictionary<string, object?>(StringComparer.Ordinal)
-                    {
-                        ["describedBy"] = "the creator's alt text",
-                        ["description"] = description,
-                    }
-                    : new Dictionary<string, object?>(StringComparer.Ordinal)
-                    {
-                        ["note"] = CreativeContextPackage.UndescribedPicture,
-                    })
-                .ToArray();
+            payload["pictures"] = package.Pictures.Select(Picture).ToArray();
         }
 
         if (package.Prompts.Count > 0)
@@ -194,6 +199,52 @@ public static class CreativeContextPromptRenderer
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// One picture, as the task may be told about it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A reading is never called the creator's words.</strong> It is unreviewed model output about
+    /// pixels, so it says whose it is, and each observation keeps the confidence the reading gave it — an
+    /// observation whose label is dropped reads as a fact (<c>IMediaPictureAnalysisFacade</c>).
+    /// </para>
+    /// <para>
+    /// <strong>An unread picture's entry is one fixed sentence.</strong> Everything that could be said about
+    /// it and is not the picture — which library it is in, what it is called, what was asked for when it was
+    /// made — is absent, because every one of those is something a model could write a description out of.
+    /// </para>
+    /// </remarks>
+    private static Dictionary<string, object?> Picture(CreativeContextPictureEntry picture)
+    {
+        if (picture.Reading is { } reading)
+        {
+            return new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["describedBy"] = ReadingAuthor,
+                ["readAt"] = reading.ReadAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                ["observations"] = reading.Observations
+                    .Select(observation => new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["aspect"] = observation.Aspect,
+                        ["confidence"] = observation.Confidence,
+                        ["text"] = observation.Text,
+                    })
+                    .ToArray(),
+            };
+        }
+
+        return picture.Description is { } description
+            ? new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["describedBy"] = AltTextAuthor,
+                ["description"] = description,
+            }
+            : new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["note"] = CreativeContextPackage.UndescribedPicture,
+            };
     }
 
     private static Dictionary<string, object?> Recipe(CreativeContextRecipeEntry recipe)

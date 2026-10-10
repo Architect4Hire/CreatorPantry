@@ -29,6 +29,7 @@ import {
   ContentPipelineImagesState,
   ContentPipelinePromptState,
   FIRST_CONTENT_PIPELINE_STEP,
+  emptyContentPipelinePostsState,
   contentPipelineBriefAfter,
   contentPipelineConfigWith,
 } from '../../models/content-pipeline.models';
@@ -430,8 +431,15 @@ export class ImageStudioComponent {
     });
   }
 
+  /**
+   * The studio's draft as a pipeline one, for the components the two screens share.
+   *
+   * The posts block is empty and stays empty: the Image Studio is about pictures and has no posts step, so
+   * there is no request to follow and nothing unsaved. Supplied rather than left out, so the shared type
+   * stays one shape.
+   */
   private static asPipeline(draft: ImageStudioDraft): ContentPipelineDraft {
-    return { ...draft, furthestStep: FIRST_CONTENT_PIPELINE_STEP };
+    return { ...draft, posts: emptyContentPipelinePostsState(), furthestStep: FIRST_CONTENT_PIPELINE_STEP };
   }
 
   /** The config with the context's name, channel and picture. The day is not asked here, so none is shown. */

@@ -972,6 +972,60 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(element().querySelector('.draft-lede')?.textContent).toContain('nothing on this page is saved');
   }));
 
+  // ---- ingredient lines that do not say how much -------------------------------------------------------
+
+  /** A draft written as a shopping list: the lines name ingredients and never an amount. */
+  function amountlessChanges(): AiProposedChange[] {
+    return [
+      recipeField('title', 'Skillet Cornbread'),
+      change({ changeId: 'g1-add', changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: null }),
+      change({ changeId: 'l1-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: 'stone-ground cornmeal' }),
+      change({ changeId: 'l2-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l2', afterValue: 'buttermilk, shaken' }),
+      change({ changeId: 'l3-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l3', afterValue: 'a pinch of cayenne' }),
+      change({ changeId: 'ig1-add', changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'ig1', afterValue: null }),
+      change({ changeId: 's1-add', changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's1', afterValue: 'Bake until golden.' }),
+    ];
+  }
+
+  it('names the lines that do not say how much, while they are still editable', fakeAsync(() => {
+    service.statuses = [ready(amountlessChanges())];
+    render();
+
+    expect(fixture.componentInstance.linesWithoutAmount()).toEqual(['stone-ground cornmeal', 'buttermilk, shaken']);
+    expect(text()).toContain('2 lines do not say how much');
+    expect(text()).toContain('stone-ground cornmeal; buttermilk, shaken');
+    // The pinch is a measure, so flagging it would be crying wolf over a line that is already complete.
+    expect(text()).not.toContain('a pinch of cayenne. Add');
+  }));
+
+  it('says nothing when every line states an amount', fakeAsync(() => {
+    service.statuses = [ready()];
+    render();
+
+    expect(fixture.componentInstance.linesWithoutAmount()).toEqual([]);
+    expect(text()).not.toContain('say how much');
+  }));
+
+  it('drops a line from the flag once the creator types the amount in', fakeAsync(() => {
+    service.statuses = [ready(amountlessChanges())];
+    render();
+
+    const component = fixture.componentInstance;
+    for (const [changeId, original, value] of [
+      ['l1-add', 'stone-ground cornmeal', '1 1/2 cups stone-ground cornmeal'],
+      ['l2-add', 'buttermilk, shaken', '1 cup buttermilk, shaken'],
+    ] as const) {
+      const target = component.editTarget(changeId, 'displayText', 'Ingredient', original);
+      component.startEdit(target);
+      component.editDraft.set(value);
+      component.applyEdit(target);
+      settle();
+    }
+
+    expect(component.linesWithoutAmount()).toEqual([]);
+    expect(text()).not.toContain('say how much');
+  }));
+
   // ---- accepting the draft into a recipe (AF.2.2) ------------------------------------------------------
 
   describe('creating the recipe', () => {

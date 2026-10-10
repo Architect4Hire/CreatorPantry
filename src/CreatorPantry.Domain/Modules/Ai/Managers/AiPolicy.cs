@@ -782,8 +782,29 @@ public static class AiPolicy
     /// <summary>The most channels one post request may name.</summary>
     public const int MaxChannelPostsChannels = 8;
 
+    /// <summary>
+    /// The longest channel key a post request may name (AF.6.4).
+    /// </summary>
+    /// <remarks>
+    /// This module's own number, deliberately not the content module's, for the reason
+    /// <see cref="BrandContextChannelKeyMaxLength"/> records: a key longer than this names no channel in the
+    /// catalogue either, so the bound is a refusal before a lookup rather than a copy of someone else's column.
+    /// </remarks>
+    public const int ChannelPostsChannelKeyMaxLength = 64;
+
     /// <summary>The most warnings a model may attach to one set of posts.</summary>
     public const int MaxChannelPostsWarnings = 12;
+
+    /// <summary>
+    /// How long after a proposal was stored the maintenance sweep keeps re-running its landing step.
+    /// </summary>
+    /// <remarks>
+    /// The window exists to heal a worker that died in the gap between storing a proposal and landing it,
+    /// which is a gap of milliseconds — so it is generous rather than long. Past it the proposal is still
+    /// readable and the creator's remedy is to ask again; a sweep that re-checked every undecided proposal for
+    /// the whole proposal lifetime would pay for that heal for ever.
+    /// </remarks>
+    public static readonly TimeSpan ProposalLandingWindow = TimeSpan.FromMinutes(10);
 
     /// <summary>A creative context's concurrency token as provenance records it.</summary>
     public const int CreativeContextVersionMaxLength = 64;

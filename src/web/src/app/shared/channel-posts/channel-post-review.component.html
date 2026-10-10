@@ -1,0 +1,140 @@
+<article class="post" [attr.aria-labelledby]="idPrefix() + '-heading'" [attr.data-status]="channel().status">
+  <header class="head">
+    <h4 class="name" [id]="idPrefix() + '-heading'">{{ channelName() }}</h4>
+
+    <p class="marks">
+      <cp-status-pill [tone]="statusTone()">{{ statusWord() }}</cp-status-pill>
+
+      <!-- The generated marker, said as well as shown: these are words a model wrote and nobody has taken
+           yet. It goes the moment the creator's own words replace them. -->
+      @if (isGenerated()) {
+        <cp-badge tone="purple">Written for you</cp-badge>
+      }
+
+      <!-- Glyph, tone and the figure written out, so the limit never depends on telling two colours apart. -->
+      @if (limit().text) {
+        <cp-status-pill [tone]="limit().tone">{{ limit().word }}</cp-status-pill>
+        <span class="count" [attr.aria-live]="isEditing() ? 'polite' : null">{{ limit().text }} characters</span>
+      }
+    </p>
+  </header>
+
+  @if (isStale()) {
+    <cp-notice tone="warning" role="status">
+      The recipe has changed since these words were accepted, so they may no longer be right. Reading them
+      again and saying they still stand is the way on — or edit them, or have them written again.
+    </cp-notice>
+  }
+
+  @if (isEditing()) {
+    <!-- The creator's own words, kept by the caller: a failed save, a neighbour's regeneration and leaving
+         the step all leave this box exactly as it is. -->
+    <cp-field
+      label="Your words"
+      [forId]="idPrefix() + '-body'"
+      hint="Saved as you write them. Longer than the channel allows is kept as written and flagged, never shortened."
+    >
+      <textarea
+        class="body"
+        [id]="idPrefix() + '-body'"
+        rows="6"
+        [value]="bodyText()"
+        [disabled]="working()"
+        (input)="onTyped($event)"
+      ></textarea>
+    </cp-field>
+
+    <p class="cp-muted">
+      Not saved yet. These words are kept on this device until you save them, so you can come back to them.
+    </p>
+  } @else {
+    <p class="body-read">{{ bodyText() }}</p>
+  }
+
+  @if (channel().accepted; as accepted) {
+    @if (channel().status === 'Rejected') {
+      <p class="cp-muted">
+        The words you turned down are kept in this post’s history. What is shown is revision
+        {{ accepted.revisionNumber }}, the one you accepted.
+      </p>
+    }
+  }
+
+  @if (busy().regenerating) {
+    <p class="cp-muted" role="status">Writing this one again…</p>
+  }
+
+  @if (busy().saving) {
+    <p class="cp-muted" role="status">Saving your words…</p>
+  }
+
+  @if (busy().problem; as problem) {
+    <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
+  }
+
+  <div class="cp-actions">
+    @if (isEditing()) {
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        size="sm"
+        [disabled]="working() || bodyText().trim() === ''"
+        (click)="emit({ kind: 'save' })"
+      >
+        Save these words
+      </button>
+      <button cpButton type="button" variant="text" size="sm" [disabled]="working()" (click)="emit({ kind: 'cancel' })">
+        Put it back
+      </button>
+    } @else if (canWrite()) {
+      @if (canAccept()) {
+        <button
+          cpButton
+          type="button"
+          variant="primary"
+          size="sm"
+          [disabled]="working()"
+          (click)="emit({ kind: 'accept' })"
+        >
+          Accept
+        </button>
+      }
+      @if (canReaffirm()) {
+        <button
+          cpButton
+          type="button"
+          variant="primary"
+          size="sm"
+          [disabled]="working()"
+          (click)="emit({ kind: 'reaffirm' })"
+        >
+          It still stands
+        </button>
+      }
+      <button cpButton type="button" variant="secondary" size="sm" [disabled]="working()" (click)="emit({ kind: 'edit' })">
+        Edit
+      </button>
+      @if (canAccept()) {
+        <button cpButton type="button" variant="text" size="sm" [disabled]="working()" (click)="emit({ kind: 'reject' })">
+          Not this one
+        </button>
+      }
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        [disabled]="working() || !canRegenerate()"
+        (click)="emit({ kind: 'regenerate' })"
+      >
+        Write it again
+      </button>
+    }
+
+    <!-- Offered whatever the state, and to a reader who may not write: copying takes nothing away. -->
+    <button cpButton type="button" variant="text" size="sm" (click)="emit({ kind: 'copy' })">
+      {{ copied() ? 'Copied' : 'Copy' }}
+    </button>
+  </div>
+</article>

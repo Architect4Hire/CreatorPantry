@@ -41,6 +41,17 @@ public enum CreativeContextOmission
     RecipeIngredientsOverCap = 5,
 
     RecipeStepsOverCap = 6,
+
+    /// <summary>
+    /// A stored reading too long to carry whole; the observations that fit are carried and this says the rest
+    /// were left out.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="AltTextOverCap"/>, which drops the description entirely. A reading is a list of
+    /// separate observations, so some of them are a true if partial account of the picture — whereas half a
+    /// sentence of alt text is not half a description, it is a cut-off one.
+    /// </remarks>
+    PictureAnalysisOverCap = 7,
 }
 
 /// <summary>Where a picture's description came from.</summary>
@@ -52,8 +63,17 @@ public enum CreativeContextPictureDescriptionSource
     /// <summary>The alt text a creator wrote, or accepted, on the library asset.</summary>
     CreatorAltText = 1,
 
-    // 2 is reserved for a stored analysis of the picture's own pixels, which arrives with AF.3.4. Until then
-    // nothing in this codebase stores one a picture can be looked up by.
+    /// <summary>
+    /// A stored reading of the picture's own pixels (AF.3.4), kept with the picture rather than with the
+    /// request that produced it.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Model output no creator has reviewed</strong>, which is why it is a source of its own rather
+    /// than folded in with alt text. Whatever reads a package must say whose words these are, must keep each
+    /// observation's confidence with its text — a "probable" reading with its label dropped reads as a fact —
+    /// and must never present them as the creator's own (<c>IMediaPictureAnalysisFacade</c>).
+    /// </remarks>
+    StoredAnalysis = 2,
 }
 
 /// <summary>The creator's own words for the piece. Untrusted prompt content, like everything a creator types.</summary>
@@ -122,13 +142,42 @@ public sealed record CreativeContextConceptEntry(
 /// Null when <paramref name="DescriptionSource"/> is <c>NotDescribed</c>. Never invented from a file name, a
 /// title, a recipe or a prompt (ai.md, media.md).
 /// </param>
+/// <summary>
+/// One thing a model said it could see in a picture, and how sure it said it was.
+/// </summary>
+/// <remarks>
+/// The content module's own shape rather than the media module's, mapped at the boundary where a stored
+/// reading is read: a package crosses to the AI module, and that module has no business naming a media type
+/// to read one observation out of it.
+/// </remarks>
+/// <param name="Confidence">
+/// The reading's own word for how sure it was. Carried with the text and never dropped: an observation whose
+/// label is missing reads as a certainty.
+/// </param>
+public sealed record CreativeContextPictureObservation(string Aspect, string Text, string Confidence);
+
+/// <summary>What a stored reading of one picture says, as the package carries it.</summary>
+/// <param name="ReadAt">When the picture was read, so a stale reading can be told from a fresh one.</param>
+public sealed record CreativeContextPictureReading(
+    IReadOnlyList<CreativeContextPictureObservation> Observations, DateTimeOffset ReadAt);
+
+/// <param name="Reading">
+/// The stored reading, present exactly when <paramref name="DescriptionSource"/> is
+/// <see cref="CreativeContextPictureDescriptionSource.StoredAnalysis"/>, and null otherwise.
+/// </param>
+/// <remarks>
+/// <strong>A reading and a description are never both carried.</strong> The creator's own words win where
+/// they exist — they were written and reviewed by the person whose work this is — and a reading fills the gap
+/// where there are none. A generated image never has alt text, so a reading is its only possible source.
+/// </remarks>
 public sealed record CreativeContextPictureEntry(
     Guid ReferenceId,
     CreativeContextReferenceKind Kind,
     Guid PictureId,
     int? VersionNumber,
     CreativeContextPictureDescriptionSource DescriptionSource,
-    string? Description);
+    string? Description,
+    CreativeContextPictureReading? Reading = null);
 
 /// <summary>A saved prompt's authoritative text. The record is immutable, so its id is its version.</summary>
 public sealed record CreativeContextPromptEntry(Guid ReferenceId, Guid PromptRecordId, string Text);

@@ -356,10 +356,10 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         seams.Add(typeof(IAiProposalBusiness).Assembly.GetTypes()
             .Single(type => type.Name == "AiProposalBusiness"));
 
-        // Fifteen since the dish-facet reading added its own request seam. It is asked automatically as a
-        // creator types a name rather than by a button they pressed, so an unmetered one would spend an
-        // allowance faster than any other seam here.
-        Assert.Equal(15, seams.Count);
+        // Sixteen since AF.6.4's post request. It is the one seam a creator can fire repeatedly on a single
+        // screen — a channel at a time, from a card each post carries — so an unmetered one would spend an
+        // allowance a few words at a time without ever looking like a run.
+        Assert.Equal(16, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()

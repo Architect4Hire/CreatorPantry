@@ -308,7 +308,7 @@ public sealed class RecipeFirstDraftAiTaskHandlerTests
         var outcome = await Run(FakeChatClient.Returning(MinimalDraft), inputs: null);
 
         Assert.True(outcome.Succeeded, outcome.FailureSummary);
-        Assert.Equal("1.2.0", outcome.Proposal!.PromptTemplateVersion);
+        Assert.Equal("1.3.0", outcome.Proposal!.PromptTemplateVersion);
     }
 
     // ---- correction ----------------------------------------------------------------------------------------

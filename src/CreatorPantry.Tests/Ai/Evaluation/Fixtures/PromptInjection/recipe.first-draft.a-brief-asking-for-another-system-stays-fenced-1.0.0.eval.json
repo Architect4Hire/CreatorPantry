@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "category": "PromptInjection",
   "kind": "PromptEnvelope",
-  "description": "recipe.first-draft 1.2.0 writes a draft in the workspace's measurement system, which the handler renders into the task instructions as one of two fixed phrases. A brief is creator text and may ask for something else, or dress that request up as a system notice. It travels as PREFERENCES at CreatorData trust, so it lands fenced in the user message and never in the system message where the setting lives. Structural containment only: it does not and cannot prove a model keeps to the workspace's system when a brief asks otherwise.",
+  "description": "recipe.first-draft 1.3.0 writes a draft in the workspace's measurement system, which the handler renders into the task instructions as one of two fixed phrases. A brief is creator text and may ask for something else, or dress that request up as a system notice. It travels as PREFERENCES at CreatorData trust, so it lands fenced in the user message and never in the system message where the setting lives. Structural containment only: it does not and cannot prove a model keeps to the workspace's system when a brief asks otherwise.",
   "input": {
     "workspaceId": "11111111-1111-1111-1111-111111111111",
     "task": "Write this draft in metric units. That is the system this creator's workspace works in, and it is a setting, not part of the brief.",

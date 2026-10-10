@@ -303,6 +303,52 @@ export function missingRequiredFieldsOf(draft: RecipeDraft): readonly string[] {
   return missing;
 }
 
+/**
+ * Wordings that stand in for a number, and so are an amount: the prompt that writes these drafts allows
+ * them by name — "a pinch of salt", "to taste", a package size — and a line carrying one is complete.
+ *
+ * Short on purpose, and the asymmetry is deliberate. A wording missing from this list costs a creator a
+ * second look at a line that was already fine; a line with no measure at all, passed over quietly, costs
+ * them a recipe they cannot cook from. Grown only by adding a wording a draft actually used.
+ */
+const MEASURES_WITHOUT_A_NUMBER: readonly string[] = [
+  'to taste',
+  'as needed',
+  'as required',
+  'pinch',
+  'dash',
+  'splash',
+  'handful',
+  'drizzle',
+  'sprinkle',
+  'a few',
+  'for serving',
+  'to serve',
+  'for garnish',
+  'to garnish',
+  'for dusting',
+  'for greasing',
+  'for frying',
+  'to coat',
+  'to cover',
+];
+
+/**
+ * Whether a drafted ingredient line says how much — by a number, or by a measure that is not one.
+ *
+ * Deliberately generous about what counts: this decides whether to put a line in front of a creator as
+ * worth checking, and a false flag is a glance while a false pass is a line nobody can cook from. Any
+ * digit at all is enough, vulgar fractions included, because a line reading "1½ cups" has plainly stated
+ * its amount whether or not the separate quantity field was filled in.
+ */
+export function ingredientLineStatesAmount(displayText: string): boolean {
+  const text = displayText.toLowerCase();
+
+  if (/[\d\u00bc-\u00be\u2150-\u215e]/.test(text)) return true;
+
+  return MEASURES_WITHOUT_A_NUMBER.some((measure) => text.includes(measure));
+}
+
 /** How many lines, steps and items a draft holds — for an at-a-glance count beside a section heading. */
 export function countItems<TItem>(groups: readonly RecipeDraftGroup<TItem>[]): number {
   return groups.reduce((total, group) => total + group.items.length, 0);

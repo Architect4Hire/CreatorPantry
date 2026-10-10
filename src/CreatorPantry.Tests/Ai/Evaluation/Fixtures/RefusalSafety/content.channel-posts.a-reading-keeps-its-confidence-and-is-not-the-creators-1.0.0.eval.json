@@ -1,0 +1,29 @@
+{
+  "id": "content.channel-posts.a-reading-keeps-its-confidence-and-is-not-the-creators",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "PictureGrounding",
+  "description": "A picture a model has read contributes its observations, each with the confidence the reading gave it, and says whose words they are. An observation whose label was dropped would read as a fact, and a reading offered as the creator's would read as something they had checked; neither is true.",
+  "input": {
+    "pictures": [
+      {
+        "describedBy": "model",
+        "pictureId": "44444444-4444-4444-4444-444444444444",
+        "observations": [
+          { "aspect": "Composition", "text": "Overhead, the loaf off-centre on linen.", "confidence": "Clear" },
+          { "aspect": "Lighting", "text": "Soft daylight from the left.", "confidence": "Probable" }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "contains": [
+      "a model's reading of the picture, not the creator's words",
+      "\"confidence\":\"Clear\"",
+      "\"confidence\":\"Probable\"",
+      "Overhead, the loaf off-centre on linen.",
+      "Soft daylight from the left."
+    ],
+    "excludes": ["the creator's alt text", "A picture is attached, not described."]
+  }
+}

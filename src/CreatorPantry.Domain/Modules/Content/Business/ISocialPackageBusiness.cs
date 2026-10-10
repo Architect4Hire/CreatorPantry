@@ -30,6 +30,21 @@ public interface ISocialPackageBusiness
     Task<OperationResult<SocialPackageServiceModel>> RecordEditAsync(
         SocialEditedRevisionInput input, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Stores the creator's own wording for one channel, measured against that channel's writing profile.
+    /// </summary>
+    /// <remarks>
+    /// The entry point a route uses, and the measurement is why it exists: counting a body is deterministic
+    /// domain work (ai.md), so it is done here rather than asked of the client — a count a caller supplied
+    /// would be a verdict the server had not reached.
+    /// </remarks>
+    Task<OperationResult<SocialPackageServiceModel>> EditAsync(
+        Guid contextId,
+        string channelKey,
+        string body,
+        Guid? expectedLatestRevisionId,
+        CancellationToken cancellationToken);
+
     /// <summary>Accepts the channel's newest revision, which <paramref name="revisionId"/> must name.</summary>
     Task<OperationResult<SocialPackageServiceModel>> AcceptAsync(
         string actorUserId, Guid contextId, string channelKey, Guid revisionId, CancellationToken cancellationToken);
@@ -47,6 +62,7 @@ public interface ISocialPackageBusiness
 internal sealed class SocialPackageBusiness(
     ISocialPackageDataLayer dataLayer,
     IContentChannelCatalog channels,
+    IContentChannelProfileCatalog profiles,
     IWorkspaceContext workspace,
     IClock clock) : ISocialPackageBusiness
 {
@@ -79,6 +95,16 @@ internal sealed class SocialPackageBusiness(
         if (slot is null)
         {
             return Failure(refusal!);
+        }
+
+        // Landing a proposal is idempotent, and this is where that holds. The worker lands a proposal as soon
+        // as it commits and the maintenance sweep re-lands it for a while afterwards, so the same proposal
+        // reaching the same channel twice is the ordinary case, not a client error: nothing is written, no
+        // revision number moves, and the package comes back as it stands.
+        if (!slot.IsNewChannel
+            && await dataLayer.HasRevisionForProposalAsync(slot.Channel.Id, input.AiProposalId, cancellationToken))
+        {
+            return await ReadAsync(input.CreativeContextId, cancellationToken);
         }
 
         // The pin is what the caller grounded on, so it is taken as given — but only for a recipe this
@@ -154,6 +180,37 @@ internal sealed class SocialPackageBusiness(
         }
 
         return await SaveDraftAsync(slot, revision, onRefused: Stale(), cancellationToken);
+    }
+
+    public Task<OperationResult<SocialPackageServiceModel>> EditAsync(
+        Guid contextId,
+        string channelKey,
+        string body,
+        Guid? expectedLatestRevisionId,
+        CancellationToken cancellationToken)
+    {
+        var key = channelKey?.Trim();
+
+        // A channel with no writing profile cannot be measured, and a body stored without a measurement would
+        // read as NotChecked for ever. The catalogue's own refusal — "that is not a channel" — is the slot's
+        // to give, so this one is only about the profile.
+        if (string.IsNullOrWhiteSpace(key) || profiles.Find(key) is not { } profile)
+        {
+            return Task.FromResult(Failure(OperationError.Validation(
+                ContentErrorCodes.SocialChannelUnprocessable,
+                CannotSave,
+                [("channelKey", "That is not a channel posts are written for.")])));
+        }
+
+        // Measured, never trimmed: an over-limit edit is the creator's own words and is stored as written,
+        // flagged by the result this records.
+        var limit = string.IsNullOrEmpty(body)
+            ? null
+            : SocialLimitResult.From(ContentChannelWriting.Measure(profile, body, profiles.Version));
+
+        return RecordEditAsync(
+            new SocialEditedRevisionInput(contextId, key, body, limit, expectedLatestRevisionId),
+            cancellationToken);
     }
 
     public async Task<OperationResult<SocialPackageServiceModel>> AcceptAsync(

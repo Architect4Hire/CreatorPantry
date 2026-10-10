@@ -1,0 +1,12 @@
+{
+  "id": "recipe.first-draft.a-line-without-an-amount-is-not-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "RecipeDraftOutputValidation",
+  "description": "recipe.first-draft 1.3.0 requires every ingredient line to state how much, in the line's own text. That requirement is the prompt's, and this harness never calls a model, so no fixture can show a model obeyed it; what this one fixes in place is the pipeline's answer for when one did not. A draft whose lines read 'plain flour, sifted' validates: the shape is sound, nothing here is repaired, and the gap is one the creator meets as a flag in the draft review screen and fixes by typing. Refusing the answer instead would throw away a whole draft over the part of it a creator can correct fastest, which is why no reason code is added for this and none should be.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.recipe-draft.v1\",\"title\":\"Skillet Cornbread\",\"ingredientGroups\":[{\"ingredients\":[{\"displayText\":\"stone-ground cornmeal\"},{\"displayText\":\"buttermilk, shaken\"},{\"displayText\":\"a pinch of cayenne\",\"isOptional\":true}]}],\"instructions\":[{\"steps\":[{\"text\":\"Heat the oven to 220C with the skillet in it.\"}]}]}",
+    "expectedSchemaVersion": "fixture.recipe-draft.v1"
+  },
+  "expect": { "outcome": "Accepted" }
+}

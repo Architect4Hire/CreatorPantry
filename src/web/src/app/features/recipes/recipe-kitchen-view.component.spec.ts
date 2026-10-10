@@ -1,9 +1,11 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { PrintService } from '../../core/print.service';
+import { ScreenWakeService } from '../../core/screen-wake.service';
 import { MeasurementUnit } from '../../models/reference.models';
 import { RecipeDetail } from '../../models/recipe.models';
 import { RecipeDetailOutcome, RecipeService } from '../../services/recipe.service';
@@ -158,16 +160,36 @@ class StubPrintService {
   }
 }
 
+class StubScreenWakeService {
+  isSupported = true;
+  holds = 0;
+  releases = 0;
+  readonly refused = signal(false);
+  readonly isRefused = this.refused.asReadonly();
+
+  hold(): Promise<void> {
+    this.holds += 1;
+
+    return Promise.resolve();
+  }
+
+  release(): void {
+    this.releases += 1;
+  }
+}
+
 describe('RecipeKitchenViewComponent', () => {
   let recipes: StubRecipeService;
   let reference: StubReferenceService;
   let printer: StubPrintService;
+  let screenWake: StubScreenWakeService;
   let harness: RouterTestingHarness;
 
   beforeEach(() => {
     recipes = new StubRecipeService();
     reference = new StubReferenceService();
     printer = new StubPrintService();
+    screenWake = new StubScreenWakeService();
 
     TestBed.configureTestingModule({
       providers: [
@@ -180,6 +202,7 @@ describe('RecipeKitchenViewComponent', () => {
         { provide: RecipeService, useValue: recipes },
         { provide: ReferenceService, useValue: reference },
         { provide: PrintService, useValue: printer },
+        { provide: ScreenWakeService, useValue: screenWake },
       ],
     });
   });
@@ -251,7 +274,7 @@ describe('RecipeKitchenViewComponent', () => {
     ]);
     expect(texts(root, '.step-facts')).toEqual(['425°F', '1 hr 20 min']);
     expect(texts(root, '.step-note')).toEqual(['It should sizzle.']);
-    expect(root.querySelector('cp-notice')).toBeNull();
+    expect(root.querySelector('cp-notice.temperature-notice')).toBeNull();
   });
 
   it('shows the equipment, the notes and the attribution', async () => {
@@ -268,7 +291,7 @@ describe('RecipeKitchenViewComponent', () => {
     const root = await open();
 
     expect(root.textContent).not.toContain('425');
-    expect(root.querySelector('cp-notice')?.textContent).toContain("Some step temperatures couldn't be shown");
+    expect(root.querySelector('cp-notice.temperature-notice')?.textContent).toContain("Some step temperatures couldn't be shown");
     // The rest of the recipe is still there to cook from.
     expect(texts(root, '.step-number')).toEqual(['1', '2', '3']);
   });
@@ -279,26 +302,31 @@ describe('RecipeKitchenViewComponent', () => {
     const root = await open();
 
     expect(root.textContent).not.toContain('425');
-    expect(root.querySelector('cp-notice')).not.toBeNull();
+    expect(root.querySelector('cp-notice.temperature-notice')).not.toBeNull();
   });
 
-  it('ticks an ingredient and a step off, and clears them again', async () => {
+  it('ticks an ingredient off, and clears it again', async () => {
     const root = await open();
     expect(buttonWith(root, 'Clear ticks')).toBeUndefined();
 
     checkboxLabelled(root, '1 cup buttermilk, shaken').click();
-    checkboxLabelled(root, 'Step 2 done').click();
     await settle();
 
     expect(texts(root, '.ingredient.ticked label .text')).toEqual(['1 cup buttermilk, shaken']);
-    expect(texts(root, '.step.done .step-number')).toEqual(['2']);
 
     buttonWith(root, 'Clear ticks')!.click();
     await settle();
 
     expect(root.querySelector('.ingredient.ticked')).toBeNull();
-    expect(root.querySelector('.step.done')).toBeNull();
-    expect(checkboxLabelled(root, 'Step 2 done').checked).toBeFalse();
+    expect(checkboxLabelled(root, '1 cup buttermilk, shaken').checked).toBeFalse();
+  });
+
+  it('gives a step no box of its own: the method is read in order', async () => {
+    const root = await open();
+
+    expect(root.querySelector('.method cp-checkbox')).toBeNull();
+    // The ingredients keep theirs: a shopping-and-measuring list is the part read out of order.
+    expect(root.querySelectorAll('.ingredient cp-checkbox').length).toBe(3);
   });
 
   it('never writes: ticking reads nothing again and sends nothing', async () => {
@@ -320,6 +348,72 @@ describe('RecipeKitchenViewComponent', () => {
     ]);
     // Not on screen, so a screen reader does not meet every line twice.
     expect(getComputedStyle(root.querySelector('.print-line')!).display).toBe('none');
+  });
+
+  it('keeps the screen on when asked, and hands it back when the tick is taken off', async () => {
+    const root = await open();
+    expect(screenWake.holds).toBe(0);
+
+    // The same node throughout: a checked box carries its tick glyph, so it is no longer found by its words.
+    const box = checkboxLabelled(root, 'Keep screen awake');
+    expect(box.checked).toBeFalse();
+
+    box.click();
+    await settle();
+
+    expect(screenWake.holds).toBe(1);
+    expect(box.checked).toBeTrue();
+
+    box.click();
+    await settle();
+
+    expect(screenWake.releases).toBe(1);
+    expect(box.checked).toBeFalse();
+  });
+
+  it('offers nothing when the browser cannot keep the screen on', async () => {
+    screenWake.isSupported = false;
+
+    const root = await open();
+
+    expect(root.textContent).not.toContain('Keep screen awake');
+  });
+
+  it('says the screen may still dim when the device turns the request down', async () => {
+    const root = await open();
+    const box = checkboxLabelled(root, 'Keep screen awake');
+
+    // The region is here before it has anything to say, which is what makes the refusal announced.
+    const notice = root.querySelector('cp-notice[role="status"]');
+    expect(notice).withContext('a live region for the screen').toBeTruthy();
+    expect(notice!.textContent?.trim()).toBe('');
+
+    box.click();
+    screenWake.refused.set(true);
+    await settle();
+
+    expect(notice!.textContent).toContain("This device wouldn't keep the screen on");
+    // The tick stays: it is what was asked for, and the service goes on asking as the page is looked at again.
+    expect(box.checked).toBeTrue();
+  });
+
+  it('hands the screen back on the way out', async () => {
+    const root = await open();
+    checkboxLabelled(root, 'Keep screen awake').click();
+    await settle();
+
+    harness.fixture.destroy();
+
+    expect(screenWake.releases).toBe(1);
+  });
+
+  it('never writes: keeping the screen on reads nothing again and sends nothing', async () => {
+    const root = await open();
+
+    checkboxLabelled(root, 'Keep screen awake').click();
+    await settle();
+
+    expect(recipes.calls.length).toBe(1);
   });
 
   it('opens the print dialog from the button', async () => {

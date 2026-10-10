@@ -356,6 +356,120 @@ export function decodeCreativeContextReference(raw: unknown): CreativeContextRef
   };
 }
 
+/**
+ * One thing a model said it could see in a picture, and how sure it said it was (AF.6.6).
+ *
+ * The confidence is carried with the text and shown with it: an observation whose label is dropped reads as a
+ * fact, which is the one thing a reading must not be allowed to become.
+ */
+export interface CreativeContextPictureObservation {
+  readonly aspect: string;
+  readonly text: string;
+  readonly confidence: string;
+}
+
+/** What a model saw in one picture, and when it looked. */
+export interface CreativeContextPictureReading {
+  readonly observations: readonly CreativeContextPictureObservation[];
+  readonly readAt: string;
+}
+
+/**
+ * One picture a piece of work names, as `GET .../creative-contexts/{id}/pictures` sends it.
+ *
+ * **A `reading` is not the creator's words.** It is prose a model wrote about a photograph, which nobody has
+ * reviewed — a surface showing one says so, and shows every confidence beside its text. It is never shown as
+ * alt text, and `altText` is never shown as something a model saw.
+ */
+export interface CreativeContextPicture {
+  readonly referenceId: string;
+  readonly kind: CreativeContextReferenceKind;
+  readonly purpose: CreativeContextReferencePurpose;
+  readonly mediaAssetId: string | null;
+  readonly mediaAssetVersionNumber: number | null;
+  readonly generatedImageId: string | null;
+  readonly altText: string | null;
+  /** Only the part a generation would be grounded on: the clear observations, as many as the cap carries. */
+  readonly reading: CreativeContextPictureReading | null;
+  /**
+   * Which of the three a generation would actually be told about this picture.
+   *
+   * **Read this rather than inferring it.** A picture can have both alt text and a reading, and the package
+   * passes on only the creator's words — so a surface that inferred "there is a reading, therefore the posts
+   * know it" would tell a creator something untrue.
+   */
+  readonly grounding: CreativeContextPictureGrounding;
+}
+
+/** `CreativeContextPictureDescriptionSource`: where a picture's description comes from, if anywhere. */
+export type CreativeContextPictureGrounding = 'NotDescribed' | 'CreatorAltText' | 'StoredAnalysis';
+
+const GROUNDINGS: ReadonlySet<string> = new Set<CreativeContextPictureGrounding>([
+  'NotDescribed',
+  'CreatorAltText',
+  'StoredAnalysis',
+]);
+
+function decodeObservation(raw: unknown): CreativeContextPictureObservation | null {
+  if (!isRecord(raw)) return null;
+
+  const { aspect, text, confidence } = raw;
+
+  return typeof aspect === 'string' && typeof text === 'string' && typeof confidence === 'string'
+    ? { aspect, text, confidence }
+    : null;
+}
+
+function decodeReading(raw: unknown): CreativeContextPictureReading | null {
+  if (!isRecord(raw)) return null;
+
+  const { readAt } = raw;
+  const rawObservations = raw['observations'];
+  if (typeof readAt !== 'string' || !Array.isArray(rawObservations)) return null;
+
+  // The whole reading fails on one unreadable observation: a half-read reading would show a creator some of
+  // what a model saw and silently drop the rest, which is worse than saying nothing was read.
+  const observations: CreativeContextPictureObservation[] = [];
+  for (const each of rawObservations) {
+    const observation = decodeObservation(each);
+    if (observation === null) return null;
+    observations.push(observation);
+  }
+
+  return observations.length === 0 ? null : { observations, readAt };
+}
+
+export function decodeCreativeContextPicture(raw: unknown): CreativeContextPicture | null {
+  if (!isRecord(raw)) return null;
+
+  const { referenceId, mediaAssetId, mediaAssetVersionNumber, generatedImageId, altText } = raw;
+  const kind = decodeEnum<CreativeContextReferenceKind>(KINDS, raw['kind']);
+  const purpose = decodeEnum<CreativeContextReferencePurpose>(PURPOSES, raw['purpose']);
+
+  if (typeof referenceId !== 'string' || kind === null || purpose === null) return null;
+  if (!isStringOrNull(mediaAssetId) || !isStringOrNull(generatedImageId) || !isStringOrNull(altText)) return null;
+  if (!isNumberOrNull(mediaAssetVersionNumber)) return null;
+
+  const grounding = decodeEnum<CreativeContextPictureGrounding>(GROUNDINGS, raw['grounding']);
+  if (grounding === null) return null;
+
+  const rawReading = raw['reading'];
+  const reading = rawReading === null || rawReading === undefined ? null : decodeReading(rawReading);
+  if (rawReading !== null && rawReading !== undefined && reading === null) return null;
+
+  return {
+    referenceId,
+    kind,
+    purpose,
+    mediaAssetId: mediaAssetId ?? null,
+    mediaAssetVersionNumber: mediaAssetVersionNumber ?? null,
+    generatedImageId: generatedImageId ?? null,
+    altText: altText ?? null,
+    reading,
+    grounding,
+  };
+}
+
 export function decodeCreativeContext(raw: unknown): CreativeContext | null {
   if (!isRecord(raw)) return null;
 

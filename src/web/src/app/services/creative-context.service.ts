@@ -8,9 +8,11 @@ import {
   CreativeContextDraft,
   CreativeContextPage,
   CreativeContextPatch,
+  CreativeContextPicture,
   CreativeContextSource,
   decodeCreativeContext,
   decodeCreativeContextPage,
+  decodeCreativeContextPicture,
   encodeCreativeContextDraft,
   encodeCreativeContextPatch,
   encodeCreativeContextSource,
@@ -33,6 +35,14 @@ export type CreativeContextCreateOutcome =
 
 export type CreativeContextReadOutcome =
   | { readonly status: 'found'; readonly context: CreativeContext }
+  /** Unknown, or another workspace's. One answer for both, as the route gives. */
+  | { readonly status: 'not_found' }
+  | { readonly status: 'unavailable' };
+
+/** The pictures one piece of work names, or the one reason they could not be read (AF.6.6). */
+export type CreativeContextPicturesOutcome =
+  /** Found. An empty list is a piece of work that names no picture, not a failure. */
+  | { readonly status: 'found'; readonly pictures: readonly CreativeContextPicture[] }
   /** Unknown, or another workspace's. One answer for both, as the route gives. */
   | { readonly status: 'not_found' }
   | { readonly status: 'unavailable' };
@@ -136,6 +146,39 @@ export class CreativeContextService {
       }),
       catchError((error: unknown) =>
         of<CreativeContextReadOutcome>(statusCodeOf(error) === 404 ? { status: 'not_found' } : { status: 'unavailable' }),
+      ),
+    );
+  }
+
+  /**
+   * The pictures this piece of work names, with what is known about what each shows.
+   *
+   * A picture that no longer resolves is left out by the server rather than listed as unavailable, so
+   * everything here is a picture that can be shown. Any member may read.
+   */
+  pictures(workspaceSlug: string, contextId: string): Observable<CreativeContextPicturesOutcome> {
+    const url = this.url(workspaceSlug, `/${encodeURIComponent(contextId)}/pictures`);
+    if (!url) return of<CreativeContextPicturesOutcome>({ status: 'unavailable' });
+
+    return this.http.get<unknown>(url, { withCredentials: true }).pipe(
+      map((raw): CreativeContextPicturesOutcome => {
+        if (!Array.isArray(raw)) return { status: 'unavailable' };
+
+        // The whole list fails on one unreadable picture: a partly read list would offer a creator some of
+        // the work's pictures and silently drop the rest.
+        const pictures: CreativeContextPicture[] = [];
+        for (const each of raw) {
+          const picture = decodeCreativeContextPicture(each);
+          if (picture === null) return { status: 'unavailable' };
+          pictures.push(picture);
+        }
+
+        return { status: 'found', pictures };
+      }),
+      catchError((error: unknown) =>
+        of<CreativeContextPicturesOutcome>(
+          statusCodeOf(error) === 404 ? { status: 'not_found' } : { status: 'unavailable' },
+        ),
       ),
     );
   }

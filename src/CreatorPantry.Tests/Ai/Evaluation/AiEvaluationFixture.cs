@@ -236,6 +236,17 @@ public enum AiEvaluationKind
     /// show the second half, which is the half a creator sees.
     /// </remarks>
     ChannelPostsOutputValidation,
+
+    /// <summary>
+    /// The creative-context package and <see cref="CreatorPantry.Domain.Modules.Ai.Managers.CreativeContextPromptRenderer"/>
+    /// together: what a task is told about a picture (AF.6.6).
+    /// </summary>
+    /// <remarks>
+    /// A kind about <em>grounding</em> rather than about an answer, and the only one so far. The rule it
+    /// carries cannot be reached from a validator: by the time an answer is validated, what the model was
+    /// told about the picture is gone. See <see cref="PictureGroundingCase"/>.
+    /// </remarks>
+    PictureGrounding,
 }
 
 /// <summary>

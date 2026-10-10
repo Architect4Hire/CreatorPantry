@@ -81,9 +81,9 @@ export const CONTENT_PIPELINE_STEPS = [
   {
     slug: 'posts',
     label: 'Write the posts',
-    help: 'Writing the words that go out with the pictures, for each place you publish.',
-    legend: '',
-    comingSoon: 'Writing the posts is coming soon.',
+    help: 'The words that go out with the pictures, one post per place you publish. Each one is written to that channel’s own length, and you read them through one at a time — edit any of them, have one written again, and accept the ones you want. Nothing is accepted for you, and nothing goes out from here.',
+    legend: 'Nothing is accepted until you say so. Accept the ones you want and leave the rest.',
+    comingSoon: null,
   },
   {
     slug: 'library',
@@ -515,12 +515,33 @@ export interface ContentPipelineImagesState {
   readonly operationId: string | null;
 }
 
+/**
+ * What this device keeps about the posts step (AF.6.5).
+ *
+ * **The request id and the words nobody has saved yet, and nothing else.** Which posts exist, what they say
+ * and where each one stands are the server's and are read back from the piece of work — a copy here would be
+ * a second account of them, free to disagree.
+ *
+ * **The unsaved words are why they are kept at all.** They are the creator's own and the only copy until a
+ * save lands, so they survive a failed save, a neighbouring channel being written again, and leaving the
+ * step. Keyed by channel key, and cleared for a channel when its save lands.
+ */
+export interface ContentPipelinePostsState {
+  /** The AF.6.4 request last asked for, so its posts are found again after a refresh. */
+  readonly requestId: string | null;
+  /** The channels that request named, so a resumed run knows which posts are still being written. */
+  readonly requestedChannelKeys: readonly string[];
+  /** The creator's unsaved words, by channel key. */
+  readonly unsaved: Readonly<Record<string, string>>;
+}
+
 /** One workspace's unfinished pipeline run, as it is held between visits. */
 export interface ContentPipelineDraft {
   readonly config: ContentPipelineConfig;
   readonly seed: ContentPipelineSeedState;
   readonly prompt: ContentPipelinePromptState;
   readonly images: ContentPipelineImagesState;
+  readonly posts: ContentPipelinePostsState;
   /** The furthest step reached, which is as far as the step list will let a creator jump. */
   readonly furthestStep: ContentPipelineStepSlug;
   /** When this draft was last written, as an ISO instant. */
@@ -562,6 +583,10 @@ export function emptyContentPipelineImagesState(): ContentPipelineImagesState {
   return { operationId: null };
 }
 
+export function emptyContentPipelinePostsState(): ContentPipelinePostsState {
+  return { requestId: null, requestedChannelKeys: [], unsaved: {} };
+}
+
 export function emptyContentPipelineSeedState(): ContentPipelineSeedState {
   return { lastToken: null, keep: {}, accepted: null };
 }
@@ -572,6 +597,7 @@ export function emptyContentPipelineDraft(now: Date = new Date()): ContentPipeli
     seed: emptyContentPipelineSeedState(),
     prompt: emptyContentPipelinePromptState(),
     images: emptyContentPipelineImagesState(),
+    posts: emptyContentPipelinePostsState(),
     furthestStep: FIRST_CONTENT_PIPELINE_STEP,
     savedAt: now.toISOString(),
   };
@@ -579,7 +605,7 @@ export function emptyContentPipelineDraft(now: Date = new Date()): ContentPipeli
 
 /** True when nothing on the draft has been filled in, so there is nothing to resume. */
 export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolean {
-  const { config, seed, prompt, images } = draft;
+  const { config, seed, prompt, images, posts } = draft;
 
   return (
     config.subject.trim() === '' &&
@@ -599,7 +625,10 @@ export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolea
     prompt.reference === null &&
     prompt.promptRequestId === null &&
     prompt.finalPrompt.trim() === '' &&
-    images.operationId === null
+    images.operationId === null &&
+    // Words nobody has saved are the clearest thing there is to resume, so a run holding any is not empty.
+    posts.requestId === null &&
+    Object.keys(posts.unsaved).length === 0
   );
 }
 
@@ -870,6 +899,43 @@ export function decodeContentPipelinePromptState(value: unknown): ContentPipelin
  * has no workspace, no session and no way to write. {@link CONTENT_PIPELINE_RUN_VERSION} is what actually
  * keeps such a record out: by the time this is reached, the version has already matched.
  */
+/**
+ * The posts block of a kept record.
+ *
+ * **Absent reads as empty rather than discarding the record**, and the version is deliberately not raised for
+ * it — the same decision {@link ContentPipelinePromptState.plannedSubject} records. "No request and nothing
+ * unsaved" is exactly what a run written before this step existed had, so a v4 record decodes to the truth
+ * rather than to a guess, and real unfinished runs are not thrown away to add a step they never reached.
+ *
+ * A malformed block is still refused: a half-read set of unsaved words would offer a creator some of what
+ * they wrote and silently drop the rest.
+ */
+export function decodeContentPipelinePostsState(value: unknown): ContentPipelinePostsState | null {
+  if (value === undefined || value === null) return emptyContentPipelinePostsState();
+  if (!isRecord(value)) return null;
+
+  const requestId = optionalId(value['requestId']);
+  if (requestId === null) return null;
+
+  // Its own read rather than `decodeStringList`, which trims entries to an override's length and caps the
+  // list at ten: a channel key is an exact identifier, so it is kept verbatim or the record is refused.
+  const rawRequested = value['requestedChannelKeys'];
+  if (rawRequested !== undefined && rawRequested !== null && !Array.isArray(rawRequested)) return null;
+  const requested = Array.isArray(rawRequested) ? rawRequested : [];
+  if (requested.some((key) => typeof key !== 'string' || key === '')) return null;
+
+  const rawUnsaved = value['unsaved'];
+  if (rawUnsaved !== undefined && rawUnsaved !== null && !isRecord(rawUnsaved)) return null;
+
+  const unsaved: Record<string, string> = {};
+  for (const [channelKey, body] of Object.entries(isRecord(rawUnsaved) ? rawUnsaved : {})) {
+    if (typeof body !== 'string' || body.length > CONTENT_PIPELINE_LIMITS.storedMaxChars) return null;
+    unsaved[channelKey] = body;
+  }
+
+  return { requestId: requestId.id, requestedChannelKeys: requested, unsaved };
+}
+
 export function decodeContentPipelineImagesState(value: unknown): ContentPipelineImagesState | null {
   if (value === undefined || value === null) return emptyContentPipelineImagesState();
   if (!isRecord(value)) return null;
@@ -949,6 +1015,9 @@ function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft 
   const images = decodeContentPipelineImagesState(parsed['images']);
   if (images === null) return null;
 
+  const posts = decodeContentPipelinePostsState(parsed['posts']);
+  if (posts === null) return null;
+
   const furthest = parsed['furthestStep'];
   const savedAt = parsed['savedAt'];
 
@@ -957,6 +1026,7 @@ function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft 
     seed,
     prompt,
     images,
+    posts,
     furthestStep: isContentPipelineStepSlug(furthest) ? furthest : FIRST_CONTENT_PIPELINE_STEP,
     savedAt: typeof savedAt === 'string' ? savedAt : '',
   };

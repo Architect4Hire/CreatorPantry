@@ -50,6 +50,7 @@ internal sealed class CreativeContextPackageBusiness(
     IAiConceptLookupFacade concepts,
     IMediaAssetLookupFacade mediaAssets,
     IGeneratedImageLookupFacade generatedImages,
+    IMediaPictureAnalysisFacade analyses,
     IPromptRecordFacade prompts,
     IClock clock) : ICreativeContextPackageBusiness
 {
@@ -269,6 +270,69 @@ internal sealed class CreativeContextPackageBusiness(
             theme.Revision);
     }
 
+    /// <summary>
+    /// The stored reading of one picture, as this package carries it; null when nobody has read it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Mapped here, at the boundary.</strong> The media module's observation type does not travel into
+    /// a package: a package crosses to the AI module, and that module should not have to name a media type to
+    /// read one label off an observation.
+    /// </para>
+    /// <para>
+    /// <strong>Only what the reading was clear about, and each with its confidence.</strong> The filtering is
+    /// <see cref="CreativeContextPackageSelection.GroundableObservations"/>'s, which says why; the label travels
+    /// with the text it belongs to because a reading that lost its labels reads as a set of facts.
+    /// </para>
+    /// <para>
+    /// <strong>A reading that grounds nothing is no reading at all:</strong> an empty list reads as never
+    /// having looked, rather than as a picture described as featureless. The media module refuses to keep a
+    /// blank observation, so the blank-text guard below is against a reading stored some other way rather than
+    /// a state this codebase can reach — which is why no test sets one up.
+    /// </para>
+    /// </remarks>
+    private async Task<CreativeContextPictureReading?> ReadingAsync(
+        Guid? assetId,
+        int? versionNumber,
+        Guid? generatedImageId,
+        SortedSet<CreativeContextOmission> omissions,
+        CancellationToken cancellationToken)
+    {
+        var found = assetId is { } asset && versionNumber is { } version
+            ? await analyses.FindForAssetAsync(asset, version, cancellationToken)
+            : generatedImageId is { } image
+                ? await analyses.FindForGeneratedImageAsync(image, cancellationToken)
+                : null;
+
+        if (found is null)
+        {
+            return null;
+        }
+
+        var observations = found.Observations
+            .Where(observation => !string.IsNullOrWhiteSpace(observation.Text))
+            .Select(observation => new CreativeContextPictureObservation(
+                Trim(observation.Aspect),
+                observation.Text.Trim(),
+                Trim(observation.Confidence)))
+            .ToList();
+
+        var (kept, omitted) = CreativeContextPackageSelection.GroundableObservations(observations);
+
+        if (omitted)
+        {
+            omissions.Add(CreativeContextOmission.PictureAnalysisOverCap);
+        }
+
+        return kept.Count == 0 ? null : new CreativeContextPictureReading(kept, found.AnalyzedAt);
+    }
+
+    /// <summary>One label, bounded. A label is a word for an aspect or a confidence, never a description.</summary>
+    private static string Trim(string label) =>
+        label.Length > CreativeContextPackageSelection.MaxPictureObservationLabelLength
+            ? label[..CreativeContextPackageSelection.MaxPictureObservationLabelLength]
+            : label;
+
     private async Task<Resolved?> ResolveAsync(
         CreativeContextReference reference,
         SortedSet<CreativeContextOmission> omissions,
@@ -338,7 +402,25 @@ internal sealed class CreativeContextPackageBusiness(
                     altText = null;
                 }
 
-                var picture = string.IsNullOrEmpty(altText)
+                if (!string.IsNullOrEmpty(altText))
+                {
+                    var described0 = new CreativeContextPictureEntry(
+                        reference.Id,
+                        reference.Kind,
+                        assetId,
+                        described.VersionNumber,
+                        CreativeContextPictureDescriptionSource.CreatorAltText,
+                        altText);
+
+                    return new Resolved(reference, described0, CreativeContextPackageSelection.Estimate(described0));
+                }
+
+                // No words of the creator's own, so a stored reading of these very pixels fills the gap
+                // (AF.6.6). Asked for the pinned version, because a reading belongs to the bytes it was made
+                // from — the same reason alt text from a later version is not attributed to an earlier one.
+                var read = await ReadingAsync(assetId, described.VersionNumber, null, omissions, cancellationToken);
+
+                var picture = read is null
                     ? new CreativeContextPictureEntry(
                         reference.Id,
                         reference.Kind,
@@ -351,8 +433,9 @@ internal sealed class CreativeContextPackageBusiness(
                         reference.Kind,
                         assetId,
                         described.VersionNumber,
-                        CreativeContextPictureDescriptionSource.CreatorAltText,
-                        altText);
+                        CreativeContextPictureDescriptionSource.StoredAnalysis,
+                        Description: null,
+                        read);
 
                 return new Resolved(reference, picture, CreativeContextPackageSelection.Estimate(picture));
             }
@@ -364,15 +447,28 @@ internal sealed class CreativeContextPackageBusiness(
                     return null;
                 }
 
-                // Nothing has looked at these pixels, so nothing is said about them: not the prompt that made
-                // them, which describes what was asked for and not what came back (ai.md, media.md).
-                var picture = new CreativeContextPictureEntry(
-                    reference.Id,
-                    reference.Kind,
-                    imageId,
-                    VersionNumber: null,
-                    CreativeContextPictureDescriptionSource.NotDescribed,
-                    Description: null);
+                // A generated image is never in the library, so it has no alt text and a stored reading is
+                // its only possible description. Where there is none, nothing is said about these pixels —
+                // and in particular not the prompt that made them, which describes what was asked for rather
+                // than what came back (ai.md, media.md).
+                var read = await ReadingAsync(null, null, imageId, omissions, cancellationToken);
+
+                var picture = read is null
+                    ? new CreativeContextPictureEntry(
+                        reference.Id,
+                        reference.Kind,
+                        imageId,
+                        VersionNumber: null,
+                        CreativeContextPictureDescriptionSource.NotDescribed,
+                        Description: null)
+                    : new CreativeContextPictureEntry(
+                        reference.Id,
+                        reference.Kind,
+                        imageId,
+                        VersionNumber: null,
+                        CreativeContextPictureDescriptionSource.StoredAnalysis,
+                        Description: null,
+                        read);
 
                 return new Resolved(reference, picture, CreativeContextPackageSelection.Estimate(picture));
             }

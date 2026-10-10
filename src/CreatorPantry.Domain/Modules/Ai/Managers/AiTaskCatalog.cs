@@ -212,6 +212,17 @@ public static class AiTaskCatalog
             // of which the generic recipe-bound route has a field for.
             or AiTaskType.ChannelPosts;
 
+    /// <summary>
+    /// The tasks whose stored proposal becomes records in another module, through an
+    /// <c>IAiProposalLandingHandler</c> the worker calls once the proposal has committed.
+    /// </summary>
+    /// <remarks>
+    /// One entry, and a short list is the point: most tasks' answer <em>is</em> the proposal, reviewed in
+    /// place. This is the list the maintenance sweep re-lands from, so a task added here gains a retry it
+    /// would otherwise have to arrange for itself.
+    /// </remarks>
+    public static IReadOnlyList<AiTaskType> LandedTasks { get; } = [AiTaskType.ChannelPosts];
+
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>
         discriminator is not null && KnownTasks.TryGetValue(discriminator, out var task) ? task : null;

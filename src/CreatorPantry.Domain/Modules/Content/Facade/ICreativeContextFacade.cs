@@ -34,6 +34,11 @@ public interface ICreativeContextFacade
     /// <summary>Reads one context in full. Any member.</summary>
     Task<OperationResult<CreativeContextServiceModel>> GetAsync(Guid contextId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="ICreativeContextBusiness.ListPicturesAsync"/>
+    /// <remarks>Any member: it shows what the work already holds and changes nothing.</remarks>
+    Task<OperationResult<IReadOnlyList<CreativeContextPictureServiceModel>>> ListPicturesAsync(
+        Guid contextId, CancellationToken cancellationToken);
+
     /// <summary>Lists live contexts, most recently updated first. Any member.</summary>
     Task<OperationResult<CursorPageServiceModel<CreativeContextSummaryServiceModel>>> ListRecentAsync(
         CreativeContextListViewModel model, CancellationToken cancellationToken);
@@ -93,6 +98,10 @@ internal sealed class CreativeContextFacade(
     public Task<OperationResult<CreativeContextServiceModel>> GetAsync(
         Guid contextId, CancellationToken cancellationToken) =>
         business.GetAsync(contextId, cancellationToken);
+
+    public Task<OperationResult<IReadOnlyList<CreativeContextPictureServiceModel>>> ListPicturesAsync(
+        Guid contextId, CancellationToken cancellationToken) =>
+        business.ListPicturesAsync(contextId, cancellationToken);
 
     public async Task<OperationResult<CursorPageServiceModel<CreativeContextSummaryServiceModel>>> ListRecentAsync(
         CreativeContextListViewModel model, CancellationToken cancellationToken)
