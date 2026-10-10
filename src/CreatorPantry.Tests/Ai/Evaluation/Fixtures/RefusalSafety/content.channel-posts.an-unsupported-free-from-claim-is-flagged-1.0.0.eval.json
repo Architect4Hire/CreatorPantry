@@ -1,0 +1,39 @@
+{
+  "id": "content.channel-posts.an-unsupported-free-from-claim-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The recipe lists no nuts, and that is not evidence of absence: allergen absence is never inferred from missing data. A post that says nut-free is flagged.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"facebook\", \"body\": \"A nut-free olive oil cake for the school fair.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "facebook"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "facebook",
+        "containing": "nut-free"
+      }
+    ]
+  }
+}

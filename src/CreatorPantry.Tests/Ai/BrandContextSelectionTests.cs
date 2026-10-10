@@ -435,13 +435,23 @@ public sealed class BrandContextSelectionTests
     }
 
     /// <summary>
-    /// The social caption is the first sample any task writes, so the test drive is the only task the guide's
-    /// social guidance reaches. A second entry gaining it would be a capability change, not a tidy-up.
+    /// Two tasks write for a social channel: the test drive, whose caption is a sample, and the posts
+    /// capability (AF.6.3), whose captions are the product. The guide's social guidance reaches those two and
+    /// no other. A third entry gaining it would be a capability change, not a tidy-up.
     /// </summary>
     [Fact]
-    public void Only_the_test_drive_is_grounded_in_the_guides_social_guidance()
+    public void Only_the_test_drive_and_channel_posts_are_grounded_in_the_guides_social_guidance()
     {
-        foreach (var taskType in Enum.GetValues<AiTaskType>().Where(type => type != AiTaskType.BrandStyleTestDrive))
+        Assert.Contains(
+            BrandStyleGuideSectionKey.SocialGuidance, BrandContextSelection.SectionKeysFor(AiTaskType.ChannelPosts));
+
+        // Posts are prose, never an image: no visual section, so a style rule about pictures cannot reach copy.
+        Assert.DoesNotContain(
+            BrandStyleGuideSectionKey.PhotographyDirection, BrandContextSelection.SectionKeysFor(AiTaskType.ChannelPosts));
+        Assert.False(BrandContextSelection.IsVisual(AiTaskType.ChannelPosts));
+
+        foreach (var taskType in Enum.GetValues<AiTaskType>()
+            .Where(type => type is not (AiTaskType.BrandStyleTestDrive or AiTaskType.ChannelPosts)))
         {
             Assert.DoesNotContain(
                 BrandStyleGuideSectionKey.SocialGuidance,

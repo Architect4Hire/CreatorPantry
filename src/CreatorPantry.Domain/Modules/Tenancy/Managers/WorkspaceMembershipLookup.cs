@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 
 namespace CreatorPantry.Domain.Modules.Tenancy.Managers;
 
@@ -22,7 +23,12 @@ public sealed record MembershipSummary(
 public sealed record WorkspaceMembershipLookup(WorkspaceSummary? Workspace, MembershipSummary? Membership);
 
 /// <summary>A workspace's own fields, independent of any caller's membership in it.</summary>
-public sealed record WorkspaceRecord(Guid Id, string Name, string Slug, DateTimeOffset CreatedAt);
+public sealed record WorkspaceRecord(
+    Guid Id,
+    string Name,
+    string Slug,
+    DateTimeOffset CreatedAt,
+    MeasurementSystem DefaultMeasurementSystem = WorkspacePolicy.InitialMeasurementSystem);
 
 /// <summary>The result of atomically creating a workspace and its creator's owner membership.</summary>
 public sealed record CreatedWorkspace(WorkspaceRecord Workspace, Guid MembershipId, WorkspaceRole Role);

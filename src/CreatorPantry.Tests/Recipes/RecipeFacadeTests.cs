@@ -2370,6 +2370,10 @@ public sealed class RecipeFacadeTests
         public Task<OperationResult<WorkspaceServiceModel>> RenameCurrentAsync(
             UpdateWorkspaceViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException("A recipe read has no business renaming a workspace.");
+
+        public Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+            SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("A recipe read has no business changing a workspace's settings.");
     }
 
     /// <summary>Stands in for the two modules the facade consults, and counts that it consulted them.</summary>

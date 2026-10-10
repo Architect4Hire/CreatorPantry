@@ -1,0 +1,39 @@
+{
+  "id": "content.channel-posts.an-invented-search-metric-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "No connected source supplies search data, so any ranking or popularity claim is invented.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"pinterest\", \"body\": \"The most searched olive oil cake this autumn.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "pinterest"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "pinterest",
+        "containing": "search metric"
+      }
+    ]
+  }
+}

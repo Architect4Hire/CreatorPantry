@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.an-invisible-tag-character-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "Unicode tag characters live above the BMP and can carry a whole hidden sentence. A test that reads one UTF-16 unit at a time sees only surrogates, so the body is read by code point.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend.\\udb40\\udc41\\udb40\\udc42\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

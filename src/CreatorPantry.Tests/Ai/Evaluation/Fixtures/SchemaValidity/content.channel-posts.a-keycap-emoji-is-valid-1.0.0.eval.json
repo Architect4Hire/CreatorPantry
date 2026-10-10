@@ -1,0 +1,20 @@
+{
+  "id": "content.channel-posts.a-keycap-emoji-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "Numbered steps written with keycap emoji are common in captions. The selector is allowed after a digit only when the enclosing keycap mark follows it, so it cannot be used to split a number.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"1\\ufe0f\\u20e3 Whisk. 2\\ufe0f\\u20e3 Fold. Olive oil cake.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "limits": {
+      "instagram": "Within"
+    }
+  }
+}

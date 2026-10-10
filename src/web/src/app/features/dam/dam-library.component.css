@@ -18,6 +18,10 @@ h1 {
   color: var(--cp-text-muted);
 }
 
+.page-actions {
+  margin: var(--cp-space-4) 0 0;
+}
+
 .search-field input,
 .select-field select {
   min-height: 40px;

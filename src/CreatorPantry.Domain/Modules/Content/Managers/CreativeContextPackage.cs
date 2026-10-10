@@ -80,6 +80,12 @@ public sealed record CreativeContextDayEntry(
 /// The creator's entered lines, verbatim and in order — never a normalised quantity, never a re-derived line
 /// (recipes.md). The list stops whole at the first line that does not fit, and what follows is counted, so a
 /// reader knows the list is short — and short at the end, never with a line missing from the middle.
+/// <para>
+/// <c>LatestRecipeVersionId</c> is the recipe's newest version at the moment this one was read, so the two
+/// describe one instant. It differs from <c>RecipeVersionId</c> only when the creator pinned an older version.
+/// An id rather than a flag, because this package carries no flags; it is reporting and is not part of the
+/// checksum, since it changes nothing a model is shown.
+/// </para>
 /// </remarks>
 public sealed record CreativeContextRecipeEntry(
     Guid ReferenceId,
@@ -95,7 +101,8 @@ public sealed record CreativeContextRecipeEntry(
     IReadOnlyList<string> Ingredients,
     IReadOnlyList<string> Steps,
     int OmittedIngredientCount,
-    int OmittedStepCount);
+    int OmittedStepCount,
+    Guid? LatestRecipeVersionId = null);
 
 /// <summary>A chosen recipe concept. Text a model wrote earlier and a creator picked; untrusted like the rest.</summary>
 public sealed record CreativeContextConceptEntry(

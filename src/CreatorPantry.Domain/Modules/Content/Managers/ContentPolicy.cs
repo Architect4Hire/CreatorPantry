@@ -22,6 +22,22 @@ public static class ContentPolicy
     public const int ChannelKeyMaxLength = 64;
 
     /// <summary>
+    /// The longest post body the write seam takes, in UTF-16 units.
+    /// </summary>
+    /// <remarks>
+    /// A ceiling against a runaway body, not a channel limit: what a channel allows is its writing profile's to
+    /// say (content.md), and a body over that is stored and flagged rather than refused. The column itself is
+    /// unbounded so no profile is ever constrained by this number.
+    /// </remarks>
+    public const int SocialBodyMaxLength = 20000;
+
+    /// <summary>A channel writing profile's version string.</summary>
+    public const int ChannelProfileVersionMaxLength = 32;
+
+    /// <summary>A creative context's concurrency token: base64 of an eight-byte row version, with room to spare.</summary>
+    public const int ContextVersionMaxLength = 64;
+
+    /// <summary>
     /// A saved image prompt.
     /// </summary>
     /// <remarks>

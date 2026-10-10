@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.html-in-a-body-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A post is plain text. HTML would reach readers as its own syntax, and is how an injected script or tracking image would arrive.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"facebook\", \"body\": \"Olive oil cake <b>this weekend</b>.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "facebook"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.channel_posts_body_invalid",
+    "category": "DomainInvalid"
+  }
+}

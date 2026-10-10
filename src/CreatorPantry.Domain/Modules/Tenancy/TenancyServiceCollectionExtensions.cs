@@ -26,6 +26,7 @@ public static class TenancyServiceCollectionExtensions
         services.AddScoped<IValidator<ResolveWorkspaceViewModel>, ResolveWorkspaceViewModelValidator>();
         services.AddScoped<IValidator<CreateWorkspaceViewModel>, CreateWorkspaceViewModelValidator>();
         services.AddScoped<IValidator<UpdateWorkspaceViewModel>, UpdateWorkspaceViewModelValidator>();
+        services.AddScoped<IValidator<SetMeasurementPreferenceViewModel>, SetMeasurementPreferenceViewModelValidator>();
         services.AddScoped<IWorkspaceResolutionFacade, WorkspaceResolutionFacade>();
         services.AddScoped<IWorkspaceFacade, WorkspaceFacade>();
         services.AddScoped<IWorkspaceBusiness, WorkspaceBusiness>();

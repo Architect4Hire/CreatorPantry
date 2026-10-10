@@ -10,6 +10,7 @@ import { WorkspaceGateComponent } from './shell/workspace-gate.component';
 import { ImageStudioComponent } from './features/image-studio/image-studio.component';
 import { LandingComponent } from './features/landing/landing.component';
 import { WorkflowsHubComponent } from './features/workflows/workflows-hub.component';
+import { WorkspaceSettingsComponent } from './features/workspace-settings/workspace-settings.component';
 import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
@@ -22,6 +23,7 @@ import { PromptLibraryComponent } from './features/prompt-library/prompt-library
 import { PROMPT_LIBRARY_ROUTES } from './features/prompt-library/prompt-library.routes';
 import { RecipeLibraryComponent } from './features/recipes/recipe-library.component';
 import { RecipeEditorComponent } from './features/recipes/recipe-editor.component';
+import { RecipeKitchenViewComponent } from './features/recipes/recipe-kitchen-view.component';
 import { BrandSettingsComponent } from './features/brand/brand-settings.component';
 import { BRAND_ROUTES } from './features/brand/brand.routes';
 import { brandSettingsCanDeactivateGuard } from './features/brand/brand-settings.guard';
@@ -47,13 +49,14 @@ describe('app routes', () => {
     expect(workspaceRoute?.canActivate).toEqual([authGuard]);
   });
 
-  it("nests all 12 named sections under the ':workspaceSlug' route", () => {
+  it("nests all 13 named sections under the ':workspaceSlug' route", () => {
     const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug');
     const sectionPaths = workspaceRoute?.children?.map((route) => route.path).filter((path) => path !== '');
 
     expect(sectionPaths).toEqual([
       'dashboard', 'workflows', 'my-day', 'my-week', 'recipes', 'brand',
       'ai-recipe-studio', 'image-studio', 'social-studio', 'dam', 'content-board', 'prompt-library',
+      'settings',
     ]);
   });
 
@@ -118,10 +121,15 @@ describe('app routes', () => {
         route.path !== 'workflows' &&
         route.path !== 'image-studio' &&
         route.path !== 'dam' &&
-        route.path !== 'prompt-library',
+        route.path !== 'prompt-library' &&
+        route.path !== 'settings',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
+
+    // 'settings' is the workspace's own settings page, not a placeholder.
+    const settingsRoute = workspaceRoute.children!.find((route) => route.path === 'settings')!;
+    expect(await settingsRoute.loadComponent!()).toBe(WorkspaceSettingsComponent);
 
     // 'image-studio' is the Image Studio (12.10c), no longer a placeholder. One page at two addresses: its
     // index, and `context/:contextId` for a studio opened with a creative context (AF.1.4). No guard on
@@ -214,6 +222,11 @@ describe('app routes', () => {
     const recipeDetailRoute = recipesChildren.find((route) => route.path === ':recipeId')!;
     expect(await recipeDetailRoute.loadComponent!()).toBe(RecipeEditorComponent);
     expect(recipeDetailRoute.canDeactivate).toEqual([recipeEditorCanDeactivateGuard]);
+
+    // Read-only, so it carries no leave-guard: there is nothing on it to lose.
+    const recipeKitchenRoute = recipesChildren.find((route) => route.path === ':recipeId/kitchen')!;
+    expect(await recipeKitchenRoute.loadComponent!()).toBe(RecipeKitchenViewComponent);
+    expect(recipeKitchenRoute.canDeactivate).toBeUndefined();
 
     const signInRoute = routes.find((route) => route.path === 'sign-in')!;
     expect(await signInRoute.loadComponent!()).toBe(SignInComponent);

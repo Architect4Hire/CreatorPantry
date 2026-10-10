@@ -36,6 +36,7 @@ const SECTION_ROUTES: Routes = [
   { path: 'dam', loadChildren: () => import('./features/dam/dam.routes').then((m) => m.DAM_ROUTES) },
   { path: 'content-board', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Content Board' } },
   { path: 'prompt-library', loadChildren: () => import('./features/prompt-library/prompt-library.routes').then((m) => m.PROMPT_LIBRARY_ROUTES) },
+  { path: 'settings', loadComponent: () => import('./features/workspace-settings/workspace-settings.component').then((m) => m.WorkspaceSettingsComponent), data: { title: 'Workspace settings' } },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 ];
 

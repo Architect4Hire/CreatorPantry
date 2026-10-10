@@ -1,0 +1,39 @@
+{
+  "id": "content.channel-posts.an-invented-cook-time-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The recipe bakes for 25 minutes. A post that says ten has invented a recipe fact, and the figure is flagged against what the recipe states.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"x\", \"body\": \"Olive oil cake, ready in 10 minutes.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "x",
+        "containing": "10 minutes"
+      }
+    ]
+  }
+}

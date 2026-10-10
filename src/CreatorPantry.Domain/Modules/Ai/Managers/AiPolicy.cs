@@ -769,6 +769,25 @@ public static class AiPolicy
     /// </remarks>
     public const int ImagePromptMaxLength = 4000;
 
+    /// <summary>
+    /// The longest one post body may be (AF.6.3).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ChangeValueMaxLength"/>, because the handler stores a body as one row. It is not a channel
+    /// limit and must stay above every one of them: a body over its channel's limit has to remain storable so
+    /// it can be shown flagged rather than refused.
+    /// </remarks>
+    public const int ChannelPostBodyMaxLength = ChangeValueMaxLength;
+
+    /// <summary>The most channels one post request may name.</summary>
+    public const int MaxChannelPostsChannels = 8;
+
+    /// <summary>The most warnings a model may attach to one set of posts.</summary>
+    public const int MaxChannelPostsWarnings = 12;
+
+    /// <summary>A creative context's concurrency token as provenance records it.</summary>
+    public const int CreativeContextVersionMaxLength = 64;
+
     /// <summary>The shortest a composed image prompt may be. A one-line answer is not a prompt.</summary>
     public const int ImagePromptMinLength = 40;
 

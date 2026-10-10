@@ -253,4 +253,16 @@ public enum AiChangeTargetKind
     /// </para>
     /// </remarks>
     DishFacetSuggestion = 20,
+
+    /// <summary>
+    /// One channel's post, of <see cref="AiTaskType.ChannelPosts"/>: the body, and beside it what the
+    /// channel's writing profile measured.
+    /// </summary>
+    /// <remarks>
+    /// One target per requested channel. The body is the <see cref="AiChangeKind.Add"/> row; the channel key,
+    /// the count, the limit, the verdict and the profile version are <see cref="AiChangeKind.Set"/> rows on the
+    /// same target, under the names <see cref="ChannelPostFields"/> defines. Deliberately absent from
+    /// <c>AiChangeApplicability</c>: post copy never becomes recipe data.
+    /// </remarks>
+    ChannelPost = 21,
 }

@@ -7,8 +7,9 @@ namespace CreatorPantry.Domain.Modules.Content.Business;
 public interface IContentStalenessBusiness
 {
     /// <summary>
-    /// Marks NeedsReview every Accepted proposal of the recipe whose accepted content was written against an
-    /// older version than the recipe's latest, and returns how many it marked. Idempotent and order-independent.
+    /// Marks NeedsReview every Accepted proposal of the recipe, and every Accepted post channel pinned to it,
+    /// whose accepted content was written against an older version than the recipe's latest, and returns how
+    /// many it marked. Idempotent and order-independent.
     /// </summary>
     Task<int> ApplyRecipeChangeAsync(Guid recipeId, CancellationToken cancellationToken);
 
@@ -45,6 +46,22 @@ internal sealed class ContentStalenessBusiness(IContentStalenessDataLayer dataLa
             // retry that follows a throw re-reads and skips everything already marked.
             var applied = await dataLayer.MarkNeedsReviewAsync(
                 new ContentStalenessChange(pin.ProposalId, ContentStaleReasons.RecipeChanged, clock.UtcNow),
+                cancellationToken);
+
+            if (applied)
+            {
+                marked++;
+            }
+        }
+
+        // Posts follow the same rule from the same event (AF.6.1), each channel on its own: one channel of a
+        // package may be pinned to an older version than its neighbour, and only the stale one is marked.
+        var socialPins = await dataLayer.FindAcceptedSocialPinsAsync(recipeId, cancellationToken);
+
+        foreach (var pin in socialPins.Where(pin => ContentCurrency.IsStale(pin.PinnedVersionNumber, latest.VersionNumber)))
+        {
+            var applied = await dataLayer.MarkSocialNeedsReviewAsync(
+                new SocialStalenessChange(pin.ChannelId, ContentStaleReasons.RecipeChanged, clock.UtcNow),
                 cancellationToken);
 
             if (applied)

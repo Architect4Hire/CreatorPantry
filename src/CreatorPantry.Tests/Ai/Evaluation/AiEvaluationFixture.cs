@@ -223,6 +223,19 @@ public enum AiEvaluationKind
     /// </para>
     /// </remarks>
     DishFacetsOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiChannelPostsOutputValidator.Validate"/> for
+    /// AF.6.3's posts, and then — for an answer that validates — the same measuring and claim scanning the
+    /// handler runs before it stores anything.
+    /// </summary>
+    /// <remarks>
+    /// Two stages in one kind because the capability's rules are split across them on purpose: an unrequested
+    /// channel is <em>refused</em> by the validator, while an over-limit body and an unsupported claim are
+    /// <em>flagged</em> afterwards and never refused. A fixture that could only reach the validator could not
+    /// show the second half, which is the half a creator sees.
+    /// </remarks>
+    ChannelPostsOutputValidation,
 }
 
 /// <summary>

@@ -24,6 +24,13 @@ public interface IWorkspaceFacade
     Task<OperationResult<WorkspaceServiceModel>> RenameCurrentAsync(UpdateWorkspaceViewModel model, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Sets the default measurement system of the workspace already resolved for this scope (B-08). What a
+    /// new AI recipe draft is written in; it never rewrites a recipe that already exists.
+    /// </summary>
+    Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+        SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Names the people behind the given memberships of the resolved workspace.
     /// </summary>
     /// <returns>

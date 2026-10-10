@@ -664,6 +664,57 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalCreativeContext", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AssembledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ContextVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("CreativeContextId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("EstimatedTokens")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId")
+                        .IsUnique();
+
+                    b.HasIndex("WorkspaceId", "CreativeContextId")
+                        .HasDatabaseName("IX_AiProposalCreativeContexts_Workspace_Context");
+
+                    b.ToTable("AiProposalCreativeContexts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AiProposalCreativeContexts_EstimatedTokens_NonNegative", "EstimatedTokens >= 0");
+
+                            t.HasCheckConstraint("CK_AiProposalCreativeContexts_RecipePin_Whole", "(RecipeId IS NULL AND RecipeVersionId IS NULL) OR (RecipeId IS NOT NULL AND RecipeVersionId IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalFeedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3107,6 +3158,231 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreativeContextId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_SocialPackages_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "CreativeContextId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_SocialPackages_Workspace_Context");
+
+                    b.ToTable("SocialPackages", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackageChannel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AcceptedRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChannelKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SocialPackageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StaleReasons")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("StaleSince")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_SocialPackageChannels_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "Status")
+                        .HasDatabaseName("IX_SocialPackageChannels_Workspace_Status");
+
+                    b.HasIndex("WorkspaceId", "Id", "AcceptedRevisionId");
+
+                    b.HasIndex("WorkspaceId", "SocialPackageId", "ChannelKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_SocialPackageChannels_Workspace_Package_Channel");
+
+                    b.ToTable("SocialPackageChannels", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SocialPackageChannels_Accepted_HasRevision", "Status NOT IN (1, 3) OR AcceptedRevisionId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_SocialPackageChannels_ChannelKey_NotBlank", "trim(ChannelKey) <> ''");
+
+                            t.HasCheckConstraint("CK_SocialPackageChannels_Staleness_Status", "(Status = 3 AND StaleSince IS NOT NULL AND StaleReasons <> 0) OR (Status <> 3 AND StaleSince IS NULL AND StaleReasons = 0)");
+
+                            t.HasCheckConstraint("CK_SocialPackageChannels_Status_Range", "Status >= 0 AND Status <= 3");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("BrandProfileRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChannelProfileVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int?>("CharacterCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CharacterLimit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContextPackageChecksum")
+                        .HasMaxLength(71)
+                        .HasColumnType("nvarchar(71)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreativeContextVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("LimitStatus")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ParentRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PromptTemplateBodyChecksum")
+                        .HasMaxLength(71)
+                        .HasColumnType("nvarchar(71)");
+
+                    b.Property<string>("PromptTemplateId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptTemplateVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SocialPackageChannelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "SocialPackageChannelId", "Id")
+                        .HasName("AK_SocialRevisions_Workspace_Channel_Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId");
+
+                    b.HasIndex("WorkspaceId", "BrandProfileRevisionId");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideVersionId");
+
+                    b.HasIndex("WorkspaceId", "RecipeVersionId")
+                        .HasDatabaseName("IX_SocialRevisions_Workspace_RecipeVersion")
+                        .HasFilter("RecipeVersionId IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeVersionId");
+
+                    b.HasIndex("WorkspaceId", "SocialPackageChannelId", "ParentRevisionId");
+
+                    b.HasIndex("WorkspaceId", "SocialPackageChannelId", "RevisionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_SocialRevisions_Workspace_Channel_RevisionNumber");
+
+                    b.ToTable("SocialRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SocialRevisions_AiProposal_Source", "(AiProposalId IS NOT NULL AND Source = 0) OR (AiProposalId IS NULL AND Source <> 0)");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_Body_NotBlank", "trim(Body) <> ''");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_CharacterCount_NonNegative", "CharacterCount IS NULL OR CharacterCount >= 0");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_CharacterLimit_Positive", "CharacterLimit IS NULL OR CharacterLimit >= 1");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_Limit_Status", "(LimitStatus = 0 AND CharacterCount IS NULL AND CharacterLimit IS NULL AND ChannelProfileVersion IS NULL) OR (LimitStatus = 1 AND CharacterCount IS NOT NULL AND ChannelProfileVersion IS NOT NULL AND (CharacterLimit IS NULL OR CharacterCount <= CharacterLimit)) OR (LimitStatus = 2 AND CharacterCount IS NOT NULL AND ChannelProfileVersion IS NOT NULL AND CharacterLimit IS NOT NULL AND CharacterCount > CharacterLimit)");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_Parent_NotSelf", "ParentRevisionId IS NULL OR ParentRevisionId <> Id");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_Parent_RevisionNumber", "(RevisionNumber = 1 AND ParentRevisionId IS NULL) OR (RevisionNumber > 1 AND ParentRevisionId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_Reaffirmed_HasParent", "Source <> 2 OR ParentRevisionId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_RecipePin_Whole", "(RecipeId IS NULL AND RecipeVersionId IS NULL) OR (RecipeId IS NOT NULL AND RecipeVersionId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_RevisionNumber_Positive", "RevisionNumber >= 1");
+
+                            t.HasCheckConstraint("CK_SocialRevisions_Template_Generated", "Source <> 0 OR (PromptTemplateId IS NOT NULL AND PromptTemplateVersion IS NOT NULL AND PromptTemplateBodyChecksum IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.WorkspaceWeeklyTheme", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5218,6 +5494,11 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("DefaultMeasurementSystem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -5234,7 +5515,10 @@ namespace CreatorPantry.Domain.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_Workspaces_Slug");
 
-                    b.ToTable("Workspaces", (string)null);
+                    b.ToTable("Workspaces", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Workspaces_DefaultMeasurementSystem", "DefaultMeasurementSystem IN (1, 2)");
+                        });
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.WorkspaceMembership", b =>
@@ -5818,6 +6102,16 @@ namespace CreatorPantry.Domain.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalCreativeContext", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithOne("CreativeContext")
+                        .HasForeignKey("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalCreativeContext", "WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", "WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposalFeedback", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
@@ -6364,6 +6658,84 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
                         .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackage", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.CreativeContext", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "CreativeContextId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackageChannel", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackage", null)
+                        .WithMany("Channels")
+                        .HasForeignKey("WorkspaceId", "SocialPackageId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "Id", "AcceptedRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "SocialPackageChannelId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialRevision", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandProfileRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandProfileRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackageChannel", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "SocialPackageChannelId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "SocialPackageChannelId", "ParentRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "SocialPackageChannelId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -7070,6 +7442,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Navigation("Changes");
 
+                    b.Navigation("CreativeContext");
+
                     b.Navigation("Feedback");
 
                     b.Navigation("Warnings");
@@ -7115,6 +7489,11 @@ namespace CreatorPantry.Domain.Migrations
                     b.Navigation("Channels");
 
                     b.Navigation("References");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.SocialPackage", b =>
+                {
+                    b.Navigation("Channels");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAsset", b =>

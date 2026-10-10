@@ -1,0 +1,40 @@
+{
+  "id": "content.channel-posts.a-working-title-cannot-vouch-for-a-figure",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A working title is a label on the piece of work, not a recipe fact. The recipe bakes for 25 minutes; a title that says ten does not make ten a time the recipe states.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"x\", \"body\": \"Olive oil cake, ready in 10 minutes.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    },
+    "workingTitle": "Olive oil cake, ready in 10 minutes"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "x",
+        "containing": "10 minutes"
+      }
+    ]
+  }
+}

@@ -30,8 +30,9 @@ namespace CreatorPantry.Domain.Modules.Content.Data.Entities;
 /// <para>
 /// <strong>The two exceptions are stated, not hidden.</strong> <see cref="ConceptId"/> has no key because a
 /// concept is not a row — it is a target inside its request's proposal. <see cref="SocialPackageId"/> has none
-/// because its table arrives with AF.6.1, the path <c>PromptRecord.GeneratedImageId</c> took before 12.6. For
-/// both, the write seam must resolve the id inside the workspace before storing it.
+/// yet: AF.6.1 landed the table, and the key arrives with AF.6.4, when the write seam first accepts the kind —
+/// the path <c>PromptRecord.GeneratedImageId</c> took before 12.6. For both, the write seam must resolve the
+/// id inside the workspace before storing it.
 /// </para>
 /// </remarks>
 public class CreativeContextReference : IWorkspaceOwned
@@ -92,7 +93,7 @@ public class CreativeContextReference : IWorkspaceOwned
 
     /// <summary>
     /// Set exactly when <see cref="Kind"/> is <see cref="CreativeContextReferenceKind.SocialPackage"/>. No
-    /// foreign key until AF.6.1 lands the table.
+    /// foreign key until AF.6.4 teaches the write seam to accept the kind.
     /// </summary>
     public Guid? SocialPackageId { get; set; }
 

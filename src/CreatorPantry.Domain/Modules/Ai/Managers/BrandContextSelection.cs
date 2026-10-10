@@ -53,6 +53,23 @@ public static class BrandContextSelection
         BrandStyleGuideSectionKey.BlogGuidance,
     ];
 
+    /// <summary>
+    /// What a short post needs beyond the voice: how the brand asks for something, and its guidance for the
+    /// places it posts (AF.6.3).
+    /// </summary>
+    /// <remarks>
+    /// Both the social and the blog guidance, because one request writes for whichever channels the creator
+    /// picked and a blog intro is one of them. No storytelling and no formatting: those shape a long piece, and
+    /// a caption is not one.
+    /// </remarks>
+    private static readonly BrandStyleGuideSectionKey[] ShortForm =
+    [
+        .. Voice,
+        BrandStyleGuideSectionKey.CallsToAction,
+        BrandStyleGuideSectionKey.BlogGuidance,
+        BrandStyleGuideSectionKey.SocialGuidance,
+    ];
+
     /// <summary>Visual direction. No voice sections: an image prompt is not written in the brand's voice.</summary>
     private static readonly BrandStyleGuideSectionKey[] VisualOnly =
     [
@@ -135,6 +152,11 @@ public static class BrandContextSelection
         // channel key would pull a social variant over the long-form guidance the introduction needs. The
         // caption therefore demonstrates the guide's general social guidance, which the screen states.
         AiTaskType.BrandStyleTestDrive => VoiceAndLook,
+
+        // Posts are the brand speaking in public, so the voice applies. No channel is passed: one package
+        // grounds every channel the request names, so each post follows the guide's general guidance rather
+        // than a per-channel variant.
+        AiTaskType.ChannelPosts => ShortForm,
 
         // Everything else: no brand context. Named above rather than left to a reader to work out.
         _ => [],

@@ -1,0 +1,20 @@
+{
+  "id": "content.channel-posts.an-emoji-is-counted-the-way-x-counts-it",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "X weighs an emoji as two however many code points build it. 278 letters and one joined emoji is exactly 280, though the string is 289 UTF-16 units long.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"x\", \"body\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\ud83d\\udc69\\u200d\\ud83d\\udc69\\u200d\\ud83d\\udc67\\u200d\\ud83d\\udc66\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "limits": {
+      "x": "Within"
+    }
+  }
+}

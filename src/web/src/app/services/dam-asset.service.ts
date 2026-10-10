@@ -113,6 +113,37 @@ export type DamVersionUploadEvent =
   | { readonly kind: 'progress'; readonly percent: number | null }
   | { readonly kind: 'done'; readonly outcome: DamVersionUploadOutcome };
 
+/** Why an uploaded picture was not added to the library. Each has its own remedy. */
+export type DamAssetUploadFailure =
+  /** The bytes are not an image the library takes, whatever the file is called. */
+  | 'unsupported'
+  | 'too_large'
+  /** The request itself was refused — a missing title, say. `fieldErrors` says which field. */
+  | 'invalid'
+  | 'forbidden'
+  /** Storage could not be reached, or nothing could be committed. Nothing partial was left behind. */
+  | 'unavailable';
+
+export type DamAssetUploadOutcome =
+  | { readonly status: 'created'; readonly asset: DamCreatedAsset }
+  | {
+      readonly status: 'failed';
+      readonly reason: DamAssetUploadFailure;
+      readonly fieldErrors: Readonly<Record<string, readonly string[]>>;
+    };
+
+export type DamAssetUploadEvent =
+  /** How much of the file has been sent, or null when the browser cannot tell. */
+  | { readonly kind: 'progress'; readonly percent: number | null }
+  | { readonly kind: 'done'; readonly outcome: DamAssetUploadOutcome };
+
+/** What a creator says about a picture as they upload it. The rest is edited on the asset's own page. */
+export interface DamAssetUploadDetails {
+  readonly title: string;
+  /** Empty when the creator gave none. Never invented here: nothing has looked at the pixels. */
+  readonly altText: string;
+}
+
 export type DamAssetKeepOutcome =
   /**
    * The picture is in the library as this asset — made by this call, or by an earlier one. The route answers
@@ -169,7 +200,7 @@ const CURSOR_INVALID_CODE = 'media.asset_search.cursor_invalid_request';
  * adding a version, logging a use, and removing it from the library (DAM-002 through DAM-010) — and keeping a
  * generated picture as a new asset (AF.4.1).
  *
- * **It does not upload new assets.** That route exists and has no caller here yet.
+ * **It also adds a creator's own picture as a new asset** (`upload`), the counterpart to keeping a generated one.
  *
  * **An asset is named by its id and never by a location.** Every URL built here is the gateway's own route
  * with a workspace slug and a guid in it; the response carries no object key or storage address to pass on.
@@ -483,6 +514,74 @@ export class DamAssetService {
       // 409 here is a commit that failed with nothing written, and 503 is storage: both are worth trying again.
       return { status: 'unavailable' };
     }
+  }
+
+  /**
+   * Add a creator's own picture to the library as a new asset. Contributor and above.
+   *
+   * The same kind of asset keeping a generated picture makes, from bytes the creator supplies instead. The
+   * server decides what the file is from its bytes; the name and type a browser reports are not sent as facts.
+   *
+   * A stream, for the reason `addVersion` is one: `progress` events say how much has left this browser, the
+   * last event is the `done` one, and **unsubscribing aborts the request** without being able to promise the
+   * server had not already committed.
+   *
+   * **The key is worth sending.** Nothing else stops a retry after a lost response from adding the same
+   * picture twice, because uploading one photograph as two assets is a legitimate thing to do.
+   */
+  upload(
+    workspaceSlug: string,
+    file: File,
+    details: DamAssetUploadDetails,
+    idempotencyKey: string,
+  ): Observable<DamAssetUploadEvent> {
+    const failed = (reason: DamAssetUploadFailure, fieldErrors: Readonly<Record<string, readonly string[]>> = {}) =>
+      of<DamAssetUploadEvent>({ kind: 'done', outcome: { status: 'failed', reason, fieldErrors } });
+
+    const url = this.url(workspaceSlug);
+    if (!url) return failed('unavailable');
+
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('title', details.title);
+    if (details.altText !== '') form.append('altText', details.altText);
+
+    return this.http
+      .post<unknown>(url, form, {
+        withCredentials: true,
+        headers: { 'Idempotency-Key': idempotencyKey },
+        reportProgress: true,
+        observe: 'events',
+      })
+      .pipe(
+        map((event): DamAssetUploadEvent | null => {
+          if (event.type === HttpEventType.UploadProgress) {
+            // No total means the browser cannot say how far along it is; reported as unknown rather than 0%.
+            const percent = event.total ? Math.min(100, Math.round((event.loaded / event.total) * 100)) : null;
+
+            return { kind: 'progress', percent };
+          }
+          if (event.type !== HttpEventType.Response) return null;
+
+          const asset = decodeDamCreatedAsset(event.body);
+
+          return {
+            kind: 'done',
+            outcome: asset ? { status: 'created', asset } : { status: 'failed', reason: 'unavailable', fieldErrors: {} },
+          };
+        }),
+        filter((event): event is DamAssetUploadEvent => event !== null),
+        catchError((error: unknown) => {
+          const code = statusCodeOf(error);
+
+          if (code === 413) return failed('too_large');
+          if (code === 422) return failed('unsupported');
+          if (code === 400) return failed('invalid', decodeFieldErrors(error));
+          if (code === 403) return failed('forbidden');
+
+          return failed('unavailable');
+        }),
+      );
   }
 
   /**

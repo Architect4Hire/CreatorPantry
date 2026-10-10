@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
 namespace CreatorPantry.Domain.Modules.Tenancy.Data;
@@ -29,6 +30,9 @@ public interface IWorkspaceRepository
     Task<WorkspaceRecord?> FindByIdAsync(Guid workspaceId, CancellationToken cancellationToken);
 
     Task<WorkspaceRecord> RenameAsync(Guid workspaceId, string name, CancellationToken cancellationToken);
+
+    Task<WorkspaceRecord> SetDefaultMeasurementSystemAsync(
+        Guid workspaceId, MeasurementSystem system, CancellationToken cancellationToken);
 
     /// <summary>
     /// Every workspace membership the given user holds, joined with each workspace's own fields. Queried by

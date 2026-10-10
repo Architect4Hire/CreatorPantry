@@ -1,0 +1,31 @@
+{
+  "id": "content.channel-posts.a-dish-named-gluten-free-may-be-called-that",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A correction pinned in advance. \"Gluten-Free Brownies\" is what the creator titled their recipe, and a post may call the dish by its name. The claim is theirs and already made, so nothing is flagged.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Gluten-free brownies, fudgy in the middle. The recipe is on the blog.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ],
+    "recipe": {
+      "title": "Gluten-Free Brownies",
+      "ingredients": [
+        "200 g dark chocolate",
+        "150 g almond flour"
+      ],
+      "steps": [
+        "Melt the chocolate.",
+        "Fold in the flour."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "gluten"
+    ]
+  }
+}

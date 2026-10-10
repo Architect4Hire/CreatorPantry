@@ -23,6 +23,11 @@ internal static class AiTaskInputsIdentity
 {
     public static string? Of(AiTaskType task, string? inputsJson)
     {
+        if (inputsJson is not null && task is AiTaskType.RecipeFirstDraft)
+        {
+            return WithoutWorkspaceFacts(inputsJson);
+        }
+
         if (inputsJson is null || task is not (AiTaskType.EditorialPackage or AiTaskType.SeoPackage))
         {
             return inputsJson;
@@ -36,6 +41,36 @@ internal static class AiTaskInputsIdentity
             return inputs is not null && inputs.TryGetValue(AiEditorialPackageInputs.Sections, out var sections)
                 ? sections
                 : inputsJson;
+        }
+        catch (JsonException)
+        {
+            return inputsJson;
+        }
+    }
+
+    /// <summary>
+    /// A first draft's inputs minus the workspace's measurement system: the same reasoning as the packages'
+    /// brand facts. An Owner changing the setting between a request and its retry has not asked a different
+    /// question, and the retry should return the draft the first request bought.
+    /// </summary>
+    private static string WithoutWorkspaceFacts(string inputsJson)
+    {
+        try
+        {
+            var inputs = JsonSerializer.Deserialize<Dictionary<string, string>>(inputsJson);
+
+            if (inputs is null)
+            {
+                return inputsJson;
+            }
+
+            foreach (var key in AiFirstDraftInputs.WorkspaceFacts)
+            {
+                inputs.Remove(key);
+            }
+
+            return JsonSerializer.Serialize(
+                inputs.OrderBy(pair => pair.Key, StringComparer.Ordinal).ToDictionary(StringComparer.Ordinal));
         }
         catch (JsonException)
         {

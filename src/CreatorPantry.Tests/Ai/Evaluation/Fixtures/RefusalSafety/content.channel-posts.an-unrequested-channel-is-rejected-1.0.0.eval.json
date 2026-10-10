@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.an-unrequested-channel-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A channel the request did not name is never written. The answer is refused whole rather than having the extra post dropped, which would be repairing it.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}, {\"channelKey\": \"tiktok\", \"body\": \"Olive oil cake, start to finish.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.channel_posts_channel_not_requested",
+    "category": "DomainInvalid"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-count-supplied-by-the-model-is-rejected",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The document has no field for a character count. A model that supplies one is refused, so a count shown to a creator is always the profile's.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.channel-posts.v1\",\"posts\":[{\"channelKey\":\"x\",\"body\":\"Olive oil cake.\",\"characterCount\":15}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

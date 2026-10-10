@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Business;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Managers.Results;
@@ -237,6 +238,43 @@ public class WorkspaceBusinessTests
         Assert.Equal((WorkspaceId, "New Name"), _dataLayer.RenameCalls.Single());
         Assert.Equal("New Name", result.Name);
         Assert.Equal(WorkspaceRole.Editor, result.Role);
+    }
+
+    [Fact]
+    public async Task GetCurrent_reports_the_workspaces_default_measurement_system()
+    {
+        _dataLayer.WorkspaceById = new WorkspaceRecord(
+            WorkspaceId, "Sam's Kitchen", Slug, SqliteAuthServices.Now, MeasurementSystem.Metric);
+
+        var result = await CreateBusiness(ResolvedContext()).GetCurrentAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(MeasurementSystem.Metric, result.DefaultMeasurementSystem);
+    }
+
+    [Fact]
+    public async Task SetMeasurementPreference_changes_the_resolved_workspace_not_a_client_supplied_id()
+    {
+        var result = await CreateBusiness(ResolvedContext()).SetMeasurementPreferenceCurrentAsync(
+            new SetMeasurementPreferenceViewModel(MeasurementSystem.Metric), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal((WorkspaceId, MeasurementSystem.Metric), _dataLayer.MeasurementCalls.Single());
+        Assert.Equal(MeasurementSystem.Metric, result.Value!.DefaultMeasurementSystem);
+    }
+
+    [Theory]
+    [InlineData(MeasurementSystem.Neutral)]
+    [InlineData(MeasurementSystem.Imperial)]
+    [InlineData(null)]
+    public async Task SetMeasurementPreference_refuses_anything_but_metric_or_us_customary_without_writing(
+        MeasurementSystem? system)
+    {
+        var result = await CreateBusiness(ResolvedContext()).SetMeasurementPreferenceCurrentAsync(
+            new SetMeasurementPreferenceViewModel(system), TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(TenancyErrorCodes.MeasurementPreferenceInvalidRequest, result.Error!.Code);
+        Assert.Empty(_dataLayer.MeasurementCalls);
     }
 
     private static WorkspaceContext ResolvedContext()

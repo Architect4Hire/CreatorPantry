@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Business;
@@ -53,7 +54,8 @@ internal sealed class AiFirstDraftRequestFacade(
     IAiFirstDraftRequestBusiness business,
     IAiDraftAcceptanceBusiness acceptance,
     IValidator<RequestRecipeFirstDraftViewModel> validator,
-    IValidator<AiDraftAcceptanceViewModel> acceptanceValidator) : IAiFirstDraftRequestFacade
+    IValidator<AiDraftAcceptanceViewModel> acceptanceValidator,
+    IWorkspaceFacade workspaces) : IAiFirstDraftRequestFacade
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
         RequestRecipeFirstDraftViewModel model,
@@ -85,7 +87,12 @@ internal sealed class AiFirstDraftRequestFacade(
                 Replayed: false);
         }
 
-        return await business.RequestAsync(model, idempotencyKey, cancellationToken);
+        // Facade to facade: the setting is Tenancy's, and it is read for the workspace already resolved for
+        // this scope -- never from the request, which has no field for it.
+        var workspace = await workspaces.GetCurrentAsync(cancellationToken);
+
+        return await business.RequestAsync(
+            model, workspace.DefaultMeasurementSystem, idempotencyKey, cancellationToken);
     }
 
     public Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(

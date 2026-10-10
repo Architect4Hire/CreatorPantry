@@ -189,5 +189,9 @@ public class WorkspaceResolutionFacadeTests
 
         public Task<WorkspaceServiceModel> RenameCurrentAsync(UpdateWorkspaceViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Not exercised by WorkspaceResolutionFacadeTests.");
+
+        public Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+            SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Not exercised by WorkspaceResolutionFacadeTests.");
     }
 }

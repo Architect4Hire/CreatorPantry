@@ -506,6 +506,10 @@ public static class AiServiceCollectionExtensions
         // prerequisites the remarks above already list for the worker.
         services.AddKeyedScoped<IAiTaskHandler, DishFacetSuggestionAiTaskHandler>(
             AiTaskType.DishFacetSuggestion);
+
+        // Reads the content module's creative-context package and the channel writing profiles, so this
+        // handler adds AddContentModule to the worker's prerequisites.
+        services.AddKeyedScoped<IAiTaskHandler, ChannelPostsAiTaskHandler>(AiTaskType.ChannelPosts);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

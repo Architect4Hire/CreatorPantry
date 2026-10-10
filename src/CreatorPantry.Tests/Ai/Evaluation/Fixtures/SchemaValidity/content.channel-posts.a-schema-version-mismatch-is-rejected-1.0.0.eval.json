@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-schema-version-mismatch-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A template and an answer that disagree on version fail before the body is examined.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v2\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch",
+    "category": "OutputSchemaInvalid"
+  }
+}

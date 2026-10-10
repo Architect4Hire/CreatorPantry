@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
@@ -21,11 +22,27 @@ public interface IContentStalenessDataLayer
     Task<bool> MarkNeedsReviewAsync(ContentStalenessChange change, CancellationToken cancellationToken);
 
     Task<ContentCurrencyFacts?> FindCurrencyFactsAsync(Guid proposalId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ISocialPackageRepository.FindAcceptedPinsAsync"/>
+    Task<IReadOnlyList<AcceptedSocialPinRecord>> FindAcceptedSocialPinsAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Marks one accepted post channel NeedsReview and writes its audit entry in one save. Returns false
+    /// without writing when the channel is no longer Accepted, which is what makes a replayed delivery a no-op.
+    /// </summary>
+    /// <remarks>
+    /// The same bargain as <see cref="MarkNeedsReviewAsync"/>: a concurrent change to the slot fails the save
+    /// on its row version and throws, and the outbox retry is the recovery. The revision is not touched — it
+    /// could not be — so the accepted words and their pin are exactly what was accepted.
+    /// </remarks>
+    Task<bool> MarkSocialNeedsReviewAsync(SocialStalenessChange change, CancellationToken cancellationToken);
 }
 
 internal sealed class ContentStalenessDataLayer(
     CreatorPantryDbContext context,
-    IContentStalenessRepository repository) : IContentStalenessDataLayer
+    IContentStalenessRepository repository,
+    ISocialPackageRepository socialPackages,
+    IAuditWriter auditWriter) : IContentStalenessDataLayer
 {
     public async Task<ContentStalenessCandidates> FindCandidatesAsync(Guid recipeId, CancellationToken cancellationToken)
     {
@@ -85,5 +102,39 @@ internal sealed class ContentStalenessDataLayer(
         var latest = recipeId is { } id ? await repository.GetLatestRecipeVersionAsync(id, cancellationToken) : null;
 
         return new ContentCurrencyFacts(proposalId, proposal.Value.Status, proposal.Value.AcceptedRevisionId, proposal.Value.Pin, latest);
+    }
+
+    public Task<IReadOnlyList<AcceptedSocialPinRecord>> FindAcceptedSocialPinsAsync(
+        Guid recipeId, CancellationToken cancellationToken) =>
+        socialPackages.FindAcceptedPinsAsync(recipeId, cancellationToken);
+
+    public async Task<bool> MarkSocialNeedsReviewAsync(SocialStalenessChange change, CancellationToken cancellationToken)
+    {
+        var channel = await socialPackages.GetChannelForUpdateAsync(change.ChannelId, cancellationToken);
+
+        if (channel is not { Status: ContentProposalStatus.Accepted })
+        {
+            return false;
+        }
+
+        channel.Status = ContentProposalStatus.NeedsReview;
+        channel.StaleSince = change.At;
+        channel.StaleReasons = change.Reasons;
+        channel.UpdatedAt = change.At;
+
+        // A system move, so no actor. Statuses and the channel key only: never a word of the post.
+        auditWriter.Record(new AuditEntry(
+            ActorUserId: null,
+            ContentAuditActions.SocialChannelMarkedStale,
+            ContentAuditActions.SocialChannelResourceType,
+            channel.Id.ToString("D"),
+            Guid.NewGuid(),
+            $"Marked the accepted {channel.ChannelKey} post as needing review after its recipe changed.",
+            BeforeReference: nameof(ContentProposalStatus.Accepted),
+            AfterReference: nameof(ContentProposalStatus.NeedsReview)));
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 }

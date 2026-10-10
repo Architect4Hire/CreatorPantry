@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Paging;
+using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Managers;
@@ -21,9 +22,10 @@ namespace CreatorPantry.Tests.Media;
 /// has no <c>rowversion</c>, so a concurrency token read is only honest here.
 /// </para>
 /// <para>
-/// Lineage resolution is deliberately absent: naming a recipe or a prompt is two other modules' facades, which
-/// <c>MediaAssetDetailEndpointTests</c> exercises through the real host. What belongs here is that the link rows
-/// and the counts come back correctly.
+/// Lineage resolution is deliberately absent, with one exception: naming a recipe or a prompt is two other
+/// modules' facades, which <c>MediaAssetDetailEndpointTests</c> exercises through the real host. What belongs
+/// here is that the link rows and the counts come back correctly — and the one read that host cannot fail,
+/// <see cref="A_detail_read_names_the_recipes_of_a_linked_asset"/>.
 /// </para>
 /// </remarks>
 public sealed class MediaAssetDetailSqlServerTests(SqlServerMediaFixture fixture)
@@ -217,6 +219,57 @@ public sealed class MediaAssetDetailSqlServerTests(SqlServerMediaFixture fixture
         Assert.Empty(bundle.Tags);
         Assert.Empty(bundle.RecipeLinks);
         Assert.Equal(0, bundle.Asset.VersionCount);
+    }
+
+    /// <summary>
+    /// The whole read, through Business, for an asset linked to a recipe: the one shape in which both lineage
+    /// facades reach the database inside a single request scope.
+    /// </summary>
+    /// <remarks>
+    /// The exception to this class leaving lineage to the endpoint tests, and here for an engine reason. Run
+    /// together, the two reads are a second operation on the scope's one <c>DbContext</c> and the read throws —
+    /// but only against a provider whose commands really are asynchronous. SQLite completes each before the next
+    /// begins, so every test above this layer passed while the asset page failed for any asset with a recipe.
+    /// <para>
+    /// <strong>The prompt read is held open on purpose.</strong> Against an idle local engine a read of an empty
+    /// table can return before the caller has yielded, and the two reads then never overlap even when the code
+    /// starts them together — this test passed against exactly that code until the lock was added. A second
+    /// connection holding <c>PromptRecords</c> exclusively keeps the first read in flight, which is the ordinary
+    /// state of a real request and the only one in which starting the second read is observable.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_detail_read_names_the_recipes_of_a_linked_asset()
+    {
+        var recipe = await AddRecipeAsync("Soda bread");
+        var id = await AddAsync("Soda bread hero");
+        await LinkAsync(id, recipe, 0, RecipeAssetRole.Hero, "The hero shot");
+
+        await using var blockerScope = fixture.ScopeFor(SqlServerMediaFixture.WorkspaceA);
+        var blocker = SqlServerMediaFixture.Db(blockerScope);
+
+        await using var held = await blocker.Database.BeginTransactionAsync(Ct);
+        await blocker.Database.ExecuteSqlRawAsync(
+            "SELECT TOP (0) 1 FROM PromptRecords WITH (TABLOCKX, HOLDLOCK);", Ct);
+
+        await using var scope = fixture.ScopeFor(SqlServerMediaFixture.WorkspaceA);
+        var business = scope.ServiceProvider.GetRequiredService<IMediaAssetBusiness>();
+
+        var reading = business.GetDetailAsync(id, includeDeleted: false, Ct);
+
+        // Long enough for the read to reach the lock and for anything started beside it to run.
+        await Task.Delay(TimeSpan.FromMilliseconds(300), Ct);
+        await held.CommitAsync(Ct);
+
+        var result = await reading;
+
+        Assert.True(result.Succeeded);
+
+        var link = Assert.Single(result.Value!.RecipeLinks);
+
+        Assert.Equal(recipe, link.RecipeId);
+        Assert.Equal("Soda bread", link.Title);
+        Assert.Empty(result.Value.Prompts);
     }
 
     // --- Soft delete ------------------------------------------------------------------------------------

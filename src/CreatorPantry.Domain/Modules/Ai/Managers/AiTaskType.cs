@@ -316,4 +316,22 @@ public enum AiTaskType
     /// </para>
     /// </remarks>
     DishFacetSuggestion = 16,
+
+    /// <summary>
+    /// AF.6.3: posts for the channels a creator picked, one body per channel, for one piece of creative work.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>It writes copy and nothing else.</strong> <see cref="AiChannelPostsOutputDocument"/> has no
+    /// field for a count, a limit, a hashtag list or a schedule. Length, hashtag and link policy are measured
+    /// afterwards, in code, by the channel's writing profile — and a body over its limit is stored as written
+    /// and flagged, never trimmed.
+    /// </para>
+    /// <para>
+    /// <strong>It names no recipe of its own.</strong> Its source is a creative context, which may name a
+    /// recipe or none, so it runs from its own inputs like <see cref="RecipeConcepts"/> and its rows are
+    /// absent from <c>AiChangeApplicability</c>: there is no code path from a post to a recipe edit.
+    /// </para>
+    /// </remarks>
+    ChannelPosts = 17,
 }

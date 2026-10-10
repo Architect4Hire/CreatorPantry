@@ -471,7 +471,8 @@ internal sealed class CreativeContextPackageBusiness(
             ingredients,
             steps,
             omittedIngredients,
-            omittedSteps);
+            omittedSteps,
+            LatestRecipeVersionId: detail.Value.CurrentVersion?.Id);
     }
 
     private static CreativeContextSections SectionOf(CreativeContextReferenceKind kind) => kind switch

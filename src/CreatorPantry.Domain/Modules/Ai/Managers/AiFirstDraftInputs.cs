@@ -93,13 +93,31 @@ public static class AiFirstDraftInputs
     /// <summary>The chosen concept's server-minted id. Stored, never rendered.</summary>
     public const string SourceConceptId = "sourceConceptId";
 
+    /// <summary>
+    /// The workspace's default measurement system at the moment of the request, as the enum member's name.
+    /// </summary>
+    /// <remarks>
+    /// Written by the request seam from the workspace's own setting and never from the request: a client has
+    /// no field that reaches it. It is a fact about the workspace rather than part of what was asked, so it is
+    /// neither a brief line nor compared when an idempotency key is replayed (see
+    /// <see cref="AiTaskInputsIdentity"/>). The handler turns it into a fixed phrase for the task
+    /// instructions; the stored text itself never reaches a prompt.
+    /// </remarks>
+    public const string MeasurementSystem = "measurementSystem";
+
     /// <summary>Every key that reaches a prompt, in the order the brief is rendered in.</summary>
     public static IReadOnlyList<string> Rendered { get; } = [SelectedConcept, .. AiBriefInputs.All];
 
     /// <summary>Keys recorded on the operation for provenance and idempotency, never rendered.</summary>
     public static IReadOnlyList<string> Provenance { get; } = [SourceConceptRequestId, SourceConceptId];
 
+    /// <summary>
+    /// Facts about the workspace pinned at request time. They steer the task instructions through a fixed
+    /// vocabulary and are never rendered as text.
+    /// </summary>
+    public static IReadOnlyList<string> WorkspaceFacts { get; } = [MeasurementSystem];
+
     /// <summary>Every key the request seam may write. Nothing outside this reaches the stored inputs.</summary>
     public static IReadOnlySet<string> All { get; } =
-        new HashSet<string>([.. Rendered, .. Provenance], StringComparer.Ordinal);
+        new HashSet<string>([.. Rendered, .. Provenance, .. WorkspaceFacts], StringComparer.Ordinal);
 }

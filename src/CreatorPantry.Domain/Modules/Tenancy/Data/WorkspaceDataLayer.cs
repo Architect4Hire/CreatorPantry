@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
 namespace CreatorPantry.Domain.Modules.Tenancy.Data;
@@ -23,6 +24,10 @@ internal sealed class WorkspaceDataLayer(IWorkspaceRepository repository) : IWor
 
     public Task<WorkspaceRecord> RenameAsync(Guid workspaceId, string name, CancellationToken cancellationToken) =>
         repository.RenameAsync(workspaceId, name, cancellationToken);
+
+    public Task<WorkspaceRecord> SetDefaultMeasurementSystemAsync(
+        Guid workspaceId, MeasurementSystem system, CancellationToken cancellationToken) =>
+        repository.SetDefaultMeasurementSystemAsync(workspaceId, system, cancellationToken);
 
     public Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken) =>
         repository.FindMembershipsForUserAsync(userId, cancellationToken);

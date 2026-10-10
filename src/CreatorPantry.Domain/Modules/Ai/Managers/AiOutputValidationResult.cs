@@ -453,6 +453,33 @@ public static class AiOutputReason
     /// </para>
     /// </remarks>
     public const string DishFacetClaimNotPermitted = "ai.output.dish_facet_claim_not_permitted";
+
+    /// <summary>
+    /// A post was written for a channel the request did not name (AF.6.3).
+    /// </summary>
+    /// <remarks>
+    /// Refused whole rather than dropped. Dropping it would be repairing the answer, and a model that writes
+    /// for a channel nobody asked for has shown it was not following the list it was given.
+    /// </remarks>
+    public const string ChannelPostsChannelNotRequested = "ai.output.channel_posts_channel_not_requested";
+
+    /// <summary>A requested channel has no post. Each requested channel is written exactly once.</summary>
+    public const string ChannelPostsChannelMissing = "ai.output.channel_posts_channel_missing";
+
+    /// <summary>One channel was written more than once, so nothing says which body is the answer.</summary>
+    public const string ChannelPostsChannelRepeated = "ai.output.channel_posts_channel_repeated";
+
+    /// <summary>
+    /// A post body is blank, longer than one stored row can hold, or carries HTML or a code fence.
+    /// </summary>
+    /// <remarks>
+    /// Not the channel's own limit: a body over that is accepted and flagged, never refused. This is the
+    /// ceiling past which the body could not be stored at all.
+    /// </remarks>
+    public const string ChannelPostsBodyInvalid = "ai.output.channel_posts_body_invalid";
+
+    /// <summary>A warning is blank, too long, undeclared, one too many, or about a channel nobody requested.</summary>
+    public const string ChannelPostsWarningInvalid = "ai.output.channel_posts_warning_invalid";
 }
 
 /// <summary>Why one model answer was rejected, in terms safe to store and to route on.</summary>

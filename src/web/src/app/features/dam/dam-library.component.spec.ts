@@ -8,6 +8,8 @@ import { ContentChannel } from '../../models/brand-profile.models';
 import { DamAssetSearchPage, DamAssetSearchQuery, DamAssetSummary } from '../../models/dam-asset.models';
 import { BrandProfileService, ContentChannelsOutcome } from '../../services/brand-profile.service';
 import { DamAssetContentOutcome, DamAssetSearchOutcome, DamAssetService } from '../../services/dam-asset.service';
+import { WorkspaceRole } from '../../models/auth.models';
+import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { DamLibraryComponent } from './dam-library.component';
 
 const SLUG = 'cozy-fall';
@@ -77,6 +79,7 @@ describe('DamLibraryComponent', () => {
   let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
   let channelsSpy: jasmine.Spy<() => Promise<ContentChannelsOutcome>>;
   let harness: RouterTestingHarness;
+  let role: WorkspaceRole = 'Contributor';
 
   function searches(): { slug: string; query: DamAssetSearchQuery }[] {
     return searchSpy.calls.allArgs().map(([slug, query]) => ({ slug, query }));
@@ -148,6 +151,16 @@ describe('DamLibraryComponent', () => {
         { provide: DamAssetService, useValue: { search: searchSpy, content: contentSpy } },
         { provide: BrandProfileService, useValue: { listContentChannels: channelsSpy } },
         { provide: VisibilityService, useValue: { whenNearViewport: () => of(undefined) } },
+        {
+          provide: WorkspaceMembershipService,
+          useValue: {
+            ensureLoaded: () => Promise.resolve(),
+            state: () => ({
+              status: 'ready',
+              memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Cozy Fall', membershipId: 'm1', role, status: 'Active' }],
+            }),
+          },
+        },
       ],
     }).compileComponents();
 
@@ -157,8 +170,36 @@ describe('DamLibraryComponent', () => {
   }
 
   afterEach(() => {
+    role = 'Contributor';
     contentSpy = undefined as unknown as typeof contentSpy;
     channelsSpy = undefined as unknown as typeof channelsSpy;
+  });
+
+  // ---- Uploading a picture ----
+
+  it('offers an upload to a Contributor', async () => {
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
+    await create();
+
+    expect(hasButton('Upload a picture')).toBeTrue();
+  });
+
+  /** The route refuses a Viewer, so the button is not offered to one. */
+  it('does not offer an upload to a Viewer', async () => {
+    role = 'Viewer';
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
+    await create();
+
+    expect(hasButton('Upload a picture')).toBeFalse();
+    expect(root().querySelector('cp-dam-asset-upload')).toBeNull();
+  });
+
+  /** Another workspace's membership says nothing about this one. */
+  it('does not offer an upload in a workspace the creator has no membership in', async () => {
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
+    await create(`/${OTHER_SLUG}/dam`);
+
+    expect(hasButton('Upload a picture')).toBeFalse();
   });
 
   // ---- Loading, ready, empty, error ----

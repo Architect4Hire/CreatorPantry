@@ -77,9 +77,17 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IValidator<AddCreativeContextReferenceViewModel>, AddCreativeContextReferenceViewModelValidator>();
         services.AddScoped<IValidator<CreativeContextListViewModel>, CreativeContextListViewModelValidator>();
 
+        // Registered beside the staleness seam it extends: a recipe change sweeps post channels through the
+        // same consumer, so the staleness data layer resolves this repository.
+        services.AddScoped<ISocialPackageRepository, SocialPackageRepository>();
+        services.AddScoped<ISocialPackageDataLayer, SocialPackageDataLayer>();
+        services.AddScoped<ISocialPackageBusiness, SocialPackageBusiness>();
+        services.AddScoped<ISocialPackageFacade, SocialPackageFacade>();
+
         // The seed generator owns no table, so it has no repository or data layer: it composes this module's
         // weekly themes with the vocabulary and brand facades and the three code-owned catalogues.
         services.AddContentChannelCatalog();
+        services.AddContentChannelProfiles();
         services.AddPhotographyStyleCatalog();
         services.AddOccasionCatalog();
         services.AddSingleton<IContentSeedTokenSource, ContentSeedTokenSource>();

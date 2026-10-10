@@ -1,0 +1,42 @@
+{
+  "id": "content.channel-posts.an-eleventh-instagram-hashtag-is-flagged",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The hashtag cap is the profile's, counted in code. Eleven tags against a cap of ten is a finding, and the caption is not edited to fit.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake. #cake #baking #oliveoil #lemon #weekend #dessert #homemade #simple #teatime #bake #sweet\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "limits": {
+      "instagram": "Within"
+    },
+    "flagged": [
+      {
+        "channelKey": "instagram",
+        "containing": "at most 10"
+      }
+    ]
+  }
+}

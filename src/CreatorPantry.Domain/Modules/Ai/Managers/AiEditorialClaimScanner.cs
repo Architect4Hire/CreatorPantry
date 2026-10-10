@@ -125,6 +125,32 @@ public static partial class AiEditorialClaimScanner
         return [.. findings.Select(finding => (finding.Kind, finding.Code, finding.Message))];
     }
 
+    /// <summary>
+    /// Every check that needs no source, over prose that has no recipe behind it at all (AF.6.3's posts about
+    /// a piece of work that names none): the safety, allergen, dietary and health check, storage or reheating
+    /// advice, and an experience or provenance claim.
+    /// </summary>
+    /// <remarks>
+    /// Wider than <see cref="ScanTextForSafetyClaims"/> on purpose. A style sample is about a short subject
+    /// phrase; a post is published copy, and with no recipe every storage instruction and every "my
+    /// grandmother's" is unsupported by definition, so flagging them is not noise. The figure check is still
+    /// left out, for the reason given there: against nothing it would flag "one pan" on every post.
+    /// </remarks>
+    public static IReadOnlyList<(AiWarningKind Kind, string Code, string Message)> ScanTextWithoutSource(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var findings = new List<AiEditorialFinding>();
+        var canonical = AiEditorialProse.Canonicalize(text);
+        var nothing = AiEditorialSourceFacts.Of([], prose: null, storageNotes: null);
+
+        CheckSafety(findings, AiEditorialSection.Headnote, null, canonical, nothing);
+        CheckStorage(findings, AiEditorialSection.Headnote, null, canonical, nothing);
+        CheckProvenance(findings, AiEditorialSection.Headnote, null, canonical, nothing);
+
+        return [.. findings.Select(finding => (finding.Kind, finding.Code, finding.Message))];
+    }
+
     public static IReadOnlyList<AiEditorialFinding> Scan(AiEditorialSections sections, AiEditorialSourceFacts source)
     {
         ArgumentNullException.ThrowIfNull(sections);

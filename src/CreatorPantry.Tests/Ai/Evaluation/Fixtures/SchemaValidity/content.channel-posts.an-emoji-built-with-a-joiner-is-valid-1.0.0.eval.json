@@ -1,0 +1,36 @@
+{
+  "id": "content.channel-posts.an-emoji-built-with-a-joiner-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The zero-width joiner is a format character, and it is also what builds one emoji out of several. A post may hold an emoji, so it is the one invisible character a body is allowed.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"threads\", \"body\": \"Sunday baking with the whole family \\ud83d\\udc69\\u200d\\ud83d\\udc69\\u200d\\ud83d\\udc67\\u200d\\ud83d\\udc66 and an olive oil cake.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "threads"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "limits": {
+      "threads": "Within"
+    }
+  }
+}

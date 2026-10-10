@@ -1,3 +1,6 @@
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using System.Text.Json;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
@@ -86,7 +89,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             new AiTaskOptions(), // Empty: nothing enabled.
             scope.ServiceProvider.GetRequiredService<IClock>());
 
-        var outcome = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
+        var outcome = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Result.Succeeded);
         Assert.Equal(AiFirstDraftRequestErrors.TaskNotEnabled, outcome.Result.Error!.Code);
@@ -101,7 +104,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
-        var outcome = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
+        var outcome = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         Assert.True(outcome.Result.Succeeded, outcome.Result.Error?.Message);
         var status = outcome.Result.Value!;
@@ -125,7 +128,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var membershipId = Resolve(scope, WorkspaceA);
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
-        var outcome = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
+        var outcome = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
         var stored = await LoadAsync(outcome.Result.Value!.AiProposalRequestId);
 
         Assert.Equal(WorkspaceA, stored.WorkspaceId);
@@ -146,7 +149,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
         var outcome = await business.RequestAsync(
-            new RequestRecipeFirstDraftViewModel { Cuisine = "Sichuan", Course = "   ", Skill = "beginner" },
+            new RequestRecipeFirstDraftViewModel { Cuisine = "Sichuan", Course = "   ", Skill = "beginner" }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -182,7 +185,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
                 SourceConceptRequestId = hasRequestId ? Guid.NewGuid() : null,
                 SourceConceptId = hasConceptId ? Guid.NewGuid() : null,
                 Cuisine = "Sichuan",
-            },
+            }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -198,7 +201,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
         var outcome = await business.RequestAsync(
-            new RequestRecipeFirstDraftViewModel(), "key-1", TestContext.Current.CancellationToken);
+            new RequestRecipeFirstDraftViewModel(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Result.Succeeded);
         Assert.Equal(AiFirstDraftRequestErrors.RequestInvalid, outcome.Result.Error!.Code);
@@ -244,7 +247,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             {
                 SourceConceptRequestId = conceptRequestId,
                 SourceConceptId = conceptId,
-            },
+            }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -272,7 +275,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             {
                 SourceConceptRequestId = conceptRequestId,
                 SourceConceptId = conceptId,
-            },
+            }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -301,7 +304,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
         var outcome = await business.RequestAsync(
-            FromConcept(conceptRequestId, conceptId), "key-1", TestContext.Current.CancellationToken);
+            FromConcept(conceptRequestId, conceptId), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         var composed = (await LoadInputsAsync(outcome.Result.Value!.AiProposalRequestId))[
             AiFirstDraftInputs.SelectedConcept];
@@ -336,7 +339,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             {
                 SourceConceptRequestId = Guid.NewGuid(),
                 SourceConceptId = Guid.NewGuid(),
-            },
+            }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -362,7 +365,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             {
                 SourceConceptRequestId = conceptRequestId,
                 SourceConceptId = Guid.NewGuid(),
-            },
+            }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -391,7 +394,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             {
                 SourceConceptRequestId = diagnostic.Operation!.Id,
                 SourceConceptId = Guid.NewGuid(),
-            },
+            }, MeasurementSystem.UsCustomary,
             "key-1",
             TestContext.Current.CancellationToken);
 
@@ -408,8 +411,8 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
-        var first = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
-        var second = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
+        var first = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
+        var second = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         Assert.False(first.Replayed);
         Assert.True(second.Replayed);
@@ -423,9 +426,9 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
-        await business.RequestAsync(Brief("Sichuan"), "key-1", TestContext.Current.CancellationToken);
+        await business.RequestAsync(Brief("Sichuan"), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
         var second = await business.RequestAsync(
-            Brief("Tuscan"), "key-1", TestContext.Current.CancellationToken);
+            Brief("Tuscan"), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         Assert.False(second.Replayed);
         Assert.False(second.Result.Succeeded);
@@ -448,9 +451,9 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
         await business.RequestAsync(
-            FromConcept(requestOne, conceptOne), "key-1", TestContext.Current.CancellationToken);
+            FromConcept(requestOne, conceptOne), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
         var second = await business.RequestAsync(
-            FromConcept(requestTwo, conceptTwo), "key-1", TestContext.Current.CancellationToken);
+            FromConcept(requestTwo, conceptTwo), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
 
         Assert.False(second.Result.Succeeded);
         Assert.Equal(IdempotencyPolicy.KeyReusedCode, second.Result.Error!.Code);
@@ -465,7 +468,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         Resolve(scope, WorkspaceA);
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
-        var queued = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
+        var queued = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
         var read = await business.GetAsync(
             queued.Result.Value!.AiProposalRequestId, TestContext.Current.CancellationToken);
 
@@ -524,7 +527,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
         var outcome = await business.RequestAsync(
-            FromConcept(conceptRequestId, conceptId), "key-b", TestContext.Current.CancellationToken);
+            FromConcept(conceptRequestId, conceptId), MeasurementSystem.UsCustomary, "key-b", TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Result.Succeeded);
         Assert.Equal(AiFirstDraftRequestErrors.ConceptNotFound, outcome.Result.Error!.Code);
@@ -545,7 +548,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
 
         var outcome = await business.RequestAsync(
-            FromConcept(conceptRequestId, conceptId), "key-a", TestContext.Current.CancellationToken);
+            FromConcept(conceptRequestId, conceptId), MeasurementSystem.UsCustomary, "key-a", TestContext.Current.CancellationToken);
 
         Assert.True(outcome.Result.Succeeded, outcome.Result.Error?.Message);
     }
@@ -556,7 +559,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         using var scopeA = _provider.CreateScope();
         Resolve(scopeA, WorkspaceA);
         var businessA = scopeA.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
-        var queued = await businessA.RequestAsync(Brief(), "key-a", TestContext.Current.CancellationToken);
+        var queued = await businessA.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-a", TestContext.Current.CancellationToken);
 
         using var scopeB = _provider.CreateScope();
         Resolve(scopeB, WorkspaceB);
@@ -574,18 +577,132 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         using var scopeA = _provider.CreateScope();
         Resolve(scopeA, WorkspaceA);
         var outcomeA = await scopeA.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>()
-            .RequestAsync(Brief(), "shared-key", TestContext.Current.CancellationToken);
+            .RequestAsync(Brief(), MeasurementSystem.UsCustomary, "shared-key", TestContext.Current.CancellationToken);
 
         using var scopeB = _provider.CreateScope();
         Resolve(scopeB, WorkspaceB);
         var outcomeB = await scopeB.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>()
-            .RequestAsync(Brief(), "shared-key", TestContext.Current.CancellationToken);
+            .RequestAsync(Brief(), MeasurementSystem.UsCustomary, "shared-key", TestContext.Current.CancellationToken);
 
         Assert.True(outcomeA.Result.Succeeded);
         Assert.True(outcomeB.Result.Succeeded);
         Assert.False(outcomeA.Replayed);
         Assert.False(outcomeB.Replayed);
         Assert.NotEqual(outcomeA.Result.Value!.AiProposalRequestId, outcomeB.Result.Value!.AiProposalRequestId);
+    }
+
+    // ---- measurement system ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Each workspace's draft is pinned to its own workspace's system, by the enum member's name the handler
+    /// reads back. Two workspaces, two settings, neither sees the other's.
+    /// </summary>
+    [Fact]
+    public async Task Each_workspaces_request_pins_its_own_measurement_system()
+    {
+        using var scopeA = _provider.CreateScope();
+        Resolve(scopeA, WorkspaceA);
+        var outcomeA = await scopeA.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>()
+            .RequestAsync(Brief(), MeasurementSystem.Metric, "key-a", TestContext.Current.CancellationToken);
+
+        using var scopeB = _provider.CreateScope();
+        Resolve(scopeB, WorkspaceB);
+        var outcomeB = await scopeB.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>()
+            .RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-b", TestContext.Current.CancellationToken);
+
+        var inputsA = await LoadInputsAsync(outcomeA.Result.Value!.AiProposalRequestId);
+        var inputsB = await LoadInputsAsync(outcomeB.Result.Value!.AiProposalRequestId, WorkspaceB);
+
+        Assert.Equal("Metric", inputsA[AiFirstDraftInputs.MeasurementSystem]);
+        Assert.Equal("UsCustomary", inputsB[AiFirstDraftInputs.MeasurementSystem]);
+    }
+
+    /// <summary>
+    /// The whole request seam over real Tenancy and one real database: workspace A's Owner chooses metric,
+    /// workspace B is left alone, and a draft requested in each is pinned to its own workspace's setting. The
+    /// facade reads the setting for the workspace resolved in its own scope, so A's choice has no way into
+    /// B's stored inputs.
+    /// </summary>
+    [Fact]
+    public async Task One_workspaces_setting_never_reaches_another_workspaces_draft_through_the_real_seam()
+    {
+        using (var scopeA = _provider.CreateScope())
+        {
+            Resolve(scopeA, WorkspaceA);
+            var changed = await scopeA.ServiceProvider.GetRequiredService<IWorkspaceFacade>()
+                .SetMeasurementPreferenceCurrentAsync(
+                    new SetMeasurementPreferenceViewModel(MeasurementSystem.Metric),
+                    TestContext.Current.CancellationToken);
+            Assert.True(changed.Succeeded, changed.Error?.Message);
+        }
+
+        var requestA = await RequestThroughTheFacadeAsync(WorkspaceA);
+        var requestB = await RequestThroughTheFacadeAsync(WorkspaceB);
+
+        var inputsA = await LoadInputsAsync(requestA, WorkspaceA);
+        var inputsB = await LoadInputsAsync(requestB, WorkspaceB);
+
+        Assert.Equal("Metric", inputsA[AiFirstDraftInputs.MeasurementSystem]);
+        Assert.Equal("UsCustomary", inputsB[AiFirstDraftInputs.MeasurementSystem]);
+    }
+
+    private async Task<Guid> RequestThroughTheFacadeAsync(Guid workspaceId)
+    {
+        using var scope = _provider.CreateScope();
+        Resolve(scope, workspaceId);
+
+        IAiFirstDraftRequestFacade facade = new AiFirstDraftRequestFacade(
+            scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>(),
+            acceptance: null!, // Accepting a draft is a different operation; a request never reaches it.
+            new RequestRecipeFirstDraftViewModelValidator(),
+            new AiDraftAcceptanceViewModelValidator(),
+            scope.ServiceProvider.GetRequiredService<IWorkspaceFacade>());
+
+        var outcome = await facade.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);
+        Assert.True(outcome.Result.Succeeded, outcome.Result.Error?.Message);
+
+        return outcome.Result.Value!.AiProposalRequestId;
+    }
+
+    /// <summary>
+    /// An Owner changing the setting between a request and its retry has not asked a different question. The
+    /// retry returns the draft the first request bought, pinned to the system it was asked in.
+    /// </summary>
+    [Fact]
+    public async Task A_retry_after_the_setting_changed_replays_the_first_request_rather_than_conflicting()
+    {
+        using var scope = _provider.CreateScope();
+        Resolve(scope, WorkspaceA);
+        var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
+
+        var first = await business.RequestAsync(
+            Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
+        var retry = await business.RequestAsync(
+            Brief(), MeasurementSystem.Metric, "key-1", TestContext.Current.CancellationToken);
+
+        Assert.True(retry.Result.Succeeded, retry.Result.Error?.Message);
+        Assert.True(retry.Replayed);
+        Assert.Equal(first.Result.Value!.AiProposalRequestId, retry.Result.Value!.AiProposalRequestId);
+
+        var inputs = await LoadInputsAsync(first.Result.Value.AiProposalRequestId);
+        Assert.Equal("UsCustomary", inputs[AiFirstDraftInputs.MeasurementSystem]);
+    }
+
+    /// <summary>The exemption is for the workspace's setting alone: a different brief is still a conflict.</summary>
+    [Fact]
+    public async Task A_different_brief_under_the_same_key_is_still_not_a_replay()
+    {
+        using var scope = _provider.CreateScope();
+        Resolve(scope, WorkspaceA);
+        var business = scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>();
+
+        await business.RequestAsync(
+            Brief("Sichuan"), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
+        var other = await business.RequestAsync(
+            Brief("Oaxacan"), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);
+
+        Assert.False(other.Replayed);
+        Assert.False(other.Result.Succeeded);
     }
 
     // ---- helpers -----------------------------------------------------------------------------------------
@@ -683,19 +800,19 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
         return (operationId, conceptId);
     }
 
-    private async Task<AiOperation> LoadAsync(Guid operationId)
+    private async Task<AiOperation> LoadAsync(Guid operationId, Guid? workspaceId = null)
     {
         using var scope = _provider.CreateScope();
-        Resolve(scope, WorkspaceA);
+        Resolve(scope, workspaceId ?? WorkspaceA);
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
 
         return await db.AiOperations.AsNoTracking().SingleAsync(
             operation => operation.Id == operationId, TestContext.Current.CancellationToken);
     }
 
-    private async Task<Dictionary<string, string>> LoadInputsAsync(Guid operationId)
+    private async Task<Dictionary<string, string>> LoadInputsAsync(Guid operationId, Guid? workspaceId = null)
     {
-        var operation = await LoadAsync(operationId);
+        var operation = await LoadAsync(operationId, workspaceId);
 
         return JsonSerializer.Deserialize<Dictionary<string, string>>(operation.TaskInputsJson!)!;
     }

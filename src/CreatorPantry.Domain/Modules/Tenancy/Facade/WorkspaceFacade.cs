@@ -8,6 +8,7 @@ namespace CreatorPantry.Domain.Modules.Tenancy.Facade;
 internal sealed class WorkspaceFacade(
     IValidator<CreateWorkspaceViewModel> createValidator,
     IValidator<UpdateWorkspaceViewModel> updateValidator,
+    IValidator<SetMeasurementPreferenceViewModel> measurementPreferenceValidator,
     IWorkspaceBusiness business) : IWorkspaceFacade
 {
     public Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(
@@ -50,6 +51,20 @@ internal sealed class WorkspaceFacade(
 
         var renamed = await business.RenameCurrentAsync(model, cancellationToken);
         return OperationResult<WorkspaceServiceModel>.Success(renamed);
+    }
+
+    public async Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+        SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken)
+    {
+        var validation = await measurementPreferenceValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<WorkspaceServiceModel>.Failure(OperationError.Validation(
+                TenancyErrorCodes.MeasurementPreferenceInvalidRequest, "The request is invalid.",
+                validation.Errors.Select(error => (error.PropertyName, error.ErrorMessage))));
+        }
+
+        return await business.SetMeasurementPreferenceCurrentAsync(model, cancellationToken);
     }
 
     public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(

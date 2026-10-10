@@ -150,6 +150,106 @@ public sealed class WorkspaceManagementEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task A_new_workspace_works_in_us_customary_until_its_owner_says_otherwise()
+    {
+        var userId = await _host.CreateUserAsync("cook@example.com", "correct horse battery");
+
+        var created = await PostAsync("/api/v1/workspaces", userId, new { Name = "Sam's Kitchen" });
+
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("UsCustomary", body.GetProperty("defaultMeasurementSystem").GetString());
+    }
+
+    [Fact]
+    public async Task The_owner_can_set_the_measurement_preference_and_every_member_reads_it_back()
+    {
+        var owner = await _host.CreateUserAsync("cook@example.com", "correct horse battery");
+        var viewer = await _host.CreateUserAsync("viewer@example.com", "correct horse battery");
+        await PostAsync("/api/v1/workspaces", owner, new { Name = "Sam's Kitchen" });
+        await SeedMembershipAsync("sams-kitchen", viewer, WorkspaceRole.Viewer);
+
+        var response = await PutAsync(
+            "/api/v1/workspaces/sams-kitchen/measurement-preference", owner, new { DefaultMeasurementSystem = "Metric" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Metric", body.GetProperty("defaultMeasurementSystem").GetString());
+
+        var read = await GetAsync("/api/v1/workspaces/sams-kitchen", viewer);
+        var readBody = await read.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("Metric", readBody.GetProperty("defaultMeasurementSystem").GetString());
+    }
+
+    [Fact]
+    public async Task A_non_owner_member_cannot_set_the_measurement_preference()
+    {
+        var owner = await _host.CreateUserAsync("cook@example.com", "correct horse battery");
+        var editor = await _host.CreateUserAsync("editor@example.com", "correct horse battery");
+        await PostAsync("/api/v1/workspaces", owner, new { Name = "Sam's Kitchen" });
+        await SeedMembershipAsync("sams-kitchen", editor, WorkspaceRole.Editor);
+
+        var response = await PutAsync(
+            "/api/v1/workspaces/sams-kitchen/measurement-preference", editor, new { DefaultMeasurementSystem = "Metric" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Imperial")]
+    [InlineData("Neutral")]
+    public async Task A_system_a_workspace_may_not_default_to_is_rejected_with_a_field_error(string system)
+    {
+        var userId = await _host.CreateUserAsync("cook@example.com", "correct horse battery");
+        await PostAsync("/api/v1/workspaces", userId, new { Name = "Sam's Kitchen" });
+
+        var response = await PutAsync(
+            "/api/v1/workspaces/sams-kitchen/measurement-preference", userId, new { DefaultMeasurementSystem = system });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(TenancyErrorCodes.MeasurementPreferenceInvalidRequest, body.GetProperty("code").GetString());
+        Assert.True(body.GetProperty("errors").TryGetProperty("defaultMeasurementSystem", out _));
+    }
+
+    [Fact]
+    public async Task An_omitted_system_is_rejected_rather_than_stored_as_a_default()
+    {
+        var userId = await _host.CreateUserAsync("cook@example.com", "correct horse battery");
+        await PostAsync("/api/v1/workspaces", userId, new { Name = "Sam's Kitchen" });
+
+        var response = await PutAsync("/api/v1/workspaces/sams-kitchen/measurement-preference", userId, new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Two-workspace isolation: a stranger cannot set another workspace's preference, learns nothing about
+    /// whether it exists, and one workspace's choice never moves its neighbour's.
+    /// </summary>
+    [Fact]
+    public async Task One_workspaces_measurement_preference_cannot_be_set_or_moved_from_another()
+    {
+        var ownerA = await _host.CreateUserAsync("a@example.com", "correct horse battery");
+        var ownerB = await _host.CreateUserAsync("b@example.com", "correct horse battery");
+        await PostAsync("/api/v1/workspaces", ownerA, new { Name = "Workspace A" });
+        await PostAsync("/api/v1/workspaces", ownerB, new { Name = "Workspace B" });
+
+        var crossed = await PutAsync(
+            "/api/v1/workspaces/workspace-b/measurement-preference", ownerA, new { DefaultMeasurementSystem = "Metric" });
+        Assert.Equal(HttpStatusCode.NotFound, crossed.StatusCode);
+
+        var own = await PutAsync(
+            "/api/v1/workspaces/workspace-a/measurement-preference", ownerA, new { DefaultMeasurementSystem = "Metric" });
+        Assert.Equal(HttpStatusCode.OK, own.StatusCode);
+
+        var readB = await GetAsync("/api/v1/workspaces/workspace-b", ownerB);
+        var bodyB = await readB.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("UsCustomary", bodyB.GetProperty("defaultMeasurementSystem").GetString());
+    }
+
+    private Task<HttpResponseMessage> PutAsync(string path, string userId, object body) => SendAsync(HttpMethod.Put, path, userId, body);
+
     private async Task SeedMembershipAsync(string workspaceSlug, string userId, WorkspaceRole role)
     {
         await using var scope = _host.Factory.Services.CreateAsyncScope();

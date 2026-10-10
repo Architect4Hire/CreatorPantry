@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.null-posts-is-refused-not-thrown",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A provider that answers \"posts\": null is refused as a shape failure rather than crashing the rules that read the list.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"content.channel-posts.v1\",\"posts\":null}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

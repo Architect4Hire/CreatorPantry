@@ -1,7 +1,23 @@
 <header class="page-head">
   <h1>DAM</h1>
   <p class="lede">Every finished picture kept in this workspace. Search and filter to find one.</p>
+  <!-- Offered to exactly the people the server accepts an upload from: Contributor and above. -->
+  @if (canUpload()) {
+    <p class="page-actions">
+      <button cpButton type="button" (click)="uploadOpen.set(true)">Upload a picture</button>
+    </p>
+  }
 </header>
+
+@if (canUpload()) {
+  <cp-dam-asset-upload
+    [open]="uploadOpen()"
+    [workspaceSlug]="workspaceSlug()"
+    (uploaded)="onUploaded($event)"
+    (cancelled)="onUploadCancelled()"
+    (closed)="uploadOpen.set(false)"
+  />
+}
 
 <cp-toolbar ariaLabel="Library filters" [loading]="phase() === 'loading'">
   <label class="search-field" cpToolbarSearch>

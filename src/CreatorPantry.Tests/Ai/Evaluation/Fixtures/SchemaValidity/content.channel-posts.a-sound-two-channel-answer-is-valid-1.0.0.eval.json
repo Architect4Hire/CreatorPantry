@@ -1,0 +1,39 @@
+{
+  "id": "content.channel-posts.a-sound-two-channel-answer-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The structural half of quality: one post per requested channel, each within its limit, nothing a scanner objects to. It says nothing about whether the copy is good, which no fixture here can judge.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}, {\"channelKey\": \"pinterest\", \"body\": \"A simple olive oil cake with a tender crumb and a little lemon. Find the full recipe on the blog.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram",
+      "pinterest"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "limits": {
+      "instagram": "Within",
+      "pinterest": "Within"
+    },
+    "noFindings": true
+  }
+}

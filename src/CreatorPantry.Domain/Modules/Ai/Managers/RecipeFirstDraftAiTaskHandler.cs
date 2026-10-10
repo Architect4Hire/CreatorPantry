@@ -2,6 +2,7 @@ using System.Globalization;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -55,7 +56,8 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
     IPromptTemplateStore templates,
     IClock clock) : IAiTaskHandler
 {
-    private static readonly Dictionary<string, string> NoTemplateInputs = [];
+    /// <summary>The template's one declared input. Named here because the template file names it too.</summary>
+    private const string MeasurementSystemInput = "measurementSystem";
 
     public async Task<AiTaskHandlerOutcome> HandleAsync(
         AiTaskExecutionContext context, CancellationToken cancellationToken)
@@ -63,7 +65,10 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
         var template = templates.Get(AiTaskCatalog.RecipeFirstDraft);
 
         var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
-            .WithTask(template.Render(NoTemplateInputs))
+            .WithTask(template.Render(new Dictionary<string, string>
+            {
+                [MeasurementSystemInput] = MeasurementPhrase(context.Inputs),
+            }))
             .WithOutputSchema(AiRecipeDraftOutputSchema.Json)
             .WithPreferences(context.WorkspaceId, RenderBrief(context.Inputs))
             .Build();
@@ -113,6 +118,28 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
             : AiTaskHandlerOutcome.ForFailure(
                 assembly.Failure!.Category, assembly.Failure.Message, outcome.Attempts);
     }
+
+    /// <summary>
+    /// The workspace's measurement system as one of two fixed phrases for the task instructions.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The stored value selects a phrase; it is never the phrase.</strong> The task segment is
+    /// instruction-trusted, so nothing read back from an operation's inputs is copied into it. The value is
+    /// parsed as a <see cref="MeasurementSystem"/> and anything that is not exactly metric falls to US
+    /// customary.
+    /// </para>
+    /// <para>
+    /// That fallback is also what an operation queued before this input existed gets, and it is the system
+    /// every workspace was recorded as when the setting was introduced.
+    /// </para>
+    /// </remarks>
+    internal static string MeasurementPhrase(IReadOnlyDictionary<string, string>? supplied) =>
+        supplied is not null
+            && supplied.TryGetValue(AiFirstDraftInputs.MeasurementSystem, out var stored)
+            && string.Equals(stored, nameof(MeasurementSystem.Metric), StringComparison.Ordinal)
+                ? "metric"
+                : "US customary";
 
     /// <summary>
     /// The brief as plain text: AIREC-001's own eleven declared fields, defaulting an unsupplied or blank one

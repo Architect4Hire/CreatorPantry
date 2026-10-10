@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
 namespace CreatorPantry.Domain.Modules.Tenancy.Data;
@@ -18,6 +19,9 @@ public interface IWorkspaceDataLayer
     Task<WorkspaceRecord?> FindByIdAsync(Guid workspaceId, CancellationToken cancellationToken);
 
     Task<WorkspaceRecord> RenameAsync(Guid workspaceId, string name, CancellationToken cancellationToken);
+
+    Task<WorkspaceRecord> SetDefaultMeasurementSystemAsync(
+        Guid workspaceId, MeasurementSystem system, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken);
 

@@ -90,7 +90,7 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
         var created = await dataLayer.CreateWithOwnerAsync(name, slug, userId, clock.UtcNow, cancellationToken);
         return OperationResult<WorkspaceServiceModel>.Success(new WorkspaceServiceModel(
             created.Workspace.Id, created.Workspace.Name, created.Workspace.Slug, created.Workspace.CreatedAt,
-            created.MembershipId, created.Role));
+            created.MembershipId, created.Role, created.Workspace.DefaultMeasurementSystem));
     }
 
     public async Task<WorkspaceServiceModel> GetCurrentAsync(CancellationToken cancellationToken)
@@ -98,16 +98,37 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
         var workspace = await dataLayer.FindByIdAsync(workspaceContext.WorkspaceId, cancellationToken)
             ?? throw new InvalidOperationException("The resolved workspace no longer exists.");
 
-        return new WorkspaceServiceModel(
-            workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt, workspaceContext.MembershipId, workspaceContext.Role);
+        return ToServiceModel(workspace);
     }
 
     public async Task<WorkspaceServiceModel> RenameCurrentAsync(UpdateWorkspaceViewModel model, CancellationToken cancellationToken)
     {
         var workspace = await dataLayer.RenameAsync(workspaceContext.WorkspaceId, model.Name.Trim(), cancellationToken);
-        return new WorkspaceServiceModel(
-            workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt, workspaceContext.MembershipId, workspaceContext.Role);
+        return ToServiceModel(workspace);
     }
+
+    public async Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+        SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken)
+    {
+        // Checked here as well as at the edge: this is the invariant the column's check constraint holds, and
+        // a caller that is not the HTTP validator should get a result rather than a constraint violation.
+        if (model.DefaultMeasurementSystem is not { } system || !WorkspacePolicy.IsSelectableMeasurementSystem(system))
+        {
+            return OperationResult<WorkspaceServiceModel>.Failure(OperationError.Validation(
+                TenancyErrorCodes.MeasurementPreferenceInvalidRequest,
+                "The request is invalid.",
+                [(nameof(SetMeasurementPreferenceViewModel.DefaultMeasurementSystem), "Choose metric or US customary.")]));
+        }
+
+        var workspace = await dataLayer.SetDefaultMeasurementSystemAsync(
+            workspaceContext.WorkspaceId, system, cancellationToken);
+        return OperationResult<WorkspaceServiceModel>.Success(ToServiceModel(workspace));
+    }
+
+    private WorkspaceServiceModel ToServiceModel(WorkspaceRecord workspace) =>
+        new(
+            workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt,
+            workspaceContext.MembershipId, workspaceContext.Role, workspace.DefaultMeasurementSystem);
 
     /// <summary>Tries the base slug, then <c>base-2</c>, <c>base-3</c>, ... until one is free or attempts run out.</summary>
     private async Task<string?> AllocateSlugAsync(string name, CancellationToken cancellationToken)

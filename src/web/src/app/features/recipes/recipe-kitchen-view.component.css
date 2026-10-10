@@ -1,0 +1,413 @@
+/* Read from across a counter, with hands that are busy: the type is a step up from the rest of the product,
+   the lines are spaced to find again after looking away, and nothing here needs a precise click.
+
+   container-type rather than a viewport media query, for the reasons the editor gives: the layout answers to
+   the space the page actually has, so a narrowed window and 200% zoom behave alike. */
+:host {
+  display: block;
+  padding: var(--cp-space-8);
+  max-width: 84rem;
+  container: cp-kitchen / inline-size;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.status,
+.muted {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-md);
+}
+
+.back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-md);
+}
+
+.back a:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.kitchen-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+  margin-bottom: var(--cp-space-5);
+}
+
+h1 {
+  margin: 0;
+  font: 400 var(--cp-font-size-2xl) / var(--cp-leading-tight) var(--cp-font-display);
+  overflow-wrap: anywhere;
+}
+
+.description {
+  max-width: var(--cp-measure-prose);
+  margin: var(--cp-space-3) 0 0;
+  color: var(--cp-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+/* The numbers a cook checks before starting, on one line that wraps. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3) var(--cp-space-8);
+  margin: 0 0 var(--cp-space-6);
+  padding: var(--cp-space-4) 0;
+  border-block: 1px solid var(--cp-border);
+}
+
+.fact dt {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.fact dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+cp-notice {
+  margin-bottom: var(--cp-space-6);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+/* Side by side once there is room for both to keep a readable line. The ingredients stay in view while the
+   method scrolls, because "how much butter was it" is asked at step six, not at the top of the page. */
+@container cp-kitchen (min-width: 60rem) {
+  .layout {
+    grid-template-columns: minmax(18rem, 2fr) minmax(0, 3fr);
+    align-items: start;
+  }
+
+  .ingredients {
+    position: sticky;
+    top: calc(var(--cp-topbar-height) + var(--cp-space-4));
+    max-height: calc(100vh - var(--cp-topbar-height) - var(--cp-space-8));
+    overflow-y: auto;
+  }
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-3);
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
+}
+
+h3 {
+  margin: var(--cp-space-5) 0 var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-md);
+  font-weight: 600;
+}
+
+.secondary-heading {
+  margin-top: var(--cp-space-8);
+}
+
+.ingredient-list,
+.step-list,
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ingredient {
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.ingredient cp-checkbox {
+  display: block;
+  padding: var(--cp-space-1) 0;
+  --cp-checkbox-font-size: var(--cp-font-size-lg);
+}
+
+/* Muted once it is in. The tick in the box is what says so; the fade only gets it out of the way. */
+.ingredient.ticked {
+  opacity: 0.6;
+}
+
+.plain-list li {
+  padding: var(--cp-space-2) 0;
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.optional {
+  color: var(--cp-text-muted);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-5) 0;
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.step-number {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-primary-soft);
+  color: var(--cp-text);
+  font-weight: 700;
+}
+
+.step-text {
+  max-width: var(--cp-measure-prose);
+  margin: 0;
+  font-size: var(--cp-font-size-xl);
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.step-facts {
+  margin: var(--cp-space-2) 0 0;
+  font-weight: 600;
+}
+
+.step-note {
+  max-width: var(--cp-measure-prose);
+  margin: var(--cp-space-2) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-md);
+  white-space: pre-line;
+}
+
+.step cp-checkbox {
+  margin-top: var(--cp-space-2);
+  --cp-checkbox-font-size: var(--cp-font-size-md);
+}
+
+.step.done .step-text,
+.step.done .step-facts,
+.step.done .step-note,
+.step.done .step-number {
+  opacity: 0.55;
+}
+
+.notes {
+  margin-top: var(--cp-space-8);
+}
+
+.prose {
+  max-width: var(--cp-measure-prose);
+  margin: 0;
+  white-space: pre-line;
+}
+
+.source {
+  margin-top: var(--cp-space-8);
+  padding-top: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.source p {
+  margin: 0;
+}
+
+.source-url {
+  overflow-wrap: anywhere;
+}
+
+.print-only {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   On paper, and in a PDF saved from the print dialog.
+
+   A recipe page to cook from with a pen in reach: ink on white, sizes in points because paper has no zoom,
+   an empty box beside every ingredient, and no step split across two sheets. The shell hides its own chrome
+   and themes.css puts a dark theme back on the light palette for print, so this only lays out the recipe.
+
+   What was ticked on screen is not carried over. A printed copy is for the next cook-through, and boxes that
+   arrive already ticked — or lines that arrive struck out — would be wrong for it.
+   --------------------------------------------------------------------------- */
+@media print {
+  :host {
+    padding: 0;
+    max-width: none;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  .print-only {
+    display: revert;
+  }
+
+  .kitchen-header {
+    margin-bottom: 8pt;
+  }
+
+  h1 {
+    font-size: 24pt;
+  }
+
+  .description {
+    max-width: none;
+    margin-top: 4pt;
+    font-size: 11pt;
+  }
+
+  .facts {
+    gap: 4pt 20pt;
+    margin-bottom: 12pt;
+    padding: 6pt 0;
+    font-size: 11pt;
+  }
+
+  .fact {
+    display: flex;
+    gap: 4pt;
+  }
+
+  .fact dt {
+    font-size: inherit;
+  }
+
+  .fact dt::after {
+    content: ':';
+  }
+
+  /* One column of page, whatever the container query decided for the screen it was printed from. */
+  .layout {
+    display: block;
+  }
+
+  .ingredients {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 14pt;
+  }
+
+  h2 {
+    margin-bottom: 6pt;
+    font-size: 15pt;
+    break-after: avoid;
+  }
+
+  h3 {
+    margin: 8pt 0 3pt;
+    font-size: 11pt;
+    break-after: avoid;
+  }
+
+  .secondary-heading,
+  .notes {
+    margin-top: 14pt;
+  }
+
+  /* Short lines waste a page's width in one column, and a list that fits on the first sheet leaves the
+     method room to start there too. */
+  .ingredient-list,
+  .plain-list {
+    columns: 2;
+    column-gap: 24pt;
+  }
+
+  .ingredient,
+  .plain-list li {
+    padding: 2.5pt 0;
+    border-bottom: 0;
+    break-inside: avoid;
+  }
+
+  .ingredient.ticked {
+    opacity: 1;
+  }
+
+  .print-line {
+    display: block;
+    padding-left: 16pt;
+    text-indent: -16pt;
+  }
+
+  .print-line::before {
+    content: '';
+    display: inline-block;
+    width: 8pt;
+    height: 8pt;
+    margin-right: 8pt;
+    border: 1pt solid currentColor;
+    vertical-align: -1pt;
+  }
+
+  .step {
+    gap: 10pt;
+    padding: 7pt 0;
+    break-inside: avoid;
+  }
+
+  /* An outline, not a fill: browsers leave backgrounds off a print unless asked, and a number in a circle
+     that did not print would be a number floating in the margin. */
+  .step-number {
+    width: 18pt;
+    height: 18pt;
+    border: 1pt solid currentColor;
+    background: none;
+    font-size: 10pt;
+  }
+
+  .step-text {
+    max-width: none;
+    font-size: 12.5pt;
+    line-height: 1.4;
+  }
+
+  .step-note {
+    max-width: none;
+    font-size: 10.5pt;
+  }
+
+  .step.done .step-text,
+  .step.done .step-facts,
+  .step.done .step-note,
+  .step.done .step-number {
+    opacity: 1;
+  }
+
+  .prose {
+    max-width: none;
+  }
+
+  .notes,
+  .source {
+    break-inside: avoid;
+  }
+
+  .source {
+    margin-top: 14pt;
+    padding-top: 6pt;
+    font-size: 9pt;
+  }
+}

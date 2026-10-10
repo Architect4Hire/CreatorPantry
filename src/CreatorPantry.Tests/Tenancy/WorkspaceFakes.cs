@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -61,6 +62,15 @@ internal sealed class FakeWorkspaceDataLayer : IWorkspaceDataLayer
     {
         RenameCalls.Add((workspaceId, name));
         return Task.FromResult(new WorkspaceRecord(workspaceId, name, "renamed-workspace", DateTimeOffset.UtcNow));
+    }
+
+    public List<(Guid WorkspaceId, MeasurementSystem System)> MeasurementCalls { get; } = [];
+
+    public Task<WorkspaceRecord> SetDefaultMeasurementSystemAsync(
+        Guid workspaceId, MeasurementSystem system, CancellationToken cancellationToken)
+    {
+        MeasurementCalls.Add((workspaceId, system));
+        return Task.FromResult(new WorkspaceRecord(workspaceId, "Sam's Kitchen", "sams-kitchen", DateTimeOffset.UtcNow, system));
     }
 
     public Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken) =>

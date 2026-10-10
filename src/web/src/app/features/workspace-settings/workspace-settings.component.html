@@ -1,0 +1,66 @@
+<section class="workspace-settings" aria-label="Workspace settings">
+  @switch (load().status) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your workspace settings…</p>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <p class="state" role="alert">We couldn't find this workspace.</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <p class="state" role="alert">Your workspace settings couldn't be loaded right now.</p>
+        <button cpButton type="button" variant="secondary" (click)="init()">Try again</button>
+      </cp-card>
+    }
+    @default {
+      <cp-card>
+        <form class="form" (submit)="$event.preventDefault(); save()">
+          <cp-form-section
+            heading="Measurements"
+            intro="The system a new AI recipe draft is written in — its quantities, units and oven temperatures. Recipes you already have are never converted, and you can still edit any line of a draft before you accept it."
+          >
+            @if (canEdit()) {
+              <cp-choice-group
+                label="Preferred measurement system"
+                idPrefix="cp-measurement-system-"
+                [options]="options"
+                [value]="pickedValue()"
+                (valueChange)="pick($event)"
+              />
+            } @else {
+              <p class="current">This workspace works in <strong>{{ currentLabel() }}</strong>.</p>
+              <cp-notice role="note">Only an Owner of this workspace can change this.</cp-notice>
+            }
+          </cp-form-section>
+
+          @if (canEdit()) {
+            <div class="actions">
+              <button cpButton type="submit" [disabled]="!dirty() || saving()">
+                {{ saving() ? 'Saving…' : 'Save' }}
+              </button>
+              @if (dirty() && !saving()) {
+                <span class="dirty">Unsaved change</span>
+              }
+            </div>
+          }
+
+          <!-- Present before it has anything to say, so the save result is announced reliably. -->
+          <div class="result" aria-live="polite">
+            @switch (saveState().status) {
+              @case ('saved') {
+                <cp-notice tone="success">Saved. New drafts will be written in {{ currentLabel() }}.</cp-notice>
+              }
+              @case ('failed') {
+                <cp-notice tone="error">{{ failureMessage() }}</cp-notice>
+              }
+            }
+          </div>
+        </form>
+      </cp-card>
+    }
+  }
+</section>

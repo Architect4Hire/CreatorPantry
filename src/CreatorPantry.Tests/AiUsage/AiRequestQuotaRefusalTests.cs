@@ -329,6 +329,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         var outcome = await scope.ServiceProvider.GetRequiredService<IAiFirstDraftRequestBusiness>()
             .RequestAsync(
                 new RequestRecipeFirstDraftViewModel { Audience = "weeknight cooks" },
+                CreatorPantry.Domain.Modules.Measurement.Managers.MeasurementSystem.UsCustomary,
                 "key-1",
                 TestContext.Current.CancellationToken);
 

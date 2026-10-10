@@ -85,3 +85,8 @@
     animation: none !important;
   }
 }
+
+/* The sheet's own margins, for every printed page. @page cannot live in a component stylesheet. */
+@page {
+  margin: 16mm;
+}

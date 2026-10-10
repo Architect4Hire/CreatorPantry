@@ -31,6 +31,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
   { path: 'dam', label: 'DAM', icon: '▤' },
   { path: 'content-board', label: 'Content Board', icon: '▥' },
   { path: 'prompt-library', label: 'Prompt Library', icon: '❝' },
+  { path: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
 @Component({

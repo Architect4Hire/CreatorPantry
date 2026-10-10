@@ -1,0 +1,184 @@
+@switch (loadState().status) {
+  @case ('loading') {
+    <p class="status" role="status">Loading recipe…</p>
+  }
+  @case ('not_found') {
+    <cp-empty-state title="Recipe not found" description="It may have been removed, or the link is incorrect." icon="⚠">
+      <div cpEmptyStateActions>
+        <a cpButton [routerLink]="['/', workspaceSlug, 'recipes']">Back to recipes</a>
+      </div>
+    </cp-empty-state>
+  }
+  @case ('unavailable') {
+    <cp-empty-state title="Couldn't load this recipe" description="Check your connection and try again." icon="⚠">
+      <div cpEmptyStateActions>
+        <button cpButton type="button" (click)="retryLoad()">Try again</button>
+      </div>
+    </cp-empty-state>
+  }
+  @case ('ready') {
+    @if (loadState(); as state) {
+      @if (state.status === 'ready') {
+        <!-- Everything marked screen-only is chrome for using the page, and none of it belongs on paper. -->
+        <nav class="back screen-only" aria-label="Breadcrumb">
+          <a [routerLink]="['/', workspaceSlug, 'recipes', recipeId]"><span aria-hidden="true">← </span>Back to the recipe</a>
+        </nav>
+
+        <header class="kitchen-header">
+          <div class="heading">
+            <h1>{{ state.recipe.title }}</h1>
+            @if (state.recipe.description) {
+              <p class="description">{{ state.recipe.description }}</p>
+            }
+          </div>
+
+          <div class="actions screen-only">
+            @if (anyTicked()) {
+              <button cpButton variant="ghost" type="button" (click)="clearTicks()">Clear ticks</button>
+            }
+            <button cpButton variant="secondary" type="button" [disabled]="isEmpty()" (click)="print()">
+              Print or save as PDF
+            </button>
+          </div>
+        </header>
+
+        @if (facts().length > 0) {
+          <dl class="facts">
+            @for (fact of facts(); track fact.label) {
+              <div class="fact">
+                <dt>{{ fact.label }}</dt>
+                <dd>{{ fact.value }}</dd>
+              </div>
+            }
+          </dl>
+        }
+
+        <!-- Plain text from first render rather than a live region: it is true on arrival, and it has to
+             print, because a page missing an oven temperature should say so on paper as well. -->
+        @if (temperaturesMissing()) {
+          <cp-notice tone="warning">
+            Some step temperatures couldn't be shown here. Check them in the recipe before you start.
+          </cp-notice>
+        }
+
+        @if (isEmpty()) {
+          <cp-empty-state
+            title="Nothing to cook from yet"
+            description="This recipe has no ingredients or steps saved. Add them in the recipe, then come back."
+          >
+            <div cpEmptyStateActions>
+              <a cpButton [routerLink]="['/', workspaceSlug, 'recipes', recipeId]">Open the recipe</a>
+            </div>
+          </cp-empty-state>
+        } @else {
+          <div class="layout">
+            <section class="ingredients" aria-labelledby="kitchen-ingredients-heading">
+              <h2 id="kitchen-ingredients-heading">Ingredients</h2>
+
+              @for (group of ingredientGroups(); track group.id) {
+                @if (group.title) {
+                  <h3>{{ group.title }}</h3>
+                }
+                <ul class="ingredient-list">
+                  @for (line of group.ingredients; track line.id) {
+                    <li class="ingredient" [class.ticked]="isIngredientTicked(line.id)">
+                      <cp-checkbox
+                        class="screen-only"
+                        [label]="line.isOptional ? line.text + ' (optional)' : line.text"
+                        [checked]="isIngredientTicked(line.id)"
+                        (checkedChange)="setIngredientTicked(line.id, $event)"
+                      />
+                      <!-- The same line for paper, where the box is one to tick with a pen and so is always
+                           empty. Not rendered on screen, so it is never read out twice. -->
+                      <span class="print-only print-line">
+                        {{ line.text }}@if (line.isOptional) {<span class="optional"> (optional)</span>}
+                      </span>
+                    </li>
+                  }
+                </ul>
+              } @empty {
+                <p class="muted">No ingredients are saved for this recipe.</p>
+              }
+
+              @if (equipment().length > 0) {
+                <h2 class="secondary-heading">Equipment</h2>
+                <ul class="plain-list">
+                  @for (item of equipment(); track item.id) {
+                    <li>
+                      {{ item.displayText }}@if (item.isOptional) {<span class="optional"> (optional)</span>}
+                      @if (item.note) {
+                        <span class="muted"> — {{ item.note }}</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+
+            <section class="method" aria-labelledby="kitchen-method-heading">
+              <h2 id="kitchen-method-heading">Method</h2>
+
+              @for (group of stepGroups(); track group.id) {
+                @if (group.title) {
+                  <h3>{{ group.title }}</h3>
+                }
+                <!-- A list without list numbering: the numbers run through every section, which an <ol> per
+                     section would restart, so each step carries its own. -->
+                <ol class="step-list">
+                  @for (step of group.steps; track step.id) {
+                    <li class="step" [class.done]="isStepDone(step.id)">
+                      <span class="step-number" aria-hidden="true">{{ step.number }}</span>
+                      <div class="step-body">
+                        <p class="step-text"><span class="cp-sr-only">Step {{ step.number }}. </span>{{ step.text }}</p>
+
+                        @if (step.facts.length > 0) {
+                          <p class="step-facts">{{ step.facts.join(' · ') }}</p>
+                        }
+                        @if (step.note) {
+                          <p class="step-note">{{ step.note }}</p>
+                        }
+
+                        <cp-checkbox
+                          class="screen-only"
+                          [label]="'Step ' + step.number + ' done'"
+                          [checked]="isStepDone(step.id)"
+                          (checkedChange)="setStepDone(step.id, $event)"
+                        />
+                      </div>
+                    </li>
+                  }
+                </ol>
+              } @empty {
+                <p class="muted">No steps are saved for this recipe.</p>
+              }
+            </section>
+          </div>
+
+          @if (state.recipe.notes || state.recipe.storageNotes) {
+            <section class="notes" aria-labelledby="kitchen-notes-heading">
+              <h2 id="kitchen-notes-heading">Notes</h2>
+              @if (state.recipe.notes) {
+                <p class="prose">{{ state.recipe.notes }}</p>
+              }
+              @if (state.recipe.storageNotes) {
+                <h3>Storage</h3>
+                <p class="prose">{{ state.recipe.storageNotes }}</p>
+              }
+            </section>
+          }
+
+          @if (state.recipe.attributionText || state.recipe.sourceUrl) {
+            <footer class="source">
+              @if (state.recipe.attributionText) {
+                <p>{{ state.recipe.attributionText }}</p>
+              }
+              @if (state.recipe.sourceUrl) {
+                <p class="source-url">{{ state.recipe.sourceUrl }}</p>
+              }
+            </footer>
+          }
+        }
+      }
+    }
+  }
+}

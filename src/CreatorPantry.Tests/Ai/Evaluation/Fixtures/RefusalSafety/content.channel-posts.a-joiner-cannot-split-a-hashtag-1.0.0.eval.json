@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-joiner-cannot-split-a-hashtag",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "The emoji joiner is allowed inside an emoji and nowhere else. After punctuation or a letter it would hide a hashtag, a mention or a web address from the profile that counts them.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake. #\\u200dcake\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

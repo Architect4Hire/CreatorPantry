@@ -1,0 +1,24 @@
+{
+  "id": "content.channel-posts.a-safety-claim-is-flagged-with-no-recipe-behind-it",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A piece of work need not name a recipe. With nothing for a figure to agree with, the figure check is skipped, and the safety check, which needs no source, still runs.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"threads\", \"body\": \"A healthy bake for a slow Sunday.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "threads"
+    ],
+    "workingTitle": "Slow Sunday bakes"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "threads",
+        "containing": "healthy"
+      }
+    ]
+  }
+}

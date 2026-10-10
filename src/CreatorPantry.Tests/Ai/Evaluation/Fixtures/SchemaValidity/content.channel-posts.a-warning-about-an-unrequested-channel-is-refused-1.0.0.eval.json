@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-warning-about-an-unrequested-channel-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A warning names a requested channel or none. One about a channel nobody asked for has nothing to be shown beside.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}], \"warnings\": [{\"kind\": \"Limitation\", \"channelKey\": \"tiktok\", \"message\": \"This one runs long.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.channel_posts_warning_invalid",
+    "category": "DomainInvalid"
+  }
+}

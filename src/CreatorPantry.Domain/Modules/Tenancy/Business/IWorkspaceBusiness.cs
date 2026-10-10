@@ -44,6 +44,13 @@ public interface IWorkspaceBusiness
     /// <summary>Renames the workspace already resolved for this scope.</summary>
     Task<WorkspaceServiceModel> RenameCurrentAsync(UpdateWorkspaceViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Sets the default measurement system of the workspace already resolved for this scope. Refuses anything
+    /// but metric or US customary (B-08).
+    /// </summary>
+    Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+        SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="CreatorPantry.Domain.Modules.Tenancy.Data.IWorkspaceRepository.FindMemberDisplayNamesAsync"/>
     Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
         IReadOnlyCollection<Guid> membershipIds,

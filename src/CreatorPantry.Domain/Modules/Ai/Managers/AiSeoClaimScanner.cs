@@ -132,5 +132,26 @@ public static partial class AiSeoClaimScanner
         return findings;
     }
 
+    /// <summary>
+    /// The search-metric and ranking check alone, over one piece of prose, for a capability whose text is not
+    /// an SEO package (AF.6.3's posts). No source can support one: nothing connected supplies search data.
+    /// </summary>
+    public static IReadOnlyList<(AiWarningKind Kind, string Code, string Message)> ScanTextForMetrics(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        return
+        [
+            .. Metric()
+                .Matches(AiEditorialProse.Canonicalize(text).Replace('-', ' '))
+                .Select(match => match.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(metric => (
+                    AiWarningKind.UnverifiedClaim,
+                    UnsupportedMetric,
+                    $"\"{Excerpt(metric)}\" is a search metric or ranking claim. No connected source supports it, and none may be invented.")),
+        ];
+    }
+
     private static string Excerpt(string value) => value.Length <= 60 ? value.Trim() : value[..60].Trim();
 }

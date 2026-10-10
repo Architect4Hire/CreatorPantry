@@ -17,6 +17,12 @@
     </cp-empty-state>
   }
   @case ('ready') {
+    <!-- The way back to the list. A plain link, so leaving with unsaved changes is the route guard's to
+         confirm, exactly as it is for the sidebar. -->
+    <nav class="back" aria-label="Breadcrumb">
+      <a [routerLink]="['/', workspaceSlug, 'recipes']"><span aria-hidden="true">← </span>Recipes</a>
+    </nav>
+
     <header class="editor-header">
       <h1>{{ isCreateMode ? 'New recipe' : title() || 'Edit recipe' }}</h1>
       <div class="editor-header-actions">
@@ -31,6 +37,19 @@
              disagrees would be a toll rather than a choice. -->
         @if (totalTimeReplacementNote()) {
           <cp-status-pill tone="warning" role="status" class="dirty-indicator">Total time will be recalculated</cp-status-pill>
+        }
+
+        <!-- The two ways out of the form to something a cook can use. Links rather than buttons: both go to
+             the kitchen view, which shows the saved recipe, so leaving with unsaved changes is the route
+             guard's to confirm, exactly as it is for the breadcrumb above. Print arrives there asking for
+             the print dialog, because what prints well is that page and not this form. -->
+        @if (!isCreateMode) {
+          <a cpButton variant="ghost" [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']" [queryParams]="{ print: 1 }">
+            Print
+          </a>
+          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']">
+            Kitchen view
+          </a>
         }
 
         <!-- Shelving is not deleting, so it sits beside Save as an ordinary secondary action rather than as a

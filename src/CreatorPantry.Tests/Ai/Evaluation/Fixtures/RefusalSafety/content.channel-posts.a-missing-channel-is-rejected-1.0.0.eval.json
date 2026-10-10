@@ -1,0 +1,20 @@
+{
+  "id": "content.channel-posts.a-missing-channel-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "Every requested channel is written. An answer that skips one is refused rather than stored with a hole in it.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram",
+      "pinterest"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.channel_posts_channel_missing",
+    "category": "DomainInvalid"
+  }
+}

@@ -63,3 +63,42 @@
   --cp-shadow-sm: 0 7px 22px rgba(0,0,0,.22);
   --cp-shadow-lg: 0 28px 70px rgba(0,0,0,.42);
 }
+
+/* Paper is light whatever the screen was. Browsers leave backgrounds off a print by default, so a dark
+   theme printed as it stands is pale ink on white: unreadable, and in the right colours. Print therefore
+   puts a dark theme back on the light palette, here, so that no feature has to know which theme it was
+   printed from. The values repeat the light block above because a media query cannot share a rule with
+   a selector; change them together. */
+@media print {
+  [data-cp-theme='dark'] {
+    color-scheme: light;
+    --cp-bg: #faf7ef;
+    --cp-surface: #ffffff;
+    --cp-surface-subtle: #f2ede0;
+    --cp-surface-raised: #dfeee0;
+    --cp-text: #16231c;
+    --cp-text-muted: #586a5e;
+    --cp-text-faint: #677566;
+    --cp-border: #e6ddc7;
+    --cp-border-strong: #cdc19d;
+    --cp-primary: #1f7a44;
+    --cp-primary-hover: #146137;
+    --cp-primary-ink: #ffffff;
+    --cp-primary-soft: #def2e2;
+    --cp-pink: #c81457;
+    --cp-pink-soft: #fbe3ec;
+    --cp-orange: #b8500a;
+    --cp-orange-soft: #fef2e9;
+    --cp-purple: #7d3fc4;
+    --cp-purple-soft: #f0e6fb;
+    --cp-blue: #1f68b0;
+    --cp-blue-soft: #e2eefb;
+    --cp-danger: #b3261e;
+    --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
+    --cp-ink-on-accent: #ffffff;
+    --cp-scrim: rgba(3,9,7,.66);
+    --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
+    --cp-shadow-sm: 0 5px 18px rgba(29,48,36,.07);
+    --cp-shadow-lg: 0 22px 60px rgba(29,48,36,.13);
+  }
+}

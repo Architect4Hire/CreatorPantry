@@ -42,4 +42,29 @@ public static class ContentAuditActions
     public const string CreativeContextArchived = "content.creative_context.archived";
 
     public const string CreativeContextRestored = "content.creative_context.restored";
+
+    /// <summary>One channel of a post package. The resource id is the channel slot's own.</summary>
+    public const string SocialChannelResourceType = "SocialPackageChannel";
+
+    /// <summary>
+    /// A creator's decision about one channel. Drafting — a regeneration, an edit — is not audited: it is the
+    /// work itself, it changes nothing anyone else relies on, and every revision is already kept.
+    /// </summary>
+    /// <remarks>
+    /// The before and after references are statuses and the summary names the channel key and a revision
+    /// number — never a word of the post, which is private creator content.
+    /// </remarks>
+    public const string SocialChannelAccepted = "content.social_channel.accepted";
+
+    /// <inheritdoc cref="SocialChannelAccepted"/>
+    public const string SocialChannelRejected = "content.social_channel.rejected";
+
+    /// <inheritdoc cref="SocialChannelAccepted"/>
+    public const string SocialChannelReaffirmed = "content.social_channel.reaffirmed";
+
+    /// <summary>
+    /// The system found an accepted post out of step with its recipe. No actor: no role may declare content
+    /// stale by hand.
+    /// </summary>
+    public const string SocialChannelMarkedStale = "content.social_channel.marked_stale";
 }

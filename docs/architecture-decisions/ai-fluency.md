@@ -23,7 +23,7 @@ them; later documents may reference them.
 
 | ID | Topic | Feedback | Status | Decision |
 | --- | --- | --- | --- | --- |
-| B-27 | Posts for creator-selected channels | FLU-001 | Decided; one assumption **to confirm** | Posts are written for the channels the creator picks from `ContentChannelCatalog`, not a fixed set of seven. |
+| B-27 | Posts for creator-selected channels | FLU-001 | Decided | Posts are written for the channels the creator picks from `ContentChannelCatalog`, not a fixed set of seven. |
 | B-28 | Image compression | FLU-007 | Decided | Server-side, with no external NuGet image package if at all possible. |
 | B-29 | Themed-day memory | FLU-009 | Decided | Creator-written standing notes plus derived history. Nothing is learned or written by a model. |
 | B-30 | Scope: connected flows | FLU-001 – FLU-009 | Decided | Every feedback item is fixed and work can be handed from any AI surface to any other. No chat assistant. |
@@ -40,9 +40,8 @@ them; later documents may reference them.
 - **The long-form article stays with `content.editorial-package`** (master 11.4). Long-form blog articles and
   SEO packages are out of bounds for the AF work.
 
-**To confirm:** the short-form reading of `blog` and `newsletter` is an assumption drawn from the product
-owner's answer, not a statement of it. It is confirmed in the AF.6.2 plan; until then treat it as a working
-direction. See [Open items](#open-items).
+**Confirmed 2026-10-10:** the short-form reading of `blog` and `newsletter` was approved with the AF.6.2
+profile table. See [Open items](#open-items).
 **Consequences:** the seven-output social model and generation prompts in the master library are superseded —
 see [Supersessions](#supersessions).
 **Rules:** `content.md`, `ai.md`.
@@ -297,10 +296,11 @@ there, unedited, for the record.
 
 ## Open items
 
-### B-27 Short-form reading of `blog` and `newsletter` — CONFIRM
+### B-27 Short-form reading of `blog` and `newsletter` — DECIDED
 
 - **Question:** does picking `blog` or `newsletter` produce a short-form piece (an intro, a blurb), as assumed?
-- **Owner:** the AF.6.2 plan.
+- **Answer:** yes. Confirmed with the AF.6.2 profile table, approved 2026-10-10: a blog intro of at most 600
+  characters and a newsletter blurb of at most 400, both editorial ceilings set in `ContentChannelProfiles.cs`.
 - **Default assumed by later prompts:** short-form, with the long-form article left to master 11.4.
 
 ### B-28 How compression is done — DECIDED

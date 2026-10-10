@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.malformed-json-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "An answer that is not JSON is refused before anything about it is examined.",
+  "input": {
+    "payload": "{ \"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.malformed_json",
+    "category": "OutputSchemaInvalid"
+  }
+}

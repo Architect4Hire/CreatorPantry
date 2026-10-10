@@ -206,6 +206,8 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   // Likewise again. IMG-004 reads a photograph the creator uploaded; nothing applies a reading to a recipe.
   ReferenceImageAnalysis: 'Reference image reading',
   DishFacetSuggestion: 'Dish name reading',
+  // Posts are reviewed per channel on the Content Pipeline's posts step, not here.
+  ChannelPost: 'Channel post',
 };
 
 /**

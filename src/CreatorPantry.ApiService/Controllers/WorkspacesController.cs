@@ -49,4 +49,20 @@ public sealed class WorkspacesController(IWorkspaceFacade workspaceFacade) : Con
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
+
+    /// <summary>
+    /// Sets the measurement system the workspace resolved from the route works in by default: metric or US
+    /// customary. A new AI recipe draft is written in it; no existing recipe is changed.
+    /// </summary>
+    [HttpPut("{workspaceSlug}/measurement-preference")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceOwner)]
+    [ProducesResponseType<WorkspaceServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> SetMeasurementPreference(
+        string workspaceSlug, SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken)
+    {
+        var result = await workspaceFacade.SetMeasurementPreferenceCurrentAsync(model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
 }

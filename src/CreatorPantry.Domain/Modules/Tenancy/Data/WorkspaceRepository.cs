@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.EntityFrameworkCore;
@@ -81,6 +82,15 @@ internal sealed class WorkspaceRepository(CreatorPantryDbContext context) : IWor
         return ToRecord(workspace);
     }
 
+    public async Task<WorkspaceRecord> SetDefaultMeasurementSystemAsync(
+        Guid workspaceId, MeasurementSystem system, CancellationToken cancellationToken)
+    {
+        var workspace = await context.Workspaces.SingleAsync(candidate => candidate.Id == workspaceId, cancellationToken);
+        workspace.DefaultMeasurementSystem = system;
+        await context.SaveChangesAsync(cancellationToken);
+        return ToRecord(workspace);
+    }
+
     public async Task<IReadOnlyList<WorkspaceMembershipRow>> FindMembershipsForUserAsync(string userId, CancellationToken cancellationToken)
     {
         var rows = await context.WorkspaceMemberships.AsNoTracking()
@@ -118,7 +128,7 @@ internal sealed class WorkspaceRepository(CreatorPantryDbContext context) : IWor
             .ToDictionaryAsync(row => row.Id, row => row.DisplayName, cancellationToken);
     }
 
-    private static WorkspaceRecord ToRecord(Workspace workspace) => new(workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt);
+    private static WorkspaceRecord ToRecord(Workspace workspace) => new(workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt, workspace.DefaultMeasurementSystem);
 
     private static WorkspaceSummary ToSummary(Workspace workspace) => new(workspace.Id, workspace.Slug);
 

@@ -110,7 +110,9 @@ export type AiTaskType =
   /** IMG-004's reading of a reference image the creator uploaded. Describes a photograph; changes nothing. */
   | 'ReferenceImageAnalysis'
   /** A dish name read into a cuisine, a dish type and a method. Names no recipe; changes nothing. */
-  | 'DishFacetSuggestion';
+  | 'DishFacetSuggestion'
+  /** AF.6.3's posts for the channels a creator picked. Copy to review per channel; changes no recipe. */
+  | 'ChannelPosts';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -131,6 +133,7 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'BrandStyleTestDrive',
   'ReferenceImageAnalysis',
   'DishFacetSuggestion',
+  'ChannelPosts',
 ]);
 
 /**
@@ -191,6 +194,8 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   BrandStyleTestDrive: null,
   // And dish-name readings through dish-facet-requests, which names no recipe at all.
   DishFacetSuggestion: null,
+  // And posts through their own request seam (AF.6.4), which names a creative context and its channels.
+  ChannelPosts: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -306,7 +311,9 @@ export type AiChangeTargetKind =
   /** IMG-004's reference readings. Observations of a photograph; nothing applies one to anything. */
   | 'ReferenceImageAnalysis'
   /** A dish name's reading. Catalogue codes a creator's own controls are filled from; never an edit. */
-  | 'DishFacetSuggestion';
+  | 'DishFacetSuggestion'
+  /** One channel's post and what its writing profile measured. Never applied to a recipe. */
+  | 'ChannelPost';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -330,6 +337,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'ImagePrompt',
   'ReferenceImageAnalysis',
   'DishFacetSuggestion',
+  'ChannelPost',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

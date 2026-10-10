@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-variation-selector-cannot-hide-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A variation selector is not a format character, so a check for those alone lets it through, and \"gluten\" followed by one no longer matches a phrase list while a reader still sees gluten-free. It is allowed after a symbol, where an emoji needs it, and refused after a letter.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"A gluten\\ufe0f-free olive oil cake for the weekend.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

@@ -32,12 +32,15 @@ import {
   DamAssetSummary,
   damUsageText,
   damVersionCountText,
+  DamCreatedAsset,
 } from '../../models/dam-asset.models';
 import { decodeEnum } from '../../models/recipe.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { DamAssetSearchOutcome, DamAssetService } from '../../services/dam-asset.service';
+import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { fileSizeText, imageFormatText } from '../content-pipeline/content-pipeline-image-presentation';
 import { DamAssetThumbnailComponent } from './dam-asset-thumbnail.component';
+import { DamAssetUploadComponent } from './dam-asset-upload.component';
 
 /** How the first page of a search can stand. Later pages have their own two flags, so a failure there keeps the cards. */
 type Phase = 'loading' | 'error' | 'ready';
@@ -99,6 +102,7 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
     CpNoticeComponent,
     CpToolbarComponent,
     DamAssetThumbnailComponent,
+    DamAssetUploadComponent,
   ],
   templateUrl: './dam-library.component.html',
   styleUrl: './dam-library.component.css',
@@ -109,10 +113,27 @@ export class DamLibraryComponent {
   private readonly brand = inject(BrandProfileService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly memberships = inject(WorkspaceMembershipService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
   readonly workspaceSlug = signal('');
+
+  /** Whether the upload dialog is showing. */
+  protected readonly uploadOpen = signal(false);
+
+  /**
+   * Whether this creator may add a picture: Contributor and above, the role the upload route requires. False
+   * while their memberships are still being read, so the button is never offered and then taken away.
+   */
+  protected readonly canUpload = computed(() => {
+    const state = this.memberships.state();
+    if (state.status !== 'ready') return false;
+
+    const role = state.memberships.find((entry) => entry.workspaceSlug === this.workspaceSlug())?.role;
+
+    return role !== undefined && role !== 'Viewer';
+  });
 
   protected readonly phase = signal<Phase>('loading');
   protected readonly errorMessage = signal(COULD_NOT_LOAD);
@@ -185,6 +206,8 @@ export class DamLibraryComponent {
   });
 
   constructor() {
+    void this.memberships.ensureLoaded();
+
     merge(
       this.typed$.pipe(
         debounceTime(SEARCH_DEBOUNCE_MS),
@@ -335,6 +358,19 @@ export class DamLibraryComponent {
    * Everything read for the previous one goes first. Emptying the cards destroys their thumbnails, which is
    * what revokes every picture held for the previous workspace.
    */
+  /**
+   * A picture was added. Its own page is where the rest of its details, its recipe links and its uses are
+   * edited — the same page a kept generated picture is finished on — so that is where the creator is taken.
+   */
+  protected onUploaded(asset: DamCreatedAsset): void {
+    void this.router.navigate(['/', this.workspaceSlug(), 'dam', asset.id]);
+  }
+
+  /** A cancelled upload may still have landed, so the library is read again rather than assumed unchanged. */
+  protected onUploadCancelled(): void {
+    this.openWorkspace(this.workspaceSlug());
+  }
+
   private openWorkspace(slug: string): void {
     this.workspaceSlug.set(slug);
     this.resetPaging();

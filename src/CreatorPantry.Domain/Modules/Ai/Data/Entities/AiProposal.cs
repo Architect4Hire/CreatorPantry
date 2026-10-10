@@ -89,4 +89,10 @@ public class AiProposal : IWorkspaceOwned, IImmutableRecord
     /// the omissions that say why. See <see cref="AiProposalBrandContext"/>.
     /// </remarks>
     public AiProposalBrandContext? BrandContext { get; set; }
+
+    /// <summary>
+    /// The creative context this output was grounded on, or null for a task that is not about one.
+    /// </summary>
+    /// <remarks>See <see cref="AiProposalCreativeContext"/>.</remarks>
+    public AiProposalCreativeContext? CreativeContext { get; set; }
 }

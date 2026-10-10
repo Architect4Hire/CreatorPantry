@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -47,7 +48,8 @@ public static class AiProposalAssembler
         IReadOnlyList<AiResolvedChange> diff,
         AiProposalProvenance provenance,
         DateTimeOffset createdAt,
-        BrandContextPackage? brandContext = null)
+        BrandContextPackage? brandContext = null,
+        CreativeContextPackage? creativeContext = null)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(diff);
@@ -85,6 +87,23 @@ public static class AiProposalAssembler
             // who turned brand voice off. A package that came back empty is still recorded, because "there was
             // nothing to use" is a different fact from "none was wanted". See BrandContextProvenance.
             BrandContext = brandContext is null ? null : BrandContextProvenance.Record(workspaceId, brandContext),
+
+            // Null for every task that is not about a creative context. Recorded for the ones that are, so
+            // whatever is later made from this proposal can say exactly which words it was grounded on.
+            CreativeContext = creativeContext is null
+                ? null
+                : new AiProposalCreativeContext
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspaceId,
+                    CreativeContextId = creativeContext.ContextId,
+                    ContextVersion = creativeContext.ContextVersion,
+                    Checksum = creativeContext.Checksum,
+                    RecipeId = creativeContext.Recipes.Count > 0 ? creativeContext.Recipes[0].RecipeId : null,
+                    RecipeVersionId = creativeContext.Recipes.Count > 0 ? creativeContext.Recipes[0].RecipeVersionId : null,
+                    EstimatedTokens = creativeContext.EstimatedTokens,
+                    AssembledAt = creativeContext.AssembledAt,
+                },
         };
 
         var changes = diff

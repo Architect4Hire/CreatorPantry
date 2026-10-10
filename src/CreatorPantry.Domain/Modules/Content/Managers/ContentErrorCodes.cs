@@ -136,4 +136,41 @@ public static class ContentErrorCodes
 
     /// <summary>The cursor was not issued for this workspace's list. Start again without one.</summary>
     public const string CreativeContextCursorInvalid = "content.creative_context.cursor.invalid";
+
+    /// <summary>The post body or its limit result is not well formed. Carries field errors.</summary>
+    public const string SocialInvalid = "content.social.invalid";
+
+    /// <summary>The caller's role may read posts but not make this move.</summary>
+    public const string SocialForbidden = "content.social.forbidden";
+
+    /// <summary>
+    /// No such creative context, or no post for that channel on it, in the resolved workspace.
+    /// </summary>
+    /// <remarks>One code for an unknown id and for another workspace's, as everywhere else in this module.</remarks>
+    public const string SocialNotFound = "content.social.not_found";
+
+    /// <summary>
+    /// The channel has a newer revision, or has moved, since the read this was composed against. Nothing was
+    /// written; re-read and try again.
+    /// </summary>
+    public const string SocialStale = "content.social.stale.conflict";
+
+    /// <summary>The channel is not in a state this decision applies to — nothing awaits one, or it needs reaffirming.</summary>
+    public const string SocialDecisionConflict = "content.social.decision.conflict";
+
+    /// <summary>
+    /// The newest revision was written against a recipe version that is no longer the latest, so it cannot be
+    /// accepted as current. Edit or regenerate it.
+    /// </summary>
+    public const string SocialSourceStale = "content.social.source_stale.conflict";
+
+    /// <summary>A channel key names no channel, or newly chooses one that has been retired.</summary>
+    public const string SocialChannelUnprocessable = "content.social.channel.unprocessable";
+
+    /// <summary>
+    /// The revision names a source — a recipe version, a brand revision, an AI proposal — that this workspace
+    /// cannot pin it to. One code and one sentence whichever it was, so a write cannot be used to ask what a
+    /// neighbour owns.
+    /// </summary>
+    public const string SocialSourceUnprocessable = "content.social.source.unprocessable";
 }

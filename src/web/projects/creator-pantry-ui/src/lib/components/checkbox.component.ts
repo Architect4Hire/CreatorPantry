@@ -18,6 +18,9 @@ let nextId = 0;
  *
  * Checked reads as a glyph rather than as a colour — the fill is reinforcement, not the signal — and one set of
  * markup serves both themes, with every value a `--cp-*` token.
+ *
+ * The label is `--cp-font-size-sm`, the size of a form control. A surface read from further away sets
+ * `--cp-checkbox-font-size` on the host to a type token; the box and the 40px target do not change.
  */
 @Component({
   selector: 'cp-checkbox', standalone: true,
@@ -34,7 +37,7 @@ let nextId = 0;
   </label>`,
   styles: [`
     :host { display:inline-block; }
-    label { position:relative; display:inline-flex; align-items:center; gap:var(--cp-space-2); min-height:2.5rem; color:var(--cp-text); font-size:var(--cp-font-size-sm); cursor:pointer; }
+    label { position:relative; display:inline-flex; align-items:center; gap:var(--cp-space-2); min-height:2.5rem; color:var(--cp-text); font-size:var(--cp-checkbox-font-size, var(--cp-font-size-sm)); cursor:pointer; }
     /* Visually replaced, never removed: still focusable, still announced, still a checkbox to a form. */
     input { position:absolute; width:1px; height:1px; margin:0; padding:0; opacity:0; pointer-events:none; }
     .box { display:grid; place-items:center; flex:0 0 auto; width:1.25rem; height:1.25rem; border:1px solid var(--cp-border-strong); border-radius:var(--cp-radius-sm); background:var(--cp-surface); color:var(--cp-primary-ink); font-size:.75rem; line-height:1; }

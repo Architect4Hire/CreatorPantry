@@ -171,3 +171,22 @@ main {
     display: none;
   }
 }
+
+/* On paper there is no navigation to offer and no bar to sit under: the page is the routed content and
+   nothing else. Each feature decides how its own content prints; this only gets the shell out of the way. */
+@media print {
+  :host,
+  .shell,
+  main {
+    min-height: 0;
+  }
+  .sidebar,
+  .topbar,
+  .page-title {
+    display: none;
+  }
+  main {
+    margin-left: 0;
+    padding-top: 0;
+  }
+}

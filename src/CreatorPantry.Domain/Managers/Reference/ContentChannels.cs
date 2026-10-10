@@ -21,7 +21,8 @@ public sealed record ContentChannel(string Key, string DisplayName, bool IsActiv
 /// </summary>
 /// <remarks>
 /// Channel <em>constraints</em> — length, markup, image ratio — belong to channel profiles and adapters
-/// (content.md), not here. This holds identity only.
+/// (content.md), not here. This holds identity only; the writing profiles are
+/// <see cref="IContentChannelProfileCatalog"/>.
 /// </remarks>
 public interface IContentChannelCatalog
 {

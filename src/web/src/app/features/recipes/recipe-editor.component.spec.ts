@@ -287,6 +287,17 @@ describe('RecipeEditorComponent', () => {
       expect(harness.routeNativeElement?.querySelector('#recipe-title')).toBeTruthy();
     });
 
+    /** The way back to the list is a link, so the route guard confirms an unsaved change as it does elsewhere. */
+    it('links back to the recipe list of the workspace in the route', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+
+      const back = harness.routeNativeElement?.querySelector('nav.back a') as HTMLAnchorElement;
+
+      expect(back.textContent).toContain('Recipes');
+      expect(back.getAttribute('href')).toBe('/cozy-fall/recipes');
+    });
+
     it('disables Save until a title is entered', async () => {
       const recipeService = recipeServiceSpy();
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
@@ -371,6 +382,25 @@ describe('RecipeEditorComponent', () => {
       expect(recipeService.getRecipeDetail).toHaveBeenCalledWith('cozy-fall', 'r1');
       expect(component.loadState()).toEqual({ status: 'ready' });
       expect(component.title()).toBe('Chili');
+    });
+
+    /** Both go to the kitchen view, which shows the saved recipe; Print arrives there asking for the dialog. */
+    it('links to the kitchen view, and to it again for a print', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      const links = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLAnchorElement>('.editor-header-actions a'));
+      const hrefOf = (text: string) => links.find((link) => link.textContent?.trim() === text)?.getAttribute('href');
+
+      expect(hrefOf('Kitchen view')).toBe('/cozy-fall/recipes/r1/kitchen');
+      expect(hrefOf('Print')).toBe('/cozy-fall/recipes/r1/kitchen?print=1');
+    });
+
+    it('offers neither for a recipe that has not been saved yet', async () => {
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeServiceSpy());
+
+      expect(harness.routeNativeElement!.querySelector('.editor-header-actions a')).toBeNull();
     });
 
     it('shows a not-found state distinctly from a generic failure', async () => {

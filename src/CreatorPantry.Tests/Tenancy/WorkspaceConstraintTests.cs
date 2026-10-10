@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -37,6 +38,34 @@ public sealed class WorkspaceConstraintTests : IDisposable
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         db.Workspaces.Add(NewWorkspace("Someone Else's Kitchen", "sams-kitchen"));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_workspace_saved_without_a_measurement_system_takes_the_initial_one()
+    {
+        await using var scope = _services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var workspace = NewWorkspace("Sam's Kitchen", "sams-kitchen");
+        workspace.DefaultMeasurementSystem = MeasurementSystem.Neutral;
+
+        db.Workspaces.Add(workspace);
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(WorkspacePolicy.InitialMeasurementSystem, workspace.DefaultMeasurementSystem);
+    }
+
+    // The database holds the rule too: B-08 offers metric and US customary and nothing else.
+    [Fact]
+    public async Task A_workspace_cannot_default_to_imperial()
+    {
+        await using var scope = _services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var workspace = NewWorkspace("Sam's Kitchen", "sams-kitchen");
+        workspace.DefaultMeasurementSystem = MeasurementSystem.Imperial;
+
+        db.Workspaces.Add(workspace);
 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(TestContext.Current.CancellationToken));
     }

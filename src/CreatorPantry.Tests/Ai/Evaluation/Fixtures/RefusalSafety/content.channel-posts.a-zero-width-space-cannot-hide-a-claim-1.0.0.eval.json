@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-zero-width-space-cannot-hide-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "An invisible formatting character would let \"gluten\\u200bfree\" past a phrase list while a reader still sees the claim. Any such character other than the emoji joiner is refused.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"A gluten\\u200bfree olive oil cake for the weekend.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.illegal_characters",
+    "category": "OutputSchemaInvalid"
+  }
+}

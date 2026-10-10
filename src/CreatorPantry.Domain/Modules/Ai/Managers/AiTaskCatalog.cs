@@ -85,6 +85,9 @@ public static class AiTaskCatalog
     /// </summary>
     public const string DishFacetSuggestion = "recipe.dish-facets";
 
+    /// <summary>AF.6.3: posts for the channels a creator picked, for one piece of creative work.</summary>
+    public const string ChannelPosts = "content.channel-posts";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -103,6 +106,7 @@ public static class AiTaskCatalog
         [ImagePrompt] = AiTaskType.ImagePrompt,
         [ReferenceImageAnalysis] = AiTaskType.ReferenceImageAnalysis,
         [DishFacetSuggestion] = AiTaskType.DishFacetSuggestion,
+        [ChannelPosts] = AiTaskType.ChannelPosts,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -202,7 +206,11 @@ public static class AiTaskCatalog
             or AiTaskType.SeoPackage or AiTaskType.BrandGuideProposal
             or AiTaskType.BrandStyleTestDrive or AiTaskType.PhotographyConcept
             or AiTaskType.ImagePrompt or AiTaskType.ReferenceImageAnalysis
-            or AiTaskType.DishFacetSuggestion;
+            or AiTaskType.DishFacetSuggestion
+
+            // The first reason in full: a post request is a creative context and a set of channels, neither
+            // of which the generic recipe-bound route has a field for.
+            or AiTaskType.ChannelPosts;
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

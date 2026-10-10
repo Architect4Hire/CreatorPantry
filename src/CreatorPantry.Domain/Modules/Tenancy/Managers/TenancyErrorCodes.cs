@@ -10,6 +10,8 @@ public static class TenancyErrorCodes
 
     public const string WorkspaceInvalidRequest = "tenancy.workspace.invalid_request";
 
+    public const string MeasurementPreferenceInvalidRequest = "tenancy.measurement_preference.invalid_request";
+
     /// <summary>Every derived slug candidate for the chosen name was already taken; the caller should retry.</summary>
     public const string WorkspaceSlugUnavailable = "tenancy.workspace.conflict";
 }

@@ -104,6 +104,18 @@ public static class CreativeContextPackageSelection
         // The one task that may also read a saved prompt: it writes one.
         AiTaskType.ImagePrompt => Everything | CreativeContextSections.Prompts,
 
+        // What the piece is about, so the posts are about it too. Not the context's own channel list: the
+        // channels to write are the request's, stated in the task, and a second list would be a second answer
+        // to "which channels". Not saved image prompts: a prompt describes a picture to a renderer, and its
+        // words are not the creator's about their food.
+        AiTaskType.ChannelPosts =>
+            CreativeContextSections.WorkingTitle
+            | CreativeContextSections.PictureBrief
+            | CreativeContextSections.Day
+            | CreativeContextSections.Recipe
+            | CreativeContextSections.Concept
+            | CreativeContextSections.Pictures,
+
         _ => CreativeContextSections.None,
     };
 

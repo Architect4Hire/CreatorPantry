@@ -1,0 +1,24 @@
+{
+  "id": "content.channel-posts.storage-advice-is-flagged-with-no-recipe-behind-it",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "With no recipe there are no storage notes, so any keeping advice is unsupported by definition. The checks that need no source all run; only the figure check is skipped.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"facebook\", \"body\": \"A cake for slow Sundays. It keeps for days in the fridge.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "facebook"
+    ],
+    "workingTitle": "Slow Sunday bakes"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "facebook",
+        "containing": "fridge"
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "content.channel-posts.a-repeated-channel-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "Two posts for one channel leave nothing to say which is the answer.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}, {\"channelKey\": \"instagram\", \"body\": \"A second caption for the same cake.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "instagram"
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.channel_posts_channel_repeated",
+    "category": "DomainInvalid"
+  }
+}

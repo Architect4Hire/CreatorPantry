@@ -275,6 +275,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// </remarks>
     public DbSet<AiProposalBrandContext> AiProposalBrandContexts => Set<AiProposalBrandContext>();
 
+    /// <remarks>
+    /// Write-once. Which creative context, at which version and with which assembled words, one proposal was
+    /// grounded on. At most one row per proposal, and none for a task that is not about a creative context.
+    /// </remarks>
+    public DbSet<AiProposalCreativeContext> AiProposalCreativeContexts => Set<AiProposalCreativeContext>();
+
     /// <inheritdoc cref="AiProposalBrandContexts"/>
     /// <remarks>
     /// Write-once. One row per cited passage, holding identifiers and no text: the parent's checksum is what
@@ -527,6 +533,23 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// context naming another workspace's record is unrepresentable.
     /// </remarks>
     public DbSet<CreativeContextReference> CreativeContextReferences => Set<CreativeContextReference>();
+
+    /// <remarks>
+    /// The posts written for one creative context (AF.6.1): at most one package per context. A holder only —
+    /// each channel is decided on its own in the set below, and the words live on the immutable revisions.
+    /// </remarks>
+    public DbSet<SocialPackage> SocialPackages => Set<SocialPackage>();
+
+    /// <inheritdoc cref="SocialPackages"/>
+    /// <remarks>One creator-selected channel's slot: its review status and which revision was accepted.</remarks>
+    public DbSet<SocialPackageChannel> SocialPackageChannels => Set<SocialPackageChannel>();
+
+    /// <inheritdoc cref="SocialPackages"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. Each holds one
+    /// body for one channel and the exact sources it was written from. Private creator content, never logged.
+    /// </remarks>
+    public DbSet<SocialRevision> SocialRevisions => Set<SocialRevision>();
 
     /// <summary>One request to generate images from one prompt (IMG-003).</summary>
     /// <remarks>

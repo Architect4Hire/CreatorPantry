@@ -6,14 +6,20 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
 
 internal interface IAiFirstDraftRequestBusiness
 {
     /// <inheritdoc cref="IAiProposalBusiness.RequestAsync"/>
+    /// <param name="measurementSystem">
+    /// The resolved workspace's default system, read by the facade from Tenancy. Pinned on the operation so the
+    /// draft is written in what the workspace worked in when it was asked for.
+    /// </param>
     Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
         RequestRecipeFirstDraftViewModel model,
+        MeasurementSystem measurementSystem,
         string idempotencyKey,
         CancellationToken cancellationToken);
 
@@ -49,6 +55,7 @@ internal sealed class AiFirstDraftRequestBusiness(
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
         RequestRecipeFirstDraftViewModel model,
+        MeasurementSystem measurementSystem,
         string idempotencyKey,
         CancellationToken cancellationToken)
     {
@@ -104,7 +111,7 @@ internal sealed class AiFirstDraftRequestBusiness(
             selectedConcept = Compose(concept);
         }
 
-        var inputs = SerializeInputs(model, selectedConcept);
+        var inputs = SerializeInputs(model, selectedConcept, measurementSystem);
 
         if (inputs.Length > AiPolicy.TaskInputsJsonMaxLength)
         {
@@ -223,9 +230,10 @@ internal sealed class AiFirstDraftRequestBusiness(
     /// no reason, and ai.md's rule is that the model never receives one.
     /// </para>
     /// </remarks>
-    private static string SerializeInputs(RequestRecipeFirstDraftViewModel model, string? selectedConcept)
+    private static string SerializeInputs(
+        RequestRecipeFirstDraftViewModel model, string? selectedConcept, MeasurementSystem measurementSystem)
     {
-        var values = new Dictionary<string, string>(14, StringComparer.Ordinal);
+        var values = new Dictionary<string, string>(15, StringComparer.Ordinal);
 
         void Add(string name, string? value)
         {
@@ -251,6 +259,9 @@ internal sealed class AiFirstDraftRequestBusiness(
         Add(AiBriefInputs.Season, model.Season);
         Add(AiBriefInputs.TimeBudget, model.TimeBudget);
         Add(AiBriefInputs.CreatorStyle, model.CreatorStyle);
+
+        // The workspace's, never the request's: the view model has no field that could carry one.
+        Add(AiFirstDraftInputs.MeasurementSystem, measurementSystem.ToString());
 
         return JsonSerializer.Serialize(values);
     }

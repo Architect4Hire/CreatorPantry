@@ -65,11 +65,11 @@ describe('AppShellComponent', () => {
     return fixture;
   }
 
-  it('renders all 12 named sections as nav links scoped to the current workspace slug', async () => {
+  it('renders all 13 named sections as nav links scoped to the current workspace slug', async () => {
     const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
 
     const links = fixture.nativeElement.querySelectorAll('nav a');
-    expect(links.length).toBe(12);
+    expect(links.length).toBe(13);
     expect((links[0] as HTMLAnchorElement).textContent).toContain('Dashboard');
     expect((links[4] as HTMLAnchorElement).textContent).toContain('Recipes');
   });

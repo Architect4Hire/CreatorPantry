@@ -1,0 +1,34 @@
+:host {
+  display: block;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+.state {
+  margin: 0 0 var(--cp-space-3);
+}
+
+.current {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.dirty {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Takes no room until it has something to say. */
+.result:empty {
+  display: none;
+}

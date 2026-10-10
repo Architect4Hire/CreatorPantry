@@ -174,20 +174,23 @@ internal sealed class MediaAssetBusiness(
             return OperationResult<MediaAssetDetailServiceModel>.Failure(NoSuchAsset());
         }
 
-        // The two lineage reads run together: neither depends on the other, and a detail panel waits for both.
-        // Each is its own module's facade because neither row is one this module may query — PromptRecord is
-        // Content's and carries the foreign key, and Recipe has none pointing here at all (backend.md).
+        // Each lineage read is its own module's facade because neither row is one this module may query —
+        // PromptRecord is Content's and carries the foreign key, and Recipe has none pointing here at all
+        // (backend.md).
+        //
+        // One after the other, never together: both facades resolve to the request's one DbContext, which
+        // refuses a second operation while the first is in flight. Run concurrently, this read failed for every
+        // asset linked to a recipe and passed for every asset that was not, because an empty id list never
+        // reaches the database.
         var recipeIds = bundle.RecipeLinks.Select(link => link.RecipeId).Distinct().ToList();
 
-        var lineage = prompts.ListForAssetAsync(mediaAssetId, cancellationToken);
-        var titles = recipes.ListTitlesAsync(recipeIds, cancellationToken);
+        var lineage = await prompts.ListForAssetAsync(mediaAssetId, cancellationToken);
+        var titles = await recipes.ListTitlesAsync(recipeIds, cancellationToken);
 
-        await Task.WhenAll(lineage, titles);
-
-        var titleById = (await titles).ToDictionary(recipe => recipe.Id, recipe => recipe.Title);
+        var titleById = titles.ToDictionary(recipe => recipe.Id, recipe => recipe.Title);
 
         return OperationResult<MediaAssetDetailServiceModel>.Success(
-            Map(bundle, await lineage, titleById));
+            Map(bundle, lineage, titleById));
     }
 
     public async Task<OperationResult<MediaAssetUtilizationPageServiceModel>> GetUtilizationAsync(

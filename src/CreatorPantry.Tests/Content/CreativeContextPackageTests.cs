@@ -446,7 +446,7 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
     }
 
     [Fact]
-    public void Every_task_type_has_been_decided_and_only_four_ground_in_anything()
+    public void Every_task_type_has_been_decided_and_only_five_ground_in_anything()
     {
         // A task type added later is shown nothing until somebody decides otherwise and edits the table — and
         // this is where they find out they have to.
@@ -455,8 +455,30 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
             .ToList();
 
         Assert.Equal(
-            [AiTaskType.RecipeConcepts, AiTaskType.RecipeFirstDraft, AiTaskType.PhotographyConcept, AiTaskType.ImagePrompt],
+            [
+                AiTaskType.RecipeConcepts,
+                AiTaskType.RecipeFirstDraft,
+                AiTaskType.PhotographyConcept,
+                AiTaskType.ImagePrompt,
+                AiTaskType.ChannelPosts,
+            ],
             grounded);
+    }
+
+    [Fact]
+    public void Posts_are_shown_what_the_piece_is_about_and_neither_its_channel_list_nor_its_saved_prompts()
+    {
+        var sections = CreativeContextPackageSelection.SectionsFor(AiTaskType.ChannelPosts);
+
+        Assert.True(sections.HasFlag(CreativeContextSections.WorkingTitle));
+        Assert.True(sections.HasFlag(CreativeContextSections.PictureBrief));
+        Assert.True(sections.HasFlag(CreativeContextSections.Recipe));
+        Assert.True(sections.HasFlag(CreativeContextSections.Concept));
+        Assert.True(sections.HasFlag(CreativeContextSections.Pictures));
+
+        // The channels to write are the request's, and a saved image prompt is words for a renderer.
+        Assert.False(sections.HasFlag(CreativeContextSections.Channels));
+        Assert.False(sections.HasFlag(CreativeContextSections.Prompts));
     }
 
     // ---- recipe facts and versions ----------------------------------------------------------------------
@@ -473,6 +495,10 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
 
         Assert.Equal(versionId, recipe.RecipeVersionId);
         Assert.Equal(1, recipe.VersionNumber);
+
+        // And beside it, which version was the newest at that moment, so a reader can tell a deliberate pin
+        // to an older version from a read of the current one.
+        Assert.Equal(versionId, recipe.LatestRecipeVersionId);
     }
 
     [Fact]

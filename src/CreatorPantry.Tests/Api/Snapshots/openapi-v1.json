@@ -17286,6 +17286,95 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/measurement-preference": {
+      "put": {
+        "tags": [
+          "Workspaces"
+        ],
+        "summary": "Sets the measurement system the workspace resolved from the route works in by default: metric or US\ncustomary. A new AI recipe draft is written in it; no existing recipe is changed.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Sets the measurement system the workspace resolved from the route works in by default: metric or US\ncustomary. A new AI recipe draft is written in it; no existing recipe is changed.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeasurementPreference"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeasurementPreference"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMeasurementPreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/tags": {
       "get": {
         "tags": [
@@ -17846,7 +17935,8 @@
           "PhotographyConcept",
           "ImagePrompt",
           "ReferenceImageAnalysis",
-          "DishFacetSuggestion"
+          "DishFacetSuggestion",
+          "ChannelPost"
         ],
         "type": "string"
       },
@@ -18450,7 +18540,8 @@
           "ImagePrompt",
           "BrandStyleTestDrive",
           "ReferenceImageAnalysis",
-          "DishFacetSuggestion"
+          "DishFacetSuggestion",
+          "ChannelPosts"
         ],
         "type": "string"
       },
@@ -28368,6 +28459,24 @@
           }
         }
       },
+      "SetMeasurementPreference": {
+        "required": [
+          "defaultMeasurementSystem"
+        ],
+        "type": "object",
+        "properties": {
+          "defaultMeasurementSystem": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementSystem"
+              }
+            ]
+          }
+        }
+      },
       "SettableRecipeStatus": {
         "enum": [
           "Draft",
@@ -29767,7 +29876,8 @@
           "slug",
           "createdAt",
           "membershipId",
-          "role"
+          "role",
+          "defaultMeasurementSystem"
         ],
         "type": "object",
         "properties": {
@@ -29791,6 +29901,9 @@
           },
           "role": {
             "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "defaultMeasurementSystem": {
+            "$ref": "#/components/schemas/MeasurementSystem"
           }
         }
       },

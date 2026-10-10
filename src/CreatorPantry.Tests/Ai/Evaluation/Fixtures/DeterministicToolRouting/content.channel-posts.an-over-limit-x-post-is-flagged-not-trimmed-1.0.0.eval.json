@@ -1,0 +1,42 @@
+{
+  "id": "content.channel-posts.an-over-limit-x-post-is-flagged-not-trimmed",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "Length is measured by the channel profile after generation. A body over the limit is accepted, recorded Over with its count, and stored exactly as written.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"x\", \"body\": \"Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake Olive oil cake \"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "limits": {
+      "x": "Over"
+    },
+    "flagged": [
+      {
+        "channelKey": "x",
+        "containing": "limit of 280"
+      }
+    ]
+  }
+}

@@ -6,7 +6,11 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using FluentValidation;
 
 namespace CreatorPantry.Tests.Ai;
@@ -205,11 +209,16 @@ public sealed class AiFirstDraftRequestEndpointTests
     public void The_rendered_and_provenance_keys_together_are_the_whole_vocabulary()
     {
         Assert.Equal(
-            AiFirstDraftInputs.Rendered.Concat(AiFirstDraftInputs.Provenance).Order(StringComparer.Ordinal),
+            AiFirstDraftInputs.Rendered
+                .Concat(AiFirstDraftInputs.Provenance)
+                .Concat(AiFirstDraftInputs.WorkspaceFacts)
+                .Order(StringComparer.Ordinal),
             AiFirstDraftInputs.All.Order(StringComparer.Ordinal));
 
         Assert.Equal(
-            AiFirstDraftInputs.Rendered.Count + AiFirstDraftInputs.Provenance.Count,
+            AiFirstDraftInputs.Rendered.Count
+                + AiFirstDraftInputs.Provenance.Count
+                + AiFirstDraftInputs.WorkspaceFacts.Count,
             AiFirstDraftInputs.All.Count);
     }
 
@@ -257,7 +266,8 @@ public sealed class AiFirstDraftRequestEndpointTests
             new NeverCalledBusiness(),
             new NeverCalledAcceptance(),
             new RequestRecipeFirstDraftViewModelValidator(),
-            new AiDraftAcceptanceViewModelValidator());
+            new AiDraftAcceptanceViewModelValidator(),
+            workspaces: null!);
 
         var outcome = await facade.RequestAsync(
             new RequestRecipeFirstDraftViewModel { Cuisine = "Sichuan" },
@@ -277,13 +287,88 @@ public sealed class AiFirstDraftRequestEndpointTests
             new NeverCalledBusiness(),
             new NeverCalledAcceptance(),
             new RequestRecipeFirstDraftViewModelValidator(),
-            new AiDraftAcceptanceViewModelValidator());
+            new AiDraftAcceptanceViewModelValidator(),
+            workspaces: null!);
 
         var outcome = await facade.RequestAsync(
             new RequestRecipeFirstDraftViewModel(), "key-1", TestContext.Current.CancellationToken);
 
         Assert.False(outcome.Result.Succeeded);
         Assert.Equal(AiFirstDraftRequestErrors.RequestInvalid, outcome.Result.Error!.Code);
+    }
+
+    /// <summary>
+    /// The system a draft is pinned to is the resolved workspace's, read facade to facade. The request has no
+    /// field that could carry one (see the field list above), so this is the only way a value gets there.
+    /// </summary>
+    [Theory]
+    [InlineData(MeasurementSystem.Metric)]
+    [InlineData(MeasurementSystem.UsCustomary)]
+    public async Task The_facade_passes_the_resolved_workspaces_measurement_system_to_business(MeasurementSystem system)
+    {
+        var business = new CapturingBusiness();
+        IAiFirstDraftRequestFacade facade = new AiFirstDraftRequestFacade(
+            business,
+            new NeverCalledAcceptance(),
+            new RequestRecipeFirstDraftViewModelValidator(),
+            new AiDraftAcceptanceViewModelValidator(),
+            new WorkspaceWithSystem(system));
+
+        await facade.RequestAsync(
+            new RequestRecipeFirstDraftViewModel { Cuisine = "Sichuan" }, "key-1", TestContext.Current.CancellationToken);
+
+        Assert.Equal(system, business.MeasurementSystem);
+    }
+
+    private sealed class CapturingBusiness : IAiFirstDraftRequestBusiness
+    {
+        public MeasurementSystem? MeasurementSystem { get; private set; }
+
+        public Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
+            RequestRecipeFirstDraftViewModel model,
+            MeasurementSystem measurementSystem,
+            string idempotencyKey,
+            CancellationToken cancellationToken)
+        {
+            MeasurementSystem = measurementSystem;
+
+            return Task.FromResult(new IdempotentOutcome<AiProposalStatusServiceModel>(
+                OperationResult<AiProposalStatusServiceModel>.Failure(
+                    new OperationError("unused", "unused", new Dictionary<string, string[]>())),
+                Replayed: false));
+        }
+
+        public Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(
+            Guid requestId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Not exercised by this test.");
+    }
+
+    /// <summary>Stands in for Tenancy: answers the one read the draft facade makes and nothing else.</summary>
+    private sealed class WorkspaceWithSystem(MeasurementSystem system) : IWorkspaceFacade
+    {
+        public Task<WorkspaceServiceModel> GetCurrentAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new WorkspaceServiceModel(
+                Guid.NewGuid(), "A", "workspace-a", DateTimeOffset.UnixEpoch, Guid.NewGuid(), WorkspaceRole.Owner, system));
+
+        public Task<IReadOnlyList<MyWorkspaceMembershipServiceModel>> GetMyMembershipsAsync(
+            string userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("A draft request has no business listing the caller's workspaces.");
+
+        public Task<OperationResult<WorkspaceServiceModel>> CreateAsync(
+            string userId, CreateWorkspaceViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("A draft request has no business creating a workspace.");
+
+        public Task<OperationResult<WorkspaceServiceModel>> RenameCurrentAsync(
+            UpdateWorkspaceViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("A draft request has no business renaming a workspace.");
+
+        public Task<OperationResult<WorkspaceServiceModel>> SetMeasurementPreferenceCurrentAsync(
+            SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("A draft request has no business changing a workspace's settings.");
+
+        public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+            IReadOnlyCollection<Guid> membershipIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("A draft request has no business naming members.");
     }
 
     private sealed class NeverCalledAcceptance : IAiDraftAcceptanceBusiness
@@ -299,7 +384,10 @@ public sealed class AiFirstDraftRequestEndpointTests
     private sealed class NeverCalledBusiness : IAiFirstDraftRequestBusiness
     {
         public Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
-            RequestRecipeFirstDraftViewModel model, string idempotencyKey, CancellationToken cancellationToken) =>
+            RequestRecipeFirstDraftViewModel model,
+            CreatorPantry.Domain.Modules.Measurement.Managers.MeasurementSystem measurementSystem,
+            string idempotencyKey,
+            CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Business must not be reached by a refused request.");
 
         public Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(
