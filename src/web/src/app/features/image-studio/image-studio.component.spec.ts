@@ -17,7 +17,11 @@ import {
 import { ImageStudioDraft, ImageStudioKeptWork, emptyImageStudioDraft } from '../../models/image-studio.models';
 import { RequestPhotographyConceptsRequest } from '../../models/photography-concept.models';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
-import { AiWatchOperationOutcome } from '../../services/ai-request';
+import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
+import { ContentSeed, ContentSeedQuery } from '../../models/content-seed.models';
+import { ContentSeedService } from '../../services/content-seed.service';
+import { DishFacetService } from '../../services/dish-facet.service';
+import { ReferenceService } from '../../services/reference.service';
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/brand-source-document.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
@@ -43,6 +47,75 @@ import { ReferenceImageService } from '../../services/reference-image.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { SaveToLibraryDialogComponent } from '../../shared/save-to-library/save-to-library-dialog.component';
 import { ImageStudioComponent } from './image-studio.component';
+
+/** Every name sent to be read, so a spec can say how many readings typing bought. */
+let nameAsks: string[];
+let seedAsks: ContentSeedQuery[];
+
+const facet = (key: string, displayName: string) => ({ key, displayName, pinned: false, fromRecipe: false });
+
+/** The one idea the stub generator offers, about whatever name it was asked for. */
+function idea(query: ContentSeedQuery): ContentSeed {
+  return {
+    token: 'abc-123',
+    cuisine: facet(query.cuisine ?? 'thai', query.cuisine ?? 'Thai'),
+    dishType: facet('salad', 'Salad'),
+    method: { ...facet('grill', 'Grill'), requiresSafetyCaution: false },
+    photographyStyle: facet('dark-and-moody', 'Dark and moody'),
+    channel: null,
+    day: { day: 'Wednesday', pinned: false, theme: null },
+    occasion: facet('weeknight', 'Weeknight'),
+    description: 'Develop a grilled Thai salad.',
+    recipe: null,
+    subject: query.subject ?? null,
+  };
+}
+
+/** A finished reading of a name: Levantine, and nothing said about the rest. */
+function nameRead(): AiRequestOutcome {
+  const row = (fieldName: string, afterValue: string) => ({
+    changeId: `c-${fieldName}`,
+    changeKind: 'Set' as const,
+    targetKind: 'DishFacetSuggestion' as const,
+    targetId: 't1',
+    fieldName,
+    beforeValue: null,
+    afterValue,
+    proposedPosition: null,
+    disposition: 'Pending' as const,
+  });
+
+  return {
+    status: 'accepted',
+    replayed: false,
+    operation: {
+      aiProposalRequestId: 'name-1',
+      status: 'Proposed',
+      taskType: 'DishFacetSuggestion',
+      scope: 'NotApplicable',
+      sourceVersionId: null,
+      requestedAt: '2026-10-10T12:00:00Z',
+      statusChangedAt: '2026-10-10T12:00:00Z',
+      failureCategory: null,
+      proposal: {
+        proposalId: 'p1',
+        outputSchemaVersion: '1',
+        promptTemplateId: 'recipe.dish-facets',
+        promptTemplateVersion: '1.0.0',
+        promptTemplateBodyChecksum: 'abc',
+        providerName: 'provider',
+        modelName: 'model',
+        createdAt: '2026-10-10T12:00:00Z',
+        changes: [
+          row('facet.Cuisine', 'levantine'),
+          row('facet.Cuisine.confidence', 'Likely'),
+          row('facet.Cuisine.rationale', 'Fattoush is a Levantine dish.'),
+        ],
+        warnings: [],
+      },
+    },
+  };
+}
 
 const SLUG = 'cozy-fall';
 const OTHER_SLUG = 'other-kitchen';
@@ -289,6 +362,13 @@ async function create(
   const neverAnswers = (): Observable<AiWatchOperationOutcome> => of<AiWatchOperationOutcome>();
   const ai = { request: () => Promise.resolve({ status: 'unavailable' as const }), watch: neverAnswers };
   conceptAsks = [];
+  nameAsks = [];
+  seedAsks = [];
+  const entries = (...codes: string[]) =>
+    Promise.resolve({
+      status: 'found' as const,
+      entries: codes.map((code) => ({ id: code, code, displayName: code })),
+    });
   const concepts = {
     request: (_slug: string, request: RequestPhotographyConceptsRequest) => {
       conceptAsks.push(request);
@@ -346,6 +426,41 @@ async function create(
         },
       },
       { provide: PhotographyConceptService, useValue: concepts },
+      {
+        provide: ContentSeedService,
+        useValue: {
+          generate: (_slug: string, query: ContentSeedQuery) => {
+            seedAsks.push(query);
+
+            return of({ status: 'found' as const, seed: idea(query) });
+          },
+        },
+      },
+      {
+        provide: DishFacetService,
+        useValue: {
+          request: (_slug: string, dishName: string) => {
+            nameAsks.push(dishName);
+
+            return Promise.resolve(nameRead());
+          },
+          watch: neverAnswers,
+        },
+      },
+      {
+        provide: ReferenceService,
+        useValue: {
+          listCuisines: () => entries('levantine', 'thai'),
+          listCourses: () => entries('salad'),
+          listTechniques: () =>
+            Promise.resolve({
+              status: 'found' as const,
+              techniques: [{ id: 'grill', code: 'grill', displayName: 'grill', requiresSafetyCaution: false }],
+            }),
+          listPhotographyStyles: () => Promise.resolve({ status: 'unavailable' as const }),
+          listOccasions: () => Promise.resolve({ status: 'unavailable' as const }),
+        },
+      },
       { provide: ImagePromptService, useValue: ai },
       { provide: ReferenceImageService, useValue: ai },
       {
@@ -568,6 +683,8 @@ describe('ImageStudioComponent', () => {
         'What you already have in mind',
         'Scene',
         'Style',
+        // The idea sits between the brief and the look, and is asked for rather than shown.
+        'What you already know',
         'The look',
         'Extras',
         'The prompt',
@@ -622,6 +739,91 @@ describe('ImageStudioComponent', () => {
     });
   });
 
+  describe('an idea', () => {
+    const select = (id: string): HTMLSelectElement => root().querySelector<HTMLSelectElement>(`#${id}`)!;
+
+    it('does not read the name while it is being typed, only when asked', async () => {
+      await create();
+
+      await typeSubject('Fattoush');
+      await typeSubject('Fattoush salad');
+
+      expect(nameAsks).toEqual([]);
+
+      await click('Fill these in from the name');
+      await settle();
+
+      expect(nameAsks).toEqual(['Fattoush salad']);
+      expect(select('cp-pipeline-stated-cuisine').value).toBe('levantine');
+      expect(text()).toContain('Suggested from the name');
+    });
+
+    it('reads the name before the first idea, so the idea is about the dish it names', async () => {
+      await create();
+      await typeSubject('Fattoush salad');
+
+      await click('Suggest an idea');
+      await settle();
+
+      expect(nameAsks).toEqual(['Fattoush salad']);
+      expect(seedAsks[seedAsks.length - 1].cuisine).toBe('levantine');
+      expect(select('cp-pipeline-facet-cuisine').value).toBe('levantine');
+
+      await click('Try another');
+      await settle();
+
+      expect(nameAsks.length).toBe(1);
+    });
+
+    it('offers each part of an idea its own picker, and no day to keep', async () => {
+      await create();
+
+      await click('Suggest an idea');
+
+      expect(select('cp-pipeline-facet-cuisine').value).toBe('thai');
+      expect(root().querySelector('#cp-pipeline-facet-day')).toBeNull();
+      expect(root().querySelector('.facets')!.textContent).not.toContain('Wednesday');
+
+      select('cp-pipeline-facet-cuisine').value = 'levantine';
+      select('cp-pipeline-facet-cuisine').dispatchEvent(new Event('change'));
+      await settle();
+
+      expect(seedAsks[seedAsks.length - 1].cuisine).toBe('levantine');
+      expect(seedAsks[seedAsks.length - 1].token).toBe('abc-123');
+      expect(seedAsks[seedAsks.length - 1].day).toBeNull();
+    });
+
+    it('plans the looks from a picked idea when there is no description', async () => {
+      await create();
+
+      await click('Suggest an idea');
+      await click('Pick this idea');
+      await click('Plan some looks');
+
+      expect(conceptAsks[0].creatorConcept).toBe('Develop a grilled Thai salad.');
+    });
+
+    it('plans the looks from the description until the creator chooses otherwise', async () => {
+      await create();
+      await typeConcept('A tight crop.');
+
+      await click('Suggest an idea');
+      await click('Pick this idea');
+      await click('Plan some looks');
+
+      expect(conceptAsks[0].creatorConcept).toBe('A tight crop.');
+      expect(text()).toContain('You described a picture in the brief above');
+    });
+
+    it('counts a picked idea as something Start over would throw away', async () => {
+      await create();
+
+      await click('Suggest an idea');
+
+      expect(button('Start over')!.disabled).toBeFalse();
+    });
+  });
+
   describe('getting around', () => {
     it('offers every part of the page as a destination that exists and can take focus', async () => {
       await create();
@@ -629,6 +831,7 @@ describe('ImageStudioComponent', () => {
       const links = Array.from(root().querySelectorAll<HTMLAnchorElement>('cp-anchor-nav a'));
       expect(links.map((link) => link.textContent?.trim())).toEqual([
         'The brief',
+        'An idea',
         'The look',
         'Extras',
         'The prompt',

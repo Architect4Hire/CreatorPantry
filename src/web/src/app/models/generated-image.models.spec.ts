@@ -79,9 +79,23 @@ describe('generated-image.models', () => {
         width: 1024,
         height: 1024,
         sizeBytes: 482000,
+        webSizeBytes: null,
+        thumbnailSizeBytes: null,
         retentionExpiresAt: '2026-10-09T12:00:00Z',
         createdAt: '2026-10-08T12:00:00Z',
       });
+    });
+
+    it('reads the size of each smaller copy the server has made, and nothing for one it has not', () => {
+      const decoded = decodeStagedImage(stagedRow({ webSizeBytes: 153000, thumbnailSizeBytes: '37000' }));
+
+      expect(decoded?.webSizeBytes).toBe(153000);
+      expect(decoded?.thumbnailSizeBytes).toBe(37000);
+
+      // Anything that is not a usable byte count reads as "no smaller copy", never as a size to show.
+      for (const bad of [null, 0, -5, 'big', 1.5, {}]) {
+        expect(decodeStagedImage(stagedRow({ webSizeBytes: bad }))?.webSizeBytes).toBeNull();
+      }
     });
 
     it('accepts the string form of every integer, which the contract also publishes', () => {

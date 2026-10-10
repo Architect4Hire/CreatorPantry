@@ -142,7 +142,12 @@ describe('content-pipeline.models', () => {
           briefSource: 'Combined',
           brief: 'A tight crop of the first slice.\n\nDevelop a Thai dish.',
         },
-        seed: { lastToken: 'abc-123', keep: { cuisine: 'thai' }, accepted: SEED },
+        seed: {
+          lastToken: 'abc-123',
+          keep: { cuisine: 'thai' },
+          accepted: SEED,
+          nameReading: { requestId: 'r-1', subject: 'Miso butter corn', applied: true },
+        },
         furthestStep: 'idea',
       });
 

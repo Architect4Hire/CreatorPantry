@@ -21,6 +21,7 @@ import {
   decodeDamCreatedAsset,
   encodeDamAssetSearchQuery,
 } from '../models/dam-asset.models';
+import { PictureRendition, renditionQuery } from '../models/picture-rendition.models';
 import { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf } from './ai-request';
 
 export type DamAssetSearchOutcome =
@@ -214,8 +215,10 @@ export class DamAssetService {
    * The authorized render route, proxied by the server — never a storage address. The caller owns the object
    * URL it makes from these bytes and owns revoking it.
    */
-  content(workspaceSlug: string, assetId: string): Observable<DamAssetContentOutcome> {
-    const url = this.url(workspaceSlug, `/${encodeURIComponent(assetId)}/content`);
+  content(workspaceSlug: string, assetId: string, rendition?: PictureRendition): Observable<DamAssetContentOutcome> {
+    // No rendition is the route's own default, the web-size copy when the version has one. A grid or a picker
+    // asks for `thumbnail`.
+    const url = this.url(workspaceSlug, `/${encodeURIComponent(assetId)}/content${renditionQuery(rendition)}`);
     if (!url) return of<DamAssetContentOutcome>({ status: 'unavailable' });
 
     return this.http.get(url, { withCredentials: true, responseType: 'blob' }).pipe(
@@ -234,8 +237,14 @@ export class DamAssetService {
    * link serves. Nothing is saved to the creator's machine: the caller makes an object URL from the bytes and
    * owns revoking it, exactly as for {@link content}.
    */
-  versionContent(workspaceSlug: string, assetId: string, versionNumber: number): Observable<DamAssetContentOutcome> {
-    const url = this.versionDownloadUrl(workspaceSlug, assetId, versionNumber);
+  versionContent(
+    workspaceSlug: string,
+    assetId: string,
+    versionNumber: number,
+    rendition?: PictureRendition,
+  ): Observable<DamAssetContentOutcome> {
+    // The download route's own default is the original, so a smaller copy has to be asked for by name here.
+    const url = this.versionDownloadUrl(workspaceSlug, assetId, versionNumber, rendition);
     if (!url) return of<DamAssetContentOutcome>({ status: 'unavailable' });
 
     return this.http.get(url, { withCredentials: true, responseType: 'blob' }).pipe(
@@ -536,15 +545,21 @@ export class DamAssetService {
    * Only the link. The server names the file from the title, the version and the stored media type, so a name
    * built here would be a second guess at it.
    */
-  downloadUrl(workspaceSlug: string, assetId: string): string | null {
-    return this.url(workspaceSlug, `/${encodeURIComponent(assetId)}/download`);
+  downloadUrl(workspaceSlug: string, assetId: string, rendition?: PictureRendition): string | null {
+    // With no rendition a download is the original, as it has always been; `web` asks for the smaller copy.
+    return this.url(workspaceSlug, `/${encodeURIComponent(assetId)}/download${renditionQuery(rendition)}`);
   }
 
   /** The link that downloads one numbered version of this asset. The number must be one the detail read listed. */
-  versionDownloadUrl(workspaceSlug: string, assetId: string, versionNumber: number): string | null {
+  versionDownloadUrl(
+    workspaceSlug: string,
+    assetId: string,
+    versionNumber: number,
+    rendition?: PictureRendition,
+  ): string | null {
     return this.url(
       workspaceSlug,
-      `/${encodeURIComponent(assetId)}/versions/${encodeURIComponent(String(versionNumber))}/download`,
+      `/${encodeURIComponent(assetId)}/versions/${encodeURIComponent(String(versionNumber))}/download${renditionQuery(rendition)}`,
     );
   }
 

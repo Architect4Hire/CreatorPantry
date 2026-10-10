@@ -319,6 +319,18 @@ describe('GeneratedImageService', () => {
       expect(service.downloadUrl('cozy-fall', IMAGE_ID)).toBe(`${BASE}/${IMAGE_ID}/content`);
     });
 
+    it('names the copy a download or a preview asks for, and nothing else, in the address', async () => {
+      expect(service.downloadUrl('cozy-fall', IMAGE_ID, 'original')).toBe(`${BASE}/${IMAGE_ID}/content?rendition=original`);
+      expect(service.downloadUrl('cozy-fall', IMAGE_ID, 'web')).toBe(`${BASE}/${IMAGE_ID}/content?rendition=web`);
+
+      const pending = firstValueFrom(service.preview('cozy-fall', IMAGE_ID, 'thumbnail'));
+      const request = http.expectOne(`${BASE}/${IMAGE_ID}/preview?rendition=thumbnail`);
+      expect(request.request.withCredentials).toBeTrue();
+      request.flush(new Blob(['bytes'], { type: 'image/jpeg' }));
+
+      expect((await pending).status).toBe('found');
+    });
+
     it('produces nothing but the gateway’s own route, a workspace slug and an id', () => {
       const urls = [service.downloadUrl('cozy-fall', IMAGE_ID)].filter((url): url is string => url !== null);
 

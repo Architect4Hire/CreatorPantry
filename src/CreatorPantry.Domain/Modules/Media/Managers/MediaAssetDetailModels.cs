@@ -34,7 +34,9 @@ public sealed record MediaAssetVersionServiceModel(
     string? OriginalFileName,
     MediaAssetVersionSource Source,
     Guid? SourceGeneratedImageId,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    long? WebSizeBytes = null,
+    long? ThumbnailSizeBytes = null);
 
 /// <summary>A tag on an asset, named rather than left as an id.</summary>
 public sealed record MediaAssetTagServiceModel(Guid Id, string Name);

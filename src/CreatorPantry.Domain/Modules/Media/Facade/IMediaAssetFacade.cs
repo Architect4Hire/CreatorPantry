@@ -122,6 +122,18 @@ public interface IMediaAssetFacade
         Guid mediaAssetId, bool naming, CancellationToken cancellationToken);
 
     /// <summary>
+    /// As the overload without <paramref name="rendition"/>, serving the named rendition in place of the stored
+    /// bytes when the version has one (AF.5.6).
+    /// </summary>
+    /// <param name="rendition">The rendition wanted, or null for the version as it was stored.</param>
+    /// <remarks>
+    /// Which assets and versions can be opened, and by whom, is exactly as for the original. A rendition the
+    /// version does not have is answered with the stored bytes, and the result says which it is.
+    /// </remarks>
+    Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
+        Guid mediaAssetId, bool naming, MediaRenditionPurpose? rendition, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Opens one named version of a live asset for download (DAM-008).
     /// </summary>
     /// <remarks>
@@ -135,6 +147,22 @@ public interface IMediaAssetFacade
     /// </remarks>
     Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
         Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// As the overload without <paramref name="rendition"/>, serving the named rendition in place of the stored
+    /// bytes when the version has one (AF.5.6).
+    /// </summary>
+    /// <param name="rendition">The rendition wanted, or null for the version as it was stored.</param>
+    /// <remarks>
+    /// Which assets and versions can be opened, and by whom, is exactly as for the original. A rendition the
+    /// version does not have is answered with the stored bytes, and the result says which it is.
+    /// </remarks>
+    Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
+        Guid mediaAssetId,
+        int versionNumber,
+        bool naming,
+        MediaRenditionPurpose? rendition,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Records one use of a live asset (DAM-009).
@@ -355,11 +383,23 @@ internal sealed class MediaAssetFacade(
 
     public Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
         Guid mediaAssetId, bool naming, CancellationToken cancellationToken) =>
-        business.OpenCurrentVersionAsync(mediaAssetId, naming, cancellationToken);
+        business.OpenCurrentVersionAsync(mediaAssetId, naming, rendition: null, cancellationToken);
 
     public Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
         Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken) =>
-        business.OpenVersionAsync(mediaAssetId, versionNumber, naming, cancellationToken);
+        business.OpenVersionAsync(mediaAssetId, versionNumber, naming, rendition: null, cancellationToken);
+
+    public Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
+        Guid mediaAssetId, bool naming, MediaRenditionPurpose? rendition, CancellationToken cancellationToken) =>
+        business.OpenCurrentVersionAsync(mediaAssetId, naming, rendition, cancellationToken);
+
+    public Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
+        Guid mediaAssetId,
+        int versionNumber,
+        bool naming,
+        MediaRenditionPurpose? rendition,
+        CancellationToken cancellationToken) =>
+        business.OpenVersionAsync(mediaAssetId, versionNumber, naming, rendition, cancellationToken);
 
     public Task<IdempotentOutcome<MediaAssetUtilizationServiceModel>> LogUtilizationAsync(
         string userId,

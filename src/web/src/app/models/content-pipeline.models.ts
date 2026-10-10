@@ -347,6 +347,38 @@ export interface ContentPipelineSeedState {
   readonly keep: ContentPipelineKeep;
   /** The idea the creator picked. Stored whole, because from here on it is a decision rather than a suggestion. */
   readonly accepted: ContentSeed | null;
+  /** The reading of the typed name, once one has been asked for. Absent and null both mean none. */
+  readonly nameReading?: ContentPipelineNameReading | null;
+}
+
+/**
+ * The reading of the typed dish name into a cuisine, a dish type and a method.
+ *
+ * The request id is what is kept, as for a set of looks: a reading is durable and readable by it, so coming
+ * back to the step reads it again rather than buying a second one.
+ */
+export interface ContentPipelineNameReading {
+  readonly requestId: string;
+  /** The name that was read, so a reading of an earlier name is not shown beside a later one. */
+  readonly subject: string;
+  /**
+   * True once the reading has been offered to the three controls.
+   *
+   * A reading fills a control once. Without this, a creator who put one back to "Suggest one" would find it
+   * filled in again on their next visit — the suggestion overruling the choice it was only ever offered to.
+   */
+  readonly applied: boolean;
+}
+
+function decodeNameReading(value: unknown): ContentPipelineNameReading | null {
+  if (!isRecord(value)) return null;
+  const { requestId, subject, applied } = value;
+
+  // Dropped rather than failing the draft: a reading is a convenience, and one that cannot be read is asked
+  // for again under the same name.
+  return typeof requestId === 'string' && requestId !== '' && typeof subject === 'string' && subject !== ''
+    ? { requestId, subject, applied: applied === true }
+    : null;
 }
 
 /**
@@ -530,10 +562,14 @@ export function emptyContentPipelineImagesState(): ContentPipelineImagesState {
   return { operationId: null };
 }
 
+export function emptyContentPipelineSeedState(): ContentPipelineSeedState {
+  return { lastToken: null, keep: {}, accepted: null };
+}
+
 export function emptyContentPipelineDraft(now: Date = new Date()): ContentPipelineDraft {
   return {
     config: emptyContentPipelineConfig(),
-    seed: { lastToken: null, keep: {}, accepted: null },
+    seed: emptyContentPipelineSeedState(),
     prompt: emptyContentPipelinePromptState(),
     images: emptyContentPipelineImagesState(),
     furthestStep: FIRST_CONTENT_PIPELINE_STEP,
@@ -877,10 +913,13 @@ function parseStored(raw: string | null | undefined, version: number): Record<st
   return isRecord(parsed) && parsed['v'] === version ? parsed : null;
 }
 
-function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft | null {
-  const config = decodeContentPipelineConfig(parsed['config']);
-  const seedRaw = parsed['seed'];
-  if (config === null || !isRecord(seedRaw)) return null;
+/**
+ * The idea block of a kept record, or null for one that cannot be read.
+ *
+ * Exported because the Image Studio keeps the same block beside its own work.
+ */
+export function decodeContentPipelineSeedState(seedRaw: unknown): ContentPipelineSeedState | null {
+  if (!isRecord(seedRaw)) return null;
 
   const keep = decodeKeep(seedRaw['keep']);
   if (keep === null) return null;
@@ -894,6 +933,16 @@ function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft 
   // it, so a draft claiming one it cannot produce is discarded whole rather than resumed without it.
   if (rawAccepted !== null && rawAccepted !== undefined && accepted === null) return null;
 
+  const nameReading = decodeNameReading(seedRaw['nameReading']);
+
+  return nameReading === null ? { lastToken, keep, accepted } : { lastToken, keep, accepted, nameReading };
+}
+
+function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft | null {
+  const config = decodeContentPipelineConfig(parsed['config']);
+  const seed = decodeContentPipelineSeedState(parsed['seed']);
+  if (config === null || seed === null) return null;
+
   const prompt = decodeContentPipelinePromptState(parsed['prompt']);
   if (prompt === null) return null;
 
@@ -905,7 +954,7 @@ function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft 
 
   return {
     config,
-    seed: { lastToken, keep, accepted },
+    seed,
     prompt,
     images,
     furthestStep: isContentPipelineStepSlug(furthest) ? furthest : FIRST_CONTENT_PIPELINE_STEP,

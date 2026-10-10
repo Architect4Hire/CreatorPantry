@@ -54,7 +54,7 @@ namespace CreatorPantry.Tests.Media;
 /// Server by the fixtures that run migrations.
 /// </para>
 /// </remarks>
-public sealed class MediaAssetCreateTests : IDisposable
+public sealed partial class MediaAssetCreateTests : IDisposable
 {
     private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 

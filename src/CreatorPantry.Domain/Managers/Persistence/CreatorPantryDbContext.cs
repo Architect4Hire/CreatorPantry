@@ -569,6 +569,10 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <summary>What a model saw in a library asset version or a generated image, kept per picture (AF.3.4).</summary>
     public DbSet<MediaPictureAnalysis> MediaPictureAnalyses => Set<MediaPictureAnalysis>();
 
+    /// <summary>Smaller encodings of stored pictures, one per source and purpose (B-28, AF.5.4).</summary>
+    /// <remarks>Derivatives. No row here is ever the creator's original, and none outlives its source's use.</remarks>
+    public DbSet<MediaRendition> MediaRenditions => Set<MediaRendition>();
+
     /// <inheritdoc cref="MediaAssets"/>
     /// <remarks>Links the shared <see cref="WorkspaceTags"/> vocabulary, not a tag table of its own.</remarks>
     public DbSet<MediaAssetTag> MediaAssetTags => Set<MediaAssetTag>();

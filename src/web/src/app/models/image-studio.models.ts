@@ -10,15 +10,18 @@ import {
   ContentPipelineConfig,
   ContentPipelineImagesState,
   ContentPipelinePromptState,
+  ContentPipelineSeedState,
   DEFAULT_VARIANT_COUNT,
   contentPipelineConfigWith,
   decodeContentPipelineConfig,
   decodeContentPipelineImagesState,
   decodeContentPipelinePromptState,
+  decodeContentPipelineSeedState,
   decodeUnsentFields,
   emptyContentPipelineConfig,
   emptyContentPipelineImagesState,
   emptyContentPipelinePromptState,
+  emptyContentPipelineSeedState,
 } from './content-pipeline.models';
 import { CreativeContextFields, EMPTY_CREATIVE_CONTEXT_FIELDS } from './creative-context-fields.models';
 import { isRecord } from './recipe.models';
@@ -32,6 +35,11 @@ export interface ImageStudioDraft {
    * plans no week, and nothing on it reads one.
    */
   readonly config: ContentPipelineConfig;
+  /**
+   * The idea, where the creator asked for one: what they stated, the code of the one on screen, and the one
+   * they picked. The pipeline's own block, so the idea step that reads it is shared.
+   */
+  readonly seed: ContentPipelineSeedState;
   /** Request ids, the creator's pick, and the prompt that counts. Never a proposal's content. */
   readonly prompt: ContentPipelinePromptState;
   /** The run last asked for, and the pictures marked in it. Never bytes or anything about them. */
@@ -61,6 +69,7 @@ export const IMAGE_STUDIO_DRAFT_VERSION = 1;
 export function emptyImageStudioDraft(now: Date = new Date()): ImageStudioDraft {
   return {
     config: emptyContentPipelineConfig(),
+    seed: emptyContentPipelineSeedState(),
     prompt: emptyContentPipelinePromptState(),
     images: emptyContentPipelineImagesState(),
     savedAt: now.toISOString(),
@@ -69,9 +78,12 @@ export function emptyImageStudioDraft(now: Date = new Date()): ImageStudioDraft 
 
 /** True when nothing on the draft has been filled in, so there is nothing "Start over" would throw away. */
 export function isImageStudioDraftEmpty(draft: ImageStudioDraft): boolean {
-  const { config, prompt, images } = draft;
+  const { config, seed, prompt, images } = draft;
 
   return (
+    seed.lastToken === null &&
+    seed.accepted === null &&
+    Object.keys(seed.keep).length === 0 &&
     config.subject.trim() === '' &&
     config.channelKey === null &&
     config.variantCount === DEFAULT_VARIANT_COUNT &&
@@ -120,13 +132,17 @@ function decodeDraftBody(parsed: Record<string, unknown>): ImageStudioDraft | nu
   const config = decodeContentPipelineConfig(parsed['config']);
   const prompt = decodeContentPipelinePromptState(parsed['prompt']);
   const images = decodeContentPipelineImagesState(parsed['images']);
-  if (config === null || prompt === null || images === null) return null;
+  // Work kept before the studio had an idea section carries no idea block, and that means none: the version
+  // is not raised for it, for the reason it is not raised for `plannedSubject`.
+  const seed = parsed['seed'] === undefined ? emptyContentPipelineSeedState() : decodeContentPipelineSeedState(parsed['seed']);
+  if (config === null || seed === null || prompt === null || images === null) return null;
 
   const savedAt = parsed['savedAt'];
 
   return {
     // A day cannot be set here, so one that is stored was not written by this screen and is not carried.
     config: { ...config, day: null },
+    seed,
     prompt,
     images,
     savedAt: typeof savedAt === 'string' ? savedAt : '',

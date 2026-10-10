@@ -31,8 +31,8 @@ describe('DamLinkedAssetComponent', () => {
   let fixture: ComponentFixture<HostComponent>;
   let host: HostComponent;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
 
   function root(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
@@ -95,12 +95,12 @@ describe('DamLinkedAssetComponent', () => {
 
   it('shows the current picture by default and one kept version when asked', async () => {
     await create();
-    expect(contentSpy).toHaveBeenCalledWith('cozy-fall', 'a1');
+    expect(contentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 'thumbnail');
     expect(versionContentSpy).not.toHaveBeenCalled();
 
     host.version.set(1);
     await settle();
-    expect(versionContentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 1);
+    expect(versionContentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 1, 'thumbnail');
   });
 
   it('says plainly that a picture has left the library, with no link to a page that is not there', async () => {

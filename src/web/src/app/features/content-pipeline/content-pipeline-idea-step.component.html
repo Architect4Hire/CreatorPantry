@@ -40,11 +40,11 @@
 @if (offersStatedFacets()) {
   <cp-form-section
     heading="What you already know"
-    intro="Say any of these and every idea will use it. Leave one alone and it stays a suggestion you can keep or swap. Nothing is read out of the name you typed — these are yours to say."
+    intro="Say any of these and every idea will use it. Leave one alone and it stays a suggestion you can keep or swap. Where the name you typed says one, it is filled in for you and marked — change any that are wrong."
   >
     <cp-field-row>
       @for (facet of statableFacets; track facet) {
-        <cp-field [label]="facetLabels[facet]" [forId]="'cp-pipeline-stated-' + facet">
+        <cp-field [label]="facetLabels[facet]" [forId]="'cp-pipeline-stated-' + facet" [hint]="facetHints()[facet]">
           <select
             [id]="'cp-pipeline-stated-' + facet"
             [name]="'pipelineStated' + facet"
@@ -60,6 +60,28 @@
         </cp-field>
       }
     </cp-field-row>
+
+    @if (canReadName()) {
+      <div class="cp-actions">
+        <button cpButton type="button" variant="secondary" (click)="readNameAgain()">
+          Fill these in from the name
+        </button>
+      </div>
+    }
+    @if (readingName()) {
+      <p class="cp-muted" role="status">Reading the name you typed…</p>
+    }
+    @if (nameUnread()) {
+      <cp-notice role="status">
+        The name you typed could not be read just now, so nothing was filled in. These are still yours to say.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="readNameAgain()">
+          Read the name again
+        </button>
+      </cp-notice>
+    }
+    @for (warning of nameWarnings(); track $index) {
+      <cp-notice role="note">{{ warning.message }}</cp-notice>
+    }
 
     @if (vocabulary().status === 'loading') {
       <p class="cp-muted" role="status">Loading the cooking vocabulary…</p>
@@ -95,7 +117,7 @@
 @if (seed(); as idea) {
   <cp-form-section
     heading="The idea"
-    [intro]="accepted() ? 'This is the idea you picked.' : 'Keep the parts you like, then try again for the rest.'"
+    [intro]="accepted() ? 'This is the idea you picked.' : 'Change any part yourself, or keep the parts you like and try again for the rest.'"
   >
     <p class="description">{{ idea.description }}</p>
 
@@ -152,8 +174,23 @@
     <ul class="facets">
       @for (row of rows(); track row.name) {
         <li>
-          <span class="facet-label">{{ row.label }}</span>
-          <span class="facet-value">{{ row.displayName }}</span>
+          @if (row.options.length > 0 && !accepted()) {
+            <label class="facet-label" [for]="'cp-pipeline-facet-' + row.name">{{ row.label }}</label>
+            <select
+              class="facet-value"
+              [id]="'cp-pipeline-facet-' + row.name"
+              [name]="'pipelineFacet' + row.name"
+              [ngModel]="row.key"
+              (ngModelChange)="setFacet(row.name, $event)"
+            >
+              @for (option of row.options; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          } @else {
+            <span class="facet-label">{{ row.label }}</span>
+            <span class="facet-value">{{ row.displayName }}</span>
+          }
           @if (row.pinned) {
             <cp-badge tone="neutral">You asked for this</cp-badge>
           }
@@ -191,7 +228,7 @@
 @if (offersBriefChoice()) {
   <cp-form-section
     heading="What to work from"
-    intro="You described a picture on the first step, and now you have an idea too. Say which the picture should be planned from. Neither is changed by choosing."
+    [intro]="'You described a picture ' + descriptionWhere() + ', and now you have an idea too. Say which the picture should be planned from. Neither is changed by choosing.'"
     sectionId="cp-pipeline-brief-choice"
   >
     <cp-choice-group

@@ -12,6 +12,7 @@ import {
   decodeGeneratedImageOperationDetail,
   encodeRequestGeneratedImages,
 } from '../models/generated-image.models';
+import { PictureRendition, renditionQuery } from '../models/picture-rendition.models';
 import { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf } from './ai-request';
 
 /** What asking for pictures came back with. */
@@ -129,8 +130,17 @@ export class GeneratedImageService {
    * answers `no-store` because a staged picture is private creator content, and a service holding four images'
    * bytes for the lifetime of the application would be quietly undoing that.
    */
-  preview(workspaceSlug: string, generatedImageId: string): Observable<StagedImagePreviewOutcome> {
-    const url = this.url(workspaceSlug, `/${encodeURIComponent(generatedImageId)}/preview`);
+  preview(
+    workspaceSlug: string,
+    generatedImageId: string,
+    rendition?: PictureRendition,
+  ): Observable<StagedImagePreviewOutcome> {
+    // No rendition is the route's own default, which is the web-size copy when the picture has one. A grid
+    // asks for `thumbnail`; nothing asks for `original` just to look at a picture.
+    const url = this.url(
+      workspaceSlug,
+      `/${encodeURIComponent(generatedImageId)}/preview${renditionQuery(rendition)}`,
+    );
     if (!url) return of<StagedImagePreviewOutcome>({ status: 'unavailable' });
 
     return this.http.get(url, { withCredentials: true, responseType: 'blob' }).pipe(
@@ -148,8 +158,13 @@ export class GeneratedImageService {
    * from the media type it established from the bytes, so the name describes what is actually there — and
    * building a name here would be a second guess at it.
    */
-  downloadUrl(workspaceSlug: string, generatedImageId: string): string | null {
-    return this.url(workspaceSlug, `/${encodeURIComponent(generatedImageId)}/content`);
+  downloadUrl(workspaceSlug: string, generatedImageId: string, rendition?: PictureRendition): string | null {
+    // Stated by the caller rather than left to the route's default, which is the web-size copy: a creator
+    // who presses "Original" has to get the picture exactly as it was made.
+    return this.url(
+      workspaceSlug,
+      `/${encodeURIComponent(generatedImageId)}/content${renditionQuery(rendition)}`,
+    );
   }
 
   /** Decline one picture, so retention may remove it. Contributor and above. */

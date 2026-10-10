@@ -108,6 +108,19 @@
               />
             </section>
 
+            <section id="cp-studio-idea" class="brief" tabindex="-1" aria-label="An idea">
+              <cp-content-pipeline-idea-step
+                [workspaceSlug]="workspaceSlug()"
+                [draft]="ideaDraft()"
+                [recipe]="linkedRecipe()"
+                [showDay]="false"
+                [readsNameOnArrival]="false"
+                descriptionWhere="in the brief above"
+                (changed)="onIdea($event)"
+                (announced)="onAnnounced($event)"
+              />
+            </section>
+
             <cp-form-section
               heading="The look"
               intro="A few looks planned from your brief, and the one shot a prompt can be written for."
@@ -117,7 +130,7 @@
                 [workspaceSlug]="workspaceSlug()"
                 [config]="config()"
                 [prompt]="prompt()"
-                [brief]="config().concept"
+                [brief]="lookBrief()"
                 [recipe]="linkedRecipe()"
                 (changed)="onPrompt($event)"
                 (announced)="onAnnounced($event)"

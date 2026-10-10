@@ -64,20 +64,61 @@ public enum MediaAssetOpenOutcome
 /// exactly what a route serving "the current version" needs.
 /// </para>
 /// </remarks>
-public sealed class MediaAssetRender(
-    Gateways.MediaAssetObjectContent content, int versionNumber, string? fileName = null)
-    : IAsyncDisposable
+public sealed class MediaAssetRender : IAsyncDisposable
 {
-    public Stream Content { get; } = content.Content;
+    private readonly IAsyncDisposable lease;
 
-    public string MediaType { get; } = content.MediaType;
+    public MediaAssetRender(Gateways.MediaAssetObjectContent content, int versionNumber, string? fileName = null)
+    {
+        ArgumentNullException.ThrowIfNull(content);
 
-    public long SizeBytes { get; } = content.SizeBytes;
+        lease = content;
+        Content = content.Content;
+        MediaType = content.MediaType;
+        SizeBytes = content.SizeBytes;
+        ContentChecksum = content.ContentChecksum;
+        VersionNumber = versionNumber;
+        FileName = fileName;
+    }
 
-    public string ContentChecksum { get; } = content.ContentChecksum;
+    /// <summary>A rendition of the version rather than the version's own bytes (AF.5.6).</summary>
+    public MediaAssetRender(
+        CreatorPantry.Domain.Managers.Storage.StoredObjectContent content,
+        int versionNumber,
+        MediaRenditionPurpose rendition,
+        string? fileName = null)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        lease = content;
+        Content = content.Content;
+        MediaType = content.Object.MediaType;
+        SizeBytes = content.Object.SizeBytes;
+        ContentChecksum = content.Object.ContentChecksum;
+        VersionNumber = versionNumber;
+        FileName = fileName;
+        Rendition = rendition;
+    }
+
+    /// <summary>
+    /// Which rendition these bytes are, or null when they are the version as it was stored.
+    /// </summary>
+    /// <remarks>
+    /// What was served, not what was asked for: a version with no such rendition is served as stored, and
+    /// this is null.
+    /// </remarks>
+    public MediaRenditionPurpose? Rendition { get; }
+
+    public Stream Content { get; }
+
+    public string MediaType { get; }
+
+    public long SizeBytes { get; }
+
+    public string ContentChecksum { get; }
 
     /// <summary>Which version these bytes are, so a caller can log or correlate without a second read.</summary>
-    public int VersionNumber { get; } = versionNumber;
+    public int VersionNumber { get; }
 
     /// <summary>
     /// The name a download should be saved as, or null for a render.
@@ -88,9 +129,9 @@ public sealed class MediaAssetRender(
     /// a shape rather than a convention somebody has to remember. Already slug-safe by construction — ASCII letters,
     /// digits, single hyphens and one dot — so there is nothing for a header to quote or encode.
     /// </remarks>
-    public string? FileName { get; } = fileName;
+    public string? FileName { get; }
 
-    public ValueTask DisposeAsync() => content.DisposeAsync();
+    public ValueTask DisposeAsync() => lease.DisposeAsync();
 }
 
 /// <param name="Render">Present exactly when the outcome is <see cref="MediaAssetOpenOutcome.Opened"/>.</param>

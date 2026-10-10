@@ -19,6 +19,10 @@ public static class VocabularyServiceCollectionExtensions
         services.AddContentChannelCatalog();
         services.AddScoped<IContentChannelFacade, ContentChannelFacade>();
         services.AddScoped<IContentChannelBusiness, ContentChannelBusiness>();
+        services.AddPhotographyStyleCatalog();
+        services.AddOccasionCatalog();
+        services.AddScoped<IIdeaFacetCatalogFacade, IdeaFacetCatalogFacade>();
+        services.AddScoped<IIdeaFacetCatalogBusiness, IdeaFacetCatalogBusiness>();
         services.AddScoped<IVocabularyFacade, VocabularyFacade>();
         services.AddScoped<IVocabularyBusiness, VocabularyBusiness>();
         services.AddScoped<IVocabularyDataLayer, VocabularyDataLayer>();

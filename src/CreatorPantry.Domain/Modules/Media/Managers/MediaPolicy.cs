@@ -74,6 +74,60 @@ public static class MediaPolicy
     public const long ImageMaxBytes = 32L * 1024 * 1024;
 
     /// <summary>
+    /// The most pixels a picture may have and still be decoded to make a rendition.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately below <see cref="ImageMaxPixels"/>. That one bounds a number that is stored; this one
+    /// bounds memory, because decoding holds every pixel at four bytes each — 96 MB here, where the storage
+    /// ceiling would be 200 MB in a Worker that runs several jobs. It covers a 4096 × 4096 picture, the
+    /// largest tier a provider offers. A larger source is still stored and served; it is reported as not
+    /// compressed (B-28, docs/architecture-decisions/ai-fluency.md).
+    /// </remarks>
+    public const long RenditionMaxPixels = 24_000_000;
+
+    /// <summary>
+    /// The longest either side of a picture may be and still be decoded to make a rendition.
+    /// </summary>
+    /// <remarks>
+    /// The pixel cap alone does not bound a row: twenty-four million pixels in a single line is a row buffer
+    /// of 192 MB at sixteen bits a sample, twice over. With this, a row is never more than 128 KB.
+    /// </remarks>
+    public const int RenditionMaxEdge = 16_384;
+
+    /// <summary>How often the backfill looks for stored pictures that have no renditions.</summary>
+    /// <remarks>
+    /// Not urgent: a new picture's renditions are requested with the picture. This is for what came before
+    /// the job did, and for the rare request that was lost.
+    /// </remarks>
+    public static readonly TimeSpan RenditionBackfillInterval = TimeSpan.FromMinutes(15);
+
+    /// <summary>The most pictures one backfill pass requests renditions for.</summary>
+    public const int RenditionBackfillBatchSize = 50;
+
+    /// <summary>
+    /// How long a picture must have been stored before the backfill will ask for its renditions.
+    /// </summary>
+    /// <remarks>
+    /// Comfortably longer than the outbox takes to exhaust its retries, so a picture this old with no
+    /// renditions has no request of its own still in flight.
+    /// </remarks>
+    public static readonly TimeSpan RenditionBackfillMinimumAge = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// The box a rendition is fitted inside, as the length of its longer side, and its JPEG quality.
+    /// </summary>
+    /// <remarks>
+    /// B-28's rendition set (docs/architecture-decisions/ai-fluency.md): chosen from measurements of real
+    /// generated pictures, and changed there before it is changed here.
+    /// </remarks>
+    public static (int MaxEdge, int Quality) RenditionSpecification(MediaRenditionPurpose purpose) => purpose switch
+    {
+        MediaRenditionPurpose.Web => (1600, 82),
+        MediaRenditionPurpose.Thumbnail => (480, 78),
+        _ => throw new ArgumentOutOfRangeException(nameof(purpose)),
+    };
+
+    /// <summary>
     /// Whether one provider call may ask for more than one image.
     /// </summary>
     /// <remarks>

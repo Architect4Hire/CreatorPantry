@@ -304,6 +304,25 @@ describe('ReferenceService', () => {
     http.expectOne((request) => request.url === UNITS_URL).flush({ items: [unit('u1', 'gram')], nextCursor: null });
     expect((await second).status).toBe('found');
   });
+
+  it('reads the photo styles and occasions an idea is pinned from, whole or not at all', async () => {
+    const styles = service.listPhotographyStyles();
+    http
+      .expectOne('https://gateway.example/api/v1/reference/photography-styles')
+      .flush([{ key: 'dark-and-moody', displayName: 'Dark and moody', isActive: true }]);
+
+    expect(await styles).toEqual({
+      status: 'found',
+      entries: [{ key: 'dark-and-moody', displayName: 'Dark and moody', isActive: true }],
+    });
+
+    const occasions = service.listOccasions();
+    http
+      .expectOne('https://gateway.example/api/v1/reference/occasions')
+      .flush([{ key: 'weeknight', displayName: 'Weeknight', isActive: true }, { key: 'broken' }]);
+
+    expect((await occasions).status).toBe('unavailable');
+  });
 });
 
 describe('ReferenceService without a resolved gateway', () => {

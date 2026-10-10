@@ -39,6 +39,12 @@
   font-weight: 600;
 }
 
+/* A picker is as wide as the reading measure allows and no wider, so the badge and Keep stay on its line. */
+select.facet-value {
+  max-width: var(--cp-measure-field);
+  font-weight: 400;
+}
+
 .refused-message {
   flex: 1 1 100%;
   min-width: 0;

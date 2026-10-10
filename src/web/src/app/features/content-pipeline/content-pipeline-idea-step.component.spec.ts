@@ -1,12 +1,16 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { AiProposalStatus, AiProposedChange } from '../../models/ai-proposal.models';
 import { ContentPipelineDraft, emptyContentPipelineDraft } from '../../models/content-pipeline.models';
 import { ContentSeed, ContentSeedQuery } from '../../models/content-seed.models';
 import { LinkedRecipe } from '../../models/creative-context.models';
+import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
+import { BrandProfileService } from '../../services/brand-profile.service';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
+import { DishFacetService } from '../../services/dish-facet.service';
 import {
   ListReferenceEntriesOutcome,
   ListTechniquesOutcome,
@@ -97,6 +101,125 @@ const referenceFake = {
     Promise.resolve(vocabularyReadable ? COURSES : { status: 'unavailable' }),
   listTechniques: (): Promise<ListTechniquesOutcome> =>
     Promise.resolve(vocabularyReadable ? TECHNIQUES : { status: 'unavailable' }),
+  listPhotographyStyles: () =>
+    Promise.resolve(
+      rowCataloguesReadable
+        ? {
+            status: 'found',
+            entries: [
+              { key: 'overhead-flat-lay', displayName: 'Overhead flat lay', isActive: true },
+              { key: 'dark-and-moody', displayName: 'Dark and moody', isActive: true },
+              { key: 'retired-look', displayName: 'Retired look', isActive: false },
+            ],
+          }
+        : { status: 'unavailable' },
+    ),
+  listOccasions: () =>
+    Promise.resolve(
+      rowCataloguesReadable
+        ? {
+            status: 'found',
+            entries: [
+              { key: 'weeknight', displayName: 'Weeknight', isActive: true },
+              { key: 'picnic-and-outdoors', displayName: 'Picnic and outdoors', isActive: true },
+            ],
+          }
+        : { status: 'unavailable' },
+    ),
+};
+
+/** False to leave the idea's own rows without the three lists only they use. */
+let rowCataloguesReadable: boolean;
+
+const brandProfileFake = {
+  listContentChannels: () =>
+    Promise.resolve(
+      rowCataloguesReadable
+        ? {
+            status: 'found',
+            channels: [
+              { key: 'instagram', displayName: 'Instagram', isActive: true },
+              { key: 'newsletter', displayName: 'Newsletter', isActive: true },
+            ],
+          }
+        : { status: 'unavailable' },
+    ),
+};
+
+function rowPicker(name: string): HTMLSelectElement | null {
+  return el.querySelector(`#cp-pipeline-facet-${name}`);
+}
+
+/** Change one part of the idea on screen the way a creator does. */
+async function changePart(name: string, value: string): Promise<void> {
+  const control = rowPicker(name)!;
+  control.value = value;
+  control.dispatchEvent(new Event('change'));
+  await settle();
+}
+
+let nameRequests: { slug: string; dishName: string; key: string }[];
+let nameWatches: string[];
+/** What asking for a reading answers. Switched off by default, so a test that is not about it sees none. */
+let nameOutcome: AiRequestOutcome;
+
+function facetRow(fieldName: string, afterValue: string): AiProposedChange {
+  return {
+    changeId: `c-${fieldName}`,
+    changeKind: 'Set',
+    targetKind: 'DishFacetSuggestion',
+    targetId: 't1',
+    fieldName,
+    beforeValue: null,
+    afterValue,
+    proposedPosition: null,
+    disposition: 'Pending',
+  };
+}
+
+/** A finished reading: a Levantine salad, with the method declined. */
+function readOperation(requestId = 'r-1'): AiProposalStatus {
+  return {
+    aiProposalRequestId: requestId,
+    status: 'Proposed',
+    taskType: 'DishFacetSuggestion',
+    scope: 'NotApplicable',
+    sourceVersionId: null,
+    requestedAt: '2026-10-10T12:00:00Z',
+    statusChangedAt: '2026-10-10T12:00:00Z',
+    failureCategory: null,
+    proposal: {
+      proposalId: 'p1',
+      outputSchemaVersion: '1',
+      promptTemplateId: 'recipe.dish-facets',
+      promptTemplateVersion: '1.0.0',
+      promptTemplateBodyChecksum: 'abc',
+      providerName: 'provider',
+      modelName: 'model',
+      createdAt: '2026-10-10T12:00:00Z',
+      changes: [
+        facetRow('facet.Cuisine', 'levantine'),
+        facetRow('facet.Cuisine.confidence', 'Likely'),
+        facetRow('facet.Cuisine.rationale', 'Fattoush is a Levantine dish.'),
+        facetRow('facet.DishType', 'salad'),
+        facetRow('facet.DishType.confidence', 'Possible'),
+        facetRow('facet.DishType.rationale', 'The name says salad.'),
+        facetRow('facet.Method.rationale', 'The name does not say how it is cooked.'),
+      ],
+      warnings: [],
+    },
+  };
+}
+
+const dishFacetFake = {
+  request: (slug: string, dishName: string, key: string): Promise<AiRequestOutcome> => {
+    nameRequests.push({ slug, dishName, key });
+    return Promise.resolve(nameOutcome);
+  },
+  watch: (_slug: string, requestId: string): Observable<AiWatchOperationOutcome> => {
+    nameWatches.push(requestId);
+    return of<AiWatchOperationOutcome>({ status: 'found', operation: readOperation(requestId) });
+  },
 };
 
 function select(facet: 'cuisine' | 'dishType' | 'method'): HTMLSelectElement | null {
@@ -159,10 +282,16 @@ describe('ContentPipelineIdeaStepComponent', () => {
     confirmCalls = 0;
     vocabularyReadable = true;
     vocabularyReads = 0;
+    nameRequests = [];
+    nameWatches = [];
+    nameOutcome = { status: 'task_not_enabled' };
+    rowCataloguesReadable = true;
 
     TestBed.configureTestingModule({
       providers: [
         { provide: ContentSeedService, useValue: { generate } },
+        { provide: DishFacetService, useValue: dishFacetFake },
+        { provide: BrandProfileService, useValue: brandProfileFake },
         { provide: ReferenceService, useValue: referenceFake },
         {
           provide: ConfirmService,
@@ -795,12 +924,214 @@ describe('ContentPipelineIdeaStepComponent', () => {
     });
   });
 
+  describe('changing one part of the idea', () => {
+    const shown = async (): Promise<void> => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({ status: 'found', seed: seed() });
+    };
+
+    it('offers every part its own picker, showing what it is set to, and none for the theme', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({
+        status: 'found',
+        seed: seed({ day: { day: 'Wednesday', pinned: false, theme: { key: 'soup', displayName: 'Soup day', pinned: false, fromRecipe: false } } }),
+      });
+
+      for (const [name, value] of [
+        ['cuisine', 'thai'],
+        ['dishType', 'main-course'],
+        ['method', 'stir-fry'],
+        ['photographyStyle', 'overhead-flat-lay'],
+        ['channel', 'instagram'],
+        ['occasion', 'weeknight'],
+        ['day', 'Wednesday'],
+      ]) {
+        expect(rowPicker(name)?.value).withContext(name).toBe(value);
+      }
+      expect(rowPicker('theme')).toBeNull();
+      // A retired style is never offered as a new choice.
+      expect(rowPicker('photographyStyle')!.textContent).not.toContain('Retired look');
+    });
+
+    it('asks for the same idea again with only the changed part moved', async () => {
+      await shown();
+
+      await changePart('photographyStyle', 'dark-and-moody');
+
+      expect(latest().seed.keep).toEqual({ photographyStyle: 'dark-and-moody' });
+      expect(queries.length).toBe(2);
+      expect(queries[1].query.token).toBe('abc-123');
+      expect(queries[1].query.photographyStyle).toBe('dark-and-moody');
+      expect(queries[1].query.cuisine).toBeNull();
+    });
+
+    it('writes a changed channel and day where the first step keeps them', async () => {
+      await shown();
+
+      await changePart('channel', 'newsletter');
+      await answer({
+        status: 'found',
+        seed: seed({ channel: { key: 'newsletter', displayName: 'Newsletter', pinned: true, fromRecipe: false } }),
+      });
+      await changePart('day', 'Friday');
+
+      expect(latest().config.channelKey).toBe('newsletter');
+      expect(latest().config.day).toBe('Friday');
+      expect(latest().seed.keep).toEqual({});
+      expect(queries[1].query.channel).toBe('newsletter');
+      expect(queries[2].query.day).toBe('Friday');
+      expect(queries[2].query.token).toBe('abc-123');
+    });
+
+    it('leaves a part as text with Keep when its list could not be read', async () => {
+      rowCataloguesReadable = false;
+
+      await shown();
+
+      expect(rowPicker('occasion')).toBeNull();
+      expect(rowPicker('cuisine')).not.toBeNull();
+      expect(el.querySelector('.facets')!.textContent).toContain('Weeknight');
+    });
+
+    it('offers nothing to change once the idea is picked', async () => {
+      await shown();
+      await click('Pick this idea');
+
+      expect(rowPicker('cuisine')).toBeNull();
+      expect(el.querySelector('.facets')!.textContent).toContain('Thai');
+    });
+
+    it('does not offer a part that is the linked recipe’s own', async () => {
+      await mount();
+      await click('Suggest an idea');
+      await answer({
+        status: 'found',
+        seed: seed({ cuisine: { key: 'thai', displayName: 'Thai', pinned: false, fromRecipe: true } }),
+      });
+
+      expect(rowPicker('cuisine')).toBeNull();
+      expect(rowPicker('occasion')).not.toBeNull();
+    });
+  });
+
   describe('with a name typed instead of a recipe', () => {
     const NAMED = (): ContentPipelineDraft => {
       const base = emptyContentPipelineDraft();
 
       return { ...base, config: { ...base.config, subject: 'Fattoush salad with radishes' } };
     };
+
+    const hintOf = (facet: 'cuisine' | 'dishType' | 'method'): string =>
+      el.querySelector(`#cp-pipeline-stated-${facet}-hint`)?.textContent?.trim() ?? '';
+
+    it('reads the name and fills the controls the creator has not answered', async () => {
+      nameOutcome = { status: 'accepted', operation: readOperation(), replayed: false };
+
+      await mount(NAMED());
+      await settle();
+
+      expect(nameRequests.length).toBe(1);
+      expect(nameRequests[0].slug).toBe('cozy-fall');
+      expect(nameRequests[0].dishName).toBe('Fattoush salad with radishes');
+      expect(latest().seed.keep).toEqual({ cuisine: 'levantine', dishType: 'salad' });
+      expect(latest().seed.nameReading).toEqual({
+        requestId: 'r-1',
+        subject: 'Fattoush salad with radishes',
+        applied: true,
+      });
+      expect(select('cuisine')!.value).toBe('levantine');
+      expect(select('method')!.value).toBe('');
+      expect(host.announcements).toContain('Filled in 2 of 3 from the name. Change any that are wrong.');
+    });
+
+    it('says beside each control where its value came from, and why one was left alone', async () => {
+      nameOutcome = { status: 'accepted', operation: readOperation(), replayed: false };
+
+      await mount(NAMED());
+      await settle();
+
+      expect(hintOf('cuisine')).toContain('Suggested from the name');
+      expect(hintOf('cuisine')).toContain('Fattoush is a Levantine dish.');
+      expect(hintOf('dishType')).toContain('A guess from the name');
+      expect(hintOf('method')).toContain('The name did not say.');
+
+      await choose('cuisine', 'thai');
+
+      expect(hintOf('cuisine')).toBe('');
+    });
+
+    it('never overwrites a facet the creator already stated', async () => {
+      nameOutcome = { status: 'accepted', operation: readOperation(), replayed: false };
+      const named = NAMED();
+
+      await mount({ ...named, seed: { ...named.seed, keep: { cuisine: 'thai' } } });
+      await settle();
+
+      expect(latest().seed.keep).toEqual({ cuisine: 'thai', dishType: 'salad' });
+      expect(hintOf('cuisine')).toBe('');
+    });
+
+    it('reads a kept reading back rather than asking again, and does not refill an emptied control', async () => {
+      const named = NAMED();
+
+      await mount({
+        ...named,
+        seed: {
+          ...named.seed,
+          keep: { dishType: 'salad' },
+          nameReading: { requestId: 'r-7', subject: 'Fattoush salad with radishes', applied: true },
+        },
+      });
+      await settle();
+
+      expect(nameRequests.length).toBe(0);
+      expect(nameWatches).toEqual(['r-7']);
+      expect(select('cuisine')!.value).toBe('');
+      expect(host.emitted.length).toBe(0);
+      expect(hintOf('dishType')).toContain('A guess from the name');
+    });
+
+    it('says when the name could not be read, and retries under the same key', async () => {
+      nameOutcome = { status: 'unavailable' };
+
+      await mount(NAMED());
+      await settle();
+
+      expect(el.textContent).toContain('could not be read just now');
+      expect(select('cuisine')!.disabled).toBeFalse();
+
+      nameOutcome = { status: 'accepted', operation: readOperation(), replayed: false };
+      await click('Read the name again');
+      await settle();
+
+      expect(nameRequests.length).toBe(2);
+      expect(nameRequests[1].key).toBe(nameRequests[0].key);
+      expect(select('cuisine')!.value).toBe('levantine');
+      expect(el.textContent).not.toContain('could not be read just now');
+    });
+
+    it('says nothing at all when the reading is switched off', async () => {
+      await mount(NAMED());
+      await settle();
+
+      expect(nameRequests.length).toBe(1);
+      expect(el.textContent).not.toContain('could not be read');
+      expect(host.emitted.length).toBe(0);
+    });
+
+    it('does not read a name while a recipe is linked', async () => {
+      nameOutcome = { status: 'accepted', operation: readOperation(), replayed: false };
+      fixture = TestBed.createComponent(HostComponent);
+      host = fixture.componentInstance;
+      host.draft.set(NAMED());
+      host.recipe.set({ recipeId: 'rec-1', recipeVersionId: 'ver-1', title: 'Fattoush' } as LinkedRecipe);
+      el = fixture.nativeElement;
+      await settle();
+
+      expect(nameRequests.length).toBe(0);
+    });
 
     it('asks for an idea about the name the creator typed', async () => {
       await mount(NAMED());

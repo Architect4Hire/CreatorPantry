@@ -9,6 +9,7 @@
 // Every bound mirrors a server constant by name, so a control cannot accept something the route would refuse.
 
 import { decodeEnum, isRecord, isStringOrNull } from './recipe.models';
+import { decodeRenditionSize } from './picture-rendition.models';
 
 export type GeneratedImageOperationStatus =
   | 'Unspecified'
@@ -57,6 +58,10 @@ export interface StagedImage {
   readonly width: number;
   readonly height: number;
   readonly sizeBytes: number;
+  /** The web-size copy's bytes, or null while the server has not made one (or never will). */
+  readonly webSizeBytes?: number | null;
+  /** The thumbnail's bytes, or null while there is none. */
+  readonly thumbnailSizeBytes?: number | null;
   /** When retention may remove the bytes. A staging deadline, not a publication date. */
   readonly retentionExpiresAt: string;
   readonly createdAt: string;
@@ -269,7 +274,20 @@ export function decodeStagedImage(value: unknown): StagedImage | null {
     return null;
   }
 
-  return { id, variantIndex, status, mediaType, width, height, sizeBytes, retentionExpiresAt, createdAt };
+  return {
+    id,
+    variantIndex,
+    status,
+    mediaType,
+    width,
+    height,
+    sizeBytes,
+    // Optional on the wire and optional here: an older server says nothing, which reads as "no smaller copy".
+    webSizeBytes: decodeRenditionSize(value['webSizeBytes']),
+    thumbnailSizeBytes: decodeRenditionSize(value['thumbnailSizeBytes']),
+    retentionExpiresAt,
+    createdAt,
+  };
 }
 
 function decodeOperationFields(value: unknown): GeneratedImageOperation | null {

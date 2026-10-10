@@ -55,7 +55,9 @@ public sealed record MediaAssetVersionRecord(
     string? OriginalFileName,
     MediaAssetVersionSource Source,
     Guid? SourceGeneratedImageId,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    long? WebSizeBytes = null,
+    long? ThumbnailSizeBytes = null);
 
 /// <summary>One tag on an asset, with the name resolved from the workspace's own vocabulary.</summary>
 public sealed record MediaAssetTagRecord(Guid Id, string Name);

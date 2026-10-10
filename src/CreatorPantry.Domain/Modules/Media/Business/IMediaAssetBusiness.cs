@@ -93,7 +93,7 @@ public interface IMediaAssetBusiness
     /// </remarks>
     /// <param name="naming">True for a download, which names a file; false for a render, which does not.</param>
     Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
-        Guid mediaAssetId, bool naming, CancellationToken cancellationToken);
+        Guid mediaAssetId, bool naming, MediaRenditionPurpose? rendition, CancellationToken cancellationToken);
 
     /// <summary>
     /// Opens one named version of a live asset for download (DAM-008).
@@ -103,7 +103,11 @@ public interface IMediaAssetBusiness
     /// for is the <em>not found</em> one — never a fallback to whatever version does exist.
     /// </remarks>
     Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
-        Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken);
+        Guid mediaAssetId,
+        int versionNumber,
+        bool naming,
+        MediaRenditionPurpose? rendition,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Records one use of a live asset (DAM-009).
@@ -368,12 +372,16 @@ internal sealed class MediaAssetBusiness(
     }
 
     public async Task<OperationResult<MediaAssetRender>> OpenCurrentVersionAsync(
-        Guid mediaAssetId, bool naming, CancellationToken cancellationToken) =>
-        Opened(await assets.OpenCurrentVersionAsync(mediaAssetId, naming, cancellationToken));
+        Guid mediaAssetId, bool naming, MediaRenditionPurpose? rendition, CancellationToken cancellationToken) =>
+        Opened(await assets.OpenCurrentVersionAsync(mediaAssetId, naming, rendition, cancellationToken));
 
     public async Task<OperationResult<MediaAssetRender>> OpenVersionAsync(
-        Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken) =>
-        Opened(await assets.OpenVersionAsync(mediaAssetId, versionNumber, naming, cancellationToken));
+        Guid mediaAssetId,
+        int versionNumber,
+        bool naming,
+        MediaRenditionPurpose? rendition,
+        CancellationToken cancellationToken) =>
+        Opened(await assets.OpenVersionAsync(mediaAssetId, versionNumber, naming, rendition, cancellationToken));
 
     /// <summary>Turns an open outcome into the result a route answers from.</summary>
     /// <remarks>
@@ -841,7 +849,9 @@ internal sealed class MediaAssetBusiness(
             version.OriginalFileName,
             version.Source,
             version.SourceGeneratedImageId,
-            version.CreatedAt);
+            version.CreatedAt,
+            version.WebSizeBytes,
+            version.ThumbnailSizeBytes);
 
     private static MediaAssetUtilizationServiceModel MapUse(MediaAssetUtilizationRecord use) =>
         new(

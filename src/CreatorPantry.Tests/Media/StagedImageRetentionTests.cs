@@ -34,7 +34,7 @@ namespace CreatorPantry.Tests.Media;
 /// moving the clock, and the store records writes against the same clock so an orphan's age is something
 /// a test can set rather than wait for.
 /// </remarks>
-public sealed class StagedImageRetentionTests : IDisposable
+public sealed partial class StagedImageRetentionTests : IDisposable
 {
     private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 

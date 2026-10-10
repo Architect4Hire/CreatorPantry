@@ -14,6 +14,7 @@ import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { VisibilityService } from '../../core/visibility.service';
 import { DamAssetPicture, damThumbnailAltText } from '../../models/dam-asset.models';
+import { PictureRendition } from '../../models/picture-rendition.models';
 import { DamAssetService } from '../../services/dam-asset.service';
 
 /**
@@ -115,6 +116,14 @@ export class DamAssetThumbnailComponent {
    */
   readonly versionNumber = input<number | null>(null);
 
+  /**
+   * Which copy to show. The thumbnail unless told otherwise, because this is what grids, pickers and linked
+   * rows use; a page showing one picture at reading size asks for `web`.
+   *
+   * Never the original: showing a picture should not cost a creator its full size.
+   */
+  readonly rendition = input<PictureRendition>('thumbnail');
+
   protected readonly state = signal<PictureState>('waiting');
   protected readonly objectUrl = signal<string | null>(null);
 
@@ -141,7 +150,7 @@ export class DamAssetThumbnailComponent {
     // under another workspace's slug is a different request entirely.
     effect(() => {
       const asset = this.asset();
-      const key = `${this.workspaceSlug()}|${asset.id}|${asset.currentVersionNumber}|${this.heldVersion() ?? ''}`;
+      const key = `${this.workspaceSlug()}|${asset.id}|${asset.currentVersionNumber}|${this.heldVersion() ?? ''}|${this.rendition()}`;
       if (key === this.loadedKey) return;
 
       this.loadedKey = key;
@@ -179,8 +188,8 @@ export class DamAssetThumbnailComponent {
     const held = this.heldVersion();
     const bytes =
       held === null
-        ? this.assets.content(this.workspaceSlug(), this.asset().id)
-        : this.assets.versionContent(this.workspaceSlug(), this.asset().id, held);
+        ? this.assets.content(this.workspaceSlug(), this.asset().id, this.rendition())
+        : this.assets.versionContent(this.workspaceSlug(), this.asset().id, held, this.rendition());
 
     this.fetching = bytes.subscribe((outcome) => {
       if (outcome.status === 'found') {

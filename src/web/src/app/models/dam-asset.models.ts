@@ -12,6 +12,7 @@ import {
   PromptRecordSource,
 } from './prompt-library.models';
 import { decodeEnum, isNumberOrNull, isRecord, isStringOrNull } from './recipe.models';
+import { decodeRenditionSize } from './picture-rendition.models';
 
 /** `MediaAssetKind`, as stored. `Unspecified` is never valid on a row, so it is not a value here. */
 export type DamAssetKind = 'Original' | 'Imported' | 'Derived' | 'AiGenerated';
@@ -278,6 +279,10 @@ export interface DamAssetVersion {
   readonly width: number;
   readonly height: number;
   readonly sizeBytes: number;
+  /** The web-size copy's bytes, or null while the server has not made one (or never will). */
+  readonly webSizeBytes?: number | null;
+  /** The thumbnail's bytes, or null while there is none. */
+  readonly thumbnailSizeBytes?: number | null;
   /** The creator's own file name, for display only. Never what a download is named. */
   readonly originalFileName: string | null;
   readonly source: DamAssetVersionSource;
@@ -397,7 +402,19 @@ export function decodeDamAssetVersion(value: unknown): DamAssetVersion | null {
     return null;
   }
 
-  return { versionNumber, mediaType, width, height, sizeBytes, originalFileName, source, createdAt };
+  return {
+    versionNumber,
+    mediaType,
+    width,
+    height,
+    sizeBytes,
+    // Optional on the wire and optional here: an older server says nothing, which reads as "no smaller copy".
+    webSizeBytes: decodeRenditionSize(value['webSizeBytes']),
+    thumbnailSizeBytes: decodeRenditionSize(value['thumbnailSizeBytes']),
+    originalFileName,
+    source,
+    createdAt,
+  };
 }
 
 function decodeTag(value: unknown): DamAssetTag | null {

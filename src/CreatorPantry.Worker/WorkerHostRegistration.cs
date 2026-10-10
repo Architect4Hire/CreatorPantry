@@ -137,6 +137,7 @@ public static class WorkerHostRegistration
         builder.Services.AddHostedService<GeneratedImageWorkerHostedService>();
         builder.Services.AddHostedService<GeneratedImageMaintenanceHostedService>();
         builder.Services.AddHostedService<StagedImageRetentionHostedService>();
+        builder.Services.AddHostedService<MediaRenditionBackfillHostedService>();
 
         return builder;
     }

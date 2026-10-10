@@ -115,7 +115,9 @@ export class ContentPipelineImageGridComponent {
         statusLabel: STAGED_IMAGE_STATUS_LABELS[image.status],
         statusTone: STAGED_IMAGE_STATUS_TONES[image.status],
         facts: `${imageFormatText(image.mediaType)} · ${image.width} × ${image.height} · ${fileSizeText(image.sizeBytes)}`,
-        downloadUrl: this.service.downloadUrl(slug, image.id),
+        // The original, by name. A tile has room for one link, and what a creator means by downloading a
+        // picture they generated is the picture; the lightbox offers the web-size copy beside it.
+        downloadUrl: this.service.downloadUrl(slug, image.id, 'original'),
         save,
         assetLink: save?.assetId ? ['/', slug, 'dam', save.assetId] : null,
       };

@@ -40,11 +40,19 @@ public static class MediaAssetDownloadFileName
     /// <param name="title">The asset's title; any text at all, including null.</param>
     /// <param name="versionNumber">The version being downloaded, appended as <c>-v{n}</c>.</param>
     /// <param name="mediaType">The version's stored media type, established from its bytes.</param>
-    public static string For(string? title, int versionNumber, string? mediaType)
+    public static string For(
+        string? title, int versionNumber, string? mediaType, MediaRenditionPurpose? rendition = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(versionNumber, 1);
 
         var name = $"{FileNameSlug.From(title, Fallback)}-v{versionNumber.ToString(CultureInfo.InvariantCulture)}";
+
+        // A rendition says which it is, so the web-size copy of a version and the version itself can sit in
+        // one folder without the second becoming "… (1)" — the reason the name carries a version at all.
+        if (rendition is not null)
+        {
+            name += "-" + MediaRenditionSelector.NameOf(rendition);
+        }
 
         return GeneratedImageInspector.CanonicalExtension(mediaType) is { } extension
             ? $"{name}.{extension}"

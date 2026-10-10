@@ -1,5 +1,6 @@
 using System.Globalization;
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
@@ -160,7 +161,7 @@ public interface IMediaAssetDataLayer
     /// than in the controller so one piece of code owns the name.
     /// </param>
     Task<MediaAssetOpen> OpenCurrentVersionAsync(
-        Guid mediaAssetId, bool naming, CancellationToken cancellationToken);
+        Guid mediaAssetId, bool naming, MediaRenditionPurpose? rendition, CancellationToken cancellationToken);
 
     /// <summary>
     /// Opens one named version of a live asset for download (DAM-008).
@@ -171,7 +172,11 @@ public interface IMediaAssetDataLayer
     /// version they are asked for.
     /// </remarks>
     Task<MediaAssetOpen> OpenVersionAsync(
-        Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken);
+        Guid mediaAssetId,
+        int versionNumber,
+        bool naming,
+        MediaRenditionPurpose? rendition,
+        CancellationToken cancellationToken);
 
 
     /// <summary>
@@ -345,6 +350,9 @@ internal sealed class MediaAssetDataLayer(
     IMediaAssetDetailRepository detail,
     IMediaAssetObjectGateway objects,
     IGeneratedImageRepository generatedImages,
+    IMediaRenditionRepository renditions,
+    IMediaRenditionObjectGateway renditionObjects,
+    IOutboxWriter outbox,
     IWorkspaceContext workspace,
     IAuditWriter auditWriter,
     IClock clock,
@@ -376,7 +384,9 @@ internal sealed class MediaAssetDataLayer(
     public async Task<MediaPictureOpen> OpenPictureAsync(
         Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken)
     {
-        var opened = await OpenVersionAsync(mediaAssetId, versionNumber, naming: false, cancellationToken);
+        // The stored bytes, never a rendition: what a model is shown has to be the picture, not a copy of it.
+        var opened = await OpenVersionAsync(
+            mediaAssetId, versionNumber, naming: false, rendition: null, cancellationToken);
 
         return opened.Outcome switch
         {
@@ -477,19 +487,25 @@ internal sealed class MediaAssetDataLayer(
 
 
     public async Task<MediaAssetOpen> OpenCurrentVersionAsync(
-        Guid mediaAssetId, bool naming, CancellationToken cancellationToken) =>
+        Guid mediaAssetId, bool naming, MediaRenditionPurpose? rendition, CancellationToken cancellationToken) =>
         await OpenAsync(
             mediaAssetId,
             await assets.FindCurrentVersionObjectAsync(mediaAssetId, cancellationToken),
             naming,
+            rendition,
             cancellationToken);
 
     public async Task<MediaAssetOpen> OpenVersionAsync(
-        Guid mediaAssetId, int versionNumber, bool naming, CancellationToken cancellationToken) =>
+        Guid mediaAssetId,
+        int versionNumber,
+        bool naming,
+        MediaRenditionPurpose? rendition,
+        CancellationToken cancellationToken) =>
         await OpenAsync(
             mediaAssetId,
             await assets.FindVersionObjectAsync(mediaAssetId, versionNumber, cancellationToken),
             naming,
+            rendition,
             cancellationToken);
 
     /// <summary>
@@ -503,12 +519,36 @@ internal sealed class MediaAssetDataLayer(
         Guid mediaAssetId,
         MediaAssetVersionObjectRecord? version,
         bool naming,
+        MediaRenditionPurpose? rendition,
         CancellationToken cancellationToken)
     {
 
         if (version is null)
         {
             return new MediaAssetOpen(MediaAssetOpenOutcome.NotFound);
+        }
+
+        // Only now, with the version found the way it always is — this workspace's, live, and present: the
+        // smaller encoding of it, when it was asked for and there is one (AF.5.6). A rendition is never a
+        // softer way in than its original, because the same lookup above decides both.
+        if (rendition is { } purpose
+            && await MediaRenditionOpener.TryOpenAsync(
+                renditions,
+                renditionObjects,
+                MediaRenditionSource.ForAssetVersion(mediaAssetId, version.VersionNumber),
+                purpose,
+                cancellationToken) is { } smaller)
+        {
+            return new MediaAssetOpen(
+                MediaAssetOpenOutcome.Opened,
+                new MediaAssetRender(
+                    smaller,
+                    version.VersionNumber,
+                    purpose,
+                    naming
+                        ? MediaAssetDownloadFileName.For(
+                            version.Title, version.VersionNumber, smaller.Object.MediaType, purpose)
+                        : null));
         }
 
         MediaAssetObjectContent? content;
@@ -658,6 +698,7 @@ internal sealed class MediaAssetDataLayer(
             }
 
             assets.Add(version);
+            RequestRenditions(version);
 
             // The new version becomes current, which is what makes /content and /download serve it. Audit fields move
             // with it: adding a version is the last thing that happened to this asset.
@@ -887,7 +928,12 @@ internal sealed class MediaAssetDataLayer(
         version.ObjectKey = stored.ObjectKey;
         version.ContentChecksum = stored.ContentChecksum;
 
-        return await CommitAsync(creation, asset, version, now, savePrompt, cancellationToken);
+        // A kept image brings the renditions it already has, so they are not made a second time.
+        var carried = creation.SourceGeneratedImageId is { } sourceImageId
+            ? await CarryRenditionsAsync(sourceImageId, version, now, cancellationToken)
+            : [];
+
+        return await CommitAsync(creation, asset, version, carried, now, savePrompt, cancellationToken);
     }
 
     /// <summary>
@@ -897,6 +943,7 @@ internal sealed class MediaAssetDataLayer(
         MediaAssetCreation creation,
         MediaAsset asset,
         MediaAssetVersion version,
+        IReadOnlyList<MediaRendition> carried,
         DateTimeOffset now,
         Func<Guid, CancellationToken, Task<OperationResult<SavedPromptRecordServiceModel>>>? savePrompt,
         CancellationToken cancellationToken)
@@ -910,6 +957,15 @@ internal sealed class MediaAssetDataLayer(
         {
             assets.Add(asset);
             assets.Add(version);
+
+            foreach (var rendition in carried)
+            {
+                renditions.Add(rendition);
+            }
+
+            // With the version, so it never exists without a request for its renditions behind it. For a
+            // kept image the job finds the carried rows and makes only what was not carried.
+            RequestRenditions(version);
 
             foreach (var tagId in creation.TagIds)
             {
@@ -945,7 +1001,7 @@ internal sealed class MediaAssetDataLayer(
 
                 if (image is null || image.Status is not GeneratedImageStatus.Staged)
                 {
-                    await RollBackAsync(transaction, version.ObjectKey);
+                    await RollBackAsync(transaction, version.ObjectKey, carried);
 
                     return new MediaAssetCreateResult(MediaAssetCreateOutcome.NotCommitted);
                 }
@@ -964,7 +1020,7 @@ internal sealed class MediaAssetDataLayer(
 
                 if (!saved.Succeeded)
                 {
-                    await RollBackAsync(transaction, version.ObjectKey);
+                    await RollBackAsync(transaction, version.ObjectKey, carried);
 
                     return new MediaAssetCreateResult(
                         MediaAssetCreateOutcome.PromptRefused, PromptError: saved.Error);
@@ -986,7 +1042,7 @@ internal sealed class MediaAssetDataLayer(
                 "DAM creation could not commit ({ExceptionType}); removing the object written for it.",
                 exception.GetType().Name);
 
-            await RollBackAsync(transaction, version.ObjectKey);
+            await RollBackAsync(transaction, version.ObjectKey, carried);
 
             return new MediaAssetCreateResult(MediaAssetCreateOutcome.NotCommitted);
         }
@@ -1000,8 +1056,25 @@ internal sealed class MediaAssetDataLayer(
     /// may fail. If the delete then fails, the object is unreferenced and the reconciliation that 12.8
     /// built for staged images is the shape the DAM will need too — recorded here rather than discovered.
     /// </remarks>
+    /// <summary>
+    /// Stages the request for a version's renditions in the outbox, to commit with the version (AF.5.5).
+    /// </summary>
+    /// <remarks>
+    /// Staged, not saved: a version that does not commit asks for nothing. An upload never waits on a
+    /// rendition, and never succeeds without one having been asked for.
+    /// </remarks>
+    private void RequestRenditions(MediaAssetVersion version) =>
+        outbox.Enqueue(
+            MediaRenditionRequestedEvent.MessageType,
+            MediaRenditionRequestedEvent.For(
+                workspace.WorkspaceId,
+                MediaRenditionSource.ForAssetVersion(version.MediaAssetId, version.VersionNumber)).Serialize(),
+            version.MediaAssetId);
+
     private async Task RollBackAsync(
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction, string objectKey)
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction,
+        string objectKey,
+        IReadOnlyList<MediaRendition>? carried = null)
     {
         if (transaction is not null)
         {
@@ -1011,6 +1084,151 @@ internal sealed class MediaAssetDataLayer(
         }
 
         await CompensateAsync(objectKey);
+
+        // The renditions copied for a version that will not exist are as unowned as its own object.
+        await DiscardAsync(carried ?? []);
+    }
+
+    /// <summary>
+    /// Copies a staged image's renditions to the version being made from it, as rows not yet saved.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Carried, not recomputed.</strong> The version's bytes are a verified copy of the staged
+    /// image's, so a rendition of one is a rendition of the other: the object is copied beside the new
+    /// version and described by a new row, and a "not compressed" outcome is carried as the row it is.
+    /// The staged rows and objects are left for the retention sweep, exactly as the staged original is.
+    /// </para>
+    /// <para>
+    /// <strong>Best effort, and never a reason a keep fails.</strong> Renditions are derivatives; the
+    /// creator asked to keep a picture. Anything that goes wrong here — storage unreachable, a copy that
+    /// does not match, renditions that do not exist yet — means the version starts with fewer of them, and
+    /// making the missing ones is the rendition job's work, not this request's.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<MediaRendition>> CarryRenditionsAsync(
+        Guid generatedImageId, MediaAssetVersion version, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var carried = new List<MediaRendition>();
+
+        try
+        {
+            foreach (var staged in await renditions.FindForGeneratedImageAsync(generatedImageId, cancellationToken))
+            {
+                // A rendition of some other bytes is not a rendition of this version.
+                if (!string.Equals(staged.SourceContentChecksum, version.ContentChecksum, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var copy = new MediaRendition
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = workspace.WorkspaceId,
+                    MediaAssetId = version.MediaAssetId,
+                    MediaAssetVersionNumber = version.VersionNumber,
+                    Purpose = staged.Purpose,
+                    Status = staged.Status,
+                    NotCompressedReason = staged.NotCompressedReason,
+                    SourceContentChecksum = staged.SourceContentChecksum,
+                    CreatedAt = now,
+                };
+
+                if (staged.Status is MediaRenditionStatus.Ready)
+                {
+                    if (await CopyRenditionAsync(staged, version.ObjectKey, cancellationToken) is not { } stored)
+                    {
+                        continue;
+                    }
+
+                    copy.ObjectKey = stored.ObjectKey;
+                    copy.MediaType = stored.MediaType;
+                    copy.SizeBytes = stored.SizeBytes;
+                    copy.ContentChecksum = stored.ContentChecksum;
+                    copy.Width = staged.Width;
+                    copy.Height = staged.Height;
+                }
+
+                carried.Add(copy);
+            }
+
+            return carried;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                "Renditions could not be carried to a kept image's version ({ExceptionType}); it is kept without them.",
+                exception.GetType().Name);
+
+            await DiscardAsync(carried);
+
+            return [];
+        }
+    }
+
+    /// <summary>One rendition's bytes, copied beside the new version and checked against what was read.</summary>
+    private async Task<MediaRenditionObject?> CopyRenditionAsync(
+        MediaRendition staged, string versionObjectKey, CancellationToken cancellationToken)
+    {
+        await using var content = await renditionObjects.OpenReadAsync(staged.ObjectKey!, cancellationToken);
+
+        if (content is null)
+        {
+            return null;
+        }
+
+        var write = await renditionObjects.PutAsync(
+            versionObjectKey,
+            staged.Purpose,
+            content.Content,
+            staged.MediaType!,
+            staged.SizeBytes!.Value,
+            cancellationToken);
+
+        if (write.Outcome is not MediaRenditionObjectWriteOutcome.Stored)
+        {
+            return null;
+        }
+
+        // The copy has to be the bytes the staged row describes, or the new row would describe others.
+        if (write.Object!.SizeBytes != staged.SizeBytes
+            || !string.Equals(write.Object.ContentChecksum, staged.ContentChecksum, StringComparison.Ordinal))
+        {
+            await DiscardAsync(write.Object.ObjectKey);
+
+            return null;
+        }
+
+        return write.Object;
+    }
+
+    private async Task DiscardAsync(IReadOnlyList<MediaRendition> carried)
+    {
+        foreach (var rendition in carried)
+        {
+            if (rendition.ObjectKey is { } objectKey)
+            {
+                await DiscardAsync(objectKey);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes a rendition object no row will own. Not cancellable and never throws, for the reasons
+    /// <see cref="CompensateAsync"/> gives.
+    /// </summary>
+    private async Task DiscardAsync(string renditionObjectKey)
+    {
+        try
+        {
+            await renditionObjects.DeleteAsync(renditionObjectKey, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                "A rendition object could not be removed after a failed carry ({ExceptionType}); it is unreferenced.",
+                exception.GetType().Name);
+        }
     }
 
     /// <summary>Removes an object whose owning rows did not commit.</summary>

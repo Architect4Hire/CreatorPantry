@@ -81,7 +81,18 @@ internal sealed class GeneratedImageOperationDetailRepository(CreatorPantryDbCon
                 row.Height,
                 row.SizeBytes,
                 row.RetentionExpiresAt,
-                row.CreatedAt))
+                row.CreatedAt,
+
+                // The stored size of each rendition, or null while there is none. Sizes only: a rendition's
+                // key and checksum stay where they are.
+                context.MediaRenditions
+                    .Where(rendition => rendition.GeneratedImageId == row.Id && rendition.Purpose == MediaRenditionPurpose.Web)
+                    .Select(rendition => rendition.SizeBytes)
+                    .FirstOrDefault(),
+                context.MediaRenditions
+                    .Where(rendition => rendition.GeneratedImageId == row.Id && rendition.Purpose == MediaRenditionPurpose.Thumbnail)
+                    .Select(rendition => rendition.SizeBytes)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
         return new GeneratedImageOperationDetailServiceModel(

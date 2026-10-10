@@ -5,11 +5,13 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 import { ApiBaseService } from '../core/api-base.service';
 import {
   CookingTechnique,
+  IdeaFacetEntry,
   Ingredient,
   MeasurementUnit,
   ReferenceEntry,
   decodeCookingTechnique,
   decodeCursorPage,
+  decodeIdeaFacetEntries,
   decodeIngredient,
   decodeMeasurementUnit,
   decodeReferenceEntry,
@@ -22,6 +24,11 @@ export type ListUnitsOutcome =
 /** One plain controlled vocabulary, whole. */
 export type ListReferenceEntriesOutcome =
   | { readonly status: 'found'; readonly entries: readonly ReferenceEntry[] }
+  | { readonly status: 'unavailable' };
+
+/** One of the two idea catalogues that are not vocabulary tables: photography styles, or occasions. */
+export type ListIdeaFacetEntriesOutcome =
+  | { readonly status: 'found'; readonly entries: readonly IdeaFacetEntry[] }
   | { readonly status: 'unavailable' };
 
 export type ListTechniquesOutcome =
@@ -165,6 +172,31 @@ export class ReferenceService {
     });
 
     return this.techniquesInFlight;
+  }
+
+  /** Every photography style an idea can be pinned to, retired ones included and marked. */
+  listPhotographyStyles(): Promise<ListIdeaFacetEntriesOutcome> {
+    return this.readIdeaFacetEntries('/api/v1/reference/photography-styles');
+  }
+
+  /** Every occasion an idea can be pinned to, retired ones included and marked. */
+  listOccasions(): Promise<ListIdeaFacetEntriesOutcome> {
+    return this.readIdeaFacetEntries('/api/v1/reference/occasions');
+  }
+
+  /** Not paged and not held: both lists are small, fixed, and read once by the step that offers them. */
+  private async readIdeaFacetEntries(path: string): Promise<ListIdeaFacetEntriesOutcome> {
+    const url = this.apiBase.url(path);
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const raw = await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true }));
+      const entries = decodeIdeaFacetEntries(raw);
+
+      return entries ? { status: 'found', entries } : { status: 'unavailable' };
+    } catch {
+      return { status: 'unavailable' };
+    }
   }
 
   private async readEntries(path: string): Promise<ListReferenceEntriesOutcome> {

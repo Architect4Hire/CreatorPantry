@@ -68,14 +68,25 @@
         />
       }
 
+      @if (webDownloadUrl(); as href) {
+        <a
+          cpButton
+          variant="secondary"
+          [href]="href"
+          [attr.aria-label]="'Download picture ' + position() + ' of ' + total() + ' at web size, ' + webSizeLabel()"
+        >
+          Download web size ({{ webSizeLabel() }})
+        </a>
+      }
+
       @if (downloadUrl(); as href) {
         <a
           cpButton
           variant="secondary"
           [href]="href"
-          [attr.aria-label]="'Download picture ' + position() + ' of ' + total()"
+          [attr.aria-label]="'Download the original of picture ' + position() + ' of ' + total() + ', ' + originalSizeLabel()"
         >
-          Download
+          Download original ({{ originalSizeLabel() }})
         </a>
       }
 

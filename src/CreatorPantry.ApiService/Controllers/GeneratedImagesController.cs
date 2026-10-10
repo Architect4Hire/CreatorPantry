@@ -164,54 +164,87 @@ public sealed class GeneratedImagesController(
     /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
     /// </param>
     /// <param name="generatedImageId">The image to render. Constrained to a Guid.</param>
+    /// <param name="rendition">
+    /// Which encoding to send: `web` (the default), `thumbnail` or `original`. Anything else answers
+    /// `400 media.staged_image.invalid_request`.
+    /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <remarks>
     /// Any member may read. Identical to the download below but for the disposition: this is `inline`, so a
-    /// browser shows it where a page asked for it, and that is the only difference. `Content-Type` is the
-    /// media type **established from the returned bytes at staging**, never one a provider declared.
+    /// browser shows it where a page asked for it, and that is the only difference.
+    ///
+    /// **The smaller picture is the default.** With no `rendition` this sends the image's web rendition — a
+    /// JPEG fitted inside 1600 pixels — when it has one, and the image as it was staged when it does not:
+    /// not made yet, or a picture that could not be made smaller. `rendition=thumbnail` asks for the 480
+    /// pixel one and `rendition=original` always sends the staged bytes. **`X-Rendition` states which was
+    /// sent** — `web`, `thumbnail` or `original` — so a caller that asked for one and got another can tell.
+    /// A rendition that does not exist is never a 404: the original is sent instead.
+    ///
+    /// `Content-Type`, `Content-Length` and the `ETag` describe the bytes actually sent. For the original,
+    /// `Content-Type` is the media type **established from the returned bytes at staging**, never one a
+    /// provider declared; for a rendition it is `image/jpeg`.
     /// `X-Content-Type-Options: nosniff` and `Cache-Control: no-store` are set, and the response carries a
-    /// strong `ETag` — the stored content checksum — so `If-None-Match` answers 304. Staged bytes are
-    /// immutable, so that tag identifies this representation for as long as it exists.
+    /// strong `ETag` — the checksum of the bytes sent — so `If-None-Match` answers 304. Staged bytes and
+    /// their renditions are immutable, so that tag identifies this representation for as long as it exists;
+    /// the same address answers with a different tag once a rendition has been made.
     /// Metadata that exists whose bytes cannot be read answers `503 media.staged_image.unavailable`
     /// rather than 404: the image is there, and retrying is the remedy. No range requests.
     ///
     /// **A declined image, and one that expired unchosen, is not served** — it answers the same 404 an
-    /// unknown image does, from the moment it is declined rather than from whenever its bytes are collected.
-    /// A kept image is still served. The download route below follows the same rule.
+    /// unknown image does, from the moment it is declined rather than from whenever its bytes are collected,
+    /// and whatever `rendition` asks for. A kept image is still served. The download route below follows the
+    /// same rule.
     /// </remarks>
     [HttpGet("{generatedImageId:guid}/preview")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public Task<IActionResult> Preview(
-        string workspaceSlug, Guid generatedImageId, CancellationToken cancellationToken) =>
-        SendAsync(generatedImageId, inline: true, cancellationToken);
+        string workspaceSlug,
+        Guid generatedImageId,
+        [FromQuery(Name = MediaRenditionSelector.QueryName)] string? rendition,
+        CancellationToken cancellationToken) =>
+        SendAsync(generatedImageId, inline: true, rendition, cancellationToken);
 
-    /// <summary>Downloads one staged image, byte for byte as the provider returned it.</summary>
+    /// <summary>Downloads one staged image: its web rendition by default, or the bytes the provider returned.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
     /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
     /// </param>
     /// <param name="generatedImageId">The image to download. Constrained to a Guid.</param>
+    /// <param name="rendition">
+    /// Which encoding to send: `web` (the default), `thumbnail` or `original`. Anything else answers
+    /// `400 media.staged_image.invalid_request`.
+    /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <remarks>
-    /// Any member may read. `Content-Disposition: attachment` names it `generated-{n}.{ext}`, where `n` is
-    /// the variant counted from one and the extension comes from the media type established from the bytes
-    /// — so the name describes what is actually there. The name is ASCII `a-z0-9`, one hyphen and one dot
-    /// by construction and carries no id, workspace, prompt or storage location. Everything else matches
-    /// the preview above, including the entity tag and the 503 for unreadable bytes.
+    /// Any member may read. **`rendition=original` is the image byte for byte as the provider returned it.**
+    /// With no `rendition` the download is the web rendition when there is one, exactly as the preview above
+    /// chooses, and `X-Rendition` states which was sent.
+    ///
+    /// `Content-Disposition: attachment` names it `generated-{n}.{ext}`, where `n` is the variant counted
+    /// from one and the extension comes from the media type of the bytes sent — `jpg` for a rendition, and
+    /// for the original whatever was established from the bytes at staging — so the name describes what is
+    /// actually there. The name is ASCII `a-z0-9`, one hyphen and one dot by construction and carries no id,
+    /// workspace, prompt or storage location. Everything else matches the preview above, including the
+    /// entity tag and the 503 for unreadable bytes.
     /// </remarks>
     [HttpGet("{generatedImageId:guid}/content")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public Task<IActionResult> Download(
-        string workspaceSlug, Guid generatedImageId, CancellationToken cancellationToken) =>
-        SendAsync(generatedImageId, inline: false, cancellationToken);
+        string workspaceSlug,
+        Guid generatedImageId,
+        [FromQuery(Name = MediaRenditionSelector.QueryName)] string? rendition,
+        CancellationToken cancellationToken) =>
+        SendAsync(generatedImageId, inline: false, rendition, cancellationToken);
 
     /// <summary>Declines one staged image, so retention may remove it.</summary>
     /// <param name="workspaceSlug">
@@ -253,9 +286,22 @@ public sealed class GeneratedImagesController(
     /// would be a hole in the other.
     /// </remarks>
     private async Task<IActionResult> SendAsync(
-        Guid generatedImageId, bool inline, CancellationToken cancellationToken)
+        Guid generatedImageId, bool inline, string? rendition, CancellationToken cancellationToken)
     {
-        var result = await images.OpenAsync(generatedImageId, cancellationToken);
+        // Both staged routes default to the web rendition. Decided before anything is opened, so a value
+        // that is not one of the three reads nothing.
+        if (!MediaRenditionSelector.TryParse(rendition, MediaRenditionPurpose.Web, out var wanted))
+        {
+            return this.ProblemFor(new OperationError(
+                MediaErrorCodes.StagedImageInvalidRequest,
+                "The rendition must be web, thumbnail or original.",
+                new Dictionary<string, string[]>
+                {
+                    [MediaRenditionSelector.QueryName] = ["Use web, thumbnail or original."],
+                }));
+        }
+
+        var result = await images.OpenAsync(generatedImageId, wanted, cancellationToken);
 
         if (!result.Succeeded)
         {
@@ -271,11 +317,16 @@ public sealed class GeneratedImagesController(
         Response.RegisterForDisposeAsync(download);
 
         // Strong, and legitimately so: staged bytes are never rewritten — the store is create-only and a
-        // variant has one row — so the checksum identifies this representation for as long as it exists.
+        // variant has one row — and neither is a rendition, so the checksum of whichever is being sent
+        // identifies this representation for as long as it exists.
         var entityTag = new EntityTagHeaderValue($"\"{download.ContentChecksum}\"");
 
         Response.Headers.CacheControl = "no-store";
         Response.Headers.ETag = entityTag.ToString();
+
+        // What was sent, which is not always what was asked for: a rendition that does not exist is
+        // answered with the original. On the 304 as well, since it describes the same representation.
+        Response.Headers[MediaRenditionSelector.HeaderName] = MediaRenditionSelector.NameOf(download.Rendition);
 
         if (Request.GetTypedHeaders().IfNoneMatch is { Count: > 0 } candidates
             && candidates.Any(candidate => candidate.Compare(entityTag, useStrongComparison: true)))

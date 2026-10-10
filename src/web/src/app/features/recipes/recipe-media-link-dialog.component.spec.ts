@@ -51,8 +51,8 @@ describe('RecipeMediaLinkDialogComponent', () => {
   let host: HostComponent;
   let searchSpy: jasmine.Spy<(slug: string, query: DamAssetSearchQuery) => Observable<DamAssetSearchOutcome>>;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
   let linkSpy: jasmine.Spy<
     (slug: string, recipeId: string, request: LinkRecipeAssetRequest, key: string) => Promise<LinkRecipeAssetOutcome>
   >;
@@ -348,7 +348,7 @@ describe('RecipeMediaLinkDialogComponent', () => {
       await settle();
 
       // The preview is of the version being kept, read by its own number.
-      expect(versionContentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 1);
+      expect(versionContentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 1, 'thumbnail');
 
       await submit();
       expect(linkSpy.calls.mostRecent().args[2].versionNumber).toBe(1);

@@ -9,7 +9,7 @@ namespace CreatorPantry.Domain.Modules.Media.Managers;
 
 /// <summary>What one retention sweep did, across every workspace it reached.</summary>
 public sealed record StagedImageRetentionPassSummary(
-    int Workspaces, int Expired, int Purged, int Orphans, int Skipped);
+    int Workspaces, int Expired, int Purged, int Orphans, int Skipped, int Renditions = 0);
 
 /// <summary>
 /// Expires staged images nobody chose, removes the bytes of images nobody will read again, and reconciles
@@ -50,6 +50,7 @@ internal sealed class StagedImageRetentionWorker(
         var purged = 0;
         var orphans = 0;
         var skipped = 0;
+        var renditions = 0;
         var reached = 0;
 
         foreach (var workspaceId in workspaces)
@@ -79,6 +80,7 @@ internal sealed class StagedImageRetentionWorker(
                 expired += summary.Expired;
                 purged += summary.Purged;
                 orphans += summary.Orphans;
+                renditions += summary.Renditions;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -98,7 +100,7 @@ internal sealed class StagedImageRetentionWorker(
             }
         }
 
-        return new StagedImageRetentionPassSummary(reached, expired, purged, orphans, skipped);
+        return new StagedImageRetentionPassSummary(reached, expired, purged, orphans, skipped, renditions);
     }
 
     /// <summary>

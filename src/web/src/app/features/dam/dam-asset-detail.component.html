@@ -106,12 +106,33 @@
           <h2 id="dam-picture-heading">The picture</h2>
 
           @if (picture(); as current) {
-            <cp-dam-asset-thumbnail class="preview" [workspaceSlug]="workspaceSlug()" [asset]="current" />
+            <cp-dam-asset-thumbnail class="preview" [workspaceSlug]="workspaceSlug()" [asset]="current" rendition="web" />
+          }
+
+          @if (shown.currentVersion; as current) {
+            <p class="cp-muted">{{ pictureSize(current) }}</p>
           }
 
           @if (downloadUrl(); as href) {
             <div class="cp-actions">
-              <a cpButton variant="secondary" [href]="href" [attr.aria-label]="'Download ' + shown.title">Download</a>
+              @if (webDownloadUrl(); as webHref) {
+                <a
+                  cpButton
+                  variant="secondary"
+                  [href]="webHref"
+                  [attr.aria-label]="'Download ' + shown.title + ' at web size, ' + webSizeLabel()"
+                >
+                  Download web size ({{ webSizeLabel() }})
+                </a>
+              }
+              <a
+                cpButton
+                variant="secondary"
+                [href]="href"
+                [attr.aria-label]="'Download the original of ' + shown.title + ', ' + originalSizeLabel()"
+              >
+                Download original ({{ originalSizeLabel() }})
+              </a>
             </div>
           } @else if (shown.currentVersion === null) {
             <cp-notice tone="warning" role="status">This picture's current version can't be read, so there is nothing to download.</cp-notice>

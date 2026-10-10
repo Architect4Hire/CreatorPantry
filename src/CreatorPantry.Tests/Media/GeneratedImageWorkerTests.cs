@@ -46,7 +46,7 @@ namespace CreatorPantry.Tests.Media;
 /// lease assertions are made against the application's own token check.
 /// </para>
 /// </remarks>
-public sealed class GeneratedImageWorkerTests : IDisposable
+public sealed partial class GeneratedImageWorkerTests : IDisposable
 {
     private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 

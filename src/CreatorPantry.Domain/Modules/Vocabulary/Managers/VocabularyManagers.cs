@@ -105,3 +105,9 @@ public sealed record DescribedReferenceEntryServiceModel(
 /// <param name="DisplayName">What a creator sees.</param>
 /// <param name="IsActive">False for a retired channel: show it where already chosen, never offer it as new.</param>
 public sealed record ContentChannelServiceModel(string Key, string DisplayName, bool IsActive);
+
+/// <summary>A photography style or an occasion as the reference API publishes it.</summary>
+/// <param name="Key">Stable key an idea is pinned by.</param>
+/// <param name="DisplayName">What a creator sees.</param>
+/// <param name="IsActive">False for a retired entry: show it where already chosen, never offer it as new.</param>
+public sealed record IdeaFacetEntryServiceModel(string Key, string DisplayName, bool IsActive);

@@ -25,8 +25,11 @@ import { ConfirmService } from '../../core/confirm.service';
 import {
   ContentPipelineConfig,
   ContentPipelineDocumentRef,
+  ContentPipelineDraft,
   ContentPipelineImagesState,
   ContentPipelinePromptState,
+  FIRST_CONTENT_PIPELINE_STEP,
+  contentPipelineBriefAfter,
   contentPipelineConfigWith,
 } from '../../models/content-pipeline.models';
 import { CreativeContextFields, EMPTY_CREATIVE_CONTEXT_FIELDS } from '../../models/creative-context-fields.models';
@@ -42,6 +45,7 @@ import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.
 import { CONTEXT_ROUTE_PARAM, HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { ContentPipelineConceptPanelComponent } from '../content-pipeline/content-pipeline-concept-panel.component';
 import { ContentPipelineDocumentPickerComponent } from '../content-pipeline/content-pipeline-document-picker.component';
+import { ContentPipelineIdeaStepComponent } from '../content-pipeline/content-pipeline-idea-step.component';
 import { ContentPipelinePromptPanelComponent } from '../content-pipeline/content-pipeline-prompt-panel.component';
 import { ContentPipelineReferencePanelComponent } from '../content-pipeline/content-pipeline-reference-panel.component';
 import { ContentPipelineSetupStepComponent } from '../content-pipeline/content-pipeline-setup-step.component';
@@ -72,6 +76,7 @@ type Phase =
 /** The parts of the page a creator can jump between, in the order the work usually happens. */
 const SECTIONS: readonly CpAnchorNavItem[] = [
   { targetId: 'cp-studio-brief', label: 'The brief' },
+  { targetId: 'cp-studio-idea', label: 'An idea' },
   { targetId: 'cp-studio-look', label: 'The look' },
   { targetId: 'cp-studio-extras', label: 'Extras' },
   { targetId: 'cp-studio-prompt', label: 'The prompt' },
@@ -98,8 +103,14 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
  * **One page, not a journey.** It is the client for the same four contracts as the Content Pipeline's prompt
  * and images steps — looks planned for a shot (IMG-001), a prompt composed and then the creator's (IMG-002), a
  * reference photograph read (IMG-004), and a run of pictures asked for, looked at and declined
- * (IMG-003, IMG-005/006) — without an idea step before them or a posts step after. Every section is on screen
- * at once, because a creator who already knows the prompt they want has no use for being walked to it.
+ * (IMG-003, IMG-005/006) — without a posts step after. Every section is on screen at once, because a creator
+ * who already knows the prompt they want has no use for being walked to it.
+ *
+ * **An idea is offered, and never required.** The pipeline's idea step sits between the brief and the look:
+ * the typed name is read into a cuisine, a dish type and a method the creator can change, an idea can be
+ * suggested around them, and each part of it changed on its own. Picking one offers the same choice the
+ * pipeline does — plan from the description, the idea, or both — and the looks are planned from the answer.
+ * The day and its theme are not shown as parts: the studio plans no week.
  *
  * **Which is the one behaviour that differs from the pipeline: the prompt box is always here.** A prompt the
  * creator types themselves is as finished as one written for them, and needs no look picked first. Having one
@@ -147,6 +158,7 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
     RecipePickerComponent,
     ContentPipelineConceptPanelComponent,
     ContentPipelineDocumentPickerComponent,
+    ContentPipelineIdeaStepComponent,
     ContentPipelinePromptPanelComponent,
     ContentPipelineReferencePanelComponent,
     ContentPipelineSetupStepComponent,
@@ -299,6 +311,19 @@ export class ImageStudioComponent {
   protected readonly prompt = computed(() => this.draft().prompt);
   protected readonly config = computed(() => this.draft().config);
 
+  /** The work in the shape the pipeline's idea step reads. The same answers; nothing is copied anywhere. */
+  protected readonly ideaDraft = computed(() => ImageStudioComponent.asPipeline(this.draft()));
+
+  /**
+   * What the looks are planned from: the brief the creator chose once they have picked an idea, and their
+   * description as written until then.
+   */
+  protected readonly lookBrief = computed(() => {
+    const { briefSource, brief, concept } = this.config();
+
+    return briefSource !== null && brief.trim() !== '' ? brief : concept;
+  });
+
   /**
    * What the run will tell the provider to avoid, or null.
    *
@@ -383,7 +408,9 @@ export class ImageStudioComponent {
         if (
           fields.workingTitle !== draft.config.subject ||
           fields.channelKey !== draft.config.channelKey ||
-          fields.pictureBrief !== draft.config.concept
+          fields.pictureBrief !== draft.config.concept ||
+          fields.briefSource !== draft.config.briefSource ||
+          fields.workingBrief !== draft.config.brief
         ) {
           this.draft.set({ ...draft, config: this.configWith(draft.config, fields) });
         }
@@ -401,6 +428,10 @@ export class ImageStudioComponent {
       this.session.unsent();
       untracked(() => this.persist());
     });
+  }
+
+  private static asPipeline(draft: ImageStudioDraft): ContentPipelineDraft {
+    return { ...draft, furthestStep: FIRST_CONTENT_PIPELINE_STEP };
   }
 
   /** The config with the context's name, channel and picture. The day is not asked here, so none is shown. */
@@ -489,6 +520,8 @@ export class ImageStudioComponent {
         ...EMPTY_CREATIVE_CONTEXT_FIELDS,
         channelKey: unfiled.config.channelKey,
         pictureBrief: unfiled.config.concept,
+        briefSource: unfiled.config.briefSource,
+        workingBrief: unfiled.config.brief,
       });
 
       const context = await this.session.file();
@@ -525,6 +558,8 @@ export class ImageStudioComponent {
       workingTitle: draft.config.subject,
       channelKey: draft.config.channelKey,
       pictureBrief: draft.config.concept,
+      briefSource: draft.config.briefSource,
+      workingBrief: draft.config.brief,
     };
   }
 
@@ -577,7 +612,17 @@ export class ImageStudioComponent {
     const owner = this.loadedOwner;
     if (owner === null || !this.loaded()) return;
 
-    const stamped: ImageStudioDraft = { ...next, savedAt: new Date().toISOString() };
+    // A brief chosen from the description or the idea follows what it was chosen from, as it does in the
+    // pipeline: correcting the description corrects it, and un-picking the idea lets go of it.
+    const followed = contentPipelineBriefAfter(
+      ImageStudioComponent.asPipeline(this.draft()),
+      ImageStudioComponent.asPipeline(next),
+    );
+    const stamped: ImageStudioDraft = {
+      ...next,
+      config: { ...next.config, ...followed },
+      savedAt: new Date().toISOString(),
+    };
     this.draft.set(stamped);
     this.session.set(this.fieldsFor(stamped));
 
@@ -609,6 +654,11 @@ export class ImageStudioComponent {
   protected onConfig(config: ContentPipelineConfig): void {
     // The day is not asked here, so whatever a shared panel hands back, none is kept.
     this.keep({ ...this.draft(), config: { ...config, day: null } });
+  }
+
+  /** The idea step hands back the whole work; what it may have changed is the idea and the answers beside it. */
+  protected onIdea(next: ContentPipelineDraft): void {
+    this.keep({ ...this.draft(), config: { ...next.config, day: null }, seed: next.seed });
   }
 
   protected onPrompt(prompt: ContentPipelinePromptState): void {

@@ -7,22 +7,61 @@ using Microsoft.Extensions.Logging;
 namespace CreatorPantry.Domain.Modules.Media.Data;
 
 /// <summary>One staged image opened for reading, with the facts a response needs beside the bytes.</summary>
-public sealed class StagedImageDownload(
-    GeneratedImageObjectContent content, int variantIndex, string fileName) : IAsyncDisposable
+public sealed class StagedImageDownload : IAsyncDisposable
 {
-    public Stream Content { get; } = content.Content;
+    private readonly IAsyncDisposable lease;
 
-    public string MediaType { get; } = content.Object.MediaType;
+    public StagedImageDownload(GeneratedImageObjectContent content, int variantIndex, string fileName)
+    {
+        ArgumentNullException.ThrowIfNull(content);
 
-    public long SizeBytes { get; } = content.Object.SizeBytes;
+        lease = content;
+        Content = content.Content;
+        MediaType = content.Object.MediaType;
+        SizeBytes = content.Object.SizeBytes;
+        ContentChecksum = content.Object.ContentChecksum;
+        VariantIndex = variantIndex;
+        FileName = fileName;
+    }
 
-    public string ContentChecksum { get; } = content.Object.ContentChecksum;
+    /// <summary>A rendition of the image rather than the image as it was staged (AF.5.6).</summary>
+    public StagedImageDownload(
+        StoredObjectContent content, int variantIndex, string fileName, MediaRenditionPurpose rendition)
+    {
+        ArgumentNullException.ThrowIfNull(content);
 
-    public int VariantIndex { get; } = variantIndex;
+        lease = content;
+        Content = content.Content;
+        MediaType = content.Object.MediaType;
+        SizeBytes = content.Object.SizeBytes;
+        ContentChecksum = content.Object.ContentChecksum;
+        VariantIndex = variantIndex;
+        FileName = fileName;
+        Rendition = rendition;
+    }
 
-    public string FileName { get; } = fileName;
+    public Stream Content { get; }
 
-    public ValueTask DisposeAsync() => content.DisposeAsync();
+    public string MediaType { get; }
+
+    public long SizeBytes { get; }
+
+    public string ContentChecksum { get; }
+
+    public int VariantIndex { get; }
+
+    public string FileName { get; }
+
+    /// <summary>
+    /// Which rendition these bytes are, or null when they are the image as it was staged.
+    /// </summary>
+    /// <remarks>
+    /// What was served, not what was asked for: a caller that asked for a rendition the image does not
+    /// have gets the original, and this is null.
+    /// </remarks>
+    public MediaRenditionPurpose? Rendition { get; }
+
+    public ValueTask DisposeAsync() => lease.DisposeAsync();
 }
 
 /// <summary>Why a staged image could not be opened.</summary>
@@ -81,7 +120,8 @@ public sealed record StagedImageForKeep(
     StagedImageOpenOutcome Outcome, StagedImageDownload? Download = null, int Width = 0, int Height = 0);
 
 /// <summary>What one retention pass did for one workspace.</summary>
-public sealed record StagedImageRetentionSummary(int Expired, int Purged, int Orphans);
+/// <param name="Renditions">Rendition rows removed with their bytes, staged or library (AF.5.4).</param>
+public sealed record StagedImageRetentionSummary(int Expired, int Purged, int Orphans, int Renditions = 0);
 
 /// <summary>Composes the staged-image library's persistence operations (IMG-005, IMG-006).</summary>
 public interface IGeneratedImageDataLayer
@@ -94,6 +134,17 @@ public interface IGeneratedImageDataLayer
 
     /// <summary>Opens one staged image of the resolved workspace for reading.</summary>
     Task<StagedImageOpen> OpenAsync(Guid generatedImageId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Opens a staged image as <see cref="OpenAsync(Guid, CancellationToken)"/> does, serving the named
+    /// rendition in place of the original when the image has one.
+    /// </summary>
+    /// <remarks>
+    /// The same eligibility, decided first and by the same code. A rendition that does not exist is not an
+    /// error: the original is served and the result says so.
+    /// </remarks>
+    Task<StagedImageOpen> OpenAsync(
+        Guid generatedImageId, MediaRenditionPurpose? rendition, CancellationToken cancellationToken);
 
     /// <summary>
     /// What one available generated image holds, without touching storage: its type, size and checksum
@@ -158,6 +209,8 @@ public interface IGeneratedImageDataLayer
 internal sealed class GeneratedImageDataLayer(
     IGeneratedImageRepository images,
     IGeneratedImageObjectGateway objects,
+    IMediaRenditionRepository renditions,
+    IMediaRenditionObjectGateway renditionObjects,
     IClock clock,
     ILogger<GeneratedImageDataLayer> logger) : IGeneratedImageDataLayer
 {
@@ -167,7 +220,11 @@ internal sealed class GeneratedImageDataLayer(
     public Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
         images.IsAvailableAsync(generatedImageId, cancellationToken);
 
-    public async Task<StagedImageOpen> OpenAsync(Guid generatedImageId, CancellationToken cancellationToken)
+    public Task<StagedImageOpen> OpenAsync(Guid generatedImageId, CancellationToken cancellationToken) =>
+        OpenAsync(generatedImageId, rendition: null, cancellationToken);
+
+    public async Task<StagedImageOpen> OpenAsync(
+        Guid generatedImageId, MediaRenditionPurpose? rendition, CancellationToken cancellationToken)
     {
         var image = await images.FindAsync(generatedImageId, cancellationToken);
 
@@ -184,6 +241,23 @@ internal sealed class GeneratedImageDataLayer(
             || image.Status is GeneratedImageStatus.Rejected or GeneratedImageStatus.Expired)
         {
             return new StagedImageOpen(StagedImageOpenOutcome.NotFound);
+        }
+
+        // Only now, with the picture itself established as one this caller may be shown: the smaller
+        // encoding of it, when it was asked for and there is one (AF.5.6). Everything above decides who
+        // sees the picture; this only decides how many bytes it takes.
+        if (rendition is { } purpose
+            && await MediaRenditionOpener.TryOpenAsync(
+                renditions, renditionObjects, MediaRenditionSource.ForGeneratedImage(image.Id), purpose, cancellationToken)
+                is { } smaller)
+        {
+            return new StagedImageOpen(
+                StagedImageOpenOutcome.Opened,
+                new StagedImageDownload(
+                    smaller,
+                    image.VariantIndex,
+                    GeneratedImageDownloadFileName.For(image.VariantIndex, smaller.Object.MediaType),
+                    purpose));
         }
 
         GeneratedImageObjectContent? content;

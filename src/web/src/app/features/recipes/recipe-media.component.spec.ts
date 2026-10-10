@@ -52,8 +52,8 @@ describe('RecipeMediaComponent', () => {
   let fixture: ComponentFixture<HostComponent>;
   let host: HostComponent;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
   let unlinkSpy: jasmine.Spy<
     (slug: string, recipeId: string, linkId: string, token: string, key: string) => Promise<UnlinkRecipeAssetOutcome>
   >;
@@ -189,8 +189,8 @@ describe('RecipeMediaComponent', () => {
       expect(row('follows').textContent).toContain('Follows the current version (version 3)');
       expect(row('kept').textContent).toContain('Kept at version 1 · version 3 is newer');
 
-      expect(contentSpy).toHaveBeenCalledWith('cozy-fall', 'a1');
-      expect(versionContentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 1);
+      expect(contentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 'thumbnail');
+      expect(versionContentSpy).toHaveBeenCalledWith('cozy-fall', 'a1', 1, 'thumbnail');
     });
 
     it('keeps the row of a picture no longer in the library, says so, and still lets it be unlinked', async () => {

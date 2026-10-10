@@ -4115,6 +4115,94 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaRendition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentChecksum")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("GeneratedImageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Height")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("MediaAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("MediaAssetVersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MediaType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("NotCompressedReason")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ObjectKey")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SourceContentChecksum")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Width")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObjectKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MediaRenditions_ObjectKey")
+                        .HasFilter("ObjectKey IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "GeneratedImageId", "Purpose")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MediaRenditions_Workspace_GeneratedImage_Purpose")
+                        .HasFilter("GeneratedImageId IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber", "Purpose")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MediaRenditions_Workspace_Asset_Version_Purpose")
+                        .HasFilter("MediaAssetId IS NOT NULL");
+
+                    b.ToTable("MediaRenditions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaRenditions_Bytes_Positive", "SizeBytes IS NULL OR (SizeBytes > 0 AND Width > 0 AND Height > 0)");
+
+                            t.HasCheckConstraint("CK_MediaRenditions_OneSource", "(GeneratedImageId IS NOT NULL AND MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL) OR (GeneratedImageId IS NULL AND MediaAssetId IS NOT NULL AND MediaAssetVersionNumber IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_MediaRenditions_Purpose_Declared", "Purpose IN (1, 2)");
+
+                            t.HasCheckConstraint("CK_MediaRenditions_Reason_Declared", "NotCompressedReason IS NULL OR NotCompressedReason BETWEEN 1 AND 7");
+
+                            t.HasCheckConstraint("CK_MediaRenditions_Status_Agrees", "(Status = 1 AND NotCompressedReason IS NULL AND ObjectKey IS NOT NULL AND MediaType IS NOT NULL AND SizeBytes IS NOT NULL AND Width IS NOT NULL AND Height IS NOT NULL AND ContentChecksum IS NOT NULL) OR (Status = 2 AND NotCompressedReason IS NOT NULL AND ObjectKey IS NULL AND MediaType IS NULL AND SizeBytes IS NULL AND Width IS NULL AND Height IS NULL AND ContentChecksum IS NULL)");
+
+                            t.HasCheckConstraint("CK_MediaRenditions_Text_NotBlank", "trim(SourceContentChecksum) <> '' AND (ObjectKey IS NULL OR (trim(ObjectKey) <> '' AND trim(MediaType) <> '' AND trim(ContentChecksum) <> ''))");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6523,6 +6611,27 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "MediaAssetId")
                         .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaRendition", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.GeneratedImage", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "GeneratedImageId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber")
+                        .HasPrincipalKey("WorkspaceId", "MediaAssetId", "VersionNumber")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

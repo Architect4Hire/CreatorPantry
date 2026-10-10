@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpCheckboxComponent, CpDialogComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { StagedImage, isStagedImageActionable } from '../../models/generated-image.models';
+import { byteSizeText, pictureSizeText } from '../../models/picture-rendition.models';
 import { GeneratedImageService } from '../../services/generated-image.service';
 import {
   STAGED_IMAGE_STATUS_LABELS,
@@ -158,7 +159,7 @@ export class ContentPipelineImageLightboxComponent {
   protected readonly sizeText = computed(() => {
     const current = this.current();
 
-    return current === null ? '' : fileSizeText(current.sizeBytes);
+    return current === null ? '' : pictureSizeText(current.sizeBytes, current.webSizeBytes);
   });
 
   /** Where focus was when this opened, so closing puts it back rather than at the top of the page. */
@@ -246,7 +247,31 @@ export class ContentPipelineImageLightboxComponent {
   protected readonly downloadUrl = computed(() => {
     const current = this.current();
 
-    return current === null ? null : this.service.downloadUrl(this.workspaceSlug(), current.id);
+    return current === null ? null : this.service.downloadUrl(this.workspaceSlug(), current.id, 'original');
+  });
+
+  /**
+   * The link for the web-size copy, or null when this picture has none — not made yet, or one the server
+   * could not make smaller. Offered only when it exists, so the link never downloads something else.
+   */
+  protected readonly webDownloadUrl = computed(() => {
+    const current = this.current();
+
+    return current === null || !current.webSizeBytes
+      ? null
+      : this.service.downloadUrl(this.workspaceSlug(), current.id, 'web');
+  });
+
+  protected readonly webSizeLabel = computed(() => {
+    const size = this.current()?.webSizeBytes;
+
+    return size ? byteSizeText(size) : '';
+  });
+
+  protected readonly originalSizeLabel = computed(() => {
+    const current = this.current();
+
+    return current === null ? '' : byteSizeText(current.sizeBytes);
   });
 
   /**

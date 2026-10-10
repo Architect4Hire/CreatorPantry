@@ -108,7 +108,9 @@ export type AiTaskType =
   /** 11A.24's read-only style test drive. Reads a guide version; writes nothing anywhere. */
   | 'BrandStyleTestDrive'
   /** IMG-004's reading of a reference image the creator uploaded. Describes a photograph; changes nothing. */
-  | 'ReferenceImageAnalysis';
+  | 'ReferenceImageAnalysis'
+  /** A dish name read into a cuisine, a dish type and a method. Names no recipe; changes nothing. */
+  | 'DishFacetSuggestion';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -128,6 +130,7 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'ImagePrompt',
   'BrandStyleTestDrive',
   'ReferenceImageAnalysis',
+  'DishFacetSuggestion',
 ]);
 
 /**
@@ -186,6 +189,8 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // for a second reason too: asking again means naming that version, and a generic ask-again would quietly
   // test whichever guide is active instead.
   BrandStyleTestDrive: null,
+  // And dish-name readings through dish-facet-requests, which names no recipe at all.
+  DishFacetSuggestion: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -299,7 +304,9 @@ export type AiChangeTargetKind =
   /** IMG-002's composed image prompts. The creator edits one and saves it; nothing applies it to anything. */
   | 'ImagePrompt'
   /** IMG-004's reference readings. Observations of a photograph; nothing applies one to anything. */
-  | 'ReferenceImageAnalysis';
+  | 'ReferenceImageAnalysis'
+  /** A dish name's reading. Catalogue codes a creator's own controls are filled from; never an edit. */
+  | 'DishFacetSuggestion';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -322,6 +329,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'PhotographyConcept',
   'ImagePrompt',
   'ReferenceImageAnalysis',
+  'DishFacetSuggestion',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

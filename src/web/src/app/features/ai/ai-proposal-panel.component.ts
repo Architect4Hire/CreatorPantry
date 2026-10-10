@@ -205,6 +205,7 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   ImagePrompt: 'Image prompt',
   // Likewise again. IMG-004 reads a photograph the creator uploaded; nothing applies a reading to a recipe.
   ReferenceImageAnalysis: 'Reference image reading',
+  DishFacetSuggestion: 'Dish name reading',
 };
 
 /**

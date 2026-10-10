@@ -4,9 +4,11 @@ using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Media.Gateways;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Managers.MalwareScanning;
+using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Storage;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CreatorPantry.Domain.Modules.Media;
 
@@ -56,6 +58,21 @@ public static class MediaServiceCollectionExtensions
         services.AddScoped<IStagedImageFacade, StagedImageFacade>();
 
         services.AddScoped<IMediaAssetObjectGateway, MediaAssetObjectGateway>();
+        services.AddScoped<IMediaRenditionObjectGateway, MediaRenditionObjectGateway>();
+        services.AddScoped<IMediaRenditionRepository, MediaRenditionRepository>();
+        services.AddScoped<IMediaRenditionDataLayer, MediaRenditionDataLayer>();
+        services.AddScoped<IMediaRenditionBusiness, MediaRenditionBusiness>();
+        services.AddScoped<IMediaRenditionFacade, MediaRenditionFacade>();
+
+        // Storing a picture writes a rendition request to the outbox (AF.5.5), so the module cannot be
+        // composed without the writer. TryAdd, so a host that calls AddOutbox keeps its own registration
+        // and one that only wants this module's reads does not have to know the outbox exists.
+        services.TryAddScoped<IOutboxWriter, OutboxWriter>();
+
+        // Keyed by message type, which is how the outbox dispatcher finds it. Registered with the module
+        // rather than the worker because it is inert without a dispatcher, and only the Worker hosts one.
+        services.AddKeyedScoped<IOutboxMessageHandler, MediaRenditionRequestedOutboxHandler>(
+            MediaRenditionRequestedEvent.MessageType);
         services.AddScoped<IMediaAssetRepository, MediaAssetRepository>();
         services.AddScoped<IMediaAssetSearchRepository, MediaAssetSearchRepository>();
         services.AddScoped<IMediaAssetDetailRepository, MediaAssetDetailRepository>();
@@ -91,6 +108,8 @@ public static class MediaServiceCollectionExtensions
         services.AddScoped<GeneratedImageClaimRepository>();
         services.AddScoped<IGeneratedImageWorker, GeneratedImageWorker>();
         services.AddScoped<IStagedImageRetentionWorker, StagedImageRetentionWorker>();
+        services.AddScoped<MediaRenditionClaimRepository>();
+        services.AddScoped<IMediaRenditionBackfillWorker, MediaRenditionBackfillWorker>();
 
         return services;
     }

@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.MalwareScanning;
+using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Gateways;
@@ -155,6 +156,7 @@ internal sealed class GeneratedImageGenerationDataLayer(
     IGeneratedImageProviderGateway provider,
     IGeneratedImageObjectGateway objects,
     IMalwareScanGateway scanner,
+    IOutboxWriter outbox,
     IClock clock,
     ILogger<GeneratedImageGenerationDataLayer> logger) : IGeneratedImageGenerationDataLayer
 {
@@ -283,6 +285,17 @@ internal sealed class GeneratedImageGenerationDataLayer(
         };
 
         operations.Add(image);
+
+        // Staged with the row, so the image and the request for its renditions commit together or not at
+        // all (B-28, AF.5.5). Generation does not wait on them: this is a row in the outbox, and the
+        // renditions are made by whoever delivers it. If the save below is refused, the request can still
+        // go out with this scope's next save; it then names an image another attempt staged, or none, and
+        // the job does nothing for a picture that already has its rows or does not exist.
+        outbox.Enqueue(
+            MediaRenditionRequestedEvent.MessageType,
+            MediaRenditionRequestedEvent.For(
+                operation.WorkspaceId, MediaRenditionSource.ForGeneratedImage(image.Id)).Serialize(),
+            image.Id);
 
         try
         {

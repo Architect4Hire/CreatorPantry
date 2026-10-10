@@ -12,6 +12,7 @@ import { Subscription } from 'rxjs';
 import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { StagedImage } from '../../models/generated-image.models';
+import { PictureRendition } from '../../models/picture-rendition.models';
 import { GeneratedImageService } from '../../services/generated-image.service';
 
 /** `loading` and `ready` are the two ordinary states; `gone` and `unavailable` are the two ways to miss. */
@@ -99,6 +100,14 @@ export class ContentPipelineStagedImageComponent {
   readonly position = input.required<number>();
   readonly total = input.required<number>();
 
+  /**
+   * Which copy to show. The web-size one unless told otherwise; a grid of several asks for `thumbnail`.
+   *
+   * Nothing here asks for the original: that is for downloading, and showing a picture should not cost a
+   * creator its full size.
+   */
+  readonly rendition = input<PictureRendition>('web');
+
   protected readonly state = signal<PictureState>('loading');
   protected readonly objectUrl = signal<string | null>(null);
 
@@ -132,7 +141,7 @@ export class ContentPipelineStagedImageComponent {
     // and decoding produces a fresh object each time, so an effect that merely watched `image()` would fetch
     // the same bytes again every two seconds.
     effect(() => {
-      const key = `${this.workspaceSlug()}|${this.image().id}`;
+      const key = `${this.workspaceSlug()}|${this.image().id}|${this.rendition()}`;
       if (key === this.loadedKey) return;
 
       this.loadedKey = key;
@@ -153,7 +162,7 @@ export class ContentPipelineStagedImageComponent {
     const slug = this.workspaceSlug();
     const id = this.image().id;
 
-    this.subscription = this.images.preview(slug, id).subscribe((outcome) => {
+    this.subscription = this.images.preview(slug, id, this.rendition()).subscribe((outcome) => {
       if (outcome.status === 'found') {
         this.held = URL.createObjectURL(outcome.bytes);
         this.objectUrl.set(this.held);

@@ -255,7 +255,11 @@ public static class GeneratedImageInspector
             return Corrupt();
         }
 
-        if ((long)width * height > MediaPolicy.ImageMaxPixels)
+        // Each side on its own first: two sides near the top of 32 bits multiply past what a long holds,
+        // and the product would come back small or negative and pass.
+        if (width > MediaPolicy.ImageMaxPixels
+            || height > MediaPolicy.ImageMaxPixels
+            || (long)width * height > MediaPolicy.ImageMaxPixels)
         {
             return new GeneratedImageInspection(GeneratedImageInspectionOutcome.TooLarge);
         }

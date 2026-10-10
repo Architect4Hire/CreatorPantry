@@ -90,4 +90,6 @@ public sealed record StagedImageServiceModel(
     int Height,
     long SizeBytes,
     DateTimeOffset RetentionExpiresAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    long? WebSizeBytes = null,
+    long? ThumbnailSizeBytes = null);

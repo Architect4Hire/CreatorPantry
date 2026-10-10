@@ -7171,7 +7171,7 @@
           "DamAssets"
         ],
         "summary": "Renders the asset\u0027s current version inline.",
-        "description": "Any member may render: an asset a creator can see in the library is one they can look at. Suitable as an\n\u0060\u003Cimg src\u003E\u0060 \u2014 the bytes come back \u0060inline\u0060 with the media type recorded when they were stored, never\none a client declared.\n\n**The bytes are proxied, never redirected.** There is no signed URL, no storage path and no object key in\nthe response or its headers, so nothing here can be shared, bookmarked past a session, or replayed against\nstorage directly (media.md).\n\n**Caching:** \u0060private, no-cache\u0060 with a strong \u0060ETag\u0060 built from the version\u0027s content checksum. A version\u0027s\nbytes are write-once so the tag identifies them exactly, and \u0060If-None-Match\u0060 answers \u0060304\u0060 with no body \u2014\ncheap for a grid that renders the same asset repeatedly. It revalidates every time rather than carrying a\n\u0060max-age\u0060 because **this route serves whichever version is current**: a stale window would mean a creator who\njust added a version still seeing the old image with no way to tell why. \u0060private\u0060 keeps it out of any shared\nproxy (gateway.md).\n\n**No ranges.** \u0060Accept-Ranges: none\u0060, and a \u0060Range\u0060 header is ignored rather than honoured: these are whole\nimages a browser renders in one pass, and offering ranges would be a contract to keep for no benefit.\n\nAn unknown asset, another workspace\u0027s, a soft-deleted one, and one whose current version row is missing all\nanswer \u0060404 media.asset.not_found\u0060 \u2014 a caller cannot tell which, so none of them discloses that an asset\nexists elsewhere. A version whose bytes cannot be reached answers \u0060503 media.asset.unavailable\u0060 instead,\nbecause the asset is there and retrying is the remedy rather than going back to a list.",
+        "description": "Any member may render: an asset a creator can see in the library is one they can look at. Suitable as an\n\u0060\u003Cimg src\u003E\u0060 \u2014 the bytes come back \u0060inline\u0060 with the media type of what is sent, never one a client\ndeclared.\n\n**The smaller picture is the default.** With no \u0060rendition\u0060 this sends the current version\u0027s web rendition \u2014\na JPEG fitted inside 1600 pixels \u2014 when it has one, and the version as it was stored when it does not: not\nmade yet, or a picture that could not be made smaller, which includes every JPEG, WebP and GIF upload.\n\u0060rendition=thumbnail\u0060 asks for the 480 pixel one, which is what a grid or a picker should use, and\n\u0060rendition=original\u0060 always sends the stored bytes. **\u0060X-Rendition\u0060 states which was sent** \u2014 \u0060web\u0060,\n\u0060thumbnail\u0060 or \u0060original\u0060. A rendition that does not exist is never a 404: the original is sent instead.\n\n**The bytes are proxied, never redirected.** There is no signed URL, no storage path and no object key in\nthe response or its headers, so nothing here can be shared, bookmarked past a session, or replayed against\nstorage directly (media.md).\n\n**Caching:** \u0060private, no-cache\u0060 with a strong \u0060ETag\u0060 built from the checksum of the bytes sent. A version\u0027s\nbytes and its renditions are write-once so the tag identifies them exactly, and \u0060If-None-Match\u0060 answers \u0060304\u0060 with no body \u2014\ncheap for a grid that renders the same asset repeatedly. It revalidates every time rather than carrying a\n\u0060max-age\u0060 because **this route serves whichever version is current**: a stale window would mean a creator who\njust added a version still seeing the old image with no way to tell why. \u0060private\u0060 keeps it out of any shared\nproxy (gateway.md).\n\n**No ranges.** \u0060Accept-Ranges: none\u0060, and a \u0060Range\u0060 header is ignored rather than honoured: these are whole\nimages a browser renders in one pass, and offering ranges would be a contract to keep for no benefit.\n\nAn unknown asset, another workspace\u0027s, a soft-deleted one, and one whose current version row is missing all\nanswer \u0060404 media.asset.not_found\u0060 \u2014 a caller cannot tell which, so none of them discloses that an asset\nexists elsewhere. A version whose bytes cannot be reached answers \u0060503 media.asset.unavailable\u0060 instead,\nbecause the asset is there and retrying is the remedy rather than going back to a list.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -7191,6 +7191,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "rendition",
+            "in": "query",
+            "description": "Which encoding to send: \u0060web\u0060, \u0060thumbnail\u0060 or \u0060original\u0060. Absent, \u0060web\u0060. Anything else answers\n\u0060400 media.asset.invalid_request\u0060.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7199,6 +7207,16 @@
           },
           "304": {
             "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -7244,7 +7262,7 @@
           "DamAssets"
         ],
         "summary": "Downloads the asset\u0027s current version as a named file.",
-        "description": "The same bytes \u0060/content\u0060 renders, with two headers different: \u0060attachment\u0060 rather than \u0060inline\u0060, and a\nfilename. Any member may download \u2014 being able to look at an image and being able to save it are not\nmeaningfully different privileges, and every brand source download takes the same view.\n\n**The filename is \u0060{title-slug}-v{n}.{ext}\u0060**, so \u0022Soda bread hero\u0022 at version 2 stored as JPEG downloads as\n\u0060soda-bread-hero-v2.jpg\u0060. Deterministic: the same asset, version and media type always give the same name.\nSafe by construction: the title is reduced to lower-case ASCII letters, digits and single hyphens, so there is\nnothing a title could carry that becomes a path, a traversal or a second header. A title that folds away\nentirely falls back to \u0060image\u0060.\n\n**The extension comes from the stored media type, never from the uploaded filename** \u2014 that name is the\ncreator\u0027s own text, is optional, and may claim \u0060.jpg\u0060 over bytes that are a PNG. A media type with no known\nextension yields a name with none rather than a guessed one, because a missing extension is recoverable where\na wrong one misleads whatever opens the file. **The \u0060-v{n}\u0060 is what stops two downloads colliding:** saving\nversion 1 and version 2 without it gives two identical names and the second silently becomes \u0022\u2026 (1)\u0022.\n\n**Only the current version.** Choosing a historical one is 12.9h; this route serves what the asset points at.\nCaching, conditional requests, ranges and the failure shapes are all exactly as \u0060/content\u0060 describes them \u2014\nthe two actions share one sender, so none of that can change for one and not the other. No storage path,\nsigned URL or object key appears anywhere in the response.",
+        "description": "The stored bytes, as a file: \u0060attachment\u0060 rather than \u0060inline\u0060, and a filename. Any member may download \u2014\nbeing able to look at an image and being able to save it are not meaningfully different privileges, and\nevery brand source download takes the same view.\n\n**A download is the original unless it asks otherwise.** With no \u0060rendition\u0060 this sends the version exactly\nas it was stored, which is what it has always sent. \u0060rendition=web\u0060 sends the web-size JPEG when the version\nhas one, named \u0060{title-slug}-v{n}-web.jpg\u0060 so it cannot be mistaken for the original beside it, and\n\u0060X-Rendition\u0060 states which was sent. A rendition that does not exist is answered with the original.\n\n**The filename is \u0060{title-slug}-v{n}.{ext}\u0060**, so \u0022Soda bread hero\u0022 at version 2 stored as JPEG downloads as\n\u0060soda-bread-hero-v2.jpg\u0060. Deterministic: the same asset, version and media type always give the same name.\nSafe by construction: the title is reduced to lower-case ASCII letters, digits and single hyphens, so there is\nnothing a title could carry that becomes a path, a traversal or a second header. A title that folds away\nentirely falls back to \u0060image\u0060.\n\n**The extension comes from the stored media type, never from the uploaded filename** \u2014 that name is the\ncreator\u0027s own text, is optional, and may claim \u0060.jpg\u0060 over bytes that are a PNG. A media type with no known\nextension yields a name with none rather than a guessed one, because a missing extension is recoverable where\na wrong one misleads whatever opens the file. **The \u0060-v{n}\u0060 is what stops two downloads colliding:** saving\nversion 1 and version 2 without it gives two identical names and the second silently becomes \u0022\u2026 (1)\u0022.\n\n**Only the current version.** Choosing a historical one is 12.9h; this route serves what the asset points at.\nCaching, conditional requests, ranges and the failure shapes are all exactly as \u0060/content\u0060 describes them \u2014\nthe two actions share one sender, so none of that can change for one and not the other. No storage path,\nsigned URL or object key appears anywhere in the response.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -7264,6 +7282,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "rendition",
+            "in": "query",
+            "description": "Which encoding to send: \u0060web\u0060, \u0060thumbnail\u0060 or \u0060original\u0060. Absent, \u0060original\u0060. Anything else answers\n\u0060400 media.asset.invalid_request\u0060.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7272,6 +7298,16 @@
           },
           "304": {
             "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -7348,6 +7384,14 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "rendition",
+            "in": "query",
+            "description": "Which encoding to send: \u0060web\u0060, \u0060thumbnail\u0060 or \u0060original\u0060. Absent, \u0060original\u0060. Anything else answers\n\u0060400 media.asset.invalid_request\u0060.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7356,6 +7400,16 @@
           },
           "304": {
             "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -8345,7 +8399,7 @@
           "GeneratedImages"
         ],
         "summary": "Renders one staged image for viewing in the browser.",
-        "description": "Any member may read. Identical to the download below but for the disposition: this is \u0060inline\u0060, so a\nbrowser shows it where a page asked for it, and that is the only difference. \u0060Content-Type\u0060 is the\nmedia type **established from the returned bytes at staging**, never one a provider declared.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set, and the response carries a\nstrong \u0060ETag\u0060 \u2014 the stored content checksum \u2014 so \u0060If-None-Match\u0060 answers 304. Staged bytes are\nimmutable, so that tag identifies this representation for as long as it exists.\nMetadata that exists whose bytes cannot be read answers \u0060503 media.staged_image.unavailable\u0060\nrather than 404: the image is there, and retrying is the remedy. No range requests.\n\n**A declined image, and one that expired unchosen, is not served** \u2014 it answers the same 404 an\nunknown image does, from the moment it is declined rather than from whenever its bytes are collected.\nA kept image is still served. The download route below follows the same rule.",
+        "description": "Any member may read. Identical to the download below but for the disposition: this is \u0060inline\u0060, so a\nbrowser shows it where a page asked for it, and that is the only difference.\n\n**The smaller picture is the default.** With no \u0060rendition\u0060 this sends the image\u0027s web rendition \u2014 a\nJPEG fitted inside 1600 pixels \u2014 when it has one, and the image as it was staged when it does not:\nnot made yet, or a picture that could not be made smaller. \u0060rendition=thumbnail\u0060 asks for the 480\npixel one and \u0060rendition=original\u0060 always sends the staged bytes. **\u0060X-Rendition\u0060 states which was\nsent** \u2014 \u0060web\u0060, \u0060thumbnail\u0060 or \u0060original\u0060 \u2014 so a caller that asked for one and got another can tell.\nA rendition that does not exist is never a 404: the original is sent instead.\n\n\u0060Content-Type\u0060, \u0060Content-Length\u0060 and the \u0060ETag\u0060 describe the bytes actually sent. For the original,\n\u0060Content-Type\u0060 is the media type **established from the returned bytes at staging**, never one a\nprovider declared; for a rendition it is \u0060image/jpeg\u0060.\n\u0060X-Content-Type-Options: nosniff\u0060 and \u0060Cache-Control: no-store\u0060 are set, and the response carries a\nstrong \u0060ETag\u0060 \u2014 the checksum of the bytes sent \u2014 so \u0060If-None-Match\u0060 answers 304. Staged bytes and\ntheir renditions are immutable, so that tag identifies this representation for as long as it exists;\nthe same address answers with a different tag once a rendition has been made.\nMetadata that exists whose bytes cannot be read answers \u0060503 media.staged_image.unavailable\u0060\nrather than 404: the image is there, and retrying is the remedy. No range requests.\n\n**A declined image, and one that expired unchosen, is not served** \u2014 it answers the same 404 an\nunknown image does, from the moment it is declined rather than from whenever its bytes are collected,\nand whatever \u0060rendition\u0060 asks for. A kept image is still served. The download route below follows the\nsame rule.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -8365,6 +8419,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "rendition",
+            "in": "query",
+            "description": "Which encoding to send: \u0060web\u0060 (the default), \u0060thumbnail\u0060 or \u0060original\u0060. Anything else answers\n\u0060400 media.staged_image.invalid_request\u0060.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8373,6 +8435,16 @@
           },
           "304": {
             "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -8417,8 +8489,8 @@
         "tags": [
           "GeneratedImages"
         ],
-        "summary": "Downloads one staged image, byte for byte as the provider returned it.",
-        "description": "Any member may read. \u0060Content-Disposition: attachment\u0060 names it \u0060generated-{n}.{ext}\u0060, where \u0060n\u0060 is\nthe variant counted from one and the extension comes from the media type established from the bytes\n\u2014 so the name describes what is actually there. The name is ASCII \u0060a-z0-9\u0060, one hyphen and one dot\nby construction and carries no id, workspace, prompt or storage location. Everything else matches\nthe preview above, including the entity tag and the 503 for unreadable bytes.",
+        "summary": "Downloads one staged image: its web rendition by default, or the bytes the provider returned.",
+        "description": "Any member may read. **\u0060rendition=original\u0060 is the image byte for byte as the provider returned it.**\nWith no \u0060rendition\u0060 the download is the web rendition when there is one, exactly as the preview above\nchooses, and \u0060X-Rendition\u0060 states which was sent.\n\n\u0060Content-Disposition: attachment\u0060 names it \u0060generated-{n}.{ext}\u0060, where \u0060n\u0060 is the variant counted\nfrom one and the extension comes from the media type of the bytes sent \u2014 \u0060jpg\u0060 for a rendition, and\nfor the original whatever was established from the bytes at staging \u2014 so the name describes what is\nactually there. The name is ASCII \u0060a-z0-9\u0060, one hyphen and one dot by construction and carries no id,\nworkspace, prompt or storage location. Everything else matches the preview above, including the\nentity tag and the 503 for unreadable bytes.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -8438,6 +8510,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "rendition",
+            "in": "query",
+            "description": "Which encoding to send: \u0060web\u0060 (the default), \u0060thumbnail\u0060 or \u0060original\u0060. Anything else answers\n\u0060400 media.staged_image.invalid_request\u0060.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8446,6 +8526,16 @@
           },
           "304": {
             "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
@@ -15439,6 +15529,114 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ContentChannel"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/photography-styles": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "The photography styles an idea can be pinned to, in display order. Retired styles are included with\n\u0060isActive: false\u0060; offer only active ones as new choices. Not paged: the list is small and fixed.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdeaFacetEntry"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdeaFacetEntry"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdeaFacetEntry"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reference/occasions": {
+      "get": {
+        "tags": [
+          "Reference"
+        ],
+        "summary": "The occasions an idea can be pinned to, in display order. Retired occasions are included with\n\u0060isActive: false\u0060; offer only active ones as new choices. Not paged: the list is small and fixed.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdeaFacetEntry"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdeaFacetEntry"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdeaFacetEntry"
                   }
                 }
               }
@@ -22567,6 +22765,25 @@
         ],
         "type": "string"
       },
+      "IdeaFacetEntry": {
+        "required": [
+          "key",
+          "displayName",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
       "IFormFile": {
         "type": "string",
         "format": "binary"
@@ -24012,6 +24229,24 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "webSizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "thumbnailSizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -28204,6 +28439,24 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "webSizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "thumbnailSizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },

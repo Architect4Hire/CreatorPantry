@@ -292,18 +292,29 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     /// Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).
     /// </param>
     /// <param name="assetId">The asset to render. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="rendition">
+    /// Which encoding to send: `web`, `thumbnail` or `original`. Absent, `web`. Anything else answers
+    /// `400 media.asset.invalid_request`.
+    /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <remarks>
     /// Any member may render: an asset a creator can see in the library is one they can look at. Suitable as an
-    /// `&lt;img src&gt;` — the bytes come back `inline` with the media type recorded when they were stored, never
-    /// one a client declared.
+    /// `&lt;img src&gt;` — the bytes come back `inline` with the media type of what is sent, never one a client
+    /// declared.
+    ///
+    /// **The smaller picture is the default.** With no `rendition` this sends the current version's web rendition —
+    /// a JPEG fitted inside 1600 pixels — when it has one, and the version as it was stored when it does not: not
+    /// made yet, or a picture that could not be made smaller, which includes every JPEG, WebP and GIF upload.
+    /// `rendition=thumbnail` asks for the 480 pixel one, which is what a grid or a picker should use, and
+    /// `rendition=original` always sends the stored bytes. **`X-Rendition` states which was sent** — `web`,
+    /// `thumbnail` or `original`. A rendition that does not exist is never a 404: the original is sent instead.
     ///
     /// **The bytes are proxied, never redirected.** There is no signed URL, no storage path and no object key in
     /// the response or its headers, so nothing here can be shared, bookmarked past a session, or replayed against
     /// storage directly (media.md).
     ///
-    /// **Caching:** `private, no-cache` with a strong `ETag` built from the version's content checksum. A version's
-    /// bytes are write-once so the tag identifies them exactly, and `If-None-Match` answers `304` with no body —
+    /// **Caching:** `private, no-cache` with a strong `ETag` built from the checksum of the bytes sent. A version's
+    /// bytes and its renditions are write-once so the tag identifies them exactly, and `If-None-Match` answers `304` with no body —
     /// cheap for a grid that renders the same asset repeatedly. It revalidates every time rather than carrying a
     /// `max-age` because **this route serves whichever version is current**: a stale window would mean a creator who
     /// just added a version still seeing the old image with no way to tell why. `private` keeps it out of any shared
@@ -321,22 +332,39 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public async Task<IActionResult> Content(
-        string workspaceSlug, Guid assetId, CancellationToken cancellationToken) =>
-        Send(await assets.OpenCurrentVersionAsync(assetId, naming: false, cancellationToken));
+        string workspaceSlug,
+        Guid assetId,
+        [FromQuery(Name = MediaRenditionSelector.QueryName)] string? rendition,
+        CancellationToken cancellationToken) =>
+
+        // The render route is the one whose default is the smaller picture.
+        Selected(rendition, MediaRenditionPurpose.Web, out var wanted) is { } refusal
+            ? refusal
+            : Send(await assets.OpenCurrentVersionAsync(assetId, naming: false, wanted, cancellationToken));
 
     /// <summary>Downloads the asset's current version as a named file.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed; resolved server-side before the action runs (tenancy.md).
     /// </param>
     /// <param name="assetId">The asset to download. Constrained to a Guid, so a malformed id answers 404 at routing.</param>
+    /// <param name="rendition">
+    /// Which encoding to send: `web`, `thumbnail` or `original`. Absent, `original`. Anything else answers
+    /// `400 media.asset.invalid_request`.
+    /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <remarks>
-    /// The same bytes `/content` renders, with two headers different: `attachment` rather than `inline`, and a
-    /// filename. Any member may download — being able to look at an image and being able to save it are not
-    /// meaningfully different privileges, and every brand source download takes the same view.
+    /// The stored bytes, as a file: `attachment` rather than `inline`, and a filename. Any member may download —
+    /// being able to look at an image and being able to save it are not meaningfully different privileges, and
+    /// every brand source download takes the same view.
+    ///
+    /// **A download is the original unless it asks otherwise.** With no `rendition` this sends the version exactly
+    /// as it was stored, which is what it has always sent. `rendition=web` sends the web-size JPEG when the version
+    /// has one, named `{title-slug}-v{n}-web.jpg` so it cannot be mistaken for the original beside it, and
+    /// `X-Rendition` states which was sent. A rendition that does not exist is answered with the original.
     ///
     /// **The filename is `{title-slug}-v{n}.{ext}`**, so "Soda bread hero" at version 2 stored as JPEG downloads as
     /// `soda-bread-hero-v2.jpg`. Deterministic: the same asset, version and media type always give the same name.
@@ -359,11 +387,17 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public async Task<IActionResult> Download(
-        string workspaceSlug, Guid assetId, CancellationToken cancellationToken) =>
-        Send(await assets.OpenCurrentVersionAsync(assetId, naming: true, cancellationToken));
+        string workspaceSlug,
+        Guid assetId,
+        [FromQuery(Name = MediaRenditionSelector.QueryName)] string? rendition,
+        CancellationToken cancellationToken) =>
+        Selected(rendition, whenAbsent: null, out var wanted) is { } refusal
+            ? refusal
+            : Send(await assets.OpenCurrentVersionAsync(assetId, naming: true, wanted, cancellationToken));
 
     /// <summary>Downloads one named version of the asset as a file.</summary>
     /// <param name="workspaceSlug">
@@ -373,6 +407,10 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     /// <param name="versionNumber">
     /// The version to download, from 1. Must be a version of **this** asset; a number belonging to another asset is
     /// not found rather than served.
+    /// </param>
+    /// <param name="rendition">
+    /// Which encoding to send: `web`, `thumbnail` or `original`. Absent, `original`. Anything else answers
+    /// `400 media.asset.invalid_request`.
     /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <remarks>
@@ -401,11 +439,36 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public async Task<IActionResult> DownloadVersion(
-        string workspaceSlug, Guid assetId, int versionNumber, CancellationToken cancellationToken) =>
-        Send(await assets.OpenVersionAsync(assetId, versionNumber, naming: true, cancellationToken));
+        string workspaceSlug,
+        Guid assetId,
+        int versionNumber,
+        [FromQuery(Name = MediaRenditionSelector.QueryName)] string? rendition,
+        CancellationToken cancellationToken) =>
+        Selected(rendition, whenAbsent: null, out var wanted) is { } refusal
+            ? refusal
+            : Send(await assets.OpenVersionAsync(assetId, versionNumber, naming: true, wanted, cancellationToken));
+
+    /// <summary>
+    /// Reads the caller's choice of encoding, or returns the refusal for a value that is not one of the three.
+    /// </summary>
+    /// <remarks>
+    /// Before anything is opened, so a request this route will not serve reads nothing. Each route states its own
+    /// default: the render route's is the web rendition, and a download's is the original.
+    /// </remarks>
+    private ObjectResult? Selected(string? rendition, MediaRenditionPurpose? whenAbsent, out MediaRenditionPurpose? wanted) =>
+        MediaRenditionSelector.TryParse(rendition, whenAbsent, out wanted)
+            ? null
+            : this.ProblemFor(new OperationError(
+                MediaErrorCodes.AssetInvalidRequest,
+                "The rendition must be web, thumbnail or original.",
+                new Dictionary<string, string[]>
+                {
+                    [MediaRenditionSelector.QueryName] = ["Use web, thumbnail or original."],
+                }));
 
     /// <summary>
     /// The one place that turns an asset's version into a response.
@@ -440,6 +503,10 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
 
         Response.Headers.CacheControl = "private, no-cache";
         Response.Headers.ETag = entityTag.ToString();
+
+        // What was sent, which is not always what was asked for: a rendition that does not exist is answered with
+        // the stored bytes. On the 304 as well, since it describes the same representation.
+        Response.Headers[MediaRenditionSelector.HeaderName] = MediaRenditionSelector.NameOf(render.Rendition);
 
         // Stated rather than left to inference, so a client does not probe for range support.
         Response.Headers.AcceptRanges = "none";

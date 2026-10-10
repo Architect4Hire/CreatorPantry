@@ -65,4 +65,24 @@ public sealed class ContentChannelEndpointTests : IAsyncLifetime
             body.EnumerateArray().Select(channel => channel.GetProperty("key").GetString()));
         Assert.All(body.EnumerateArray(), channel => Assert.True(channel.GetProperty("isActive").GetBoolean()));
     }
+
+    [Theory]
+    [InlineData("photography-styles", "overhead-flat-lay")]
+    [InlineData("occasions", "weeknight")]
+    public async Task A_signed_in_member_reads_the_catalogue_an_idea_facet_is_pinned_from(string route, string first)
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        using var client = await _fixture.SignInAsync(_fixture.WorkspaceB.MemberEmail, cancellationToken: cancellation);
+
+        var response = await client.GetAsync($"/api/v1/reference/{route}", cancellation);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellation);
+        Assert.Equal(first, body.EnumerateArray().First().GetProperty("key").GetString());
+        Assert.All(body.EnumerateArray(), entry =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(entry.GetProperty("displayName").GetString()));
+            Assert.True(entry.GetProperty("isActive").GetBoolean());
+        });
+    }
 }

@@ -29,6 +29,17 @@ public interface IStagedImageFacade
     Task<OperationResult<StagedImageDownload>> OpenAsync(
         Guid generatedImageId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Opens a staged image, serving the named rendition in place of the original when it has one.
+    /// </summary>
+    /// <param name="rendition">The rendition wanted, or null for the image as it was staged.</param>
+    /// <remarks>
+    /// Who may open the image, and which images can be opened at all, are exactly as for the original. A
+    /// rendition the image does not have is answered with the original, and the result says which it is.
+    /// </remarks>
+    Task<OperationResult<StagedImageDownload>> OpenAsync(
+        Guid generatedImageId, MediaRenditionPurpose? rendition, CancellationToken cancellationToken);
+
     /// <summary>Declines one staged image, so the sweep may remove its bytes.</summary>
     Task<OperationResult<StagedImageRejectOutcome>> RejectAsync(
         Guid generatedImageId, CancellationToken cancellationToken);
@@ -41,10 +52,14 @@ public interface IStagedImageFacade
 internal sealed class StagedImageFacade(
     IStagedImageBusiness business, IWorkspaceContext workspace) : IStagedImageFacade
 {
+    public Task<OperationResult<StagedImageDownload>> OpenAsync(
+        Guid generatedImageId, CancellationToken cancellationToken) =>
+        OpenAsync(generatedImageId, rendition: null, cancellationToken);
+
     public async Task<OperationResult<StagedImageDownload>> OpenAsync(
-        Guid generatedImageId, CancellationToken cancellationToken)
+        Guid generatedImageId, MediaRenditionPurpose? rendition, CancellationToken cancellationToken)
     {
-        var opened = await business.OpenAsync(generatedImageId, cancellationToken);
+        var opened = await business.OpenAsync(generatedImageId, rendition, cancellationToken);
 
         return opened.Outcome switch
         {

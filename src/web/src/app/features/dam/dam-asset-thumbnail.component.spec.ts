@@ -50,7 +50,7 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 describe('DamAssetThumbnailComponent', () => {
   let fixture: ComponentFixture<HostComponent>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
   let near: Subject<void>;
   let watched: number;
   let created: string[];
@@ -120,7 +120,7 @@ describe('DamAssetThumbnailComponent', () => {
     near.next();
     await settle();
 
-    expect(contentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1');
+    expect(contentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1', 'thumbnail');
     expect(img()).toBeTruthy();
   });
 
@@ -208,7 +208,7 @@ describe('DamAssetThumbnailComponent', () => {
     // Released before the other workspace has answered: nothing of the first is on screen in between.
     expect(revoked).toEqual(['blob:test/1']);
     expect(img()).toBeNull();
-    expect(contentSpy.calls.mostRecent().args).toEqual(['other-kitchen', 'a1']);
+    expect(contentSpy.calls.mostRecent().args).toEqual(['other-kitchen', 'a1', 'thumbnail']);
   });
 
   it('ignores an answer for a picture it has moved on from', async () => {
@@ -247,8 +247,8 @@ class KeptVersionHostComponent {
 
 describe('DamAssetThumbnailComponent showing one kept version', () => {
   let fixture: ComponentFixture<KeptVersionHostComponent>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
 
   async function settle(): Promise<void> {
     for (let i = 0; i < 3; i += 1) {
@@ -276,7 +276,7 @@ describe('DamAssetThumbnailComponent showing one kept version', () => {
   });
 
   it('reads an older version by its number, not the current picture', () => {
-    expect(versionContentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1', 1);
+    expect(versionContentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1', 1, 'thumbnail');
     expect(contentSpy).not.toHaveBeenCalled();
     expect((fixture.nativeElement as HTMLElement).querySelector('img')).toBeTruthy();
   });
@@ -285,17 +285,17 @@ describe('DamAssetThumbnailComponent showing one kept version', () => {
     fixture.componentInstance.version.set(3);
     await settle();
 
-    expect(contentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1');
+    expect(contentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1', 'thumbnail');
     expect(versionContentSpy).toHaveBeenCalledTimes(1);
   });
 
   it('starts again when the kept version changes, and when it stops being kept', async () => {
     fixture.componentInstance.version.set(2);
     await settle();
-    expect(versionContentSpy.calls.mostRecent().args).toEqual(['cozy-fall', 'a1', 2]);
+    expect(versionContentSpy.calls.mostRecent().args).toEqual(['cozy-fall', 'a1', 2, 'thumbnail']);
 
     fixture.componentInstance.version.set(null);
     await settle();
-    expect(contentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1');
+    expect(contentSpy).toHaveBeenCalledOnceWith('cozy-fall', 'a1', 'thumbnail');
   });
 });

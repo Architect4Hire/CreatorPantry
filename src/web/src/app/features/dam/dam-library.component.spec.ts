@@ -74,7 +74,7 @@ function delay(ms: number): Promise<void> {
 
 describe('DamLibraryComponent', () => {
   let searchSpy: jasmine.Spy<(slug: string, query: DamAssetSearchQuery) => Observable<DamAssetSearchOutcome>>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
   let channelsSpy: jasmine.Spy<() => Promise<ContentChannelsOutcome>>;
   let harness: RouterTestingHarness;
 
@@ -220,9 +220,10 @@ describe('DamLibraryComponent', () => {
     searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
     await create();
 
+    // The thumbnail, by name: a grid of pictures never asks for more bytes than a card can show.
     expect(contentSpy.calls.allArgs()).toEqual([
-      [SLUG, 'a1'],
-      [SLUG, 'a2'],
+      [SLUG, 'a1', 'thumbnail'],
+      [SLUG, 'a2', 'thumbnail'],
     ]);
 
     const images = Array.from(root().querySelectorAll('img'));
@@ -587,7 +588,7 @@ describe('DamLibraryComponent', () => {
 
     expect(ids()).toEqual(['b1']);
     // B's picture is asked of B, and nothing asked of B ever named A's cursor.
-    expect(contentSpy.calls.mostRecent().args).toEqual([OTHER_SLUG, 'b1']);
+    expect(contentSpy.calls.mostRecent().args).toEqual([OTHER_SLUG, 'b1', 'thumbnail']);
     expect(searches().filter((each) => each.slug === OTHER_SLUG && each.query.cursor !== null)).toEqual([]);
   });
 

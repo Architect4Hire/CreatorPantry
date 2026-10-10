@@ -128,7 +128,21 @@ internal sealed class MediaAssetDetailRepository(CreatorPantryDbContext context)
                 version.OriginalFileName,
                 version.Source,
                 version.SourceGeneratedImageId,
-                version.CreatedAt))
+                version.CreatedAt,
+
+                // The stored size of each rendition, or null while there is none. Sizes only.
+                context.MediaRenditions
+                    .Where(rendition => rendition.MediaAssetId == version.MediaAssetId
+                        && rendition.MediaAssetVersionNumber == version.VersionNumber
+                        && rendition.Purpose == MediaRenditionPurpose.Web)
+                    .Select(rendition => rendition.SizeBytes)
+                    .FirstOrDefault(),
+                context.MediaRenditions
+                    .Where(rendition => rendition.MediaAssetId == version.MediaAssetId
+                        && rendition.MediaAssetVersionNumber == version.VersionNumber
+                        && rendition.Purpose == MediaRenditionPurpose.Thumbnail)
+                    .Select(rendition => rendition.SizeBytes)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
         // Joined to the workspace's own tag vocabulary so the name comes back with the id. WorkspaceTag is the

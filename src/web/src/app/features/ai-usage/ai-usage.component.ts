@@ -38,6 +38,7 @@ const TASK_LABELS: Record<AiTaskType, string> = {
   ImagePrompt: 'Image prompts',
   BrandStyleTestDrive: 'Style test drives',
   ReferenceImageAnalysis: 'Reference image readings',
+  DishFacetSuggestion: 'Dish name readings',
 };
 
 /** A workspace the account has left keeps its spend and loses its name (USAGE-008). */

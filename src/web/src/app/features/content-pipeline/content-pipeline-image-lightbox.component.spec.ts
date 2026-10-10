@@ -119,7 +119,8 @@ describe('ContentPipelineImageLightboxComponent', () => {
           provide: GeneratedImageService,
           useValue: {
             preview: () => EMPTY,
-            downloadUrl: (_slug: string, id: string) => `${GATEWAY}/${id}/content`,
+            downloadUrl: (_slug: string, id: string, rendition?: string) =>
+              `${GATEWAY}/${id}/content${rendition ? `?rendition=${rendition}` : ''}`,
           },
         },
       ],
@@ -306,8 +307,29 @@ describe('ContentPipelineImageLightboxComponent', () => {
   it('offers the download the server names, and no address of its own', async () => {
     await open();
 
-    const link = labelled('a', 'Download picture 2 of 3');
-    expect(link?.getAttribute('href')).toBe(`${GATEWAY}/img-2/content`);
+    // The original, asked for by name: the route's own default is now the web-size copy.
+    const link = labelled('a', 'Download the original of picture 2 of 3, 482 KB');
+    expect(link?.getAttribute('href')).toBe(`${GATEWAY}/img-2/content?rendition=original`);
+    expect(link?.textContent).toContain('Download original (482 KB)');
+
+    // No smaller copy has been made for this picture, so none is offered.
+    expect(Array.from(dialog()!.querySelectorAll('a')).some((each) => each.textContent?.includes('web size'))).toBeFalse();
+    expect(dialog()?.textContent).toContain('482 KB');
+  });
+
+  it('offers the web-size copy beside the original once there is one, and says what each weighs', async () => {
+    host.images.set([picture(1, { webSizeBytes: 153000 })]);
+    host.openAt.set('img-1');
+    await settle();
+
+    const web = labelled('a', 'Download picture 1 of 1 at web size, 153 KB');
+    expect(web?.getAttribute('href')).toBe(`${GATEWAY}/img-1/content?rendition=web`);
+    expect(web?.textContent).toContain('Download web size (153 KB)');
+
+    const original = labelled('a', 'Download the original of picture 1 of 1, 482 KB');
+    expect(original?.getAttribute('href')).toBe(`${GATEWAY}/img-1/content?rendition=original`);
+
+    expect(dialog()?.textContent).toContain('Web size 153 KB · original 482 KB');
   });
 
   it('holds its keep and decline while something is already in flight', async () => {

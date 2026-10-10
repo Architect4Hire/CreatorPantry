@@ -99,7 +99,7 @@ function foundAsset(value: DamAssetDetail): Observable<DamAssetDetailOutcome> {
 describe('DamAssetDetailComponent', () => {
   let harness: RouterTestingHarness;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
-  let contentSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetContentOutcome>>;
+  let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
   let usageSpy: jasmine.Spy<(slug: string, id: string, cursor: string | null) => Observable<DamAssetUtilizationOutcome>>;
   let patchSpy: jasmine.Spy<
     (slug: string, id: string, body: Record<string, unknown>, key: string) => Promise<DamAssetPatchOutcome>
@@ -222,7 +222,8 @@ describe('DamAssetDetailComponent', () => {
             logUtilization: logSpy,
             remove: removeSpy,
             addVersion: addVersionSpy,
-            downloadUrl: (slug: string, id: string) => `${GATEWAY}/api/v1/workspaces/${slug}/dam-assets/${id}/download`,
+            downloadUrl: (slug: string, id: string, rendition?: string) =>
+              `${GATEWAY}/api/v1/workspaces/${slug}/dam-assets/${id}/download${rendition ? `?rendition=${rendition}` : ''}`,
             versionDownloadUrl: (slug: string, id: string, n: number) =>
               `${GATEWAY}/api/v1/workspaces/${slug}/dam-assets/${id}/versions/${n}/download`,
           },
@@ -320,7 +321,8 @@ describe('DamAssetDetailComponent', () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
-    expect(contentSpy).toHaveBeenCalledOnceWith(SLUG, 'a1');
+    // At reading size: the web-size copy, which is also what the route sends when asked for nothing.
+    expect(contentSpy).toHaveBeenCalledOnceWith(SLUG, 'a1', 'web');
 
     const image = section('dam-picture-heading').querySelector('img') as HTMLImageElement;
     expect(image.getAttribute('src')).toMatch(/^blob:/);
@@ -331,9 +333,12 @@ describe('DamAssetDetailComponent', () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
-    const download = link('Download', section('dam-picture-heading'));
-    expect(download.getAttribute('href')).toBe(`${GATEWAY}/api/v1/workspaces/${SLUG}/dam-assets/a1/download`);
-    expect(download.getAttribute('aria-label')).toBe('Download Soda bread hero');
+    const download = link('Download original', section('dam-picture-heading'));
+    expect(download.getAttribute('href')).toBe(
+      `${GATEWAY}/api/v1/workspaces/${SLUG}/dam-assets/a1/download?rendition=original`,
+    );
+    expect(download.getAttribute('aria-label')).toBe('Download the original of Soda bread hero, 205 KB');
+    expect(download.textContent).toContain('205 KB');
     // The server names the file; a `download` attribute here would be a second, competing name.
     expect(download.hasAttribute('download')).toBeFalse();
   });
@@ -1093,7 +1098,7 @@ describe('DamAssetDetailComponent', () => {
     await create();
 
     const allowed = new RegExp(
-      `^(/${SLUG}/(dam|recipes/r1|prompt-library/p[12])|${GATEWAY}/api/v1/workspaces/${SLUG}/dam-assets/a1/(download|versions/[12]/download))$`,
+      `^(/${SLUG}/(dam|recipes/r1|prompt-library/p[12])|${GATEWAY}/api/v1/workspaces/${SLUG}/dam-assets/a1/(download|versions/[12]/download)([?]rendition=(web|original))?)$`,
     );
     for (const anchor of Array.from(root().querySelectorAll('a'))) {
       expect(anchor.getAttribute('href')).withContext(anchor.textContent ?? '').toMatch(allowed);
@@ -1136,7 +1141,7 @@ describe('DamAssetDetailComponent', () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create({ url: `/${OTHER_SLUG}/dam/a1` });
 
-    expect(contentSpy).toHaveBeenCalledOnceWith(OTHER_SLUG, 'a1');
+    expect(contentSpy).toHaveBeenCalledOnceWith(OTHER_SLUG, 'a1', 'web');
     expect(usageSpy).toHaveBeenCalledOnceWith(OTHER_SLUG, 'a1', null);
     expect(link('Soda bread', section('dam-lineage-heading')).getAttribute('href')).toBe(`/${OTHER_SLUG}/recipes/r1`);
     expect(link('Download', section('dam-picture-heading')).getAttribute('href')).toContain(`/workspaces/${OTHER_SLUG}/dam-assets/a1/download`);

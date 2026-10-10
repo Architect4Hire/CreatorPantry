@@ -46,6 +46,9 @@ public static class MediaErrorCodes
     /// <summary>The image exists and its bytes could not be reached. Retrying is the remedy.</summary>
     public const string StagedImageStorageUnavailable = "media.staged_image.unavailable";
 
+    /// <summary>A staged-image request with a parameter this route does not accept.</summary>
+    public const string StagedImageInvalidRequest = "media.staged_image.invalid_request";
+
     /// <summary>The asset creation request was not well formed. The field errors say which part.</summary>
     public const string AssetInvalidRequest = "media.asset.invalid_request";
 

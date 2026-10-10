@@ -28,6 +28,7 @@ public sealed class ReferenceController(
     IMeasurementFacade measurementFacade,
     IVocabularyFacade vocabularyFacade,
     IContentChannelFacade contentChannelFacade,
+    IIdeaFacetCatalogFacade ideaFacetCatalogFacade,
     IIngredientFacade ingredientFacade) : ControllerBase
 {
     /// <summary>
@@ -38,6 +39,22 @@ public sealed class ReferenceController(
     [HttpGet("content-channels")]
     [ProducesResponseType<IReadOnlyList<ContentChannelServiceModel>>(StatusCodes.Status200OK)]
     public IActionResult ContentChannels() => Ok(contentChannelFacade.List());
+
+    /// <summary>
+    /// The photography styles an idea can be pinned to, in display order. Retired styles are included with
+    /// `isActive: false`; offer only active ones as new choices. Not paged: the list is small and fixed.
+    /// </summary>
+    [HttpGet("photography-styles")]
+    [ProducesResponseType<IReadOnlyList<IdeaFacetEntryServiceModel>>(StatusCodes.Status200OK)]
+    public IActionResult PhotographyStyles() => Ok(ideaFacetCatalogFacade.ListPhotographyStyles());
+
+    /// <summary>
+    /// The occasions an idea can be pinned to, in display order. Retired occasions are included with
+    /// `isActive: false`; offer only active ones as new choices. Not paged: the list is small and fixed.
+    /// </summary>
+    [HttpGet("occasions")]
+    [ProducesResponseType<IReadOnlyList<IdeaFacetEntryServiceModel>>(StatusCodes.Status200OK)]
+    public IActionResult Occasions() => Ok(ideaFacetCatalogFacade.ListOccasions());
 
     /// <summary>Active ingredients in the shared catalogue, with the aliases that resolve to each one. Retired entries are not listed.</summary>
     [HttpGet("ingredients")]

@@ -94,6 +94,16 @@ public sealed class GeneratedImageInspectorTests
     }
 
     [Fact]
+    public void Dimensions_too_big_to_multiply_are_refused_rather_than_wrapping_round_to_something_small()
+    {
+        // The largest a header can state. Their product does not fit 64 bits, and once passed as "1".
+        var inspection = GeneratedImageInspector.Inspect(
+            BrandSourceSampleFiles.Png(width: uint.MaxValue, height: uint.MaxValue));
+
+        Assert.Equal(GeneratedImageInspectionOutcome.TooLarge, inspection.Outcome);
+    }
+
+    [Fact]
     public void An_image_claiming_a_zero_dimension_is_corrupt()
     {
         Assert.Equal(

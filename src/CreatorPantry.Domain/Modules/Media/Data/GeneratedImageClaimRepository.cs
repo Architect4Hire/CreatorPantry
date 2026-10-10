@@ -202,8 +202,8 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
     }
 
     /// <summary>
-    /// The workspaces that currently have retention work: a staged image past its deadline, or bytes to
-    /// purge.
+    /// The workspaces that currently have retention work: a staged image past its deadline, bytes to
+    /// purge, or renditions whose source no longer wants them.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -242,8 +242,20 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
         // or storage persistently down for it — keeps its slot, which only bites once more than
         // RetentionBatchSize workspaces have work at the same moment. Rotating past skipped ids needs
         // state this sweep deliberately does not keep.
+        // Renditions nobody wants any more: of a staged image that was settled, or of a library asset
+        // that was deleted. The second is why a workspace with nothing staged can still have work here.
+        var renditions = context.MediaRenditions
+            .IgnoreQueryFilters()
+            .Where(rendition =>
+                context.GeneratedImages.IgnoreQueryFilters().Any(image => image.Id == rendition.GeneratedImageId
+                    && image.Status != GeneratedImageStatus.Staged)
+                || context.MediaAssets.IgnoreQueryFilters().Any(asset => asset.Id == rendition.MediaAssetId
+                    && asset.DeletedAt != null))
+            .Select(rendition => rendition.WorkspaceId);
+
         return await expiring
             .Union(purgeable)
+            .Union(renditions)
             .Distinct()
             .OrderBy(workspaceId => workspaceId)
             .Take(limit)

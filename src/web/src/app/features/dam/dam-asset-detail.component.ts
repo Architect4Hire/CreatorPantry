@@ -33,6 +33,7 @@ import {
   damRemovalWarning,
 } from '../../models/dam-asset.models';
 import { PROMPT_SOURCE_LABELS } from '../../models/prompt-library.models';
+import { byteSizeText, pictureSizeText } from '../../models/picture-rendition.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { DamAssetService } from '../../services/dam-asset.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
@@ -256,7 +257,31 @@ export class DamAssetDetailComponent {
     // No current version means no bytes to download, and the route would answer 404.
     return asset === null || asset.currentVersion === null
       ? null
-      : this.assets.downloadUrl(this.workspaceSlug(), asset.id);
+      : this.assets.downloadUrl(this.workspaceSlug(), asset.id, 'original');
+  });
+
+  /**
+   * The link for the current version's web-size copy, or null when it has none — not made yet, or a picture
+   * the server could not make smaller. Offered only when it exists, so the link never downloads something else.
+   */
+  protected readonly webDownloadUrl = computed(() => {
+    const asset = this.asset();
+
+    return asset === null || !asset.currentVersion?.webSizeBytes
+      ? null
+      : this.assets.downloadUrl(this.workspaceSlug(), asset.id, 'web');
+  });
+
+  protected readonly webSizeLabel = computed(() => {
+    const size = this.asset()?.currentVersion?.webSizeBytes;
+
+    return size ? byteSizeText(size) : '';
+  });
+
+  protected readonly originalSizeLabel = computed(() => {
+    const version = this.asset()?.currentVersion;
+
+    return version ? byteSizeText(version.sizeBytes) : '';
   });
 
   constructor() {
@@ -589,9 +614,14 @@ export class DamAssetDetailComponent {
     return version.versionNumber === this.asset()?.currentVersion?.versionNumber;
   }
 
-  /** "JPEG · 1600 × 1200 · 205 KB". */
+  /** "PNG · 1600 × 1200 · Web size 153 KB · original 1.8 MB", or just the one size when there is no smaller copy. */
   protected versionFacts(version: DamAssetVersion): string {
-    return `${imageFormatText(version.mediaType)} · ${version.width} × ${version.height} · ${fileSizeText(version.sizeBytes)}`;
+    return `${imageFormatText(version.mediaType)} · ${version.width} × ${version.height} · ${this.pictureSize(version)}`;
+  }
+
+  /** What a version weighs: the size being shown, and the original's beside it when they differ. */
+  protected pictureSize(version: DamAssetVersion): string {
+    return pictureSizeText(version.sizeBytes, version.webSizeBytes);
   }
 
   protected versionSource(version: DamAssetVersion): string {

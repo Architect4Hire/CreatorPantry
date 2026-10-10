@@ -163,6 +163,23 @@ describe('DamAssetService', () => {
   });
 
   describe('content', () => {
+    it('asks for a smaller copy by name, on the render route and on a numbered version alike', async () => {
+      const current = firstValueFrom(service.content('cozy-fall', ID, 'thumbnail'));
+      http.expectOne(`${BASE}/${ID}/content?rendition=thumbnail`).flush(new Blob(['bytes'], { type: 'image/jpeg' }));
+      expect((await current).status).toBe('found');
+
+      // A numbered version is read through its download route, whose own default is the original.
+      const held = firstValueFrom(service.versionContent('cozy-fall', ID, 2, 'web'));
+      http.expectOne(`${BASE}/${ID}/versions/2/download?rendition=web`).flush(new Blob(['bytes'], { type: 'image/jpeg' }));
+      expect((await held).status).toBe('found');
+
+      expect(service.downloadUrl('cozy-fall', ID)).toBe(`${BASE}/${ID}/download`);
+      expect(service.downloadUrl('cozy-fall', ID, 'web')).toBe(`${BASE}/${ID}/download?rendition=web`);
+      expect(service.versionDownloadUrl('cozy-fall', ID, 2, 'original')).toBe(
+        `${BASE}/${ID}/versions/2/download?rendition=original`,
+      );
+    });
+
     it("fetches the picture as bytes from the gateway's own render route, with credentials", async () => {
       const pending = firstValueFrom(service.content('cozy-fall', ID));
 

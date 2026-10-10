@@ -227,6 +227,32 @@ export function decodeReferenceEntry(value: unknown): ReferenceEntry | null {
 }
 
 /**
+ * A photography style or an occasion an idea can be pinned to. Mirrors IdeaFacetEntryServiceModel.
+ */
+export interface IdeaFacetEntry {
+  /** The catalogue's own stable key. What a pin sends; never shown. */
+  readonly key: string;
+  readonly displayName: string;
+  /** False for a retired entry: show it where already chosen, never offer it as a new choice. */
+  readonly isActive: boolean;
+}
+
+/** The whole list or null: half a catalogue reads as "that entry does not exist". */
+export function decodeIdeaFacetEntries(value: unknown): readonly IdeaFacetEntry[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const entries: IdeaFacetEntry[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return null;
+    const { key, displayName, isActive } = item;
+    if (typeof key !== 'string' || typeof displayName !== 'string' || typeof isActive !== 'boolean') return null;
+    entries.push({ key, displayName, isActive });
+  }
+
+  return entries;
+}
+
+/**
  * A cooking method. Mirrors CookingTechniqueServiceModel.
  *
  * **`requiresSafetyCaution: false` means no caution has been attached to this technique** — never that the
