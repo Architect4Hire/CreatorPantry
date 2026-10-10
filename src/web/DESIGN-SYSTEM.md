@@ -15,6 +15,8 @@ CreatorPantry is a focused production workspace for food bloggers and content cr
 
 Set `data-cp-theme="light|dark"` on `<html>`. `CpThemeService` manages this attribute, respects system preference, and persists the user's explicit choice. Never create separate component markup for dark mode.
 
+Print is always light. Browsers leave backgrounds off a printed page, so `themes.css` puts a dark theme back on the light palette under `@media print`; a feature never needs to know which theme it was printed from. The shell hides its sidebar, top bar and page title on paper, and `styles.css` sets the sheet margins with `@page`. A feature that prints lays out only its own content: sizes in points, outlines rather than fills, `break-inside: avoid` on anything that must not split across sheets, and a `screen-only` class on its own controls. `RecipeKitchenViewComponent` is the reference, and `PrintService` opens the dialog.
+
 ## Content hierarchy
 
 - Display rounded sans (Fredoka): page moments, feature headings, editorial quotes.
@@ -155,7 +157,7 @@ So a control this system offers is drawn, not left to the scheme. Drawing one me
 which every state — unchecked, checked, hover, focus, disabled — has to be authored anyway, which is why it
 belongs in one library component rather than in each feature's stylesheet. `CpCheckboxComponent` is the
 reference: the real input stays in the DOM, focusable and in the accessibility tree, and is only visually
-replaced by a box beside it, so keyboard behaviour and what a screen reader announces stay the browser's.
+replaced by a box beside it, so keyboard behaviour and what a screen reader announces stay the browser's. Its label is control-sized; a surface read from further away sets `--cp-checkbox-font-size` on the host to a type token.
 
 `CpChoiceGroupComponent` is the same rule applied to a *set* of answers, and the shape to reach for whenever a
 form asks the creator to choose rather than to type. Its options are **tiles**: the whole option is the target,
