@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Brand.Facade;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
@@ -44,6 +45,7 @@ internal sealed class AiImagePromptRequestBusiness(
     IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IBrandSourceDocumentFacade documents,
+    ICreativeContextFacade creativeContexts,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiImagePromptRequestBusiness
@@ -60,6 +62,19 @@ internal sealed class AiImagePromptRequestBusiness(
             return Refuse(
                 AiImagePromptRequestErrors.TaskNotEnabled,
                 "Image prompt composition is not enabled for this workspace's deployment.");
+        }
+
+        // The piece of work the prompt is for (AF.7.4), when one is named: asked first, through the content module's
+        // facade and inside the resolved workspace, so a request naming work this workspace does not have is
+        // refused here rather than queued and failed by the worker. An unknown id and a neighbour's are one
+        // answer, because the workspace filter means the neighbour's row is never read.
+        if (model.CreativeContextId is { } contextId
+            && contextId != Guid.Empty
+            && !(await creativeContexts.GetAsync(contextId, cancellationToken)).Succeeded)
+        {
+            return Refuse(
+                AiImagePromptRequestErrors.ContextNotFound,
+                "This workspace has no piece of work with that id.");
         }
 
         if (!await ConceptResolvesAsync(model, cancellationToken))
@@ -228,6 +243,18 @@ internal sealed class AiImagePromptRequestBusiness(
         Add(ImagePromptInputs.BriefVersionNumber, briefVersionNumber?.ToString(CultureInfo.InvariantCulture));
         Add(ImagePromptInputs.SceneOverrides, Join(model.SceneOverrides));
         Add(ImagePromptInputs.StyleOverrides, Join(model.StyleOverrides));
+
+        // Both written only when they say something, so a request that names no piece of work stores exactly
+        // what it stored before either existed.
+        if (model.CreativeContextId is { } contextId && contextId != Guid.Empty)
+        {
+            Add(ImagePromptInputs.CreativeContextId, contextId.ToString("D"));
+
+            if (model.ApplyDayNotes is false)
+            {
+                Add(ImagePromptInputs.ApplyDayNotes, PhotographyConceptInputs.Off);
+            }
+        }
 
         return JsonSerializer.Serialize(values);
     }

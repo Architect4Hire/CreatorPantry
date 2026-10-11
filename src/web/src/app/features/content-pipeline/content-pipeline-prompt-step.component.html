@@ -47,6 +47,9 @@
     [prompt]="prompt()"
     [brief]="brief()"
     [recipe]="recipe()"
+    [creativeContextId]="session()?.context()?.id ?? null"
+    [themeKey]="session()?.context()?.weeklyThemeKey ?? null"
+    [(applyDayNotes)]="applyDayNotes"
     (changed)="onPrompt($event)"
     (announced)="onAnnounced($event)"
   />
@@ -87,6 +90,9 @@
       [config]="config()"
       [prompt]="prompt()"
       [recipe]="recipe()"
+      [creativeContextId]="session()?.context()?.id ?? null"
+      [themeKey]="session()?.context()?.weeklyThemeKey ?? null"
+      [(applyDayNotes)]="applyDayNotes"
       (changed)="onPrompt($event)"
       (announced)="onAnnounced($event)"
     />

@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
@@ -77,6 +78,12 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
             .AddSingleton(_tasks)
             .AddAiUsageModule()
             .AddContentModule()
+
+            // The content module retires its cached themed-day histories after a write, as every real host
+            // lets it: both register a cache. In memory here, which is all a single test process needs.
+            .AddLogging()
+            .AddDistributedMemoryCache()
+            .AddApplicationCache()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()
@@ -219,6 +226,31 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
         Assert.Equal(contextId, ChannelPostsInputs.ReadContextId(inputs));
         Assert.Equal(new[] { "pinterest", "instagram" }, ChannelPostsInputs.ReadChannelKeys(inputs));
         Assert.Equal(2, inputs!.Count);
+    }
+
+    /// <summary>
+    /// The per-run switch is stored only when it is off, so a request that never mentions it is the request it
+    /// always was — and one that turns the notes off is a different request under the same key.
+    /// </summary>
+    [Fact]
+    public async Task Switching_the_days_notes_off_is_stored_and_is_a_different_request_from_leaving_them_on()
+    {
+        var contextId = await SeedContextAsync(WorkspaceA);
+
+        var on = await RequestAsync(WorkspaceA, contextId, "key-1", ["instagram"], channels: null, applyDayNotes: true);
+        Assert.True(on.Result.Succeeded, on.Result.Error?.Message);
+
+        var stored = await InputsAsync(WorkspaceA);
+        Assert.Equal(2, stored!.Count);
+        Assert.True(ChannelPostsInputs.ReadApplyDayNotes(stored));
+
+        // The same key with the notes switched off is not a replay of the request above.
+        var reused = await RequestAsync(WorkspaceA, contextId, "key-1", ["instagram"], channels: null, applyDayNotes: false);
+        Assert.Equal(IdempotencyPolicy.KeyReusedCode, reused.Result.Error!.Code);
+
+        var off = await RequestAsync(WorkspaceB, await SeedContextAsync(WorkspaceB), "key-2", ["instagram"], channels: null, applyDayNotes: false);
+        Assert.True(off.Result.Succeeded, off.Result.Error?.Message);
+        Assert.False(ChannelPostsInputs.ReadApplyDayNotes(await InputsAsync(WorkspaceB)));
     }
 
     // ---- what the key names ------------------------------------------------------------------------------
@@ -602,12 +634,18 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
         Guid contextId,
         string? idempotencyKey,
         string[] channelKeys,
-        IContentChannelCatalog? channels)
+        IContentChannelCatalog? channels,
+        bool? applyDayNotes = null)
     {
         using var scope = _provider.CreateScope();
         Resolve(scope, workspaceId);
         var services = scope.ServiceProvider;
-        var model = new RequestChannelPostsViewModel { CreativeContextId = contextId, ChannelKeys = channelKeys };
+        var model = new RequestChannelPostsViewModel
+        {
+            CreativeContextId = contextId,
+            ChannelKeys = channelKeys,
+            ApplyDayNotes = applyDayNotes,
+        };
 
         // The business built by hand only when a test needs a catalogue the container does not have; the
         // facade is the real one either way, so the validator and the key rule are the shipped ones.
@@ -678,6 +716,12 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
             .AddSingleton(_tasks)
             .AddAiUsageModule()
             .AddContentModule()
+
+            // The content module retires its cached themed-day histories after a write, as every real host
+            // lets it: both register a cache. In memory here, which is all a single test process needs.
+            .AddLogging()
+            .AddDistributedMemoryCache()
+            .AddApplicationCache()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()

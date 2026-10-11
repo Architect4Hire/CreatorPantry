@@ -1,5 +1,14 @@
 <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
+<!-- Before anything is asked for, so a creator knows the day's notes will shape the looks. Renders nothing
+     unless this work has a themed day and that theme has notes. -->
+<cp-day-notes-notice
+  [workspaceSlug]="workspaceSlug()"
+  [themeKey]="themeKey()"
+  [usesAlreadyMade]="true"
+  [(apply)]="applyDayNotes"
+/>
+
 @if (needsSubject()) {
   <cp-notice tone="warning" role="note">
     There is nothing to plan a look around yet. Say what the picture is of — a description, a scene or a style —

@@ -10,6 +10,7 @@ import {
   decodeChannelPostRequestStatus,
   decodeChannelPostRevision,
   isGeneratedAwaitingReview,
+  encodeRequestChannelPosts,
 } from './channel-post.models';
 
 function wireRevision(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -222,6 +223,24 @@ describe('channel-post.models', () => {
       expect(channelPostCountText(312, 280)).toBe('312 of 280 — 32 over');
       expect(channelPostCountText(1, null)).toBe('1 character');
       expect(channelPostCountText(40, null)).toBe('40 characters');
+    });
+  });
+
+  describe('asking for posts', () => {
+    it('leaves the day-notes switch off the wire unless the creator turned the notes off', () => {
+      const request = { creativeContextId: 'ctx-1', channelKeys: ['instagram'] };
+
+      // A request that never mentions the switch is the request it always was.
+      expect(encodeRequestChannelPosts(request)).toEqual({ creativeContextId: 'ctx-1', channelKeys: ['instagram'] });
+      expect(encodeRequestChannelPosts({ ...request, applyDayNotes: true })).toEqual({
+        creativeContextId: 'ctx-1',
+        channelKeys: ['instagram'],
+      });
+      expect(encodeRequestChannelPosts({ ...request, applyDayNotes: false })).toEqual({
+        creativeContextId: 'ctx-1',
+        channelKeys: ['instagram'],
+        applyDayNotes: false,
+      });
     });
   });
 });

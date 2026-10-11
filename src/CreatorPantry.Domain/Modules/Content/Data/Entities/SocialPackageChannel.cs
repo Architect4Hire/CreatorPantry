@@ -43,6 +43,17 @@ public class SocialPackageChannel : IWorkspaceOwned
     /// </summary>
     public Guid? AcceptedRevisionId { get; set; }
 
+    /// <summary>
+    /// When the creator accepted <see cref="AcceptedRevisionId"/>, set by the same write that sets it and
+    /// present exactly when it is.
+    /// </summary>
+    /// <remarks>
+    /// Its own column because nothing else says it: <see cref="UpdatedAt"/> moves with every later draft, and
+    /// the accepted revision's own timestamp is when the words were written, which can be days before anyone
+    /// accepted them. Reaffirming a post after a recipe change accepts a new revision, so it moves this too.
+    /// </remarks>
+    public DateTimeOffset? AcceptedAt { get; set; }
+
     /// <summary>When the accepted revision was found out of step with its recipe; null unless NeedsReview.</summary>
     public DateTimeOffset? StaleSince { get; set; }
 

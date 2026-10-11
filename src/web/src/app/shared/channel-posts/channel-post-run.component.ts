@@ -159,6 +159,11 @@ export class ChannelPostRunComponent {
   readonly allowance = input.required<AiAllowanceState>();
   readonly wording = input<ChannelPostRunWording>(PIPELINE_CHANNEL_POST_WORDING);
   readonly sectionIdPrefix = input('cp-channel-posts');
+  /**
+   * False when the creator has switched the themed day's standing notes off for this run (AF.7.4). The host
+   * owns the switch and shows it; this only carries the answer on the request.
+   */
+  readonly applyDayNotes = input(true);
 
   readonly changed = output<ChannelPostRunState>();
   /** The creator asked for one picture to be read, so the posts can be written to it. */
@@ -463,7 +468,11 @@ export class ChannelPostRunComponent {
     this.writing.set(channelKeys);
 
     const requestId = await this.tracker.submit(() =>
-      this.service.request(this.workspaceSlug(), { creativeContextId: contextId, channelKeys }, crypto.randomUUID()),
+      this.service.request(
+        this.workspaceSlug(),
+        { creativeContextId: contextId, channelKeys, ...(this.applyDayNotes() ? {} : { applyDayNotes: false }) },
+        crypto.randomUUID(),
+      ),
     );
 
     if (this.gone) return;

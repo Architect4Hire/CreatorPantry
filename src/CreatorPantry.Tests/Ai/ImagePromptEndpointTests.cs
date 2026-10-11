@@ -19,8 +19,12 @@ public sealed class ImagePromptEndpointTests
 
         Assert.Equal(
             [
-                "BriefDocumentId", "ChannelKey", "ConceptId", "ConceptRequestId", "DishName",
-                "RecipeId", "RecipeVersionId", "SceneOverrides", "ShotKind", "StyleOverrides",
+                // The piece of work the prompt is for (AF.7.4) is named by its own id, resolved inside the
+                // route's workspace like the recipe and the brief; the switch beside it can only leave the
+                // day's notes out.
+                "ApplyDayNotes", "BriefDocumentId", "ChannelKey", "ConceptId", "ConceptRequestId",
+                "CreativeContextId", "DishName", "RecipeId", "RecipeVersionId", "SceneOverrides", "ShotKind",
+                "StyleOverrides",
             ],
             fields);
     }

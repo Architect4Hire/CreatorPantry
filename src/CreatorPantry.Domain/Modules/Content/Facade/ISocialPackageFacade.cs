@@ -80,7 +80,8 @@ internal sealed class SocialPackageFacade(
     ISocialPackageBusiness business,
     IValidator<EditChannelPostViewModel> editValidator,
     IValidator<ChannelPostDispositionViewModel> dispositionValidator,
-    IWorkspaceContext workspace) : ISocialPackageFacade
+    IWorkspaceContext workspace,
+    IThemedDayHistoryInvalidationFacade history) : ISocialPackageFacade
 {
     public Task<OperationResult<SocialPackageServiceModel?>> GetAsync(Guid contextId, CancellationToken cancellationToken) =>
         business.GetAsync(contextId, cancellationToken);
@@ -92,7 +93,7 @@ internal sealed class SocialPackageFacade(
 
         return Forbidden() is { } forbidden
             ? Task.FromResult(Failure(forbidden))
-            : business.RecordGeneratedAsync(input, cancellationToken);
+            : Invalidating(business.RecordGeneratedAsync(input, cancellationToken), cancellationToken);
     }
 
     public Task<OperationResult<SocialPackageServiceModel>> RecordEditAsync(
@@ -102,7 +103,7 @@ internal sealed class SocialPackageFacade(
 
         return Forbidden() is { } forbidden
             ? Task.FromResult(Failure(forbidden))
-            : business.RecordEditAsync(input, cancellationToken);
+            : Invalidating(business.RecordEditAsync(input, cancellationToken), cancellationToken);
     }
 
     public async Task<OperationResult<SocialPackageServiceModel>> EditAsync(
@@ -127,8 +128,9 @@ internal sealed class SocialPackageFacade(
 
         // Business holds the role bar for a draft, as it does for every other move: the rule lives in
         // ContentProposalTransitions and a second copy here could disagree with it.
-        return await business.EditAsync(
-            contextId, channelKey, model.Body!, model.ExpectedLatestRevisionId, cancellationToken);
+        return await Invalidating(
+            business.EditAsync(contextId, channelKey, model.Body!, model.ExpectedLatestRevisionId, cancellationToken),
+            cancellationToken);
     }
 
     public async Task<OperationResult<SocialPackageServiceModel>> DispositionAsync(
@@ -157,12 +159,15 @@ internal sealed class SocialPackageFacade(
 
         return model.Decision switch
         {
-            ChannelPostDecision.Accept => await business.AcceptAsync(
-                userId, contextId, channelKey, model.RevisionId!.Value, cancellationToken),
-            ChannelPostDecision.Reject => await business.RejectAsync(
-                userId, contextId, channelKey, model.RevisionId!.Value, cancellationToken),
-            ChannelPostDecision.Reaffirm => await business.ReaffirmAsync(
-                userId, contextId, channelKey, cancellationToken),
+            ChannelPostDecision.Accept => await Invalidating(
+                business.AcceptAsync(userId, contextId, channelKey, model.RevisionId!.Value, cancellationToken),
+                cancellationToken),
+            ChannelPostDecision.Reject => await Invalidating(
+                business.RejectAsync(userId, contextId, channelKey, model.RevisionId!.Value, cancellationToken),
+                cancellationToken),
+            ChannelPostDecision.Reaffirm => await Invalidating(
+                business.ReaffirmAsync(userId, contextId, channelKey, cancellationToken),
+                cancellationToken),
 
             // Regenerate reaches the AI module's request seam, never this one. The route decides that before
             // calling here; this is the backstop for a worker or plugin that did not.
@@ -177,19 +182,39 @@ internal sealed class SocialPackageFacade(
         string userId, Guid contextId, string channelKey, Guid revisionId, CancellationToken cancellationToken) =>
         Unnamed(channelKey) is { } unnamed
             ? Task.FromResult(Failure(unnamed))
-            : business.AcceptAsync(userId, contextId, channelKey, revisionId, cancellationToken);
+            : Invalidating(
+                business.AcceptAsync(userId, contextId, channelKey, revisionId, cancellationToken), cancellationToken);
 
     public Task<OperationResult<SocialPackageServiceModel>> RejectAsync(
         string userId, Guid contextId, string channelKey, Guid revisionId, CancellationToken cancellationToken) =>
         Unnamed(channelKey) is { } unnamed
             ? Task.FromResult(Failure(unnamed))
-            : business.RejectAsync(userId, contextId, channelKey, revisionId, cancellationToken);
+            : Invalidating(
+                business.RejectAsync(userId, contextId, channelKey, revisionId, cancellationToken), cancellationToken);
 
     public Task<OperationResult<SocialPackageServiceModel>> ReaffirmAsync(
         string userId, Guid contextId, string channelKey, CancellationToken cancellationToken) =>
         Unnamed(channelKey) is { } unnamed
             ? Task.FromResult(Failure(unnamed))
-            : business.ReaffirmAsync(userId, contextId, channelKey, cancellationToken);
+            : Invalidating(business.ReaffirmAsync(userId, contextId, channelKey, cancellationToken), cancellationToken);
+
+    /// <summary>
+    /// Retires the workspace's cached themed-day histories once a write has committed, and only when it did.
+    /// Every write to a channel is covered rather than only the decisions: a new draft cannot take an accepted
+    /// post out of the history, but it does clear a review mark the history reports.
+    /// </summary>
+    private async Task<OperationResult<SocialPackageServiceModel>> Invalidating(
+        Task<OperationResult<SocialPackageServiceModel>> write, CancellationToken cancellationToken)
+    {
+        var result = await write;
+
+        if (result.Succeeded)
+        {
+            await history.InvalidateAsync(cancellationToken);
+        }
+
+        return result;
+    }
 
     // Contributor: drafting a post is contributing creator content, the same bar as shaping the context it is
     // for. The backstop for a worker or plugin reaching the facade directly; the bar for a decision depends on

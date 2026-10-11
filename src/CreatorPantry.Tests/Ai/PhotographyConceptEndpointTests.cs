@@ -14,8 +14,10 @@ namespace CreatorPantry.Tests.Ai;
 public sealed class PhotographyConceptEndpointTests
 {
     /// <summary>
-    /// Six fields, and the contract's real content is what is absent: no task, no scope, no prompt, no model,
-    /// no provider parameter, no concept count and no workspace, because the type has nowhere to put one.
+    /// A handful of fields, and the contract's real content is what is absent: no task, no scope, no prompt,
+    /// no model, no provider parameter, no concept count and no workspace, because the type has nowhere to put
+    /// one. The piece of work the shoot is for (AF.7.4) is named by its own id, which is resolved inside the
+    /// route's workspace like the recipe is; the switch beside it can only leave the day's notes out.
     /// </summary>
     [Fact]
     public void The_request_carries_only_a_channel_a_recipe_pin_and_what_the_creator_described()
@@ -27,8 +29,8 @@ public sealed class PhotographyConceptEndpointTests
 
         Assert.Equal(
             [
-                "ChannelKey", "CreatorConcept", "DishName", "RecipeId", "RecipeVersionId", "SceneOverrides",
-                "StyleOverrides",
+                "ApplyDayNotes", "ChannelKey", "CreativeContextId", "CreatorConcept", "DishName", "RecipeId",
+                "RecipeVersionId", "SceneOverrides", "StyleOverrides",
             ],
             fields);
     }

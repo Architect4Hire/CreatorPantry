@@ -22,10 +22,19 @@ public interface IContentStalenessFacade : IRecipeChangeConsumer
     Task<ContentCurrencyServiceModel?> GetCurrencyAsync(Guid proposalId, CancellationToken cancellationToken);
 }
 
-internal sealed class ContentStalenessFacade(IContentStalenessBusiness business) : IContentStalenessFacade
+internal sealed class ContentStalenessFacade(
+    IContentStalenessBusiness business,
+    IThemedDayHistoryInvalidationFacade history) : IContentStalenessFacade
 {
-    public async Task OnRecipeVersionChangedAsync(RecipeVersionChangedEvent change, CancellationToken cancellationToken) =>
+    public async Task OnRecipeVersionChangedAsync(RecipeVersionChangedEvent change, CancellationToken cancellationToken)
+    {
         await business.ApplyRecipeChangeAsync(change.RecipeId, cancellationToken);
+
+        // A recipe change can mark accepted posts for review, which a themed day's history reports. Retired
+        // whether or not this change marked any: the sweep does not say, and a spare invalidation costs one
+        // re-derivation.
+        await history.InvalidateAsync(cancellationToken);
+    }
 
     public Task<ContentCurrencyServiceModel?> GetCurrencyAsync(Guid proposalId, CancellationToken cancellationToken) =>
         business.GetCurrencyAsync(proposalId, cancellationToken);

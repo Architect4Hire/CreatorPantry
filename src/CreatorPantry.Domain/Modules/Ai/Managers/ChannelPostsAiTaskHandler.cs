@@ -76,7 +76,14 @@ internal sealed class ChannelPostsAiTaskHandler(
 
         // Through the content module's facade, under the workspace filter: another workspace's context is not
         // found rather than found and rejected, and the two get one answer.
-        var assembled = await creativeContexts.AssembleAsync(contextId.Value, AiTaskType.ChannelPosts, cancellationToken);
+        var assembled = await creativeContexts.AssembleAsync(
+            contextId.Value,
+            AiTaskType.ChannelPosts,
+
+            // The creator's own switch for this one run, read back from the request. It can only take the
+            // day's notes away; what the task may be told at all is the selection table's to say.
+            new CreativeContextPackageOptions(ChannelPostsInputs.ReadApplyDayNotes(context.Inputs)),
+            cancellationToken);
 
         if (!assembled.Succeeded)
         {
@@ -136,6 +143,21 @@ internal sealed class ChannelPostsAiTaskHandler(
                 ChangeIndex = null,
             });
         }
+
+        // Server-written for the same reason: only the server knows the theme had notes and that this run left
+        // them out. Without it these posts would read exactly like posts for a day that has no notes at all,
+        // and a creator comparing them with last week's would have nothing to explain the difference.
+        if (package.Omissions.Contains(CreativeContextOmission.StandingNotesSwitchedOff))
+        {
+            warnings.Insert(0, new AiOutputWarning
+            {
+                Kind = AiWarningKind.Limitation,
+                Message = $"[{ChannelPostFindings.DayNotesSwitchedOff}] These posts were written without the day's "
+                    + "standing notes, because they were switched off for this run.",
+                ChangeIndex = null,
+            });
+        }
+
         var attempt = outcome.Attempts[^1];
         var pinned = package.Recipes.Count > 0 ? package.Recipes[0].RecipeVersionId : (Guid?)null;
 
@@ -490,6 +512,9 @@ public static class ChannelPostFindings
     public const string Markup = "posts.markup";
 
     public const string BrandGuidanceUnavailable = "posts.brand_guidance_unavailable";
+
+    /// <summary>The themed day has standing notes and the creator switched them off for this run (AF.7.4).</summary>
+    public const string DayNotesSwitchedOff = "posts.day_notes_switched_off";
 
     public static string CodeFor(CreatorPantry.Domain.Managers.Reference.ChannelWritingFindingCode code) => code switch
     {

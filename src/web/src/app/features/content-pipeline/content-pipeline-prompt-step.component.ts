@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { CpBadgeComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { FormsModule } from '@angular/forms';
@@ -60,6 +60,12 @@ export class ContentPipelinePromptStepComponent {
   readonly recipe = input<LinkedRecipe | null>(null);
   /** The shell's hold on the run's creative context, handed on to the reference panel (AF.3.5). */
   readonly session = input<CreativeContextSession | null>(null);
+
+  /**
+   * Whether what is asked for on this step follows the day's standing notes (AF.7.4). One value for the looks
+   * and the prompt together, so a creator says it once; for this visit only.
+   */
+  protected readonly applyDayNotes = signal(true);
   readonly changed = output<ContentPipelineDraft>();
   readonly announced = output<string>();
 

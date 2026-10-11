@@ -92,6 +92,44 @@ public sealed class PhotographyConceptIsolationEndpointTests : IAsyncLifetime
         Assert.Equal(WithoutTraceId(missingBody), WithoutTraceId(crossingBody));
     }
 
+    /// <summary>
+    /// The piece of work a shoot is for (AF.7.4) is named by an id a client supplies, exactly as a recipe is,
+    /// and is held to exactly the same rule: a neighbour's is answered as one that does not exist, before
+    /// anything is queued or charged for.
+    /// </summary>
+    [Fact]
+    public async Task A_piece_of_work_in_another_workspace_is_answered_as_one_that_does_not_exist()
+    {
+        using var mine = await OwnerOf(_fixture.WorkspaceA);
+        using var theirs = await OwnerOf(_fixture.WorkspaceB);
+
+        var neighbours = await CreateContextAsync(theirs, _fixture.WorkspaceB);
+
+        var crossing = await AskAsync(mine, _fixture.WorkspaceA, new { dishName = "Lentil ragu", creativeContextId = neighbours });
+        var missing = await AskAsync(mine, _fixture.WorkspaceA, new { dishName = "Lentil ragu", creativeContextId = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.NotFound, crossing.StatusCode);
+        Assert.Equal(missing.StatusCode, crossing.StatusCode);
+
+        var crossingBody = await BodyOf(crossing);
+        var missingBody = await BodyOf(missing);
+
+        Assert.Equal(
+            AiPhotographyConceptRequestErrors.ContextNotFound,
+            crossingBody.GetProperty("code").GetString());
+        Assert.Equal(WithoutTraceId(missingBody), WithoutTraceId(crossingBody));
+
+        // And the creator's own piece of work is accepted, with or without its day's notes.
+        var own = await CreateContextAsync(mine, _fixture.WorkspaceA);
+
+        var followed = await AskAsync(mine, _fixture.WorkspaceA, new { dishName = "Lentil ragu", creativeContextId = own });
+        var switchedOff = await AskAsync(
+            mine, _fixture.WorkspaceA, new { dishName = "Lentil ragu", creativeContextId = own, applyDayNotes = false });
+
+        Assert.Equal(HttpStatusCode.Accepted, followed.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, switchedOff.StatusCode);
+    }
+
     /// <summary>A creator's own recipe is accepted, so the refusal above is the boundary and not the pin.</summary>
     [Fact]
     public async Task A_recipe_in_the_callers_own_workspace_is_accepted()
@@ -191,6 +229,18 @@ public sealed class PhotographyConceptIsolationEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         return (await BodyOf(response)).GetProperty("recipeId").GetGuid();
+    }
+
+    private static async Task<Guid> CreateContextAsync(GatewayClient client, SeededWorkspace workspace)
+    {
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/workspaces/{workspace.Slug}/creative-contexts",
+            new { workingTitle = "Lentil ragu, Monday" },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        return (await BodyOf(response)).GetProperty("id").GetGuid();
     }
 
     private static async Task<JsonElement> BodyOf(HttpResponseMessage response) =>

@@ -27,6 +27,9 @@ public static class ContentErrorCodes
     /// </summary>
     public const string WeeklyThemesLimit = "content.weekly_themes.limit.unprocessable";
 
+    /// <summary>The cursor was not issued for this theme's history. Start again without one.</summary>
+    public const string ThemedDayHistoryCursorInvalid = "content.weekly_theme.history.cursor.invalid";
+
     /// <summary>
     /// The seed request is not usable: a malformed token, a day that is not a day, or a pinned facet naming
     /// something no catalogue has or that is no longer offered. Carries field errors.

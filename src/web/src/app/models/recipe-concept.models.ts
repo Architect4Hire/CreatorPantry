@@ -44,6 +44,13 @@ export interface RequestRecipeConceptsRequest {
   readonly season: string | null;
   readonly timeBudget: string | null;
   readonly creatorStyle: string | null;
+  /**
+   * The piece of work these ideas are for, when the studio was opened for one (AF.7.4). The server reads only
+   * its themed day from it — the theme, its standing notes and what was already made for it.
+   */
+  readonly creativeContextId?: string | null;
+  /** False to ask for these ideas without the day's standing notes. Means nothing without a piece of work. */
+  readonly applyDayNotes?: boolean;
 }
 
 export const EMPTY_RECIPE_CONCEPTS_REQUEST: RequestRecipeConceptsRequest = {
@@ -62,10 +69,13 @@ export const EMPTY_RECIPE_CONCEPTS_REQUEST: RequestRecipeConceptsRequest = {
 };
 
 /** Every field is optional on the wire, so a blank one is omitted rather than sent as an empty string. */
+/** The brief's own fields: every key of the request that is the creator's text. */
+type BriefField = Exclude<keyof RequestRecipeConceptsRequest, 'creativeContextId' | 'applyDayNotes'>;
+
 export function encodeRequestRecipeConceptsRequest(request: RequestRecipeConceptsRequest): Record<string, unknown> {
   const body: Record<string, unknown> = {};
 
-  const set = (key: keyof RequestRecipeConceptsRequest): void => {
+  const set = (key: BriefField): void => {
     const value = (request[key] ?? '').trim();
     if (value.length > 0) body[key] = value;
   };
@@ -82,6 +92,13 @@ export function encodeRequestRecipeConceptsRequest(request: RequestRecipeConcept
   set('season');
   set('timeBudget');
   set('creatorStyle');
+
+  if (request.creativeContextId) {
+    body['creativeContextId'] = request.creativeContextId;
+    // Inside the piece of work's own branch, and only when it is off: a request that never mentions the
+    // switch is the request it always was.
+    if (request.applyDayNotes === false) body['applyDayNotes'] = false;
+  }
 
   return body;
 }

@@ -7,6 +7,7 @@ import {
   effect,
   inject,
   input,
+  model,
   output,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +17,7 @@ import { AiOperationStatusComponent } from '../ai/ai-operation-status.component'
 import { AiOperationTracker } from '../ai/ai-operation-tracker';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { ConfirmService } from '../../core/confirm.service';
+import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice.component';
 import {
   CONTENT_PIPELINE_LIMITS,
   ContentPipelineConfig,
@@ -55,6 +57,7 @@ import { IdempotencyKey } from './content-pipeline-idempotency';
     CpNoticeComponent,
     AiOperationStatusComponent,
     AiAllowanceNoticeComponent,
+    DayNotesNoticeComponent,
   ],
   templateUrl: './content-pipeline-prompt-panel.component.html',
   styleUrl: './content-pipeline-prompt-panel.component.css',
@@ -66,6 +69,26 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
   private readonly confirm = inject(ConfirmService);
   private readonly destroyRef = inject(DestroyRef);
 
+  /**
+   * Whether the next prompt follows the day's standing notes. A choice about one run, so it lives here for
+   * this visit only and starts on again every time.
+   *
+   * Two-way, because a page can host more than one panel for the same piece of work: the host binds them all
+   * to one value, so switching the notes off beside the looks switches them off beside the prompt too.
+   */
+  readonly applyDayNotes = model(true);
+
+  /**
+   * What the request says about the work's themed day: nothing at all when no work is filed, the work alone
+   * when its notes are followed, and the switch only when the creator turned them off.
+   */
+  private themedDay(): { readonly creativeContextId?: string; readonly applyDayNotes?: boolean } {
+    const creativeContextId = this.creativeContextId();
+    if (creativeContextId === null) return {};
+
+    return this.applyDayNotes() ? { creativeContextId } : { creativeContextId, applyDayNotes: false };
+  }
+
   readonly workspaceSlug = input.required<string>();
   readonly config = input.required<ContentPipelineConfig>();
   readonly prompt = input.required<ContentPipelinePromptState>();
@@ -74,6 +97,13 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
    * Sent as `recipeId` and `recipeVersionId`; null sends neither.
    */
   readonly recipe = input<LinkedRecipe | null>(null);
+  /**
+   * The piece of work this prompt is for, when the host has one filed (AF.7.4). Sent with the request so the
+   * server can read its themed day; null composes the prompt exactly as before.
+   */
+  readonly creativeContextId = input<string | null>(null);
+  /** That work's themed day, for the notice that says its standing notes are in effect. */
+  readonly themeKey = input<string | null>(null);
   readonly changed = output<ContentPipelinePromptState>();
   readonly announced = output<string>();
 
@@ -214,6 +244,7 @@ export class ContentPipelinePromptPanelComponent implements OnInit {
           briefDocumentId: latest.brief?.documentId ?? null,
           sceneOverrides: config.scene,
           styleOverrides: config.style,
+          ...this.themedDay(),
         },
         this.idempotency.next(),
       ),

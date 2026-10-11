@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, Subject } from 'rxjs';
 
 import { AiProposalDetail, AiProposalStatus, AiProposedChange } from '../../models/ai-proposal.models';
@@ -13,6 +14,7 @@ import { RequestPhotographyConceptsRequest } from '../../models/photography-conc
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
 import { PhotographyConceptService } from '../../services/photography-concept.service';
+import { WeeklyThemesService } from '../../services/weekly-themes.service';
 import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentPipelineConceptPanelComponent } from './content-pipeline-concept-panel.component';
 
@@ -77,6 +79,8 @@ const TWO_LOOKS = proposal([
     [prompt]="prompt()"
     [brief]="brief()"
     [recipe]="recipe()"
+    [creativeContextId]="contextId()"
+    [themeKey]="themeKey()"
     (changed)="apply($event)"
     (announced)="announcements.push($event)"
   />`,
@@ -87,6 +91,9 @@ class HostComponent {
   /** The brief the surface hands in: whatever the creator chose to plan the picture from. */
   readonly brief = signal('Develop a Thai main course using the stir-fry method.');
   readonly recipe = signal<LinkedRecipe | null>(null);
+  /** The work the looks are for, and its themed day. Neither is set unless a test sets it. */
+  readonly contextId = signal<string | null>(null);
+  readonly themeKey = signal<string | null>(null);
   readonly announcements: string[] = [];
 
   apply(next: ContentPipelinePromptState): void {
@@ -169,8 +176,72 @@ describe('ContentPipelineConceptPanelComponent', () => {
           provide: AiUsageService,
           useValue: { allowance: signal<AiAllowanceState>({ kind: 'unknown' }), ensureLoaded: () => Promise.resolve() },
         },
+
+        // The notice about the day's standing notes reads the week, and links to themed days.
+        provideRouter([]),
+        {
+          provide: WeeklyThemesService,
+          useValue: {
+            getWeek: () =>
+              Promise.resolve({
+                status: 'found',
+                themes: [
+                  {
+                    day: 'Monday',
+                    key: 'meat-free-monday',
+                    displayName: 'Meat-free Monday',
+                    description: null,
+                    standingNotes: 'Always shot overhead.',
+                    retiredAt: null,
+                    revision: 1,
+                  },
+                ],
+              }),
+          },
+        },
       ],
     });
+  });
+
+  // ---- The themed day's standing notes (AF.7.4) ----
+
+  it('says nothing about a themed day, and sends none, for looks that are for no filed work', async () => {
+    await mount();
+    await click('Plan some looks');
+
+    expect(el.querySelector('cp-day-notes-notice cp-notice')).toBeNull();
+    expect('creativeContextId' in requests[0]).toBeFalse();
+    expect('applyDayNotes' in requests[0]).toBeFalse();
+  });
+
+  it('names the work on the request, and tells the creator its day’s notes are in effect', async () => {
+    await mount();
+    host.contextId.set('ctx-1');
+    host.themeKey.set('meat-free-monday');
+    await settle();
+
+    expect(el.querySelector('cp-day-notes-notice cp-notice')?.textContent).toContain('are in effect');
+
+    await click('Plan some looks');
+
+    expect(requests[0].creativeContextId).toBe('ctx-1');
+    expect('applyDayNotes' in requests[0]).toBeFalse();
+  });
+
+  it('says so on the request when the creator switches the day’s notes off for this run', async () => {
+    await mount();
+    host.contextId.set('ctx-1');
+    host.themeKey.set('meat-free-monday');
+    await settle();
+
+    (el.querySelector('cp-day-notes-notice input[type="checkbox"]') as HTMLInputElement).click();
+    await settle();
+    expect(el.querySelector('cp-day-notes-notice cp-notice')?.textContent).toContain('switched off for this run');
+
+    await click('Plan some looks');
+
+    expect(requests[0].creativeContextId).toBe('ctx-1');
+    expect(requests[0].applyDayNotes).toBeFalse();
   });
 
   it('asks for nothing until the creator does', async () => {

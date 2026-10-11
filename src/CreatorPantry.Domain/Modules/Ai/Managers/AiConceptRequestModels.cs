@@ -47,6 +47,18 @@ public sealed class RequestRecipeConceptsViewModel
     public string? TimeBudget { get; set; }
 
     public string? CreatorStyle { get; set; }
+
+    /// <summary>
+    /// The piece of work these concepts are for, when they are for one (AF.7.4). Only its themed day is read
+    /// from it — the theme, its standing notes and what was already made for it — because the brief above is
+    /// already everything else the creator said.
+    /// </summary>
+    [System.ComponentModel.Description("The creative context these concepts are for. Optional. Only its themed day is read: the theme, its standing notes, and titles of work already made for it.")]
+    public Guid? CreativeContextId { get; set; }
+
+    /// <summary>False to ask for these concepts without the themed day's standing notes. Needs a creative context to mean anything.</summary>
+    [System.ComponentModel.Description("Send false to ask for these concepts without the themed day's standing notes, for this request only. Omit it, or send true, to follow them.")]
+    public bool? ApplyDayNotes { get; set; }
 }
 
 public sealed class RequestRecipeConceptsViewModelValidator : AbstractValidator<RequestRecipeConceptsViewModel>
@@ -77,6 +89,12 @@ public static class AiConceptRequestErrors
 
     /// <summary>AIREC-001 is a real task, switched off for this deployment.</summary>
     public const string TaskNotEnabled = "ai.recipeConcepts.not_enabled";
+
+    /// <summary>
+    /// The piece of work the request names is not one of this workspace's. One answer for an id nobody has and
+    /// for a neighbour's, so the route cannot be used to ask what a neighbour owns (tenancy.md).
+    /// </summary>
+    public const string ContextNotFound = "ai.recipeConceptContext.not_found";
 
     /// <summary>No such request, or one belonging to another workspace: deliberately indistinguishable.</summary>
     public const string RequestNotFound = "ai.recipeConceptRequest.not_found";

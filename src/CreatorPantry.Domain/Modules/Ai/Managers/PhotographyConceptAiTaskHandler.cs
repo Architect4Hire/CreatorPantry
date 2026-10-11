@@ -3,6 +3,8 @@ using System.Text.Json;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Content.Facade;
+using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
@@ -46,6 +48,7 @@ internal sealed class PhotographyConceptAiTaskHandler(
     IPromptTemplateStore templates,
     IBrandContextAssembler brandContext,
     IRecipeFacade recipes,
+    ICreativeContextPackageFacade creativeContexts,
     IClock clock) : IAiTaskHandler
 {
     private static readonly Dictionary<string, string> NoTemplateInputs = new(StringComparer.Ordinal);
@@ -79,6 +82,36 @@ internal sealed class PhotographyConceptAiTaskHandler(
                 "The recipe this shoot was planned for is no longer available.");
         }
 
+        // The themed day of the piece of work this shoot is for, when the request named one (AF.7.4). Day
+        // only: the recipe, the dish name and the creator's brief are this request's own and are read above
+        // and below, so taking them from the piece of work as well would be a second answer to each.
+        CreativeContextPackage? day = null;
+
+        if (PhotographyConceptInputs.ReadContextId(context.Inputs) is { } contextId)
+        {
+            // Through the content module's facade, under the workspace filter: another workspace's piece of
+            // work is not found rather than found and rejected.
+            var assembled = await creativeContexts.AssembleAsync(
+                contextId,
+                AiTaskType.PhotographyConcept,
+                new CreativeContextPackageOptions(
+                    ApplyDayNotes: PhotographyConceptInputs.ReadApplyDayNotes(context.Inputs), DayOnly: true),
+                cancellationToken);
+
+            // The request seam already refused work this workspace does not have, so this is the backstop for
+            // a caller that reached the worker another way. Failed rather than planned without the day: the
+            // creator asked for a shoot that follows this work's day, and one that quietly did not would be
+            // the silent degradation ai.md asks us to surface.
+            if (!assembled.Succeeded)
+            {
+                return Failure(
+                    AiFailureCategory.DomainInvalid,
+                    "The piece of work this shoot was planned for is no longer available.");
+            }
+
+            day = assembled.Value;
+        }
+
         var template = templates.Get(AiTaskCatalog.PhotographyConcept);
         var channelKey = PhotographyConceptInputs.Read(context.Inputs, PhotographyConceptInputs.ChannelKey);
         var package = await AssembleAsync(channelKey, cancellationToken);
@@ -103,6 +136,13 @@ internal sealed class PhotographyConceptAiTaskHandler(
             {
                 builder = builder.AddReference(context.WorkspaceId, excerpts);
             }
+        }
+
+        if (day is not null)
+        {
+            // A reference segment of its own, stamped with the workspace the piece of work was read in, which
+            // the builder refuses if it is not this one. Creator text, fenced, and in the user message.
+            builder = CreativeContextPromptRenderer.AddTo(builder, day);
         }
 
         if (Brief(context.Inputs) is { } brief)
@@ -143,6 +183,18 @@ internal sealed class PhotographyConceptAiTaskHandler(
             });
         }
 
+        // Server-written, because only the server knows the theme had notes and that this run left them out.
+        // Without it these concepts would read like ones planned for a day that has no notes at all.
+        if (day?.Omissions.Contains(CreativeContextOmission.StandingNotesSwitchedOff) is true)
+        {
+            warnings.Add(new AiOutputWarning
+            {
+                Kind = AiWarningKind.Limitation,
+                Message = "These concepts were planned without the day's standing notes, because they were "
+                    + "switched off for this run.",
+            });
+        }
+
         var attempt = outcome.Attempts[^1];
 
         var assembly = AiProposalAssembler.Assemble(
@@ -164,7 +216,11 @@ internal sealed class PhotographyConceptAiTaskHandler(
                 attempt.ModelName,
                 attempt.ModelDeployment),
             clock.UtcNow,
-            package);
+            package,
+
+            // What of the piece of work the model was shown: its day, and nothing else, which is exactly what
+            // this package's checksum covers.
+            day);
 
         return assembly.Succeeded
             ? AiTaskHandlerOutcome.ForProposal(assembly.Proposal!, outcome.Attempts)

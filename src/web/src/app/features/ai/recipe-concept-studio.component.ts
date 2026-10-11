@@ -29,7 +29,13 @@ import { DRAFT_REQUEST_TOO_LARGE_CODE, RecipeDraftService } from '../../services
 import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
-import { HANDOFF_ROUTES, HandoffDestination } from '../../shared/use-this-in/handoff-destinations';
+import { CreativeContextService } from '../../services/creative-context.service';
+import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice.component';
+import {
+  CONTEXT_ROUTE_PARAM,
+  HANDOFF_ROUTES,
+  HandoffDestination,
+} from '../../shared/use-this-in/handoff-destinations';
 import { HandoffSeed, UseThisInComponent } from '../../shared/use-this-in/use-this-in.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
@@ -118,6 +124,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpFormSectionComponent,
     CpListShellComponent,
     CpNoticeComponent,
+    DayNotesNoticeComponent,
     UseThisInComponent,
   ],
   templateUrl: './recipe-concept-studio.component.html',
@@ -133,6 +140,40 @@ export class RecipeConceptStudioComponent {
   private readonly router = inject(Router);
 
   readonly workspaceSlug = this.resolveWorkspaceSlug();
+
+  // ---- The piece of work these ideas are for, when the studio was opened for one (AF.7.4) ----
+
+  private readonly creativeContexts = inject(CreativeContextService);
+
+  /** The work named in the address (`ai-recipe-studio/context/:contextId`), or null for ideas that are for none. */
+  private readonly routeContextId = this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
+
+  /**
+   * What is known about that work: nothing asked for, still being read, read, or not this workspace's to read.
+   * Only a work that was actually read is ever named on a request.
+   */
+  protected readonly work = signal<
+    | { readonly status: 'none' }
+    | { readonly status: 'loading' }
+    | { readonly status: 'found'; readonly id: string; readonly title: string | null; readonly themeKey: string | null }
+    | { readonly status: 'missing' }
+  >(this.routeContextId === null ? { status: 'none' } : { status: 'loading' });
+
+  /**
+   * Whether the next ask follows the day's standing notes. A choice about one run, so it lives here for this
+   * visit only and starts on again every time.
+   */
+  protected readonly applyDayNotes = signal(true);
+
+  protected readonly workTitle = computed(() => {
+    const work = this.work();
+    return work.status === 'found' ? work.title?.trim() || 'untitled work' : '';
+  });
+
+  protected readonly workThemeKey = computed(() => {
+    const work = this.work();
+    return work.status === 'found' ? work.themeKey : null;
+  });
 
   readonly shortFieldMaxLength = SHORT_FIELD_MAX_LENGTH;
   readonly listFieldMaxLength = LIST_FIELD_MAX_LENGTH;
@@ -192,6 +233,26 @@ export class RecipeConceptStudioComponent {
 
   constructor() {
     this.restoreFromUrl();
+
+    if (this.routeContextId !== null) {
+      this.creativeContexts
+        .get(this.workspaceSlug, this.routeContextId)
+        .pipe(takeUntilDestroyed())
+        .subscribe((outcome) =>
+          this.work.set(
+            outcome.status === 'found'
+              ? {
+                  status: 'found',
+                  id: outcome.context.id,
+                  title: outcome.context.workingTitle,
+                  themeKey: outcome.context.weeklyThemeKey,
+                }
+              : // Unknown, a neighbour's, or unreadable just now: ideas can still be asked for, and are asked
+                // for without it rather than naming work the server would refuse.
+                { status: 'missing' },
+          ),
+        );
+    }
 
     // One loop per (request, resume) pair — the key deliberately excludes status, or every transition would
     // tear the loop down and re-ask. Mirrors AiProposalPanelComponent's own constructor wiring.
@@ -325,7 +386,13 @@ export class RecipeConceptStudioComponent {
 
   /** Everything `canRequest` asks, plus an allowance that is known to be spent. */
   readonly canSubmit = computed(
-    () => !this.submitting() && this.canRequest() && !allowanceBlocksNewRequests(this.allowance()),
+    () =>
+      !this.submitting() &&
+      this.canRequest() &&
+      !allowanceBlocksNewRequests(this.allowance()) &&
+      // Not while the work this page was opened for is still being read: asking now would send the brief
+      // without its themed day while the page says the day is on its way.
+      this.work().status !== 'loading',
   );
 
   /** Where a chosen concept can be taken besides a recipe draft. See {@link CONCEPT_HANDOFF_DESTINATIONS}. */
@@ -453,7 +520,22 @@ export class RecipeConceptStudioComponent {
       season: this.season(),
       timeBudget: this.timeBudget(),
       creatorStyle: this.creatorStyle(),
+      ...this.themedDay(),
     };
+  }
+
+  /**
+   * What the request says about the work's themed day: nothing at all when the studio was opened for no work
+   * or the work could not be read, the work alone when its notes are followed, and the switch only when the
+   * creator turned them off.
+   */
+  private themedDay(): { readonly creativeContextId?: string; readonly applyDayNotes?: boolean } {
+    const work = this.work();
+    if (work.status !== 'found') return {};
+
+    return this.applyDayNotes()
+      ? { creativeContextId: work.id }
+      : { creativeContextId: work.id, applyDayNotes: false };
   }
 
   async submit(): Promise<void> {

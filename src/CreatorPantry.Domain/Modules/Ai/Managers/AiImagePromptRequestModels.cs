@@ -84,6 +84,17 @@ public sealed class RequestImagePromptViewModel
     /// <summary>Style directions to follow, beyond what the concept already says.</summary>
     [Description("Style directions to follow. Optional.")]
     public IReadOnlyList<string>? StyleOverrides { get; set; }
+
+    /// <summary>
+    /// The piece of work this prompt is for, when it is for one. Only its themed day is read from it — the
+    /// theme and its standing notes — because everything else about the picture is already in this request.
+    /// </summary>
+    [Description("The creative context this prompt is for. Optional. Only its themed day is read: the theme and its standing notes.")]
+    public Guid? CreativeContextId { get; set; }
+
+    /// <summary>False to compose this one prompt without the themed day's standing notes. Needs a creative context to mean anything.</summary>
+    [Description("Send false to compose this prompt without the themed day's standing notes, for this request only. Omit it, or send true, to follow them.")]
+    public bool? ApplyDayNotes { get; set; }
 }
 
 /// <summary>Shape validation for an IMG-002 request.</summary>
@@ -165,6 +176,12 @@ public static class AiImagePromptRequestErrors
     /// <summary>The brief this request names is not a document of this workspace.</summary>
     public const string BriefNotFound = "ai.imagePromptBrief.not_found";
 
+    /// <summary>
+    /// The piece of work this request names is not one of this workspace's. One answer for an id nobody has
+    /// and for a neighbour's.
+    /// </summary>
+    public const string ContextNotFound = "ai.imagePromptContext.not_found";
+
     public const string RequestNotFound = "ai.imagePromptRequest.not_found";
 }
 
@@ -200,6 +217,12 @@ public static class ImagePromptInputs
     public const string SceneOverrides = "sceneOverrides";
 
     public const string StyleOverrides = "styleOverrides";
+
+    /// <summary>The piece of work whose themed day this prompt follows. The same key a shoot plan stores it under.</summary>
+    public const string CreativeContextId = PhotographyConceptInputs.CreativeContextId;
+
+    /// <inheritdoc cref="PhotographyConceptInputs.ApplyDayNotes"/>
+    public const string ApplyDayNotes = PhotographyConceptInputs.ApplyDayNotes;
 
     /// <inheritdoc cref="PhotographyConceptInputs.ListSeparator"/>
     public const string ListSeparator = PhotographyConceptInputs.ListSeparator;

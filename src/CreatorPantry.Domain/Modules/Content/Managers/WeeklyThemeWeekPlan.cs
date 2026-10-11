@@ -7,6 +7,7 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 /// <param name="Day">The day it ends up on.</param>
 /// <param name="DisplayName">The creator's words, already trimmed.</param>
 /// <param name="Description">The creator's note, already trimmed, or null.</param>
+/// <param name="StandingNotes">The creator's standing instructions, already trimmed, or null.</param>
 /// <param name="Retire">
 /// True when this theme is leaving the live week — it was not in the submitted set. Its row and its key survive;
 /// see <c>WorkspaceWeeklyTheme</c>.
@@ -16,6 +17,7 @@ public sealed record WeeklyThemeChange(
     DayOfWeek Day,
     string DisplayName,
     string? Description,
+    string? StandingNotes,
     bool Retire);
 
 /// <summary>

@@ -45,6 +45,11 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+
+            // The concept seam can follow a themed day (AF.7.4), so it asks the content module about a piece
+            // of work when a request names one. Nothing here does, and this fixture has no content module.
+            .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextFacade, CreatorPantry.Tests.Ai.NoCreativeContexts>()
+            .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextPackageFacade, CreatorPantry.Tests.Ai.NoCreativeContexts>()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()
@@ -83,6 +88,9 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
         var business = new AiConceptRequestBusiness(
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
             scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
+
+            // Never reached: the task check refuses first, and this brief names no piece of work.
+            creativeContexts: null!,
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             tasks,
             scope.ServiceProvider.GetRequiredService<IClock>());
@@ -91,6 +99,34 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
 
         Assert.False(outcome.Result.Succeeded);
         Assert.Equal(AiConceptRequestErrors.TaskNotEnabled, outcome.Result.Error!.Code);
+    }
+
+    /// <summary>
+    /// A request that names a piece of work this workspace does not have is refused before anything is queued
+    /// or charged (AF.7.4). This fixture has no content module, so every id is one the workspace does not have
+    /// — which is exactly what an unknown id and a neighbour's both are once the workspace filter has run.
+    /// </summary>
+    [Fact]
+    public async Task A_piece_of_work_the_workspace_does_not_have_is_refused_before_anything_is_queued()
+    {
+        using var scope = _provider.CreateScope();
+        Resolve(scope, WorkspaceA);
+        var business = scope.ServiceProvider.GetRequiredService<IAiConceptRequestBusiness>();
+
+        var brief = Brief();
+        brief.CreativeContextId = Guid.NewGuid();
+
+        var outcome = await business.RequestAsync(brief, "key-1", TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Result.Succeeded);
+        Assert.Equal(AiConceptRequestErrors.ContextNotFound, outcome.Result.Error!.Code);
+
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        Assert.Equal(0, await db.AiOperations.CountAsync(TestContext.Current.CancellationToken));
+
+        // And the same brief with no piece of work named is the request it always was.
+        var plain = await business.RequestAsync(Brief(), "key-2", TestContext.Current.CancellationToken);
+        Assert.True(plain.Result.Succeeded, plain.Result.Error?.Message);
     }
 
     // ---- request shape -----------------------------------------------------------------------------------

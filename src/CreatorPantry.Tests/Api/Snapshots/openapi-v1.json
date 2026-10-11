@@ -17581,7 +17581,7 @@
           "WeeklyThemes"
         ],
         "summary": "Replaces the workspace\u0027s weekly themes.",
-        "description": "Editor or above. One write for the whole week rather than per-theme CRUD: at most seven day-keyed entries\nmake the week a single value, which keeps the write idempotent, lets a creator clear a day by leaving it\nout, and keeps \u0022one theme per day\u0022 an invariant of one transaction instead of a race between endpoints.\n\nA theme is recognised by its \u0060key\u0060, which is stable and is what other records store. Submitting a key the\nworkspace already has keeps that theme \u2014 its \u0060day\u0060, \u0060displayName\u0060 and \u0060description\u0060 are updated, and it is\nbrought back if it was retired. Submitting a new key creates a theme at \u0060revision\u0060 1. A live theme whose\nkey is *absent* is retired, not deleted: its row and its key survive, so a record that already named it\nkeeps resolving, and its day is freed. A request asking for the week the workspace already has writes\nnothing and bumps no revision.\n\n\u0060displayName\u0060 is the creator\u0027s own words and the server does not police them. \u0060key\u0060 must be lowercase and\nmatch \u0060^[a-z0-9][a-z0-9-]*$\u0060; each \u0060day\u0060 and each \u0060key\u0060 may appear once. Two creators saving at the same\ntime is last-write-wins by design \u2014 the week is one value, so there is no field-level merge to lose \u2014 and\na genuine collision between two concurrent replaces answers \u0060409 content.weekly_themes.conflict\u0060. A\nworkspace already holding the maximum number of rows, retired ones included, answers\n\u0060422 content.weekly_themes.limit.unprocessable\u0060; the remedy is to delete a retired theme.",
+        "description": "Editor or above. One write for the whole week rather than per-theme CRUD: at most seven day-keyed entries\nmake the week a single value, which keeps the write idempotent, lets a creator clear a day by leaving it\nout, and keeps \u0022one theme per day\u0022 an invariant of one transaction instead of a race between endpoints.\n\nA theme is recognised by its \u0060key\u0060, which is stable and is what other records store. Submitting a key the\nworkspace already has keeps that theme \u2014 its \u0060day\u0060, \u0060displayName\u0060, \u0060description\u0060 and \u0060standingNotes\u0060 are\nupdated, and it is brought back if it was retired. Submitting a new key creates a theme at \u0060revision\u0060 1. A live theme whose\nkey is *absent* is retired, not deleted: its row and its key survive, so a record that already named it\nkeeps resolving, and its day is freed. A request asking for the week the workspace already has writes\nnothing and bumps no revision.\n\n\u0060standingNotes\u0060 is optional free text the creator writes for the day \u2014 \u0022always under 30 minutes, never\ntofu\u0022 \u2014 of at most 2000 characters. It is stored as written, trimmed at the ends, and is never written or\nrewritten by a model. Like \u0060description\u0060, omitting it or sending it blank clears it, and changing it alone\nbumps that theme\u0027s \u0060revision\u0060. A retired theme keeps its notes.\n\n\u0060displayName\u0060 is the creator\u0027s own words and the server does not police them. \u0060key\u0060 must be lowercase and\nmatch \u0060^[a-z0-9][a-z0-9-]*$\u0060; each \u0060day\u0060 and each \u0060key\u0060 may appear once. Two creators saving at the same\ntime is last-write-wins by design \u2014 the week is one value, so there is no field-level merge to lose \u2014 and\na genuine collision between two concurrent replaces answers \u0060409 content.weekly_themes.conflict\u0060. A\nworkspace already holding the maximum number of rows, retired ones included, answers\n\u0060422 content.weekly_themes.limit.unprocessable\u0060; the remedy is to delete a retired theme.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -17677,6 +17677,98 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/weekly-themes/{key}/history": {
+      "get": {
+        "tags": [
+          "WeeklyThemes"
+        ],
+        "summary": "Returns what the workspace has already made for one themed day.",
+        "description": "The pieces of work carrying this theme\u0027s \u0060key\u0060 that came to something: a picture the creator saved to the\nlibrary and kept for the work (\u0060KeptPicture\u0060), posts they accepted (\u0060AcceptedPosts\u0060), or a recipe the work\nnames that they made by accepting an AI first draft (\u0060AcceptedRecipeDraft\u0060). Work that came to nothing is\nnot listed. Newest outcome first.\n\nThe history is derived from records of what the creator did. It is not stored as history, cannot be\nwritten to, and has no route that changes it. Each item carries the work\u0027s \u0060contextId\u0060, the creator\u0027s own\n\u0060workingTitle\u0060 for it, and the ids of what it came to \u2014 never a post body, recipe text or a picture. An\naccepted post that has since been marked for review stays listed with \u0060needsReview\u0060 set: the acceptance\nstill happened. An archived piece of work stays listed with \u0060isArchived\u0060 set.\n\nBounded: outcomes from the last 365 days, drawn from the 200 most recently touched pieces of work for the\ntheme, at most 50 items in all. \u0060limit\u0060 is 1 to 25 and defaults to 10; out-of-range values are clamped.\nLoop until \u0060nextCursor\u0060 is null. A cursor is bound to the workspace and the theme it was issued for, and\none from anywhere else answers \u0060400 content.weekly_theme.history.cursor.invalid\u0060.\n\nA retired theme\u0027s history reads exactly as it did before it was retired. A key this workspace does not\nhave answers \u0060404 content.weekly_theme.not_found\u0060 \u2014 as does a deleted theme\u0027s and another workspace\u0027s, so\none workspace\u0027s themes are never disclosed to another. Every member including a Viewer may read. The\nresponse is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "description": "The theme\u0027s stable key.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemedDayHistoryItemPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemedDayHistoryItemPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThemedDayHistoryItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -28464,6 +28556,13 @@
               "type": "string"
             },
             "description": "The channels to write for. One to eight known channel keys, no duplicates."
+          },
+          "applyDayNotes": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Send false to write these posts without the themed day\u0027s standing notes, for this request only. Omit it, or send true, to follow them."
           }
         }
       },
@@ -28609,6 +28708,21 @@
               "type": "string"
             },
             "description": "Style directions to follow. Optional."
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The creative context this prompt is for. Optional. Only its themed day is read: the theme and its standing notes.",
+            "format": "uuid"
+          },
+          "applyDayNotes": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Send false to compose this prompt without the themed day\u0027s standing notes, for this request only. Omit it, or send true, to follow them."
           }
         }
       },
@@ -28696,6 +28810,21 @@
               "type": "string"
             },
             "description": "Style directions to follow. Optional."
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The creative context this shoot is for. Optional. Only its themed day is read: the theme, its standing notes, and titles of work already made for it.",
+            "format": "uuid"
+          },
+          "applyDayNotes": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Send false to plan this shoot without the themed day\u0027s standing notes, for this request only. Omit it, or send true, to follow them."
           }
         }
       },
@@ -28818,6 +28947,21 @@
               "null",
               "string"
             ]
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The creative context these concepts are for. Optional. Only its themed day is read: the theme, its standing notes, and titles of work already made for it.",
+            "format": "uuid"
+          },
+          "applyDayNotes": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Send false to ask for these concepts without the themed day\u0027s standing notes, for this request only. Omit it, or send true, to follow them."
           }
         }
       },
@@ -30380,6 +30524,135 @@
           }
         }
       },
+      "ThemedDayHistoryItem": {
+        "required": [
+          "contextId",
+          "workingTitle",
+          "day",
+          "isArchived",
+          "latestOutcomeAt",
+          "outcomes"
+        ],
+        "type": "object",
+        "properties": {
+          "contextId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workingTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "day": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "latestOutcomeAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThemedDayOutcome"
+            }
+          }
+        }
+      },
+      "ThemedDayHistoryItemPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThemedDayHistoryItem"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ThemedDayOutcome": {
+        "required": [
+          "kind",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ThemedDayOutcomeKind"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "channelKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "needsReview": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ThemedDayOutcomeKind": {
+        "enum": [
+          "KeptPicture",
+          "AcceptedPosts",
+          "AcceptedRecipeDraft"
+        ],
+        "type": "string"
+      },
       "UnitConversionMethod": {
         "enum": [
           "SameDimensionFactor",
@@ -30982,6 +31255,7 @@
           "key",
           "displayName",
           "description",
+          "standingNotes",
           "retiredAt",
           "revision",
           "createdAt",
@@ -30999,6 +31273,12 @@
             "type": "string"
           },
           "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standingNotes": {
             "type": [
               "null",
               "string"
@@ -31055,6 +31335,12 @@
             ]
           },
           "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standingNotes": {
             "type": [
               "null",
               "string"

@@ -139,6 +139,8 @@
                 <cp-content-pipeline-setup-step
                   [config]="draft().config"
                   [linkedRecipeTitle]="linkedRecipeTitle()"
+                  [themedDaysLink]="['/', workspaceSlug(), 'settings', 'themed-days']"
+                  [recipeIdeasLink]="recipeIdeasLink()"
                   (changed)="onConfigChanged($event)"
                 />
               }

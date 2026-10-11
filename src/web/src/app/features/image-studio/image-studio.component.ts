@@ -280,6 +280,12 @@ export class ImageStudioComponent {
   protected readonly linkedRecipe = computed(() => linkedRecipeOf(this.session.context()));
 
   /**
+   * Whether what is asked for here follows the day's standing notes (AF.7.4). One value for the looks and the
+   * prompt together, so a creator says it once; for this visit only.
+   */
+  protected readonly applyDayNotes = signal(true);
+
+  /**
    * That recipe with its title, as the picker resolved it.
    *
    * The context names a recipe by id, and a save form offering the link has to show the creator *which*

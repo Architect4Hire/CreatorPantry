@@ -267,6 +267,7 @@ internal sealed class SocialPackageBusiness(
 
         channel.Status = ContentProposalStatus.Accepted;
         channel.AcceptedRevisionId = latest.Id;
+        channel.AcceptedAt = now;
         channel.UpdatedAt = now;
         package.UpdatedAt = now;
 
@@ -406,6 +407,7 @@ internal sealed class SocialPackageBusiness(
 
         channel.Status = ContentProposalStatus.Accepted;
         channel.AcceptedRevisionId = reaffirmed.Id;
+        channel.AcceptedAt = now;
         channel.StaleSince = null;
         channel.StaleReasons = ContentStaleReasons.None;
         channel.UpdatedAt = now;

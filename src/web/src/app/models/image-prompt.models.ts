@@ -92,6 +92,13 @@ export interface RequestImagePromptRequest {
   readonly briefDocumentId: string | null;
   readonly sceneOverrides: readonly string[];
   readonly styleOverrides: readonly string[];
+  /**
+   * The piece of work this prompt is for, when there is one (AF.7.4). The server reads only its themed day
+   * from it — the theme and its standing notes.
+   */
+  readonly creativeContextId?: string | null;
+  /** False to compose this one prompt without the day's standing notes. Means nothing without a piece of work. */
+  readonly applyDayNotes?: boolean;
 }
 
 export function encodeRequestImagePrompt(request: RequestImagePromptRequest): Record<string, unknown> {
@@ -112,6 +119,12 @@ export function encodeRequestImagePrompt(request: RequestImagePromptRequest): Re
   if (request.briefDocumentId) body['briefDocumentId'] = request.briefDocumentId;
   if (request.sceneOverrides.length > 0) body['sceneOverrides'] = [...request.sceneOverrides];
   if (request.styleOverrides.length > 0) body['styleOverrides'] = [...request.styleOverrides];
+  if (request.creativeContextId) {
+    body['creativeContextId'] = request.creativeContextId;
+    // Inside the piece of work's own branch, and only when it is off: a request that never mentions the
+    // switch is the request it always was.
+    if (request.applyDayNotes === false) body['applyDayNotes'] = false;
+  }
 
   return body;
 }

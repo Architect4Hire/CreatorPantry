@@ -1,6 +1,8 @@
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Content.Facade;
+using CreatorPantry.Domain.Modules.Content.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -39,6 +41,7 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 internal sealed class RecipeConceptsAiTaskHandler(
     IAiCompletionGateway gateway,
     IPromptTemplateStore templates,
+    ICreativeContextPackageFacade creativeContexts,
     IClock clock) : IAiTaskHandler
 {
     private static readonly Dictionary<string, string> NoTemplateInputs = [];
@@ -46,13 +49,49 @@ internal sealed class RecipeConceptsAiTaskHandler(
     public async Task<AiTaskHandlerOutcome> HandleAsync(
         AiTaskExecutionContext context, CancellationToken cancellationToken)
     {
+        // The themed day of the piece of work these concepts are for, when the request named one (AF.7.4).
+        // Day only: the brief is this request's own, and everything else the creator said is already in it.
+        CreativeContextPackage? day = null;
+
+        if (PhotographyConceptInputs.ReadContextId(context.Inputs) is { } contextId)
+        {
+            // Through the content module's facade, under the workspace filter: another workspace's piece of
+            // work is not found rather than found and rejected.
+            var assembled = await creativeContexts.AssembleAsync(
+                contextId,
+                AiTaskType.RecipeConcepts,
+                new CreativeContextPackageOptions(
+                    ApplyDayNotes: PhotographyConceptInputs.ReadApplyDayNotes(context.Inputs), DayOnly: true),
+                cancellationToken);
+
+            // The request seam already refused work this workspace does not have; this is the backstop, and it
+            // fails rather than proposing without the day for the reason PhotographyConceptAiTaskHandler gives.
+            if (!assembled.Succeeded)
+            {
+                return AiTaskHandlerOutcome.ForFailure(
+                    AiFailureCategory.DomainInvalid,
+                    "The piece of work these concepts were asked for is no longer available.",
+                    []);
+            }
+
+            day = assembled.Value;
+        }
+
         var template = templates.Get(AiTaskCatalog.RecipeConcepts);
 
-        var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
+        var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(NoTemplateInputs))
             .WithOutputSchema(AiConceptOutputSchema.Json)
-            .WithPreferences(context.WorkspaceId, RenderBrief(context.Inputs))
-            .Build();
+            .WithPreferences(context.WorkspaceId, RenderBrief(context.Inputs));
+
+        if (day is not null)
+        {
+            // A reference segment of its own, stamped with the workspace the piece of work was read in, which
+            // the builder refuses if it is not this one. Creator text, fenced, and in the user message.
+            builder = CreativeContextPromptRenderer.AddTo(builder, day);
+        }
+
+        var envelope = builder.Build();
 
         var outcome = await gateway.CompleteAsync(
             new AiCompletionRequest<AiConceptOutputDocument>(
@@ -73,6 +112,34 @@ internal sealed class RecipeConceptsAiTaskHandler(
 
         var (changes, warnings) = Translate(outcome.Document!);
 
+        // Server-written, and about the notes rather than the answer. A standing note such as "everything on
+        // Monday is nut-free" is a preference the model is asked to follow, and a concept that follows it is
+        // still a pitch: nothing here has checked an ingredient. The template tells the model it may not turn
+        // that into a guarantee; this tells the creator the same thing in the server's own words, whatever the
+        // model wrote, so a concept that reads as an assurance is never the last word on it.
+        if (day?.Day?.StandingNotes is { } followedNotes
+            && AiEditorialClaimScanner.ScanTextForSafetyClaims(followedNotes).Count > 0)
+        {
+            warnings.Add(new AiOutputWarning
+            {
+                Kind = AiWarningKind.SafetyCaution,
+                Message = "The day's standing notes mention a dietary, allergen or safety term. These concepts were "
+                    + "asked to follow that as a preference; nothing here checks or guarantees that any of them is "
+                    + "free of an allergen, safe for anyone, or suitable for a diet.",
+            });
+        }
+
+        // Server-written, because only the server knows the theme had notes and that this run left them out.
+        if (day?.Omissions.Contains(CreativeContextOmission.StandingNotesSwitchedOff) is true)
+        {
+            warnings.Add(new AiOutputWarning
+            {
+                Kind = AiWarningKind.Limitation,
+                Message = "These concepts were proposed without the day's standing notes, because they were "
+                    + "switched off for this run.",
+            });
+        }
+
         // The attempt that actually produced this document -- the last one, whether or not it was a
         // correction -- is what provenance should name, not the gateway's own configured defaults.
         var attempt = outcome.Attempts[^1];
@@ -92,7 +159,10 @@ internal sealed class RecipeConceptsAiTaskHandler(
                 attempt.ProviderName,
                 attempt.ModelName,
                 attempt.ModelDeployment),
-            clock.UtcNow);
+            clock.UtcNow,
+
+            // What of the piece of work the model was shown: its day, and nothing else.
+            creativeContext: day);
 
         return assembly.Succeeded
             ? AiTaskHandlerOutcome.ForProposal(assembly.Proposal!, outcome.Attempts)

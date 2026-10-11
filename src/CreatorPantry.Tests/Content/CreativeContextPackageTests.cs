@@ -1721,6 +1721,300 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
             banned.Any(word => item.property.Name.Contains(word, StringComparison.OrdinalIgnoreCase)));
     }
 
+    // ---- The themed day: standing notes and what was already made (AF.7.4) ----
+
+    private const string StandingNotes = "Always under 30 minutes.\nNever tofu.";
+
+    /// <summary>A theme with standing notes, written straight to the table.</summary>
+    private Task<int> NotedThemeAsync(
+        Guid workspaceId, string key, string? notes, string name = "Meat-free Monday", DayOfWeek day = DayOfWeek.Monday) =>
+        DbAsync(workspaceId, async db =>
+        {
+            db.WorkspaceWeeklyThemes.Add(new WorkspaceWeeklyTheme
+            {
+                Id = Guid.NewGuid(),
+                Day = day,
+                Key = key,
+                DisplayName = name,
+                StandingNotes = notes,
+                Revision = 4,
+                CreatedAt = Now,
+                UpdatedAt = Now,
+            });
+
+            return await db.SaveChangesAsync(Ct);
+        });
+
+    /// <summary>Another piece of work for the theme that came to something: a picture kept at <paramref name="at"/>.</summary>
+    private async Task<CreativeContext> MadeAsync(Guid workspaceId, string? title, string themeKey, DateTimeOffset at)
+    {
+        var made = await ContextAsync(workspaceId, title: title, brief: null, themeKey: themeKey);
+        var assetId = await DbAsync(workspaceId, db => CreativeContextSeeds.MediaAssetAsync(db, workspaceId, Now, Ct));
+
+        await DbAsync(workspaceId, async db =>
+        {
+            var reference = CreativeContextSeeds.Reference(made, CreativeContextReferenceKind.DamAsset, _nextOrder++, at);
+            reference.MediaAssetId = assetId;
+            reference.Purpose = CreativeContextReferencePurpose.Keeper;
+            db.CreativeContextReferences.Add(reference);
+
+            return await db.SaveChangesAsync(Ct);
+        });
+
+        return made;
+    }
+
+    private async Task<CreativeContextPackage> AssembleAsync(
+        Guid workspaceId, Guid contextId, AiTaskType task, CreativeContextPackageOptions options)
+    {
+        var result = await InAsync(workspaceId, services =>
+            services.GetRequiredService<ICreativeContextPackageFacade>().AssembleAsync(contextId, task, options, Ct));
+
+        Assert.True(result.Succeeded, result.Error?.Code);
+
+        return result.Value!;
+    }
+
+    [Fact]
+    public async Task Posts_are_given_the_days_standing_notes_exactly_as_the_creator_wrote_them()
+    {
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", $"  {StandingNotes}  ");
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        Assert.Equal(StandingNotes, package.Day!.StandingNotes);
+        Assert.Equal(4, package.Day.ThemeRevision);
+        Assert.DoesNotContain(CreativeContextOmission.StandingNotesSwitchedOff, package.Omissions);
+
+        // One line: the note's own line break is escaped, so none of its lines can start a line of the segment.
+        var brief = CreativeContextPromptRenderer.Brief(package)!;
+        Assert.DoesNotContain("\n", brief, StringComparison.Ordinal);
+        Assert.Contains("\"standingNotes\":\"Always under 30 minutes.\\nNever tofu.\"", brief, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Switching_the_notes_off_for_a_run_leaves_them_out_and_says_so()
+    {
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", StandingNotes);
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+        await MadeAsync(WorkspaceA, "Lentil ragu", "meat-free-monday", Now.AddDays(-1));
+
+        var on = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var off = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.ChannelPosts, new CreativeContextPackageOptions(ApplyDayNotes: false));
+
+        Assert.Null(off.Day!.StandingNotes);
+        Assert.Contains(CreativeContextOmission.StandingNotesSwitchedOff, off.Omissions);
+        Assert.DoesNotContain("tofu", Rendered(off), StringComparison.OrdinalIgnoreCase);
+
+        // The theme itself, and what was already made for it, are not notes and are still carried.
+        Assert.Equal("Meat-free Monday", off.Day.ThemeName);
+        Assert.Equal(["Lentil ragu"], off.Day.AlreadyMade);
+
+        // A model was shown something different, so the two packages do not share a checksum.
+        Assert.NotEqual(on.Checksum, off.Checksum);
+    }
+
+    [Fact]
+    public async Task Switching_off_notes_a_theme_does_not_have_reports_nothing()
+    {
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", notes: null);
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+
+        var package = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.ChannelPosts, new CreativeContextPackageOptions(ApplyDayNotes: false));
+
+        Assert.Null(package.Day!.StandingNotes);
+        Assert.DoesNotContain(CreativeContextOmission.StandingNotesSwitchedOff, package.Omissions);
+    }
+
+    [Fact]
+    public async Task What_was_already_made_is_titles_only_newest_first_bounded_and_never_this_piece()
+    {
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", StandingNotes);
+        var context = await ContextAsync(WorkspaceA, title: "This very piece", themeKey: "meat-free-monday");
+
+        // This piece has an outcome of its own, and is not something to avoid repeating.
+        var ownAsset = await DbAsync(WorkspaceA, db => CreativeContextSeeds.MediaAssetAsync(db, WorkspaceA, Now, Ct));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset, reference =>
+        {
+            reference.MediaAssetId = ownAsset;
+            reference.Purpose = CreativeContextReferencePurpose.Keeper;
+        });
+
+        // Two more than a package carries, the i-th made i days ago.
+        for (var index = 1; index <= CreativeContextPackageSelection.MaxAlreadyMade + 2; index++)
+        {
+            await MadeAsync(WorkspaceA, $"Made {index:00}", "meat-free-monday", Now.AddDays(-index));
+        }
+
+        // Untitled work says nothing that is not invention; work that came to nothing is not history; work
+        // for another theme is another theme's.
+        await MadeAsync(WorkspaceA, title: null, "meat-free-monday", Now.AddHours(-1));
+        await ContextAsync(WorkspaceA, title: "Came to nothing", themeKey: "meat-free-monday");
+        await NotedThemeAsync(WorkspaceA, "taco-tuesday", notes: null, name: "Taco Tuesday", day: DayOfWeek.Tuesday);
+        await MadeAsync(WorkspaceA, "A Tuesday thing", "taco-tuesday", Now.AddHours(-2));
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        // The newest ten that have a title, with this piece and the untitled one stepped over rather than
+        // counted against the cap.
+        Assert.Equal(
+            Enumerable.Range(1, CreativeContextPackageSelection.MaxAlreadyMade).Select(index => $"Made {index:00}"),
+            package.Day!.AlreadyMade);
+        Assert.DoesNotContain("This very piece", package.Day.AlreadyMade);
+
+        // Titles, and nothing that identifies or describes the work behind them.
+        var brief = CreativeContextPromptRenderer.Brief(package)!;
+        Assert.Contains("\"alreadyMadeForThisTheme\":[\"Made 01\",\"Made 02\"", brief, StringComparison.Ordinal);
+        Assert.DoesNotContain(ownAsset.ToString(), Rendered(package), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Came to nothing", Rendered(package), StringComparison.Ordinal);
+        Assert.DoesNotContain("A Tuesday thing", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(AiTaskType.RecipeFirstDraft)]
+    public async Task A_task_whose_template_does_not_say_how_to_treat_them_is_given_neither(AiTaskType task)
+    {
+        // Closed by default: the theme still reaches these tasks as it always did, and its notes and history
+        // do not until the selection table names them for a template that knows what they are.
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", StandingNotes);
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+        await MadeAsync(WorkspaceA, "Lentil ragu", "meat-free-monday", Now.AddDays(-1));
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, task);
+
+        Assert.Equal("Meat-free Monday", package.Day!.ThemeName);
+        Assert.Null(package.Day.StandingNotes);
+        Assert.Empty(package.Day.AlreadyMade);
+        Assert.DoesNotContain("tofu", Rendered(package), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lentil ragu", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task An_image_prompt_is_given_the_days_notes_and_not_what_was_already_made()
+    {
+        // By the time a prompt is written the concept and the shot are chosen, so the subject is decided:
+        // the notes still say how the day's pictures look, and a list of earlier titles has nothing to add.
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", StandingNotes);
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+        await MadeAsync(WorkspaceA, "Lentil ragu", "meat-free-monday", Now.AddDays(-1));
+
+        var package = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.ImagePrompt, new CreativeContextPackageOptions(DayOnly: true));
+
+        Assert.Equal(StandingNotes, package.Day!.StandingNotes);
+        Assert.Empty(package.Day.AlreadyMade);
+        Assert.DoesNotContain("Lentil ragu", Rendered(package), StringComparison.Ordinal);
+        Assert.DoesNotContain("alreadyMadeForThisTheme", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_day_only_package_carries_the_day_and_nothing_else_of_the_work()
+    {
+        // What a shoot plan asks for: its own request already carries the recipe and the brief, so it takes
+        // the day from the piece of work and leaves the rest where it is.
+        var context = await FullContextAsync(WorkspaceA);
+
+        // The full context brings its own theme; give that theme notes.
+        await DbAsync(WorkspaceA, async db =>
+        {
+            var theme = await db.WorkspaceWeeklyThemes.SingleAsync(candidate => candidate.Key == "meat-free-monday", Ct);
+            theme.StandingNotes = StandingNotes;
+
+            return await db.SaveChangesAsync(Ct);
+        });
+        await MadeAsync(WorkspaceA, "Lentil ragu", "meat-free-monday", Now.AddDays(-1));
+
+        var whole = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.PhotographyConcept);
+        var dayOnly = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.PhotographyConcept, new CreativeContextPackageOptions(DayOnly: true));
+
+        // The whole package is what it always was for this task, now with the day's notes and history.
+        Assert.NotNull(whole.Words);
+        Assert.NotEmpty(whole.Recipes);
+        Assert.Equal(StandingNotes, whole.Day!.StandingNotes);
+
+        // The day-only one has the day, complete, and none of the work's own words or sources.
+        Assert.Equal("Meat-free Monday", dayOnly.Day!.ThemeName);
+        Assert.Equal(StandingNotes, dayOnly.Day.StandingNotes);
+        Assert.Equal(["Lentil ragu"], dayOnly.Day.AlreadyMade);
+        Assert.Null(dayOnly.Words);
+        Assert.Empty(dayOnly.Channels);
+        Assert.Empty(dayOnly.Recipes);
+        Assert.Empty(dayOnly.Concepts);
+        Assert.Empty(dayOnly.Pictures);
+        Assert.Empty(dayOnly.Prompts);
+        Assert.Null(CreativeContextPromptRenderer.Sources(dayOnly));
+
+        // Its checksum names what it carries, so it is not the whole package's.
+        Assert.NotEqual(whole.Checksum, dayOnly.Checksum);
+
+        // And asking for the day alone cannot be how a task comes by sections the table never gave it.
+        var draft = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.RecipeFirstDraft, new CreativeContextPackageOptions(DayOnly: true));
+        Assert.Null(draft.Day!.StandingNotes);
+        Assert.Empty(draft.Day.AlreadyMade);
+    }
+
+    [Fact]
+    public async Task A_piece_with_a_day_and_no_theme_carries_no_notes_and_no_history()
+    {
+        var context = await ContextAsync(WorkspaceA);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        Assert.Null(package.Day?.StandingNotes);
+        Assert.Empty(package.Day?.AlreadyMade ?? []);
+        Assert.DoesNotContain("standingNotes", Rendered(package), StringComparison.Ordinal);
+        Assert.DoesNotContain("alreadyMadeForThisTheme", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_notes_and_history_never_reach_a_package_under_the_same_theme_key()
+    {
+        // Both workspaces have a theme under one key. Only B's has notes, and only B has made anything for it.
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", notes: null);
+        await NotedThemeAsync(WorkspaceB, "meat-free-monday", "B only: tofu every single week.");
+        await MadeAsync(WorkspaceB, "B's secret stew", "meat-free-monday", Now.AddDays(-1));
+
+        var mine = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+        var theirs = await ContextAsync(WorkspaceB, themeKey: "meat-free-monday");
+
+        // B first, so its history is cached when A asks under the same key.
+        var packageB = await AssembleAsync(WorkspaceB, theirs.Id, AiTaskType.ChannelPosts);
+        var packageA = await AssembleAsync(WorkspaceA, mine.Id, AiTaskType.ChannelPosts);
+
+        Assert.Equal("B only: tofu every single week.", packageB.Day!.StandingNotes);
+        Assert.Equal(["B's secret stew"], packageB.Day.AlreadyMade);
+
+        Assert.Null(packageA.Day!.StandingNotes);
+        Assert.Empty(packageA.Day.AlreadyMade);
+        Assert.DoesNotContain("tofu", Rendered(packageA), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret stew", Rendered(packageA), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task An_instruction_planted_in_the_notes_is_carried_as_text_and_changes_nothing_else()
+    {
+        await NotedThemeAsync(WorkspaceA, "meat-free-monday", $"Never tofu. {Injection}");
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+
+        var plain = await ContextAsync(WorkspaceA, themeKey: null);
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+        var control = await AssembleAsync(WorkspaceA, plain.Id, AiTaskType.ChannelPosts);
+
+        // The words are there, as the creator's words, in the one place notes go.
+        Assert.Contains(Marker, package.Day!.StandingNotes!, StringComparison.Ordinal);
+        Assert.Contains(Marker, CreativeContextPromptRenderer.Brief(package)!, StringComparison.Ordinal);
+
+        // And nothing a note says can move what the task is, what it may read, or what was left out.
+        Assert.Equal(control.TaskType, package.TaskType);
+        Assert.Equal(control.Omissions, package.Omissions);
+        Assert.Equal(control.Dropped, package.Dropped);
+    }
+
     private sealed class MovableClock : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = Now;

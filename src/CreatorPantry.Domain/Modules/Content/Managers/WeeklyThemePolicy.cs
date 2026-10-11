@@ -17,6 +17,12 @@ public static class WeeklyThemePolicy
     public const int DescriptionMaxLength = 500;
 
     /// <summary>
+    /// The creator's standing instructions for the day. Room for a few paragraphs of rules — well past a
+    /// description, which is a label — and still a bound on what a themed day can add to a prompt.
+    /// </summary>
+    public const int StandingNotesMaxLength = 2000;
+
+    /// <summary>
     /// Seven days, so seven live themes at most. Also the cap on a replace body: an eighth entry could only be
     /// a second theme on some day, which the unique index would refuse anyway.
     /// </summary>

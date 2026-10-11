@@ -9,7 +9,11 @@ import { RequestRecipeConceptsRequest } from '../../models/recipe-concept.models
 import { AiRequestOutcome } from '../../services/ai-request';
 import { RecipeConceptService, RequestConceptsOutcome, WatchConceptsOutcome } from '../../services/recipe-concept.service';
 import { CreativeContextDraft } from '../../models/creative-context.models';
-import { CreativeContextCreateOutcome, CreativeContextService } from '../../services/creative-context.service';
+import {
+  CreativeContextCreateOutcome,
+  CreativeContextReadOutcome,
+  CreativeContextService,
+} from '../../services/creative-context.service';
 import { RecipeDraftService, RequestRecipeDraftRequest } from '../../services/recipe-draft.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { RecipeConceptStudioComponent } from './recipe-concept-studio.component';
@@ -189,10 +193,20 @@ class StubCreativeContextService {
   };
   calls: { slug: string; draft: CreativeContextDraft; key: string }[] = [];
 
+  /** What a read of the work the studio was opened for answers. Not found unless a test says otherwise. */
+  readOutcome: CreativeContextReadOutcome = { status: 'not_found' };
+  reads: { slug: string; contextId: string }[] = [];
+
   create(slug: string, draft: CreativeContextDraft, key: string): Observable<CreativeContextCreateOutcome> {
     this.calls.push({ slug, draft, key });
 
     return of(this.outcome);
+  }
+
+  get(slug: string, contextId: string): Observable<CreativeContextReadOutcome> {
+    this.reads.push({ slug, contextId });
+
+    return of(this.readOutcome);
   }
 }
 
@@ -203,10 +217,15 @@ describe('RecipeConceptStudioComponent', () => {
   let fixture: ComponentFixture<RecipeConceptStudioComponent>;
   let contexts: StubCreativeContextService;
 
+  /** The work in the address, for a studio opened for one (AF.7.4). Null is the studio opened for none. */
+  let routeContextId: string | null = null;
+  let readOutcome: CreativeContextReadOutcome = { status: 'not_found' };
+
   function configure(role: WorkspaceRole = 'Contributor'): void {
     service = new StubRecipeConceptService();
     drafts = new StubRecipeDraftService();
     contexts = new StubCreativeContextService();
+    contexts.readOutcome = readOutcome;
     memberships = new StubMembershipService();
     memberships.state.set({ status: 'ready', memberships: [membership(role)] });
 
@@ -220,7 +239,14 @@ describe('RecipeConceptStudioComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             parent: null,
-            snapshot: { paramMap: convertToParamMap({ workspaceSlug: 'cozy-fall' }), queryParamMap: convertToParamMap({}) },
+            snapshot: {
+              paramMap: convertToParamMap(
+                routeContextId === null
+                  ? { workspaceSlug: 'cozy-fall' }
+                  : { workspaceSlug: 'cozy-fall', contextId: routeContextId },
+              ),
+              queryParamMap: convertToParamMap({}),
+            },
           },
         },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) } },
@@ -299,6 +325,78 @@ describe('RecipeConceptStudioComponent', () => {
   }));
 
   // ---- Errors ----
+
+  // ---- Opened for a piece of work (AF.7.4) ----
+
+  afterEach(() => {
+    routeContextId = null;
+    readOutcome = { status: 'not_found' };
+  });
+
+  it('reads no piece of work and names none on the request when opened for none', fakeAsync(() => {
+    render();
+    typeInto('concept-cuisine', 'Sichuan');
+
+    click('Get concepts');
+
+    expect(contexts.reads.length).toBe(0);
+    expect('creativeContextId' in service.requestCalls[0].request).toBeFalse();
+    expect('applyDayNotes' in service.requestCalls[0].request).toBeFalse();
+    discardPeriodicTasks();
+  }));
+
+  it('says which work the ideas are for, and names it on the request so they follow its themed day', fakeAsync(() => {
+    routeContextId = 'ctx-9';
+    readOutcome = {
+      status: 'found',
+      context: {
+        id: 'ctx-9',
+        workingTitle: 'Monday supper',
+        pictureBrief: null,
+        briefSource: null,
+        workingBrief: null,
+        channelKeys: [],
+        day: 'Monday',
+        weeklyThemeKey: null,
+        references: [],
+        createdAt: '2026-10-09T12:00:00+00:00',
+        updatedAt: '2026-10-09T12:00:00+00:00',
+        archivedAt: null,
+        concurrencyToken: 'AAAAAAAAB9E=',
+      },
+    };
+
+    const host = render();
+
+    expect(contexts.reads).toEqual([{ slug: 'cozy-fall', contextId: 'ctx-9' }]);
+    expect(host.querySelector('.studio-work')?.textContent).toContain('Monday supper');
+
+    typeInto('concept-cuisine', 'Sichuan');
+    click('Get concepts');
+
+    expect(service.requestCalls[0].request.creativeContextId).toBe('ctx-9');
+    // The notes are followed unless the creator says otherwise, so the switch is not on the request.
+    expect('applyDayNotes' in service.requestCalls[0].request).toBeFalse();
+    discardPeriodicTasks();
+  }));
+
+  it('still asks for ideas, without the work, when the work in the address cannot be read', fakeAsync(() => {
+    routeContextId = 'someone-elses';
+    readOutcome = { status: 'not_found' };
+
+    const host = render();
+
+    expect(host.textContent).toContain("couldn't be read");
+    expect(host.querySelector('.studio-work')).toBeNull();
+
+    typeInto('concept-cuisine', 'Sichuan');
+    click('Get concepts');
+
+    // Never named on a request: the server would refuse it, and the creator has been told it is not in play.
+    expect(service.requestCalls.length).toBe(1);
+    expect('creativeContextId' in service.requestCalls[0].request).toBeFalse();
+    discardPeriodicTasks();
+  }));
 
   it('submits only the fields the creator filled in, under one idempotency key', fakeAsync(() => {
     render();

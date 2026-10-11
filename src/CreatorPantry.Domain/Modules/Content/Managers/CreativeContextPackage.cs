@@ -52,6 +52,17 @@ public enum CreativeContextOmission
     /// sentence of alt text is not half a description, it is a cut-off one.
     /// </remarks>
     PictureAnalysisOverCap = 7,
+
+    /// <summary>
+    /// The theme has standing notes and the creator asked for this run to leave them out (AF.7.4).
+    /// </summary>
+    /// <remarks>
+    /// Not a length problem like its neighbours, and reported here all the same, because this list is how a
+    /// handler learns what a package was not given. The handler is what tells the creator: it writes a warning
+    /// beside the proposal, so posts written without the notes do not read like posts for a day that has none.
+    /// Absent when the theme has no notes — there was nothing to leave out.
+    /// </remarks>
+    StandingNotesSwitchedOff = 8,
 }
 
 /// <summary>Where a picture's description came from.</summary>
@@ -86,12 +97,46 @@ public sealed record CreativeContextChannelEntry(string Key, string DisplayName)
 /// The day the piece is for and its theme, in the creator's words.
 /// </summary>
 /// <param name="ThemeRevision">The theme's edit counter when it was read, so a later reader can tell it has moved.</param>
+/// <param name="StandingNotes">
+/// What the creator wants to hold every time something is made for this day, exactly as they wrote it, or null
+/// — when the theme has none, when the task is not one that reads them, or when this run switched them off.
+/// Creator text and so untrusted prompt content: a template may ask a model to follow it as a preference, and
+/// nothing in it can change a rule.
+/// </param>
 public sealed record CreativeContextDayEntry(
     DayOfWeek? Day,
     string? ThemeKey,
     string? ThemeName,
     string? ThemeDescription,
-    int? ThemeRevision);
+    int? ThemeRevision,
+    string? StandingNotes = null)
+{
+    /// <summary>
+    /// Titles of other work this workspace already made for the theme, newest first. Never this piece of work.
+    /// </summary>
+    /// <remarks>
+    /// Titles and nothing else: no post body, no recipe text, no picture and no id. Each is a working title a
+    /// creator typed, or failing that the title of the recipe the work produced — so, like every other word
+    /// here, untrusted prompt content.
+    /// </remarks>
+    public IReadOnlyList<string> AlreadyMade { get; init; } = [];
+}
+
+/// <summary>What one run asked of the package, beyond which piece of work and which task.</summary>
+/// <param name="ApplyDayNotes">
+/// False to leave the theme's standing notes out of this one run. The already-made list is not notes and is
+/// unaffected.
+/// </param>
+/// <param name="DayOnly">
+/// True for a task that already has its own sources — its own request carries the recipe, the dish name and
+/// the creator's brief — and wants from the piece of work only the day it is for: the theme, its notes and
+/// what was already made for it. Everything else is left out, so the package's checksum names exactly what
+/// was added to the prompt and nothing the task read some other way.
+/// </param>
+public sealed record CreativeContextPackageOptions(bool ApplyDayNotes = true, bool DayOnly = false)
+{
+    public static CreativeContextPackageOptions Default { get; } = new();
+}
 
 /// <summary>
 /// Recipe facts, read from one exact immutable version.

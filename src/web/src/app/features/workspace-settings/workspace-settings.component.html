@@ -61,6 +61,18 @@
           </div>
         </form>
       </cp-card>
+
+      <!-- A page of its own rather than a section here: a week of themes, their notes and their history is a
+           screen's worth, and it is saved separately from the setting above. -->
+      <cp-card class="more">
+        <h2 class="more-title">Themed days</h2>
+        <p class="cp-muted">
+          Give a day of your week a standing theme, with notes that what you generate for that day will follow.
+        </p>
+        <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'settings', 'themed-days']">
+          Manage themed days
+        </a>
+      </cp-card>
     }
   }
 </section>

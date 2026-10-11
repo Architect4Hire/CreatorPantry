@@ -81,6 +81,13 @@ internal static partial class WeeklyThemeInputChecks
                 yield return ($"{field}[{index}].Description",
                     $"A description can be at most {WeeklyThemePolicy.DescriptionMaxLength} characters.");
             }
+
+            if (Normalize(theme?.StandingNotes) is { } standingNotes
+                && standingNotes.Length > WeeklyThemePolicy.StandingNotesMaxLength)
+            {
+                yield return ($"{field}[{index}].StandingNotes",
+                    $"Standing notes can be at most {WeeklyThemePolicy.StandingNotesMaxLength} characters.");
+            }
         }
     }
 }

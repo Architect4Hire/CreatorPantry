@@ -2,6 +2,7 @@ using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using Microsoft.AspNetCore.Authorization;
@@ -13,7 +14,9 @@ namespace CreatorPantry.ApiService.Controllers;
 [ApiController]
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/weekly-themes")]
-public sealed class WeeklyThemesController(IWorkspaceWeeklyThemeFacade weeklyThemes) : ControllerBase
+public sealed class WeeklyThemesController(
+    IWorkspaceWeeklyThemeFacade weeklyThemes,
+    IThemedDayHistoryFacade themedDayHistory) : ControllerBase
 {
     /// <summary>Returns the workspace's weekly themes.</summary>
     /// <param name="workspaceSlug">
@@ -50,6 +53,58 @@ public sealed class WeeklyThemesController(IWorkspaceWeeklyThemeFacade weeklyThe
         return Ok(result.Value);
     }
 
+    /// <summary>Returns what the workspace has already made for one themed day.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).
+    /// </param>
+    /// <param name="key">The theme's stable key.</param>
+    /// <param name="query">The cursor and page size.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// The pieces of work carrying this theme's `key` that came to something: a picture the creator saved to the
+    /// library and kept for the work (`KeptPicture`), posts they accepted (`AcceptedPosts`), or a recipe the work
+    /// names that they made by accepting an AI first draft (`AcceptedRecipeDraft`). Work that came to nothing is
+    /// not listed. Newest outcome first.
+    ///
+    /// The history is derived from records of what the creator did. It is not stored as history, cannot be
+    /// written to, and has no route that changes it. Each item carries the work's `contextId`, the creator's own
+    /// `workingTitle` for it, and the ids of what it came to — never a post body, recipe text or a picture. An
+    /// accepted post that has since been marked for review stays listed with `needsReview` set: the acceptance
+    /// still happened. An archived piece of work stays listed with `isArchived` set.
+    ///
+    /// Bounded: outcomes from the last 365 days, drawn from the 200 most recently touched pieces of work for the
+    /// theme, at most 50 items in all. `limit` is 1 to 25 and defaults to 10; out-of-range values are clamped.
+    /// Loop until `nextCursor` is null. A cursor is bound to the workspace and the theme it was issued for, and
+    /// one from anywhere else answers `400 content.weekly_theme.history.cursor.invalid`.
+    ///
+    /// A retired theme's history reads exactly as it did before it was retired. A key this workspace does not
+    /// have answers `404 content.weekly_theme.not_found` — as does a deleted theme's and another workspace's, so
+    /// one workspace's themes are never disclosed to another. Every member including a Viewer may read. The
+    /// response is `no-store`.
+    /// </remarks>
+    [HttpGet("{key}/history")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<CursorPageServiceModel<ThemedDayHistoryItemServiceModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetHistory(
+        string workspaceSlug,
+        string key,
+        [FromQuery] ThemedDayHistoryViewModel query,
+        CancellationToken cancellationToken)
+    {
+        var result = await themedDayHistory.GetPageAsync(key, query, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        Response.Headers.CacheControl = "no-store";
+
+        return Ok(result.Value);
+    }
+
     /// <summary>Replaces the workspace's weekly themes.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).
@@ -66,11 +121,16 @@ public sealed class WeeklyThemesController(IWorkspaceWeeklyThemeFacade weeklyThe
     /// out, and keeps "one theme per day" an invariant of one transaction instead of a race between endpoints.
     ///
     /// A theme is recognised by its `key`, which is stable and is what other records store. Submitting a key the
-    /// workspace already has keeps that theme — its `day`, `displayName` and `description` are updated, and it is
-    /// brought back if it was retired. Submitting a new key creates a theme at `revision` 1. A live theme whose
+    /// workspace already has keeps that theme — its `day`, `displayName`, `description` and `standingNotes` are
+    /// updated, and it is brought back if it was retired. Submitting a new key creates a theme at `revision` 1. A live theme whose
     /// key is *absent* is retired, not deleted: its row and its key survive, so a record that already named it
     /// keeps resolving, and its day is freed. A request asking for the week the workspace already has writes
     /// nothing and bumps no revision.
+    ///
+    /// `standingNotes` is optional free text the creator writes for the day — "always under 30 minutes, never
+    /// tofu" — of at most 2000 characters. It is stored as written, trimmed at the ends, and is never written or
+    /// rewritten by a model. Like `description`, omitting it or sending it blank clears it, and changing it alone
+    /// bumps that theme's `revision`. A retired theme keeps its notes.
     ///
     /// `displayName` is the creator's own words and the server does not police them. `key` must be lowercase and
     /// match `^[a-z0-9][a-z0-9-]*$`; each `day` and each `key` may appear once. Two creators saving at the same

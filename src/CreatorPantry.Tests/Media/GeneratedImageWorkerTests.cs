@@ -1144,4 +1144,8 @@ file sealed class NoProposals : IAiProposalLookupFacade
 
     public Task<AiProposalLineageServiceModel?> FindLineageAsync(Guid aiProposalId, CancellationToken cancellationToken) =>
         Task.FromResult<AiProposalLineageServiceModel?>(null);
+
+    public Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<AiAcceptedDraftServiceModel>>([]);
 }

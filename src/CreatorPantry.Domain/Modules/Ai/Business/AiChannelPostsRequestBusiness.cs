@@ -110,7 +110,7 @@ internal sealed class AiChannelPostsRequestBusiness(
                 RecipeId = null,
                 RecipeVersionId = null,
                 IdempotencyKey = idempotencyKey,
-                TaskInputsJson = SerializeInputs(model.CreativeContextId, requested),
+                TaskInputsJson = SerializeInputs(model.CreativeContextId, requested, model.ApplyDayNotes is not false),
                 RequestedByMembershipId = workspace.MembershipId,
                 RequestedAt = now,
                 StatusChangedAt = now,
@@ -168,12 +168,23 @@ internal sealed class AiChannelPostsRequestBusiness(
     /// (<c>AiTaskInputsIdentity</c>), and every character of it is the creator's question — there are no
     /// world-facts pinned here that a genuine retry could legitimately differ in.
     /// </remarks>
-    private static string SerializeInputs(Guid contextId, IReadOnlyList<string> channelKeys) =>
-        JsonSerializer.Serialize(new Dictionary<string, string>(2, StringComparer.Ordinal)
+    private static string SerializeInputs(Guid contextId, IReadOnlyList<string> channelKeys, bool applyDayNotes)
+    {
+        var inputs = new Dictionary<string, string>(3, StringComparer.Ordinal)
         {
             [ChannelPostsInputs.CreativeContextId] = contextId.ToString("D"),
             [ChannelPostsInputs.ChannelKeys] = string.Join(PhotographyConceptInputs.ListSeparator, channelKeys),
-        });
+        };
+
+        // Written only when it is off; see ChannelPostsInputs.ApplyDayNotes for why. A run with the notes
+        // switched off is a different request from one with them on, so it rightly has a different identity.
+        if (!applyDayNotes)
+        {
+            inputs[ChannelPostsInputs.ApplyDayNotes] = ChannelPostsInputs.Off;
+        }
+
+        return JsonSerializer.Serialize(inputs);
+    }
 
     private static IReadOnlyDictionary<string, string>? DeserializeInputs(string? taskInputsJson) =>
         taskInputsJson is null

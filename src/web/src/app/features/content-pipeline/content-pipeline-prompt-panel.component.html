@@ -1,5 +1,9 @@
 <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
+<!-- Before a prompt is asked for, so a creator knows the day's notes will shape it. Renders nothing unless this
+     work has a themed day and that theme has notes. -->
+<cp-day-notes-notice [workspaceSlug]="workspaceSlug()" [themeKey]="themeKey()" [(apply)]="applyDayNotes" />
+
 @if (chosen(); as pick) {
   <p class="cp-muted">
     For <strong>{{ pick.label }}</strong> — {{ shotLabels[pick.shotKind] }}.

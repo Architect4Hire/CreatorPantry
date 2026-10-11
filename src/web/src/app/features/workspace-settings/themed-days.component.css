@@ -1,0 +1,142 @@
+:host {
+  display: block;
+}
+
+.back {
+  margin: 0 0 var(--cp-space-4);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* The arrow is decoration; the link's own text already says where it goes. */
+.back a::before {
+  content: '← ';
+}
+
+.back a,
+.history a {
+  color: var(--cp-primary);
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+}
+
+.state {
+  margin: 0 0 var(--cp-space-3);
+}
+
+.legend {
+  margin: 0;
+  max-width: var(--cp-measure-field);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.no-theme,
+.day-actions,
+.actions,
+.retired-head,
+.history-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.dirty {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Takes no room until it has something to say. */
+.result:empty {
+  display: none;
+}
+
+.result {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.retired,
+.history-list,
+.outcomes {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.retired-row {
+  display: grid;
+  gap: var(--cp-space-3);
+  padding-top: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+}
+
+.retired-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.retired-name,
+.read-name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.read-label {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+}
+
+.read-text {
+  margin: 0;
+  max-width: var(--cp-measure-field);
+  overflow-wrap: anywhere;
+}
+
+/* A creator's notes are written in lines, and the lines are part of what they said. */
+.notes {
+  white-space: pre-wrap;
+}
+
+/* The target height and the marker are the library's `.cp-disclosure`; this only sizes the label. */
+.history summary {
+  width: fit-content;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+}
+
+.history-body {
+  display: grid;
+  gap: var(--cp-space-3);
+  padding-top: var(--cp-space-2);
+}
+
+.history-item {
+  display: grid;
+  gap: var(--cp-space-1);
+}
+
+.history-head a {
+  overflow-wrap: anywhere;
+}
+
+.outcomes {
+  gap: var(--cp-space-1);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.outcomes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}

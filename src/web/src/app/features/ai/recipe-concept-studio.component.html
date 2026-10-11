@@ -9,6 +9,31 @@
     recipe — choosing one is the start of a draft, not the recipe itself.
   </p>
 
+  <!-- Opened for a piece of work (AF.7.4): say which, so the creator knows what the ideas are for, and say
+       when its themed day has standing notes that will shape them. -->
+  @switch (work().status) {
+    @case ('loading') {
+      <p class="cp-muted" role="status">Reading the work these ideas are for…</p>
+    }
+    @case ('missing') {
+      <cp-notice tone="warning" role="status">
+        The work this page was opened for couldn't be read, so these ideas won't follow its themed day. You can
+        still ask for ideas.
+      </cp-notice>
+    }
+    @case ('found') {
+      <p class="studio-work">
+        Ideas for <strong>{{ workTitle() }}</strong>.
+      </p>
+      <cp-day-notes-notice
+        [workspaceSlug]="workspaceSlug"
+        [themeKey]="workThemeKey()"
+        [usesAlreadyMade]="true"
+        [(apply)]="applyDayNotes"
+      />
+    }
+  }
+
   <!-- A role that cannot ask is a fact about this workspace, not a failure: muted, like the recipe
        calculators' own blocked lines. Only something that went wrong takes the danger tone. -->
   @if (rolesKnown() && !canRequest()) {
@@ -27,8 +52,13 @@
     <form class="brief" (submit)="$event.preventDefault(); submit()">
       <!-- Said once, at the top, rather than marking eleven fields "optional" one by one. -->
       <p class="brief-legend">
-        Every field is optional — fill in as much or as little as you like. Nothing beyond these fields is sent
-        to the model.
+        Every field is optional — fill in as much or as little as you like.
+        @if (work().status === 'found') {
+          These fields are sent to the model, together with this work's themed day: its name, what you say it is
+          about, its standing notes, and the titles of what you have already made for it.
+        } @else {
+          Nothing beyond these fields is sent to the model.
+        }
       </p>
 
       <div class="brief-sections">

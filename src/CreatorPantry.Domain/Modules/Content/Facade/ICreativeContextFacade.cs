@@ -64,7 +64,8 @@ internal sealed class CreativeContextFacade(
     IValidator<CreativeContextListViewModel> listValidator,
     ICreativeContextBusiness business,
     IWorkspaceContext workspace,
-    IIdempotentCommandExecutor idempotency) : ICreativeContextFacade
+    IIdempotentCommandExecutor idempotency,
+    IThemedDayHistoryInvalidationFacade history) : ICreativeContextFacade
 {
     private const string CreateOperation = "content.creative_context.create";
 
@@ -88,11 +89,20 @@ internal sealed class CreativeContextFacade(
             return new(Failure(invalid), Replayed: false);
         }
 
-        return await idempotency.ExecuteAsync(
+        var outcome = await idempotency.ExecuteAsync(
             new IdempotentCommand(
                 userId, workspace.WorkspaceId, CreateOperation, idempotencyKey, model, KeyRequired: false),
             token => business.CreateAsync(userId, model, token),
             cancellationToken);
+
+        // A piece of work can be created already naming a recipe or a kept picture, and so arrive as history
+        // for its theme. A replay invalidates again, which costs one re-derivation and is not worth telling apart.
+        if (outcome.Result.Succeeded)
+        {
+            await history.InvalidateAsync(cancellationToken);
+        }
+
+        return outcome;
     }
 
     public Task<OperationResult<CreativeContextServiceModel>> GetAsync(
@@ -152,7 +162,9 @@ internal sealed class CreativeContextFacade(
             return Failure(invalid);
         }
 
-        return await business.PatchAsync(userId, contextId, model, cancellationToken);
+        // A patch can move a piece of work to another theme, rename it or archive it, each of which changes
+        // what a themed day's history says.
+        return await Invalidating(business.PatchAsync(userId, contextId, model, cancellationToken), cancellationToken);
     }
 
     public async Task<OperationResult<CreativeContextServiceModel>> AddReferenceAsync(
@@ -175,7 +187,9 @@ internal sealed class CreativeContextFacade(
             return Failure(invalid);
         }
 
-        return await business.AddReferenceAsync(contextId, model, cancellationToken);
+        // A keeper picture and a recipe are both references, and both are what a themed day's history is
+        // derived from.
+        return await Invalidating(business.AddReferenceAsync(contextId, model, cancellationToken), cancellationToken);
     }
 
     public Task<OperationResult<CreativeContextServiceModel>> RemoveReferenceAsync(
@@ -191,7 +205,25 @@ internal sealed class CreativeContextFacade(
             return Task.FromResult(Failure(malformed));
         }
 
-        return business.RemoveReferenceAsync(contextId, referenceId, expectedConcurrencyToken, cancellationToken);
+        return Invalidating(
+            business.RemoveReferenceAsync(contextId, referenceId, expectedConcurrencyToken, cancellationToken),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Retires the workspace's cached themed-day histories once a write has committed, and only when it did.
+    /// </summary>
+    private async Task<OperationResult<CreativeContextServiceModel>> Invalidating(
+        Task<OperationResult<CreativeContextServiceModel>> write, CancellationToken cancellationToken)
+    {
+        var result = await write;
+
+        if (result.Succeeded)
+        {
+            await history.InvalidateAsync(cancellationToken);
+        }
+
+        return result;
     }
 
     // Contributor: shaping a piece of work is contributing creator content, the same bar as saving a prompt.

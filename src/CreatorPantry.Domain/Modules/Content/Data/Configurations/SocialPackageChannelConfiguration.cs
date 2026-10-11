@@ -24,6 +24,12 @@ internal sealed class SocialPackageChannelConfiguration : IEntityTypeConfigurati
                 $"Status NOT IN ({(int)ContentProposalStatus.Accepted}, {(int)ContentProposalStatus.NeedsReview}) "
                     + "OR AcceptedRevisionId IS NOT NULL");
 
+            // The instant of acceptance travels with the accepted pointer: neither without the other.
+            table.HasCheckConstraint(
+                "CK_SocialPackageChannels_AcceptedAt_Revision",
+                "(AcceptedRevisionId IS NULL AND AcceptedAt IS NULL) OR "
+                    + "(AcceptedRevisionId IS NOT NULL AND AcceptedAt IS NOT NULL)");
+
             // Staleness is a state, not a residue: present exactly while NeedsReview.
             table.HasCheckConstraint(
                 "CK_SocialPackageChannels_Staleness_Status",

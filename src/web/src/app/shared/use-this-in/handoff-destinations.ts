@@ -42,4 +42,7 @@ export const HANDOFF_ROUTES = {
 
   /** `ai-recipe-studio/draft/context/:contextId` */
   recipeDraft: (contextId: string): readonly string[] => ['ai-recipe-studio', 'draft', CONTEXT_ROUTE_SEGMENT, contextId],
+
+  /** `ai-recipe-studio/context/:contextId` — recipe ideas for a piece of work, so they follow its themed day (AF.7.4). */
+  recipeConcepts: (contextId: string): readonly string[] => ['ai-recipe-studio', CONTEXT_ROUTE_SEGMENT, contextId],
 } as const;

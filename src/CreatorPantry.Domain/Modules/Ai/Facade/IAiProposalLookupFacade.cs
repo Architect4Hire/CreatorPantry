@@ -43,6 +43,14 @@ public interface IAiProposalLookupFacade
     /// </remarks>
     Task<AiProposalLineageServiceModel?> FindLineageAsync(
         Guid aiProposalId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IAiProposalLookupBusiness.ListAcceptedDraftsAsync"/>
+    /// <remarks>
+    /// No role check, for the reason <see cref="ExistsAsync"/> gives. It publishes a recipe id the caller
+    /// supplied and the instant its draft was accepted — never the draft, its prompt or its cost.
+    /// </remarks>
+    Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiProposalLookupFacade"/>
@@ -54,4 +62,8 @@ internal sealed class AiProposalLookupFacade(IAiProposalLookupBusiness business)
     public Task<AiProposalLineageServiceModel?> FindLineageAsync(
         Guid aiProposalId, CancellationToken cancellationToken) =>
         business.FindLineageAsync(aiProposalId, cancellationToken);
+
+    public Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken) =>
+        business.ListAcceptedDraftsAsync(recipeIds, cancellationToken);
 }

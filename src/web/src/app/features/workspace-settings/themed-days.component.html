@@ -1,0 +1,349 @@
+<section class="themed-days" aria-label="Themed days">
+  <p class="back">
+    <a [routerLink]="['/', workspaceSlug, 'settings']">Workspace settings</a>
+  </p>
+
+  @switch (load().status) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your themed days…</p>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <p class="state" role="alert">We couldn't find this workspace.</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <p class="state" role="alert">Your themed days couldn't be loaded right now.</p>
+        <button cpButton type="button" variant="secondary" (click)="init()">Try again</button>
+      </cp-card>
+    }
+    @default {
+      @if (firstUse()) {
+        <cp-card>
+          <cp-empty-state
+            title="Give a day of your week a theme"
+            description="A themed day is a standing idea for one day of the week — a soup day, a baking day. Name it, write down anything that should always hold for it, and what you generate for that day will follow it."
+            icon="🗓"
+          >
+            @if (canEdit()) {
+              <div cpEmptyStateActions>
+                <button cpButton type="button" (click)="startWeek()">Set up your week</button>
+              </div>
+            }
+          </cp-empty-state>
+          @if (!canEdit()) {
+            <cp-notice role="note">An Editor or Owner of this workspace can set up themed days.</cp-notice>
+          }
+        </cp-card>
+      } @else if (canEdit()) {
+        <cp-card>
+          <form class="form" novalidate (submit)="$event.preventDefault(); save()">
+            <!-- Stated once, here: only a theme's name is required, and only when the day has a theme at all. -->
+            <p class="legend">
+              Every day is optional, and most weeks have fewer than seven themes. A day with a theme needs a name;
+              everything else about it is optional.
+            </p>
+
+            @for (day of days; track day) {
+              @let theme = draft()[day];
+              <cp-form-section [heading]="day" [problem]="dayProblems()[day] ?? ''">
+                @if (theme === null) {
+                  <div class="no-theme">
+                    <p class="cp-muted">No theme.</p>
+                    <button cpButton type="button" variant="secondary" size="sm" (click)="addTheme(day)">
+                      Add a theme<span class="cp-sr-only"> for {{ day }}</span>
+                    </button>
+                  </div>
+                } @else {
+                  <cp-field
+                    label="Theme name"
+                    [forId]="fieldId(day, 'displayName')"
+                    [required]="true"
+                    [error]="fieldError(day, 'displayName')"
+                  >
+                    <input
+                      type="text"
+                      autocomplete="off"
+                      [id]="fieldId(day, 'displayName')"
+                      [maxLength]="limits.displayNameMaxLength"
+                      [attr.aria-invalid]="fieldError(day, 'displayName') ? 'true' : null"
+                      [value]="theme.displayName"
+                      (input)="setField(day, 'displayName', $event)"
+                    />
+                  </cp-field>
+
+                  <cp-field
+                    label="Description"
+                    hint="What the day is for, in a sentence."
+                    [forId]="fieldId(day, 'description')"
+                    [error]="fieldError(day, 'description')"
+                  >
+                    <textarea
+                      rows="2"
+                      [id]="fieldId(day, 'description')"
+                      [maxLength]="limits.descriptionMaxLength"
+                      [attr.aria-invalid]="fieldError(day, 'description') ? 'true' : null"
+                      [value]="theme.description"
+                      (input)="setField(day, 'description', $event)"
+                    ></textarea>
+                  </cp-field>
+
+                  <cp-field
+                    label="Standing notes"
+                    [hint]="notesHint(theme.standingNotes)"
+                    [forId]="fieldId(day, 'standingNotes')"
+                    [error]="fieldError(day, 'standingNotes')"
+                  >
+                    <textarea
+                      rows="4"
+                      placeholder="Always under 30 minutes. Never tofu."
+                      [id]="fieldId(day, 'standingNotes')"
+                      [maxLength]="limits.standingNotesMaxLength"
+                      [attr.aria-invalid]="fieldError(day, 'standingNotes') ? 'true' : null"
+                      [value]="theme.standingNotes"
+                      (input)="setField(day, 'standingNotes', $event)"
+                    ></textarea>
+                  </cp-field>
+
+                  <div class="day-actions">
+                    <button cpButton type="button" variant="secondary" size="sm" (click)="takeOffWeek(day)">
+                      {{ theme.key === null ? 'Remove' : 'Take off the week' }}<span class="cp-sr-only">: {{ day }}’s theme</span>
+                    </button>
+                    @if (canDelete() && storedTheme(day); as stored) {
+                      <button
+                        cpButton
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        [disabled]="deleting() !== null"
+                        (click)="deleteTheme(stored)"
+                      >
+                        {{ deleting() === stored.key ? 'Deleting…' : 'Delete permanently' }}<span class="cp-sr-only">: {{ stored.displayName }}</span>
+                      </button>
+                    }
+                  </div>
+
+                  @if (theme.key; as key) {
+                    <ng-container *ngTemplateOutlet="historyBlock; context: { key: key, name: theme.displayName }" />
+                  }
+                }
+              </cp-form-section>
+            }
+
+            @if (retired().length > 0) {
+              <cp-form-section
+                heading="Retired themes"
+                intro="Themes that are off the week. Work that used one still shows it, and you can bring one back to its day."
+              >
+                <ul class="retired">
+                  @for (row of retired(); track row.theme.key) {
+                    <li class="retired-row">
+                      <div class="retired-head">
+                        <span class="retired-name">{{ row.theme.displayName }}</span>
+                        <span class="cp-muted">{{ row.theme.day }}</span>
+                        @if (row.pending) {
+                          <cp-status-pill tone="warning">Comes off the week when you save</cp-status-pill>
+                        } @else {
+                          <cp-status-pill tone="neutral">Retired {{ row.theme.retiredAt | date: 'mediumDate' }}</cp-status-pill>
+                        }
+                      </div>
+                      <div class="day-actions">
+                        <button
+                          cpButton
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          [disabled]="!row.canBringBack"
+                          [attr.aria-describedby]="row.canBringBack ? null : 'retired-blocked-' + row.theme.key"
+                          (click)="bringBack(row.theme)"
+                        >
+                          Bring back<span class="cp-sr-only">: {{ row.theme.displayName }}</span>
+                        </button>
+                        @if (canDelete()) {
+                          <button
+                            cpButton
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            [disabled]="deleting() !== null"
+                            (click)="deleteTheme(row.theme)"
+                          >
+                            {{ deleting() === row.theme.key ? 'Deleting…' : 'Delete permanently' }}<span class="cp-sr-only">: {{ row.theme.displayName }}</span>
+                          </button>
+                        }
+                      </div>
+                      @if (!row.canBringBack) {
+                        <p class="cp-muted" [id]="'retired-blocked-' + row.theme.key">
+                          {{ row.theme.day }} has a theme. Take that one off the week to bring this one back.
+                        </p>
+                      }
+                      <ng-container
+                        *ngTemplateOutlet="historyBlock; context: { key: row.theme.key, name: row.theme.displayName }"
+                      />
+                    </li>
+                  }
+                </ul>
+              </cp-form-section>
+            }
+
+            <div class="actions">
+              <button cpButton type="submit" [disabled]="!dirty() || saving()">
+                {{ saving() ? 'Saving…' : 'Save' }}
+              </button>
+              @if (dirty() && !saving()) {
+                <span class="dirty">Unsaved changes</span>
+              }
+            </div>
+
+            <!-- Present before it has anything to say, so a result is announced reliably. -->
+            <div class="result" aria-live="polite">
+              @switch (saveState().status) {
+                @case ('saved') {
+                  <cp-notice tone="success">Saved your week.</cp-notice>
+                }
+                @case ('invalid') {
+                  <cp-notice tone="error">Something needs another look before this can be saved. It is marked above.</cp-notice>
+                }
+                @case ('conflict') {
+                  <cp-notice tone="warning">
+                    Your week was changed somewhere else while you were editing, so this was not saved. Your edits are
+                    still here.
+                    <button cpButton type="button" variant="secondary" size="sm" (click)="reload()">
+                      Reload the week
+                    </button>
+                  </cp-notice>
+                }
+                @case ('failed') {
+                  <cp-notice tone="error">{{ failureMessage() }}</cp-notice>
+                }
+              }
+              @if (deleteNotice(); as notice) {
+                <cp-notice [tone]="notice.tone">{{ notice.message }}</cp-notice>
+              }
+            </div>
+          </form>
+        </cp-card>
+      } @else {
+        <cp-card>
+          <div class="form">
+            <cp-notice role="note">
+              You can view this workspace's themed days. An Editor or Owner can change them.
+            </cp-notice>
+
+            @for (day of days; track day) {
+              @let theme = draft()[day];
+              <cp-form-section [heading]="day">
+                @if (theme === null) {
+                  <p class="cp-muted">No theme.</p>
+                } @else {
+                  <p class="read-name">{{ theme.displayName }}</p>
+                  @if (theme.description) {
+                    <p class="read-text">{{ theme.description }}</p>
+                  }
+                  @if (theme.standingNotes) {
+                    <h3 class="read-label">Standing notes</h3>
+                    <p class="read-text notes">{{ theme.standingNotes }}</p>
+                  }
+                  @if (theme.key; as key) {
+                    <ng-container *ngTemplateOutlet="historyBlock; context: { key: key, name: theme.displayName }" />
+                  }
+                }
+              </cp-form-section>
+            }
+
+            @if (retired().length > 0) {
+              <cp-form-section heading="Retired themes" intro="Themes that are off the week. Work that used one still shows it.">
+                <ul class="retired">
+                  @for (row of retired(); track row.theme.key) {
+                    <li class="retired-row">
+                      <div class="retired-head">
+                        <span class="retired-name">{{ row.theme.displayName }}</span>
+                        <span class="cp-muted">{{ row.theme.day }}</span>
+                        <cp-status-pill tone="neutral">Retired {{ row.theme.retiredAt | date: 'mediumDate' }}</cp-status-pill>
+                      </div>
+                      <ng-container
+                        *ngTemplateOutlet="historyBlock; context: { key: row.theme.key, name: row.theme.displayName }"
+                      />
+                    </li>
+                  }
+                </ul>
+              </cp-form-section>
+            }
+          </div>
+        </cp-card>
+      }
+    }
+  }
+</section>
+
+<!-- What was already made for one theme. Read the first time it is opened, so a week of seven themes does not
+     cost seven requests to look at. -->
+<ng-template #historyBlock let-key="key" let-name="name">
+  <details class="cp-disclosure history" (toggle)="onHistoryToggle(key, $event)">
+    <summary>Already made<span class="cp-sr-only"> for {{ name }}</span></summary>
+
+    <!-- No live region here: the creator has just opened this and is moving into it, and a region inside a
+         disclosure that may be closed is not one a screen reader can be relied on to announce. The loading
+         line is a status of its own. -->
+    <div class="history-body">
+      @let state = historyOf(key);
+      @if (state === null || state.status === 'loading') {
+        <p class="cp-muted" role="status">Loading what you've made…</p>
+      } @else if (state.status === 'failed') {
+        <cp-notice tone="warning">
+          This list couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="loadHistory(key)">Try again</button>
+        </cp-notice>
+      } @else if (state.items.length === 0) {
+        <p class="cp-muted">Nothing made for this theme in the last year yet.</p>
+      } @else {
+        <ul class="history-list">
+          @for (item of state.items; track item.contextId) {
+            <li class="history-item">
+              <div class="history-head">
+                <a [routerLink]="workLink(item)">{{ item.workingTitle ?? 'Untitled work' }}</a>
+                <span class="cp-muted">{{ item.latestOutcomeAt | date: 'mediumDate' }}</span>
+                @if (item.isArchived) {
+                  <cp-status-pill tone="neutral">Archived</cp-status-pill>
+                }
+              </div>
+              <ul class="outcomes">
+                @for (outcome of item.outcomes; track $index) {
+                  <li>
+                    @if (outcome.kind === 'AcceptedRecipeDraft' && outcome.recipeId; as recipeId) {
+                      <a [routerLink]="recipeLink(recipeId)">{{ outcomeText(outcome) }}</a>
+                    } @else {
+                      {{ outcomeText(outcome) }}
+                    }
+                    @if (outcome.needsReview) {
+                      <cp-status-pill tone="stale">Needs review</cp-status-pill>
+                    }
+                  </li>
+                }
+              </ul>
+            </li>
+          }
+        </ul>
+
+        @if (state.nextCursor !== null) {
+          <button
+            cpButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            [disabled]="state.more === 'loading'"
+            (click)="loadMoreHistory(key)"
+          >
+            {{ state.more === 'loading' ? 'Loading…' : 'Show more' }}<span class="cp-sr-only"> made for {{ name }}</span>
+          </button>
+        }
+        @if (state.more === 'failed') {
+          <cp-notice tone="warning">The rest of this list couldn't be loaded. Try again.</cp-notice>
+        }
+      }
+    </div>
+  </details>
+</ng-template>

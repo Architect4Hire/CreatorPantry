@@ -32,3 +32,17 @@
 .result:empty {
   display: none;
 }
+
+.more {
+  display: block;
+  margin-top: var(--cp-space-6);
+}
+
+.more-title {
+  margin: 0 0 var(--cp-space-2);
+  font-size: var(--cp-font-size-lg);
+}
+
+.more .cp-muted {
+  margin-bottom: var(--cp-space-4);
+}

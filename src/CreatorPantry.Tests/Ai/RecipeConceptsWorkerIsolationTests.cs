@@ -57,6 +57,11 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             .AddSingleton<IAiCompletionGateway>(BuildGateway(chatClient))
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
+
+            // The concept seam can follow a themed day (AF.7.4), so it asks the content module about a piece
+            // of work when a request names one. Nothing here does, and this fixture has no content module.
+            .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextFacade, CreatorPantry.Tests.Ai.NoCreativeContexts>()
+            .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextPackageFacade, CreatorPantry.Tests.Ai.NoCreativeContexts>()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<AiOperationClaimRepository>()

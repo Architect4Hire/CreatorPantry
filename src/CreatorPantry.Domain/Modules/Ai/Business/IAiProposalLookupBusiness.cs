@@ -30,6 +30,18 @@ public interface IAiProposalLookupBusiness
     /// </remarks>
     Task<AiProposalLineageServiceModel?> FindLineageAsync(
         Guid aiProposalId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which of these recipes this workspace created by accepting an AI first draft, and when.
+    /// </summary>
+    /// <remarks>
+    /// For a caller that already holds recipe ids of its own workspace and needs to know which of them are the
+    /// outcome of an accepted draft. Anything else — a hand-written recipe, a rejected draft, a neighbour's
+    /// recipe, <see cref="Guid.Empty"/> — is absent rather than reported, so the answer cannot be used to learn
+    /// whose a recipe is.
+    /// </remarks>
+    Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiProposalLookupBusiness"/>
@@ -47,4 +59,15 @@ internal sealed class AiProposalLookupBusiness(IAiOperationRepository operations
         aiProposalId == Guid.Empty
             ? Task.FromResult<AiProposalLineageServiceModel?>(null)
             : operations.FindProposalLineageAsync(aiProposalId, cancellationToken);
+
+    public async Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recipeIds);
+
+        var asked = recipeIds.Where(id => id != Guid.Empty).Distinct().ToList();
+
+        // Nothing to ask the database, so a caller with no recipes costs no query.
+        return asked.Count == 0 ? [] : await operations.ListAcceptedDraftsAsync(asked, cancellationToken);
+    }
 }

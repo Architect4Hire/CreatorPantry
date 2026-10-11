@@ -56,7 +56,15 @@
     [value]="dayValue()"
     (valueChange)="setDay($event)"
   />
-  <p class="cp-muted">If you have a theme for that day, the idea on the next step will use it.</p>
+  <p class="cp-muted">
+    If you have a theme for that day, the idea on the next step will use it.
+    @if (themedDaysLink(); as link) {
+      <a class="themed-days-link" [routerLink]="link">Manage themed days</a>
+    }
+    @if (recipeIdeasLink(); as link) {
+      <a class="themed-days-link" [routerLink]="link">Get recipe ideas for this day</a>
+    }
+  </p>
   }
 </cp-form-section>
 

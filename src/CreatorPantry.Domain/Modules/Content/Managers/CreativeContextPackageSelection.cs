@@ -18,6 +18,12 @@ public enum CreativeContextSections
     Concept = 32,
     Pictures = 64,
     Prompts = 128,
+
+    /// <summary>The day's theme's standing notes. Only with <see cref="Day"/>: there is no theme without one.</summary>
+    DayNotes = 256,
+
+    /// <summary>Titles of what was already made for the day's theme. Only with <see cref="Day"/>.</summary>
+    DayHistory = 512,
 }
 
 /// <summary>
@@ -34,6 +40,10 @@ public static class CreativeContextPackageSelection
         | CreativeContextSections.Recipe
         | CreativeContextSections.Concept
         | CreativeContextSections.Pictures;
+
+    /// <summary>The day a piece of work is for, and everything about that day: what a day-only run keeps.</summary>
+    public const CreativeContextSections DaySections =
+        CreativeContextSections.Day | CreativeContextSections.DayNotes | CreativeContextSections.DayHistory;
 
     /// <summary>Four characters per token, rounded up: the estimate the brand package uses, for the same reason.</summary>
     /// <remarks>
@@ -62,6 +72,18 @@ public static class CreativeContextPackageSelection
     public const int MaxStepLength = 1_000;
 
     public const int MaxThemeDescriptionLength = 1_000;
+
+    /// <summary>
+    /// The theme's own column width, so notes are never over it; held here so the cap is stated where every
+    /// other one is, and so a wider column later does not silently widen a prompt.
+    /// </summary>
+    public const int MaxStandingNotesLength = 2_000;
+
+    /// <summary>How many already-made titles a package carries. Enough to steer away from, few enough to read.</summary>
+    public const int MaxAlreadyMade = 10;
+
+    /// <summary>A working title's own column width. A recipe title longer than this is left out, not cut.</summary>
+    public const int MaxAlreadyMadeTitleLength = 200;
 
     public const int MaxConceptTitleLength = 200;
 
@@ -107,8 +129,15 @@ public static class CreativeContextPackageSelection
     {
         // Ideas for a day and a set of channels. Not the picture brief: that describes one image, and a
         // concept list is not an image.
+        //
+        // The day's notes and what was already made for it too (AF.7.4): this is the task that decides what
+        // to cook, so it is the one a standing note and a list of what the day has already had bear on most.
         AiTaskType.RecipeConcepts =>
-            CreativeContextSections.WorkingTitle | CreativeContextSections.Channels | CreativeContextSections.Day,
+            CreativeContextSections.WorkingTitle
+            | CreativeContextSections.Channels
+            | CreativeContextSections.Day
+            | CreativeContextSections.DayNotes
+            | CreativeContextSections.DayHistory,
 
         // The chosen concept is the source. Channels do not shape a recipe.
         AiTaskType.RecipeFirstDraft =>
@@ -118,11 +147,24 @@ public static class CreativeContextPackageSelection
         // combined" is what tells an image task what the bowl looks like. The steps' times and temperatures
         // travel as the creator's text and are not for an image task to restate as facts — that is its
         // template's rule to state.
-        AiTaskType.PhotographyConcept => Everything,
+        //
+        // The day's notes and what was already made for it too (AF.7.4): a standing note is as often about how
+        // a day's pictures look as about what is cooked, and a shoot that repeats last week's is the
+        // repetition the list is there to prevent.
+        AiTaskType.PhotographyConcept =>
+            Everything | CreativeContextSections.DayNotes | CreativeContextSections.DayHistory,
 
         // The one task that may also read a saved prompt: it writes one.
-        AiTaskType.ImagePrompt => Everything | CreativeContextSections.Prompts,
+        //
+        // The day's notes, and deliberately not what was already made for the day (AF.7.4): by the time a
+        // prompt is written the creator has chosen the concept and the shot, so the subject is decided and a
+        // list of earlier titles could only argue with a choice already made.
+        AiTaskType.ImagePrompt =>
+            Everything | CreativeContextSections.Prompts | CreativeContextSections.DayNotes,
 
+        // The day's notes and what was already made for it reach a task only once its template says how to
+        // treat them (AF.7.4), which is why they are flags of their own rather than part of Day.
+        //
         // What the piece is about, so the posts are about it too. Not the context's own channel list: the
         // channels to write are the request's, stated in the task, and a second list would be a second answer
         // to "which channels". Not saved image prompts: a prompt describes a picture to a renderer, and its
@@ -131,6 +173,8 @@ public static class CreativeContextPackageSelection
             CreativeContextSections.WorkingTitle
             | CreativeContextSections.PictureBrief
             | CreativeContextSections.Day
+            | CreativeContextSections.DayNotes
+            | CreativeContextSections.DayHistory
             | CreativeContextSections.Recipe
             | CreativeContextSections.Concept
             | CreativeContextSections.Pictures,
@@ -196,7 +240,10 @@ public static class CreativeContextPackageSelection
         channels.Sum(channel => EstimateTokens(channel.DisplayName));
 
     public static int Estimate(CreativeContextDayEntry? day) =>
-        EstimateTokens(day?.ThemeName) + EstimateTokens(day?.ThemeDescription);
+        EstimateTokens(day?.ThemeName)
+        + EstimateTokens(day?.ThemeDescription)
+        + EstimateTokens(day?.StandingNotes)
+        + (day?.AlreadyMade.Sum(EstimateTokens) ?? 0);
 
     public static int Estimate(CreativeContextRecipeEntry recipe) =>
         EstimateTokens(recipe.Title)
@@ -353,6 +400,13 @@ public static class CreativeContextPackageSelection
         Field("themeRevision", Number(day?.ThemeRevision));
         Field("themeName", day?.ThemeName);
         Field("themeDescription", day?.ThemeDescription);
+        Field("themeStandingNotes", day?.StandingNotes);
+
+        // In order, because the order is rendered: newest first is part of what a model is shown.
+        for (var index = 0; index < (day?.AlreadyMade.Count ?? 0); index++)
+        {
+            Field($"alreadyMade:{index.ToString(CultureInfo.InvariantCulture)}", day!.AlreadyMade[index]);
+        }
 
         foreach (var recipe in recipes)
         {

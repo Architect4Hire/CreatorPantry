@@ -10,6 +10,8 @@ import { WorkspaceGateComponent } from './shell/workspace-gate.component';
 import { ImageStudioComponent } from './features/image-studio/image-studio.component';
 import { LandingComponent } from './features/landing/landing.component';
 import { WorkflowsHubComponent } from './features/workflows/workflows-hub.component';
+import { ThemedDaysComponent } from './features/workspace-settings/themed-days.component';
+import { themedDaysCanDeactivateGuard } from './features/workspace-settings/themed-days.guard';
 import { WorkspaceSettingsComponent } from './features/workspace-settings/workspace-settings.component';
 import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
@@ -127,9 +129,17 @@ describe('app routes', () => {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
 
-    // 'settings' is the workspace's own settings page, not a placeholder.
+    // 'settings' is the workspace's own settings page at its index, plus the pages it links to (AF.7.3), so
+    // the nav item stays active on both. Only the themed days are guarded: the settings page saves one choice
+    // and loses nothing worth asking about, while a week of themes and notes is typed work.
     const settingsRoute = workspaceRoute.children!.find((route) => route.path === 'settings')!;
-    expect(await settingsRoute.loadComponent!()).toBe(WorkspaceSettingsComponent);
+    expect(settingsRoute.children!.map((route) => route.path)).toEqual(['', 'themed-days']);
+    expect(await settingsRoute.children![0].loadComponent!()).toBe(WorkspaceSettingsComponent);
+    expect(settingsRoute.children![0].pathMatch).toBe('full');
+    expect(settingsRoute.children![0].canDeactivate).toBeUndefined();
+    expect(await settingsRoute.children![1].loadComponent!()).toBe(ThemedDaysComponent);
+    expect(settingsRoute.children![1].canDeactivate).toEqual([themedDaysCanDeactivateGuard]);
+    expect(settingsRoute.children![1].data?.['title']).toBe('Themed days');
 
     // 'image-studio' is the Image Studio (12.10c), no longer a placeholder. One page at two addresses: its
     // index, and `context/:contextId` for a studio opened with a creative context (AF.1.4). No guard on

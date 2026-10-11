@@ -26,6 +26,19 @@ public interface ICreativeContextPackageFacade
     /// <inheritdoc cref="ICreativeContextPackageBusiness.AssembleAsync"/>
     Task<OperationResult<CreativeContextPackage>> AssembleAsync(
         Guid contextId, AiTaskType taskType, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same package, for a run that asked for something to be left out of it (AF.7.4).
+    /// </summary>
+    /// <param name="options">
+    /// What this one run asked for. It can only take something away: nothing here widens what a task is told
+    /// beyond what the selection table gives it.
+    /// </param>
+    Task<OperationResult<CreativeContextPackage>> AssembleAsync(
+        Guid contextId,
+        AiTaskType taskType,
+        CreativeContextPackageOptions options,
+        CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="ICreativeContextPackageFacade"/>
@@ -34,5 +47,12 @@ internal sealed class CreativeContextPackageFacade(ICreativeContextPackageBusine
 {
     public Task<OperationResult<CreativeContextPackage>> AssembleAsync(
         Guid contextId, AiTaskType taskType, CancellationToken cancellationToken) =>
-        business.AssembleAsync(contextId, taskType, cancellationToken);
+        business.AssembleAsync(contextId, taskType, CreativeContextPackageOptions.Default, cancellationToken);
+
+    public Task<OperationResult<CreativeContextPackage>> AssembleAsync(
+        Guid contextId,
+        AiTaskType taskType,
+        CreativeContextPackageOptions options,
+        CancellationToken cancellationToken) =>
+        business.AssembleAsync(contextId, taskType, options, cancellationToken);
 }

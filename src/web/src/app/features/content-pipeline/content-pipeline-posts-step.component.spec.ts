@@ -1,5 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { ClipboardService } from '../../core/clipboard.service';
@@ -19,6 +21,8 @@ import { DamAssetService } from '../../services/dam-asset.service';
 import { GeneratedImageService } from '../../services/generated-image.service';
 import { ReferenceImageService } from '../../services/reference-image.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
+import { WeeklyThemesService } from '../../services/weekly-themes.service';
+import { ChannelPostRunComponent } from '../../shared/channel-posts/channel-post-run.component';
 import { ContentPipelinePostsStepComponent } from './content-pipeline-posts-step.component';
 
 const CHANNELS: readonly ContentChannel[] = [
@@ -43,11 +47,11 @@ function profile(channelDefaults: readonly string[]): BrandProfile {
   } as unknown as BrandProfile;
 }
 
-/** The work this run is on, or none at all. Only the id is read here. */
-function session(contextId: string | null): CreativeContextSession {
+/** The work this run is on, or none at all. Only the id and the themed day are read here. */
+function session(contextId: string | null, weeklyThemeKey: string | null = null): CreativeContextSession {
   return {
     context: signal<CreativeContext | null>(
-      contextId === null ? null : ({ id: contextId } as unknown as CreativeContext),
+      contextId === null ? null : ({ id: contextId, weeklyThemeKey } as unknown as CreativeContext),
     ),
   } as unknown as CreativeContextSession;
 }
@@ -81,6 +85,7 @@ let picturesOutcome: unknown;
 let readingOutcome: unknown;
 let readingRequests: unknown[];
 let pictureReads: number;
+let weekOutcome: unknown;
 
 function picture(overrides: Partial<CreativeContextPicture> = {}): CreativeContextPicture {
   return {
@@ -199,6 +204,10 @@ async function create(): Promise<void> {
       { provide: GeneratedImageService, useValue: { preview: () => of({ status: 'unavailable' }) } },
       { provide: DamAssetService, useValue: { versionContent: () => of({ status: 'unavailable' }) } },
       { provide: AiUsageService, useValue: { allowance: signal<AiAllowanceState>({ kind: 'unknown' }) } },
+
+      // The notice above the run reads the week to find the day's standing notes, and links to themed days.
+      provideRouter([]),
+      { provide: WeeklyThemesService, useValue: { getWeek: () => Promise.resolve(weekOutcome) } },
     ],
   }).compileComponents();
 
@@ -217,7 +226,50 @@ describe('ContentPipelinePostsStepComponent', () => {
     readingOutcome = { status: 'accepted', operation: operation('Requested'), replayed: false };
     readingRequests = [];
     pictureReads = 0;
+    weekOutcome = { status: 'found', themes: [] };
     await create();
+  });
+
+  // ---- The themed day's standing notes (AF.7.4) ----
+
+  function run(): ChannelPostRunComponent {
+    return fixture.debugElement.query(By.directive(ChannelPostRunComponent)).componentInstance as ChannelPostRunComponent;
+  }
+
+  it('says nothing about notes for work with no themed day, and asks for posts as it always did', async () => {
+    expect(el.querySelector('cp-day-notes-notice cp-notice')).toBeNull();
+    expect(run().applyDayNotes()).toBeTrue();
+  });
+
+  it('tells the creator the day’s notes are in effect, and carries their choice to leave them out of this run', async () => {
+    weekOutcome = {
+      status: 'found',
+      themes: [
+        {
+          day: 'Monday',
+          key: 'meat-free-monday',
+          displayName: 'Meat-free Monday',
+          description: null,
+          standingNotes: 'Never tofu.',
+          retiredAt: null,
+          revision: 1,
+        },
+      ],
+    };
+    await create();
+    host.session.set(session('ctx-1', 'meat-free-monday'));
+    await settle();
+
+    const notice = el.querySelector('cp-day-notes-notice cp-notice');
+    expect(notice?.textContent).toContain('Meat-free Monday');
+    expect(notice?.textContent).toContain('are in effect');
+    expect(run().applyDayNotes()).toBeTrue();
+
+    (el.querySelector('cp-day-notes-notice input[type="checkbox"]') as HTMLInputElement).click();
+    await settle();
+
+    expect(notice?.textContent).toContain('switched off for this run');
+    expect(run().applyDayNotes()).toBeFalse();
   });
 
   it('starts the chooser at the workspace’s usual channels', async () => {

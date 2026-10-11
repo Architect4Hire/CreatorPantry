@@ -15,6 +15,12 @@ public sealed record WeeklyThemeInput
     public string? DisplayName { get; init; }
 
     public string? Description { get; init; }
+
+    /// <summary>
+    /// The creator's standing instructions for the day. Optional; omitted or blank clears them, as it does for
+    /// <see cref="Description"/>, because the week is replaced as one value.
+    /// </summary>
+    public string? StandingNotes { get; init; }
 }
 
 /// <summary>
@@ -28,8 +34,8 @@ public sealed record WeeklyThemeInput
 /// "one theme per day" an invariant of one transaction rather than a race between three endpoints.
 /// </para>
 /// <para>
-/// A theme already in the week is recognised by its <see cref="WeeklyThemeInput.Key"/> and kept — its day, name
-/// and description are updated and it is brought back out of retirement if it was there. A live theme whose key
+/// A theme already in the week is recognised by its <see cref="WeeklyThemeInput.Key"/> and kept — its day, name,
+/// description and standing notes are updated and it is brought back out of retirement if it was there. A live theme whose key
 /// is absent is retired, not deleted, so any record that already stored its key keeps resolving.
 /// </para>
 /// </remarks>

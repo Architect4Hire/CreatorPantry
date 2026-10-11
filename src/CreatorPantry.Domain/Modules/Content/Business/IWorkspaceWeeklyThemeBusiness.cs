@@ -87,6 +87,7 @@ internal sealed class WorkspaceWeeklyThemeBusiness(
             var day = input.Day!.Value;
             var displayName = WeeklyThemeInputChecks.Normalize(input.DisplayName)!;
             var description = WeeklyThemeInputChecks.Normalize(input.Description);
+            var standingNotes = WeeklyThemeInputChecks.Normalize(input.StandingNotes);
             submittedKeys.Add(key);
 
             if (byKey.TryGetValue(key, out var existing))
@@ -96,7 +97,8 @@ internal sealed class WorkspaceWeeklyThemeBusiness(
                 if (existing.RetiredAt is null
                     && existing.Day == day
                     && string.Equals(existing.DisplayName, displayName, StringComparison.Ordinal)
-                    && string.Equals(existing.Description, description, StringComparison.Ordinal))
+                    && string.Equals(existing.Description, description, StringComparison.Ordinal)
+                    && string.Equals(existing.StandingNotes, standingNotes, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -106,7 +108,7 @@ internal sealed class WorkspaceWeeklyThemeBusiness(
                 additions++;
             }
 
-            changes.Add(new WeeklyThemeChange(key, day, displayName, description, Retire: false));
+            changes.Add(new WeeklyThemeChange(key, day, displayName, description, standingNotes, Retire: false));
         }
 
         if (stored.Count + additions > WeeklyThemePolicy.MaxThemes)
@@ -123,7 +125,7 @@ internal sealed class WorkspaceWeeklyThemeBusiness(
         foreach (var theme in stored.Where(theme => theme.RetiredAt is null && !submittedKeys.Contains(theme.Key)))
         {
             changes.Add(new WeeklyThemeChange(
-                theme.Key, theme.Day, theme.DisplayName, theme.Description, Retire: true));
+                theme.Key, theme.Day, theme.DisplayName, theme.Description, theme.StandingNotes, Retire: true));
         }
 
         if (changes.Count == 0)
@@ -201,6 +203,7 @@ internal sealed class WorkspaceWeeklyThemeBusiness(
         theme.Key,
         theme.DisplayName,
         theme.Description,
+        theme.StandingNotes,
         theme.RetiredAt,
         theme.Revision,
         theme.CreatedAt,

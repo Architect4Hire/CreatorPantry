@@ -94,6 +94,162 @@ public sealed class WeeklyThemesEndpointTests : IAsyncLifetime
         Assert.Equal(2, read.Length);
     }
 
+    private static object MondayWithNotes(string? standingNotes, string name = "Meat-free Monday") =>
+        new { day = "Monday", key = "meat-free-monday", displayName = name, standingNotes };
+
+    [Fact]
+    public async Task Standing_notes_round_trip_and_a_notes_only_edit_bumps_the_revision()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.MemberEmail);
+        const string notes = "Always under 30 minutes.\nNever tofu.";
+
+        // A theme written without the field reports it as null rather than leaving it out.
+        var without = Assert.Single(Themes(await BodyOf(
+            await PutAsync(client, _fixture.WorkspaceA, new { themes = new[] { Monday() } }))));
+        Assert.Equal(JsonValueKind.Null, without.GetProperty("standingNotes").ValueKind);
+
+        var written = Assert.Single(Themes(await BodyOf(
+            await PutAsync(client, _fixture.WorkspaceA, new { themes = new[] { MondayWithNotes($"  {notes}  ") } }))));
+        Assert.Equal(notes, written.GetProperty("standingNotes").GetString());
+        Assert.Equal(2, written.GetProperty("revision").GetInt32());
+
+        var read = Assert.Single(Themes(await BodyOf(await client.GetAsync(ThemesIn(_fixture.WorkspaceA), Ct))));
+        Assert.Equal(notes, read.GetProperty("standingNotes").GetString());
+
+        // The same week again writes nothing.
+        var again = Assert.Single(Themes(await BodyOf(
+            await PutAsync(client, _fixture.WorkspaceA, new { themes = new[] { MondayWithNotes(notes) } }))));
+        Assert.Equal(2, again.GetProperty("revision").GetInt32());
+    }
+
+    [Fact]
+    public async Task Standing_notes_over_the_cap_are_refused_and_nothing_is_written()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var atCap = await PutAsync(client, _fixture.WorkspaceA, new
+        {
+            themes = new[] { MondayWithNotes(new string('n', WeeklyThemePolicy.StandingNotesMaxLength)) },
+        });
+        Assert.Equal(HttpStatusCode.OK, atCap.StatusCode);
+
+        var response = await PutAsync(client, _fixture.WorkspaceA, new
+        {
+            themes = new[] { MondayWithNotes(new string('x', WeeklyThemePolicy.StandingNotesMaxLength + 1)) },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await BodyOf(response);
+        Assert.Equal(ContentErrorCodes.WeeklyThemesInvalid, Code(body));
+        Assert.True(body.GetProperty("errors").TryGetProperty("themes[0].StandingNotes", out _));
+
+        var kept = Assert.Single(Themes(await BodyOf(await client.GetAsync(ThemesIn(_fixture.WorkspaceA), Ct))));
+        Assert.StartsWith("n", kept.GetProperty("standingNotes").GetString());
+        Assert.Equal(1, kept.GetProperty("revision").GetInt32());
+    }
+
+    [Fact]
+    public async Task Each_workspace_keeps_its_own_standing_notes_under_the_same_key()
+    {
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+
+        await PutAsync(ownerA, _fixture.WorkspaceA, new { themes = new[] { MondayWithNotes("A: never tofu.") } });
+        await PutAsync(ownerB, _fixture.WorkspaceB, new { themes = new[] { MondayWithNotes("B: tofu every week.") } });
+
+        // A cannot read B's notes, and A's attempt to overwrite them never reaches B's week.
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerA.GetAsync(ThemesIn(_fixture.WorkspaceB), Ct)).StatusCode);
+        var crossing = await PutAsync(
+            ownerA, _fixture.WorkspaceB, new { themes = new[] { MondayWithNotes("A's words in B's week.") } });
+        Assert.Equal(HttpStatusCode.NotFound, crossing.StatusCode);
+
+        // And an edit A makes in its own week leaves B's notes and revision where they were.
+        await PutAsync(ownerA, _fixture.WorkspaceA, new { themes = new[] { MondayWithNotes("A: changed.") } });
+
+        var inA = Assert.Single(Themes(await BodyOf(await ownerA.GetAsync(ThemesIn(_fixture.WorkspaceA), Ct))));
+        var inB = Assert.Single(Themes(await BodyOf(await ownerB.GetAsync(ThemesIn(_fixture.WorkspaceB), Ct))));
+        Assert.Equal("A: changed.", inA.GetProperty("standingNotes").GetString());
+        Assert.Equal("B: tofu every week.", inB.GetProperty("standingNotes").GetString());
+        Assert.Equal(1, inB.GetProperty("revision").GetInt32());
+    }
+
+    private static string HistoryIn(SeededWorkspace workspace, string key, string query = "") =>
+        $"{ThemesIn(workspace)}/{key}/history{query}";
+
+    [Fact]
+    public async Task A_theme_nothing_was_made_for_answers_an_empty_history_to_any_member()
+    {
+        using var owner = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        await PutAsync(owner, _fixture.WorkspaceB, new { themes = new[] { Monday() } });
+
+        // B's member is a Viewer, the lowest role, and may read.
+        using var viewer = await SignInAsync(_fixture.WorkspaceB.MemberEmail);
+        var response = await viewer.GetAsync(HistoryIn(_fixture.WorkspaceB, "meat-free-monday", "?limit=5"), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
+
+        var body = await BodyOf(response);
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("nextCursor").ValueKind);
+    }
+
+    [Fact]
+    public async Task A_retired_themes_history_is_readable_and_a_deleted_themes_is_not()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        await PutAsync(client, _fixture.WorkspaceA, new { themes = new[] { Monday() } });
+        await PutAsync(client, _fixture.WorkspaceA, new { themes = Array.Empty<object>() });
+
+        var retired = await client.GetAsync(HistoryIn(_fixture.WorkspaceA, "meat-free-monday"), Ct);
+        Assert.Equal(HttpStatusCode.OK, retired.StatusCode);
+
+        await DeleteAsync(client, _fixture.WorkspaceA, "meat-free-monday");
+
+        var deleted = await client.GetAsync(HistoryIn(_fixture.WorkspaceA, "meat-free-monday"), Ct);
+        Assert.Equal(HttpStatusCode.NotFound, deleted.StatusCode);
+        Assert.Equal(ContentErrorCodes.WeeklyThemeNotFound, Code(await BodyOf(deleted)));
+    }
+
+    [Fact]
+    public async Task Another_workspaces_theme_has_no_history_here()
+    {
+        using var ownerB = await SignInAsync(_fixture.WorkspaceB.OwnerEmail);
+        await PutAsync(ownerB, _fixture.WorkspaceB, new
+        {
+            themes = new object[] { new { day = "Tuesday", key = "taco-tuesday", displayName = "B's Taco Tuesday" } },
+        });
+
+        using var ownerA = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        // Asked for in A's own route: the key is B's, so it is no theme here — the same answer a key nobody
+        // ever wrote gets.
+        var borrowed = await ownerA.GetAsync(HistoryIn(_fixture.WorkspaceA, "taco-tuesday"), Ct);
+        var unknown = await ownerA.GetAsync(HistoryIn(_fixture.WorkspaceA, "never-existed"), Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, borrowed.StatusCode);
+        Assert.Equal(ContentErrorCodes.WeeklyThemeNotFound, Code(await BodyOf(borrowed)));
+        Assert.Equal(Code(await BodyOf(unknown)), ContentErrorCodes.WeeklyThemeNotFound);
+
+        // And asked for in B's route: the tenancy 404 lands before the action runs.
+        var crossing = await ownerA.GetAsync(HistoryIn(_fixture.WorkspaceB, "taco-tuesday"), Ct);
+        Assert.Equal(HttpStatusCode.NotFound, crossing.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_cursor_that_is_not_one_is_refused_by_name()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        await PutAsync(client, _fixture.WorkspaceA, new { themes = new[] { Monday() } });
+
+        var response = await client.GetAsync(HistoryIn(_fixture.WorkspaceA, "meat-free-monday", "?cursor=nonsense"), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await BodyOf(response);
+        Assert.Equal(ContentErrorCodes.ThemedDayHistoryCursorInvalid, Code(body));
+        Assert.True(body.GetProperty("errors").TryGetProperty("cursor", out _));
+    }
+
     [Fact]
     public async Task Leaving_a_theme_out_retires_it_rather_than_deleting_it()
     {

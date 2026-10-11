@@ -132,6 +132,9 @@
                 [prompt]="prompt()"
                 [brief]="lookBrief()"
                 [recipe]="linkedRecipe()"
+                [creativeContextId]="session.context()?.id ?? null"
+                [themeKey]="session.context()?.weeklyThemeKey ?? null"
+                [(applyDayNotes)]="applyDayNotes"
                 (changed)="onPrompt($event)"
                 (announced)="onAnnounced($event)"
               />
@@ -177,6 +180,9 @@
                 [config]="config()"
                 [prompt]="prompt()"
                 [recipe]="linkedRecipe()"
+                [creativeContextId]="session.context()?.id ?? null"
+                [themeKey]="session.context()?.weeklyThemeKey ?? null"
+                [(applyDayNotes)]="applyDayNotes"
                 (changed)="onPrompt($event)"
                 (announced)="onAnnounced($event)"
               />

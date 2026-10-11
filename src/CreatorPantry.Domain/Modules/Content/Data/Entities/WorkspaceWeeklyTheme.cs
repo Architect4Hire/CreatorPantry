@@ -51,6 +51,13 @@ public class WorkspaceWeeklyTheme : IWorkspaceOwned
     /// <summary>The creator's own note on what the day is for. Optional.</summary>
     public string? Description { get; set; }
 
+    /// <summary>
+    /// The creator's standing instructions for the day — "always under 30 minutes, never tofu". Optional, and
+    /// theirs alone: written through the week replace and nowhere else, never seeded, and never written or
+    /// rewritten by a model. A retired theme keeps them, like everything else on its row.
+    /// </summary>
+    public string? StandingNotes { get; set; }
+
     /// <summary>When the theme left the live week, or null while it is in it.</summary>
     public DateTimeOffset? RetiredAt { get; set; }
 

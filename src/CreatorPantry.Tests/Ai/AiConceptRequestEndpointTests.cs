@@ -31,8 +31,11 @@ public sealed class AiConceptRequestEndpointTests
 
         Assert.Equal(
             [
-                "Audience", "AvailableIngredients", "Course", "CreatorStyle", "Cuisine", "DietaryGoals",
-                "DishName", "Equipment", "Exclusions", "Season", "Skill", "TimeBudget",
+                // The twelve brief fields, plus the piece of work the concepts are for (AF.7.4) — named by its
+                // own id, resolved inside the route's workspace — and the switch that can only leave its
+                // day's notes out.
+                "ApplyDayNotes", "Audience", "AvailableIngredients", "Course", "CreativeContextId", "CreatorStyle",
+                "Cuisine", "DietaryGoals", "DishName", "Equipment", "Exclusions", "Season", "Skill", "TimeBudget",
             ],
             fields);
     }

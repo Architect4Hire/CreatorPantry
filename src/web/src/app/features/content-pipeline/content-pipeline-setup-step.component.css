@@ -21,3 +21,8 @@
   flex: 1 1 min(var(--cp-measure-field), 100%);
   min-width: 0;
 }
+
+/* Inline in the sentence it belongs to, so it reads as the next thing to do about a theme. */
+.themed-days-link {
+  color: var(--cp-primary);
+}

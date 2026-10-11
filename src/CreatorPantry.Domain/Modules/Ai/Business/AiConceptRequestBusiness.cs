@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Content.Facade;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
 
@@ -29,6 +30,7 @@ internal interface IAiConceptRequestBusiness
 internal sealed class AiConceptRequestBusiness(
     IAiOperationDataLayer operations,
     IAiRequestQuotaGate quota,
+    ICreativeContextFacade creativeContexts,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiConceptRequestBusiness
@@ -50,6 +52,20 @@ internal sealed class AiConceptRequestBusiness(
         // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
         // allowance to say the allowance is spent (USAGE-006). After the task check above, which is free and
         // answers a question about the request rather than about the account.
+        //
+        // And after the piece of work the concepts are for (AF.7.4), when one is named: asked through the
+        // content module's facade and inside the resolved workspace, so a request naming work this workspace
+        // does not have is refused here rather than queued and failed by the worker. An unknown id and a
+        // neighbour's are one answer, because the workspace filter means the neighbour's row is never read.
+        if (model.CreativeContextId is { } contextId
+            && contextId != Guid.Empty
+            && !(await creativeContexts.GetAsync(contextId, cancellationToken)).Succeeded)
+        {
+            return Refuse(
+                AiConceptRequestErrors.ContextNotFound,
+                "This workspace has no piece of work with that id.");
+        }
+
         if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeConcepts, cancellationToken) is { } spent)
         {
             return spent;
@@ -133,6 +149,18 @@ internal sealed class AiConceptRequestBusiness(
         Add(AiBriefInputs.Season, model.Season);
         Add(AiBriefInputs.TimeBudget, model.TimeBudget);
         Add(AiBriefInputs.CreatorStyle, model.CreatorStyle);
+
+        // Both written only when they say something, so a request that names no piece of work stores exactly
+        // what it stored before either existed.
+        if (model.CreativeContextId is { } contextId && contextId != Guid.Empty)
+        {
+            Add(PhotographyConceptInputs.CreativeContextId, contextId.ToString("D"));
+
+            if (model.ApplyDayNotes is false)
+            {
+                Add(PhotographyConceptInputs.ApplyDayNotes, PhotographyConceptInputs.Off);
+            }
+        }
 
         return JsonSerializer.Serialize(values);
     }

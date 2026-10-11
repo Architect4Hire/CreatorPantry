@@ -237,6 +237,129 @@ public sealed class WorkspaceWeeklyThemeBusinessTests : IAsyncLifetime
         Assert.Equal(2, theme.Revision);
     }
 
+    private const string Notes = "Always under 30 minutes.\nNever tofu.";
+
+    [Fact]
+    public async Task Standing_notes_are_stored_as_the_creator_wrote_them()
+    {
+        var week = await ReplaceAsync(
+            WorkspaceA,
+            Theme(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday") with { StandingNotes = $"  {Notes}  " },
+            Theme(DayOfWeek.Tuesday, "taco-tuesday", "Taco Tuesday") with { StandingNotes = "   " });
+
+        // Trimmed at the ends and otherwise theirs, line break included; nothing but whitespace is no notes.
+        Assert.Equal(Notes, Find(week, "meat-free-monday")!.StandingNotes);
+        Assert.Null(Find(week, "taco-tuesday")!.StandingNotes);
+        Assert.Equal(Notes, Find(await ReadAsync(WorkspaceA), "meat-free-monday")!.StandingNotes);
+
+        await using var scope = ScopeFor(WorkspaceA);
+        var found = await scope.ServiceProvider.GetRequiredService<IWorkspaceWeeklyThemeBusiness>()
+            .FindAsync("meat-free-monday", Ct);
+        Assert.Equal(Notes, found.Value!.StandingNotes);
+    }
+
+    [Fact]
+    public async Task Editing_only_the_notes_bumps_the_revision_and_resubmitting_them_does_not()
+    {
+        var monday = Theme(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday");
+        await ReplaceAsync(WorkspaceA, monday);
+
+        _clock.Advance(TimeSpan.FromHours(1));
+        var edited = Find(await ReplaceAsync(WorkspaceA, monday with { StandingNotes = Notes }), "meat-free-monday")!;
+
+        Assert.Equal(2, edited.Revision);
+        Assert.Equal(_clock.UtcNow, edited.UpdatedAt);
+
+        _clock.Advance(TimeSpan.FromHours(1));
+        var resubmitted = Find(
+            await ReplaceAsync(WorkspaceA, monday with { StandingNotes = Notes }), "meat-free-monday")!;
+
+        Assert.Equal(2, resubmitted.Revision);
+        Assert.Equal(edited.UpdatedAt, resubmitted.UpdatedAt);
+
+        // Leaving them out clears them, as it does a description: the week is replaced as one value.
+        var cleared = Find(await ReplaceAsync(WorkspaceA, monday), "meat-free-monday")!;
+
+        Assert.Null(cleared.StandingNotes);
+        Assert.Equal(3, cleared.Revision);
+    }
+
+    [Fact]
+    public async Task A_retired_theme_keeps_its_notes_and_a_revived_one_takes_what_was_submitted()
+    {
+        var tuesday = Theme(DayOfWeek.Tuesday, "taco-tuesday", "Taco Tuesday");
+        await ReplaceAsync(WorkspaceA, tuesday with { StandingNotes = Notes });
+
+        var retired = Find(await ReplaceAsync(WorkspaceA), "taco-tuesday")!;
+
+        Assert.NotNull(retired.RetiredAt);
+        Assert.Equal(Notes, retired.StandingNotes);
+
+        var revived = Find(
+            await ReplaceAsync(WorkspaceA, tuesday with { StandingNotes = "Corn tortillas only." }), "taco-tuesday")!;
+
+        Assert.Null(revived.RetiredAt);
+        Assert.Equal("Corn tortillas only.", revived.StandingNotes);
+    }
+
+    [Fact]
+    public async Task Over_long_notes_are_refused_even_without_the_facades_validator()
+    {
+        await using var scope = ScopeFor(WorkspaceA);
+        var business = scope.ServiceProvider.GetRequiredService<IWorkspaceWeeklyThemeBusiness>();
+
+        var result = await business.ReplaceAsync(
+            Actor,
+            new ReplaceWeeklyThemesViewModel
+            {
+                Themes =
+                [
+                    Theme(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday") with
+                    {
+                        StandingNotes = new string('n', WeeklyThemePolicy.StandingNotesMaxLength + 1),
+                    },
+                ],
+            },
+            Ct);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(ContentErrorCodes.WeeklyThemesInvalid, result.Error!.Code);
+        Assert.Contains("themes[0].StandingNotes", result.Error.FieldErrors.Keys);
+        Assert.Empty((await ReadAsync(WorkspaceA)).Themes);
+    }
+
+    [Fact]
+    public async Task Each_workspace_keeps_its_own_notes_under_the_same_key()
+    {
+        var monday = Theme(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday");
+        await ReplaceAsync(WorkspaceA, monday with { StandingNotes = "A: never tofu." });
+        await ReplaceAsync(WorkspaceB, monday with { StandingNotes = "B: tofu every week." });
+
+        Assert.Equal("A: never tofu.", Assert.Single((await ReadAsync(WorkspaceA)).Themes).StandingNotes);
+        Assert.Equal("B: tofu every week.", Assert.Single((await ReadAsync(WorkspaceB)).Themes).StandingNotes);
+
+        // An edit in A is A's alone: B's notes and B's revision do not move.
+        await ReplaceAsync(WorkspaceA, monday with { StandingNotes = "A: changed." });
+
+        var inB = Assert.Single((await ReadAsync(WorkspaceB)).Themes);
+        Assert.Equal("B: tofu every week.", inB.StandingNotes);
+        Assert.Equal(1, inB.Revision);
+    }
+
+    [Fact]
+    public async Task Notes_never_reach_the_audit_trail()
+    {
+        await ReplaceAsync(
+            WorkspaceA,
+            Theme(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday") with { StandingNotes = Notes });
+
+        var entry = Assert.Single(await AuditedAsync(WorkspaceA, ContentAuditActions.WeeklyThemesReplaced));
+
+        Assert.DoesNotContain("tofu", entry.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("0", entry.BeforeReference);
+        Assert.Equal("1", entry.AfterReference);
+    }
+
     [Fact]
     public async Task An_unknown_key_is_not_found_and_so_is_another_workspaces()
     {

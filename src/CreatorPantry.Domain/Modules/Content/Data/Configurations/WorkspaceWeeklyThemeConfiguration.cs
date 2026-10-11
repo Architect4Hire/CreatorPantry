@@ -30,6 +30,7 @@ internal sealed class WorkspaceWeeklyThemeConfiguration : IEntityTypeConfigurati
         builder.Property(theme => theme.Key).IsRequired().HasMaxLength(WeeklyThemePolicy.KeyMaxLength);
         builder.Property(theme => theme.DisplayName).IsRequired().HasMaxLength(WeeklyThemePolicy.DisplayNameMaxLength);
         builder.Property(theme => theme.Description).HasMaxLength(WeeklyThemePolicy.DescriptionMaxLength);
+        builder.Property(theme => theme.StandingNotes).HasMaxLength(WeeklyThemePolicy.StandingNotesMaxLength);
         builder.Property(theme => theme.Revision).IsRequired();
         builder.Property(theme => theme.CreatedAt).IsRequired();
         builder.Property(theme => theme.UpdatedAt).IsRequired();

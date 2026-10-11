@@ -81,6 +81,18 @@ public sealed class RequestPhotographyConceptViewModel
     /// <summary>Style directions the creator wants — a mood, a palette, a treatment.</summary>
     [Description("Style directions to follow. Optional.")]
     public IReadOnlyList<string>? StyleOverrides { get; set; }
+
+    /// <summary>
+    /// The piece of work this shoot is for, when it is for one. Only its themed day is read from it — the
+    /// theme, its standing notes and what was already made for it — because everything else about the shoot is
+    /// already in this request.
+    /// </summary>
+    [Description("The creative context this shoot is for. Optional. Only its themed day is read: the theme, its standing notes, and titles of work already made for it.")]
+    public Guid? CreativeContextId { get; set; }
+
+    /// <summary>False to plan this one shoot without the themed day's standing notes. Needs a creative context to mean anything.</summary>
+    [Description("Send false to plan this shoot without the themed day's standing notes, for this request only. Omit it, or send true, to follow them.")]
+    public bool? ApplyDayNotes { get; set; }
 }
 
 /// <summary>
@@ -154,6 +166,12 @@ public static class AiPhotographyConceptRequestErrors
     /// </remarks>
     public const string RecipeNotFound = "ai.photographyConceptRecipe.not_found";
 
+    /// <summary>
+    /// The piece of work the request names is not one of this workspace's. One answer for an id nobody has and
+    /// for a neighbour's, for the reason <see cref="RecipeNotFound"/> gives.
+    /// </summary>
+    public const string ContextNotFound = "ai.photographyConceptContext.not_found";
+
     public const string RequestNotFound = "ai.photographyConceptRequest.not_found";
 }
 
@@ -175,6 +193,24 @@ public static class PhotographyConceptInputs
     public const string SceneOverrides = "sceneOverrides";
 
     public const string StyleOverrides = "styleOverrides";
+
+    /// <summary>The piece of work whose themed day this shoot follows. Absent when the request named none.</summary>
+    public const string CreativeContextId = "creativeContextId";
+
+    /// <summary>
+    /// Present, and <see cref="Off"/>, only on a request that switched the day's standing notes off for that
+    /// run — so the inputs of a request that never mentions the switch are what they always were.
+    /// </summary>
+    public const string ApplyDayNotes = "applyDayNotes";
+
+    public const string Off = "false";
+
+    public static Guid? ReadContextId(IReadOnlyDictionary<string, string>? inputs) =>
+        Read(inputs, CreativeContextId) is { } value && Guid.TryParse(value, out var id) ? id : null;
+
+    /// <summary>True unless this request explicitly switched the notes off. Anything unreadable is "on".</summary>
+    public static bool ReadApplyDayNotes(IReadOnlyDictionary<string, string>? inputs) =>
+        !string.Equals(Read(inputs, ApplyDayNotes), Off, StringComparison.Ordinal);
 
     /// <summary>How a list of overrides is joined into one input value, and split back out of it.</summary>
     /// <remarks>

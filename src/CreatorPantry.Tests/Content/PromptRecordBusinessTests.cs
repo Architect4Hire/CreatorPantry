@@ -988,6 +988,10 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
             Task.FromResult<AiProposalLineageServiceModel?>(new AiProposalLineageServiceModel(
                 AiTaskType.ImagePrompt, "image.prompt", "1.0.0",
                 $"sha256:{new string('a', 64)}", null, null));
+
+        public Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+            IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AiAcceptedDraftServiceModel>>([]);
     }
 
     /// <summary>Resolves the first time it is asked and not the second: a pin taken away mid-request.</summary>
@@ -1005,6 +1009,10 @@ public sealed class PromptRecordBusinessTests : IAsyncDisposable
                     AiTaskType.ImagePrompt, "image.prompt", "1.0.0",
                     $"sha256:{new string('a', 64)}", null, null)
                 : null);
+
+        public Task<IReadOnlyList<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+            IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AiAcceptedDraftServiceModel>>([]);
     }
 
     /// <summary>A lookup nothing asks, for the collision tests that name no image.</summary>

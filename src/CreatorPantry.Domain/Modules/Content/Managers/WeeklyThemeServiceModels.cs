@@ -7,6 +7,7 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 /// <param name="Key">The stable value other records store.</param>
 /// <param name="DisplayName">The creator's own words.</param>
 /// <param name="Description">The creator's own note, or null.</param>
+/// <param name="StandingNotes">The creator's standing instructions for the day, exactly as they wrote them, or null.</param>
 /// <param name="RetiredAt">
 /// When the theme left the live week, or null while it is in it. A retired theme is reported rather than hidden,
 /// so a client can both resolve a key a record stored months ago and offer to bring the theme back.
@@ -16,6 +17,7 @@ public sealed record WeeklyThemeServiceModel(
     string Key,
     string DisplayName,
     string? Description,
+    string? StandingNotes,
     DateTimeOffset? RetiredAt,
     int Revision,
     DateTimeOffset CreatedAt,

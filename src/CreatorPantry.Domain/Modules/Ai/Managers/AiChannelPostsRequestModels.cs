@@ -30,6 +30,13 @@ public sealed class RequestChannelPostsViewModel
     /// <summary>The channels to write for, in the order they should come back.</summary>
     [Description("The channels to write for. One to eight known channel keys, no duplicates.")]
     public IReadOnlyList<string>? ChannelKeys { get; set; }
+
+    /// <summary>
+    /// False to leave the day's standing notes out of this one run. Omitted or true follows them, when the
+    /// piece of work has a themed day and that theme has notes; otherwise it changes nothing.
+    /// </summary>
+    [Description("Send false to write these posts without the themed day's standing notes, for this request only. Omit it, or send true, to follow them.")]
+    public bool? ApplyDayNotes { get; set; }
 }
 
 /// <summary>

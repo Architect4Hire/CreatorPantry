@@ -58,6 +58,18 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IWorkspaceWeeklyThemeFacade, WorkspaceWeeklyThemeFacade>();
         services.AddScoped<IValidator<ReplaceWeeklyThemesViewModel>, ReplaceWeeklyThemesViewModelValidator>();
 
+        // A themed day's history owns no table: it is derived from creative contexts, their references and
+        // their post packages, plus the AI module's word on which recipes began as accepted drafts. Its cache
+        // needs IApplicationCache, which every host registers; the invalidation facade is what this module's
+        // own write facades call, so a host serving those routes needs the cache too.
+        services.AddScoped<IThemedDayHistoryRepository, ThemedDayHistoryRepository>();
+        services.AddScoped<IThemedDayHistoryDataLayer, ThemedDayHistoryDataLayer>();
+        services.AddScoped<IThemedDayHistoryBusiness, ThemedDayHistoryBusiness>();
+        services.AddScoped<IThemedDayHistoryCache, ThemedDayHistoryCache>();
+        services.AddScoped<IThemedDayHistoryFacade, ThemedDayHistoryFacade>();
+        services.AddScoped<IThemedDayHistoryInvalidationFacade, ThemedDayHistoryInvalidationFacade>();
+        services.AddScoped<IValidator<ThemedDayHistoryViewModel>, ThemedDayHistoryViewModelValidator>();
+
         services.AddScoped<IPromptRecordRepository, PromptRecordRepository>();
         services.AddScoped<IPromptRecordSearchRepository, PromptRecordSearchRepository>();
         services.AddScoped<IPromptRecordDataLayer, PromptRecordDataLayer>();

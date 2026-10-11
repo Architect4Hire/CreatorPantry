@@ -113,4 +113,20 @@ public static class ChannelPostsInputs
 
     public static IReadOnlyList<string> ReadChannelKeys(IReadOnlyDictionary<string, string>? inputs) =>
         PhotographyConceptInputs.ReadList(inputs, ChannelKeys);
+
+    /// <summary>
+    /// Present, and "false", only on a request that switched the day's standing notes off for that run.
+    /// </summary>
+    /// <remarks>
+    /// Absent on every other request rather than written as "true", so the inputs of a request that never
+    /// mentions the switch are byte for byte what they were before it existed — which is what an idempotency
+    /// replay of an in-flight request is compared against.
+    /// </remarks>
+    public const string ApplyDayNotes = "applyDayNotes";
+
+    public const string Off = "false";
+
+    /// <summary>True unless this request explicitly switched the notes off. Anything unreadable is "on".</summary>
+    public static bool ReadApplyDayNotes(IReadOnlyDictionary<string, string>? inputs) =>
+        !string.Equals(PhotographyConceptInputs.Read(inputs, ApplyDayNotes), Off, StringComparison.Ordinal);
 }

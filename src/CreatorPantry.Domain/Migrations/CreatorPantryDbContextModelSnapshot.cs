@@ -3195,6 +3195,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<Guid?>("AcceptedRevisionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3246,6 +3249,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.ToTable("SocialPackageChannels", null, t =>
                         {
+                            t.HasCheckConstraint("CK_SocialPackageChannels_AcceptedAt_Revision", "(AcceptedRevisionId IS NULL AND AcceptedAt IS NULL) OR (AcceptedRevisionId IS NOT NULL AND AcceptedAt IS NOT NULL)");
+
                             t.HasCheckConstraint("CK_SocialPackageChannels_Accepted_HasRevision", "Status NOT IN (1, 3) OR AcceptedRevisionId IS NOT NULL");
 
                             t.HasCheckConstraint("CK_SocialPackageChannels_ChannelKey_NotBlank", "trim(ChannelKey) <> ''");
@@ -3413,6 +3418,10 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Property<int>("Revision")
                         .HasColumnType("int");
+
+                    b.Property<string>("StandingNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");

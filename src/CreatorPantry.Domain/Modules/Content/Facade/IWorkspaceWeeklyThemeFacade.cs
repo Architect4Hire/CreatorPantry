@@ -38,7 +38,8 @@ internal sealed class WorkspaceWeeklyThemeFacade(
     IValidator<ReplaceWeeklyThemesViewModel> replaceValidator,
     IWorkspaceWeeklyThemeBusiness business,
     IWorkspaceContext workspace,
-    IIdempotentCommandExecutor idempotency) : IWorkspaceWeeklyThemeFacade
+    IIdempotentCommandExecutor idempotency,
+    IThemedDayHistoryInvalidationFacade history) : IWorkspaceWeeklyThemeFacade
 {
     /// <summary>Stable operation names for the idempotency scope. Changing one orphans in-flight keys.</summary>
     private const string ReplaceOperation = "content.weekly_themes.replace";
@@ -85,11 +86,20 @@ internal sealed class WorkspaceWeeklyThemeFacade(
             return forbidden;
         }
 
-        return await idempotency.ExecuteAsync(
+        var outcome = await idempotency.ExecuteAsync(
             new IdempotentCommand(
                 userId, workspace.WorkspaceId, DeleteOperation, idempotencyKey, key, KeyRequired: false),
             token => business.DeleteAsync(userId, key, token),
             cancellationToken);
+
+        // A deleted theme has no history to read, so a cached one must not outlive it. Retiring a theme does
+        // not come through here and does not need to: a retired theme's history reads exactly as before.
+        if (outcome.Result.Succeeded)
+        {
+            await history.InvalidateAsync(cancellationToken);
+        }
+
+        return outcome;
     }
 
     // The route policy has already refused a lower role; this is the backstop for a worker or plugin reaching the

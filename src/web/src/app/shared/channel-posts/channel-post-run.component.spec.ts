@@ -166,6 +166,7 @@ class FakeClipboard {
     [channels]="channels()"
     [channelDefaults]="defaults()"
     [allowance]="allowance()"
+    [applyDayNotes]="applyDayNotes()"
     (changed)="onChanged($event)"
     (announced)="said.push($event)"
   />`,
@@ -176,6 +177,7 @@ class HostComponent {
   readonly channels = signal<readonly ContentChannel[]>(CHANNELS);
   readonly defaults = signal<readonly string[]>([]);
   readonly allowance = signal<AiAllowanceState>(HEALTHY);
+  readonly applyDayNotes = signal(true);
 
   readonly said: string[] = [];
 
@@ -356,6 +358,19 @@ describe('ChannelPostRunComponent', () => {
     ]);
     expect(host.state().requestId).toBe('r-1');
     expect(host.state().requestedChannelKeys).toEqual(['instagram', 'pinterest']);
+  });
+
+  it('says so on the request when the day’s notes are switched off for this run, and only then', async () => {
+    service.watchOutcome = { status: 'found', operation: operation('Running') };
+    host.applyDayNotes.set(false);
+    tick('instagram');
+    await settle();
+
+    await clickWriting('Write the post');
+
+    expect(service.requests).toEqual([
+      { creativeContextId: 'ctx-1', channelKeys: ['instagram'], applyDayNotes: false },
+    ]);
   });
 
   it('reads the posts back from the work once the request has answered, and says they are ready', async () => {

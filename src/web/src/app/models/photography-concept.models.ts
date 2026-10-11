@@ -167,6 +167,13 @@ export interface RequestPhotographyConceptsRequest {
   readonly creatorConcept: string;
   readonly sceneOverrides: readonly string[];
   readonly styleOverrides: readonly string[];
+  /**
+   * The piece of work this shoot is for, when there is one (AF.7.4). The server reads only its themed day
+   * from it — the theme, its standing notes and what was already made for it.
+   */
+  readonly creativeContextId?: string | null;
+  /** False to plan this one shoot without the day's standing notes. Means nothing without a piece of work. */
+  readonly applyDayNotes?: boolean;
 }
 
 /**
@@ -190,6 +197,12 @@ export function encodeRequestPhotographyConcepts(
   if (request.creatorConcept.trim()) body['creatorConcept'] = request.creatorConcept.trim();
   if (request.sceneOverrides.length > 0) body['sceneOverrides'] = [...request.sceneOverrides];
   if (request.styleOverrides.length > 0) body['styleOverrides'] = [...request.styleOverrides];
+  if (request.creativeContextId) {
+    body['creativeContextId'] = request.creativeContextId;
+    // Inside the piece of work's own branch, and only when it is off: a request that never mentions the
+    // switch is the request it always was.
+    if (request.applyDayNotes === false) body['applyDayNotes'] = false;
+  }
 
   return body;
 }

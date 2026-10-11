@@ -120,6 +120,17 @@ internal interface IAiOperationRepository
     Task<AiProposalLineageServiceModel?> FindProposalLineageAsync(
         Guid proposalId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Which of these recipes this workspace created by accepting an AI first draft, and when.
+    /// </summary>
+    /// <remarks>
+    /// A recipe that was written by hand, one whose draft was rejected, and another workspace's recipe are all
+    /// simply absent from the answer — the query filter makes the last indistinguishable from the first. An
+    /// accepted draft's operation is terminal, so an entry here never goes away.
+    /// </remarks>
+    Task<List<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken);
+
     void AddProposal(AiProposal proposal);
 
     void AddFeedback(AiProposalFeedback feedback);
@@ -326,6 +337,19 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
                     operation.RecipeId,
                     operation.RecipeVersionId))
             .FirstOrDefaultAsync(cancellationToken);
+
+    /// <inheritdoc cref="GetAsync"/>
+    public Task<List<AiAcceptedDraftServiceModel>> ListAcceptedDraftsAsync(
+        IReadOnlyCollection<Guid> recipeIds, CancellationToken cancellationToken) =>
+        context.AiOperations.AsNoTracking()
+            .Where(operation =>
+                operation.TaskType == AiTaskType.RecipeFirstDraft
+                && (operation.Status == AiOperationStatus.Accepted
+                    || operation.Status == AiOperationStatus.PartiallyAccepted)
+                && operation.RecipeId != null
+                && recipeIds.Contains(operation.RecipeId.Value))
+            .Select(operation => new AiAcceptedDraftServiceModel(operation.RecipeId!.Value, operation.StatusChangedAt))
+            .ToListAsync(cancellationToken);
 
     public void AddProposal(AiProposal proposal) => context.AiProposals.Add(proposal);
 

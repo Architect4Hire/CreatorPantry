@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, Subject } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -14,6 +15,7 @@ import { RequestImagePromptRequest } from '../../models/image-prompt.models';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
 import { ImagePromptService } from '../../services/image-prompt.service';
+import { WeeklyThemesService } from '../../services/weekly-themes.service';
 import { LinkedRecipe } from '../../models/creative-context.models';
 import { ContentPipelinePromptPanelComponent } from './content-pipeline-prompt-panel.component';
 
@@ -82,11 +84,16 @@ function readyOperation(
     [config]="config()"
     [prompt]="prompt()"
     [recipe]="recipe()"
+    [creativeContextId]="contextId()"
+    [themeKey]="themeKey()"
     (changed)="apply($event)"
   />`,
 })
 class HostComponent {
   readonly recipe = signal<LinkedRecipe | null>(null);
+  /** The work the prompt is for, and its themed day. Neither is set unless a test sets it. */
+  readonly contextId = signal<string | null>(null);
+  readonly themeKey = signal<string | null>(null);
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly prompt = signal<ContentPipelinePromptState>({ ...emptyContentPipelinePromptState(), chosen: CHOSEN });
 
@@ -190,8 +197,60 @@ describe('ContentPipelinePromptPanelComponent', () => {
             },
           },
         },
+
+        // The notice about the day's standing notes reads the week, and links to themed days.
+        provideRouter([]),
+        {
+          provide: WeeklyThemesService,
+          useValue: {
+            getWeek: () =>
+              Promise.resolve({
+                status: 'found',
+                themes: [
+                  {
+                    day: 'Monday',
+                    key: 'meat-free-monday',
+                    displayName: 'Meat-free Monday',
+                    description: null,
+                    standingNotes: 'Always shot overhead.',
+                    retiredAt: null,
+                    revision: 1,
+                  },
+                ],
+              }),
+          },
+        },
       ],
     });
+  });
+
+  // ---- The themed day's standing notes (AF.7.4) ----
+
+  it('says nothing about a themed day, and sends none, for a prompt that is for no filed work', async () => {
+    await mount();
+    await click('Write the prompt');
+
+    expect(el.querySelector('cp-day-notes-notice cp-notice')).toBeNull();
+    expect('creativeContextId' in requests[0]).toBeFalse();
+    expect('applyDayNotes' in requests[0]).toBeFalse();
+  });
+
+  it('names the work on the request and says its day’s notes are in effect, or off when the creator says so', async () => {
+    await mount();
+    host.contextId.set('ctx-1');
+    host.themeKey.set('meat-free-monday');
+    await settle();
+
+    expect(el.querySelector('cp-day-notes-notice cp-notice')?.textContent).toContain('are in effect');
+
+    (el.querySelector('cp-day-notes-notice input[type="checkbox"]') as HTMLInputElement).click();
+    await settle();
+    expect(el.querySelector('cp-day-notes-notice cp-notice')?.textContent).toContain('switched off for this run');
+
+    await click('Write the prompt');
+
+    expect(requests[0].creativeContextId).toBe('ctx-1');
+    expect(requests[0].applyDayNotes).toBeFalse();
   });
 
   it('offers the prompt box before anything has been written, so a creator can write their own', async () => {

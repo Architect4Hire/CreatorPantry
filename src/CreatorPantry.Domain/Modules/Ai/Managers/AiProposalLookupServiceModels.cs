@@ -36,3 +36,15 @@ public sealed record AiProposalLineageServiceModel(
     string PromptTemplateBodyChecksum,
     Guid? RecipeId,
     Guid? RecipeVersionId);
+
+/// <summary>
+/// One recipe this workspace created by accepting an AI first draft, and when the creator accepted it.
+/// </summary>
+/// <remarks>
+/// Two facts and nothing about the draft itself: no payload, no model, no cost. It exists so a module that
+/// holds a recipe id can ask whether that recipe began as an accepted draft without reading this module's
+/// tables.
+/// </remarks>
+/// <param name="RecipeId">The recipe the acceptance created.</param>
+/// <param name="AcceptedAt">When the creator accepted the draft, in whole or in part.</param>
+public sealed record AiAcceptedDraftServiceModel(Guid RecipeId, DateTimeOffset AcceptedAt);

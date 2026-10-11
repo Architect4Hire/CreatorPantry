@@ -91,9 +91,28 @@ public static class CreativeContextPromptRenderer
 
         if (package.Day?.ThemeName is { } themeName)
         {
-            payload["theme"] = package.Day.ThemeDescription is { } description
-                ? new Dictionary<string, object?>(StringComparer.Ordinal) { ["name"] = themeName, ["about"] = description }
-                : new Dictionary<string, object?>(StringComparer.Ordinal) { ["name"] = themeName };
+            var theme = new Dictionary<string, object?>(StringComparer.Ordinal) { ["name"] = themeName };
+
+            if (package.Day.ThemeDescription is { } description)
+            {
+                theme["about"] = description;
+            }
+
+            // The creator's standing notes for the day, as one JSON string like everything else here: their
+            // line breaks are escaped, so nothing in them can begin a line of its own inside the segment.
+            if (package.Day.StandingNotes is { } standingNotes)
+            {
+                theme["standingNotes"] = standingNotes;
+            }
+
+            payload["theme"] = theme;
+        }
+
+        // Titles only, in the order the history gave them. Named for what a template tells a model to do with
+        // it, since a bare list of dish names beside a brief would otherwise read as part of the brief.
+        if (package.Day?.AlreadyMade is { Count: > 0 } alreadyMade)
+        {
+            payload["alreadyMadeForThisTheme"] = alreadyMade.ToArray();
         }
 
         return payload.Count == 0 ? null : JsonSerializer.Serialize(payload, Json);

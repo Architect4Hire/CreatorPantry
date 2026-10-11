@@ -23,6 +23,7 @@ import { AiOperationTracker } from '../ai/ai-operation-tracker';
 import { ContentPipelineDraft, ContentPipelinePostsState } from '../../models/content-pipeline.models';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { ChannelPostRunComponent, ChannelPostRunState } from '../../shared/channel-posts/channel-post-run.component';
+import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice.component';
 import { IdempotencyKey } from './content-pipeline-idempotency';
 
 /** How the channel list and the workspace's usual channels loaded. One state, because they load together. */
@@ -51,7 +52,7 @@ type ChannelsState =
 @Component({
   selector: 'cp-content-pipeline-posts-step',
   standalone: true,
-  imports: [ChannelPostRunComponent, CpNoticeComponent],
+  imports: [ChannelPostRunComponent, CpNoticeComponent, DayNotesNoticeComponent],
   template: `
     @if (channels().status === 'unavailable') {
       <cp-notice tone="warning" role="status">
@@ -60,9 +61,19 @@ type ChannelsState =
       </cp-notice>
     }
 
+    <!-- Above the run, so a creator knows the day's notes will shape the posts before asking for any. -->
+    <cp-day-notes-notice
+      class="day-notes"
+      [workspaceSlug]="workspaceSlug()"
+      [themeKey]="themeKey()"
+      [usesAlreadyMade]="true"
+      [(apply)]="applyDayNotes"
+    />
+
     <cp-channel-post-run
       [workspaceSlug]="workspaceSlug()"
       [creativeContextId]="creativeContextId()"
+      [applyDayNotes]="applyDayNotes()"
       [state]="runState()"
       [channels]="channelList()"
       [channelDefaults]="channelDefaults()"
@@ -75,7 +86,7 @@ type ChannelsState =
       (announced)="announced.emit($event)"
     />
   `,
-  styles: [':host { display: block; }'],
+  styles: [':host { display: block; } .day-notes[data-shown] { margin-bottom: var(--cp-space-4); }'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelinePostsStepComponent {
@@ -99,6 +110,15 @@ export class ContentPipelinePostsStepComponent {
 
   /** The piece of work, or null until this run has been filed on one. */
   protected readonly creativeContextId = computed(() => this.session().context()?.id ?? null);
+
+  /** The work's themed day, when it has one. What the notice above the run reads the notes for. */
+  protected readonly themeKey = computed(() => this.session().context()?.weeklyThemeKey ?? null);
+
+  /**
+   * Whether the next run follows the day's standing notes. Held here, for this visit to the step only: it is
+   * a choice about one run, so it is never saved with the work and starts on again every time.
+   */
+  protected readonly applyDayNotes = signal(true);
 
   protected readonly channelList = computed<readonly ContentChannel[]>(() => {
     const state = this.channels();

@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
@@ -46,6 +47,7 @@ internal sealed class AiPhotographyConceptRequestBusiness(
     IAiOperationDataLayer operations,
     IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
+    ICreativeContextFacade creativeContexts,
     IWorkspaceContext workspace,
     AiTaskOptions tasks,
     IClock clock) : IAiPhotographyConceptRequestBusiness
@@ -70,6 +72,19 @@ internal sealed class AiPhotographyConceptRequestBusiness(
             return Refuse(
                 AiPhotographyConceptRequestErrors.RecipeNotFound,
                 "This workspace has no recipe with that id, or that version is not one of its versions.");
+        }
+
+        // The same, for the piece of work the shoot is for (AF.7.4): asked now, through the content module's
+        // facade and inside the resolved workspace, so a request naming work this workspace does not have is
+        // refused here rather than accepted, queued and failed by the worker. An unknown id and a neighbour's
+        // are one answer, because the workspace filter means the neighbour's row is never read.
+        if (model.CreativeContextId is { } contextId
+            && contextId != Guid.Empty
+            && !(await creativeContexts.GetAsync(contextId, cancellationToken)).Succeeded)
+        {
+            return Refuse(
+                AiPhotographyConceptRequestErrors.ContextNotFound,
+                "This workspace has no piece of work with that id.");
         }
 
         if (await quota.RefuseIfUnaffordableAsync(AiTaskType.PhotographyConcept, cancellationToken) is { } spent)
@@ -177,6 +192,18 @@ internal sealed class AiPhotographyConceptRequestBusiness(
         Add(PhotographyConceptInputs.DishName, model.DishName);
         Add(PhotographyConceptInputs.SceneOverrides, Join(model.SceneOverrides));
         Add(PhotographyConceptInputs.StyleOverrides, Join(model.StyleOverrides));
+
+        // Both written only when they say something, so a request that names no piece of work stores exactly
+        // what it stored before either existed.
+        if (model.CreativeContextId is { } contextId && contextId != Guid.Empty)
+        {
+            Add(PhotographyConceptInputs.CreativeContextId, contextId.ToString("D"));
+
+            if (model.ApplyDayNotes is false)
+            {
+                Add(PhotographyConceptInputs.ApplyDayNotes, PhotographyConceptInputs.Off);
+            }
+        }
 
         return JsonSerializer.Serialize(values);
     }

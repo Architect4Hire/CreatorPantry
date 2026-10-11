@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   CpButtonComponent,
   CpCardComponent,
@@ -42,7 +42,14 @@ const NOT_ALLOWED = 'Only an Owner of this workspace can change this.';
 @Component({
   selector: 'cp-workspace-settings',
   standalone: true,
-  imports: [CpButtonComponent, CpCardComponent, CpChoiceGroupComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [
+    CpButtonComponent,
+    CpCardComponent,
+    CpChoiceGroupComponent,
+    CpFormSectionComponent,
+    CpNoticeComponent,
+    RouterLink,
+  ],
   templateUrl: './workspace-settings.component.html',
   styleUrl: './workspace-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

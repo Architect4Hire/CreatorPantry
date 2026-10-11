@@ -121,6 +121,21 @@ public sealed class WorkspaceWeeklyThemeSqlServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Standing_notes_at_the_cap_round_trip_through_the_migrated_column()
+    {
+        // The column the migration added, at the full width the validator allows: nvarchar(2000) has to take
+        // exactly what the edge accepts, line breaks and non-ASCII included.
+        var notes = "Always under 30 minutes.\nNever tofu — crème fraîche is fine.\n"
+            .PadRight(WeeklyThemePolicy.StandingNotesMaxLength, 'n');
+
+        var week = await ReplaceAsync(
+            WorkspaceA,
+            Theme(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday") with { StandingNotes = notes });
+
+        Assert.Equal(notes, Assert.Single(week.Themes).StandingNotes);
+    }
+
+    [Fact]
     public async Task A_day_changing_hands_needs_no_retry_against_a_real_index()
     {
         // The case the two-batch write exists for, against the engine whose index actually enforces it.
@@ -145,7 +160,7 @@ public sealed class WorkspaceWeeklyThemeSqlServerTests : IAsyncLifetime
         var saved = await dataLayer.ReplaceAsync(
             new WeeklyThemeWeekPlan(
                 Now,
-                [new WeeklyThemeChange("sheet-pan-wednesday", DayOfWeek.Wednesday, "Sheet-pan Wednesday", null, Retire: false)]),
+                [new WeeklyThemeChange("sheet-pan-wednesday", DayOfWeek.Wednesday, "Sheet-pan Wednesday", null, null, Retire: false)]),
             new AuditEntry(
                 Actor,
                 ContentAuditActions.WeeklyThemesReplaced,
@@ -197,7 +212,7 @@ public sealed class WorkspaceWeeklyThemeSqlServerTests : IAsyncLifetime
         var saved = await dataLayer.ReplaceAsync(
             new WeeklyThemeWeekPlan(
                 Now,
-                [new WeeklyThemeChange("tortilla-tuesday", DayOfWeek.Tuesday, "Tortilla Tuesday", null, Retire: false)]),
+                [new WeeklyThemeChange("tortilla-tuesday", DayOfWeek.Tuesday, "Tortilla Tuesday", null, null, Retire: false)]),
             new AuditEntry(
                 Actor,
                 ContentAuditActions.WeeklyThemesReplaced,

@@ -26,7 +26,10 @@ public interface ICreativeContextPackageBusiness
     /// is never a failure: it is dropped and named in the package.
     /// </remarks>
     Task<OperationResult<CreativeContextPackage>> AssembleAsync(
-        Guid contextId, AiTaskType taskType, CancellationToken cancellationToken);
+        Guid contextId,
+        AiTaskType taskType,
+        CreativeContextPackageOptions options,
+        CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="ICreativeContextPackageBusiness"/>
@@ -52,14 +55,20 @@ internal sealed class CreativeContextPackageBusiness(
     IGeneratedImageLookupFacade generatedImages,
     IMediaPictureAnalysisFacade analyses,
     IPromptRecordFacade prompts,
+    IThemedDayHistoryFacade themedDayHistory,
     IClock clock) : ICreativeContextPackageBusiness
 {
     /// <summary>One resolved source, with what it costs, in the order the context names it.</summary>
     private sealed record Resolved(CreativeContextReference Reference, object Entry, int Cost);
 
     public async Task<OperationResult<CreativeContextPackage>> AssembleAsync(
-        Guid contextId, AiTaskType taskType, CancellationToken cancellationToken)
+        Guid contextId,
+        AiTaskType taskType,
+        CreativeContextPackageOptions options,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
+
         var context = await dataLayer.FindAsync(contextId, cancellationToken);
 
         // One refusal for "no such context" and "another workspace's context": the query filter means the
@@ -73,6 +82,12 @@ internal sealed class CreativeContextPackageBusiness(
         }
 
         var allowed = CreativeContextPackageSelection.SectionsFor(taskType);
+
+        // A narrowing, never a widening: the day's sections are kept only where the table already gave them.
+        if (options.DayOnly)
+        {
+            allowed &= CreativeContextPackageSelection.DaySections;
+        }
 
         // A task the table grounds in nothing gets nothing — not the title, not a channel, not the context's
         // version. An early return rather than a set of empty reads below, because it is the only form of
@@ -88,7 +103,7 @@ internal sealed class CreativeContextPackageBusiness(
         var words = ReadWords(context, allowed);
         var channelEntries = allowed.HasFlag(CreativeContextSections.Channels) ? ReadChannels(context) : [];
         var day = allowed.HasFlag(CreativeContextSections.Day)
-            ? await ReadDayAsync(context, omissions, cancellationToken)
+            ? await ReadDayAsync(context, allowed, options, omissions, cancellationToken)
             : null;
 
         var resolved = new List<Resolved>();
@@ -232,7 +247,11 @@ internal sealed class CreativeContextPackageBusiness(
     }
 
     private async Task<CreativeContextDayEntry?> ReadDayAsync(
-        CreativeContext context, SortedSet<CreativeContextOmission> omissions, CancellationToken cancellationToken)
+        CreativeContext context,
+        CreativeContextSections allowed,
+        CreativeContextPackageOptions options,
+        SortedSet<CreativeContextOmission> omissions,
+        CancellationToken cancellationToken)
     {
         if (context.WeeklyThemeKey is not { } themeKey)
         {
@@ -260,6 +279,23 @@ internal sealed class CreativeContextPackageBusiness(
             description = null;
         }
 
+        string? standingNotes = null;
+
+        if (allowed.HasFlag(CreativeContextSections.DayNotes)
+            && theme.StandingNotes?.Trim() is { Length: > 0 and <= CreativeContextPackageSelection.MaxStandingNotesLength } notes)
+        {
+            if (options.ApplyDayNotes)
+            {
+                standingNotes = notes;
+            }
+            else
+            {
+                // The creator's own switch, for this run only. Said out loud, so the proposal that comes of it
+                // does not read as though the notes were followed.
+                omissions.Add(CreativeContextOmission.StandingNotesSwitchedOff);
+            }
+        }
+
         // A retired theme is still passed on: the creator chose it for this piece and retirement is about what
         // can be newly chosen, not about what existing work means.
         return new CreativeContextDayEntry(
@@ -267,7 +303,83 @@ internal sealed class CreativeContextPackageBusiness(
             theme.Key,
             theme.DisplayName,
             string.IsNullOrEmpty(description) ? null : description,
-            theme.Revision);
+            theme.Revision,
+            standingNotes)
+        {
+            AlreadyMade = allowed.HasFlag(CreativeContextSections.DayHistory)
+                ? await ReadAlreadyMadeAsync(context, theme.Key, cancellationToken)
+                : [],
+        };
+    }
+
+    /// <summary>
+    /// Titles of other work already made for this theme, newest first: a bounded list of what not to repeat.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Read through the themed-day history's own facade</strong>, inside the resolved workspace, so it
+    /// is the same derived, bounded answer a creator sees on the themed days screen — work that came to
+    /// something in the last year — and never another workspace's.
+    /// </para>
+    /// <para>
+    /// <strong>Titles only.</strong> The history holds ids and titles and nothing of what was made; this takes
+    /// the working title, or for untitled work the title of a recipe it produced, and nothing else. Untitled
+    /// work with no recipe contributes nothing: there is nothing to say about it that is not invention.
+    /// </para>
+    /// <para>
+    /// A history that cannot be read is an empty list rather than a failed package: the list is advice about
+    /// repetition, and a generation without it is the one every creator got before this existed.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> ReadAlreadyMadeAsync(
+        CreativeContext context, string themeKey, CancellationToken cancellationToken)
+    {
+        // The widest page the history gives, which is well past what is carried: this piece of work may itself
+        // be in it, and so may work nobody named, and neither should leave the list short when more is there.
+        var page = await themedDayHistory.GetPageAsync(
+            themeKey,
+            new ThemedDayHistoryViewModel(Limit: ThemedDayHistoryPolicy.MaxPageSize),
+            cancellationToken);
+
+        if (!page.Succeeded)
+        {
+            return [];
+        }
+
+        var titles = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in page.Value!.Items)
+        {
+            if (titles.Count >= CreativeContextPackageSelection.MaxAlreadyMade)
+            {
+                break;
+            }
+
+            if (item.ContextId == context.Id)
+            {
+                continue;
+            }
+
+            var title = item.WorkingTitle?.Trim();
+
+            if (string.IsNullOrEmpty(title)
+                && item.Outcomes.FirstOrDefault(outcome => outcome.RecipeId is not null)?.RecipeId is { } recipeId)
+            {
+                // Facade to facade, and only for work the creator never named.
+                var recipe = await recipes.GetDetailAsync(recipeId, cancellationToken);
+                title = recipe.Succeeded ? recipe.Value!.Title.Trim() : null;
+            }
+
+            if (!string.IsNullOrEmpty(title)
+                && title.Length <= CreativeContextPackageSelection.MaxAlreadyMadeTitleLength
+                && seen.Add(title))
+            {
+                titles.Add(title);
+            }
+        }
+
+        return titles;
     }
 
     /// <summary>

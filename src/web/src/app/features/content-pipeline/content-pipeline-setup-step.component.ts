@@ -10,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   CpButtonComponent,
   CpChoiceGroupComponent,
@@ -75,6 +76,7 @@ type ChannelsState =
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    RouterLink,
   ],
   templateUrl: './content-pipeline-setup-step.component.html',
   styleUrl: './content-pipeline-setup-step.component.css',
@@ -97,6 +99,18 @@ export class ContentPipelineSetupStepComponent implements OnInit {
    * week and has no idea step for a day's theme to feed, so offering one there would be a field with no effect.
    */
   readonly showDay = input(true);
+  /**
+   * Where the workspace's themed days are managed, or null to offer no way there.
+   *
+   * Handed in rather than built here: this step is hosted by more than one page and reads no route of its own,
+   * so only its host knows which workspace the link belongs to.
+   */
+  readonly themedDaysLink = input<readonly string[] | null>(null);
+  /**
+   * Where recipe ideas for this run's work are asked for, or null when the run has no filed work yet. Handed
+   * in for the same reason as {@link themedDaysLink}: only the host knows the work and the workspace.
+   */
+  readonly recipeIdeasLink = input<readonly string[] | null>(null);
   readonly changed = output<ContentPipelineConfig>();
 
   protected readonly limits = CONTENT_PIPELINE_LIMITS;

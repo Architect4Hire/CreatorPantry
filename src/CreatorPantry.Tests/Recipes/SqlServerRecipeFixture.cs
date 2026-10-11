@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
@@ -169,6 +170,12 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
             // content module is the consumer that event fans out to.
             .AddOutbox()
             .AddContentModule()
+
+            // The content module retires its cached themed-day histories after a write, as every real host
+            // lets it: both register a cache. In memory here, which is all a single test process needs.
+            .AddLogging()
+            .AddDistributedMemoryCache()
+            .AddApplicationCache()
 
             // The recipe-change handler logs a warning for a workspace that no longer exists. Every real host
             // registers logging; this container is the only one that has to say so.

@@ -677,6 +677,7 @@ public sealed class SocialPackageTests(SqlServerRecipeFixture fixture) : IClassF
             var channel = package.Channels.Single();
             channel.Status = ContentProposalStatus.Accepted;
             channel.AcceptedRevisionId = revisionId;
+            channel.AcceptedAt = SqlServerRecipeFixture.Now;
             channel.UpdatedAt = SqlServerRecipeFixture.Now.AddMinutes(1);
         }
 
@@ -746,6 +747,7 @@ public sealed class SocialPackageTests(SqlServerRecipeFixture fixture) : IClassF
 
             channel.Status = ContentProposalStatus.Accepted;
             channel.AcceptedRevisionId = revision.Id;
+            channel.AcceptedAt = SqlServerRecipeFixture.Now;
             await db.SaveChangesAsync(Ct);
         }
 

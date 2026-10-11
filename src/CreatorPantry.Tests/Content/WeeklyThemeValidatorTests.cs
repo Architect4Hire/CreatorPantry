@@ -123,6 +123,30 @@ public sealed class WeeklyThemeValidatorTests
     }
 
     [Fact]
+    public async Task Standing_notes_are_optional_and_capped()
+    {
+        WeeklyThemeInput WithNotes(string? notes) => new()
+        {
+            Day = DayOfWeek.Monday,
+            Key = "meat-free-monday",
+            DisplayName = "Meat-free Monday",
+            StandingNotes = notes,
+        };
+
+        Assert.Empty(await FailuresFor(WithNotes(null)));
+        Assert.Empty(await FailuresFor(WithNotes("   ")));
+        Assert.Empty(await FailuresFor(WithNotes(new string('n', WeeklyThemePolicy.StandingNotesMaxLength))));
+
+        // Measured after trimming, like every other field: padding is not what the cap is counting.
+        Assert.Empty(await FailuresFor(
+            WithNotes($"  {new string('n', WeeklyThemePolicy.StandingNotesMaxLength)}  ")));
+
+        Assert.Equal(
+            ["Themes[0].StandingNotes"],
+            await FailuresFor(WithNotes(new string('n', WeeklyThemePolicy.StandingNotesMaxLength + 1))));
+    }
+
+    [Fact]
     public async Task Surrounding_whitespace_is_not_an_error()
     {
         // Trimmed, not refused: the creator's words are what they typed, minus the accident at either end.

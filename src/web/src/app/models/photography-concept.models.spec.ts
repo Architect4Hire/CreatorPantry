@@ -122,6 +122,23 @@ describe('photography-concept.models', () => {
   });
 
   describe('encodeRequestPhotographyConcepts', () => {
+    it('names the piece of work only when there is one, and the notes switch only when it is off', () => {
+      const request = { channelKey: null, creatorConcept: 'A tight crop.', sceneOverrides: [], styleOverrides: [] };
+
+      expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: null, applyDayNotes: false })).toEqual({
+        creatorConcept: 'A tight crop.',
+      });
+      expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: 'ctx-1', applyDayNotes: true })).toEqual({
+        creatorConcept: 'A tight crop.',
+        creativeContextId: 'ctx-1',
+      });
+      expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: 'ctx-1', applyDayNotes: false })).toEqual({
+        creatorConcept: 'A tight crop.',
+        creativeContextId: 'ctx-1',
+        applyDayNotes: false,
+      });
+    });
+
     it('sends only what was actually asked for', () => {
       expect(
         encodeRequestPhotographyConcepts({

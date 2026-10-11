@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
+using CreatorPantry.Domain.Modules.Content.Facade;
+using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
@@ -50,6 +52,7 @@ internal sealed class ImagePromptAiTaskHandler(
     IBrandContextAssembler brandContext,
     IRecipeFacade recipes,
     IBrandSourcePassageFacade passages,
+    ICreativeContextPackageFacade creativeContexts,
     IClock clock) : IAiTaskHandler
 {
     private static readonly Dictionary<string, string> NoTemplateInputs = new(StringComparer.Ordinal);
@@ -95,11 +98,44 @@ internal sealed class ImagePromptAiTaskHandler(
                 "The recipe this prompt was composed for is no longer available.");
         }
 
+        // The themed day of the piece of work this prompt is for, when the request named one (AF.7.4). Day
+        // only, for the reason a shoot plan gives: the concept, the recipe and the creator's own words are
+        // this request's, and taking them from the piece of work as well would be a second answer to each.
+        CreativeContextPackage? day = null;
+
+        if (PhotographyConceptInputs.ReadContextId(context.Inputs) is { } contextId)
+        {
+            var assembled = await creativeContexts.AssembleAsync(
+                contextId,
+                AiTaskType.ImagePrompt,
+                new CreativeContextPackageOptions(
+                    ApplyDayNotes: PhotographyConceptInputs.ReadApplyDayNotes(context.Inputs), DayOnly: true),
+                cancellationToken);
+
+            // The request seam already refused work this workspace does not have; this is the backstop, and it
+            // fails rather than composing without the day for the reason PhotographyConceptAiTaskHandler gives.
+            if (!assembled.Succeeded)
+            {
+                return Failure(
+                    AiFailureCategory.DomainInvalid,
+                    "The piece of work this prompt was composed for is no longer available.");
+            }
+
+            day = assembled.Value;
+        }
+
         var template = templates.Get(AiTaskCatalog.ImagePrompt);
         var channelKey = ImagePromptInputs.Read(context.Inputs, ImagePromptInputs.ChannelKey);
         var package = await AssembleAsync(channelKey, cancellationToken);
         var brief = await BriefAsync(context.Inputs, cancellationToken);
         var builder = Envelope(context, template, concept, source.Recipe, package, brief.Text);
+
+        if (day is not null)
+        {
+            // A reference segment of its own, stamped with the workspace the piece of work was read in, which
+            // the builder refuses if it is not this one. Creator text, fenced, and in the user message.
+            builder = CreativeContextPromptRenderer.AddTo(builder, day);
+        }
 
         var outcome = await gateway.CompleteAsync(
             new AiCompletionRequest<AiImagePromptOutputDocument>(
@@ -142,6 +178,13 @@ internal sealed class ImagePromptAiTaskHandler(
                     + "carry. Check that what matters most is near the start of it."));
         }
 
+        if (day?.Omissions.Contains(CreativeContextOmission.StandingNotesSwitchedOff) is true)
+        {
+            warnings.Add(Limitation(
+                "This prompt was composed without the day's standing notes, because they were switched off for "
+                    + "this run."));
+        }
+
         var attempt = outcome.Attempts[^1];
 
         var assembly = AiProposalAssembler.Assemble(
@@ -160,7 +203,10 @@ internal sealed class ImagePromptAiTaskHandler(
                 attempt.ModelName,
                 attempt.ModelDeployment),
             clock.UtcNow,
-            package);
+            package,
+
+            // What of the piece of work the model was shown: its day, and nothing else.
+            day);
 
         return assembly.Succeeded
             ? AiTaskHandlerOutcome.ForProposal(assembly.Proposal!, outcome.Attempts)

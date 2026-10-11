@@ -13,7 +13,11 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import { CONTEXT_ROUTE_PARAM, CONTEXT_ROUTE_SEGMENT } from '../../shared/use-this-in/handoff-destinations';
+import {
+  CONTEXT_ROUTE_PARAM,
+  CONTEXT_ROUTE_SEGMENT,
+  HANDOFF_ROUTES,
+} from '../../shared/use-this-in/handoff-destinations';
 import { combineLatest, map } from 'rxjs';
 import { CpButtonComponent, CpCardComponent, CpNoticeComponent, CpProgressComponent } from '@creator-pantry/ui';
 
@@ -202,6 +206,16 @@ export class ContentPipelineShellComponent {
   private get contextId(): string | null {
     return this.session.context()?.id ?? this.resumeContextId ?? this.routeContextId();
   }
+
+  /**
+   * Where recipe ideas for this run's work are asked for (AF.7.4), once the run has work filed: the AI Recipe
+   * Studio opened for it, so the ideas follow the same themed day the run is for.
+   */
+  protected readonly recipeIdeasLink = computed<readonly string[] | null>(() => {
+    const contextId = this.session.context()?.id ?? null;
+
+    return contextId === null ? null : ['/', this.workspaceSlug(), ...HANDOFF_ROUTES.recipeConcepts(contextId)];
+  });
 
   readonly membership = computed(() => {
     const state = this.memberships.state();

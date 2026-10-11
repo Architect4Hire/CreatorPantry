@@ -164,6 +164,53 @@ public sealed class ImagePromptIsolationEndpointTests : IAsyncLifetime
             (await BodyOf(response)).GetProperty("code").GetString());
     }
 
+    /// <summary>
+    /// The piece of work a prompt is for (AF.7.4) is named by an id a client supplies and is held to the rule
+    /// every other id here is: a neighbour's is answered as one that does not exist, before anything is queued.
+    /// </summary>
+    [Fact]
+    public async Task A_piece_of_work_in_another_workspace_is_answered_as_one_that_does_not_exist()
+    {
+        using var mine = await OwnerOf(_fixture.WorkspaceA);
+        using var theirs = await OwnerOf(_fixture.WorkspaceB);
+
+        var concept = await ConceptRequestAsync(mine, _fixture.WorkspaceA);
+        var neighbours = await CreateContextAsync(theirs, _fixture.WorkspaceB);
+
+        object With(Guid creativeContextId) => new
+        {
+            conceptRequestId = concept,
+            conceptId = Guid.NewGuid(),
+            shotKind = "Hero",
+            creativeContextId,
+        };
+
+        var crossing = await AskAsync(mine, _fixture.WorkspaceA, With(neighbours));
+        var missing = await AskAsync(mine, _fixture.WorkspaceA, With(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.NotFound, crossing.StatusCode);
+        Assert.Equal(missing.StatusCode, crossing.StatusCode);
+
+        var crossingBody = await BodyOf(crossing);
+        var missingBody = await BodyOf(missing);
+
+        Assert.Equal(
+            AiImagePromptRequestErrors.ContextNotFound, crossingBody.GetProperty("code").GetString());
+        Assert.Equal(WithoutTraceId(missingBody), WithoutTraceId(crossingBody));
+    }
+
+    private static async Task<Guid> CreateContextAsync(GatewayClient client, SeededWorkspace workspace)
+    {
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/workspaces/{workspace.Slug}/creative-contexts",
+            new { workingTitle = "Lentil ragu, Monday" },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        return (await BodyOf(response)).GetProperty("id").GetGuid();
+    }
+
     private static string Route(SeededWorkspace workspace) =>
         $"/api/v1/workspaces/{workspace.Slug}/image-prompt-requests";
 

@@ -110,6 +110,11 @@ export interface RequestChannelPostsRequest {
   readonly creativeContextId: string;
   /** In the order the posts should come back. Part of the request, so a reorder is not a retry. */
   readonly channelKeys: readonly string[];
+  /**
+   * False to write this one run without the themed day's standing notes (AF.7.4). Left out otherwise, so a
+   * request that never mentions the switch is the request it always was.
+   */
+  readonly applyDayNotes?: boolean;
 }
 
 /** What `PATCH .../posts/{channelKey}` takes. No count and no verdict: the server measures the body. */
@@ -318,7 +323,11 @@ export function decodeChannelPostRequestStatus(value: unknown): ChannelPostReque
 }
 
 export function encodeRequestChannelPosts(request: RequestChannelPostsRequest): Record<string, unknown> {
-  return { creativeContextId: request.creativeContextId, channelKeys: [...request.channelKeys] };
+  return {
+    creativeContextId: request.creativeContextId,
+    channelKeys: [...request.channelKeys],
+    ...(request.applyDayNotes === false ? { applyDayNotes: false } : {}),
+  };
 }
 
 export function encodeEditChannelPost(request: EditChannelPostRequest): Record<string, unknown> {

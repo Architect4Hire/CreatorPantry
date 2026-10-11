@@ -171,6 +171,7 @@ internal sealed class WorkspaceWeeklyThemeDataLayer(
                     theme.Day = change.Day;
                     theme.DisplayName = change.DisplayName;
                     theme.Description = change.Description;
+                    theme.StandingNotes = change.StandingNotes;
                     theme.RetiredAt = null;
                     theme.Revision += 1;
                     theme.UpdatedAt = plan.At;
@@ -189,6 +190,7 @@ internal sealed class WorkspaceWeeklyThemeDataLayer(
                     Key = change.Key,
                     DisplayName = change.DisplayName,
                     Description = change.Description,
+                    StandingNotes = change.StandingNotes,
                     Revision = 1,
                     CreatedAt = plan.At,
                     UpdatedAt = plan.At,
