@@ -64,6 +64,10 @@
         </form>
       </cp-card>
 
+      <!-- Its own card and its own Save: a different setting, written by a different route, so a failure here
+           never holds the measurement choice above hostage. -->
+      <cp-workspace-ai-features class="more" [workspaceSlug]="workspaceSlug" [canEdit]="canEdit()" />
+
       <!-- A page of its own rather than a section here: a week of themes, their notes and their history is a
            screen's worth, and it is saved separately from the setting above. -->
       <cp-topic-card class="more" heading="Themed days">

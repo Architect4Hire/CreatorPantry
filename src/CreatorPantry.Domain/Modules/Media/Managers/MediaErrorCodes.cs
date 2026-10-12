@@ -25,6 +25,21 @@ public static class MediaErrorCodes
     public const string GenerationProposalUnprocessable = "media.generation.proposal.unprocessable";
 
     /// <summary>
+    /// The request names a recipe, or a version of one, that is not in this workspace. Maps to 422.
+    /// </summary>
+    /// <remarks>
+    /// One answer for an id that names nothing, another workspace's recipe, and a version that is not that
+    /// recipe's, naming only the field (tenancy.md).
+    /// </remarks>
+    public const string GenerationRecipeUnprocessable = "media.generation.recipe.unprocessable";
+
+    /// <summary>
+    /// The request names a piece of work that is not in this workspace. Maps to 422. One answer for an id
+    /// that names nothing and for another workspace's.
+    /// </summary>
+    public const string GenerationContextUnprocessable = "media.generation.context.unprocessable";
+
+    /// <summary>
     /// No image-generation operation of this workspace has that id.
     /// </summary>
     /// <remarks>

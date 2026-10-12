@@ -60,6 +60,9 @@ internal sealed class GeneratedImageOperationDetailRepository(CreatorPantryDbCon
                 row.FailureSummary,
                 row.RequestedAt,
                 row.CompletedAt,
+                row.RecipeId,
+                row.RecipeVersionId,
+                row.CreativeContextId,
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -107,6 +110,9 @@ internal sealed class GeneratedImageOperationDetailRepository(CreatorPantryDbCon
             operation.FailureSummary,
             operation.RequestedAt,
             operation.CompletedAt,
-            images);
+            images,
+            operation.RecipeId,
+            operation.RecipeVersionId,
+            operation.CreativeContextId);
     }
 }

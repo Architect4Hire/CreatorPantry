@@ -50,7 +50,7 @@ internal sealed class AiReferenceImageRequestBusiness(
     IMediaAssetLookupFacade mediaAssets,
     IGeneratedImageLookupFacade generatedImages,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiReferenceImageRequestBusiness
 {
     /// <inheritdoc cref="ReferenceImageAnalysisAiTaskHandler"/>
@@ -69,7 +69,7 @@ internal sealed class AiReferenceImageRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.ReferenceImageAnalysis))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.ReferenceImageAnalysis, cancellationToken))
         {
             return Refuse(
                 AiReferenceImageRequestErrors.TaskNotEnabled,

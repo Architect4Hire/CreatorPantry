@@ -23,7 +23,10 @@ public sealed record GeneratedImageOperationServiceModel(
     string? FailureCategory,
     string? FailureSummary,
     DateTimeOffset RequestedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt,
+    Guid? RecipeId = null,
+    Guid? RecipeVersionId = null,
+    Guid? CreativeContextId = null);
 
 /// <summary>
 /// What a caller must supply to request images. A trusted-caller shape, not an HTTP ViewModel.
@@ -50,4 +53,18 @@ public sealed record GeneratedImageRequest(
     string? AvoidText,
     Guid? AiProposalId,
     int VariantCount,
-    string IdempotencyKey);
+    string IdempotencyKey,
+    GeneratedImageSubject? Subject = null);
+
+/// <summary>
+/// What a run of pictures was asked for: a recipe, an exact version of it, a piece of work — any or none.
+/// </summary>
+/// <remarks>
+/// Recorded on the run and never read by the worker, which sends the prompt as written. Each id is resolved
+/// inside the route's workspace before anything is queued.
+/// </remarks>
+public sealed record GeneratedImageSubject(Guid? RecipeId, Guid? RecipeVersionId, Guid? CreativeContextId)
+{
+    /// <summary>A run asked for nothing in particular.</summary>
+    public static GeneratedImageSubject None { get; } = new(null, null, null);
+}

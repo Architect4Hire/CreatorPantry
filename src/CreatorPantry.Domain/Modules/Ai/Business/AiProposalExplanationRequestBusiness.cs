@@ -36,7 +36,7 @@ internal sealed class AiProposalExplanationRequestBusiness(
     IAiOperationDataLayer operations,
     IAiRequestQuotaGate quota,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiProposalExplanationRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -46,7 +46,7 @@ internal sealed class AiProposalExplanationRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.ProposalExplanation))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.ProposalExplanation, cancellationToken))
         {
             return Refuse(
                 AiProposalExplanationRequestErrors.TaskNotEnabled,

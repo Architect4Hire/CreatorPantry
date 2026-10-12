@@ -77,7 +77,7 @@ internal sealed class AiProposalBusiness(
     IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiProposalBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -97,7 +97,7 @@ internal sealed class AiProposalBusiness(
 
         // Known but not switched on. A different answer from "no such task", because the deployment could
         // enable it and the caller has not asked for something meaningless.
-        if (!AiTaskCatalog.IsEnabled(tasks, model.Task!))
+        if (!await tasks.IsEnabledAsync(model.Task!, cancellationToken))
         {
             return Refuse(
                 AiProposalErrors.TaskNotEnabled,

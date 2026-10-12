@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
@@ -62,6 +63,7 @@ public sealed class AiBrandGuideProposalRequestBusinessTests : IAsyncDisposable
             .AddApplicationCache()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(_tasks)
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
             .AddApplicationTime()

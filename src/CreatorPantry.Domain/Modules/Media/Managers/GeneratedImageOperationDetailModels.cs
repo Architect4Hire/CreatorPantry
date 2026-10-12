@@ -54,7 +54,10 @@ public sealed record GeneratedImageOperationDetailServiceModel(
     string? FailureSummary,
     DateTimeOffset RequestedAt,
     DateTimeOffset? CompletedAt,
-    IReadOnlyList<StagedImageServiceModel> Images);
+    IReadOnlyList<StagedImageServiceModel> Images,
+    Guid? RecipeId = null,
+    Guid? RecipeVersionId = null,
+    Guid? CreativeContextId = null);
 
 /// <summary>
 /// One staged image of an operation, as a client needs to show and act on it.

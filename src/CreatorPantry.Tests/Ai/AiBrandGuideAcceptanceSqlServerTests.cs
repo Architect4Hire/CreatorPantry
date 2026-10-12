@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -69,6 +70,7 @@ public sealed class AiBrandGuideAcceptanceSqlServerTests : IAsyncLifetime
             .AddApplicationCache()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(new AiTaskOptions())
+            .AddAiTaskGate()
             .AddIdempotency(new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {

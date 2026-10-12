@@ -35,7 +35,7 @@ internal sealed class AiDishFacetsRequestBusiness(
     IAiOperationDataLayer operations,
     IAiRequestQuotaGate quota,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiDishFacetsRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -45,7 +45,7 @@ internal sealed class AiDishFacetsRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.DishFacetSuggestion))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.DishFacetSuggestion, cancellationToken))
         {
             return Refuse(
                 AiDishFacetsRequestErrors.TaskNotEnabled,

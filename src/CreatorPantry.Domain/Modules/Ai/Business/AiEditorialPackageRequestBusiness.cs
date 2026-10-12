@@ -38,7 +38,7 @@ internal sealed class AiEditorialPackageRequestBusiness(
     IRecipeFacade recipes,
     IBrandProfileFacade brand,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiEditorialPackageRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -46,7 +46,7 @@ internal sealed class AiEditorialPackageRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.EditorialPackage))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.EditorialPackage, cancellationToken))
         {
             return Refuse(
                 AiEditorialPackageRequestErrors.TaskNotEnabled,

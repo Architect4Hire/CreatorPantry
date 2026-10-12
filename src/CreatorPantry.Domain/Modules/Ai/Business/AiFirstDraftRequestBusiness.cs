@@ -50,7 +50,7 @@ internal sealed class AiFirstDraftRequestBusiness(
     IAiOperationDataLayer operations,
     IAiRequestQuotaGate quota,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiFirstDraftRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -61,7 +61,7 @@ internal sealed class AiFirstDraftRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.RecipeFirstDraft))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.RecipeFirstDraft, cancellationToken))
         {
             return Refuse(
                 AiFirstDraftRequestErrors.TaskNotEnabled,

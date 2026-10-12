@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
@@ -44,6 +45,7 @@ public sealed class AiDishFacetsRequestBusinessTests : IAsyncDisposable
             .AddAudit()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(tasks)
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
             .AddApplicationTime()
@@ -85,7 +87,7 @@ public sealed class AiDishFacetsRequestBusinessTests : IAsyncDisposable
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
             scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-            tasks,
+            new AiTaskGate(tasks, scope.ServiceProvider.GetRequiredService<IAiTaskSwitchDataLayer>()),
             scope.ServiceProvider.GetRequiredService<IClock>());
 
         var outcome = await business.RequestAsync(Named(), "key-1", TestContext.Current.CancellationToken);

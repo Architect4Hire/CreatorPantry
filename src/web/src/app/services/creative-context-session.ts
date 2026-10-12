@@ -12,7 +12,7 @@ import {
   pickCreativeContextFields,
   sameCreativeContextField,
 } from '../models/creative-context-fields.models';
-import { CreativeContext, CreativeContextSource } from '../models/creative-context.models';
+import { CreativeContext, CreativeContextSource, keeperReferencesOf } from '../models/creative-context.models';
 import { CreativeContextService, CreativeContextWriteOutcome } from './creative-context.service';
 import { CreativeContextFiling, CreativeContextFilingStore } from './device-draft-store';
 
@@ -258,6 +258,39 @@ export class CreativeContextSession {
     return this.changeReferences((context) =>
       this.contexts.addReference(this.slug, context.id, source, context.concurrencyToken),
     );
+  }
+
+  /**
+   * Have the context name a picture that was just saved to the library as one it made.
+   *
+   * A save made for filed work carries the context, and the server names the asset on it in the same
+   * transaction — so the first thing to do is read the context again, which also moves this session onto the
+   * token that write produced. Only when the context still does not name the asset is it added here: work that
+   * was not filed when the picture was saved, which the server had nothing to name it on.
+   */
+  async nameKeptPicture(
+    mediaAssetId: string,
+    mediaAssetVersionNumber: number,
+  ): Promise<CreativeContextReferenceOutcome> {
+    const names = (): boolean =>
+      keeperReferencesOf(this.contextState()).some((reference) => reference.mediaAssetId === mediaAssetId);
+
+    if (this.contextState() !== null && !names()) {
+      // A field edit that is waiting goes first, with the token it was composed against.
+      await this.flush();
+      if (!this.sending && !HELD.has(this.saveState())) await this.refresh();
+    }
+
+    if (names()) return 'saved';
+
+    return this.addReference({
+      kind: 'DamAsset',
+      // A picture this work *made*, not one it takes cues from — so it is never offered back as inspiration
+      // the creator did not choose, and replacing the cue cannot remove it (AF.4.3).
+      purpose: 'Keeper',
+      mediaAssetId,
+      mediaAssetVersionNumber,
+    });
   }
 
   /** Stop the context naming a source, by the reference's own id. The source itself is untouched. */

@@ -120,6 +120,12 @@ describe('DAM keep models', () => {
       expect(Object.keys(sent)).not.toContain('recipeId');
     });
 
+    it('names the piece of work the picture was made for, and leaves it out when there is none', () => {
+      expect(encodeDamKeep('g1', draft({}), null, 'ctx-a')['creativeContextId']).toBe('ctx-a');
+      expect(Object.keys(encodeDamKeep('g1', draft({}), null))).not.toContain('creativeContextId');
+      expect(Object.keys(encodeDamKeep('g1', draft({}), null, null))).not.toContain('creativeContextId');
+    });
+
     it('never names a workspace or anything about the bytes', () => {
       const body = JSON.stringify(encodeDamKeep('g1', draft({ keepPrompt: true }), PROMPT));
 

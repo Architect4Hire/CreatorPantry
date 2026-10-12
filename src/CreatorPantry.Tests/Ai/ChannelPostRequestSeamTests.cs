@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -76,6 +77,7 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
             .AddApplicationTime()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(_tasks)
+            .AddAiTaskGate()
             .AddAiUsageModule()
             .AddContentModule()
 
@@ -657,7 +659,7 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
                 services.GetRequiredService<ISocialPackageFacade>(),
                 channels,
                 services.GetRequiredService<IWorkspaceContext>(),
-                _tasks,
+                new AiTaskGate(_tasks, services.GetRequiredService<IAiTaskSwitchDataLayer>()),
                 services.GetRequiredService<IClock>());
 
         var facade = new AiChannelPostsRequestFacade(
@@ -714,6 +716,7 @@ public sealed class ChannelPostRequestSeamTests : IAsyncDisposable
             .AddApplicationTime()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(_tasks)
+            .AddAiTaskGate()
             .AddAiUsageModule()
             .AddContentModule()
 

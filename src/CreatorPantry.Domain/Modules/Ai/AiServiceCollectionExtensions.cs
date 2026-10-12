@@ -68,10 +68,45 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<AiOperationClaimRepository>();
 
         services.AddSingleton(AiTaskCatalog.Bind(configuration));
+        services.AddAiTaskGate();
 
         // The SEO length and format rules: configuration over conventional defaults, refused at startup if unmeetable.
         services.AddSingleton(SeoRules.Bind(configuration));
         services.AddPromptTemplates();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the gate every request seam asks whether its task is switched on for the workspace.
+    /// </summary>
+    /// <remarks>
+    /// Called by <see cref="AddAiModule"/>, and public so a host or a test that assembles the module's data
+    /// services by hand can add it without the provider gateway and prompt templates that call brings. It
+    /// needs an <see cref="AiTaskOptions"/> — the defaults a workspace that has not chosen falls back to — and
+    /// <c>AddAudit</c>, because the data layer it shares with the settings write records that write.
+    /// </remarks>
+    public static IServiceCollection AddAiTaskGate(this IServiceCollection services)
+    {
+        services.TryAddScoped<IAiTaskSwitchRepository, AiTaskSwitchRepository>();
+        services.TryAddScoped<IAiTaskSwitchDataLayer, AiTaskSwitchDataLayer>();
+        services.TryAddScoped<IAiTaskGate, AiTaskGate>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the seam behind the workspace settings panel that reads and replaces which AI features are on.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="AddAiModule"/> for the reason every request seam is: only the API serves the
+    /// route, and the worker has no use for a facade it never calls.
+    /// </remarks>
+    public static IServiceCollection AddAiFeatureSeam(this IServiceCollection services)
+    {
+        services.AddScoped<IAiFeatureBusiness, AiFeatureBusiness>();
+        services.AddScoped<IAiFeatureFacade, AiFeatureFacade>();
+        services.AddScoped<IValidator<ReplaceAiFeaturesViewModel>, ReplaceAiFeaturesViewModelValidator>();
 
         return services;
     }

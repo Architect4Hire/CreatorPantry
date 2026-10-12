@@ -1,0 +1,747 @@
+using System.Text.Json;
+using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.Brand.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
+using CreatorPantry.Tests.Recipes;
+using Microsoft.EntityFrameworkCore;
+
+namespace CreatorPantry.Tests.Content;
+
+/// <summary>
+/// LF.1.2 against a real SQL Server: the long-form draft, its immutable revisions and their recipe pins, as the
+/// migration built them.
+/// </summary>
+/// <remarks>
+/// There is no write seam yet — that arrives with LF.2.2 — so these tests write rows directly and assert what
+/// the model and the engine refuse. SQL Server rather than SQLite because the migration is what is under test:
+/// three tables that all reach one workspace, a cycle of restricted keys between a draft and its revisions, and
+/// a row version that has to move. The fixture is shared, so every assertion is scoped to rows the test made.
+/// </remarks>
+public sealed class LongFormDraftTests(SqlServerRecipeFixture fixture) : IClassFixture<SqlServerRecipeFixture>
+{
+    private static readonly Guid WsA = SqlServerRecipeFixture.WorkspaceA;
+    private static readonly Guid WsB = SqlServerRecipeFixture.WorkspaceB;
+    private static readonly DateTimeOffset Now = SqlServerRecipeFixture.Now;
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    // ---- The shape ----
+
+    [Fact]
+    public async Task A_document_round_trips_with_its_plan_its_words_and_every_recipe_it_was_written_against()
+    {
+        var contextId = await SeedContextAsync(WsA);
+        var first = await SeedRecipeAsync(WsA);
+        var second = await SeedRecipeAsync(WsA);
+        var firstReference = Guid.NewGuid();
+        var secondReference = Guid.NewGuid();
+
+        var document = new LongFormDocument(
+        [
+            new(Guid.NewGuid(), LongFormSectionRole.Greeting, "Hello again", "Open warmly.", "Hello, friends.", true, null,
+                new(ContentRevisionSource.CreatorEdit, null, null, null, null, null, 1)),
+            new(Guid.NewGuid(), LongFormSectionRole.Item, "Soda bread", "The first recipe.", null, false, firstReference, null),
+            new(Guid.NewGuid(), LongFormSectionRole.Item, "Brown butter loaf", "The second recipe.", null, false, secondReference, null),
+        ]);
+
+        var draft = NewDraft(contextId, LongFormKind.NewsletterIssue);
+        var revision = NewRevision(draft, 1, parent: null, document);
+
+        await InAsync(WsA, async db =>
+        {
+            db.AddRange(draft, revision);
+            db.AddRange(
+                Pin(revision, 0, first, firstReference),
+                Pin(revision, 1, second, secondReference));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await InAsync(WsA, async db =>
+        {
+            var loadedDraft = await db.LongFormDrafts.AsNoTracking().SingleAsync(item => item.Id == draft.Id, Ct);
+            var loaded = await db.LongFormRevisions.AsNoTracking().SingleAsync(item => item.LongFormDraftId == draft.Id, Ct);
+            var pins = await db.LongFormRevisionRecipePins.AsNoTracking()
+                .Where(pin => pin.LongFormRevisionId == loaded.Id)
+                .OrderBy(pin => pin.SortOrder)
+                .ToListAsync(Ct);
+
+            // Stamped by the ownership interceptor from the resolved context, never set by hand.
+            Assert.Equal(WsA, loadedDraft.WorkspaceId);
+            Assert.Equal(WsA, loaded.WorkspaceId);
+            Assert.All(pins, pin => Assert.Equal(WsA, pin.WorkspaceId));
+
+            Assert.Equal(LongFormDraftStatus.Draft, loadedDraft.Status);
+            Assert.Null(loadedDraft.AcceptedRevisionId);
+            Assert.Equal([first.VersionId, second.VersionId], pins.Select(pin => pin.RecipeVersionId));
+
+            var read = LongFormDocument.Deserialize(loaded.Content);
+            Assert.Equal(document.Sections, read.Sections);
+        });
+    }
+
+    [Fact]
+    public void A_section_role_is_stored_as_its_number()
+    {
+        var content = new LongFormDocument(
+        [
+            new(Guid.NewGuid(), LongFormSectionRole.WhyItWorks, "Why this works", "Explain the method.", null, false, null, null),
+        ]).Serialize();
+
+        using var json = JsonDocument.Parse(content);
+        var role = json.RootElement.GetProperty("sections")[0].GetProperty("role");
+
+        Assert.Equal(JsonValueKind.Number, role.ValueKind);
+        Assert.Equal((int)LongFormSectionRole.WhyItWorks, role.GetInt32());
+    }
+
+    [Fact]
+    public async Task A_context_may_hold_several_drafts_of_the_same_kind()
+    {
+        var contextId = await SeedContextAsync(WsA);
+
+        await InAsync(WsA, async db =>
+        {
+            db.AddRange(
+                NewDraft(contextId, LongFormKind.NewsletterIssue),
+                NewDraft(contextId, LongFormKind.NewsletterIssue),
+                NewDraft(contextId, LongFormKind.BlogArticle));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        Assert.Equal(3, await InAsync(WsA, db => db.LongFormDrafts.CountAsync(draft => draft.CreativeContextId == contextId, Ct)));
+    }
+
+    // ---- Immutability ----
+
+    [Fact]
+    public async Task A_revision_and_its_pins_can_be_neither_rewritten_nor_deleted()
+    {
+        var (_, revision, pin) = await SeedDraftWithPinAsync(WsA);
+
+        await AssertRefusedAsync(async db =>
+            (await db.LongFormRevisions.SingleAsync(item => item.Id == revision.Id, Ct)).Content = "{\"sections\":[]}");
+        await AssertRefusedAsync(async db =>
+            (await db.LongFormRevisions.SingleAsync(item => item.Id == revision.Id, Ct)).CreativeContextVersion = "AAAAAAAAB9E=");
+        await AssertRefusedAsync(async db =>
+            (await db.LongFormRevisions.SingleAsync(item => item.Id == revision.Id, Ct)).PromptTemplateVersion = "9.9.9");
+        await AssertRefusedAsync(async db =>
+            db.LongFormRevisions.Remove(await db.LongFormRevisions.SingleAsync(item => item.Id == revision.Id, Ct)));
+        await AssertRefusedAsync(async db =>
+            (await db.LongFormRevisionRecipePins.SingleAsync(item => item.Id == pin.Id, Ct)).SortOrder = 5);
+        await AssertRefusedAsync(async db =>
+            db.LongFormRevisionRecipePins.Remove(await db.LongFormRevisionRecipePins.SingleAsync(item => item.Id == pin.Id, Ct)));
+
+        var stored = await InAsync(WsA, db => db.LongFormRevisions.AsNoTracking().SingleAsync(item => item.Id == revision.Id, Ct));
+        Assert.Equal(revision.Content, stored.Content);
+
+        async Task AssertRefusedAsync(Func<CreatorPantryDbContext, Task> change) =>
+            await InAsync(WsA, async db =>
+            {
+                await change(db);
+                await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync(Ct));
+            });
+    }
+
+    [Fact]
+    public async Task An_edit_is_a_new_revision_and_the_one_before_it_reads_exactly_as_it_did()
+    {
+        var (draft, first, _) = await SeedDraftWithPinAsync(WsA);
+        var edited = NewRevision(draft, 2, first, Document("Rewritten by the creator."));
+
+        await InAsync(WsA, async db =>
+        {
+            db.Add(edited);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var history = await InAsync(WsA, db => db.LongFormRevisions.AsNoTracking()
+            .Where(revision => revision.LongFormDraftId == draft.Id)
+            .OrderBy(revision => revision.RevisionNumber)
+            .ToListAsync(Ct));
+
+        Assert.Equal([1, 2], history.Select(revision => revision.RevisionNumber));
+        Assert.Equal(first.Content, history[0].Content);
+        Assert.Equal(first.Id, history[1].ParentRevisionId);
+    }
+
+    // ---- Revision numbering ----
+
+    [Theory]
+    [InlineData("repeated-number")]
+    [InlineData("zero")]
+    [InlineData("first-with-parent")]
+    [InlineData("later-without-parent")]
+    [InlineData("own-parent")]
+    [InlineData("parent-from-another-draft")]
+    [InlineData("reaffirmed-first")]
+    public async Task The_engine_refuses_a_revision_whose_number_or_parent_is_wrong(string fault)
+    {
+        var (draft, first, _) = await SeedDraftWithPinAsync(WsA);
+        var (_, otherFirst, _) = await SeedDraftWithPinAsync(WsA);
+
+        // The two faults about revision 1 open a fresh draft: on this one the unique index would answer first.
+        var revision = fault switch
+        {
+            "repeated-number" => NewRevision(draft, 1, parent: null, Document()),
+            "zero" => NewRevision(draft, 0, parent: null, Document()),
+            "later-without-parent" => NewRevision(draft, 2, parent: null, Document()),
+            "own-parent" => NewRevision(draft, 2, first, Document()),
+            "parent-from-another-draft" => NewRevision(draft, 2, otherFirst, Document()),
+            _ => NewRevision(await SeedEmptyDraftAsync(WsA), 1, parent: null, Document()),
+        };
+
+        switch (fault)
+        {
+            case "first-with-parent":
+                revision.ParentRevisionId = first.Id;
+                break;
+            case "own-parent":
+                revision.ParentRevisionId = revision.Id;
+                break;
+            case "reaffirmed-first":
+                revision.Source = ContentRevisionSource.Reaffirmed;
+                break;
+        }
+
+        await AssertEngineRefusesAsync(WsA, revision);
+    }
+
+    // ---- Pin requirements ----
+
+    [Theory]
+    [InlineData("generated-without-proposal")]
+    [InlineData("edit-with-proposal")]
+    [InlineData("unknown-brand-revision")]
+    [InlineData("unknown-style-guide")]
+    [InlineData("blank-content")]
+    [InlineData("schema-zero")]
+    public async Task The_engine_refuses_a_revision_whose_provenance_does_not_hold_together(string fault)
+    {
+        var draft = await SeedEmptyDraftAsync(WsA);
+        var revision = NewRevision(draft, 1, parent: null, Document());
+
+        switch (fault)
+        {
+            case "generated-without-proposal":
+                revision.Source = ContentRevisionSource.AiGenerated;
+                revision.PromptTemplateId = "content.long-form-section";
+                revision.PromptTemplateVersion = "1.0.0";
+                revision.PromptTemplateBodyChecksum = "sha256:seed";
+                break;
+            case "edit-with-proposal":
+                revision.AiProposalId = Guid.NewGuid();
+                break;
+            case "unknown-brand-revision":
+                revision.BrandProfileRevisionId = Guid.NewGuid();
+                break;
+            case "unknown-style-guide":
+                revision.BrandStyleGuideVersionId = Guid.NewGuid();
+                break;
+            case "blank-content":
+                revision.Content = "   ";
+                break;
+            case "schema-zero":
+                revision.SchemaVersion = 0;
+                break;
+        }
+
+        await AssertEngineRefusesAsync(WsA, revision);
+    }
+
+    [Fact]
+    public async Task A_recipe_pin_names_one_version_of_its_own_recipe_once()
+    {
+        var (_, revision, pin) = await SeedDraftWithPinAsync(WsA);
+        var other = await SeedRecipeAsync(WsA);
+
+        // Another recipe's version under this recipe's id.
+        await AssertEngineRefusesAsync(WsA, new LongFormRevisionRecipePin
+        {
+            Id = Guid.NewGuid(),
+            LongFormRevisionId = revision.Id,
+            SortOrder = 1,
+            RecipeId = pin.RecipeId,
+            RecipeVersionId = other.VersionId,
+            CreativeContextReferenceId = Guid.NewGuid(),
+        });
+
+        // The same recipe twice, and the same position twice.
+        await AssertEngineRefusesAsync(
+            WsA, Pin(revision, 1, (pin.RecipeId, pin.RecipeVersionId), Guid.NewGuid()));
+        await AssertEngineRefusesAsync(WsA, Pin(revision, 0, other, Guid.NewGuid()));
+
+        // A revision that does not exist.
+        await AssertEngineRefusesAsync(WsA, new LongFormRevisionRecipePin
+        {
+            Id = Guid.NewGuid(),
+            LongFormRevisionId = Guid.NewGuid(),
+            SortOrder = 0,
+            RecipeId = other.RecipeId,
+            RecipeVersionId = other.VersionId,
+            CreativeContextReferenceId = Guid.NewGuid(),
+        });
+    }
+
+    [Theory]
+    [InlineData("accepted-without-revision")]
+    [InlineData("accepted-without-instant")]
+    [InlineData("another-drafts-revision")]
+    [InlineData("stale-while-accepted")]
+    [InlineData("needs-review-without-reason")]
+    [InlineData("status-out-of-range")]
+    [InlineData("kind-out-of-range")]
+    public async Task The_engine_refuses_a_draft_whose_state_does_not_hold_together(string fault)
+    {
+        var (draft, revision, _) = await SeedDraftWithPinAsync(WsA);
+        var (_, foreign, _) = await SeedDraftWithPinAsync(WsA);
+
+        await InAsync(WsA, async db =>
+        {
+            var tracked = await db.LongFormDrafts.SingleAsync(item => item.Id == draft.Id, Ct);
+            tracked.UpdatedAt = Now.AddMinutes(1);
+
+            switch (fault)
+            {
+                case "accepted-without-revision":
+                    tracked.Status = LongFormDraftStatus.Accepted;
+                    break;
+                case "accepted-without-instant":
+                    tracked.Status = LongFormDraftStatus.Accepted;
+                    tracked.AcceptedRevisionId = revision.Id;
+                    break;
+                case "another-drafts-revision":
+                    tracked.Status = LongFormDraftStatus.Accepted;
+                    tracked.AcceptedRevisionId = foreign.Id;
+                    tracked.AcceptedAt = Now;
+                    break;
+                case "stale-while-accepted":
+                    tracked.Status = LongFormDraftStatus.Accepted;
+                    tracked.AcceptedRevisionId = revision.Id;
+                    tracked.AcceptedAt = Now;
+                    tracked.StaleSince = Now;
+                    tracked.StaleReasons = ContentStaleReasons.RecipeChanged;
+                    break;
+                case "needs-review-without-reason":
+                    tracked.Status = LongFormDraftStatus.NeedsReview;
+                    tracked.AcceptedRevisionId = revision.Id;
+                    tracked.AcceptedAt = Now;
+                    tracked.StaleSince = Now;
+                    break;
+                case "status-out-of-range":
+                    tracked.Status = (LongFormDraftStatus)6;
+                    break;
+                case "kind-out-of-range":
+                    tracked.Kind = (LongFormKind)2;
+                    break;
+            }
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
+        });
+    }
+
+    [Fact]
+    public async Task An_accepted_draft_goes_stale_and_keeps_the_revision_that_was_accepted()
+    {
+        var (draft, revision, _) = await SeedDraftWithPinAsync(WsA);
+
+        await InAsync(WsA, async db =>
+        {
+            var tracked = await db.LongFormDrafts.SingleAsync(item => item.Id == draft.Id, Ct);
+            tracked.Status = LongFormDraftStatus.Accepted;
+            tracked.AcceptedRevisionId = revision.Id;
+            tracked.AcceptedAt = Now;
+            await db.SaveChangesAsync(Ct);
+
+            tracked.Status = LongFormDraftStatus.NeedsReview;
+            tracked.StaleSince = Now.AddDays(1);
+            tracked.StaleReasons = ContentStaleReasons.RecipeChanged | ContentStaleReasons.TemplateChanged;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await InAsync(WsA, db => db.LongFormDrafts.AsNoTracking().SingleAsync(item => item.Id == draft.Id, Ct));
+        Assert.Equal(LongFormDraftStatus.NeedsReview, stored.Status);
+        Assert.Equal(revision.Id, stored.AcceptedRevisionId);
+        Assert.Equal(ContentStaleReasons.RecipeChanged | ContentStaleReasons.TemplateChanged, stored.StaleReasons);
+    }
+
+    // ---- A dangling context reference ----
+
+    [Fact]
+    public async Task A_reference_the_context_later_loses_does_not_break_a_revision_that_pinned_it()
+    {
+        var contextId = await SeedContextAsync(WsA);
+        var recipe = await SeedRecipeAsync(WsA);
+        var referenceId = Guid.NewGuid();
+
+        await InAsync(WsA, async db =>
+        {
+            db.CreativeContextReferences.Add(new CreativeContextReference
+            {
+                Id = referenceId,
+                CreativeContextId = contextId,
+                Kind = CreativeContextReferenceKind.Recipe,
+                SortOrder = 0,
+                RecipeId = recipe.RecipeId,
+                RecipeVersionId = recipe.VersionId,
+                AddedAt = Now,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var draft = NewDraft(contextId, LongFormKind.BlogArticle);
+        var revision = NewRevision(draft, 1, parent: null, Document());
+
+        await InAsync(WsA, async db =>
+        {
+            db.AddRange(draft, revision, Pin(revision, 0, recipe, referenceId));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        // The context drops the recipe. Nothing about the revision holds the reference row in place.
+        await InAsync(WsA, async db =>
+        {
+            db.CreativeContextReferences.Remove(await db.CreativeContextReferences.SingleAsync(item => item.Id == referenceId, Ct));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var pin = await InAsync(WsA, db => db.LongFormRevisionRecipePins.AsNoTracking()
+            .SingleAsync(item => item.LongFormRevisionId == revision.Id, Ct));
+
+        Assert.Equal(referenceId, pin.CreativeContextReferenceId);
+        Assert.Equal(recipe.RecipeId, pin.RecipeId);
+        Assert.Equal(recipe.VersionId, pin.RecipeVersionId);
+        Assert.Equal(
+            revision.Content,
+            (await InAsync(WsA, db => db.LongFormRevisions.AsNoTracking().SingleAsync(item => item.Id == revision.Id, Ct))).Content);
+    }
+
+    // ---- Concurrency ----
+
+    [Fact]
+    public async Task A_stale_write_to_a_draft_is_refused_and_the_row_version_moves()
+    {
+        var draft = await SeedEmptyDraftAsync(WsA);
+
+        await using var firstScope = fixture.ScopeFor(WsA);
+        await using var secondScope = fixture.ScopeFor(WsA);
+        var firstDb = SqlServerRecipeFixture.Db(firstScope);
+        var secondDb = SqlServerRecipeFixture.Db(secondScope);
+
+        var first = await firstDb.LongFormDrafts.SingleAsync(item => item.Id == draft.Id, Ct);
+        var second = await secondDb.LongFormDrafts.SingleAsync(item => item.Id == draft.Id, Ct);
+        var readWith = first.RowVersion.ToArray();
+
+        first.Status = LongFormDraftStatus.Outlined;
+        await firstDb.SaveChangesAsync(Ct);
+
+        Assert.NotEqual(readWith, first.RowVersion);
+
+        // Read before the first write landed, so its UPDATE quotes a version the row no longer has.
+        second.Status = LongFormDraftStatus.Writing;
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => secondDb.SaveChangesAsync(Ct));
+
+        Assert.Equal(
+            LongFormDraftStatus.Outlined,
+            (await InAsync(WsA, db => db.LongFormDrafts.AsNoTracking().SingleAsync(item => item.Id == draft.Id, Ct))).Status);
+    }
+
+    // ---- Two workspaces ----
+
+    [Fact]
+    public async Task Each_workspace_sees_only_its_own_drafts_revisions_and_pins()
+    {
+        var (draftA, revisionA, pinA) = await SeedDraftWithPinAsync(WsA, "A's article, in A's words.");
+        var (draftB, revisionB, pinB) = await SeedDraftWithPinAsync(WsB, "B's article, in B's words.");
+
+        await InAsync(WsB, async db =>
+        {
+            Assert.Null(await db.LongFormDrafts.FirstOrDefaultAsync(item => item.Id == draftA.Id, Ct));
+            Assert.Null(await db.LongFormRevisions.FirstOrDefaultAsync(item => item.Id == revisionA.Id, Ct));
+            Assert.Null(await db.LongFormRevisionRecipePins.FirstOrDefaultAsync(item => item.Id == pinA.Id, Ct));
+            Assert.DoesNotContain(
+                await db.LongFormRevisions.Select(item => item.Content).ToListAsync(Ct),
+                content => content.Contains("A's article", StringComparison.Ordinal));
+            Assert.DoesNotContain(
+                pinA.RecipeVersionId,
+                await db.LongFormRevisionRecipePins.Select(item => item.RecipeVersionId).ToListAsync(Ct));
+        });
+
+        await InAsync(WsA, async db =>
+        {
+            Assert.Null(await db.LongFormDrafts.FirstOrDefaultAsync(item => item.Id == draftB.Id, Ct));
+            Assert.Null(await db.LongFormRevisions.FirstOrDefaultAsync(item => item.Id == revisionB.Id, Ct));
+            Assert.Null(await db.LongFormRevisionRecipePins.FirstOrDefaultAsync(item => item.Id == pinB.Id, Ct));
+        });
+    }
+
+    [Fact]
+    public async Task One_workspace_cannot_write_into_another_workspaces_context_draft_or_recipe()
+    {
+        var contextA = await SeedContextAsync(WsA);
+        var recipeA = await SeedRecipeAsync(WsA);
+        var (draftA, revisionA, _) = await SeedDraftWithPinAsync(WsA);
+        var (_, revisionB, _) = await SeedDraftWithPinAsync(WsB);
+
+        // The keys are workspace-paired, so each of these names nothing in B however valid the id is in A.
+        await AssertEngineRefusesAsync(WsB, NewDraft(contextA, LongFormKind.BlogArticle));
+        await AssertEngineRefusesAsync(WsB, NewRevision(draftA, 2, revisionA, Document()));
+        await AssertEngineRefusesAsync(WsB, Pin(revisionB, 1, recipeA, Guid.NewGuid()));
+        await AssertEngineRefusesAsync(WsB, Pin(revisionA, 1, await SeedRecipeAsync(WsB), Guid.NewGuid()));
+
+        Assert.Equal(1, await InAsync(WsA, db => db.LongFormRevisions.CountAsync(item => item.LongFormDraftId == draftA.Id, Ct)));
+    }
+
+    [Fact]
+    public async Task A_revision_cannot_pin_another_workspaces_proposal_brand_or_guide_and_a_draft_cannot_accept_its_revision()
+    {
+        var (draftA, firstA, _) = await SeedDraftWithPinAsync(WsA);
+        var (draftB, firstB, _) = await SeedDraftWithPinAsync(WsB);
+
+        // Real rows in B, so what A is refused is "not yours" rather than "no such id".
+        var (proposalB, brandRevisionB, guideVersionB) = await InAsync(WsB, async db =>
+        {
+            var operationId = await CreativeContextSeeds.ConceptRequestAsync(db, Now, Ct);
+            var proposal = new AiProposal
+            {
+                Id = Guid.NewGuid(),
+                AiOperationId = operationId,
+                OutputSchemaVersion = "content.long-form-section.v1",
+                PromptTemplateId = "content.long-form-section",
+                PromptTemplateVersion = "1.0.0",
+                PromptTemplateBodyChecksum = "sha256:" + new string('c', 64),
+                ProviderName = "test-provider",
+                ModelName = "test-model",
+                CreatedAt = Now,
+            };
+            var member = Guid.NewGuid();
+            var profile = new BrandProfile
+            {
+                Id = Guid.NewGuid(), BrandName = "B", CreatedAt = Now, UpdatedAt = Now,
+                CreatedByMembershipId = member, UpdatedByMembershipId = member,
+            };
+            var brandRevision = new BrandProfileRevision
+            {
+                Id = Guid.NewGuid(), BrandProfileId = profile.Id, Revision = 1,
+                SchemaVersion = 1, Document = "{}", ChangedByMembershipId = member, CreatedAt = Now,
+            };
+            var guide = new BrandStyleGuide
+            {
+                Id = Guid.NewGuid(), DisplayName = "B's voice", CreatedAt = Now, UpdatedAt = Now,
+                CreatedByMembershipId = member, UpdatedByMembershipId = member,
+            };
+            var guideVersion = new BrandStyleGuideVersion
+            {
+                Id = Guid.NewGuid(), BrandStyleGuideId = guide.Id, VersionNumber = 1,
+                CreatedByMembershipId = member, CreatedAt = Now,
+            };
+
+            db.AddRange(proposal, profile, guide);
+            await db.SaveChangesAsync(Ct);
+            db.AddRange(brandRevision, guideVersion);
+            await db.SaveChangesAsync(Ct);
+
+            return (proposal.Id, brandRevision.Id, guideVersion.Id);
+        });
+
+        LongFormRevision Generated(LongFormDraft draft, LongFormRevision parent)
+        {
+            var revision = NewRevision(draft, 2, parent, Document("Written by a model."));
+            revision.Source = ContentRevisionSource.AiGenerated;
+            revision.AiProposalId = proposalB;
+            revision.PromptTemplateId = "content.long-form-section";
+            revision.PromptTemplateVersion = "1.0.0";
+            revision.PromptTemplateBodyChecksum = "sha256:" + new string('c', 64);
+
+            return revision;
+        }
+
+        var withBrand = NewRevision(draftA, 2, firstA, Document());
+        withBrand.BrandProfileRevisionId = brandRevisionB;
+        var withGuide = NewRevision(draftA, 2, firstA, Document());
+        withGuide.BrandStyleGuideVersionId = guideVersionB;
+
+        await AssertEngineRefusesAsync(WsA, Generated(draftA, firstA));
+        await AssertEngineRefusesAsync(WsA, withBrand);
+        await AssertEngineRefusesAsync(WsA, withGuide);
+
+        await InAsync(WsA, async db =>
+        {
+            var tracked = await db.LongFormDrafts.SingleAsync(item => item.Id == draftA.Id, Ct);
+            tracked.Status = LongFormDraftStatus.Accepted;
+            tracked.AcceptedRevisionId = firstB.Id;
+            tracked.AcceptedAt = Now;
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
+        });
+
+        // The same three pins are B's to use, so the refusals above were about the workspace and nothing else.
+        var own = Generated(draftB, firstB);
+        own.BrandProfileRevisionId = brandRevisionB;
+        own.BrandStyleGuideVersionId = guideVersionB;
+
+        await InAsync(WsB, async db =>
+        {
+            db.Add(own);
+            await db.SaveChangesAsync(Ct);
+        });
+    }
+
+    // ---- What only the engine answers ----
+
+    [Fact]
+    public async Task Deleting_a_workspace_still_succeeds_with_an_accepted_long_form_draft_in_it()
+    {
+        // A draft and its revisions point at each other with restricted keys, a pin holds a restricted key to a
+        // recipe version, and all four tables cascade from the same workspace. If SQL Server checked those
+        // NO ACTION constraints mid-cascade rather than at the end of the statement, a workspace holding one
+        // accepted article could never be erased.
+        var workspaceId = Guid.NewGuid();
+
+        await InAsync(WsA, async db =>
+        {
+            db.Workspaces.Add(new Workspace
+            {
+                Id = workspaceId,
+                Name = "Doomed",
+                Slug = $"doomed-{workspaceId:N}",
+                CreatedAt = Now,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var (draft, revision, _) = await SeedDraftWithPinAsync(workspaceId);
+
+        await InAsync(workspaceId, async db =>
+        {
+            var tracked = await db.LongFormDrafts.SingleAsync(item => item.Id == draft.Id, Ct);
+            tracked.Status = LongFormDraftStatus.Accepted;
+            tracked.AcceptedRevisionId = revision.Id;
+            tracked.AcceptedAt = Now;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await using var erase = fixture.ScopeFor(WsA);
+        var unfiltered = SqlServerRecipeFixture.Db(erase);
+        unfiltered.Workspaces.Remove(await unfiltered.Workspaces.SingleAsync(item => item.Id == workspaceId, Ct));
+        await unfiltered.SaveChangesAsync(Ct);
+
+        // Counted with raw SQL rather than IgnoreQueryFilters: the erasure is what is under test.
+        foreach (var table in new[] { "LongFormDrafts", "LongFormRevisions", "LongFormRevisionRecipePins" })
+        {
+            var remaining = await unfiltered.Database
+                .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM {table} WHERE WorkspaceId = {{0}}", workspaceId)
+                .SingleAsync(Ct);
+
+            Assert.Equal(0, remaining);
+        }
+    }
+
+    // ---- Helpers ----
+
+    private async Task InAsync(Guid workspaceId, Func<CreatorPantryDbContext, Task> work)
+    {
+        await using var scope = fixture.ScopeFor(workspaceId);
+        await work(SqlServerRecipeFixture.Db(scope));
+    }
+
+    private async Task<T> InAsync<T>(Guid workspaceId, Func<CreatorPantryDbContext, Task<T>> work)
+    {
+        await using var scope = fixture.ScopeFor(workspaceId);
+
+        return await work(SqlServerRecipeFixture.Db(scope));
+    }
+
+    private Task AssertEngineRefusesAsync(Guid workspaceId, object row) =>
+        InAsync(workspaceId, async db =>
+        {
+            db.Add(row);
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
+        });
+
+    private Task<Guid> SeedContextAsync(Guid workspaceId) =>
+        InAsync(workspaceId, async db =>
+        {
+            var context = CreativeContextSeeds.NewContext(Now);
+            db.CreativeContexts.Add(context);
+            await db.SaveChangesAsync(Ct);
+
+            return context.Id;
+        });
+
+    private Task<(Guid RecipeId, Guid VersionId)> SeedRecipeAsync(Guid workspaceId) =>
+        InAsync(workspaceId, db => CreativeContextSeeds.RecipeAsync(db, Now, Ct));
+
+    private async Task<LongFormDraft> SeedEmptyDraftAsync(Guid workspaceId)
+    {
+        var draft = NewDraft(await SeedContextAsync(workspaceId), LongFormKind.BlogArticle);
+
+        await InAsync(workspaceId, async db =>
+        {
+            db.Add(draft);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        return draft;
+    }
+
+    private async Task<(LongFormDraft Draft, LongFormRevision Revision, LongFormRevisionRecipePin Pin)> SeedDraftWithPinAsync(
+        Guid workspaceId, string body = "The first draft of the opening.")
+    {
+        var recipe = await SeedRecipeAsync(workspaceId);
+        var draft = NewDraft(await SeedContextAsync(workspaceId), LongFormKind.BlogArticle);
+        var revision = NewRevision(draft, 1, parent: null, Document(body));
+        var pin = Pin(revision, 0, recipe, Guid.NewGuid());
+
+        await InAsync(workspaceId, async db =>
+        {
+            db.AddRange(draft, revision, pin);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        return (draft, revision, pin);
+    }
+
+    private static LongFormDraft NewDraft(Guid contextId, LongFormKind kind) => new()
+    {
+        Id = Guid.NewGuid(),
+        CreativeContextId = contextId,
+        Kind = kind,
+        Status = LongFormDraftStatus.Draft,
+        CreatedByMembershipId = Guid.NewGuid(),
+        CreatedAt = Now,
+        UpdatedAt = Now,
+    };
+
+    private static LongFormRevision NewRevision(
+        LongFormDraft draft, int number, LongFormRevision? parent, LongFormDocument document) => new()
+        {
+            Id = Guid.NewGuid(),
+            LongFormDraftId = draft.Id,
+            RevisionNumber = number,
+            ParentRevisionId = parent?.Id,
+            Source = ContentRevisionSource.CreatorEdit,
+            SchemaVersion = LongFormDocument.CurrentSchemaVersion,
+            Content = document.Serialize(),
+            CreatedByMembershipId = Guid.NewGuid(),
+            CreatedAt = Now,
+        };
+
+    private static LongFormRevisionRecipePin Pin(
+        LongFormRevision revision, int sortOrder, (Guid RecipeId, Guid VersionId) recipe, Guid referenceId) => new()
+        {
+            Id = Guid.NewGuid(),
+            LongFormRevisionId = revision.Id,
+            SortOrder = sortOrder,
+            RecipeId = recipe.RecipeId,
+            RecipeVersionId = recipe.VersionId,
+            CreativeContextReferenceId = referenceId,
+        };
+
+    private static LongFormDocument Document(string? body = null) => new(
+    [
+        new(Guid.NewGuid(), LongFormSectionRole.Hook, "Start here", "Open with the smell of it.", body, false, null,
+            body is null ? null : new(ContentRevisionSource.CreatorEdit, null, null, null, null, null, 1)),
+    ]);
+}

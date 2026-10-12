@@ -68,6 +68,14 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IThemedDayHistoryCache, ThemedDayHistoryCache>();
         services.AddScoped<IThemedDayHistoryFacade, ThemedDayHistoryFacade>();
         services.AddScoped<IThemedDayHistoryInvalidationFacade, ThemedDayHistoryInvalidationFacade>();
+
+        // What the library calls to put a kept picture on the work it was kept for. Over the creative
+        // context's own storage and nothing else, so a host carrying the library does not need everything
+        // the creative-context facade needs.
+        services.AddScoped<ICreativeContextKeptPictureBusiness, CreativeContextKeptPictureBusiness>();
+        services.AddScoped<ICreativeContextKeptPictureFacade, CreativeContextKeptPictureFacade>();
+        services.AddScoped<ICreativeContextLookupBusiness, CreativeContextLookupBusiness>();
+        services.AddScoped<ICreativeContextLookupFacade, CreativeContextLookupFacade>();
         services.AddScoped<IValidator<ThemedDayHistoryViewModel>, ThemedDayHistoryViewModelValidator>();
 
         services.AddScoped<IPromptRecordRepository, PromptRecordRepository>();

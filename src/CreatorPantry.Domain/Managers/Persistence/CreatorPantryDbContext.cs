@@ -244,6 +244,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<AiOperation> AiOperations => Set<AiOperation>();
 
     /// <remarks>
+    /// A workspace's own choice of which AI tasks are switched on. A task with no row here falls back to the
+    /// deployment's default, so the table holds decisions rather than a row per task per workspace.
+    /// </remarks>
+    public DbSet<WorkspaceAiTaskSwitch> WorkspaceAiTaskSwitches => Set<WorkspaceAiTaskSwitch>();
+
+    /// <remarks>
     /// What one operation proposed, and the root of the proposal aggregate. Write-once —
     /// <see cref="ImmutableRecordInterceptor"/> refuses every update and delete of a row here, because a
     /// proposal records what a model said at a moment and a different answer is a different operation.
@@ -550,6 +556,23 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// body for one channel and the exact sources it was written from. Private creator content, never logged.
     /// </remarks>
     public DbSet<SocialRevision> SocialRevisions => Set<SocialRevision>();
+
+    /// <remarks>
+    /// A blog article or newsletter issue written for one creative context (LF.1.2, baseline B-32). The mutable
+    /// slot: its status and which revision was accepted. A context may hold any number of them.
+    /// </remarks>
+    public DbSet<LongFormDraft> LongFormDrafts => Set<LongFormDraft>();
+
+    /// <inheritdoc cref="LongFormDrafts"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. Each is one whole
+    /// state of the document and the exact sources it was written against. Private creator content, never logged.
+    /// </remarks>
+    public DbSet<LongFormRevision> LongFormRevisions => Set<LongFormRevision>();
+
+    /// <inheritdoc cref="LongFormRevisions"/>
+    /// <remarks>Write-once with its revision: one recipe version the document was written against.</remarks>
+    public DbSet<LongFormRevisionRecipePin> LongFormRevisionRecipePins => Set<LongFormRevisionRecipePin>();
 
     /// <summary>One request to generate images from one prompt (IMG-003).</summary>
     /// <remarks>

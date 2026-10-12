@@ -1,0 +1,314 @@
+<cp-page-head
+  [heading]="pageTitle"
+  lede="Name a dish and get a draft recipe and a lead picture for it, saved together. Nothing is kept until you say so."
+>
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="workflowsLink()">Workflows</a>
+</cp-page-head>
+
+<div class="quick">
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card><p class="plain" role="status">Loading…</p></cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          Your workspaces couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card><cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice></cp-card>
+    }
+    @case ('read_only') {
+      <cp-card>
+        <cp-notice role="note">
+          You have view-only access to this workspace, so you can't make a recipe here. Ask an Owner or Editor to
+          run this for you.
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('ready') {
+      <div class="layout">
+        <div class="progress">
+          <cp-progress label="Quick Recipe progress" [value]="percent()" [valueText]="progressText()" />
+          <nav aria-label="Quick Recipe progress">
+            <cp-stepper label="Quick Recipe steps" [steps]="stepperSteps()" />
+          </nav>
+        </div>
+
+        <cp-topic-card [heading]="stepLabel()" [headingId]="headingId" wide>
+          @switch (step()) {
+            @case ('name') {
+              <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+              <form class="name-form" (submit)="start($event)" novalidate>
+                <cp-form-section
+                  heading="The dish"
+                  intro="Just what it is called. We write a first draft of the recipe and make one picture for it, and you see both before anything is saved."
+                  [problem]="askProblem() ?? ''"
+                >
+                  <cp-field
+                    label="What is the dish called?"
+                    [forId]="nameInputId"
+                    hint="For example, “Miso butter corn”."
+                    [error]="nameError()"
+                    [required]="true"
+                  >
+                    <input
+                      [id]="nameInputId"
+                      name="quickRecipeName"
+                      type="text"
+                      autocomplete="off"
+                      [attr.maxlength]="nameMaxLength"
+                      [value]="name()"
+                      (input)="onNameInput($event)"
+                    />
+                  </cp-field>
+                </cp-form-section>
+
+                <div class="cp-actions">
+                  <button cpButton type="submit" variant="primary" [disabled]="draft.busy()">
+                    Make my recipe
+                  </button>
+                </div>
+              </form>
+            }
+
+            @case ('making') {
+              <p class="plain">
+                Making <strong>{{ name() || 'your recipe' }}</strong>. This usually takes a minute or two, and you
+                can leave this page and come back to it.
+              </p>
+
+              <section class="stage" aria-labelledby="cp-quick-recipe-draft-stage">
+                <h3 id="cp-quick-recipe-draft-stage">The recipe</h3>
+                @if (draft.phase().kind === 'gone') {
+                  <cp-notice tone="warning" role="alert">That draft is not there any more.</cp-notice>
+                } @else if (draftOperation(); as operation) {
+                  <cp-ai-operation-status
+                    [status]="operation.status"
+                    [failureCategory]="operation.failureCategory"
+                    [requestedAt]="operation.requestedAt"
+                    [statusChangedAt]="operation.statusChangedAt"
+                    [connection]="draft.connection()"
+                  />
+                } @else {
+                  <p class="cp-muted" role="status">Asking for the draft…</p>
+                }
+              </section>
+
+              <section class="stage" aria-labelledby="cp-quick-recipe-picture-stage">
+                <h3 id="cp-quick-recipe-picture-stage">The picture</h3>
+                @switch (pictureView().kind) {
+                  @case ('ready') {
+                    <p class="cp-muted" role="status">The picture is ready.</p>
+                  }
+                  @case ('none') {
+                    <p class="cp-muted" role="status">Starts once the draft is on its way.</p>
+                  }
+                  @default {
+                    <p class="cp-muted" role="status">{{ $any(pictureView()).sentence }}</p>
+                  }
+                }
+              </section>
+
+              <div class="cp-actions">
+                @if (draft.phase().kind === 'failed') {
+                  <button cpButton type="button" variant="primary" (click)="tryDraftAgain()">Try again</button>
+                } @else if (draft.phase().kind === 'watching' && draft.stopped()) {
+                  <!-- The loop gave up on its own. Asking again is reading, not generating: it spends nothing. -->
+                  <button cpButton type="button" variant="secondary" (click)="checkDraftAgain()">Check again</button>
+                }
+                <!-- "Start again", not "Cancel": no route cancels a generation, so a button saying it would lie. -->
+                <button cpButton type="button" variant="text" (click)="startOver()">Start again with another name</button>
+              </div>
+            }
+
+            @case ('review') {
+              @if (savedRecipeId(); as recipeId) {
+                <!-- The recipe exists and the picture did not reach it. Said as two facts, never as a failure
+                     of the whole save. -->
+                <cp-notice tone="success" role="status">Your recipe is saved.</cp-notice>
+                @if (pictureSaveProblem(); as problem) {
+                  <cp-notice tone="warning" role="alert">{{ problem }}</cp-notice>
+                }
+                <div class="cp-actions">
+                  <a cpButton variant="primary" [routerLink]="recipeLink(recipeId)">Open the recipe</a>
+                  @if (canSaveWithPicture()) {
+                    <button cpButton type="button" variant="secondary" [disabled]="saving()" (click)="save(true)">
+                      {{ saving() ? 'Adding the picture…' : 'Try adding the picture again' }}
+                    </button>
+                  }
+                </div>
+              } @else {
+                @if (alreadySaved()) {
+                  <cp-notice role="status">
+                    This draft has already been saved as a recipe. Opening it will not make a second one.
+                  </cp-notice>
+                }
+
+                <div class="made">
+                  <section class="shot" aria-labelledby="cp-quick-recipe-picture-heading">
+                    <h3 id="cp-quick-recipe-picture-heading">Lead picture</h3>
+                    @switch (pictureView().kind) {
+                      @case ('ready') {
+                        <cp-content-pipeline-staged-image
+                          [workspaceSlug]="workspaceSlug()"
+                          [image]="$any(pictureView()).image"
+                          [position]="1"
+                          [total]="1"
+                        />
+                        <p class="cp-muted">
+                          <cp-badge tone="purple">Generated</cp-badge>
+                          Made from the name you gave, not from this draft — check it shows the dish as written.
+                        </p>
+                      }
+                      @case ('working') {
+                        <p class="cp-muted" role="status">{{ $any(pictureView()).sentence }}</p>
+                      }
+                      @case ('missed') {
+                        <cp-notice tone="warning" role="status">
+                          {{ $any(pictureView()).sentence }} You can still save the recipe without one.
+                        </cp-notice>
+                      }
+                      @default {
+                        <p class="cp-muted">No picture was asked for.</p>
+                      }
+                    }
+                    @if (!alreadySaved() && !pictureWorking()) {
+                      <button cpButton type="button" variant="text" size="sm" [disabled]="saving()" (click)="anotherPicture()">
+                        {{ pictureView().kind === 'ready' ? 'Make a different picture' : 'Try the picture again' }}
+                      </button>
+                    }
+                  </section>
+
+                  <section class="recipe" aria-labelledby="cp-quick-recipe-draft-heading">
+                    <p class="plain"><cp-badge tone="purple">Generated draft</cp-badge></p>
+                    <h3 id="cp-quick-recipe-draft-heading">{{ recipeDraft().title || 'Untitled draft' }}</h3>
+                    @if (recipeDraft().description; as description) {
+                      <p class="plain">{{ description }}</p>
+                    }
+
+                    <dl cpFacts layout="inline">
+                      @if (recipeDraft().yield.yieldText; as yieldText) {
+                        <div cpFact label="Makes">{{ yieldText }}</div>
+                      } @else if (recipeDraft().yield.servingCount; as servings) {
+                        <div cpFact label="Serves">{{ servings }}</div>
+                      }
+                      @if (recipeDraft().timing.prepTimeMinutes; as prep) {
+                        <div cpFact label="Prep">{{ prep }} min</div>
+                      }
+                      @if (recipeDraft().timing.cookTimeMinutes; as cook) {
+                        <div cpFact label="Cook">{{ cook }} min</div>
+                      }
+                      @if (recipeDraft().timing.totalTimeMinutes; as total) {
+                        <div cpFact label="Total">{{ total }} min</div>
+                      }
+                    </dl>
+
+                    <h4>Ingredients</h4>
+                    @for (group of recipeDraft().ingredientGroups; track group.changeId) {
+                      <!-- An untitled group is the ordinary ungrouped list and gets no heading (recipes.md). -->
+                      @if (group.title) {
+                        <h5>{{ group.title }}</h5>
+                      }
+                      <ul class="lines">
+                        @for (line of group.items; track line.changeId) {
+                          <li>{{ line.displayText }}</li>
+                        }
+                      </ul>
+                    } @empty {
+                      <p class="cp-muted">No ingredients came back.</p>
+                    }
+
+                    <h4>Method</h4>
+                    @for (group of recipeDraft().instructionGroups; track group.changeId) {
+                      @if (group.title) {
+                        <h5>{{ group.title }}</h5>
+                      }
+                      <ol class="lines">
+                        @for (item of group.items; track item.changeId) {
+                          <li>{{ item.text }}</li>
+                        }
+                      </ol>
+                    } @empty {
+                      <p class="cp-muted">No method came back.</p>
+                    }
+
+                    @if (recipeDraft().notes; as notes) {
+                      <h4>Notes</h4>
+                      <p class="plain notes">{{ notes }}</p>
+                    }
+                  </section>
+                </div>
+
+                <!-- Everything the draft flagged, in full: a caution left on the line-by-line page would be a
+                     caution this page hid (.claude/rules/ai.md). -->
+                @for (question of recipeDraft().unresolvedQuestions; track question.message) {
+                  <cp-notice tone="warning" role="note">Needs your answer: {{ question.message }}</cp-notice>
+                }
+                @for (warning of recipeDraft().warnings; track warning.message) {
+                  <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+                    {{ warning.message }}
+                  </cp-notice>
+                }
+
+                <p class="cp-muted">
+                  This is a first draft and nobody has cooked it. It has not been checked for food safety, allergens
+                  or nutrition, so read it through before you cook or publish from it. It saves as a draft you can
+                  keep editing.
+                </p>
+
+                @if (saveBlocker(); as blocker) {
+                  <cp-notice tone="error" role="alert">{{ blocker }}</cp-notice>
+                }
+                @if (saveProblem(); as problem) {
+                  <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
+                }
+
+                <div class="cp-actions">
+                  @if (alreadySaved()) {
+                    <button cpButton type="button" variant="primary" [disabled]="saving()" (click)="save(false)">
+                      Open the recipe
+                    </button>
+                  } @else {
+                    @if (canSaveWithPicture()) {
+                      <button
+                        cpButton
+                        type="button"
+                        variant="primary"
+                        [disabled]="saving() || saveBlocker() !== null"
+                        (click)="save(true)"
+                      >
+                        {{ saving() ? 'Saving…' : 'Save recipe and picture' }}
+                      </button>
+                    }
+                    <button
+                      cpButton
+                      type="button"
+                      [variant]="canSaveWithPicture() ? 'secondary' : 'primary'"
+                      [disabled]="saving() || saveBlocker() !== null"
+                      (click)="save(false)"
+                    >
+                      {{ canSaveWithPicture() || pictureWorking() ? 'Save without the picture' : saving() ? 'Saving…' : 'Save recipe' }}
+                    </button>
+                    <a cpButton variant="text" [routerLink]="reviewLink()" [queryParams]="reviewQuery()">
+                      Change it line by line first
+                    </a>
+                  }
+                  <button cpButton type="button" variant="text" [disabled]="saving()" (click)="startOver()">
+                    Start again with another name
+                  </button>
+                </div>
+              }
+            }
+          }
+        </cp-topic-card>
+      </div>
+    }
+  }
+</div>

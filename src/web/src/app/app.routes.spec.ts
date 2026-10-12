@@ -9,6 +9,7 @@ import { PlaceholderSectionComponent } from './shell/placeholder-section.compone
 import { WorkspaceGateComponent } from './shell/workspace-gate.component';
 import { ImageStudioComponent } from './features/image-studio/image-studio.component';
 import { LandingComponent } from './features/landing/landing.component';
+import { QuickRecipeComponent } from './features/quick-recipe/quick-recipe.component';
 import { WorkflowsHubComponent } from './features/workflows/workflows-hub.component';
 import { ThemedDaysComponent } from './features/workspace-settings/themed-days.component';
 import { themedDaysCanDeactivateGuard } from './features/workspace-settings/themed-days.guard';
@@ -257,7 +258,16 @@ describe("the Content Pipeline's place in the route tree", () => {
     const workflows = workspaceRoute().find((route) => route.path === 'workflows');
     const children = workflows?.children?.map((route) => route.path);
 
-    expect(children).toEqual(['', 'content-pipeline']);
+    expect(children).toEqual(['', 'content-pipeline', 'quick-recipe']);
+  });
+
+  it('gives Quick Recipe one page under workflows, with nothing to guard on leaving', async () => {
+    const workflows = workspaceRoute().find((route) => route.path === 'workflows');
+    const quick = workflows?.children?.find((route) => route.path === 'quick-recipe');
+
+    expect((await quick?.loadComponent?.()) as unknown).toBe(QuickRecipeComponent);
+    expect(quick?.data?.['title']).toBe('Quick Recipe');
+    expect(quick?.canDeactivate).toBeUndefined();
   });
 
   it("keeps the Workflows page as that subtree's own index, no longer a placeholder", async () => {

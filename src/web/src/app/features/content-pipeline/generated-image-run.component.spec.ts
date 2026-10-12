@@ -10,6 +10,7 @@ import { CreativeContextReference } from '../../models/creative-context.models';
 import { DamAssetDetail, DamCreatedAsset } from '../../models/dam-asset.models';
 import {
   GeneratedImageOperationDetail,
+  GeneratedImageSubject,
   RequestGeneratedImagesRequest,
   StagedImage,
 } from '../../models/generated-image.models';
@@ -148,6 +149,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
     [promptText]="promptText()"
     [avoidText]="avoidText()"
     [variantCount]="variantCount()"
+    [subject]="subject()"
     [state]="state()"
     [wording]="wording()"
     [sectionIdPrefix]="prefix()"
@@ -163,6 +165,7 @@ class HostComponent {
   readonly promptText = signal('A tight crop.');
   readonly avoidText = signal<string | null>(null);
   readonly variantCount = signal(2);
+  readonly subject = signal<GeneratedImageSubject | null>(null);
   readonly state = signal<ContentPipelineImagesState>({ operationId: null });
   readonly wording = signal<GeneratedImageRunWording>(ELSEWHERE);
   readonly prefix = signal('cp-studio-images');
@@ -320,7 +323,20 @@ describe('GeneratedImageRunComponent', () => {
     makeButton().click();
     await settle();
 
-    expect(requests).toEqual([{ promptText: 'A tight crop.', avoidText: 'clutter, harsh light', variantCount: 4 }]);
+    expect(requests).toEqual([
+      { promptText: 'A tight crop.', avoidText: 'clutter, harsh light', variantCount: 4, subject: null },
+    ]);
+  });
+
+  it('says what the pictures are for when the surface handed that in', async () => {
+    const subject = { recipeId: 'r1', recipeVersionId: 'v2', creativeContextId: 'ctx-a' };
+    host.subject.set(subject);
+    await settle();
+
+    makeButton().click();
+    await settle();
+
+    expect(requests[0].subject).toEqual(subject);
   });
 
   describe('one key, one request (12.10l)', () => {

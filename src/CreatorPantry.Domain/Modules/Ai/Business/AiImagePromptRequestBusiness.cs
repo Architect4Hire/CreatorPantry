@@ -47,7 +47,7 @@ internal sealed class AiImagePromptRequestBusiness(
     IBrandSourceDocumentFacade documents,
     ICreativeContextFacade creativeContexts,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiImagePromptRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -57,7 +57,7 @@ internal sealed class AiImagePromptRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.ImagePrompt))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.ImagePrompt, cancellationToken))
         {
             return Refuse(
                 AiImagePromptRequestErrors.TaskNotEnabled,

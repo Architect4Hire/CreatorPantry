@@ -1,0 +1,70 @@
+<cp-card>
+  @switch (load().status) {
+    @case ('loading') {
+      <p class="state" role="status">Loading your AI features…</p>
+    }
+    @case ('not_found') {
+      <p class="state" role="alert">We couldn't find this workspace.</p>
+    }
+    @case ('unavailable') {
+      <p class="state" role="alert">Your AI features couldn't be loaded right now.</p>
+      <button cpButton type="button" variant="secondary" (click)="init()">Try again</button>
+    }
+    @default {
+      <form class="form" (submit)="$event.preventDefault(); save()">
+        <cp-form-section
+          heading="AI features"
+          intro="Which kinds of AI help this workspace can ask for. A feature that is off refuses new requests; anything already asked for still finishes. Each request counts against the AI allowance of the person who asks."
+        >
+          @if (canEdit()) {
+            @if (onDefaults()) {
+              <cp-notice role="note">
+                These are the starting settings for a new workspace. Saving makes them this workspace's own.
+              </cp-notice>
+            }
+            @for (group of groups(); track group.area) {
+              <cp-choice-group
+                [label]="group.area"
+                [idPrefix]="'cp-ai-feature-'"
+                [multiple]="true"
+                [options]="group.options"
+                [value]="group.picked"
+                (valueChange)="pick(group, $event)"
+              />
+            }
+          } @else {
+            <dl cpFacts>
+              @for (group of groups(); track group.area) {
+                <div cpFact [label]="group.area">{{ group.pickedLabels || 'Nothing switched on' }}</div>
+              }
+            </dl>
+            <cp-notice role="note">Only an Owner of this workspace can change this.</cp-notice>
+          }
+        </cp-form-section>
+
+        @if (canEdit()) {
+          <div class="cp-actions">
+            <button cpButton type="submit" [disabled]="!dirty() || saving()">
+              {{ saving() ? 'Saving…' : 'Save AI features' }}
+            </button>
+            @if (dirty() && !saving()) {
+              <span class="dirty">Unsaved changes</span>
+            }
+          </div>
+        }
+
+        <!-- Present before it has anything to say, so the save result is announced reliably. -->
+        <div class="result" aria-live="polite">
+          @switch (saveState().status) {
+            @case ('saved') {
+              <cp-notice tone="success">Saved. Your AI features are updated for everyone in this workspace.</cp-notice>
+            }
+            @case ('failed') {
+              <cp-notice tone="error">{{ failureMessage() }}</cp-notice>
+            }
+          }
+        </div>
+      </form>
+    }
+  }
+</cp-card>

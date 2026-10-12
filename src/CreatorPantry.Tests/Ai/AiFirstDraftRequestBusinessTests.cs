@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using System.Text.Json;
@@ -47,6 +48,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             .AddAudit()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(tasks)
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
             .AddApplicationTime()
@@ -86,7 +88,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             scope.ServiceProvider.GetRequiredService<IAiOperationDataLayer>(),
             scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-            new AiTaskOptions(), // Empty: nothing enabled.
+            new AiTaskGate(new AiTaskOptions(), scope.ServiceProvider.GetRequiredService<IAiTaskSwitchDataLayer>()), // Empty: nothing enabled.
             scope.ServiceProvider.GetRequiredService<IClock>());
 
         var outcome = await business.RequestAsync(Brief(), MeasurementSystem.UsCustomary, "key-1", TestContext.Current.CancellationToken);

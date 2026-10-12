@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -43,6 +44,7 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
             .AddAudit()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(tasks)
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
 
@@ -92,7 +94,7 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
             // Never reached: the task check refuses first, and this brief names no piece of work.
             creativeContexts: null!,
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-            tasks,
+            new AiTaskGate(tasks, scope.ServiceProvider.GetRequiredService<IAiTaskSwitchDataLayer>()),
             scope.ServiceProvider.GetRequiredService<IClock>());
 
         var outcome = await business.RequestAsync(Brief(), "key-1", TestContext.Current.CancellationToken);

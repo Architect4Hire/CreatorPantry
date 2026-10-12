@@ -141,7 +141,34 @@ describe('RecipeDraftService', () => {
       (name) => name !== 'constructor',
     );
 
-    expect(methods).toEqual(['requestDraft', 'acceptDraft', 'watchStatus']);
+    expect(methods).toEqual(['requestDraft', 'requestDraftForDish', 'acceptDraft', 'watchStatus']);
+  });
+
+  describe('requestDraftForDish', () => {
+    it('posts the name alone, trimmed, with credentials and the idempotency key', async () => {
+      const pending = service.requestDraftForDish('cozy-fall', '  Miso butter corn ', 'key-1');
+
+      const sent = http.expectOne(BASE);
+      expect(sent.request.method).toBe('POST');
+      expect(sent.request.withCredentials).toBeTrue();
+      expect(sent.request.headers.get('Idempotency-Key')).toBe('key-1');
+      // No concept pair at all: the route refuses half of one, and this asks about no concept.
+      expect(sent.request.body).toEqual({ dishName: 'Miso butter corn' });
+      sent.flush(statusPayload(), { status: 202, statusText: 'Accepted' });
+
+      const outcome = await pending;
+      expect(outcome.status).toBe('accepted');
+    });
+
+    it('reports a switched-off task as its own outcome', async () => {
+      const pending = service.requestDraftForDish('cozy-fall', 'Miso butter corn', 'key-1');
+
+      http
+        .expectOne(BASE)
+        .flush({ code: 'ai.recipeFirstDraft.not_enabled', title: 'Off.' }, { status: 400, statusText: 'Bad Request' });
+
+      expect((await pending).status).toBe('task_not_enabled');
+    });
   });
 
   describe('acceptDraft', () => {

@@ -130,6 +130,14 @@ export class ContentPipelineLibraryStepComponent {
   private readonly holdsThisWorkspace = computed(() => this.session().workspace() === this.workspaceSlug());
 
   /**
+   * The piece of work a save is made for, sent with it so the server names the asset on the work itself.
+   *
+   * Null while the session is still pointed at another workspace: a picture of this workspace's must never be
+   * saved against the work the previous one left behind.
+   */
+  protected readonly contextId = computed(() => (this.holdsThisWorkspace() ? this.session().context()?.id ?? null : null));
+
+  /**
    * Where the step stands.
    *
    * Reads as loading while the session is still pointed at another workspace: one workspace's keepers must
@@ -297,8 +305,9 @@ export class ContentPipelineLibraryStepComponent {
   /**
    * One picture is in the library.
    *
-   * The asset is named on the work, so the next visit finds it without this screen's help, and the run is read
-   * again — the picture's own row says `Kept` from now on, which is what makes a resume retry only the rest.
+   * The save itself names the asset on the work, so the next visit finds it without this screen's help; all
+   * that is left here is to read the work again. The run is read again too — the picture's own row says `Kept`
+   * from now on, which is what makes a resume retry only the rest.
    */
   protected async onSaved(asset: DamCreatedAsset): Promise<void> {
     const id = this.saveTarget();
@@ -307,12 +316,7 @@ export class ContentPipelineLibraryStepComponent {
     this.record(id, { state: 'saved', assetId: asset.id, title: asset.title, problem: '' });
     this.announced.emit(`Saved to your library as “${asset.title}”.`);
 
-    const outcome = await this.session().addReference({
-      kind: 'DamAsset',
-      purpose: 'Keeper',
-      mediaAssetId: asset.id,
-      mediaAssetVersionNumber: asset.currentVersionNumber,
-    });
+    const outcome = await this.session().nameKeptPicture(asset.id, asset.currentVersionNumber);
     if (this.gone) return;
 
     if (outcome !== 'saved' && outcome !== 'duplicate') {

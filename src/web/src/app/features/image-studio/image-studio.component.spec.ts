@@ -929,7 +929,9 @@ describe('ImageStudioComponent', () => {
 
       expect(requests.length).toBe(1);
       expect(requests[0].slug).toBe(SLUG);
-      expect(requests[0].request).toEqual({ promptText: PROMPT, avoidText: null, variantCount: 2 });
+      expect(requests[0].request).toEqual(
+        jasmine.objectContaining({ promptText: PROMPT, avoidText: null, variantCount: 2 }),
+      );
       expect(requests[0].key.length).toBeGreaterThan(0);
     });
 

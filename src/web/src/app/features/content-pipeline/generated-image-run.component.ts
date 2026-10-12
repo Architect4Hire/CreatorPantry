@@ -21,6 +21,7 @@ import {
 import { CreativeContextReference } from '../../models/creative-context.models';
 import { DamCreatedAsset, DamKeepRecipe } from '../../models/dam-asset.models';
 import {
+  GeneratedImageSubject,
   StagedImage,
   generatedImageFailureSentence,
   isStagedImageActionable,
@@ -113,6 +114,8 @@ export interface GeneratedImageRunLibrary {
    * through the `DamAsset` references the work names — which is exactly what saving one puts there.
    */
   readonly references: readonly CreativeContextReference[];
+  /** The piece of work these pictures are for, once it is filed, so a save names the asset on it. */
+  readonly creativeContextId?: string | null;
 }
 
 /** One picture's save, as this run holds it between the form and the screen. */
@@ -186,6 +189,8 @@ export class GeneratedImageRunComponent {
   /** What the request tells the provider to avoid, or null. Shown in the recap as well as sent. */
   readonly avoidText = input<string | null>(null);
   readonly variantCount = input.required<number>();
+  /** What the pictures are for — the work and its recipe — sent with the request so the run records it. */
+  readonly subject = input<GeneratedImageSubject | null>(null);
   readonly state = input.required<ContentPipelineImagesState>();
   /**
    * The pictures the creator has marked, where this surface marks rather than files.
@@ -537,6 +542,7 @@ export class GeneratedImageRunComponent {
       promptText: this.sendText(),
       avoidText: this.avoidText(),
       variantCount: this.count(),
+      subject: this.subject(),
     };
 
     // A key names one request (12.10l). If what is being asked for has changed since the attempt that took

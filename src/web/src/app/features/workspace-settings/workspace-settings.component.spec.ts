@@ -7,6 +7,7 @@ import {
   WorkspaceOutcome,
   WorkspaceSettingsService,
 } from '../../services/workspace-settings.service';
+import { AiFeaturesService } from '../../services/ai-features.service';
 import { WorkspaceSettingsComponent } from './workspace-settings.component';
 
 function workspace(overrides: Partial<Workspace> = {}): Workspace {
@@ -67,6 +68,8 @@ describe('WorkspaceSettingsComponent', () => {
       imports: [WorkspaceSettingsComponent],
       providers: [
         { provide: WorkspaceSettingsService, useValue: settings },
+        // The AI features card reads for itself; its own spec covers it.
+        { provide: AiFeaturesService, useValue: { get: () => Promise.resolve({ status: 'found', features: [] }) } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ workspaceSlug: 'sams-kitchen' }) }, parent: null },

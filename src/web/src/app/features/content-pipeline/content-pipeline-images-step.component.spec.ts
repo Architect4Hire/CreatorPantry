@@ -312,11 +312,13 @@ describe('ContentPipelineImagesStepComponent', () => {
       await generate();
 
       expect(requests.length).toBe(1);
-      expect(requests[0].request).toEqual({
-        promptText: PROMPT,
-        avoidText: 'clutter; harsh light',
-        variantCount: 2,
-      });
+      expect(requests[0].request).toEqual(
+        jasmine.objectContaining({
+          promptText: PROMPT,
+          avoidText: 'clutter; harsh light',
+          variantCount: 2,
+        }),
+      );
       expect(requests[0].key.length).toBeGreaterThan(0);
     });
 

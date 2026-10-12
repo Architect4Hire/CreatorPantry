@@ -867,6 +867,40 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.WorkspaceAiTaskSwitch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Task")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "Task")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkspaceAiTaskSwitches_Workspace_Task");
+
+                    b.ToTable("WorkspaceAiTaskSwitches", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkspaceAiTaskSwitches_Task_NotBlank", "trim(Task) <> ''");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuota", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3052,6 +3086,220 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("AcceptedRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreativeContextId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("StaleReasons")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("StaleSince")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_LongFormDrafts_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "Status")
+                        .HasDatabaseName("IX_LongFormDrafts_Workspace_Status");
+
+                    b.HasIndex("WorkspaceId", "CreativeContextId", "Kind")
+                        .HasDatabaseName("IX_LongFormDrafts_Workspace_Context_Kind");
+
+                    b.HasIndex("WorkspaceId", "Id", "AcceptedRevisionId");
+
+                    b.ToTable("LongFormDrafts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LongFormDrafts_AcceptedAt_Revision", "(AcceptedRevisionId IS NULL AND AcceptedAt IS NULL) OR (AcceptedRevisionId IS NOT NULL AND AcceptedAt IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_LongFormDrafts_Accepted_HasRevision", "Status NOT IN (4, 5) OR AcceptedRevisionId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_LongFormDrafts_Kind_Range", "Kind >= 0 AND Kind <= 1");
+
+                            t.HasCheckConstraint("CK_LongFormDrafts_Staleness_Status", "(Status = 5 AND StaleSince IS NOT NULL AND StaleReasons <> 0) OR (Status <> 5 AND StaleSince IS NULL AND StaleReasons = 0)");
+
+                            t.HasCheckConstraint("CK_LongFormDrafts_Status_Range", "Status >= 0 AND Status <= 5");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AiProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BrandProfileRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BrandStyleGuideVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreativeContextVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("LongFormDraftId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PromptTemplateBodyChecksum")
+                        .HasMaxLength(71)
+                        .HasColumnType("nvarchar(71)");
+
+                    b.Property<string>("PromptTemplateId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PromptTemplateVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_LongFormRevisions_Workspace_Id");
+
+                    b.HasAlternateKey("WorkspaceId", "LongFormDraftId", "Id")
+                        .HasName("AK_LongFormRevisions_Workspace_Draft_Id");
+
+                    b.HasIndex("WorkspaceId", "AiProposalId");
+
+                    b.HasIndex("WorkspaceId", "BrandProfileRevisionId")
+                        .HasDatabaseName("IX_LongFormRevisions_Workspace_BrandProfileRevision");
+
+                    b.HasIndex("WorkspaceId", "BrandStyleGuideVersionId");
+
+                    b.HasIndex("WorkspaceId", "LongFormDraftId", "ParentRevisionId");
+
+                    b.HasIndex("WorkspaceId", "LongFormDraftId", "RevisionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_LongFormRevisions_Workspace_Draft_RevisionNumber");
+
+                    b.ToTable("LongFormRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LongFormRevisions_AiProposal_Source", "(AiProposalId IS NOT NULL AND Source = 0) OR (AiProposalId IS NULL AND Source <> 0)");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_Content_NotBlank", "trim(Content) <> ''");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_Parent_NotSelf", "ParentRevisionId IS NULL OR ParentRevisionId <> Id");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_Parent_RevisionNumber", "(RevisionNumber = 1 AND ParentRevisionId IS NULL) OR (RevisionNumber > 1 AND ParentRevisionId IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_Reaffirmed_HasParent", "Source <> 2 OR ParentRevisionId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_RevisionNumber_Positive", "RevisionNumber >= 1");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_SchemaVersion_Positive", "SchemaVersion >= 1");
+
+                            t.HasCheckConstraint("CK_LongFormRevisions_Template_Generated", "Source <> 0 OR (PromptTemplateId IS NOT NULL AND PromptTemplateVersion IS NOT NULL AND PromptTemplateBodyChecksum IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevisionRecipePin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreativeContextReferenceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LongFormRevisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "RecipeVersionId")
+                        .HasDatabaseName("IX_LongFormRevisionRecipePins_Workspace_RecipeVersion");
+
+                    b.HasIndex("WorkspaceId", "LongFormRevisionId", "RecipeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_LongFormRevisionRecipePins_Workspace_Revision_Recipe");
+
+                    b.HasIndex("WorkspaceId", "LongFormRevisionId", "SortOrder")
+                        .IsUnique()
+                        .HasDatabaseName("UX_LongFormRevisionRecipePins_Workspace_Revision_SortOrder");
+
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeVersionId");
+
+                    b.ToTable("LongFormRevisionRecipePins", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LongFormRevisionRecipePins_SortOrder_NonNegative", "SortOrder >= 0");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.PromptRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3984,6 +4232,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("CreativeContextId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("FailureCategory")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -4020,6 +4271,12 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTimeOffset>("RequestedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -4049,6 +4306,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("WorkspaceId", "AiProposalId");
 
+                    b.HasIndex("WorkspaceId", "CreativeContextId");
+
                     b.HasIndex("WorkspaceId", "IdempotencyKey")
                         .IsUnique()
                         .HasDatabaseName("UX_GeneratedImageOperations_Workspace_IdempotencyKey");
@@ -4057,9 +4316,13 @@ namespace CreatorPantry.Domain.Migrations
                         .IsDescending(false, true)
                         .HasDatabaseName("IX_GeneratedImageOperations_Workspace_RequestedAt");
 
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeVersionId");
+
                     b.ToTable("GeneratedImageOperations", null, t =>
                         {
                             t.HasCheckConstraint("CK_GeneratedImageOperations_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_Status_Declared", "Status <> 0");
 
@@ -6157,6 +6420,15 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Ai.Data.Entities.WorkspaceAiTaskSwitch", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuotaReservation", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuotaPeriod", "Period")
@@ -6631,6 +6903,91 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormDraft", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.CreativeContext", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "CreativeContextId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "Id", "AcceptedRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "LongFormDraftId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevision", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Ai.Data.Entities.AiProposal", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "AiProposalId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandProfileRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandProfileRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandStyleGuideVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "BrandStyleGuideVersionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormDraft", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "LongFormDraftId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "LongFormDraftId", "ParentRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "LongFormDraftId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevisionRecipePin", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.LongFormRevision", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "LongFormRevisionId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Content.Data.Entities.PromptRecord", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
@@ -6891,6 +7248,24 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "AiProposalId")
                         .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.CreativeContext", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "CreativeContextId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

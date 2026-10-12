@@ -15,6 +15,7 @@ import { injectRouteTitle } from '../../core/route-title';
 
 import { Workspace, WorkspaceMeasurementSystem, isWorkspaceMeasurementSystem } from '../../models/workspace.models';
 import { WorkspaceSettingsService } from '../../services/workspace-settings.service';
+import { WorkspaceAiFeaturesComponent } from './workspace-ai-features.component';
 
 type LoadState =
   | { readonly status: 'loading' }
@@ -37,8 +38,8 @@ const COULD_NOT_SAVE = 'We couldn’t save that just now. Your choice is still s
 const NOT_ALLOWED = 'Only an Owner of this workspace can change this.';
 
 /**
- * The workspace's own settings (`:workspaceSlug/settings`). One today: the measurement system new AI recipe
- * drafts are written in (B-08).
+ * The workspace's own settings (`:workspaceSlug/settings`). The measurement system new AI recipe
+ * drafts are written in (B-08), and — in a card of its own — which AI features are switched on.
  *
  * Any member may read it; only an Owner may change it, and everyone else sees the same answer without the
  * controls that would let them try.
@@ -55,6 +56,7 @@ const NOT_ALLOWED = 'Only an Owner of this workspace can change this.';
     CpNoticeComponent,
     RouterLink,
     CpTopicCardComponent,
+    WorkspaceAiFeaturesComponent,
   ],
   templateUrl: './workspace-settings.component.html',
   styleUrl: './workspace-settings.component.css',

@@ -46,6 +46,7 @@ public interface IGeneratedImageGenerationBusiness
         int variantCount,
         Guid requestedByMembershipId,
         string idempotencyKey,
+        GeneratedImageSubject subject,
         CancellationToken cancellationToken);
 
     /// <summary>How many images one operation of the resolved workspace has staged.</summary>
@@ -99,8 +100,11 @@ internal sealed class GeneratedImageGenerationBusiness(
         int variantCount,
         Guid requestedByMembershipId,
         string idempotencyKey,
+        GeneratedImageSubject subject,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(subject);
+
         var now = clock.UtcNow;
 
         return dataLayer.RequestAsync(
@@ -115,6 +119,9 @@ internal sealed class GeneratedImageGenerationBusiness(
                 PromptText = promptText,
                 AvoidText = avoidText,
                 AiProposalId = aiProposalId,
+                RecipeId = subject.RecipeId,
+                RecipeVersionId = subject.RecipeVersionId,
+                CreativeContextId = subject.CreativeContextId,
                 VariantCount = variantCount,
                 IdempotencyKey = idempotencyKey,
                 RequestedByMembershipId = requestedByMembershipId,

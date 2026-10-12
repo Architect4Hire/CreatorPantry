@@ -34,7 +34,7 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
 /**
  * The Workflows page: the guided journeys that exist, and a way into each (FLOW-004).
  *
- * **A stopgap, and small enough to delete.** There is one journey today, so there is one card, written out
+ * **A stopgap, and small enough to delete.** There are two journeys today, so there are two cards, written out
  * rather than driven from a list: no catalogue, no run entity, no endpoint and no shared shell. The real
  * Workflow Hub replaces this file whole, and a list abstraction built for one entry would only be something
  * else to remove. Of the three things FLOW-004 names, this shows the one the browser can answer — a journey in
@@ -125,6 +125,28 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
               }
             </article>
           </cp-card>
+
+          <cp-card>
+            <article class="journey" aria-labelledby="workflow-quick-recipe-heading">
+              <div class="title">
+                <h2 id="workflow-quick-recipe-heading">Quick Recipe</h2>
+              </div>
+              <p class="plain">Name a dish and get a draft recipe and a lead picture for it, saved together.</p>
+
+              @if (phase() === 'read_only') {
+                <cp-notice role="note">
+                  You have view-only access to this workspace, so you can't run this. Ask an Owner or Editor to run
+                  it for you.
+                </cp-notice>
+              } @else {
+                <div class="cp-actions">
+                  <a cpButton variant="primary" [routerLink]="quickRecipeLink()" aria-label="Start a Quick Recipe">
+                    Start
+                  </a>
+                </div>
+              }
+            </article>
+          </cp-card>
         }
       }
     </div>
@@ -207,6 +229,9 @@ export class WorkflowsHubComponent {
   });
 
   protected readonly startLink = computed(() => this.linkTo(FIRST_CONTENT_PIPELINE_STEP));
+
+  /** Always "Start": a Quick Recipe keeps its run in its own address, so there is nothing here to continue. */
+  protected readonly quickRecipeLink = computed(() => ['/', this.workspaceSlug(), 'workflows', 'quick-recipe']);
 
   /** Where the creator got to, or null when there is nothing to go back to. */
   protected readonly resume = computed(() => {

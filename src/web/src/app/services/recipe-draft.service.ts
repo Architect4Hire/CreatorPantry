@@ -158,6 +158,39 @@ export class RecipeDraftService {
   }
 
   /**
+   * Asks for a recipe first draft from nothing but what the dish is called. `202` means queued, not written.
+   *
+   * Its own method rather than a looser {@link requestDraft}: that one's concept pair is required on purpose,
+   * and a request with no concept is a different question — the route takes a brief of one field in its place.
+   * The key is the caller's across retries, as it is there.
+   */
+  async requestDraftForDish(
+    workspaceSlug: string,
+    dishName: string,
+    idempotencyKey: string,
+  ): Promise<AiRequestOutcome> {
+    const url = requestsUrl(this.apiBase, workspaceSlug);
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<unknown>(
+          url,
+          { dishName: dishName.trim() },
+          { withCredentials: true, observe: 'response', headers: { 'Idempotency-Key': idempotencyKey } },
+        ),
+      );
+      const operation = decodeAiProposalStatus(response.body);
+
+      return operation
+        ? { status: 'accepted', operation, replayed: response.headers.has('Idempotent-Replayed') }
+        : { status: 'unavailable' };
+    } catch (error) {
+      return mapAiRequestError(error, TASK_NOT_ENABLED_CODE, [DRAFT_REQUEST_TOO_LARGE_CODE]);
+    }
+  }
+
+  /**
    * Accepts a reviewed draft, whole, into a new recipe (AIREC-002/007). The only call that creates a recipe
    * from a generated draft.
    *

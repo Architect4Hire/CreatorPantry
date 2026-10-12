@@ -1236,11 +1236,15 @@ export function validateDamKeepDraft(draft: DamKeepDraft): Readonly<Partial<Reco
  * **Nothing about the bytes, and no workspace**: the server reads the media facts from the staged picture's
  * own row. Empty alt text is left out rather than sent blank, and so are an empty tag list and an absent
  * recipe. The prompt is sent only when the creator asked to keep it, naming the picture it made.
+ *
+ * `creativeContextId` is the piece of work the picture was made for, when there is one filed. The server then
+ * names the new asset on that work in the same transaction, so there is no second request to make.
  */
 export function encodeDamKeep(
   generatedImageId: string,
   draft: DamKeepDraft,
   prompt: DamKeepPrompt | null,
+  creativeContextId: string | null = null,
 ): Record<string, unknown> {
   const metadata: Record<string, unknown> = { title: draft.title.trim() };
   const altText = draft.altText.trim();
@@ -1249,6 +1253,7 @@ export function encodeDamKeep(
 
   const body: Record<string, unknown> = { generatedImageId, metadata };
   if (draft.recipe !== null) body['recipeLink'] = { recipeId: draft.recipe.id };
+  if (creativeContextId !== null) body['creativeContextId'] = creativeContextId;
 
   if (prompt !== null && draft.keepPrompt) {
     const sent: Record<string, unknown> = {

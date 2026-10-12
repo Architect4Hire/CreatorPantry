@@ -86,6 +86,171 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/ai-features": {
+      "get": {
+        "tags": [
+          "AiFeatures"
+        ],
+        "summary": "Returns which AI features are switched on for the workspace.",
+        "description": "Every feature a workspace can switch, always all of them and always in the same order, each with the\n\u0060task\u0060 discriminator a request for it names. \u0060enabled\u0060 is the answer a request for that task would get\nright now. \u0060setByWorkspace\u0060 says where the answer came from: \u0060true\u0060 once an Owner has saved a choice,\n\u0060false\u0060 while the workspace is still on the site\u0027s default for that feature.\n\nEvery member including a Viewer may read. The response is \u0060no-store\u0060: it is workspace-private and\neditable.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiFeatures"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiFeatures"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiFeatures"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "AiFeatures"
+        ],
+        "summary": "Replaces which AI features are switched on for the workspace.",
+        "description": "Owner only, and audited. One write for the whole set rather than a toggle per feature: \u0060enabled\u0060 lists\nthe \u0060task\u0060 discriminators that are on, and every other switchable feature is off afterwards. An empty\nlist switches all of them off. The write is idempotent \u2014 the same body leaves the same state.\n\nThe workspace\u0027s choice is the whole answer once saved: a feature switched on here is accepted even\nwhere the site\u0027s default leaves it off, and one switched off here is refused even where the default\nhas it on. What a request may then spend is bounded by the caller\u0027s AI allowance, not by this setting.\nA request already queued when its feature is switched off still runs.\n\nA name that is not a switchable feature, or one listed twice, answers \u0060400 ai.features.invalid\u0060 with\nthe offending entry under \u0060errors\u0060. Two Owners saving at the same moment is last-write-wins, except\nthat a genuine collision answers \u0060409 ai.features.conflict\u0060 and writes nothing.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; the workspace is resolved server-side (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAiFeatures"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAiFeatures"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAiFeatures"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiFeatures"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiFeatures"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiFeatures"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/ai-proposals": {
       "post": {
         "tags": [
@@ -8355,7 +8520,7 @@
           "DamAssets"
         ],
         "summary": "Keeps a staged generated image as a library asset.",
-        "description": "Contributor and above. The bytes are copied into the library and the staged image becomes \u0060Kept\u0060,\nwhich is what lets retention collect the staging copy: nothing is removed until a committed asset\nowns one.\n\n**Naturally idempotent, with or without a key.** An image is kept exactly once, so a repeat returns\nthe asset the first call made rather than creating a second or failing. An unknown image, another\nworkspace\u0027s, and one already rejected or expired all answer \u0060404 media.asset.not_found\u0060.\n\nA prompt sent with the request is written **inside the same transaction** as the asset, so the two\ncommit together or not at all \u2014 a prompt record cannot be deleted afterwards, so it must never\ncommit beside an asset that did not. A refused prompt takes the asset down with it and answers with\nthe prompt\u0027s own error.",
+        "description": "Contributor and above. The bytes are copied into the library and the staged image becomes \u0060Kept\u0060,\nwhich is what lets retention collect the staging copy: nothing is removed until a committed asset\nowns one.\n\n**Naturally idempotent, with or without a key.** An image is kept exactly once, so a repeat returns\nthe asset the first call made rather than creating a second or failing. An unknown image, another\nworkspace\u0027s, and one already rejected or expired all answer \u0060404 media.asset.not_found\u0060.\n\nA prompt sent with the request is written **inside the same transaction** as the asset, so the two\ncommit together or not at all \u2014 a prompt record cannot be deleted afterwards, so it must never\ncommit beside an asset that did not. A refused prompt takes the asset down with it and answers with\nthe prompt\u0027s own error.\n\n**A picture kept for a piece of work is named on it in that same transaction.** Send\n\u0060creativeContextId\u0060 and the work gains the asset as a picture it made, so the picture is in the library\nand on the work together or in neither \u2014 there is no second request to make and none to fail. A piece\nof work this workspace does not have answers \u0060400 media.asset.invalid_request\u0060 naming\n\u0060creativeContextId\u0060, the same answer for an id nobody has and for another workspace\u0027s; one that already\nnames all the sources it can answers \u0060422 content.creative_context.reference_limit.unprocessable\u0060.\nEither way nothing is stored. Repeating the request for an image already kept also names it on the\nwork if it was not, so a save made before this field existed can be finished by sending it again.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -8451,6 +8616,16 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -8951,7 +9126,7 @@
           "GeneratedImages"
         ],
         "summary": "Asks for one to four images to be generated from a prompt.",
-        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount or proposal \u2014 or by a different member \u2014 answers \u0060422 idempotency.key_reused\u0060 and queues\nnothing, rather than returning the first request\u0027s operation for something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -18885,6 +19060,39 @@
         ],
         "type": "string"
       },
+      "AiFeature": {
+        "required": [
+          "task",
+          "enabled",
+          "setByWorkspace"
+        ],
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "setByWorkspace": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AiFeatures": {
+        "required": [
+          "features"
+        ],
+        "type": "object",
+        "properties": {
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiFeature"
+            }
+          }
+        }
+      },
       "AiOperationScope": {
         "enum": [
           "Unspecified",
@@ -23805,6 +24013,27 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -23887,6 +24116,27 @@
             "items": {
               "$ref": "#/components/schemas/StagedImage"
             }
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -24233,6 +24483,14 @@
               }
             ],
             "description": "The prompt that produced the image, saved inside the same transaction as the asset."
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The piece of work this picture was made for, or null when it was made for none.",
+            "format": "uuid"
           }
         },
         "description": "The body of a keep request."
@@ -28446,6 +28704,20 @@
           }
         }
       },
+      "ReplaceAiFeatures": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ReplaceWeeklyThemes": {
         "type": "object",
         "properties": {
@@ -28629,6 +28901,30 @@
             ],
             "description": "How many images to ask for. One to four \u2014 every one of them is a separate charge.",
             "format": "int32"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The recipe these pictures are for, when they are for one. Recorded on the run; it grounds nothing,\nbecause the prompt is sent as written.",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The exact version of that recipe. Never valid without .",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The piece of work these pictures are for, when they are for one. Recorded on the run.",
+            "format": "uuid"
           }
         },
         "description": "The body of an image-generation request (IMG-003)."
@@ -31626,6 +31922,9 @@
   "tags": [
     {
       "name": "Account"
+    },
+    {
+      "name": "AiFeatures"
     },
     {
       "name": "AiProposals"
