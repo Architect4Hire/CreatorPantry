@@ -38,6 +38,14 @@ public interface ILongFormDraftFacade
     /// <inheritdoc cref="ILongFormDraftBusiness.ApprovePlanAsync"/>
     Task<OperationResult<LongFormDraftServiceModel>> ApprovePlanAsync(
         string actorUserId, Guid draftId, ApproveLongFormPlanViewModel model, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ILongFormDraftBusiness.ReorderItemsAsync"/>
+    Task<OperationResult<LongFormDraftServiceModel>> ReorderItemsAsync(
+        string actorUserId, Guid draftId, ReorderLongFormItemsViewModel model, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ILongFormDraftBusiness.PutFramingAsync"/>
+    Task<OperationResult<LongFormDraftServiceModel>> PutFramingAsync(
+        string actorUserId, Guid draftId, PutLongFormFramingViewModel model, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="ILongFormDraftFacade"/>
@@ -46,7 +54,9 @@ internal sealed class LongFormDraftFacade(
     IWorkspaceContext workspace,
     IValidator<PatchLongFormPlanViewModel> patchValidator,
     IValidator<ApproveLongFormPlanViewModel> approveValidator,
-    IValidator<LongFormDraftListViewModel> listValidator) : ILongFormDraftFacade
+    IValidator<LongFormDraftListViewModel> listValidator,
+    IValidator<ReorderLongFormItemsViewModel> reorderValidator,
+    IValidator<PutLongFormFramingViewModel> framingValidator) : ILongFormDraftFacade
 {
     public Task<OperationResult<LongFormDraftServiceModel>> EnsureStartedAsync(
         Guid draftId, Guid creativeContextId, LongFormKind kind, CancellationToken cancellationToken) =>
@@ -116,9 +126,34 @@ internal sealed class LongFormDraftFacade(
             : Invalid(validation);
     }
 
-    private static OperationResult<LongFormDraftServiceModel> Invalid(FluentValidation.Results.ValidationResult validation) =>
+    public async Task<OperationResult<LongFormDraftServiceModel>> ReorderItemsAsync(
+        string actorUserId, Guid draftId, ReorderLongFormItemsViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var validation = await reorderValidator.ValidateAsync(model, cancellationToken);
+
+        return validation.IsValid
+            ? await business.ReorderItemsAsync(actorUserId, draftId, model, cancellationToken)
+            : Invalid(validation, ContentErrorCodes.LongFormItemOrderInvalid);
+    }
+
+    public async Task<OperationResult<LongFormDraftServiceModel>> PutFramingAsync(
+        string actorUserId, Guid draftId, PutLongFormFramingViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var validation = await framingValidator.ValidateAsync(model, cancellationToken);
+
+        return validation.IsValid
+            ? await business.PutFramingAsync(actorUserId, draftId, model, cancellationToken)
+            : Invalid(validation, ContentErrorCodes.LongFormFramingInvalid);
+    }
+
+    private static OperationResult<LongFormDraftServiceModel> Invalid(
+        FluentValidation.Results.ValidationResult validation, string code = ContentErrorCodes.LongFormPlanInvalid) =>
         OperationResult<LongFormDraftServiceModel>.Failure(OperationError.Validation(
-            ContentErrorCodes.LongFormPlanInvalid,
+            code,
             "The request is not valid.",
             validation.Errors.Select(error => (error.PropertyName, error.ErrorMessage))));
 }

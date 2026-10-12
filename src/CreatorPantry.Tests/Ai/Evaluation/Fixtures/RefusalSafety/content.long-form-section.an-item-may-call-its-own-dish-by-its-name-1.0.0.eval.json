@@ -1,0 +1,50 @@
+{
+  "id": "content.long-form-section.an-item-may-call-its-own-dish-by-its-name",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "The item covers the Gluten-Free Seeded Loaf and calls it that. A dish's own name is not a claim, whatever else is in the issue.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"The Gluten-Free Seeded Loaf takes 2 tbsp mixed seeds and bakes for 50 minutes.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Item",
+    "kind": "NewsletterIssue",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      },
+      {
+        "title": "Gluten-Free Seeded Loaf",
+        "yieldText": "Makes 1 loaf",
+        "cookTimeMinutes": 50,
+        "ingredients": [
+          "400 g gluten-free flour",
+          "2 tbsp mixed seeds"
+        ],
+        "steps": [
+          "Bake for 50 minutes."
+        ]
+      }
+    ],
+    "itemRecipe": 2
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

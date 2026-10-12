@@ -32,6 +32,7 @@ function wireSection(overrides: Record<string, unknown> = {}): Record<string, un
     isWritten: false,
     settled: false,
     sourceReferenceId: null,
+    sourceState: null,
     ...overrides,
   };
 }
@@ -52,6 +53,8 @@ function wireDraft(overrides: Record<string, unknown> = {}): Record<string, unkn
       sections: [wireSection()],
     },
     planCheck: { isValid: true, policyVersion: '1.0.0', findings: [] },
+    framing: null,
+    unresolvedItems: [],
     ...overrides,
   };
 }
@@ -328,6 +331,47 @@ describe('LongFormDraftService', () => {
 
     const outcome = await pending;
     expect(outcome.status === 'saved' && outcome.draft.status).toBe('Outlined');
+  });
+
+  it('orders an issue’s items by the reference each covers', async () => {
+    const pending = service.reorderItems('cozy-fall', 'd-1', {
+      expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      sourceReferenceIds: ['ref-2', 'ref-1'],
+    });
+
+    const request = http.expectOne(`${DRAFT}/items/order`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.withCredentials).toBeTrue();
+    expect(request.request.body).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', sourceReferenceIds: ['ref-2', 'ref-1'] });
+    request.flush(wireDraft({ kind: 'NewsletterIssue' }));
+
+    expect((await pending).status).toBe('saved');
+  });
+
+  it('saves an issue’s subject and note, sending both even when one is cleared', async () => {
+    const pending = service.putFraming('cozy-fall', 'd-1', {
+      expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      subject: 'Three loaves',
+      note: null,
+    });
+
+    const request = http.expectOne(`${DRAFT}/framing`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', subject: 'Three loaves', note: null });
+    request.flush(wireDraft({ kind: 'NewsletterIssue', framing: { subject: 'Three loaves', note: null } }));
+
+    const outcome = await pending;
+    expect(outcome.status === 'saved' && outcome.draft.framing).toEqual({ subject: 'Three loaves', note: null });
+  });
+
+  it('reports a framing for a piece that is not an issue in the server’s words, not as an outage', async () => {
+    const pending = service.putFraming('cozy-fall', 'd-1', { expectedConcurrencyToken: 't', subject: 's', note: null });
+
+    http
+      .expectOne(`${DRAFT}/framing`)
+      .flush(problem('content.long_form.draft.not_an_issue.conflict'), { status: 409, statusText: 'Conflict' });
+
+    expect(await pending).toEqual({ status: 'refused', message: 'The server’s own sentence.', fieldErrors: {} });
   });
 
   it('tells the three conflicts apart by their codes, not by the 409 they share', async () => {

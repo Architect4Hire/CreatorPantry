@@ -95,10 +95,11 @@ public static partial class LongFormClaimScanner
             : recipes;
 
         // An empty source, never a missing one: with nothing to check a figure against, every figure is one
-        // nothing supports. Titles are prose, so a dish may be called by its name.
+        // nothing supports. Titles are prose, so a dish may be called by its name — its own name: another
+        // item's dish being called gluten-free does not make this one so.
         var source = new AiClaimSourceServiceModel(
             [.. answersTo.SelectMany(recipe => recipe.FactLines)],
-            string.Join(' ', recipes.Select(recipe => recipe.Title)));
+            string.Join(' ', answersTo.Select(recipe => recipe.Title)));
 
         // A numbered list's own numbers are not figures. Taken out of the copy that is read and of nothing
         // else: the body is stored as written.

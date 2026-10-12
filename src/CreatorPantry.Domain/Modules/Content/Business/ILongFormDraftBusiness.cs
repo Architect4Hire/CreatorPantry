@@ -39,6 +39,16 @@ public interface ILongFormDraftBusiness
     /// <summary>Approves the latest plan, so its sections may be written.</summary>
     Task<OperationResult<LongFormDraftServiceModel>> ApprovePlanAsync(
         string actorUserId, Guid draftId, ApproveLongFormPlanViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Puts a newsletter issue's items in the order named, by the reference each covers, as a new revision.
+    /// </summary>
+    Task<OperationResult<LongFormDraftServiceModel>> ReorderItemsAsync(
+        string actorUserId, Guid draftId, ReorderLongFormItemsViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>Saves a newsletter issue's subject line and note as a new revision.</summary>
+    Task<OperationResult<LongFormDraftServiceModel>> PutFramingAsync(
+        string actorUserId, Guid draftId, PutLongFormFramingViewModel model, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="ILongFormDraftBusiness"/>
@@ -56,6 +66,12 @@ public interface ILongFormDraftBusiness
 /// <para>
 /// <strong>The workspace is never an input.</strong> Every read goes through the query filter of the resolved
 /// context, so another workspace's draft, context or revision is not found rather than found and refused.
+/// </para>
+/// <para>
+/// <strong>A newsletter item is the reference it covers (LF.4.1).</strong> An item already in a plan keeps its
+/// reference for as long as it is in the plan, so its words can never end up under another recipe's name.
+/// Taking an item out of the plan takes its recipe out of the issue: the new revision no longer pins it, and
+/// the revision before still does. Items change order by reference, and that moves no words.
 /// </para>
 /// </remarks>
 internal sealed class LongFormDraftBusiness(
@@ -163,11 +179,15 @@ internal sealed class LongFormDraftBusiness(
             latest,
             ContentRevisionSource.AiGenerated,
             new LongFormDocument(
-            [
-                .. input.Sections.Select(section => new LongFormSection(
-                    Guid.NewGuid(), section.Role, section.Heading, section.Intent, Body: null, Settled: false,
-                    section.SourceReferenceId, Provenance: null)),
-            ]),
+                [
+                    .. input.Sections.Select(section => new LongFormSection(
+                        Guid.NewGuid(), section.Role, section.Heading, section.Intent, Body: null, Settled: false,
+                        section.SourceReferenceId, Provenance: null)),
+                ],
+
+                // The subject and the note are the creator's and were never the outline's to propose, so a
+                // plan proposed afresh does not cost them.
+                latest is null ? null : LongFormDocument.Deserialize(latest.Content).Framing),
             now);
 
         revision.AiProposalId = input.AiProposalId;
@@ -249,6 +269,16 @@ internal sealed class LongFormDraftBusiness(
                 continue;
             }
 
+            // An item is the reference it covers. Pointing one that is already in the plan at another recipe —
+            // or at none — would leave whatever was written for the first under the second's name.
+            if (existing?.SourceReferenceId is { } bound && submitted.SourceReferenceId != bound)
+            {
+                failures.Add((
+                    $"sections[{Number(index)}].sourceReferenceId",
+                    "This item already covers a recipe, and keeps it. Remove the item to take that recipe out of the piece."));
+                continue;
+            }
+
             // Only an item covers a source, and only one this plan was written against.
             if (submitted.SourceReferenceId is { } source
                 && (role is not LongFormSectionRole.Item || !referenced.Contains(source)))
@@ -284,28 +314,22 @@ internal sealed class LongFormDraftBusiness(
         }
 
         var now = clock.UtcNow;
-        var revision = NewRevision(draft, latest, ContentRevisionSource.CreatorEdit, new LongFormDocument(sections), now);
+        // An issue covers the recipes its items cover. An item taken out of the plan takes its recipe out of
+        // the issue, so this revision does not pin it — the one before still does, and is not touched. Every
+        // other kind of piece keeps every pin: its recipes are not tied to any one section.
+        var covered = sections
+            .Where(section => section.Role is LongFormSectionRole.Item)
+            .Select(section => section.SourceReferenceId)
+            .ToHashSet();
 
-        // An edit is written against what its parent was written against: the sources did not change because
-        // the creator renamed a heading. Carried forward whole, so staleness still has a pin to compare.
-        revision.BrandProfileRevisionId = latest.BrandProfileRevisionId;
-        revision.BrandStyleGuideVersionId = latest.BrandStyleGuideVersionId;
-        revision.PromptTemplateId = latest.PromptTemplateId;
-        revision.PromptTemplateVersion = latest.PromptTemplateVersion;
-        revision.PromptTemplateBodyChecksum = latest.PromptTemplateBodyChecksum;
-        revision.CreativeContextVersion = latest.CreativeContextVersion;
-
-        var pins = parentPins
-            .Select(pin => new LongFormRevisionRecipePin
-            {
-                Id = Guid.NewGuid(),
-                LongFormRevisionId = revision.Id,
-                SortOrder = pin.SortOrder,
-                RecipeId = pin.RecipeId,
-                RecipeVersionId = pin.RecipeVersionId,
-                CreativeContextReferenceId = pin.CreativeContextReferenceId,
-            })
-            .ToList();
+        var (revision, pins) = NewEdit(
+            draft,
+            latest,
+            current with { Sections = sections },
+            draft.Kind is LongFormKind.NewsletterIssue
+                ? [.. parentPins.Where(pin => covered.Contains(pin.CreativeContextReferenceId))]
+                : parentPins,
+            now);
 
         var before = draft.Status;
 
@@ -370,7 +394,8 @@ internal sealed class LongFormDraftBusiness(
         }
 
         var document = LongFormDocument.Deserialize(latest.Content);
-        var failures = LongFormDocumentValidator.Validate(draft.Kind, document).Findings
+        var failures = LongFormDocumentValidator
+            .Validate(draft.Kind, document, await BoundReferencesAsync(latest, cancellationToken)).Findings
             .Where(finding => finding.Severity is LongFormFindingSeverity.Failure)
             .ToList();
 
@@ -403,6 +428,201 @@ internal sealed class LongFormDraftBusiness(
             onRefused: Stale(),
             cancellationToken);
     }
+
+    public async Task<OperationResult<LongFormDraftServiceModel>> ReorderItemsAsync(
+        string actorUserId, Guid draftId, ReorderLongFormItemsViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var opened = await OpenIssueAsync(draftId, model.ExpectedConcurrencyToken, cancellationToken);
+
+        if (opened.Refused is { } refused)
+        {
+            return Failure(refused);
+        }
+
+        var (draft, latest, document) = opened.Found!.Value;
+        var order = model.SourceReferenceIds!;
+        var bySource = new Dictionary<Guid, LongFormSection>();
+        var items = document.Sections.Where(section => section.Role is LongFormSectionRole.Item).ToList();
+
+        // Exactly the items the issue has, each once. One answer for an id that is not an item's, an item left
+        // out and an issue whose items are not yet bound, so the refusal says nothing about what any id names.
+        if (items.Any(item => item.SourceReferenceId is not { } source || !bySource.TryAdd(source, item))
+            || order.Count != items.Count
+            || order.Any(source => !bySource.ContainsKey(source)))
+        {
+            return Failure(OperationError.Validation(
+                ContentErrorCodes.LongFormItemOrderInvalid,
+                "That order could not be kept.",
+                [("sourceReferenceIds", "Name each of this issue's items once, by the reference it covers.")]));
+        }
+
+        if (order.SequenceEqual(items.Select(item => item.SourceReferenceId!.Value)))
+        {
+            return await DescribeAsync(draft, cancellationToken);
+        }
+
+        // The places items hold among the other sections stay where they are; which item is in each changes.
+        // Every section is carried whole — heading, text, settled mark, provenance — so no word moves.
+        var next = 0;
+        var reordered = document with
+        {
+            Sections =
+            [
+                .. document.Sections.Select(section =>
+                    section.Role is LongFormSectionRole.Item ? bySource[order[next++]] : section),
+            ],
+        };
+
+        var now = clock.UtcNow;
+        var (revision, pins) = NewEdit(
+            draft, latest, reordered, await dataLayer.ListPinsAsync(latest.Id, cancellationToken), now);
+
+        // The status stands. What was approved is which sections the piece has and what each covers, and an
+        // order of items changes neither; a piece being written goes on being written.
+        draft.UpdatedAt = now;
+
+        return await SaveAsync(
+            draft,
+            revision,
+            pins,
+            Audit(
+                actorUserId,
+                ContentAuditActions.LongFormItemsReordered,
+                draft,
+                $"Saved revision {Number(revision.RevisionNumber)} of a newsletter issue with its items in a new order.",
+                draft.Status),
+            onRefused: Stale(),
+            cancellationToken);
+    }
+
+    public async Task<OperationResult<LongFormDraftServiceModel>> PutFramingAsync(
+        string actorUserId, Guid draftId, PutLongFormFramingViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var opened = await OpenIssueAsync(draftId, model.ExpectedConcurrencyToken, cancellationToken);
+
+        if (opened.Refused is { } refused)
+        {
+            return Failure(refused);
+        }
+
+        var (draft, latest, document) = opened.Found!.Value;
+
+        // Kept as typed. Blank is "none", and an issue with neither part has no framing at all.
+        var subject = string.IsNullOrWhiteSpace(model.Subject) ? null : model.Subject;
+        var note = string.IsNullOrWhiteSpace(model.Note) ? null : model.Note;
+        var framing = subject is null && note is null ? null : new LongFormIssueFraming(subject, note);
+
+        if (framing == document.Framing)
+        {
+            return await DescribeAsync(draft, cancellationToken);
+        }
+
+        var now = clock.UtcNow;
+        var (revision, pins) = NewEdit(
+            draft,
+            latest,
+            document with { Framing = framing },
+            await dataLayer.ListPinsAsync(latest.Id, cancellationToken),
+            now);
+
+        // Not a change to the plan: the sections, and so their approval, are as they were.
+        draft.UpdatedAt = now;
+
+        return await SaveAsync(
+            draft,
+            revision,
+            pins,
+            Audit(
+                actorUserId,
+                ContentAuditActions.LongFormFramingEdited,
+                draft,
+                $"Saved revision {Number(revision.RevisionNumber)} of a newsletter issue with its subject or note changed.",
+                draft.Status),
+            onRefused: Stale(),
+            cancellationToken);
+    }
+
+    /// <summary>A newsletter issue, its latest revision and that revision's document, for a creator's own write.</summary>
+    private async Task<(OperationError? Refused, (LongFormDraft, LongFormRevision, LongFormDocument)? Found)> OpenIssueAsync(
+        Guid draftId, string? expectedToken, CancellationToken cancellationToken)
+    {
+        var draft = await dataLayer.FindForUpdateAsync(draftId, cancellationToken);
+
+        if (draft is null)
+        {
+            return (NotFound(), null);
+        }
+
+        if (!CreativeContextConcurrencyToken.Matches(expectedToken, draft.RowVersion))
+        {
+            return (Stale(), null);
+        }
+
+        if (draft.Kind is not LongFormKind.NewsletterIssue)
+        {
+            return (
+                Plain(ContentErrorCodes.LongFormNotAnIssue, "Only a newsletter issue has items to order, a subject line and a note."),
+                null);
+        }
+
+        // Until it is accepted. An accepted issue is the article of record, and nothing is written to it.
+        if (draft.Status is not (LongFormDraftStatus.Draft or LongFormDraftStatus.Outlined or LongFormDraftStatus.Writing))
+        {
+            return (
+                draft.Status is LongFormDraftStatus.Accepted
+                    ? Plain(ContentErrorCodes.LongFormDraftAccepted, "This draft has been accepted, so it is no longer being changed.")
+                    : Plain(ContentErrorCodes.LongFormDraftNotWritable, "This draft is not being changed at the moment."),
+                null);
+        }
+
+        return await dataLayer.FindLatestRevisionAsync(draft.Id, cancellationToken) is { } latest
+            ? (null, (draft, latest, LongFormDocument.Deserialize(latest.Content)))
+            : (NotStarted(), null);
+    }
+
+    /// <summary>
+    /// A creator's edit as the next revision, written against what its parent was written against: the sources
+    /// did not change because the creator renamed a heading. The pins given are copied, so staleness still has
+    /// one to compare.
+    /// </summary>
+    private (LongFormRevision Revision, List<LongFormRevisionRecipePin> Pins) NewEdit(
+        LongFormDraft draft,
+        LongFormRevision latest,
+        LongFormDocument document,
+        IReadOnlyList<LongFormRevisionRecipePin> carried,
+        DateTimeOffset now)
+    {
+        var revision = NewRevision(draft, latest, ContentRevisionSource.CreatorEdit, document, now);
+
+        revision.BrandProfileRevisionId = latest.BrandProfileRevisionId;
+        revision.BrandStyleGuideVersionId = latest.BrandStyleGuideVersionId;
+        revision.PromptTemplateId = latest.PromptTemplateId;
+        revision.PromptTemplateVersion = latest.PromptTemplateVersion;
+        revision.PromptTemplateBodyChecksum = latest.PromptTemplateBodyChecksum;
+        revision.CreativeContextVersion = latest.CreativeContextVersion;
+
+        return (
+            revision,
+            [
+                .. carried.Select(pin => new LongFormRevisionRecipePin
+                {
+                    Id = Guid.NewGuid(),
+                    LongFormRevisionId = revision.Id,
+                    SortOrder = pin.SortOrder,
+                    RecipeId = pin.RecipeId,
+                    RecipeVersionId = pin.RecipeVersionId,
+                    CreativeContextReferenceId = pin.CreativeContextReferenceId,
+                }),
+            ]);
+    }
+
+    /// <summary>The references a revision pinned: what a newsletter's items are held to.</summary>
+    private async Task<IReadOnlyList<Guid>> BoundReferencesAsync(LongFormRevision revision, CancellationToken cancellationToken) =>
+        [.. (await dataLayer.ListPinsAsync(revision.Id, cancellationToken)).Select(pin => pin.CreativeContextReferenceId)];
 
     /// <summary>A plan can be changed until writing has begun; after that the sections are the work.</summary>
     private static bool PlanIsOpen(LongFormDraft draft) =>
@@ -444,11 +664,17 @@ internal sealed class LongFormDraftBusiness(
 
         if (latest is null)
         {
-            return OperationResult<LongFormDraftServiceModel>.Success(ToServiceModel(draft, null, null));
+            return OperationResult<LongFormDraftServiceModel>.Success(ToServiceModel(draft, null, null, null, []));
         }
 
         var document = LongFormDocument.Deserialize(latest.Content);
-        var checkedPlan = LongFormDocumentValidator.Validate(draft.Kind, document);
+        var pins = await dataLayer.ListPinsAsync(latest.Id, cancellationToken);
+        var checkedPlan = LongFormDocumentValidator.Validate(
+            draft.Kind, document, [.. pins.Select(pin => pin.CreativeContextReferenceId)]);
+
+        // Read now, from the piece of work as it stands, and never part of the check above: a reference the
+        // context has since dropped is something to tell the creator, not something wrong with the revision.
+        var sources = await dataLayer.ReadItemSourcesAsync(draft, document, pins, cancellationToken);
 
         // Failures only. Ceilings and word targets are about bodies, and a plan read carries none.
         var findings = checkedPlan.Findings
@@ -470,13 +696,20 @@ internal sealed class LongFormDraftBusiness(
                         section.Intent,
                         !string.IsNullOrWhiteSpace(section.Body),
                         section.Settled,
-                        section.SourceReferenceId)),
+                        section.SourceReferenceId,
+                        sources.TryGetValue(section.Id, out var state) ? state : null)),
                 ]),
-            new LongFormPlanCheckServiceModel(findings.Count == 0, checkedPlan.PolicyVersion, findings)));
+            new LongFormPlanCheckServiceModel(findings.Count == 0, checkedPlan.PolicyVersion, findings),
+            document.Framing is { } framing ? new LongFormFramingServiceModel(framing.Subject, framing.Note) : null,
+            sources.Unresolved(document)));
     }
 
     private static LongFormDraftServiceModel ToServiceModel(
-        LongFormDraft draft, LongFormRevisionServiceModel? latest, LongFormPlanCheckServiceModel? check) => new(
+        LongFormDraft draft,
+        LongFormRevisionServiceModel? latest,
+        LongFormPlanCheckServiceModel? check,
+        LongFormFramingServiceModel? framing,
+        IReadOnlyList<Guid> unresolvedItems) => new(
         draft.Id,
         draft.CreativeContextId,
         draft.Kind,
@@ -485,7 +718,9 @@ internal sealed class LongFormDraftBusiness(
         draft.CreatedAt,
         draft.UpdatedAt,
         latest,
-        check);
+        check,
+        framing,
+        unresolvedItems);
 
     private static string Explain(string code) => code switch
     {
@@ -499,6 +734,11 @@ internal sealed class LongFormDraftBusiness(
         LongFormFindingCodes.IntentBlank => "Say in one line what this section is for.",
         LongFormFindingCodes.IntentNotOneLine => "Keep this section's intent to one line.",
         LongFormFindingCodes.IntentTooLong => $"Keep this intent to {Number(LongFormPolicy.IntentMaxCharacters)} characters.",
+        LongFormFindingCodes.ItemSourceMissing => "This item does not say which of the piece's recipes it covers.",
+        LongFormFindingCodes.ItemSourceUnknown => "This item covers a recipe this plan was not written for.",
+        LongFormFindingCodes.ItemSourceRepeated => "Another item already covers this recipe.",
+        LongFormFindingCodes.ItemsSourceUncovered => "One of the piece's recipes has no item. An issue has one item for each.",
+        LongFormFindingCodes.SectionSourceNotAllowed => "Only an item covers a recipe.",
         _ => "This section does not meet the rules for a plan.",
     };
 

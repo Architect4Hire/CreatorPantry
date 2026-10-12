@@ -21,7 +21,7 @@ public sealed class LongFormPolicyTests
         Assert.Equal(new LongFormWordRange(900, 1600), LongFormPolicy.TargetWords(LongFormKind.BlogArticle));
         Assert.Equal(new LongFormWordRange(300, 700), LongFormPolicy.TargetWords(LongFormKind.NewsletterIssue));
         Assert.Equal(4, LongFormPolicy.MaxBodySections);
-        Assert.Equal("1.0.0", LongFormPolicy.Version);
+        Assert.Equal("1.1.0", LongFormPolicy.Version);
     }
 
     [Fact]
@@ -436,7 +436,117 @@ public sealed class LongFormPolicyTests
             first.Findings.Select(finding => finding.Code));
     }
 
+    // ---- A newsletter's items and the references its revision pinned (LF.4.1) ----
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    public void An_issue_with_one_item_for_each_pinned_reference_is_valid_wherever_the_items_sit(int count)
+    {
+        var references = Enumerable.Range(0, count).Select(_ => Guid.NewGuid()).ToList();
+        var document = new LongFormDocument(
+        [
+            .. references.Take(1).Select(Item),
+            Section(LongFormSectionRole.Aside),
+            .. references.Skip(1).Reverse<Guid>().Select(Item),
+            Section(LongFormSectionRole.Closing),
+        ]);
+
+        Assert.Empty(LongFormDocumentValidator.Validate(LongFormKind.NewsletterIssue, document, references).Findings);
+    }
+
+    [Fact]
+    public void An_issue_with_no_pinned_references_has_no_items()
+    {
+        var greeting = new LongFormDocument([Section(LongFormSectionRole.Greeting)]);
+        Assert.True(LongFormDocumentValidator.Validate(LongFormKind.NewsletterIssue, greeting, []).IsPlanValid);
+
+        var item = Item(Guid.NewGuid());
+        var finding = Assert.Single(
+            LongFormDocumentValidator.Validate(LongFormKind.NewsletterIssue, new LongFormDocument([item]), []).Findings);
+
+        Assert.Equal((LongFormFindingCodes.ItemSourceUnknown, item.Id), (finding.Code, finding.SectionId!.Value));
+    }
+
+    [Fact]
+    public void Each_way_the_items_and_the_references_can_disagree_has_its_own_finding()
+    {
+        Guid first = Guid.NewGuid(), second = Guid.NewGuid();
+        var repeated = Item(first);
+        var missing = Section(LongFormSectionRole.Item);
+        var unknown = Item(Guid.NewGuid());
+        var notAnItem = Section(LongFormSectionRole.Aside) with { SourceReferenceId = second };
+
+        var result = LongFormDocumentValidator.Validate(
+            LongFormKind.NewsletterIssue,
+            new LongFormDocument([Item(first), repeated, missing, unknown, notAnItem]),
+            [first, second]);
+
+        Assert.False(result.IsPlanValid);
+        Assert.All(result.Findings, finding => Assert.Equal(LongFormFindingSeverity.Failure, finding.Severity));
+        Assert.Equal(
+            new (string, Guid?)[]
+            {
+                (LongFormFindingCodes.ItemSourceRepeated, repeated.Id),
+                (LongFormFindingCodes.ItemSourceMissing, missing.Id),
+                (LongFormFindingCodes.ItemSourceUnknown, unknown.Id),
+                (LongFormFindingCodes.SectionSourceNotAllowed, notAnItem.Id),
+
+                // The second reference has no item — a source named by a section that is not one covers nothing.
+                (LongFormFindingCodes.ItemsSourceUncovered, null),
+            },
+            result.Findings.Select(finding => (finding.Code, finding.SectionId)));
+    }
+
+    [Fact]
+    public void Without_pins_the_binding_is_not_assessed()
+    {
+        var document = new LongFormDocument([Section(LongFormSectionRole.Item), Item(Guid.NewGuid())]);
+
+        Assert.Empty(LongFormDocumentValidator.Validate(LongFormKind.NewsletterIssue, document).Findings);
+    }
+
+    [Fact]
+    public void An_item_is_unresolved_when_the_piece_no_longer_names_its_reference_for_the_recipe_that_was_pinned()
+    {
+        Guid kept = Guid.NewGuid(), removed = Guid.NewGuid(), repointed = Guid.NewGuid(), recipe = Guid.NewGuid();
+        var sections = new[] { Item(kept), Item(removed), Item(repointed), Section(LongFormSectionRole.Item), Section(LongFormSectionRole.Aside) };
+
+        var states = LongFormItemSources.Resolve(
+            new LongFormDocument(sections),
+            [new(kept, recipe), new(removed, recipe), new(repointed, recipe)],
+            [new(kept, recipe), new(repointed, Guid.NewGuid())]);
+
+        Assert.Equal(
+            [
+                LongFormItemSourceState.Resolved,
+                LongFormItemSourceState.Unresolved,
+                LongFormItemSourceState.Unresolved,
+                LongFormItemSourceState.Unresolved,
+            ],
+            sections.Take(4).Select(section => states[section.Id]));
+
+        // A section that is not an item has no source to have a state.
+        Assert.False(states.ContainsKey(sections[4].Id));
+    }
+
+    [Fact]
+    public void A_document_with_no_framing_is_stored_exactly_as_it_was_before_framing_existed()
+    {
+        var document = new LongFormDocument([Section(LongFormSectionRole.Greeting)]);
+
+        Assert.DoesNotContain("framing", document.Serialize());
+
+        var framed = document with { Framing = new LongFormIssueFraming("Three loaves", null) };
+
+        Assert.Equal(framed.Framing, LongFormDocument.Deserialize(framed.Serialize()).Framing);
+        Assert.Null(LongFormDocument.Deserialize(document.Serialize()).Framing);
+    }
+
     // ---- Helpers ----
+
+    private static LongFormSection Item(Guid reference) => Section(LongFormSectionRole.Item) with { SourceReferenceId = reference };
 
     private static LongFormSection Section(LongFormSectionRole role, string? body = null) => new(
         Guid.NewGuid(), role, "A heading", "One line on what this is for.", body, false, null, null);

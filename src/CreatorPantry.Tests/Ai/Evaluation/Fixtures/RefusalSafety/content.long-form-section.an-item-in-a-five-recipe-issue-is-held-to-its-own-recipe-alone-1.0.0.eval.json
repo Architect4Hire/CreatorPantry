@@ -1,0 +1,87 @@
+{
+  "id": "content.long-form-section.an-item-in-a-five-recipe-issue-is-held-to-its-own-recipe-alone",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Five recipes, and the item covers the fifth, which bakes for 35 minutes. A body that gives the third recipe's 33 is flagged: four other recipes in the issue do not widen what this item may state.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"The fifth tray bake takes 510 g plain flour, and it is done in 33 minutes.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Item",
+    "kind": "NewsletterIssue",
+    "recipes": [
+      {
+        "title": "Tray Bake Number 1",
+        "yieldText": "Makes 11 squares",
+        "cookTimeMinutes": 31,
+        "ingredients": [
+          "110 g plain flour",
+          "10 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 31 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 2",
+        "yieldText": "Makes 12 squares",
+        "cookTimeMinutes": 32,
+        "ingredients": [
+          "210 g plain flour",
+          "20 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 32 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 3",
+        "yieldText": "Makes 13 squares",
+        "cookTimeMinutes": 33,
+        "ingredients": [
+          "310 g plain flour",
+          "30 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 33 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 4",
+        "yieldText": "Makes 14 squares",
+        "cookTimeMinutes": 34,
+        "ingredients": [
+          "410 g plain flour",
+          "40 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 34 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 5",
+        "yieldText": "Makes 15 squares",
+        "cookTimeMinutes": 35,
+        "ingredients": [
+          "510 g plain flour",
+          "50 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 35 minutes."
+        ]
+      }
+    ],
+    "itemRecipe": 5
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

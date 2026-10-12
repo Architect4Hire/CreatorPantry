@@ -37,6 +37,10 @@ public interface ILongFormDraftDataLayer
 
     Task<IReadOnlyList<LongFormRevisionRecipePin>> ListPinsAsync(Guid revisionId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="ILongFormDraftRepository.ListRecipeReferencesAsync"/>
+    Task<IReadOnlyList<LongFormContextRecipeReference>> ListRecipeReferencesAsync(
+        Guid contextId, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<LongFormDraftSummaryRecord> Rows, bool HasMore)> ListRecentAsync(
         LongFormDraftListCriteria criteria, CancellationToken cancellationToken);
 
@@ -79,6 +83,10 @@ internal sealed class LongFormDraftDataLayer(
 
     public Task<IReadOnlyList<LongFormRevisionRecipePin>> ListPinsAsync(Guid revisionId, CancellationToken cancellationToken) =>
         drafts.ListPinsAsync(revisionId, cancellationToken);
+
+    public Task<IReadOnlyList<LongFormContextRecipeReference>> ListRecipeReferencesAsync(
+        Guid contextId, CancellationToken cancellationToken) =>
+        drafts.ListRecipeReferencesAsync(contextId, cancellationToken);
 
     public Task<(IReadOnlyList<LongFormDraftSummaryRecord> Rows, bool HasMore)> ListRecentAsync(
         LongFormDraftListCriteria criteria, CancellationToken cancellationToken) =>

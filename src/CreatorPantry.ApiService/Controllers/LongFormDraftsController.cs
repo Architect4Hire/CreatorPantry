@@ -226,8 +226,13 @@ public sealed class LongFormDraftsController(
     /// **Saving is not approving.** A plan that is not yet valid — a heading still blank, a role used twice
     /// while sections are rearranged — is saved, and `planCheck` on the response says what stands in the way.
     /// What is refused here is only what could not be kept: `400 content.long_form.plan.invalid` for a role
-    /// that is not a role, an `id` that is not a section of this plan, or a `sourceReferenceId` on a section
-    /// that is not an item or that names a recipe this plan was not written for.
+    /// that is not a role, an `id` that is not a section of this plan, a `sourceReferenceId` on a section
+    /// that is not an item or that names a recipe this plan was not written for, or a different
+    /// `sourceReferenceId` on an item the plan already has.
+    ///
+    /// **A newsletter item is the recipe it covers.** An item already in the plan keeps its `sourceReferenceId`.
+    /// Leaving an item out takes its recipe out of the issue: the new revision no longer covers it, and the
+    /// revision before is unchanged.
     ///
     /// Changing an approved plan returns the draft to `Draft`, so the changed plan must be approved again.
     /// Saving the plan exactly as it stands changes nothing and creates no revision.
@@ -270,7 +275,9 @@ public sealed class LongFormDraftsController(
     /// draft as it stands, whatever token it carries, and records nothing.
     ///
     /// A plan that does not meet the long-form shape rules answers `422 content.long_form.plan.unprocessable`
-    /// with one error for each failing section, keyed `sections[n]` by its position in the plan.
+    /// with one error for each failing section, keyed `sections[n]` by its position in the plan. For a
+    /// newsletter issue those rules include one item for each recipe the plan was written for, each naming a
+    /// different one; a recipe with no item is reported against `sections`.
     /// </remarks>
     [HttpPost("{draftId:guid}/plan/approval")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
@@ -287,6 +294,72 @@ public sealed class LongFormDraftsController(
 
         var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
         var result = await drafts.ApprovePlanAsync(userId, draftId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Puts a newsletter issue's items in a new order, named by the recipe each covers.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; see the list route.</param>
+    /// <param name="draftId">The issue whose items to order.</param>
+    /// <param name="model">Every item's `sourceReferenceId`, once each, in the order the items should read.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Contributor or above. The items change places among themselves; every other section stays where it is,
+    /// and each item moves whole, with its heading, text and settled mark. Saved as a new revision. No text
+    /// changes, so this works while the plan is open and while the issue is being written, and it leaves the
+    /// draft's status as it was. The order already in force changes nothing and creates no revision.
+    ///
+    /// `400 content.long_form.item_order.invalid` unless the list names each of the issue's items exactly once.
+    /// `409 content.long_form.draft.not_an_issue.conflict` for a piece that is not a newsletter issue;
+    /// `409` also for a stale `expectedConcurrencyToken`, a draft with no plan yet, and an accepted draft.
+    /// </remarks>
+    [HttpPut("{draftId:guid}/items/order")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormDraftServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> ReorderItems(
+        string workspaceSlug, Guid draftId, ReorderLongFormItemsViewModel model, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+        var result = await drafts.ReorderItemsAsync(userId, draftId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Saves a newsletter issue's subject line and the creator's note.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; see the list route.</param>
+    /// <param name="draftId">The issue to frame.</param>
+    /// <param name="model">The subject line and the note, each as the creator wrote it.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Contributor or above. Both are the creator's own words: nothing generates either, and neither is sent
+    /// anywhere by saving it. Send both each time — a blank or omitted one is cleared. Saved as a new revision,
+    /// which leaves the plan and its approval as they were; the same framing again changes nothing.
+    ///
+    /// The subject is one line of at most 150 characters and the note at most 600; neither counts towards the
+    /// issue's length. Outside that is `400 content.long_form.framing.invalid`.
+    /// `409 content.long_form.draft.not_an_issue.conflict` for a piece that is not a newsletter issue; `409`
+    /// also for a stale `expectedConcurrencyToken`, a draft with no plan yet, and an accepted draft.
+    /// </remarks>
+    [HttpPut("{draftId:guid}/framing")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormDraftServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> PutFraming(
+        string workspaceSlug, Guid draftId, PutLongFormFramingViewModel model, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+        var result = await drafts.PutFramingAsync(userId, draftId, model, cancellationToken);
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }

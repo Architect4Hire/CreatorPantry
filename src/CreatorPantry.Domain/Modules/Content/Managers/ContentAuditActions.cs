@@ -95,4 +95,13 @@ public static class ContentAuditActions
 
     /// <inheritdoc cref="LongFormSectionSettled"/>
     public const string LongFormSectionUnsettled = "content.long_form_section.unsettled";
+
+    /// <summary>
+    /// A creator put a newsletter issue's items in a different order (LF.4.1). The summary names a revision
+    /// number, never a reference or a heading.
+    /// </summary>
+    public const string LongFormItemsReordered = "content.long_form_items.reordered";
+
+    /// <summary>A creator saved an issue's subject line or note (LF.4.1). The summary carries neither.</summary>
+    public const string LongFormFramingEdited = "content.long_form_framing.edited";
 }

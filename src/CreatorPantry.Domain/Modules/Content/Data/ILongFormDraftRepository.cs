@@ -25,6 +25,13 @@ public interface ILongFormDraftRepository
 
     Task<IReadOnlyList<LongFormRevisionRecipePin>> ListPinsAsync(Guid revisionId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The recipe references this workspace's creative context holds now, in the context's own order.
+    /// Identifiers only; another workspace's context has none.
+    /// </summary>
+    Task<IReadOnlyList<LongFormContextRecipeReference>> ListRecipeReferencesAsync(
+        Guid contextId, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<LongFormDraftSummaryRecord> Rows, bool HasMore)> ListRecentAsync(
         LongFormDraftListCriteria criteria, CancellationToken cancellationToken);
 
@@ -76,6 +83,17 @@ internal sealed class LongFormDraftRepository(CreatorPantryDbContext context) : 
             .AsNoTracking()
             .Where(pin => pin.LongFormRevisionId == revisionId)
             .OrderBy(pin => pin.SortOrder)
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<LongFormContextRecipeReference>> ListRecipeReferencesAsync(
+        Guid contextId, CancellationToken cancellationToken) =>
+        await context.CreativeContextReferences
+            .AsNoTracking()
+            .Where(reference => reference.CreativeContextId == contextId
+                && reference.Kind == CreativeContextReferenceKind.Recipe
+                && reference.RecipeId != null)
+            .OrderBy(reference => reference.SortOrder)
+            .Select(reference => new LongFormContextRecipeReference(reference.Id, reference.RecipeId!.Value))
             .ToListAsync(cancellationToken);
 
     public async Task<(IReadOnlyList<LongFormDraftSummaryRecord> Rows, bool HasMore)> ListRecentAsync(

@@ -159,7 +159,16 @@ public sealed record CreativeContextDayEntry(
 /// what was already made for it. Everything else is left out, so the package's checksum names exactly what
 /// was added to the prompt and nothing the task read some other way.
 /// </param>
-public sealed record CreativeContextPackageOptions(bool ApplyDayNotes = true, bool DayOnly = false)
+/// <param name="OnlyRecipeReferenceId">
+/// The one recipe reference a run is written from, for a section that covers one recipe and no other — a
+/// newsletter item (LF.4.2). Every other source the piece names is left out: the other recipes, and the
+/// pictures, ideas and saved prompts, none of which says which recipe it belongs to. They are not reported as
+/// dropped, because nothing was dropped: the run was never going to be told them. The creator's words, the
+/// channels and the day stay. The budget is then this one recipe's, so it is never left out to make room for
+/// the rest of an issue.
+/// </param>
+public sealed record CreativeContextPackageOptions(
+    bool ApplyDayNotes = true, bool DayOnly = false, Guid? OnlyRecipeReferenceId = null)
 {
     public static CreativeContextPackageOptions Default { get; } = new();
 }

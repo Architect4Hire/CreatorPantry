@@ -400,6 +400,164 @@ public sealed class LongFormSectionAiTaskHandlerTests
         Assert.Empty(LongFormSectionAiTaskHandler.CarriedParts(role, null, nothing));
     }
 
+    // ---- A newsletter item is written from its own recipe and no other (LF.4.2) ----
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(5)]
+    public async Task An_item_is_shown_its_own_recipe_and_nothing_of_the_issues_others(int recipes)
+    {
+        var client = FakeChatClient.Returning(Answer(SoundBody));
+        var (writing, package, references) = Issue(recipes, write: recipes);
+        var contexts = new StubCreativeContexts(package);
+
+        var outcome = await Run(client, new StubSections(writing, null), contexts, Inputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+
+        // Asked for by the reference the plan bound the item to — the last recipe, which is also the one a
+        // whole-issue budget gives up first.
+        Assert.Equal(references[^1], contexts.SlicedFor);
+
+        var user = User(client);
+
+        Assert.Contains($"Dish number {recipes}", user);
+        Assert.Contains($"{recipes}00g of ingredient {recipes}", user);
+
+        for (var other = 1; other < recipes; other++)
+        {
+            Assert.DoesNotContain($"Dish number {other}", user);
+            Assert.DoesNotContain($"{other}00g of ingredient {other}", user);
+        }
+
+        // How the other items open is their recipes' facts. How a section that is not an item opens is not.
+        Assert.DoesNotContain("opens on its own", user);
+        Assert.Contains("Hello again, everyone.", user);
+
+        // The plan is all there, so the item does its own job; only this item names a recipe, and it is the
+        // one recipe in the list.
+        Assert.Equal(recipes + 2, Occurrences(user, "\"position\":"));
+        Assert.Equal(1, Occurrences(user, "\"recipe\":"));
+        Assert.Contains("\"recipe\":1,\"writeThisOne\":true", user);
+
+        var system = System(client);
+
+        Assert.Contains("it is the only recipe you are shown", system);
+        Assert.Contains("You write no subject line.", system);
+
+        // The proposal records the item's own package, not the issue's.
+        Assert.Equal(SliceChecksum, outcome.Proposal!.CreativeContext!.Checksum);
+    }
+
+    [Theory]
+    [InlineData(LongFormSectionRole.Lead)]
+    [InlineData(LongFormSectionRole.Aside)]
+    public async Task An_item_is_not_shown_how_a_section_that_may_state_any_recipes_facts_opens(LongFormSectionRole role)
+    {
+        var client = FakeChatClient.Returning(Answer(SoundBody));
+        var (writing, package, _) = Issue(recipes: 2, write: 2);
+
+        // The section before the items is one that may give every recipe its figures, and does.
+        writing = writing with
+        {
+            Sections =
+            [
+                writing.Sections[0] with { Role = role, FirstLine = "Two bakes this week: one at 100g of ingredient 1." },
+                .. writing.Sections.Skip(1),
+            ],
+        };
+
+        var outcome = await Run(client, new StubSections(writing, null), new StubCreativeContexts(package), Inputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.DoesNotContain("Two bakes this week", User(client));
+        Assert.DoesNotContain("100g of ingredient 1", User(client));
+    }
+
+    [Fact]
+    public async Task An_item_is_not_said_to_repeat_an_opening_it_was_never_shown()
+    {
+        var (writing, package, _) = Issue(recipes: 2, write: 2);
+        var client = FakeChatClient.Returning(Answer("Item 1 opens on its own 100g of ingredient 1. And then some."));
+
+        var outcome = await Run(client, new StubSections(writing, null), new StubCreativeContexts(package), Inputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.DoesNotContain(outcome.Proposal!.Warnings, warning => warning.Message.Contains(LongFormFindings.RepeatsEarlierSection));
+    }
+
+    [Fact]
+    public void The_only_item_of_an_issue_is_not_told_there_are_others()
+    {
+        var (writing, package, _) = Issue(recipes: 1, write: 1);
+        var target = writing.Sections[writing.TargetIndex];
+
+        Assert.DoesNotContain("The issue covers others", LongFormSectionAiTaskHandler.RecipeRule(target, package, items: 1));
+        Assert.Contains("The issue covers others", LongFormSectionAiTaskHandler.RecipeRule(target, package, items: 2));
+    }
+
+    [Fact]
+    public async Task A_section_of_an_issue_that_is_not_an_item_is_shown_every_recipe_and_told_whose_fact_is_whose()
+    {
+        var client = FakeChatClient.Returning(Answer(SoundBody));
+        var (writing, package, _) = Issue(recipes: 2, write: 0);
+        var contexts = new StubCreativeContexts(package);
+
+        var outcome = await Run(client, new StubSections(writing, null), contexts, Inputs());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Null(contexts.SlicedFor);
+
+        var user = User(client);
+        Assert.Contains("Dish number 1", user);
+        Assert.Contains("Dish number 2", user);
+        Assert.Contains("opens on its own", user);
+
+        Assert.Contains("never give one recipe's figure, ingredient or step as another's", System(client));
+    }
+
+    [Fact]
+    public async Task An_item_whose_own_recipe_moved_between_the_two_reads_fails_as_stale_before_the_provider_is_called()
+    {
+        var client = FakeChatClient.Returning(Answer(SoundBody));
+        var (writing, package, _) = Issue(recipes: 2, write: 2);
+        var contexts = new StubCreativeContexts(package) { SliceVersion = Guid.NewGuid() };
+
+        var outcome = await Run(client, new StubSections(writing, null), contexts, Inputs());
+
+        Assert.Equal(AiFailureCategory.DomainInvalid, outcome.FailureCategory);
+        Assert.Contains("has changed since its plan was made", outcome.FailureSummary);
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Fact]
+    public async Task An_item_package_read_in_another_workspace_is_refused_and_never_sent()
+    {
+        var client = FakeChatClient.Returning(Answer(SoundBody));
+        var (writing, package, _) = Issue(recipes: 2, write: 2);
+        var contexts = new StubCreativeContexts(package) { SliceWorkspace = WorkspaceB };
+
+        var outcome = await Run(client, new StubSections(writing, null), contexts, Inputs());
+
+        Assert.Equal(AiFailureCategory.DomainInvalid, outcome.FailureCategory);
+        Assert.Equal(0, client.Calls);
+    }
+
+    [Fact]
+    public void The_word_target_is_the_issues_and_no_items_own()
+    {
+        var (writing, _, _) = Issue(recipes: 5, write: 3);
+
+        // 300 to 700 words over seven sections: an even share to start from, and a sentence saying whose the
+        // target is.
+        Assert.Equal(
+            "between 42 and 100 words, and never more than 3000 characters. That is an even share of the issue's "
+                + "length, which is the one that matters: no item has a target of its own",
+            LongFormSectionAiTaskHandler.LengthBrief(writing));
+
+        Assert.DoesNotContain("issue's", LongFormSectionAiTaskHandler.LengthBrief(Writing()));
+    }
+
     // ---- What the model is told ----
 
     [Fact]
@@ -642,6 +800,56 @@ public sealed class LongFormSectionAiTaskHandlerTests
             warnings = warnings.Select(warning => new { kind = warning.Kind.ToString(), message = warning.Message }),
         });
 
+    private const string SliceChecksum = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+
+    private static int Occurrences(string text, string value) => text.Split(value).Length - 1;
+
+    /// <summary>
+    /// An approved issue — a greeting, one item for each recipe, a closing — with every other section already
+    /// written, and the package the whole issue assembles to.
+    /// </summary>
+    /// <param name="write">Which section is being written: 0 for the greeting, 1 to N for an item.</param>
+    private static (LongFormWritingContextServiceModel Writing, CreativeContextPackage Package, Guid[] References) Issue(
+        int recipes, int write)
+    {
+        var references = Enumerable.Range(0, recipes).Select(_ => Guid.NewGuid()).ToArray();
+        var versions = Enumerable.Range(0, recipes).Select(_ => Guid.NewGuid()).ToArray();
+
+        List<LongFormWritingSectionServiceModel> sections =
+        [
+            new(HookSection, LongFormSectionRole.Greeting, "Hello", "Say hello.", null, "Hello again, everyone."),
+            .. references.Select((reference, index) => new LongFormWritingSectionServiceModel(
+                Guid.NewGuid(), LongFormSectionRole.Item, $"Item {index + 1}", "Introduce it.", reference,
+                $"Item {index + 1} opens on its own {index + 1}00g of ingredient {index + 1}.")),
+            new(ClosingSection, LongFormSectionRole.Closing, "Until next week", "Sign off.", null, null),
+        ];
+
+        // The section under test carries the id the request names, and has not been written.
+        sections[write] = sections[write] with { Id = TipsSection, FirstLine = null };
+
+        var writing = Writing() with
+        {
+            Kind = LongFormKind.NewsletterIssue,
+            TargetIndex = write,
+            Sections = sections,
+            Pins = [.. references.Select((reference, index) => new LongFormWritingPinServiceModel(reference, Guid.NewGuid(), versions[index]))],
+            TargetWords = new LongFormWordRange(300, 700),
+        };
+
+        var package = Package() with
+        {
+            Recipes =
+            [
+                .. references.Select((reference, index) => Recipe(reference, versions[index], $"Dish number {index + 1}", true, null) with
+                {
+                    Ingredients = [$"{index + 1}00g of ingredient {index + 1}"],
+                }),
+            ],
+        };
+
+        return (writing, package, references);
+    }
+
     /// <summary>An approved three-section article at revision 3, with the middle section the one to write.</summary>
     private static LongFormWritingContextServiceModel Writing() => new(
         WorkspaceA,
@@ -826,6 +1034,15 @@ public sealed class LongFormSectionAiTaskHandlerTests
 
         public AiTaskType? AskedAs { get; private set; }
 
+        /// <summary>The reference an item's own package was asked for by, when one was.</summary>
+        public Guid? SlicedFor { get; private set; }
+
+        /// <summary>Set to have the item's own package report its recipe at another version than the first read did.</summary>
+        public Guid? SliceVersion { get; init; }
+
+        /// <summary>Set to have the item's own package claim to have been read in another workspace.</summary>
+        public Guid? SliceWorkspace { get; init; }
+
         public Task<OperationResult<CreativeContextPackage>> AssembleAsync(
             Guid contextId, AiTaskType taskType, CancellationToken cancellationToken) =>
             AssembleAsync(contextId, taskType, CreativeContextPackageOptions.Default, cancellationToken);
@@ -838,6 +1055,28 @@ public sealed class LongFormSectionAiTaskHandlerTests
         {
             AskedFor = contextId;
             AskedAs = taskType;
+
+            // What the content module's assembler does with the option, which its own tests hold it to: the
+            // one recipe, and none of the piece's other sources.
+            if (package is not null && options.OnlyRecipeReferenceId is { } only)
+            {
+                SlicedFor = only;
+
+                return Task.FromResult(OperationResult<CreativeContextPackage>.Success(package with
+                {
+                    WorkspaceId = SliceWorkspace ?? package.WorkspaceId,
+                    Recipes =
+                    [
+                        .. package.Recipes
+                            .Where(recipe => recipe.ReferenceId == only)
+                            .Select(recipe => SliceVersion is { } moved ? recipe with { RecipeVersionId = moved } : recipe),
+                    ],
+                    Concepts = [],
+                    Pictures = [],
+                    Prompts = [],
+                    Checksum = SliceChecksum,
+                }));
+            }
 
             return Task.FromResult(package is null
                 ? OperationResult<CreativeContextPackage>.Failure(new OperationError(

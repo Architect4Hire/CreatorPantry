@@ -113,6 +113,14 @@ internal sealed class CreativeContextPackageBusiness(
 
         foreach (var reference in context.References.OrderBy(item => item.SortOrder).ThenBy(item => item.Id))
         {
+            // A run written from one recipe is told that recipe and no other source. Passed over rather than
+            // dropped: a drop is something the task would have been told and was not.
+            if (options.OnlyRecipeReferenceId is { } only
+                && (reference.Id != only || reference.Kind is not CreativeContextReferenceKind.Recipe))
+            {
+                continue;
+            }
+
             var section = SectionOf(reference.Kind);
 
             if (section is CreativeContextSections.None || !allowed.HasFlag(section))

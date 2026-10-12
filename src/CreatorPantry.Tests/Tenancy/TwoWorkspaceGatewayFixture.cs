@@ -174,6 +174,9 @@ internal sealed class GatewayClient(HttpClient http, string antiforgeryToken) : 
     public Task<HttpResponseMessage> PatchAsJsonAsync(string path, object body, CancellationToken cancellationToken = default) =>
         SendAsync(HttpMethod.Patch, path, body, idempotencyKey: null, cancellationToken);
 
+    public Task<HttpResponseMessage> PutAsJsonAsync(string path, object body, CancellationToken cancellationToken = default) =>
+        SendAsync(HttpMethod.Put, path, body, idempotencyKey: null, cancellationToken);
+
     /// <summary>Patches with an <c>Idempotency-Key</c>, for edits a client may safely retry.</summary>
     public Task<HttpResponseMessage> PatchAsJsonAsync(
         string path, object body, string idempotencyKey, CancellationToken cancellationToken = default) =>

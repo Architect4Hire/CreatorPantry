@@ -42,6 +42,7 @@ public sealed class LongFormWireMirrorTests
         ["LongFormAcceptanceIssue"] = Members<LongFormAcceptanceIssue>(),
         ["LongFormSectionRequestOutcome"] = Members<LongFormSectionRequestOutcome>(),
         ["LongFormFindingKind"] = Members<LongFormFindingKind>(),
+        ["LongFormItemSourceState"] = Members<LongFormItemSourceState>(),
     };
 
     public static TheoryData<string> Mirrored => [.. MirroredEnums.Keys];

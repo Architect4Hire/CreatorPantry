@@ -333,7 +333,8 @@ internal sealed partial class LongFormOutlineAiTaskHandler(
             $"{Number(count)} recipes are listed, so the plan has exactly {Number(count)} Item sections: one for "
                 + "each recipe and no more. Set each item's `source` to the position of its recipe in the "
                 + $"`recipes` list, counting from 1 to {Number(count)}, and use each position once. Leave "
-                + "`source` null on every other section.",
+                + "`source` null on every other section. An item's heading and intent are about its own recipe "
+                + "and no other: name no ingredient, figure or step of a different recipe in them.",
         _ => "This piece has no Item sections. Leave `source` null on every section.",
     };
 
@@ -383,11 +384,17 @@ internal sealed partial class LongFormOutlineAiTaskHandler(
                 Set(LongFormPlanFields.SourceReferenceId, package.Recipes[position - 1].ReferenceId.ToString("D"));
             }
 
+            // An item answers to its own recipe alone (LF.4.2): another recipe's baking time in its heading or
+            // intent is a figure this recipe does not state, however true it is of the other.
+            var answersTo = section.Source is { } own
+                ? CreativeContextClaimSource.Facts(package with { Recipes = [package.Recipes[own - 1]] })
+                : source;
+
             // Every server finding carries its code in brackets, as the other writing capabilities' do, so a
             // reader can tell what the server found from what the model said about its own work.
             foreach (var text in new[] { section.Heading, section.Intent })
             {
-                foreach (var (kind, code, message) in CreativeContextClaimSource.Claims(text, source))
+                foreach (var (kind, code, message) in CreativeContextClaimSource.Claims(text, answersTo))
                 {
                     if (role is LongFormSectionRole.Storage
                         && code == AiEditorialClaimScanner.UnsupportedStorageGuidance

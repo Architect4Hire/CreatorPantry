@@ -24,7 +24,7 @@ public sealed class LongFormPlanSectionInputViewModel
     [Description("One line saying what the section will cover.")]
     public string? Intent { get; set; }
 
-    [Description("For a newsletter item, the creative-context reference of the recipe it covers. Omit it for every other section.")]
+    [Description("For a newsletter item, the creative-context reference of the recipe it covers, which an item already in the plan keeps. Omit it for every other section.")]
     public Guid? SourceReferenceId { get; set; }
 }
 
@@ -169,6 +169,10 @@ public static class LongFormDraftPolicy
 
 /// <summary>One planned section, as a creator is shown it.</summary>
 /// <param name="IsWritten">Whether the section has a body yet. The body itself is not part of a plan read.</param>
+/// <param name="SourceState">
+/// For a newsletter item, whether the piece of work still names the reference it covers. Null on every other
+/// section.
+/// </param>
 public sealed record LongFormPlannedSectionServiceModel(
     Guid Id,
     LongFormSectionRole Role,
@@ -176,7 +180,8 @@ public sealed record LongFormPlannedSectionServiceModel(
     string Intent,
     bool IsWritten,
     bool Settled,
-    Guid? SourceReferenceId);
+    Guid? SourceReferenceId,
+    LongFormItemSourceState? SourceState);
 
 /// <summary>One revision of a long-form draft, as its plan.</summary>
 public sealed record LongFormRevisionServiceModel(
@@ -201,6 +206,11 @@ public sealed record LongFormPlanCheckServiceModel(
 /// <param name="ConcurrencyToken">Send this back as <c>expectedConcurrencyToken</c> on the next write.</param>
 /// <param name="Latest">Null until an outline has landed.</param>
 /// <param name="PlanCheck">Null exactly when <paramref name="Latest"/> is.</param>
+/// <param name="Framing">A newsletter issue's subject line and note, or null when it has neither.</param>
+/// <param name="UnresolvedItems">
+/// The items, in plan order, whose reference the piece of work no longer names. Each is still in the plan with
+/// everything it had; this is what a creator must be told, and it stops neither an approval nor an acceptance.
+/// </param>
 public sealed record LongFormDraftServiceModel(
     Guid Id,
     Guid CreativeContextId,
@@ -210,7 +220,9 @@ public sealed record LongFormDraftServiceModel(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     LongFormRevisionServiceModel? Latest,
-    LongFormPlanCheckServiceModel? PlanCheck);
+    LongFormPlanCheckServiceModel? PlanCheck,
+    LongFormFramingServiceModel? Framing,
+    IReadOnlyList<Guid> UnresolvedItems);
 
 /// <summary>One draft in the recent list. No words of the plan: titles of work live on the creative context.</summary>
 public sealed record LongFormDraftSummaryServiceModel(

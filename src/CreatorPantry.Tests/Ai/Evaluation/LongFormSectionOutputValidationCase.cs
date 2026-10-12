@@ -114,7 +114,9 @@ internal sealed class LongFormSectionOutputValidationCase : IAiEvaluationCase
         var found = LongFormClaimScanner.Scan(
             new AiClaimScanFacade(),
             role,
-            sourceReferenceId: null,
+
+            // An item is held to the one recipe it is bound to, as it is when its body lands on the draft.
+            sourceReferenceId: input.ItemRecipe is { } position ? package.Recipes[position - 1].ReferenceId : null,
             document.Body,
             [.. package.Recipes.Select(recipe => new LongFormClaimRecipe(recipe.ReferenceId, recipe.Title, FactLines(recipe)))]);
 
@@ -286,6 +288,7 @@ internal sealed class LongFormSectionOutputValidationCase : IAiEvaluationCase
         LongFormKind? Kind = null,
         string? WorkingTitle = null,
         IReadOnlyList<RecipeInput>? Recipes = null,
+        int? ItemRecipe = null,
         IReadOnlyList<string>? EarlierOpenings = null,
         IReadOnlyList<string>? Carried = null,
         RepeatInput? RepeatBody = null);

@@ -29,7 +29,7 @@ public sealed record LongFormWordRange(int Min, int Max);
 /// </remarks>
 public static class LongFormPolicy
 {
-    public const string Version = "1.0.0";
+    public const string Version = "1.1.0";
 
     /// <summary>The most one section's body may count, in grapheme clusters of the stored Markdown.</summary>
     public const int SectionMaxCharacters = 3000;
@@ -40,6 +40,15 @@ public static class LongFormPolicy
     public const int HeadingMaxCharacters = 120;
 
     public const int IntentMaxCharacters = 200;
+
+    /// <summary>The most a newsletter issue's subject line may count. One line; approved with LF.4.1.</summary>
+    public const int SubjectMaxCharacters = 150;
+
+    /// <summary>
+    /// The most the creator's note on a newsletter issue may count. Counted towards neither the word target
+    /// nor the document ceiling, which are about section bodies. Approved with LF.4.1.
+    /// </summary>
+    public const int NoteMaxCharacters = 600;
 
     /// <summary>The most creator-headed <see cref="LongFormSectionRole.Body"/> sections a blog article may hold.</summary>
     public const int MaxBodySections = 4;
@@ -69,7 +78,8 @@ public static class LongFormPolicy
         new(LongFormSectionRole.Greeting, 1),
         new(LongFormSectionRole.Lead, 1),
 
-        // One per source the issue covers (B-35). Binding each to its reference is LF.4.1's.
+        // One per source the issue covers (B-35). Which source each covers is not a count and is not here:
+        // LongFormDocumentValidator holds the items to the revision's pinned references (LF.4.1).
         new(LongFormSectionRole.Item, null),
         new(LongFormSectionRole.Aside, 1),
         new(LongFormSectionRole.Closing, 1),

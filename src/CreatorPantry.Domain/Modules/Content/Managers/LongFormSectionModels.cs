@@ -98,6 +98,8 @@ public sealed record LongFormSectionsServiceModel(
 /// <param name="OverCeiling">Whether the text is longer than a section may be. Reported, never trimmed.</param>
 /// <param name="WrittenBy">Whether the text as it reads now was generated or is the creator's own. Null when unwritten.</param>
 /// <param name="AiProposalId">The AI proposal that wrote the text as it reads now, when it was generated.</param>
+/// <param name="SourceReferenceId">For a newsletter item, the creative-context reference it covers.</param>
+/// <param name="SourceState">For a newsletter item, whether the piece of work still names that reference.</param>
 public sealed record LongFormSectionStateServiceModel(
     Guid Id,
     LongFormSectionRole Role,
@@ -109,4 +111,6 @@ public sealed record LongFormSectionStateServiceModel(
     int CharacterCount,
     bool OverCeiling,
     ContentRevisionSource? WrittenBy,
-    Guid? AiProposalId);
+    Guid? AiProposalId,
+    Guid? SourceReferenceId,
+    LongFormItemSourceState? SourceState);

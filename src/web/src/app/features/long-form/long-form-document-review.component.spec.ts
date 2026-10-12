@@ -14,6 +14,8 @@ import {
   SettleLongFormSectionRequest,
 } from '../../models/long-form-document.models';
 import { AiAllowanceState } from '../../services/ai-usage.service';
+import { LongFormDraft, PutLongFormFramingRequest, ReorderLongFormItemsRequest } from '../../models/long-form-draft.models';
+import { LongFormDraftService, LongFormPlanWriteOutcome } from '../../services/long-form-draft.service';
 import {
   LongFormAcceptanceOutcome,
   LongFormDocumentOutcome,
@@ -58,6 +60,8 @@ function section(id: string, overrides: Partial<LongFormDocumentSection> = {}): 
     aiProposalId: `p-${id}`,
     reusedEditorialParts: [],
     findings: [],
+    sourceReferenceId: null,
+    sourceState: null,
     ...overrides,
   };
 }
@@ -101,6 +105,8 @@ function documentOf(
     ],
     acceptedRevisionNumber: null,
     acceptedAt: null,
+    framing: null,
+    unresolvedItems: [],
     ...overrides,
   };
 }
@@ -173,6 +179,45 @@ class FakeLongFormDocumentService {
   }
 }
 
+/** The two routes an issue has beyond a section's: its framing and the order of its items. */
+class FakeLongFormDraftService {
+  framingOutcomes: LongFormPlanWriteOutcome[] = [{ status: 'saved', draft: {} as LongFormDraft }];
+  orderOutcomes: LongFormPlanWriteOutcome[] = [{ status: 'saved', draft: {} as LongFormDraft }];
+
+  framings: PutLongFormFramingRequest[] = [];
+  orders: ReorderLongFormItemsRequest[] = [];
+
+  putFraming(_slug: string, _draft: string, body: PutLongFormFramingRequest): Promise<LongFormPlanWriteOutcome> {
+    this.framings.push(body);
+    return Promise.resolve(this.framingOutcomes.length > 1 ? this.framingOutcomes.shift()! : this.framingOutcomes[0]!);
+  }
+
+  reorderItems(_slug: string, _draft: string, body: ReorderLongFormItemsRequest): Promise<LongFormPlanWriteOutcome> {
+    this.orders.push(body);
+    return Promise.resolve(this.orderOutcomes.length > 1 ? this.orderOutcomes.shift()! : this.orderOutcomes[0]!);
+  }
+}
+
+/** An issue: a greeting, three items each covering its own recipe, and a sign-off. */
+const ISSUE: readonly LongFormDocumentSection[] = [
+  section('g', { role: 'Greeting', heading: 'Hello again', body: 'Hello, everyone.' }),
+  section('i1', { role: 'Item', heading: 'The loaf', sourceReferenceId: 'ref-1', sourceState: 'Resolved' }),
+  section('i2', { role: 'Item', heading: 'The cake', sourceReferenceId: 'ref-2', sourceState: 'Resolved' }),
+  unwritten('i3', { role: 'Item', heading: 'The soup', sourceReferenceId: 'ref-3', sourceState: 'Resolved' }),
+  section('s', { role: 'Signoff', heading: 'Until next week', body: 'See you then.' }),
+];
+
+function issueOf(
+  sections: readonly LongFormDocumentSection[] = ISSUE,
+  overrides: Partial<LongFormAssembledDocument> = {},
+): LongFormAssembledDocument {
+  return documentOf(sections, { kind: 'NewsletterIssue', ...overrides });
+}
+
+function field(id: string): HTMLInputElement | HTMLTextAreaElement {
+  return el.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#cp-long-form-document-${id}`)!;
+}
+
 class StubConfirmService {
   answer = true;
   calls: ConfirmRequest[] = [];
@@ -205,6 +250,7 @@ let fixture: ComponentFixture<HostComponent>;
 let host: HostComponent;
 let el: HTMLElement;
 let service: FakeLongFormDocumentService;
+let issue: FakeLongFormDraftService;
 let confirmService: StubConfirmService;
 
 /** Drains promises and renders, without waiting on the poll timer a waiting section leaves running. */
@@ -263,18 +309,180 @@ async function create(): Promise<void> {
 describe('LongFormDocumentReviewComponent', () => {
   beforeEach(async () => {
     service = new FakeLongFormDocumentService();
+    issue = new FakeLongFormDraftService();
     confirmService = new StubConfirmService();
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
         { provide: LongFormDocumentService, useValue: service },
+        { provide: LongFormDraftService, useValue: issue },
         { provide: ConfirmService, useValue: confirmService },
       ],
     }).compileComponents();
   });
 
   afterEach(() => fixture?.destroy());
+
+  // ---- a newsletter issue: its subject, its note and its items (LF.4.2) ------------------------------
+
+  it('shows an issue as its subject, its note and its items in order, and an article as neither', async () => {
+    service.reads = [
+      { status: 'found', review: reviewOf(issueOf(ISSUE, { framing: { subject: 'Three for a cold week', note: 'It rained, so I baked.' } })) },
+    ];
+    await create();
+
+    expect(field('subject').value).toBe('Three for a cold week');
+    expect(field('note').value).toBe('It rained, so I baked.');
+    expect(text(card(2))).toContain('Recipe 1 of 3');
+    expect(text(card(4))).toContain('Recipe 3 of 3');
+    expect(text(card(1))).not.toContain('Recipe');
+
+    // Nothing here offers to send the issue to anyone: no control does, and nothing names a reader list.
+    const controls = Array.from(el.querySelectorAll('button')).map((node) => node.textContent?.toLowerCase() ?? '');
+    expect(controls.some((label) => /send|schedule|publish/.test(label))).toBeFalse();
+    expect(text().toLowerCase()).not.toMatch(/subscriber|mailing list/);
+
+    fixture.destroy();
+    service.reads = [{ status: 'found', review: reviewOf() }];
+    await create();
+
+    expect(field('subject')).toBeNull();
+    expect(button('Move up')).toBeNull();
+  });
+
+  it('saves the subject and note the creator typed, and only then lets go of them', async () => {
+    service.reads = [
+      { status: 'found', review: reviewOf(issueOf()) },
+      { status: 'found', review: reviewOf(issueOf(ISSUE, { framing: { subject: 'Three for a cold week', note: null } })) },
+    ];
+    await create();
+
+    expect(button('Save subject and note')?.getAttribute('aria-disabled')).toBe('true');
+
+    await type(field('subject') as unknown as HTMLTextAreaElement, 'Three for a cold week');
+
+    expect(host.review().hasUnsavedWork()).toBeTrue();
+    expect(text()).toContain('Unsaved changes');
+
+    await click('Save subject and note');
+
+    // Both parts every time, and a blank one as none: the route replaces the framing whole.
+    expect(issue.framings).toEqual([{ expectedConcurrencyToken: 'token-4', subject: 'Three for a cold week', note: null }]);
+    expect(announcement()).toBe('Saved the subject and note.');
+    expect(host.review().hasUnsavedWork()).toBeFalse();
+    expect(field('subject').value).toBe('Three for a cold week');
+  });
+
+  it('keeps the creator’s words in their boxes when a save is refused, and says why beside the field', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(issueOf()) }];
+    issue.framingOutcomes = [
+      { status: 'refused', message: 'The request is not valid.', fieldErrors: { subject: ['Keep the subject to 150 characters.'] } },
+    ];
+    await create();
+
+    await type(field('subject') as unknown as HTMLTextAreaElement, 'A subject that runs on');
+    await click('Save subject and note');
+
+    expect(field('subject').value).toBe('A subject that runs on');
+    expect(field('subject').getAttribute('aria-invalid')).toBe('true');
+    expect(text()).toContain('Keep the subject to 150 characters.');
+    expect(host.review().hasUnsavedWork()).toBeTrue();
+  });
+
+  it('reads the piece again and saves once more when only the token had moved', async () => {
+    service.reads = [
+      { status: 'found', review: reviewOf(issueOf()) },
+      { status: 'found', review: reviewOf(issueOf(ISSUE, { concurrencyToken: 'token-5', revisionNumber: 5 })) },
+    ];
+    issue.framingOutcomes = [{ status: 'stale' }, { status: 'saved', draft: {} as LongFormDraft }];
+    await create();
+
+    await type(field('note') as HTMLTextAreaElement, 'A note.');
+    await click('Save subject and note');
+
+    expect(issue.framings.map((sent) => sent.expectedConcurrencyToken)).toEqual(['token-4', 'token-5']);
+    expect(issue.framings[1]).toEqual({ expectedConcurrencyToken: 'token-5', subject: null, note: 'A note.' });
+  });
+
+  it('asks before discarding a subject the creator has changed', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(issueOf()) }];
+    await create();
+
+    await type(field('subject') as unknown as HTMLTextAreaElement, 'Half a thought');
+
+    confirmService.answer = false;
+    await click('Discard changes');
+    expect(field('subject').value).toBe('Half a thought');
+
+    confirmService.answer = true;
+    await click('Discard changes');
+    expect(field('subject').value).toBe('');
+    expect(issue.framings).toEqual([]);
+  });
+
+  it('moves an item among the items by the recipe each covers, and says so', async () => {
+    service.reads = [
+      { status: 'found', review: reviewOf(issueOf()) },
+      { status: 'found', review: reviewOf(issueOf([ISSUE[0]!, ISSUE[2]!, ISSUE[1]!, ISSUE[3]!, ISSUE[4]!])) },
+    ];
+    await create();
+
+    // The ends say so and do nothing.
+    expect(button('Move up', card(2))?.getAttribute('aria-disabled')).toBe('true');
+    expect(button('Move down', card(4))?.getAttribute('aria-disabled')).toBe('true');
+    expect(button('Move up', card(3))?.getAttribute('aria-label')).toBe('Move The cake up among the recipes');
+
+    await click('Move up', card(2));
+    expect(issue.orders).toEqual([]);
+
+    await click('Move up', card(3));
+
+    // References, not positions and not section ids: the greeting and the sign-off are not in it at all.
+    expect(issue.orders).toEqual([{ expectedConcurrencyToken: 'token-4', sourceReferenceIds: ['ref-2', 'ref-1', 'ref-3'] }]);
+    expect(announcement()).toBe('Moved “The cake” up.');
+    expect(Array.from(el.querySelectorAll('article h2')).map((node) => node.textContent)).toEqual([
+      'Hello again',
+      'The cake',
+      'The loaf',
+      'The soup',
+      'Until next week',
+    ]);
+    expect(document.activeElement?.textContent?.trim()).toBe('Move up');
+  });
+
+  it('says why an item could not be moved, beside that item, and moves nothing', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(issueOf()) }];
+    issue.orderOutcomes = [{ status: 'unavailable' }];
+    await create();
+
+    await click('Move down', card(2));
+
+    expect(text(card(2))).toContain('Nothing was moved');
+    expect(card(2).querySelector('h2')?.textContent).toBe('The loaf');
+  });
+
+  it('says an item’s recipe is no longer part of the piece, keeps its text, and does not offer to have it written', async () => {
+    const lost = section('i2', { role: 'Item', heading: 'The cake', sourceReferenceId: 'ref-2', sourceState: 'Unresolved' });
+    const lostAndUnwritten = unwritten('i3', { role: 'Item', heading: 'The soup', sourceReferenceId: 'ref-3', sourceState: 'Unresolved' });
+    service.reads = [
+      { status: 'found', review: reviewOf(issueOf([ISSUE[0]!, ISSUE[1]!, lost, lostAndUnwritten, ISSUE[4]!], { unresolvedItems: ['i2', 'i3'] })) },
+    ];
+    await create();
+
+    expect(card(2).querySelector('[data-testid="unresolved"]')).toBeNull();
+    expect(text(card(3).querySelector('[data-testid="unresolved"]')!)).toContain('no longer part of this piece');
+
+    // Kept, and still the creator's to change.
+    expect(card(3).querySelector('.body-read')?.textContent).toBe('Body of i2.');
+    expect(button('Edit', card(3))).not.toBeNull();
+    expect(button('Write it again', card(3))).toBeNull();
+    expect(button('Write it for me', card(4))).toBeNull();
+    expect(button('Write it yourself', card(4))).not.toBeNull();
+
+    // And not counted among what "write the rest" would write.
+    expect(button('Write the one section left')).toBeNull();
+  });
 
   // ---- reading ---------------------------------------------------------------------------------------
 

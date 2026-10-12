@@ -887,7 +887,7 @@ the long-form models, services and both screens.*
 *If the owner corrects B-35 at LF.1.1 to say an issue is always about one recipe, cut this phase and add
 `NewsletterIssue` as a kind of Phase 3 instead.*
 
-## LF.4.1 Multi-source issue shape
+## LF.4.1 Multi-source issue shape - done
 
 ```text
 SCOPE: Make a newsletter issue's multi-source shape real: the issue's item sections are bound one-to-one to
@@ -903,7 +903,40 @@ tests for one, two and five references, a reference removed from the context aft
 reordering, and an item count that disagrees with the references.
 ```
 
-## LF.4.2 Newsletter writing and review
+*Delivered 2026-10-12, with `LongFormPolicy` at `1.1.0` and no migration. What the prompt did not state, or
+states differently:*
+
+- *The items are bound to **the revision's own recipe pins**, not to the creative context as it stands: the
+  pins are the context's references as the revision recorded them, so the check is a fact about the immutable
+  revision. `LongFormDocumentValidator.Validate` takes the pinned reference ids and reports five failures —
+  `item.source_missing`, `item.source_unknown`, `item.source_repeated`, `items.source_uncovered` (about the
+  plan) and `section.source_not_allowed`. Called without pins, the binding is not assessed.*
+- *Unresolved is **read, never stored**: `sourceState` (`Resolved | Unresolved`) on each item of the draft,
+  sections and document reads, and `unresolvedItems` on the draft and the document. An item is unresolved when
+  the context no longer holds its reference for the recipe the pin recorded. It is not a plan failure and is
+  not something an acceptance confirms. **An archived recipe still reads as resolved here** and is caught
+  when the item is written.*
+- *An item already in a plan keeps its `sourceReferenceId`; `PATCH /plan` refuses a change to it. **Removing
+  an item removes its recipe's pin from the new revision** — the owner's decision — so an issue can drop a
+  recipe, or an unresolved item, without a new outline. Nothing adds an item back short of one.*
+- *`PUT /{draftId}/items/order` is an addition: every item's `sourceReferenceId`, once each, in reading order.
+  Items change places among themselves and each moves whole. It works from `Draft` through `Writing`, where
+  `PATCH /plan` locks at `Writing`, and leaves the status as it was.*
+- *The framing is inside the revision's document (`LongFormDocument.Framing`), written by
+  `PUT /{draftId}/framing` as a new revision that leaves the plan's approval standing. Subject: one line, 150
+  characters. Note: 600. Both refused over the limit rather than saved and flagged; neither counts towards the
+  word target or the document ceiling. A new outline carries the framing forward. **The subject is optional
+  at acceptance**, and the assembled Markdown does not include either part — LF.5.1's export does.*
+- *The outline capability still checks its items by position before a plan lands; the shared validator holds
+  the landed plan to the binding on the draft and at approval. LF.4.2 owns moving the capability onto it.*
+- *Web: models, decoders, finding texts and two service methods only. The issue screen is LF.4.2's. The
+  plan-review screen does not offer to remove an item at all — its own earlier decision — so removing one,
+  and with it the recipe's pin, is reachable through the API only.*
+
+*Not covered: a two-workspace test in which the workspace filter alone decides `sourceState` — the read is
+also scoped by the draft's own context id, so no seedable case tells the two apart.*
+
+## LF.4.2 Newsletter writing and review - done
 
 ```text
 SCOPE: Teach LF.2.1 and LF.3.1 the newsletter roles and bind each item generation to its own source
@@ -919,6 +952,41 @@ BEHAVIOR: Show the per-item grounding slice and the two prompt diffs; wait for a
 evaluation fixtures for a two-recipe and a five-recipe issue, an item citing another item's recipe, an
 unresolved item, and the issue-level word target.
 ```
+
+*Delivered 2026-10-12 as prompts `content.long-form-section` 1.1.0 and `content.long-form-outline` 1.1.0, both
+output schemas unchanged. Both capabilities already knew the newsletter roles; what this prompt added:*
+
+- *An item is written from **its own package**, assembled with `CreativeContextPackageOptions.OnlyRecipeReferenceId`:
+  its recipe with that recipe's accepted copy and key phrases, the creator's words, the day and the brand —
+  and none of the issue's other recipes, pictures, ideas or saved prompts. The budget is that one recipe's, so
+  the fifth item of a five-recipe issue is no longer refused for room. Whether a source has moved is still
+  judged on the whole piece first, so an item costs two package reads. The proposal records the slice.*
+- *In the plan an item is shown, only its own section names a `recipe`, and it is shown how a section opens
+  only for the greeting, the closing and the sign-off: another item's opening, a lead's and an aside's may
+  each state another recipe's facts (from the AI safety review). **Other sections' headings and intents are
+  still shown to an item** — the owner's decision — and an intent may carry its own recipe's figure; the
+  template says it is never a source of facts, and nothing enforces that.*
+- *Claims: an item is held to its own recipe's figures and now its own dish name, so another item's
+  "gluten-free" title no longer excuses the word (from the review). The outline's item headings and intents
+  are scanned against their own recipe alone.*
+- *The word target is the issue's. An item is still told an even share as a place to start, and told that is
+  what it is. **Nothing measures an item against a length**, and the issue total is assessed, as before, only
+  once every section is written.*
+- *Screen: the document review surface shows an issue's subject and note in two plain fields with their own
+  Save (`PUT /framing`), lets items change places by reference (`PUT /items/order`), and says when an item's
+  recipe is no longer part of the piece, which it then does not offer to the writer or count among the
+  sections left. The plan-review screen was not changed.*
+
+*Evaluation: ten new fixtures — an item citing another item's figure in a two-recipe and a five-recipe issue,
+an item stating its own, a lead stating either, another dish's name used as a claim, an outline item intent
+citing another recipe's figure, and a sound five-recipe plan. An unresolved item, the slice itself, the
+openings an item is shown and the length brief are handler and assembler tests, because the harness has no
+fixture path through a real handler. **Every fixture is about what the server catches; none shows that a model
+keeps to one recipe**, and a foreign ingredient or step with no figure in it is caught by nothing. Both live
+checks remain unrun.*
+
+*Known and left: an item is not told that the issue's pictures and ideas were kept from it, and neither is the
+creator; an item whose own recipe is over the budget on its own gets the generic "could not be read" answer.*
 
 ---
 

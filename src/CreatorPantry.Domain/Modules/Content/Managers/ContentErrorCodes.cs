@@ -255,4 +255,16 @@ public static class ContentErrorCodes
 
     /// <summary>No section of the piece has any text, so there is no document to accept.</summary>
     public const string LongFormAcceptanceNothingWritten = "content.long_form.acceptance.nothing_written.unprocessable";
+
+    /// <summary>An item order or a framing was sent for a piece that is not a newsletter issue (LF.4.1).</summary>
+    public const string LongFormNotAnIssue = "content.long_form.draft.not_an_issue.conflict";
+
+    /// <summary>
+    /// An item order is not one that could be kept: its shape, or it does not name each of the issue's items
+    /// exactly once.
+    /// </summary>
+    public const string LongFormItemOrderInvalid = "content.long_form.item_order.invalid";
+
+    /// <summary>A subject line or note is not one that could be kept: its shape or its length.</summary>
+    public const string LongFormFramingInvalid = "content.long_form.framing.invalid";
 }

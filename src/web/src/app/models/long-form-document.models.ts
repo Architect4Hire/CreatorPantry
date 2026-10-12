@@ -28,6 +28,10 @@ import {
   LONG_FORM_FINDING_KIND_VALUES,
   LONG_FORM_KIND_VALUES,
   LONG_FORM_REVISION_SOURCE_VALUES,
+  LongFormFraming,
+  LongFormItemSourceState,
+  decodeLongFormFraming,
+  decodeLongFormItemSourceState,
   LONG_FORM_SECTION_REQUEST_OUTCOME_VALUES,
   LONG_FORM_SECTION_ROLE_VALUES,
   LONG_FORM_WORD_TARGET_STATUS_VALUES,
@@ -75,6 +79,10 @@ export interface LongFormDocumentSection {
   readonly reusedEditorialParts: readonly string[];
   /** What the claim scanner found in the text as it reads now. Empty when nothing, and when unwritten. */
   readonly findings: readonly LongFormSectionFinding[];
+  /** For a newsletter item, the creative-context reference of the recipe it covers. */
+  readonly sourceReferenceId: string | null;
+  /** For a newsletter item, whether the piece of work still names that reference. Null on every other section. */
+  readonly sourceState: LongFormItemSourceState | null;
 }
 
 /** Mirrors `LongFormAcceptanceIssueServiceModel`. */
@@ -108,6 +116,10 @@ export interface LongFormAssembledDocument {
   readonly needsConfirmation: readonly LongFormAcceptanceIssueDetail[];
   readonly acceptedRevisionNumber: number | null;
   readonly acceptedAt: string | null;
+  /** A newsletter issue's subject line and note, or null when it has neither. Beside the Markdown, not in it. */
+  readonly framing: LongFormFraming | null;
+  /** The items, in plan order, whose recipe the piece of work no longer names. */
+  readonly unresolvedItems: readonly string[];
 }
 
 /** Mirrors `LongFormSectionWarningServiceModel`. */
@@ -229,6 +241,8 @@ export function decodeLongFormDocumentSection(value: unknown): LongFormDocumentS
   const aiProposalId = value['aiProposalId'] ?? null;
   const reusedEditorialParts = decodeStringArray(value['reusedEditorialParts'] ?? []);
   const findings = decodeFindings(value['findings'] ?? []);
+  const sourceReferenceId = value['sourceReferenceId'] ?? null;
+  const sourceState = decodeLongFormItemSourceState(value['sourceState']);
 
   if (
     typeof id !== 'string' ||
@@ -243,7 +257,9 @@ export function decodeLongFormDocumentSection(value: unknown): LongFormDocumentS
     (rawWrittenBy !== null && writtenBy === null) ||
     !isStringOrNull(aiProposalId) ||
     reusedEditorialParts === null ||
-    findings === null
+    findings === null ||
+    !isStringOrNull(sourceReferenceId) ||
+    sourceState === undefined
   ) {
     return null;
   }
@@ -262,6 +278,8 @@ export function decodeLongFormDocumentSection(value: unknown): LongFormDocumentS
     aiProposalId,
     reusedEditorialParts,
     findings,
+    sourceReferenceId,
+    sourceState,
   };
 }
 
@@ -356,6 +374,10 @@ export function decodeLongFormAssembledDocument(value: unknown): LongFormAssembl
     needsConfirmation.push({ issue, sectionIds });
   }
 
+  const framing = decodeLongFormFraming(value['framing']);
+  const unresolvedItems = decodeStringArray(value['unresolvedItems'] ?? []);
+  if (framing === undefined || unresolvedItems === null) return null;
+
   return {
     draftId,
     creativeContextId,
@@ -375,6 +397,8 @@ export function decodeLongFormAssembledDocument(value: unknown): LongFormAssembl
     needsConfirmation,
     acceptedRevisionNumber,
     acceptedAt,
+    framing,
+    unresolvedItems,
   };
 }
 

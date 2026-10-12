@@ -46,6 +46,7 @@ function section(id: string, overrides: Partial<LongFormPlannedSection> = {}): L
     isWritten: false,
     settled: false,
     sourceReferenceId: null,
+    sourceState: null,
     ...overrides,
   };
 }
@@ -70,6 +71,8 @@ function draft(overrides: Partial<LongFormDraft> = {}, sections: readonly LongFo
         ? null
         : { revisionNumber: 1, source: 'AiGenerated', createdAt: '2026-10-12T12:00:00Z', sections },
     planCheck: sections === null ? null : { isValid: true, policyVersion: '1.0.0', findings: [] },
+    framing: null,
+    unresolvedItems: [],
     ...overrides,
   };
 }

@@ -15,6 +15,8 @@ import {
   LongFormDraftListQuery,
   LongFormDraftPage,
   PatchLongFormPlanRequest,
+  PutLongFormFramingRequest,
+  ReorderLongFormItemsRequest,
   RequestLongFormOutlineRequest,
   StartLongFormDraftRequest,
   decodeLongFormDraft,
@@ -23,6 +25,8 @@ import {
   decodeStartedLongFormDraft,
   encodeApproveLongFormPlan,
   encodePatchLongFormPlan,
+  encodePutLongFormFraming,
+  encodeReorderLongFormItems,
   encodeRequestLongFormOutline,
   encodeStartLongFormDraft,
 } from '../models/long-form-draft.models';
@@ -254,6 +258,36 @@ export class LongFormDraftService {
     );
   }
 
+  /** Puts a newsletter issue's items in a new order, each named by the reference it covers. */
+  reorderItems(
+    workspaceSlug: string,
+    draftId: string,
+    request: ReorderLongFormItemsRequest,
+  ): Promise<LongFormPlanWriteOutcome> {
+    const url = this.url(workspaceSlug, `/${encodeURIComponent(draftId)}/items/order`);
+
+    return this.write(() =>
+      url === null
+        ? Promise.reject(new Error('No API base.'))
+        : firstValueFrom(this.http.put<unknown>(url, encodeReorderLongFormItems(request), { withCredentials: true })),
+    );
+  }
+
+  /** Saves a newsletter issue's subject line and the creator's note. Nothing generates either. */
+  putFraming(
+    workspaceSlug: string,
+    draftId: string,
+    request: PutLongFormFramingRequest,
+  ): Promise<LongFormPlanWriteOutcome> {
+    const url = this.url(workspaceSlug, `/${encodeURIComponent(draftId)}/framing`);
+
+    return this.write(() =>
+      url === null
+        ? Promise.reject(new Error('No API base.'))
+        : firstValueFrom(this.http.put<unknown>(url, encodePutLongFormFraming(request), { withCredentials: true })),
+    );
+  }
+
   /** Approves one revision of the plan. Nothing is written, generated or spent by approving. */
   approvePlan(
     workspaceSlug: string,
@@ -300,7 +334,9 @@ export class LongFormDraftService {
       if (code === 404) return { status: 'not_found' };
       if (code === 403) return { status: 'forbidden' };
 
-      if (code === 400 || code === 422) {
+      // Any other conflict is the server declining for a reason it states — a piece that is not a newsletter
+      // issue, a draft already accepted — and is shown in its words rather than as an outage.
+      if (code === 400 || code === 422 || code === 409) {
         return {
           status: 'refused',
           message: problemMessageOf(error) ?? 'That plan could not be saved as sent.',

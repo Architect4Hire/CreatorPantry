@@ -194,8 +194,13 @@ internal sealed class LongFormDocumentBusiness(ILongFormDraftDataLayer dataLayer
     {
         var latest = await dataLayer.FindLatestRevisionAsync(draft.Id, cancellationToken);
         var document = latest is null ? new LongFormDocument([]) : LongFormDocument.Deserialize(latest.Content);
-        var intents = document.Sections.ToDictionary(section => section.Id, section => section.Intent);
+        var planned = document.Sections.ToDictionary(section => section.Id);
         var assembled = LongFormDocumentAssembler.Assemble(draft.Kind, document);
+
+        var sources = latest is null
+            ? await dataLayer.ReadItemSourcesAsync(draft, document, [], cancellationToken)
+            : await dataLayer.ReadItemSourcesAsync(
+                draft, document, await dataLayer.ListPinsAsync(latest.Id, cancellationToken), cancellationToken);
 
         // The accepted revision is the latest one for as long as the draft is accepted: nothing is written
         // to an accepted draft. Read by id all the same, so this says what is stored rather than what is assumed.
@@ -223,7 +228,7 @@ internal sealed class LongFormDocumentBusiness(ILongFormDraftDataLayer dataLayer
                     section.Id,
                     section.Role,
                     section.Heading,
-                    intents[section.Id],
+                    planned[section.Id].Intent,
                     section.Body,
                     section.IsWritten,
                     section.Settled,
@@ -232,11 +237,15 @@ internal sealed class LongFormDocumentBusiness(ILongFormDraftDataLayer dataLayer
                     section.Provenance?.Source,
                     section.Provenance?.AiProposalId,
                     section.Provenance?.ReusedEditorialParts ?? [],
-                    section.Findings)),
+                    section.Findings,
+                    planned[section.Id].SourceReferenceId,
+                    sources.TryGetValue(section.Id, out var state) ? state : null)),
             ],
             Issues(assembled),
             acceptedNumber,
-            draft.AcceptedAt);
+            draft.AcceptedAt,
+            document.Framing is { } framing ? new LongFormFramingServiceModel(framing.Subject, framing.Note) : null,
+            sources.Unresolved(document));
     }
 
     private static Guid CorrelationId()

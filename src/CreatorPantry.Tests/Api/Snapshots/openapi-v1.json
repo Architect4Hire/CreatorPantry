@@ -10459,7 +10459,7 @@
           "LongFormDrafts"
         ],
         "summary": "Saves the creator\u0027s own plan as a new revision of the draft.",
-        "description": "Contributor or above. Send every section in the order the piece should read: a section left out is\nremoved, one without an \u0060id\u0060 is added, and one with an \u0060id\u0060 keeps it. Nothing is edited in place \u2014 the\nplan before this one is still the revision it was.\n\n**Saving is not approving.** A plan that is not yet valid \u2014 a heading still blank, a role used twice\nwhile sections are rearranged \u2014 is saved, and \u0060planCheck\u0060 on the response says what stands in the way.\nWhat is refused here is only what could not be kept: \u0060400 content.long_form.plan.invalid\u0060 for a role\nthat is not a role, an \u0060id\u0060 that is not a section of this plan, or a \u0060sourceReferenceId\u0060 on a section\nthat is not an item or that names a recipe this plan was not written for.\n\nChanging an approved plan returns the draft to \u0060Draft\u0060, so the changed plan must be approved again.\nSaving the plan exactly as it stands changes nothing and creates no revision.\n\n\u0060expectedConcurrencyToken\u0060 is required and a stale one is \u0060409 content.long_form.draft.stale.conflict\u0060.\nA draft with no plan yet is \u0060409 content.long_form.plan.not_started.conflict\u0060; one whose sections are\nbeing written is \u0060409 content.long_form.plan.locked.conflict\u0060.",
+        "description": "Contributor or above. Send every section in the order the piece should read: a section left out is\nremoved, one without an \u0060id\u0060 is added, and one with an \u0060id\u0060 keeps it. Nothing is edited in place \u2014 the\nplan before this one is still the revision it was.\n\n**Saving is not approving.** A plan that is not yet valid \u2014 a heading still blank, a role used twice\nwhile sections are rearranged \u2014 is saved, and \u0060planCheck\u0060 on the response says what stands in the way.\nWhat is refused here is only what could not be kept: \u0060400 content.long_form.plan.invalid\u0060 for a role\nthat is not a role, an \u0060id\u0060 that is not a section of this plan, a \u0060sourceReferenceId\u0060 on a section\nthat is not an item or that names a recipe this plan was not written for, or a different\n\u0060sourceReferenceId\u0060 on an item the plan already has.\n\n**A newsletter item is the recipe it covers.** An item already in the plan keeps its \u0060sourceReferenceId\u0060.\nLeaving an item out takes its recipe out of the issue: the new revision no longer covers it, and the\nrevision before is unchanged.\n\nChanging an approved plan returns the draft to \u0060Draft\u0060, so the changed plan must be approved again.\nSaving the plan exactly as it stands changes nothing and creates no revision.\n\n\u0060expectedConcurrencyToken\u0060 is required and a stale one is \u0060409 content.long_form.draft.stale.conflict\u0060.\nA draft with no plan yet is \u0060409 content.long_form.plan.not_started.conflict\u0060; one whose sections are\nbeing written is \u0060409 content.long_form.plan.locked.conflict\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -10589,7 +10589,7 @@
           "LongFormDrafts"
         ],
         "summary": "Approves the draft\u0027s latest plan, so its sections may be written.",
-        "description": "Contributor or above. The draft moves from \u0060Draft\u0060 to \u0060Outlined\u0060. Nothing is written, generated or\nspent by approving.\n\n**The approval names the revision that was read.** If the plan has been edited since, the revision is\nno longer the latest and the answer is \u0060409 content.long_form.draft.stale.conflict\u0060.\n\n**Approving twice is one approval.** A repeat for the revision that is already approved returns the\ndraft as it stands, whatever token it carries, and records nothing.\n\nA plan that does not meet the long-form shape rules answers \u0060422 content.long_form.plan.unprocessable\u0060\nwith one error for each failing section, keyed \u0060sections[n]\u0060 by its position in the plan.",
+        "description": "Contributor or above. The draft moves from \u0060Draft\u0060 to \u0060Outlined\u0060. Nothing is written, generated or\nspent by approving.\n\n**The approval names the revision that was read.** If the plan has been edited since, the revision is\nno longer the latest and the answer is \u0060409 content.long_form.draft.stale.conflict\u0060.\n\n**Approving twice is one approval.** A repeat for the revision that is already approved returns the\ndraft as it stands, whatever token it carries, and records nothing.\n\nA plan that does not meet the long-form shape rules answers \u0060422 content.long_form.plan.unprocessable\u0060\nwith one error for each failing section, keyed \u0060sections[n]\u0060 by its position in the plan. For a\nnewsletter issue those rules include one item for each recipe the plan was written for, each naming a\ndifferent one; a recipe with no item is reported against \u0060sections\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -10701,6 +10701,266 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/items/order": {
+      "put": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Puts a newsletter issue\u0027s items in a new order, named by the recipe each covers.",
+        "description": "Contributor or above. The items change places among themselves; every other section stays where it is,\nand each item moves whole, with its heading, text and settled mark. Saved as a new revision. No text\nchanges, so this works while the plan is open and while the issue is being written, and it leaves the\ndraft\u0027s status as it was. The order already in force changes nothing and creates no revision.\n\n\u0060400 content.long_form.item_order.invalid\u0060 unless the list names each of the issue\u0027s items exactly once.\n\u0060409 content.long_form.draft.not_an_issue.conflict\u0060 for a piece that is not a newsletter issue;\n\u0060409\u0060 also for a stale \u0060expectedConcurrencyToken\u0060, a draft with no plan yet, and an accepted draft.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The issue whose items to order.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLongFormItems"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLongFormItems"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLongFormItems"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/framing": {
+      "put": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Saves a newsletter issue\u0027s subject line and the creator\u0027s note.",
+        "description": "Contributor or above. Both are the creator\u0027s own words: nothing generates either, and neither is sent\nanywhere by saving it. Send both each time \u2014 a blank or omitted one is cleared. Saved as a new revision,\nwhich leaves the plan and its approval as they were; the same framing again changes nothing.\n\nThe subject is one line of at most 150 characters and the note at most 600; neither counts towards the\nissue\u0027s length. Outside that is \u0060400 content.long_form.framing.invalid\u0060.\n\u0060409 content.long_form.draft.not_an_issue.conflict\u0060 for a piece that is not a newsletter issue; \u0060409\u0060\nalso for a stale \u0060expectedConcurrencyToken\u0060, a draft with no plan yet, and an accepted draft.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The issue to frame.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLongFormFraming"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLongFormFraming"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLongFormFraming"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -26477,7 +26737,9 @@
           "sections",
           "needsConfirmation",
           "acceptedRevisionNumber",
-          "acceptedAt"
+          "acceptedAt",
+          "framing",
+          "unresolvedItems"
         ],
         "type": "object",
         "properties": {
@@ -26578,6 +26840,23 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "framing": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormFraming"
+              }
+            ]
+          },
+          "unresolvedItems": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -26595,7 +26874,9 @@
           "writtenBy",
           "aiProposalId",
           "reusedEditorialParts",
-          "findings"
+          "findings",
+          "sourceReferenceId",
+          "sourceState"
         ],
         "type": "object",
         "properties": {
@@ -26663,6 +26944,23 @@
             "items": {
               "$ref": "#/components/schemas/LongFormSectionFinding"
             }
+          },
+          "sourceReferenceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceState": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormItemSourceState"
+              }
+            ]
           }
         }
       },
@@ -26701,7 +26999,9 @@
           "createdAt",
           "updatedAt",
           "latest",
-          "planCheck"
+          "planCheck",
+          "framing",
+          "unresolvedItems"
         ],
         "type": "object",
         "properties": {
@@ -26749,6 +27049,23 @@
                 "$ref": "#/components/schemas/LongFormPlanCheck"
               }
             ]
+          },
+          "framing": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormFraming"
+              }
+            ]
+          },
+          "unresolvedItems": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -26832,6 +27149,34 @@
         ],
         "type": "string"
       },
+      "LongFormFraming": {
+        "required": [
+          "subject",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LongFormItemSourceState": {
+        "enum": [
+          "Resolved",
+          "Unresolved"
+        ],
+        "type": "string"
+      },
       "LongFormKind": {
         "enum": [
           "BlogArticle",
@@ -26903,7 +27248,8 @@
           "intent",
           "isWritten",
           "settled",
-          "sourceReferenceId"
+          "sourceReferenceId",
+          "sourceState"
         ],
         "type": "object",
         "properties": {
@@ -26932,6 +27278,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "sourceState": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormItemSourceState"
+              }
+            ]
           }
         }
       },
@@ -26976,7 +27332,7 @@
               "null",
               "string"
             ],
-            "description": "For a newsletter item, the creative-context reference of the recipe it covers. Omit it for every other section.",
+            "description": "For a newsletter item, the creative-context reference of the recipe it covers, which an item already in the plan keeps. Omit it for every other section.",
             "format": "uuid"
           }
         }
@@ -27222,7 +27578,9 @@
           "characterCount",
           "overCeiling",
           "writtenBy",
-          "aiProposalId"
+          "aiProposalId",
+          "sourceReferenceId",
+          "sourceState"
         ],
         "type": "object",
         "properties": {
@@ -27278,6 +27636,23 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "sourceReferenceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceState": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormItemSourceState"
+              }
+            ]
           }
         }
       },
@@ -29146,6 +29521,32 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PutLongFormFraming": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this change was composed against."
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The issue\u0027s subject line, on one line. Blank or omitted clears it."
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The creator\u0027s short note to their readers, as Markdown. Blank or omitted clears it."
           }
         }
       },
@@ -31506,6 +31907,29 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ReorderLongFormItems": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this change was composed against."
+          },
+          "sourceReferenceIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The sourceReferenceId of every item in the issue, each once, in the order the items should read."
           }
         }
       },

@@ -80,7 +80,7 @@ public sealed class LongFormOutlineAiTaskHandlerTests
         var proposal = outcome.Proposal!;
 
         Assert.Equal(Template.Id, proposal.PromptTemplateId);
-        Assert.Equal("1.0.0", proposal.PromptTemplateVersion);
+        Assert.Equal("1.1.0", proposal.PromptTemplateVersion);
         Assert.Equal(Template.BodyChecksum, proposal.PromptTemplateBodyChecksum);
         Assert.Equal("content.long-form-outline.v1", proposal.OutputSchemaVersion);
 

@@ -117,6 +117,8 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IValidator<PatchLongFormPlanViewModel>, PatchLongFormPlanViewModelValidator>();
         services.AddScoped<IValidator<ApproveLongFormPlanViewModel>, ApproveLongFormPlanViewModelValidator>();
         services.AddScoped<IValidator<LongFormDraftListViewModel>, LongFormDraftListViewModelValidator>();
+        services.AddScoped<IValidator<ReorderLongFormItemsViewModel>, ReorderLongFormItemsViewModelValidator>();
+        services.AddScoped<IValidator<PutLongFormFramingViewModel>, PutLongFormFramingViewModelValidator>();
         services.AddScoped<IValidator<CreateCreativeContextViewModel>, CreateCreativeContextViewModelValidator>();
         services.AddScoped<IValidator<PatchCreativeContextViewModel>, PatchCreativeContextViewModelValidator>();
         services.AddScoped<IValidator<AddCreativeContextReferenceViewModel>, AddCreativeContextReferenceViewModelValidator>();

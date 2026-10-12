@@ -29,6 +29,21 @@ public static class LongFormFindingCodes
     public const string IntentBlank = "content.long_form.intent.blank";
     public const string IntentNotOneLine = "content.long_form.intent.not_one_line";
     public const string IntentTooLong = "content.long_form.intent.too_long";
+
+    /// <summary>A newsletter item names no source reference (LF.4.1).</summary>
+    public const string ItemSourceMissing = "content.long_form.item.source_missing";
+
+    /// <summary>A newsletter item names a reference its revision did not pin.</summary>
+    public const string ItemSourceUnknown = "content.long_form.item.source_unknown";
+
+    /// <summary>A second item names a reference another item already covers.</summary>
+    public const string ItemSourceRepeated = "content.long_form.item.source_repeated";
+
+    /// <summary>About the plan: a pinned reference has no item, so the items and the references disagree.</summary>
+    public const string ItemsSourceUncovered = "content.long_form.items.source_uncovered";
+
+    /// <summary>A section that is not an item names a source reference.</summary>
+    public const string SectionSourceNotAllowed = "content.long_form.section.source_not_allowed";
     public const string SectionOverCeiling = "content.long_form.section.over_ceiling";
     public const string DocumentOverCeiling = "content.long_form.document.over_ceiling";
     public const string WordsUnderTarget = "content.long_form.words.under_target";
@@ -75,9 +90,27 @@ public sealed record LongFormValidationResult(
 /// Scores a long-form document against <see cref="LongFormPolicy"/> (LF.1.3). Pure: it reads a document and
 /// returns findings, and changes nothing — an over-long body is reported, never trimmed.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <strong>A newsletter's items are bound to its revision's pinned references, one to one (LF.4.1, B-35).</strong>
+/// Each item names one reference, each pinned reference has exactly one item, and nothing but an item names a
+/// reference at all. Where an item sits among the other sections is free; which reference it covers is not.
+/// </para>
+/// <para>
+/// <strong>Bound to the pins, not to the creative context as it stands today.</strong> The pins are the
+/// context's recipe references as the revision recorded them, so the answer is a fact about the immutable
+/// revision: a reference the context later drops cannot turn an approved plan into an invalid one. Whether a
+/// reference still resolves is a different question, answered where the draft is read.
+/// </para>
+/// </remarks>
 public static class LongFormDocumentValidator
 {
-    public static LongFormValidationResult Validate(LongFormKind kind, LongFormDocument document)
+    /// <param name="boundReferenceIds">
+    /// The creative-context references the revision pinned. Null when the caller holds no pins and only the
+    /// shape and the lengths are wanted — the binding is then not assessed, which is not the same as it holding.
+    /// </param>
+    public static LongFormValidationResult Validate(
+        LongFormKind kind, LongFormDocument document, IReadOnlyCollection<Guid>? boundReferenceIds = null)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -92,6 +125,8 @@ public static class LongFormDocumentValidator
         }
 
         var seenIds = new HashSet<Guid>();
+        var bound = boundReferenceIds?.ToHashSet();
+        var covered = new HashSet<Guid>();
         var roleCounts = new Dictionary<LongFormSectionRole, int>();
         var characters = 0;
         var words = 0;
@@ -106,6 +141,11 @@ public static class LongFormDocumentValidator
 
             CheckRole(kind, section, roleCounts, findings);
             CheckHeadingAndIntent(section, findings);
+
+            if (bound is not null)
+            {
+                CheckSource(kind, section, bound, covered, findings);
+            }
 
             if (string.IsNullOrWhiteSpace(section.Body))
             {
@@ -126,6 +166,12 @@ public static class LongFormDocumentValidator
             characters += count;
             words += LongFormWordCounter.CountWords(section.Body);
             measures.Add(new(section.Id, count, over));
+        }
+
+        // Named once, about the plan: no one section is to blame for a reference that has none.
+        if (bound is not null && kind is LongFormKind.NewsletterIssue && !bound.IsSubsetOf(covered))
+        {
+            findings.Add(new(LongFormFindingCodes.ItemsSourceUncovered, LongFormFindingSeverity.Failure, null));
         }
 
         if (characters > LongFormPolicy.DocumentMaxCharacters)
@@ -181,6 +227,45 @@ public static class LongFormDocumentValidator
         if (rule.MaxOccurrences is { } max && count > max)
         {
             findings.Add(new(LongFormFindingCodes.RoleRepeated, LongFormFindingSeverity.Failure, section.Id));
+        }
+    }
+
+    private static void CheckSource(
+        LongFormKind kind,
+        LongFormSection section,
+        HashSet<Guid> bound,
+        HashSet<Guid> covered,
+        List<LongFormFinding> findings)
+    {
+        if (section.Role is not LongFormSectionRole.Item)
+        {
+            if (section.SourceReferenceId is not null)
+            {
+                findings.Add(new(LongFormFindingCodes.SectionSourceNotAllowed, LongFormFindingSeverity.Failure, section.Id));
+            }
+
+            return;
+        }
+
+        // An item in a kind that has none is already a role failure, and says all there is to say.
+        if (kind is not LongFormKind.NewsletterIssue)
+        {
+            return;
+        }
+
+        var code = section.SourceReferenceId switch
+        {
+            null => LongFormFindingCodes.ItemSourceMissing,
+            { } source when !bound.Contains(source) => LongFormFindingCodes.ItemSourceUnknown,
+
+            // Reported on the second item to name a reference, so the first is never the one named.
+            { } source when !covered.Add(source) => LongFormFindingCodes.ItemSourceRepeated,
+            _ => null,
+        };
+
+        if (code is not null)
+        {
+            findings.Add(new(code, LongFormFindingSeverity.Failure, section.Id));
         }
     }
 

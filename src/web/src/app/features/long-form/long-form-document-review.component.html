@@ -77,6 +77,66 @@
         <cp-anchor-nav [items]="anchors()" ariaLabel="Sections of this piece" (activated)="jump($event)" />
       </cp-form-section>
 
+      @if (isIssue()) {
+        <!-- The creator's own words about the issue as a whole. Nothing writes either for them, and nothing
+             here sends the issue anywhere. -->
+        <cp-form-section
+          heading="Subject and note"
+          intro="Your own words for this issue. Both are optional, and neither counts towards its length."
+          [sectionId]="idPrefix() + '-framing'"
+          [problem]="framingErrors()['subject'] || framingErrors()['note'] ? '' : framingProblem()"
+        >
+          <cp-field
+            label="Subject line"
+            [forId]="idPrefix() + '-subject'"
+            [hint]="'One line, up to ' + subjectMax + ' characters.'"
+            [error]="framingErrors()['subject']?.[0] ?? ''"
+          >
+            <input
+              type="text"
+              [id]="idPrefix() + '-subject'"
+              [value]="framing().subject"
+              [readOnly]="!open() || framingBusy()"
+              [attr.aria-invalid]="framingErrors()['subject'] ? 'true' : null"
+              (input)="onSubject($event)"
+            />
+          </cp-field>
+
+          <cp-field
+            label="A note from you"
+            [forId]="idPrefix() + '-note'"
+            [hint]="'Plain text with Markdown, up to ' + noteMax + ' characters.'"
+            [error]="framingErrors()['note']?.[0] ?? ''"
+          >
+            <textarea
+              rows="4"
+              [id]="idPrefix() + '-note'"
+              [value]="framing().note"
+              [readOnly]="!open() || framingBusy()"
+              [attr.aria-invalid]="framingErrors()['note'] ? 'true' : null"
+              (input)="onNote($event)"
+            ></textarea>
+          </cp-field>
+
+          @if (open()) {
+            <div class="cp-actions">
+              <button
+                cpButton
+                type="button"
+                [attr.aria-disabled]="!framingDirty() || framingBusy() ? 'true' : null"
+                (click)="saveFraming()"
+              >
+                {{ framingBusy() ? 'Saving…' : 'Save subject and note' }}
+              </button>
+              @if (framingDirty()) {
+                <button cpButton type="button" variant="text" (click)="discardFraming()">Discard changes</button>
+                <cp-status-pill tone="warning">Unsaved changes</cp-status-pill>
+              }
+            </div>
+          }
+        </cp-form-section>
+      }
+
       @for (card of cards(); track card.section.id) {
         <!-- tabindex -1 so a jump can land here; never in the tab order. -->
         <article
@@ -99,6 +159,10 @@
                 <cp-badge tone="purple">Written for you</cp-badge>
               }
 
+              @if (card.item; as item) {
+                <span class="count">Recipe {{ item.position }} of {{ item.of }}</span>
+              }
+
               @if (card.section.isWritten) {
                 <span class="count">
                   {{ card.section.characterCount }} of {{ doc.sectionMaxCharacters }} characters
@@ -113,6 +177,13 @@
 
           @if (card.notice) {
             <cp-notice tone="warning" role="status">{{ card.notice }}</cp-notice>
+          }
+
+          @if (card.item?.unresolved) {
+            <cp-notice tone="warning" role="note" data-testid="unresolved">
+              The recipe this item covers is no longer part of this piece, so it cannot be written for you.
+              What is here is kept, and you can still write or change it yourself.
+            </cp-notice>
           }
 
           @if (card.draft !== null) {
@@ -236,7 +307,7 @@
                   {{ card.section.isWritten ? 'Edit' : 'Write it yourself' }}
                 </button>
 
-                @if (!card.section.settled) {
+                @if (!card.section.settled && !card.item?.unresolved) {
                   @if (card.section.isWritten) {
                     <button
                       cpButton
@@ -276,6 +347,33 @@
                   >
                     {{ card.section.settled ? 'Not settled after all' : 'Mark as settled' }}
                   </button>
+                }
+
+                @if (card.item; as item) {
+                  @if (item.of > 1) {
+                    <button
+                      cpButton
+                      type="button"
+                      variant="text"
+                      [id]="fieldId(card, 'up')"
+                      [attr.aria-disabled]="item.position === 1 || moving() ? 'true' : null"
+                      [attr.aria-label]="'Move ' + card.section.heading + ' up among the recipes'"
+                      (click)="item.position > 1 && move(card, -1)"
+                    >
+                      Move up
+                    </button>
+                    <button
+                      cpButton
+                      type="button"
+                      variant="text"
+                      [id]="fieldId(card, 'down')"
+                      [attr.aria-disabled]="item.position === item.of || moving() ? 'true' : null"
+                      [attr.aria-label]="'Move ' + card.section.heading + ' down among the recipes'"
+                      (click)="item.position < item.of && move(card, 1)"
+                    >
+                      Move down
+                    </button>
+                  }
                 }
               }
             </div>

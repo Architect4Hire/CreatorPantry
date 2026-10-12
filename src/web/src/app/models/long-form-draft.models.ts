@@ -200,8 +200,9 @@ export const LONG_FORM_ROLE_LABELS: Readonly<Record<LongFormSectionRole, string>
 /**
  * The roles a plan of this kind still has room for, in the server's order.
  *
- * `Item` is never offered: an item covers one of the piece's recipes, and binding one to its recipe is not
- * something this screen can do (LF.4.1). Items already in a plan stay, and can be renamed and reordered.
+ * `Item` is never offered: an item is the recipe it covers, and the only recipes a plan may name are the ones
+ * its outline was written for (LF.4.1). Items already in a plan stay, and can be renamed and reordered;
+ * removing one takes its recipe out of the issue.
  */
 export function longFormRolesAvailable(
   kind: LongFormKind,
@@ -217,6 +218,20 @@ export function longFormRolesAvailable(
 // ServiceModels
 // ---------------------------------------------------------------------------
 
+/** Mirrors `LongFormItemSourceState`: whether the piece of work still names the reference an item covers. */
+export type LongFormItemSourceState = 'Resolved' | 'Unresolved';
+
+export const LONG_FORM_ITEM_SOURCE_STATE_VALUES: ReadonlySet<string> = new Set<LongFormItemSourceState>([
+  'Resolved',
+  'Unresolved',
+]);
+
+/** Mirrors `LongFormFramingServiceModel`: a newsletter issue's subject line and the creator's note. */
+export interface LongFormFraming {
+  readonly subject: string | null;
+  readonly note: string | null;
+}
+
 /** Mirrors `LongFormPlannedSectionServiceModel`. */
 export interface LongFormPlannedSection {
   readonly id: string;
@@ -228,6 +243,8 @@ export interface LongFormPlannedSection {
   readonly settled: boolean;
   /** For a newsletter item, the creative-context reference of the recipe it covers. */
   readonly sourceReferenceId: string | null;
+  /** For a newsletter item, whether the piece of work still names that reference. Null on every other section. */
+  readonly sourceState: LongFormItemSourceState | null;
 }
 
 /** Mirrors `LongFormRevisionServiceModel`. */
@@ -266,6 +283,13 @@ export interface LongFormDraft {
   readonly latest: LongFormRevision | null;
   /** Null exactly when `latest` is. */
   readonly planCheck: LongFormPlanCheck | null;
+  /** A newsletter issue's subject line and note, or null when it has neither. */
+  readonly framing: LongFormFraming | null;
+  /**
+   * The items, in plan order, whose recipe the piece of work no longer names. Each is still in the plan with
+   * everything it had; this is something to tell the creator, and stops neither an approval nor an acceptance.
+   */
+  readonly unresolvedItems: readonly string[];
 }
 
 /** Mirrors `LongFormDraftSummaryServiceModel`: one row of the recent list. */
@@ -332,6 +356,19 @@ export interface ApproveLongFormPlanRequest {
   readonly revisionNumber: number;
 }
 
+/** Mirrors `ReorderLongFormItemsViewModel`: every item, once, named by the reference it covers. */
+export interface ReorderLongFormItemsRequest {
+  readonly expectedConcurrencyToken: string;
+  readonly sourceReferenceIds: readonly string[];
+}
+
+/** Mirrors `PutLongFormFramingViewModel`. Both are sent each time; a blank one is cleared. */
+export interface PutLongFormFramingRequest {
+  readonly expectedConcurrencyToken: string;
+  readonly subject: string | null;
+  readonly note: string | null;
+}
+
 export interface LongFormDraftListQuery {
   readonly limit?: number;
   readonly cursor?: string | null;
@@ -359,6 +396,19 @@ export const LONG_FORM_PLAN_LOCKED_CODE = 'content.long_form.plan.locked.conflic
 /** Approval of a plan that does not meet the shape rules. The field errors are keyed `sections[n]`. */
 export const LONG_FORM_PLAN_UNPROCESSABLE_CODE = 'content.long_form.plan.unprocessable';
 
+/** An item order or a framing was sent for a piece that is not a newsletter issue. */
+export const LONG_FORM_NOT_AN_ISSUE_CODE = 'content.long_form.draft.not_an_issue.conflict';
+
+/** An item order that does not name each of the issue's items exactly once. */
+export const LONG_FORM_ITEM_ORDER_INVALID_CODE = 'content.long_form.item_order.invalid';
+
+/** A subject line or note outside its limits. The field errors are keyed `subject` and `note`. */
+export const LONG_FORM_FRAMING_INVALID_CODE = 'content.long_form.framing.invalid';
+
+/** Mirrors `LongFormPolicy.SubjectMaxCharacters` and `NoteMaxCharacters`. */
+export const LONG_FORM_SUBJECT_MAX_CHARACTERS = 150;
+export const LONG_FORM_NOTE_MAX_CHARACTERS = 600;
+
 /** What each `planCheck` finding means to a creator. An unknown code gets the last line. */
 export function longFormFindingText(code: string): string {
   switch (code) {
@@ -378,6 +428,16 @@ export function longFormFindingText(code: string): string {
       return 'Keep what this section is for to one line.';
     case 'content.long_form.intent.too_long':
       return `Keep what this section is for to ${LONG_FORM_INTENT_MAX_CHARACTERS} characters.`;
+    case 'content.long_form.item.source_missing':
+      return 'This item does not say which of the piece\u2019s recipes it covers.';
+    case 'content.long_form.item.source_unknown':
+      return 'This item covers a recipe this plan was not written for.';
+    case 'content.long_form.item.source_repeated':
+      return 'Another item already covers this recipe.';
+    case 'content.long_form.items.source_uncovered':
+      return 'One of the piece\u2019s recipes has no item. An issue has one item for each.';
+    case 'content.long_form.section.source_not_allowed':
+      return 'Only an item covers a recipe.';
     default:
       return 'This section needs another look before the plan can be approved.';
   }
@@ -410,7 +470,21 @@ export function decodeLongFormPlannedSection(value: unknown): LongFormPlannedSec
     return null;
   }
 
-  return { id, role, heading, intent, isWritten, settled, sourceReferenceId: (sourceReferenceId as string | null) ?? null };
+  // Absent or null is "not an item". A value that is not one of the two states is the wrong shape, and is not
+  // quietly read as resolved.
+  const sourceState = decodeLongFormItemSourceState(value['sourceState']);
+  if (sourceState === undefined) return null;
+
+  return {
+    id,
+    role,
+    heading,
+    intent,
+    isWritten,
+    settled,
+    sourceReferenceId: (sourceReferenceId as string | null) ?? null,
+    sourceState,
+  };
 }
 
 export function decodeLongFormRevision(value: unknown): LongFormRevision | null {
@@ -464,6 +538,30 @@ export function decodeLongFormPlanCheck(value: unknown): LongFormPlanCheck | nul
   return { isValid, policyVersion, findings };
 }
 
+/**
+ * An issue's framing: null when it has none, and `undefined` when what was sent is the wrong shape — which
+ * is not the same as there being none.
+ */
+export function decodeLongFormFraming(value: unknown): LongFormFraming | null | undefined {
+  if (value === null || value === undefined) return null;
+
+  if (!isRecord(value) || !isStringOrNull(value['subject'] ?? null) || !isStringOrNull(value['note'] ?? null)) {
+    return undefined;
+  }
+
+  return {
+    subject: (value['subject'] as string | null) ?? null,
+    note: (value['note'] as string | null) ?? null,
+  };
+}
+
+/** A section's source state: null when it has none, `undefined` when it is not one of the states. */
+export function decodeLongFormItemSourceState(value: unknown): LongFormItemSourceState | null | undefined {
+  if (value === null || value === undefined) return null;
+
+  return decodeEnum<LongFormItemSourceState>(LONG_FORM_ITEM_SOURCE_STATE_VALUES, value) ?? undefined;
+}
+
 export function decodeLongFormDraft(value: unknown): LongFormDraft | null {
   if (!isRecord(value)) return null;
 
@@ -494,7 +592,27 @@ export function decodeLongFormDraft(value: unknown): LongFormDraft | null {
   const planCheck = rawCheck === null || rawCheck === undefined ? null : decodeLongFormPlanCheck(rawCheck);
   if (rawCheck !== null && rawCheck !== undefined && planCheck === null) return null;
 
-  return { id, creativeContextId, kind, status, concurrencyToken, createdAt, updatedAt, latest, planCheck };
+  const framing = decodeLongFormFraming(value['framing']);
+  if (framing === undefined) return null;
+
+  const rawUnresolved = value['unresolvedItems'] ?? [];
+  if (!Array.isArray(rawUnresolved) || !rawUnresolved.every((item): item is string => typeof item === 'string')) {
+    return null;
+  }
+
+  return {
+    id,
+    creativeContextId,
+    kind,
+    status,
+    concurrencyToken,
+    createdAt,
+    updatedAt,
+    latest,
+    planCheck,
+    framing,
+    unresolvedItems: [...rawUnresolved],
+  };
 }
 
 export function decodeLongFormDraftSummary(value: unknown): LongFormDraftSummary | null {
@@ -583,6 +701,22 @@ export function encodePatchLongFormPlan(request: PatchLongFormPlanRequest): Reco
       intent: section.intent,
       ...(section.sourceReferenceId === null ? {} : { sourceReferenceId: section.sourceReferenceId }),
     })),
+  };
+}
+
+export function encodeReorderLongFormItems(request: ReorderLongFormItemsRequest): Record<string, unknown> {
+  return {
+    expectedConcurrencyToken: request.expectedConcurrencyToken,
+    sourceReferenceIds: [...request.sourceReferenceIds],
+  };
+}
+
+/** Both parts are always sent, null for none: the route replaces the framing whole. */
+export function encodePutLongFormFraming(request: PutLongFormFramingRequest): Record<string, unknown> {
+  return {
+    expectedConcurrencyToken: request.expectedConcurrencyToken,
+    subject: request.subject,
+    note: request.note,
   };
 }
 

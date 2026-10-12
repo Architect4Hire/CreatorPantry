@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CreatorPantry.Domain.Modules.Content.Managers;
 
@@ -11,7 +12,13 @@ namespace CreatorPantry.Domain.Modules.Content.Managers;
 /// a section with a null <see cref="LongFormSection.Body"/> is planned and not yet written. Private creator
 /// content: never logged.
 /// </remarks>
-public sealed record LongFormDocument(IReadOnlyList<LongFormSection> Sections)
+/// <param name="Framing">
+/// A newsletter issue's subject line and the creator's note (LF.4.1), or null when it has neither. Left out of
+/// the stored JSON while null, so a document written before it existed and one written since read the same.
+/// </param>
+public sealed record LongFormDocument(
+    IReadOnlyList<LongFormSection> Sections,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LongFormIssueFraming? Framing = null)
 {
     /// <summary>The <c>SchemaVersion</c> a revision holding this shape carries.</summary>
     public const int CurrentSchemaVersion = 1;
@@ -25,6 +32,14 @@ public sealed record LongFormDocument(IReadOnlyList<LongFormSection> Sections)
         JsonSerializer.Deserialize<LongFormDocument>(content, Options)
         ?? throw new JsonException("A long-form revision's content was null.");
 }
+
+/// <summary>
+/// What a creator says about a newsletter issue as a whole (LF.4.1, baseline B-35). Theirs: nothing generates
+/// either part.
+/// </summary>
+/// <param name="Subject">The issue's subject line, on one line, or null.</param>
+/// <param name="Note">The creator's short note to their readers, as Markdown, or null.</param>
+public sealed record LongFormIssueFraming(string? Subject, string? Note);
 
 /// <summary>One section of a long-form document.</summary>
 /// <param name="Id">Stable across revisions, so a section can be regenerated, edited or settled by name.</param>

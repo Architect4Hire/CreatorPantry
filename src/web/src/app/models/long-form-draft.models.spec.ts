@@ -5,6 +5,7 @@ import {
   decodeLongFormDraft,
   encodePatchLongFormPlan,
   encodeRequestLongFormOutline,
+  decodeLongFormPlannedSection,
   longFormFindingText,
   longFormPlanIsOpen,
   longFormRolesAvailable,
@@ -66,6 +67,29 @@ describe('long-form draft models', () => {
     it('refuses a draft whose plan is the wrong shape rather than showing it as empty', () => {
       expect(decodeLongFormDraft(wireDraft({ latest: { revisionNumber: 'one' } }))).toBeNull();
       expect(decodeLongFormDraft(wireDraft({ planCheck: { isValid: 'yes' } }))).toBeNull();
+    });
+
+    it('reads an issue’s framing and its unresolved items, and a draft sent without either as having none', () => {
+      const bare = decodeLongFormDraft(wireDraft());
+      expect(bare?.framing).toBeNull();
+      expect(bare?.unresolvedItems).toEqual([]);
+
+      const issue = decodeLongFormDraft(
+        wireDraft({ kind: 'NewsletterIssue', framing: { subject: 'Three loaves', note: null }, unresolvedItems: ['s-2'] }),
+      );
+      expect(issue?.framing).toEqual({ subject: 'Three loaves', note: null });
+      expect(issue?.unresolvedItems).toEqual(['s-2']);
+
+      expect(decodeLongFormDraft(wireDraft({ framing: 'Three loaves' }))).toBeNull();
+      expect(decodeLongFormDraft(wireDraft({ unresolvedItems: [7] }))).toBeNull();
+    });
+
+    it('reads an item’s source state, and refuses one it does not know rather than calling it resolved', () => {
+      const item = { id: 's-1', role: 'Item', heading: 'h', intent: 'i', isWritten: false, settled: false, sourceReferenceId: 'ref-1' };
+
+      expect(decodeLongFormPlannedSection({ ...item, sourceState: 'Unresolved' })?.sourceState).toBe('Unresolved');
+      expect(decodeLongFormPlannedSection(item)?.sourceState).toBeNull();
+      expect(decodeLongFormPlannedSection({ ...item, sourceState: 'Missing' })).toBeNull();
     });
 
     it('refuses a status, a kind or a token it cannot use', () => {

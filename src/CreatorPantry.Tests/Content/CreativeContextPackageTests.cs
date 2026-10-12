@@ -2427,6 +2427,102 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
         Assert.DoesNotContain("Loaf number 4", rendered, StringComparison.Ordinal);
     }
 
+    // ---- one item's own package (LF.4.2) ----------------------------------------------------------------
+
+    [Fact]
+    public async Task An_item_of_a_five_recipe_issue_is_assembled_from_its_own_recipe_and_no_other_source()
+    {
+        await ThemeAsync(WorkspaceA, "meat-free-monday", "Meat-free Monday", "Always under 30 minutes.");
+        var context = await ContextAsync(WorkspaceA, themeKey: "meat-free-monday");
+
+        var picture = await AssetAsync(WorkspaceA, "A torn loaf beside an olive oil cake.");
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset, reference => reference.MediaAssetId = picture);
+
+        var (requestId, conceptId) = await DbAsync(WorkspaceA, db => CreativeContextSeeds.ConceptAsync(
+            db, Now, Ct, summary: "A weeknight loaf with a nutty crust."));
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.RecipeConcept, reference =>
+        {
+            reference.ConceptRequestId = requestId;
+            reference.ConceptId = conceptId;
+        });
+
+        // The same five recipes that do not fit together: the fourth and fifth are dropped from the whole.
+        var steps = Enumerable.Range(1, 14).Select(number => $"Step {number}: " + new string('s', 990)).ToList();
+        var references = new List<Guid>();
+
+        foreach (var number in Enumerable.Range(1, 5))
+        {
+            var recipe = await RecipeAsync(WorkspaceA, title: $"Loaf number {number}", steps: steps);
+            references.Add(await ReferRecipeAsync(WorkspaceA, context, recipe));
+        }
+
+        var whole = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+        Assert.DoesNotContain(whole.Recipes, recipe => recipe.Title == "Loaf number 5");
+
+        var item = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.LongFormSection, new CreativeContextPackageOptions(OnlyRecipeReferenceId: references[4]));
+
+        // Its own recipe, whole — the one the issue as a whole had no room for.
+        var own = Assert.Single(item.Recipes);
+        Assert.Equal(references[4], own.ReferenceId);
+        Assert.Equal("Loaf number 5", own.Title);
+        Assert.Equal(14, own.Steps.Count);
+
+        // Nothing else the issue names: no other recipe, and no source that does not say whose it is.
+        Assert.Empty(item.Pictures);
+        Assert.Empty(item.Concepts);
+        Assert.Empty(item.Prompts);
+
+        // Left out by design is not dropped: the writer is not told there are sources it cannot see.
+        Assert.Empty(item.Dropped);
+
+        // What the piece is, and the day it is for, are the issue's and stay.
+        Assert.Equal("Soda bread, autumn", item.Words!.WorkingTitle);
+        Assert.NotNull(item.Day);
+
+        var rendered = Rendered(item);
+        Assert.Contains("Loaf number 5", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loaf number 1", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("olive oil cake", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("nutty crust", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("sourcesNotShown", rendered, StringComparison.Ordinal);
+
+        // A different package, recorded as one: the checksum names what this item was written from.
+        Assert.NotEqual(whole.Checksum, item.Checksum);
+
+        var again = await AssembleAsync(
+            WorkspaceA, context.Id, AiTaskType.LongFormSection, new CreativeContextPackageOptions(OnlyRecipeReferenceId: references[4]));
+        Assert.Equal(item.Checksum, again.Checksum);
+    }
+
+    [Fact]
+    public async Task An_item_package_for_a_reference_that_is_not_one_of_this_pieces_recipes_carries_no_recipe()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        await ReferRecipeAsync(WorkspaceA, context, await RecipeAsync(WorkspaceA, title: "Ours"));
+
+        var picture = await AssetAsync(WorkspaceA, "A torn loaf.");
+        var pictureReference = await ReferAsync(
+            WorkspaceA, context, CreativeContextReferenceKind.DamAsset, reference => reference.MediaAssetId = picture);
+
+        // Another workspace's piece, naming its own recipe.
+        var theirs = await ContextAsync(WorkspaceB);
+        var theirReference = await ReferRecipeAsync(WorkspaceB, theirs, await RecipeAsync(WorkspaceB, title: "Theirs"));
+
+        // A reference that is gone, one that is a picture, and one that is another workspace's: each is simply
+        // not a recipe of this piece, and none of them brings anything else in.
+        foreach (var reference in new[] { Guid.NewGuid(), pictureReference, theirReference })
+        {
+            var package = await AssembleAsync(
+                WorkspaceA, context.Id, AiTaskType.LongFormSection, new CreativeContextPackageOptions(OnlyRecipeReferenceId: reference));
+
+            Assert.Empty(package.Recipes);
+            Assert.Empty(package.Pictures);
+            Assert.DoesNotContain("Theirs", Rendered(package), StringComparison.Ordinal);
+            Assert.DoesNotContain("Ours", Rendered(package), StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task A_sixth_recipe_is_over_the_cap_and_a_dropped_recipe_takes_its_accepted_copy_with_it()
     {

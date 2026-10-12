@@ -530,7 +530,10 @@ internal sealed class LongFormSectionBusiness(
     };
 
     private static LongFormDocument Replace(LongFormDocument document, LongFormSection replacement) =>
-        new([.. document.Sections.Select(section => section.Id == replacement.Id ? replacement : section)]);
+        document with
+        {
+            Sections = [.. document.Sections.Select(section => section.Id == replacement.Id ? replacement : section)],
+        };
 
     /// <summary>
     /// The next revision, written against what its parent was written against: the sources did not change
@@ -599,6 +602,11 @@ internal sealed class LongFormSectionBusiness(
         var latest = await dataLayer.FindLatestRevisionAsync(draft.Id, cancellationToken);
         var document = latest is null ? new LongFormDocument([]) : LongFormDocument.Deserialize(latest.Content);
 
+        var sources = latest is null
+            ? await dataLayer.ReadItemSourcesAsync(draft, document, [], cancellationToken)
+            : await dataLayer.ReadItemSourcesAsync(
+                draft, document, await dataLayer.ListPinsAsync(latest.Id, cancellationToken), cancellationToken);
+
         return OperationResult<LongFormSectionsServiceModel>.Success(new(
             draft.Id,
             draft.CreativeContextId,
@@ -624,7 +632,9 @@ internal sealed class LongFormSectionBusiness(
                         count,
                         count > LongFormPolicy.SectionMaxCharacters,
                         written ? section.Provenance?.Source : null,
-                        written ? section.Provenance?.AiProposalId : null);
+                        written ? section.Provenance?.AiProposalId : null,
+                        section.SourceReferenceId,
+                        sources.TryGetValue(section.Id, out var state) ? state : null);
                 }),
             ]));
     }

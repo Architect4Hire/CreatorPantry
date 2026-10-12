@@ -71,6 +71,8 @@ public sealed record LongFormAcceptanceIssueDetailServiceModel(LongFormAcceptanc
 /// recipes do not state, a safety or dietary claim, storage advice, a search metric, a promise the recipe will
 /// work. Cautions for the creator; none of them stops a save or an acceptance.
 /// </param>
+/// <param name="SourceReferenceId">For a newsletter item, the creative-context reference it covers.</param>
+/// <param name="SourceState">For a newsletter item, whether the piece of work still names that reference.</param>
 public sealed record LongFormAssembledSectionServiceModel(
     Guid Id,
     LongFormSectionRole Role,
@@ -84,7 +86,9 @@ public sealed record LongFormAssembledSectionServiceModel(
     ContentRevisionSource? WrittenBy,
     Guid? AiProposalId,
     IReadOnlyList<string> ReusedEditorialParts,
-    IReadOnlyList<LongFormSectionFinding> Findings);
+    IReadOnlyList<LongFormSectionFinding> Findings,
+    Guid? SourceReferenceId,
+    LongFormItemSourceState? SourceState);
 
 /// <summary>
 /// A long-form draft's latest revision read whole (LF.3.4): the Markdown a creator would be accepting, what is
@@ -99,6 +103,13 @@ public sealed record LongFormAssembledSectionServiceModel(
 /// <param name="WordTarget">Where the word count sits against the kind's target. Not assessed until every section is written.</param>
 /// <param name="NeedsConfirmation">What is wrong with the document. Empty when it can be accepted as it stands.</param>
 /// <param name="AcceptedRevisionNumber">The revision that was accepted, once one has been.</param>
+/// <param name="Framing">
+/// A newsletter issue's subject line and note, or null when it has neither. Beside the Markdown, not in it.
+/// </param>
+/// <param name="UnresolvedItems">
+/// The items, in plan order, whose reference the piece of work no longer names. Reported; not something an
+/// acceptance has to confirm.
+/// </param>
 public sealed record LongFormAssembledDocumentServiceModel(
     Guid DraftId,
     Guid CreativeContextId,
@@ -117,4 +128,6 @@ public sealed record LongFormAssembledDocumentServiceModel(
     IReadOnlyList<LongFormAssembledSectionServiceModel> Sections,
     IReadOnlyList<LongFormAcceptanceIssueDetailServiceModel> NeedsConfirmation,
     int? AcceptedRevisionNumber,
-    DateTimeOffset? AcceptedAt);
+    DateTimeOffset? AcceptedAt,
+    LongFormFramingServiceModel? Framing,
+    IReadOnlyList<Guid> UnresolvedItems);

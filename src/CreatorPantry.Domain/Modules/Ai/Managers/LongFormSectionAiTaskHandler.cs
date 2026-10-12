@@ -30,6 +30,13 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// the plan was made against; and an item whose recipe could not be shown.
 /// </para>
 /// <para>
+/// <strong>An item is written from its own recipe and no other (LF.4.2).</strong> Whether a source has moved is
+/// judged on the whole piece. What an item's writer is then shown is a second package, assembled for that one
+/// reference: its recipe, the creator's words and the day — and none of the issue's other recipes, pictures,
+/// ideas or saved prompts, nor how any other item opens. That package is the one the proposal records, so its
+/// checksum names what the item was written from.
+/// </para>
+/// <para>
 /// <strong>A body over the ceiling is not a failure.</strong> It is stored whole with a finding on it. Nothing
 /// here shortens, trims or rewrites what was written.
 /// </para>
@@ -143,17 +150,48 @@ internal sealed partial class LongFormSectionAiTaskHandler(
                     + "current recipe before any more of it is written.");
         }
 
-        var recipe = target.SourceReferenceId is { } referenceId
-            ? package.Recipes.FirstOrDefault(candidate => candidate.ReferenceId == referenceId)
-            : null;
+        CreativeContextRecipeEntry? recipe = null;
 
-        // An item is one recipe and nothing else. Written without it, it could only be invented.
-        if (target.Role is LongFormSectionRole.Item && recipe is null)
+        if (target.Role is LongFormSectionRole.Item)
         {
-            return Failure(
-                AiFailureCategory.DomainInvalid,
-                "The recipe this section covers could not be read, so the section cannot be written. Check the "
-                    + "recipe is still part of this piece.");
+            var sliced = target.SourceReferenceId is { } own
+                ? await creativeContexts.AssembleAsync(
+                    writing.CreativeContextId,
+                    AiTaskType.LongFormSection,
+                    new CreativeContextPackageOptions(OnlyRecipeReferenceId: own),
+                    cancellationToken)
+                : null;
+
+            recipe = sliced is { Succeeded: true }
+                && sliced.Value!.WorkspaceId == context.WorkspaceId
+                && sliced.Value.ContextId == writing.CreativeContextId
+                    ? sliced.Value.Recipes.SingleOrDefault(candidate => candidate.ReferenceId == target.SourceReferenceId)
+                    : null;
+
+            // An item is one recipe and nothing else. Written without it, it could only be invented.
+            if (recipe is null)
+            {
+                return Failure(
+                    AiFailureCategory.DomainInvalid,
+                    "The recipe this section covers could not be read, so the section cannot be written. Check the "
+                        + "recipe is still part of this piece.");
+            }
+
+            // Two reads, a moment apart. The piece was checked whole a moment ago; this is the same check on the
+            // one recipe the item is about to be written from.
+            if ((recipe.LatestRecipeVersionId is { } latest && latest != recipe.RecipeVersionId)
+                || writing.Pins.All(pin => pin.ReferenceId != recipe.ReferenceId)
+                || writing.Pins.Any(pin =>
+                    pin.ReferenceId == recipe.ReferenceId && pin.RecipeVersionId != recipe.RecipeVersionId))
+            {
+                return Failure(
+                    AiFailureCategory.DomainInvalid,
+                    "One of this piece's recipes has changed since its plan was made. Review the piece against the "
+                        + "current recipe before any more of it is written.");
+            }
+
+            // From here on the item's own package is the package: what is sent, measured, scanned and recorded.
+            package = sliced.Value!;
         }
 
         var template = templates.Get(AiTaskCatalog.LongFormSection);
@@ -305,7 +343,8 @@ internal sealed partial class LongFormSectionAiTaskHandler(
                 [PositionInput] = PositionBrief(writing),
                 [LengthInput] = LengthBrief(writing),
                 [CarriedCopyRuleInput] = CarriedCopyRule(carried),
-                [RecipeRuleInput] = RecipeRule(target, package),
+                [RecipeRuleInput] = RecipeRule(
+                    target, package, writing.Sections.Count(section => section.Role is LongFormSectionRole.Item)),
                 [ChangeRuleInput] = ChangeRule(writing.CurrentBody is not null, instruction is not null),
             }))
             .WithOutputSchema(AiLongFormSectionOutputSchema.Json)
@@ -356,10 +395,26 @@ internal sealed partial class LongFormSectionAiTaskHandler(
                             ? found + 1
                             : (int?)null,
                     writeThisOne = index == writing.TargetIndex ? true : (bool?)null,
-                    alreadyWrittenBeginning = index == writing.TargetIndex ? null : section.FirstLine,
+
+                    alreadyWrittenBeginning = ShowsOpening(writing, index) ? section.FirstLine : null,
                 }),
             },
             Json);
+
+    /// <summary>
+    /// Whether the writer of the target section is shown how another section opens.
+    /// </summary>
+    /// <remarks>
+    /// An item is shown one recipe, and an opening is prose that may state any recipe's facts: another item's
+    /// states its own recipe's, and a lead or an aside may state every recipe's. So an item is shown only the
+    /// openings of the sections that carry no recipe facts at all — the greeting, the closing and the sign-off.
+    /// Every other section is shown every other opening, as before.
+    /// </remarks>
+    internal static bool ShowsOpening(LongFormWritingContextServiceModel writing, int index) =>
+        index != writing.TargetIndex
+        && (writing.Sections[writing.TargetIndex].Role is not LongFormSectionRole.Item
+            || writing.Sections[index].Role
+                is LongFormSectionRole.Greeting or LongFormSectionRole.Closing or LongFormSectionRole.Signoff);
 
     /// <summary>The body being replaced and what the creator asked to change, or null on a first write.</summary>
     internal static string? RenderRewrite(string? currentBody, string? instruction) =>
@@ -389,8 +444,14 @@ internal sealed partial class LongFormSectionAiTaskHandler(
         var high = Math.Min(room, Math.Max(AiPolicy.LongFormSectionWordsFloor, writing.TargetWords.Max / count));
         var low = Math.Min(high, Math.Max(AiPolicy.LongFormSectionWordsFloor, writing.TargetWords.Min / count));
 
+        // The target is the issue's (LF.4.2): an even share is where a section starts, never a length an item
+        // is held to.
         return $"between {Number(low)} and {Number(high)} words, and never more than "
-            + $"{Number(writing.SectionMaxCharacters)} characters";
+            + $"{Number(writing.SectionMaxCharacters)} characters"
+            + (writing.Kind is LongFormKind.NewsletterIssue
+                ? ". That is an even share of the issue's length, which is the one that matters: no item has a "
+                    + "target of its own"
+                : string.Empty);
     }
 
     /// <summary>
@@ -421,16 +482,27 @@ internal sealed partial class LongFormSectionAiTaskHandler(
                 + "fit it to this section and this piece, and do not write the same material again in other "
                 + "words. Add only what the section's intent asks for and that text does not already say.";
 
-    internal static string RecipeRule(LongFormWritingSectionServiceModel target, CreativeContextPackage package) =>
+    /// <param name="items">How many items the plan has: whether an item is told there are others.</param>
+    internal static string RecipeRule(
+        LongFormWritingSectionServiceModel target, CreativeContextPackage package, int items = 1) =>
         (target.Role, package.Recipes.Count) switch
         {
+            (LongFormSectionRole.Item, _) when items > 1 =>
+                "This section is about one recipe, and it is the only recipe you are shown. The issue covers "
+                    + "others, each in an item of its own that somebody else writes. Take every recipe fact from "
+                    + "this recipe's own lines. State no ingredient, quantity, time, temperature, yield or step of "
+                    + "any other dish, and do not compare this recipe to another item's: you have not been shown them.",
             (LongFormSectionRole.Item, _) =>
-                "This section is about one recipe: the one the plan names for it by its position in the `recipes` "
-                    + "list. Write about that recipe only, and take every recipe fact from its own lines.",
+                "This section is about one recipe, and it is the only recipe you are shown. Take every recipe "
+                    + "fact from its own lines, and state no ingredient, quantity, time, temperature, yield or step "
+                    + "of any other dish.",
             (_, 0) =>
                 "No recipe is shown. You have no recipe facts at all: write no quantity, time, temperature, "
                     + "yield, ingredient list or step.",
-            _ => "Take every recipe fact from the recipes' own lines, exactly as they state it.",
+            (_, 1) => "Take every recipe fact from the recipes' own lines, exactly as they state it.",
+            _ => "Take every recipe fact from the recipes' own lines, exactly as they state it. A fact belongs to "
+                + "the recipe whose lines state it: name the dish it comes from, and never give one recipe's "
+                + "figure, ingredient or step as another's.",
         };
 
     internal static string ChangeRule(bool hasBody, bool hasInstruction) => (hasBody, hasInstruction) switch
@@ -563,7 +635,8 @@ internal sealed partial class LongFormSectionAiTaskHandler(
 
         for (var index = 0; index < writing.Sections.Count; index++)
         {
-            if (index == writing.TargetIndex || writing.Sections[index].FirstLine is not { } firstLine)
+            // Only against what the writer was shown: an opening it never saw is not one it repeated.
+            if (!ShowsOpening(writing, index) || writing.Sections[index].FirstLine is not { } firstLine)
             {
                 continue;
             }
