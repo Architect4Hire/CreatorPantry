@@ -266,6 +266,19 @@ public enum AiEvaluationKind
     /// </para>
     /// </remarks>
     LongFormOutlineOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiLongFormSectionOutputValidator.Validate"/> for
+    /// LF.3.1's one section body, and then — for a body that validates — the same measuring and claim scanning
+    /// the handler runs before it stores anything.
+    /// </summary>
+    /// <remarks>
+    /// Refused and flagged are different outcomes here as they are for a plan: a second section, a heading line
+    /// or a link is refused; a recomputed figure, a safety claim or a body over the ceiling is stored whole with
+    /// a finding beside it. What it cannot show is whether a body is well written. See
+    /// <see cref="LongFormSectionOutputValidationCase"/>.
+    /// </remarks>
+    LongFormSectionOutputValidation,
 }
 
 /// <summary>

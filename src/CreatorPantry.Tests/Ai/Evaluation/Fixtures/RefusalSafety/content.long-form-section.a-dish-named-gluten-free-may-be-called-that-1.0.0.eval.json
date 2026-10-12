@@ -1,0 +1,30 @@
+{
+  "id": "content.long-form-section.a-dish-named-gluten-free-may-be-called-that",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A dish may be called by the name its creator gave it. The name is not a claim, and repeating it is not flagged.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Gluten-Free Seeded Loaf is the bread I make most weeks.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Hook",
+    "recipes": [
+      {
+        "title": "Gluten-Free Seeded Loaf",
+        "ingredients": [
+          "300g gluten-free flour blend"
+        ],
+        "steps": [
+          "Mix and bake."
+        ]
+      }
+    ],
+    "workingTitle": "Gluten-Free Seeded Loaf"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "unsupported_safety_claim"
+    ]
+  }
+}

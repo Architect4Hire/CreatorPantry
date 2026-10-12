@@ -149,6 +149,15 @@ public static class LongFormDraftPolicy
     public const int MaxPlanSections = 15;
 
     /// <summary>
+    /// The longest text one section may be saved with, in UTF-16 units.
+    /// </summary>
+    /// <remarks>
+    /// Four times the section ceiling, and the same bound a generated body is held to. Not the ceiling: text
+    /// between the two is saved and reported as over it.
+    /// </remarks>
+    public const int SectionBodyMaxLength = LongFormPolicy.SectionMaxCharacters * 4;
+
+    /// <summary>
     /// The longest heading the seam will keep, in UTF-16 units — ten for each character of the plan's own cap,
     /// so a heading over that cap can still be saved, shown as too long, and fixed.
     /// </summary>

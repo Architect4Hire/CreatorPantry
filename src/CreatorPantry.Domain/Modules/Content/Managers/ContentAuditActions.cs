@@ -78,4 +78,21 @@ public static class ContentAuditActions
 
     /// <inheritdoc cref="LongFormPlanEdited"/>
     public const string LongFormPlanApproved = "content.long_form_plan.approved";
+
+    /// <summary>
+    /// A long-form draft moved from an approved plan to being written, on its first section request (LF.3.3).
+    /// </summary>
+    public const string LongFormWritingBegan = "content.long_form_draft.writing_began";
+
+    /// <summary>A creator accepted a long-form document as the article of record (LF.3.4).</summary>
+    public const string LongFormDocumentAccepted = "content.long_form_draft.accepted";
+
+    /// <summary>A creator saved their own text for one section of a long-form draft (LF.3.3).</summary>
+    public const string LongFormSectionEdited = "content.long_form_section.edited";
+
+    /// <summary>A creator marked one section of a long-form draft as settled. Not an acceptance.</summary>
+    public const string LongFormSectionSettled = "content.long_form_section.settled";
+
+    /// <inheritdoc cref="LongFormSectionSettled"/>
+    public const string LongFormSectionUnsettled = "content.long_form_section.unsettled";
 }

@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.reheating-advice-in-the-storage-section-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "In prose, 'reheat gently in a low oven' is advice made of exactly the words the section is named for. The storage section's allowance is for saying there are no notes, and for nothing else.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Reheat gently in a low oven until warm.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Storage",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_storage_guidance"
+    ]
+  }
+}

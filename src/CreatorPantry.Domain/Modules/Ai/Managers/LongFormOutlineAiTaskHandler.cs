@@ -445,7 +445,7 @@ internal sealed partial class LongFormOutlineAiTaskHandler(
     /// of it that could fall behind.
     /// </para>
     /// </remarks>
-    private static bool OnlyNamesStorage(string text) =>
+    internal static bool OnlyNamesStorage(string text) =>
         AiEditorialClaimScanner.ScanTextWithoutSource(StorageName().Replace(text, " "))
             .All(finding => finding.Code != AiEditorialClaimScanner.UnsupportedStorageGuidance);
 
@@ -467,6 +467,15 @@ public static class LongFormFindings
 
     /// <summary>The piece names sources the writer was not shown: gone, over the cap, or over the budget.</summary>
     public const string SourcesNotShown = "long_form.sources_not_shown";
+
+    /// <summary>A section's body opens the way a section already written does (LF.3.1).</summary>
+    public const string RepeatsEarlierSection = "long_form.repeats_earlier_section";
+
+    /// <summary>A section was written from copy the creator had already accepted for the recipe (B-36).</summary>
+    public const string DrawsOnAcceptedCopy = "long_form.draws_on_accepted_copy";
+
+    /// <summary>A section promises the recipe will work: foolproof, never fails, works every time (LF.3.1).</summary>
+    public const string UnsupportedGuarantee = "long_form.unsupported_guarantee";
 }
 
 /// <summary>

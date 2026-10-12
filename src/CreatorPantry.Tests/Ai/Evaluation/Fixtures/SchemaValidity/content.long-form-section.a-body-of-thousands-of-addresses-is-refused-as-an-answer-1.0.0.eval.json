@@ -1,0 +1,38 @@
+{
+  "id": "content.long-form-section.a-body-of-thousands-of-addresses-is-refused-as-an-answer",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A degenerate body is refused as an answer, in bounded time, so the attempt that was paid for is recorded rather than lost to a check that never finished.",
+  "input": {
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "repeatBody": {
+      "text": "@@x@a.b@ ",
+      "times": 1300
+    }
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_section_markup_invalid",
+    "category": "DomainInvalid"
+  }
+}

@@ -521,7 +521,7 @@ sweep's re-landing with two workspaces.*
 *Known and left: if creating the draft fails after the request is queued, the creator gets an error but the
 request still runs and its plan creates the draft when it lands. No Angular model exists yet; that is LF.2.3.*
 
-## LF.2.3 Outline review surface
+## LF.2.3 Outline review surface - done
 
 ```text
 SCOPE: Add the typed web side and the plan-review screen: models in src/web/src/app/models/, a
@@ -542,11 +542,37 @@ component, contract, accessibility and error-path specs covering keyboard reorde
 guard, and an invalid plan refused by the server.
 ```
 
+*Delivered 2026-10-12 as `long-form-draft.models.ts`, `LongFormDraftService` and
+`cp-long-form-plan-review` in `features/long-form/`, with these differences from the prompt as written.*
+
+- *The screen is a component, not a routed page. It renders the `cp-form-section`s, save state and actions of
+  a flow step and expects to sit in that step's `cp-topic-card`; the route, the page head, the stepper and
+  the router's leave guard are LF.6.2's. It exposes `confirmDiscardIfDirty()` for that guard and holds a
+  browser close itself while edits are unsaved. Nothing in the app shows it yet.*
+- *The role table is mirrored in TypeScript so the screen can offer only the roles a plan has room for.
+  `LongFormWireMirrorTests` on the backend fails when the table, the two length limits or any of the four
+  enums drift from `LongFormPolicy`. The server still judges every plan.*
+- *A newsletter's recipe (`Item`) sections can be renamed and reordered here, not added or removed; binding
+  one to a recipe is LF.4.1's.*
+- *"Approve plan" saves unsaved edits first and approves the revision that save produced. "Save for later"
+  saves without approving.*
+- *Reordering is Move up / Move down per section, announced in a polite live region, with focus kept on the
+  moved section. There is no drag handle.*
+- *A plan that lands while the creator has unsaved edits does not replace them: it is offered as a reload,
+  which is confirmed.*
+- *There is no "ask for a different plan" once a plan exists; asking is offered only when there is none or
+  the last request failed.*
+
+*Tests: 70 web specs across models, service and component, covering keyboard reordering and focus, the
+unsaved-edit guard, a save that fails, a plan changed elsewhere, a locked plan, and an approval the server
+refuses with `sections[n]` errors placed beside their sections. Not covered: the screen inside a real flow
+page, and anything visual — it has not been looked at in a browser, in either theme or at 200% zoom.*
+
 ---
 
 # Phase 3 — The prose
 
-## LF.3.1 `content.long-form-section` capability
+## LF.3.1 `content.long-form-section` capability - done
 
 ```text
 SCOPE: Add the capability that writes one section: a versioned prompt file, an output schema of one body
@@ -574,7 +600,60 @@ analysis, a recipe fact written with no recipe reference, prompt injection throu
 a section repeating its predecessor, stale source, and workspace isolation.
 ```
 
-## LF.3.2 Long-form claim scanner
+*Delivered 2026-10-12 as prompt `content.long-form-section` 1.0.0, schema `content.long-form-section.v1`,
+`LongFormSectionAiTaskHandler`, and the content module's `ILongFormSectionFacade`, with these differences
+from the prompt as written.*
+
+- *The capability stops at a stored proposal. It has no route and no landing step, so no creator can reach it
+  and nothing it writes enters a draft until LF.3.3. It is not in the per-workspace feature switches yet.*
+- *A body is stored in parts. One proposal row holds 4,000 characters and an over-ceiling body is kept whole,
+  so it is split across rows (`body.00`, `body.01`, …) and joined by `LongFormSectionFields.Join`. A rewrite
+  stores no "before" text; the revision it was written against is recorded instead.*
+- *Two length figures. Over the 3,000-character section ceiling is stored whole and flagged
+  `content.long_form.section.over_ceiling`. Over 12,000 UTF-16 units is refused as a runaway answer.*
+- *A body may hold paragraphs, lists and emphasis. A heading of any kind, a link, an address, a table, HTML
+  and code are refused. An FAQ writes its questions in bold.*
+- *The word guide is the kind's target range shared evenly across the plan's sections, held under what the
+  ceiling has room for and never below 40 words.*
+- *Stale source is wider than a newer recipe version. A request is also refused when the piece now names a
+  recipe the plan was not pinned to, or no longer names one it was. A pinned recipe the package left out for
+  room is reported as a source not shown instead.*
+- *An item section is checked against its own recipe's figures only, so another recipe's oven temperature in
+  the same issue is flagged.*
+- *Accepted copy (B-36) is carried into a section that is not an item only when the piece has one recipe.
+  With several there is no saying whose tips a Tips section means.*
+- *Findings added here beyond the existing scanners: a figure when no recipe is shown, a promise that the
+  recipe cannot fail (`long_form.unsupported_guarantee`), a body that opens as an earlier section does
+  (`long_form.repeats_earlier_section`), and which accepted copy a section drew on
+  (`long_form.draws_on_accepted_copy`).*
+- *New: `AiChangeTargetKind.LongFormSectionBody`, four `ai.output.long_form_section_*` reason codes, four
+  `content.long_form.*` refusal codes for the draft read, and `Measure` on `ILongFormPlanFacade`. The OpenAPI
+  snapshot gained the one enum member.*
+
+*Tests: 94 evaluation fixtures under a new kind `LongFormSectionOutputValidation` (one sound body per role,
+structural refusals, flagged claims, repetition, and 16 prompt-envelope fixtures); `LongFormSectionAiTaskHandlerTests`
+for stored rows, every refusal before a model call, stale source, what reaches the task and what stays fenced,
+and a foreign draft or package; and real-database tests of the draft read in `LongFormOutlineRequestSeamTests`,
+including two workspaces. `LiveLongFormSectionCheck` exists and has never been run.*
+
+*Not done, and left for LF.3.2 unless noted:*
+
+- *No check that a picture is described beyond what the package says. The prompt forbids it; no code looks.*
+- *Nutrition and health wording with no digit in it ("packed with protein", "wholesome") is not flagged. Only
+  the frames the editorial scanner already has, plus the guarantee frame, are.*
+- *Storage advice is flagged even when the accepted copy it was told to work from contains it.*
+- *No fixture judges whether a section is well written; every answer in the set was written by hand. The
+  prompt-envelope fixtures prove the fence, not that this handler routes each field into it — the handler
+  tests cover the plan, the body, the instruction and the working title, and the rest relies on the shared
+  renderer the outline already uses.*
+- *A written section's opening and current body are covered by unit tests of the business rule, not through
+  the database: no route writes a body yet.*
+- *A refused answer's diagnostic can quote a field name or schema version the model chose, as every sibling
+  validator's does. Changing that is a change to all of them.*
+- *A recipe shown with some lines left out: the prompt now tells the writer to say so, but the server adds no
+  finding of its own.*
+
+## LF.3.2 Long-form claim scanner - done
 
 ```text
 SCOPE: Add the deterministic post-generation scanner for long-form bodies, in the Content module beside the
@@ -595,7 +674,58 @@ section with no recipe reference, each carried-over claim frame, a creator-edite
 findings must not suppress the model's own cautions.
 ```
 
-## LF.3.3 Section request, status, and settle endpoints
+*Delivered 2026-10-12, after LF.3.3 and LF.3.4, as `LongFormClaimScanner` in the content module, the AI
+module's `IAiClaimScanFacade`, and a scan on both section write paths, with these differences from the prompt
+as written. The plan was not shown for approval first: the creator asked for it to be planned, approved and
+run in one go.*
+
+- *The scanner lives in the content module and reaches the editorial and SEO scanners through a new facade
+  on the AI module, `IAiClaimScanFacade`, because only a facade may cross a module boundary. No pattern is
+  restated. Figures, safety, allergen, dietary, medical and nutrition claims, storage and preservation
+  advice, invented provenance and search metrics are all the existing scanners'.*
+- *What only long-form adds, moved here from LF.3.1's handler so a creator's own text is held to it too:
+  an item section answers to its own recipe's figures alone; a numbered list's own numbers are not figures;
+  with no pinned recipe every figure is unsupported; a storage section may say there are no storage notes,
+  and nothing else about storage; and a promise that the recipe cannot fail
+  (`long_form.unsupported_guarantee`).*
+- *It runs when a body is written into the draft — a generated one as it lands, and a creator's edit as it
+  is saved — against the recipe versions the revision is pinned to. Findings are stored on the section in
+  the revision (`LongFormSection.Findings`) and returned as `findings` on each section of the document read.
+  A finding never refuses a save, a settle or an acceptance.*
+- *This changes LF.3.1: its handler no longer looks for claims, so a proposal's own warnings are the model's
+  cautions and the handler's notes (repeats an earlier section, written from accepted copy, sources not
+  shown, no brand guidance). A proposal stored before this still carries its own copy of the claim findings;
+  the document read leaves those out so nothing is shown twice.*
+- *The pinned recipes are read through a narrow `ILongFormClaimSourceReader`, whose one implementation calls
+  the recipes module's facade for each pinned version's snapshot. A version that can no longer be read
+  contributes no facts, so a figure only it stated is reported.*
+- *The review screen shows a section's findings first and the writer's own notes after them.*
+- *`SqlServerRecipeFixture` now also registers the vocabulary and measurement modules and idempotency: the
+  section writes are the first thing in that fixture to resolve the recipes facade whole.*
+
+*Tests: `LongFormClaimScannerTests` for a figure the pinned recipe states, one it does not (doubled, summed,
+converted, invented), a figure with no recipe reference, each carried-over frame, the item scoping, list
+numbers, the storage allowance and the guarantee frame; the real seam for a creator-edited body being
+scanned, saved as typed and never refused, findings staying with their section through a neighbour's edit
+and a settled mark, and a body whose findings sit beside the model's own cautions with neither hiding the
+other; one SQL Server test that findings are stored in the revision; and LF.3.1's 94 evaluation fixtures,
+which now assert against the scanner.*
+
+*Not covered:*
+
+- *The real reader turning a real recipe snapshot into fact lines. No fixture seeds a recipe version with a
+  stored snapshot, so the SQL Server test proves only the unreadable-version path. A figure a readable
+  version states being left alone is proved at the scanner, with hand-written lines.*
+- *A picture described beyond what the package says. The SEO scanner's visual-detail check works on its own
+  structured sections and has no free-text form to call, so that frame is still the prompt's alone.*
+- *Health and nutrition wording with no figure in it ("packed with protein", "wholesome"). The editorial
+  scanner has no pattern for it, and none was added: a new frame belongs in that scanner, for every
+  capability at once.*
+- *Storage advice is still flagged when the accepted copy a section was told to work from contains it.*
+- *The piece's working title is not part of what supports a dish name here, as it was in LF.3.1's handler;
+  only the pinned recipes' titles are.*
+
+## LF.3.3 Section request, status, and settle endpoints - done
 
 ```text
 SCOPE: Extend the request seam: POST a section-writing request for one section of a draft (202 with an
@@ -617,7 +747,66 @@ section, cancellation mid-fan-out, a section of a draft in the wrong status, un-
 isolation; regenerate the OpenAPI snapshot and read the diff.
 ```
 
-## LF.3.4 Assembled document, review, and acceptance
+*Delivered 2026-10-12, before LF.3.2, as five routes on `LongFormDraftsController`, the AI module's
+`IAiLongFormSectionRequestFacade` seam with `LongFormSectionProposalLanding`, and the content module's
+`ILongFormSectionFacade` writes, with these differences from the prompt as written.*
+
+- *Routes, all under `…/long-form-drafts/{draftId}`: `GET /sections`, `POST /sections/{sectionId}/writing-requests`
+  (202), `POST /section-writing-batches` (202), `PATCH /sections/{sectionId}`,
+  `POST /sections/{sectionId}/settlement`. The two writes return the draft's sections with their text, not the
+  plan-level draft model.*
+- *LF.3.2 has not been run. A generated section carries LF.3.1's findings; a creator's own edit is measured
+  against the ceiling and scanned for nothing. LF.3.2 adds the scan to both write paths.*
+- *The stale rule is per section, which changes LF.3.1. A request names a revision and is run, and landed, if
+  that section's text has not changed since — other sections landing in between refuses nothing. LF.3.1's
+  "the revision must be the latest" would have refused every section of a fan-out after the first.*
+- *The first new writing request, or the first edit, moves the draft `Outlined → Writing`, which closes the
+  plan. A refused request does not. The draft stays `Writing` when its last section lands; `Assembled` is
+  LF.3.4's.*
+- *A landed section is a new revision with one section changed and every other copied. If the creator edited
+  or settled the section after asking, the body is not put in: the proposal is kept and `GET /sections`
+  reports the request as `Superseded`.*
+- *A replay is answered before any check, on both routes. A retried request gets its first answer even after
+  that request has written the section or the draft has been accepted.*
+- *"Write the rest" queues, in plan order, every section with no text that is not settled and not already
+  being written. Its key becomes one stored key per section. With nothing to write it answers 202 and an
+  empty list.*
+- *Admission arithmetic: one peek of the account's remaining allowance and the cost of one run; the batch is
+  refused whole with `429`, `sectionsRequested` and `sectionsCoverable` when the floor of one over the other
+  is fewer than the sections it would queue. The peek is a snapshot. Each run still takes its own hold when
+  it starts, so two batches sent at once can both pass, and the sections the allowance then cannot cover
+  fail one by one and say so.*
+- *A settled section is skipped by "write the rest" and refuses a rewrite (`409`) until the mark is cleared.
+  An edit clears the mark. A blank edit makes a section unwritten again.*
+- *Text over the 3,000-character ceiling is saved and reported; over 12,000 it is a `400`.*
+- *New refusal codes: `content.long_form.draft.not_writable.conflict`, `.section.superseded.conflict`,
+  `.section.not_written.conflict`, `.section.settled.conflict`, `.section.invalid`; and
+  `ai.longFormSection.invalid_request` / `.not_enabled`. New audit actions for beginning to write, an edit,
+  settling and un-settling. The task is in the per-workspace switches and `LandedTasks`.*
+- *The OpenAPI snapshot gained five paths and twelve schemas and lost or changed nothing.*
+
+*Tests: the real worker on SQLite (`LongFormOutlineRequestSeamTests.Sections.cs`) for per-section idempotency,
+the allowance refused whole with its two counts, a rewrite leaving the others byte-identical, a run cancelled
+mid-fan-out, each wrong status, settle and un-settle, a creator's edit winning over a body in flight, and two
+workspaces on every path including a shared key and the sweep; the routes through the gateway
+(`LongFormDraftEndpointTests.Sections.cs`) for status codes, shapes, roles and isolation; and one SQL Server
+test that an edit and a settlement each move the token and refuse a stale writer.*
+
+*Known and left:*
+
+- *The plan is closed just before the request is queued. If queueing then fails, the plan stays closed with
+  nothing queued. Likewise a batch whose queueing is interrupted leaves some sections queued; a retry with the
+  same key returns those and does not queue the rest.*
+- *`GET /sections` finds a draft's requests by its id in the stored inputs and reads the newest 200. A draft
+  with more section requests than that stops reporting its oldest.*
+- *A body lands under the requester's membership as it was when they asked, even if they have since been
+  removed or demoted. The outline lands the same way.*
+- *No allowance refusal is tested over HTTP for these routes, and no per-request `GET`: the 202s point at
+  `GET /sections`.*
+- *No request schema in the snapshot marks its fields `required`, here or anywhere else; the validators do.*
+- *No Angular model or service for these routes. They come with LF.3.4's review screen.*
+
+## LF.3.4 Assembled document, review, and acceptance - done
 
 ```text
 SCOPE: Add the whole-document seam and screen: a deterministic assembler in the Content module that renders
@@ -643,6 +832,53 @@ for approval; implement with golden-file tests for a complete, a minimal, a reus
 special-character document, and with component, contract, accessibility and error-path specs covering the
 unsaved-edit guard, acceptance confirmation, and a long document at 200% zoom.
 ```
+
+*Delivered 2026-10-12 as `LongFormDocumentAssembler` and `ILongFormDocumentFacade` in the content module,
+`GET …/long-form-drafts/{draftId}/document` and `POST …/{draftId}/acceptance`, and
+`cp-long-form-document-review` in `features/long-form/`, with these differences from the prompt as written.*
+
+- *The assembled Markdown is each written section as `## ` plus the creator's heading (escaped to one inert
+  line), a blank line, and the body as stored with `\n` line endings and no trailing blank lines. No title,
+  no labels. An unwritten section is left out of the text and listed beside it.*
+- *The escaper is restated in the content module: `RecipeMarkdownEscaper` is internal to the recipes module
+  and only a facade crosses a module boundary. A test runs the two over the same lines and fails on drift.*
+- *There is no stored `Assembled` status. A draft goes `Writing → Accepted`; "assembled" is the projection.
+  The enum member is unused.*
+- *Acceptance points the draft at its latest revision and writes none. `confirmed` must list exactly the
+  issues the document has (`UnwrittenSections`, `OverCeiling`) — no fewer and no more — or the answer is
+  `422` with an `issues` extension. A document with nothing written cannot be accepted at all.*
+- *Accepted is final here: no edit, rewrite, settle or re-open. The way back is LF.6.1's `NeedsReview`.*
+- *Editorial attribution (B-36) is recorded as the names of the accepted parts a section was written from
+  ("tips", "headnote"), carried from the proposal into the section's provenance. It is not the accepted
+  editorial revision's id: the accepted-editorial read does not expose one. `ReusedEditorialRevisionId`
+  stays null. The attribution goes when the creator replaces the text with their own.*
+- *A section's warnings are those of the proposal that wrote its text as it reads now. A section the creator
+  wrote or edited has none, because LF.3.2 has not been run.*
+- *The screen is a component, not a routed page; the route and flow shell are LF.6.2's. Nothing in the app
+  shows it yet. It exposes `confirmDiscardIfDirty()` for that shell's leave guard.*
+- *Section text is shown as written — Markdown source with its line breaks — not rendered. Unsaved text is
+  held on the page only and the screen says so; it is not kept across a refresh.*
+- *The web models and service for LF.3.3's routes arrived here, as agreed there.*
+- *Renamed during review: the acceptance-issue enum and its service model shared one schema name, so the
+  snapshot described `confirmed` as a list of objects. The model is now `LongFormAcceptanceIssueDetail`.*
+
+*Tests: four golden files in `Tests/Content/Golden/LongForm/` held byte for byte (`UPDATE_LONG_FORM_GOLDEN=1`
+rewrites them), with determinism, escaper parity, a legacy revision with no attribution, and a document over
+its ceiling with no one section over; the real seam on SQLite for the document read, warnings, attribution,
+acceptance, exact confirmation, idempotent acceptance and two-workspace isolation; the two routes through the
+gateway; one SQL Server test that an acceptance composed before an edit is refused; and 128 web specs across
+the long-form models, services and both screens.*
+
+*Not covered, and not looked at:*
+
+- *The screen has never been opened in a browser — neither theme, not at 200% zoom, not at a narrow width.
+  "200% zoom" is a spec that holds a twelve-section document in a 320px column and asserts nothing scrolls
+  sideways. It proves layout, not rendering.*
+- *The whole path with a real model: `LiveLongFormSectionCheck` has never been run, so no generated section
+  has been read by a person.*
+- *Two acceptances racing each other on SQL Server. An acceptance racing an edit is covered.*
+- *The section card's styles are the post card's, copied into this feature's stylesheet. A shared review-card
+  composition would be the tidier home for both.*
 
 ---
 

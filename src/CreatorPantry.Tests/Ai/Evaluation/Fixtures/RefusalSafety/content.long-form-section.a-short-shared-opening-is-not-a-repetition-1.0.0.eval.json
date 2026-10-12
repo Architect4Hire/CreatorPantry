@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-section.a-short-shared-opening-is-not-a-repetition",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Two sections that both begin with the same two or three words are not saying the same thing.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Here is how I keep the dough light.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Tips",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "earlierOpenings": [
+      "Here is how"
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "repeats_earlier_section"
+    ]
+  }
+}

@@ -13,6 +13,12 @@ public interface ILongFormPlanBusiness
     /// </summary>
     IReadOnlyList<LongFormPlanFindingServiceModel> Check(
         LongFormKind kind, IReadOnlyList<LongFormPlanSectionServiceModel> sections);
+
+    /// <summary>
+    /// Measures one section's body against the section ceiling, counted the way a document is. Nothing is
+    /// trimmed and nothing is refused: over the ceiling is a fact about the body, reported to whoever asked.
+    /// </summary>
+    LongFormBodyMeasureServiceModel Measure(string body);
 }
 
 /// <inheritdoc cref="ILongFormPlanBusiness"/>
@@ -30,6 +36,15 @@ internal sealed class LongFormPlanBusiness : ILongFormPlanBusiness
         LongFormPolicy.TargetWords(kind),
         LongFormPolicy.HeadingMaxCharacters,
         LongFormPolicy.IntentMaxCharacters);
+
+    public LongFormBodyMeasureServiceModel Measure(string body)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+
+        var count = LongFormWordCounter.CountCharacters(body);
+
+        return new(count, LongFormPolicy.SectionMaxCharacters, count > LongFormPolicy.SectionMaxCharacters);
+    }
 
     public IReadOnlyList<LongFormPlanFindingServiceModel> Check(
         LongFormKind kind, IReadOnlyList<LongFormPlanSectionServiceModel> sections)

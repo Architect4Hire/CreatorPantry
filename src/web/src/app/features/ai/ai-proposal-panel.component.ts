@@ -210,6 +210,7 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   ChannelPost: 'Channel post',
   LongFormSectionPlan: 'Planned section',
   LongFormRecipePin: 'Recipe version used',
+  LongFormSectionBody: 'Section text',
 };
 
 /**

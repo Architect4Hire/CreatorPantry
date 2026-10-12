@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.a-keeping-time-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "The creator gave no storage notes, so a keeping time is advice with nothing behind it -- in the storage section as much as anywhere.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"The loaf keeps well for 5 days in an airtight tin, and freezes for up to 3 months.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Storage",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported"
+    ]
+  }
+}

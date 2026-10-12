@@ -1,3 +1,8 @@
+using CreatorPantry.Domain.Modules.Ai;
+using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Modules.Vocabulary;
+using CreatorPantry.Domain.Modules.Measurement;
+using Microsoft.Extensions.Configuration;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -170,6 +175,20 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
             // content module is the consumer that event fans out to.
             .AddOutbox()
             .AddContentModule()
+
+            // The content module's long-form section writes read the recipe versions a revision is pinned to
+            // through the recipes module's facade (LF.3.2), which is the first thing in this fixture to resolve
+            // that facade whole. It leans on the vocabulary and measurement modules and on idempotency, exactly
+            // as it does in every real host. Additive for every other test in this folder.
+            .AddVocabularyModule()
+            .AddMeasurementModule()
+            .AddAiClaimScanning()
+            .AddIdempotency(new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
+                })
+                .Build())
 
             // The content module retires its cached themed-day histories after a write, as every real host
             // lets it: both register a cache. In memory here, which is all a single test process needs.

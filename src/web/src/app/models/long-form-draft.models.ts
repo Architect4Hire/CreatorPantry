@@ -25,7 +25,7 @@ import { decodeEnum, isRecord, isStringOrNull } from './recipe.models';
 /** Mirrors `LongFormKind`. */
 export type LongFormKind = 'BlogArticle' | 'NewsletterIssue';
 
-const LONG_FORM_KIND_VALUES: ReadonlySet<string> = new Set<LongFormKind>([
+export const LONG_FORM_KIND_VALUES: ReadonlySet<string> = new Set<LongFormKind>([
   'BlogArticle',
   'NewsletterIssue',
 ]);
@@ -33,7 +33,7 @@ const LONG_FORM_KIND_VALUES: ReadonlySet<string> = new Set<LongFormKind>([
 /** Mirrors `LongFormDraftStatus`: where a draft stands. Not a publication state. */
 export type LongFormDraftStatus = 'Draft' | 'Outlined' | 'Writing' | 'Assembled' | 'Accepted' | 'NeedsReview';
 
-const LONG_FORM_DRAFT_STATUS_VALUES: ReadonlySet<string> = new Set<LongFormDraftStatus>([
+export const LONG_FORM_DRAFT_STATUS_VALUES: ReadonlySet<string> = new Set<LongFormDraftStatus>([
   'Draft',
   'Outlined',
   'Writing',
@@ -62,7 +62,7 @@ export type LongFormSectionRole =
   | 'Aside'
   | 'Signoff';
 
-const LONG_FORM_SECTION_ROLE_VALUES: ReadonlySet<string> = new Set<LongFormSectionRole>([
+export const LONG_FORM_SECTION_ROLE_VALUES: ReadonlySet<string> = new Set<LongFormSectionRole>([
   'Hook',
   'Context',
   'WhyItWorks',
@@ -85,10 +85,47 @@ const LONG_FORM_SECTION_ROLE_VALUES: ReadonlySet<string> = new Set<LongFormSecti
 /** Mirrors `ContentRevisionSource`, as a long-form revision carries it. */
 export type LongFormRevisionSource = 'AiGenerated' | 'CreatorEdit' | 'Reaffirmed';
 
-const LONG_FORM_REVISION_SOURCE_VALUES: ReadonlySet<string> = new Set<LongFormRevisionSource>([
+export const LONG_FORM_REVISION_SOURCE_VALUES: ReadonlySet<string> = new Set<LongFormRevisionSource>([
   'AiGenerated',
   'CreatorEdit',
   'Reaffirmed',
+]);
+
+/** Mirrors `LongFormWordTargetStatus`: where a document's word count sits against its kind's target. */
+export type LongFormWordTargetStatus = 'NotAssessed' | 'Within' | 'Under' | 'Over';
+
+export const LONG_FORM_WORD_TARGET_STATUS_VALUES: ReadonlySet<string> = new Set<LongFormWordTargetStatus>([
+  'NotAssessed',
+  'Within',
+  'Under',
+  'Over',
+]);
+
+/** Mirrors `LongFormAcceptanceIssue`: what a creator must acknowledge to accept an unfinished document. */
+export type LongFormAcceptanceIssue = 'UnwrittenSections' | 'OverCeiling';
+
+export const LONG_FORM_ACCEPTANCE_ISSUE_VALUES: ReadonlySet<string> = new Set<LongFormAcceptanceIssue>([
+  'UnwrittenSections',
+  'OverCeiling',
+]);
+
+/** Mirrors `LongFormFindingKind`: what kind of thing the claim scanner found in a section. */
+export type LongFormFindingKind = 'UnverifiedClaim' | 'SafetyCaution' | 'Limitation';
+
+export const LONG_FORM_FINDING_KIND_VALUES: ReadonlySet<string> = new Set<LongFormFindingKind>([
+  'UnverifiedClaim',
+  'SafetyCaution',
+  'Limitation',
+]);
+
+/** Mirrors `LongFormSectionRequestOutcome`: where the latest request to write a section has got to. */
+export type LongFormSectionRequestOutcome = 'Waiting' | 'Written' | 'Superseded' | 'Failed';
+
+export const LONG_FORM_SECTION_REQUEST_OUTCOME_VALUES: ReadonlySet<string> = new Set<LongFormSectionRequestOutcome>([
+  'Waiting',
+  'Written',
+  'Superseded',
+  'Failed',
 ]);
 
 // ---------------------------------------------------------------------------

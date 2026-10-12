@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.a-sound-faq-section-validates",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A hand-written Faq section of the kind the task asks for: it validates, is stored whole against the section it was asked for, and nothing is flagged. A check of shape and of a clean scan, not of how well it is written.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"**Do I need to knead the dough?**\\n\\nNo. Stir in the buttermilk until the dough comes together and stop there.\\n\\n**How long does it bake?**\\n\\nBake for 45 minutes.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Faq",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "kind": "BlogArticle"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

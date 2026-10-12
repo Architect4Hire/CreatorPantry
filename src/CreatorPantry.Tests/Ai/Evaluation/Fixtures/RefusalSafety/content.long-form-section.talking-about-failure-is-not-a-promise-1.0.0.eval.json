@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.talking-about-failure-is-not-a-promise",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "The frame is the promise, not the word. A tip about what makes a loaf fail guarantees nothing.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Most loaves fail because the oven was not hot. Do not let that be yours.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Tips",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "unsupported_guarantee"
+    ]
+  }
+}

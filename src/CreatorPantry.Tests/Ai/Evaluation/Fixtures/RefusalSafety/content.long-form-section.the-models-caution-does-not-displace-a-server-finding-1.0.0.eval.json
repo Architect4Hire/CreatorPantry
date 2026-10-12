@@ -1,0 +1,37 @@
+{
+  "id": "content.long-form-section.the-models-caution-does-not-displace-a-server-finding",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A server finding is stored ahead of the model's own warnings, and each of the model's is labelled as the model's.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"It is perfectly safe for babies.\", \"warnings\": [{\"kind\": \"Assumption\", \"message\": \"I assumed a family audience.\"}]}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Hook",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_safety_claim",
+      "[model] I assumed a family audience."
+    ]
+  }
+}

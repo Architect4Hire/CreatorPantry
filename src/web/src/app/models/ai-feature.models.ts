@@ -40,6 +40,7 @@ const COPY: Readonly<Record<string, AiFeatureCopy>> = {
   'content.seo-package': { area: 'Writing', label: 'SEO package', hint: 'Titles, descriptions and key phrases for an approved recipe.' },
   'content.channel-posts': { area: 'Writing', label: 'Social posts', hint: 'Posts written for the channels you pick.' },
   'content.long-form-outline': { area: 'Writing', label: 'Article and newsletter plans', hint: 'A section plan for a blog article or newsletter issue, for you to edit and approve.' },
+  'content.long-form-section': { area: 'Writing', label: 'Article and newsletter sections', hint: 'The text of each section of an approved plan, written one section at a time for you to edit.' },
   'brand.guide-proposal': { area: 'Brand', label: 'Brand guide suggestions', hint: 'Proposes a style guide from your own brand documents.' },
   'brand.style-test-drive': { area: 'Brand', label: 'Style test drive', hint: 'Compares a sample written with and without your style guide.' },
   'image.photography-concept': { area: 'Pictures', label: 'Photography concepts', hint: 'Shoot ideas for a recipe or an idea, each with a shot list.' },

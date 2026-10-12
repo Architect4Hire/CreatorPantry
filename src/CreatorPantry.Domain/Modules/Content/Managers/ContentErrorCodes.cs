@@ -210,4 +210,49 @@ public static class ContentErrorCodes
     public const string LongFormSourceUnprocessable = "content.long_form.source.unprocessable";
 
     public const string LongFormCursorInvalid = "content.long_form.cursor.invalid";
+
+    /// <summary>A section was asked for on a draft whose plan the creator has not approved (LF.3.1).</summary>
+    public const string LongFormPlanNotApproved = "content.long_form.plan.not_approved.conflict";
+
+    /// <summary>A section was asked for on a draft that has been accepted and is the article of record.</summary>
+    public const string LongFormDraftAccepted = "content.long_form.draft.accepted.conflict";
+
+    /// <summary>A section was asked for against a revision that is no longer the draft's latest.</summary>
+    public const string LongFormRevisionStale = "content.long_form.revision.stale.conflict";
+
+    /// <summary>The section named is not in the revision named.</summary>
+    public const string LongFormSectionNotFound = "content.long_form.section.not_found";
+
+    /// <summary>
+    /// A section was asked for, edited or settled on a draft that is neither approved nor being written (LF.3.3).
+    /// </summary>
+    public const string LongFormDraftNotWritable = "content.long_form.draft.not_writable.conflict";
+
+    /// <summary>
+    /// A generated body was not put in its section, because the creator changed or settled that section after
+    /// asking for it. The proposal is kept; the section is as the creator left it.
+    /// </summary>
+    public const string LongFormSectionSuperseded = "content.long_form.section.superseded.conflict";
+
+    /// <summary>A section with no text was asked to be marked settled.</summary>
+    public const string LongFormSectionNotWritten = "content.long_form.section.not_written.conflict";
+
+    /// <summary>A settled section was asked to be written again. Clear the mark first.</summary>
+    public const string LongFormSectionSettled = "content.long_form.section.settled.conflict";
+
+    /// <summary>A section edit or settle request is not one that could be kept: its shape.</summary>
+    public const string LongFormSectionInvalid = "content.long_form.section.invalid";
+
+    /// <summary>An acceptance request is not one that could be read: its shape (LF.3.4).</summary>
+    public const string LongFormAcceptanceInvalid = "content.long_form.acceptance.invalid";
+
+    /// <summary>
+    /// The document has something wrong with it that the acceptance did not confirm. The <c>issues</c> extension
+    /// lists everything wrong, with the sections concerned; nothing was accepted.
+    /// </summary>
+    public const string LongFormAcceptanceConfirmationRequired =
+        "content.long_form.acceptance.confirmation_required.unprocessable";
+
+    /// <summary>No section of the piece has any text, so there is no document to accept.</summary>
+    public const string LongFormAcceptanceNothingWritten = "content.long_form.acceptance.nothing_written.unprocessable";
 }

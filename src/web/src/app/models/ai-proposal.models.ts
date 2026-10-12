@@ -326,7 +326,8 @@ export type AiChangeTargetKind =
   /** One planned section of a long-form piece (LF.2.1): a heading, with its role and intent beside it. */
   | 'LongFormSectionPlan'
   /** One recipe version a long-form plan was written against (LF.2.2). Provenance, never a change to accept. */
-  | 'LongFormRecipePin';
+  | 'LongFormRecipePin'
+  | 'LongFormSectionBody';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -353,6 +354,7 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'ChannelPost',
   'LongFormSectionPlan',
   'LongFormRecipePin',
+  'LongFormSectionBody',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

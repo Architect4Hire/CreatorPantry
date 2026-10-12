@@ -39,6 +39,11 @@ public sealed record LongFormDocument(IReadOnlyList<LongFormSection> Sections)
 /// For a newsletter item, the creative-context reference it covers, as the revision's recipe pin recorded it.
 /// </param>
 /// <param name="Provenance">Where the body came from, or null while there is none.</param>
+/// <param name="Findings">
+/// What the claim scanner found in the body as it reads in this revision (LF.3.2): cautions for the creator,
+/// recorded when the body was written and never a reason it was refused. Null when there is no body, and on a
+/// revision stored before the scanner existed.
+/// </param>
 public sealed record LongFormSection(
     Guid Id,
     LongFormSectionRole Role,
@@ -47,7 +52,8 @@ public sealed record LongFormSection(
     string? Body,
     bool Settled,
     Guid? SourceReferenceId,
-    LongFormSectionProvenance? Provenance);
+    LongFormSectionProvenance? Provenance,
+    IReadOnlyList<LongFormSectionFinding>? Findings = null);
 
 /// <summary>Where one section's body came from.</summary>
 /// <param name="Source">Generated, or the creator's own edit.</param>
@@ -56,6 +62,11 @@ public sealed record LongFormSection(
 /// The accepted editorial revision this body reuses prose from, so it can be attributed (B-36).
 /// </param>
 /// <param name="WrittenInRevisionNumber">The revision in which this body first appeared as it reads now.</param>
+/// <param name="ReusedEditorialParts">
+/// The parts of an accepted editorial package this body was written from, by name — <c>tips</c>,
+/// <c>headnote</c> — so the screen can say whose words it began as (B-36, LF.3.4). Null or empty when none.
+/// Added after the first documents were stored; one written before it simply has none.
+/// </param>
 public sealed record LongFormSectionProvenance(
     ContentRevisionSource Source,
     Guid? AiProposalId,
@@ -63,4 +74,5 @@ public sealed record LongFormSectionProvenance(
     string? PromptTemplateVersion,
     string? PromptTemplateBodyChecksum,
     Guid? ReusedEditorialRevisionId,
-    int WrittenInRevisionNumber);
+    int WrittenInRevisionNumber,
+    IReadOnlyList<string>? ReusedEditorialParts = null);

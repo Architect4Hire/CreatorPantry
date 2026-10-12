@@ -290,4 +290,15 @@ public enum AiChangeTargetKind
     /// <c>AiChangeApplicability</c>, and never a row a creator accepts or rejects.
     /// </remarks>
     LongFormRecipePin = 23,
+
+    /// <summary>
+    /// The body of one section of a long-form piece, of <see cref="AiTaskType.LongFormSection"/> (LF.3.1).
+    /// </summary>
+    /// <remarks>
+    /// One target — the section's own id in the draft's plan. The body is stored whole as one or more
+    /// <see cref="AiChangeKind.Set"/> rows, in order, and the revision it was written against as another, under
+    /// the names <see cref="LongFormSectionFields"/> defines. Deliberately absent from
+    /// <c>AiChangeApplicability</c>: a section is prose about a recipe and never becomes recipe data.
+    /// </remarks>
+    LongFormSectionBody = 24,
 }

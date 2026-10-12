@@ -33,7 +33,7 @@ namespace CreatorPantry.Tests.Content;
 /// for every test and would prove nothing about the rest of the seam. One test turns it back off.
 /// </para>
 /// </remarks>
-public sealed class LongFormDraftEndpointTests : IAsyncLifetime
+public sealed partial class LongFormDraftEndpointTests : IAsyncLifetime
 {
     private TwoWorkspaceGatewayFixture _fixture = null!;
 
@@ -41,6 +41,7 @@ public sealed class LongFormDraftEndpointTests : IAsyncLifetime
     {
         _fixture = await TwoWorkspaceGatewayFixture.CreateAsync();
         Tasks.Enabled.Add(AiTaskCatalog.LongFormOutline);
+        Tasks.Enabled.Add(AiTaskCatalog.LongFormSection);
     }
 
     public ValueTask DisposeAsync() => _fixture.DisposeAsync();

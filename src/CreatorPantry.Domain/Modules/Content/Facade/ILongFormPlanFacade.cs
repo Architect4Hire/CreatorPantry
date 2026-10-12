@@ -25,6 +25,9 @@ public interface ILongFormPlanFacade
     /// <inheritdoc cref="ILongFormPlanBusiness.Check"/>
     IReadOnlyList<LongFormPlanFindingServiceModel> Check(
         LongFormKind kind, IReadOnlyList<LongFormPlanSectionServiceModel> sections);
+
+    /// <inheritdoc cref="ILongFormPlanBusiness.Measure" />
+    LongFormBodyMeasureServiceModel Measure(string body);
 }
 
 /// <inheritdoc cref="ILongFormPlanFacade"/>
@@ -35,4 +38,6 @@ internal sealed class LongFormPlanFacade(ILongFormPlanBusiness business) : ILong
     public IReadOnlyList<LongFormPlanFindingServiceModel> Check(
         LongFormKind kind, IReadOnlyList<LongFormPlanSectionServiceModel> sections) =>
         business.Check(kind, sections);
+
+    public LongFormBodyMeasureServiceModel Measure(string body) => business.Measure(body);
 }

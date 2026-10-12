@@ -481,6 +481,21 @@ public static class AiOutputReason
     /// <summary>A warning is blank, too long, undeclared, one too many, or about a channel nobody requested.</summary>
     public const string ChannelPostsWarningInvalid = "ai.output.channel_posts_warning_invalid";
 
+    /// <summary>A section's answer has no body (LF.3.1).</summary>
+    public const string LongFormSectionBodyInvalid = "ai.output.long_form_section_body_invalid";
+
+    /// <summary>
+    /// A section's body is too long to be one section at all. Not the section ceiling: a body over that is
+    /// stored whole and flagged.
+    /// </summary>
+    public const string LongFormSectionBodyTooLong = "ai.output.long_form_section_body_too_long";
+
+    /// <summary>A section's body carries a heading, a link, an address, a table, HTML or code.</summary>
+    public const string LongFormSectionMarkupInvalid = "ai.output.long_form_section_markup_invalid";
+
+    /// <summary>A section's warning is blank, too long, undeclared, one too many, or imitates a server finding.</summary>
+    public const string LongFormSectionWarningInvalid = "ai.output.long_form_section_warning_invalid";
+
     /// <summary>An outline proposes no section, or more than a plan may hold (LF.2.1).</summary>
     public const string LongFormOutlineSectionsInvalid = "ai.output.long_form_outline_sections_invalid";
 

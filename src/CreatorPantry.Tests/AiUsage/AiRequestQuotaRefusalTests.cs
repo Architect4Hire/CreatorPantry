@@ -368,7 +368,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         //
         // Seventeen since LF.2.2's outline request, which starts a long-form draft: the first of the dozen
         // generations an article takes, and the one that decides how many follow.
-        Assert.Equal(17, seams.Count);
+        Assert.Equal(18, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()

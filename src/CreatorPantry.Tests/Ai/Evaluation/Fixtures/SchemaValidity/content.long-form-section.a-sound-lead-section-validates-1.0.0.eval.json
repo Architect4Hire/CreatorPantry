@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.a-sound-lead-section-validates",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A hand-written Lead section of the kind the task asks for: it validates, is stored whole against the section it was asked for, and nothing is flagged. A check of shape and of a clean scan, not of how well it is written.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"This issue is about bread for people who think they cannot bake bread. There is one loaf in it, and it will not ask much of you.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Lead",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "kind": "NewsletterIssue"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

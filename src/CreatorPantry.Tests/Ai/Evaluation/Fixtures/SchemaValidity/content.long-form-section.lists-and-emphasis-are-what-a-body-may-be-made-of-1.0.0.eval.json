@@ -1,0 +1,34 @@
+{
+  "id": "content.long-form-section.lists-and-emphasis-are-what-a-body-may-be-made-of",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A bulleted list, a numbered list, bold and italics are the whole of what a body may use, and all four validate together.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"A few things that *really* help:\\n\\n- Stir until the dough **only just** holds.\\n- Have the oven hot first.\\n\\n1. Mix the dry ingredients.\\n2. Stir in the buttermilk.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Tips",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

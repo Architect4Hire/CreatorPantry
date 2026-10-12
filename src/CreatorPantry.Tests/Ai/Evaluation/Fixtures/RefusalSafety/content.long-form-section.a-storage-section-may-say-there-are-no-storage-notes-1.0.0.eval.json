@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.a-storage-section-may-say-there-are-no-storage-notes",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "In the storage section the word storage is what the section is about. A body that only says the creator gave no notes has given no advice, and is not flagged for it.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"The creator has not given storage or reheating notes for this loaf.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Storage",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "unsupported_storage_guidance"
+    ]
+  }
+}

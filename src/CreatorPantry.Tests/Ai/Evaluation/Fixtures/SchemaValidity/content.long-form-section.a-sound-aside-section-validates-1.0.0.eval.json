@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.a-sound-aside-section-validates",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A hand-written Aside section of the kind the task asks for: it validates, is stored whole against the section it was asked for, and nothing is flagged. A check of shape and of a clean scan, not of how well it is written.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"A small thing: a wooden spoon is better than a whisk here. The dough is sticky, and a whisk will only hold on to it.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Aside",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "kind": "NewsletterIssue"
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

@@ -267,7 +267,8 @@ internal sealed class LongFormDraftBusiness(
                 existing?.Body,
                 existing?.Settled ?? false,
                 submitted.SourceReferenceId,
-                existing?.Provenance));
+                existing?.Provenance,
+                existing?.Findings));
         }
 
         if (failures.Count > 0)

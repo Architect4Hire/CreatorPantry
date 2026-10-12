@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-section.a-section-that-shares-a-few-words-with-its-predecessor-is-not-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Two sections about one loaf will share words. Only a repeated opening is reported.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Soda bread has always been the quick loaf, made on afternoons when there is no time for yeast.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Context",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "earlierOpenings": [
+      "Some breads ask for a whole afternoon and this one does not."
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "repeats_earlier_section"
+    ]
+  }
+}

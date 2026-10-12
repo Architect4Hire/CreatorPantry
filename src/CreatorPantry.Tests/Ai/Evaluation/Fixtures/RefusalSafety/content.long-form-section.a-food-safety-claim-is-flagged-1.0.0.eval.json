@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.a-food-safety-claim-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A body may not say the food is safe. The claim is found and reported beside the section; the section is not thrown away.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"**Can children eat it?**\\n\\nYes, it is perfectly safe for babies and toddlers.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Faq",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

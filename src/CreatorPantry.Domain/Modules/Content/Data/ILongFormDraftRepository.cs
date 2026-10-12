@@ -18,6 +18,9 @@ public interface ILongFormDraftRepository
     /// <summary>The revision with the highest number, which is the draft's current state; null when it has none.</summary>
     Task<LongFormRevision?> FindLatestRevisionAsync(Guid draftId, CancellationToken cancellationToken);
 
+    /// <summary>One revision of a draft by its number, or null when the draft has none with it.</summary>
+    Task<LongFormRevision?> FindRevisionAsync(Guid draftId, int revisionNumber, CancellationToken cancellationToken);
+
     Task<bool> HasRevisionForProposalAsync(Guid draftId, Guid aiProposalId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<LongFormRevisionRecipePin>> ListPinsAsync(Guid revisionId, CancellationToken cancellationToken);
@@ -52,6 +55,13 @@ internal sealed class LongFormDraftRepository(CreatorPantryDbContext context) : 
             .Where(revision => revision.LongFormDraftId == draftId)
             .OrderByDescending(revision => revision.RevisionNumber)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<LongFormRevision?> FindRevisionAsync(Guid draftId, int revisionNumber, CancellationToken cancellationToken) =>
+        context.LongFormRevisions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                revision => revision.LongFormDraftId == draftId && revision.RevisionNumber == revisionNumber,
+                cancellationToken);
 
     public Task<bool> HasRevisionForProposalAsync(Guid draftId, Guid aiProposalId, CancellationToken cancellationToken) =>
         context.LongFormRevisions

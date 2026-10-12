@@ -103,6 +103,17 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<ILongFormDraftDataLayer, LongFormDraftDataLayer>();
         services.AddScoped<ILongFormDraftBusiness, LongFormDraftBusiness>();
         services.AddScoped<ILongFormDraftFacade, LongFormDraftFacade>();
+        // The section writes scan every body through the AI module's claim scanners, reached by its facade
+        // (IAiClaimScanFacade). That facade is the AI module's to register — AddAiModule does — so a host that
+        // registers this module without that one adds AddAiClaimScanning itself.
+        services.AddScoped<ILongFormClaimSourceReader, LongFormClaimSourceReader>();
+        services.AddScoped<ILongFormSectionBusiness, LongFormSectionBusiness>();
+        services.AddScoped<ILongFormSectionFacade, LongFormSectionFacade>();
+        services.AddScoped<IValidator<EditLongFormSectionViewModel>, EditLongFormSectionViewModelValidator>();
+        services.AddScoped<IValidator<SettleLongFormSectionViewModel>, SettleLongFormSectionViewModelValidator>();
+        services.AddScoped<ILongFormDocumentBusiness, LongFormDocumentBusiness>();
+        services.AddScoped<ILongFormDocumentFacade, LongFormDocumentFacade>();
+        services.AddScoped<IValidator<AcceptLongFormDocumentViewModel>, AcceptLongFormDocumentViewModelValidator>();
         services.AddScoped<IValidator<PatchLongFormPlanViewModel>, PatchLongFormPlanViewModelValidator>();
         services.AddScoped<IValidator<ApproveLongFormPlanViewModel>, ApproveLongFormPlanViewModelValidator>();
         services.AddScoped<IValidator<LongFormDraftListViewModel>, LongFormDraftListViewModelValidator>();

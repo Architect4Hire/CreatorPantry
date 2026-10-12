@@ -1,0 +1,72 @@
+/* The summary, each section and the closing action, a form's own distance apart. */
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
+}
+
+/* One section of the piece: the same card a post is reviewed in (AF.6.5), one to a row because a section is
+   read, not scanned. min-width: 0 so a long unbroken word cannot hold the column open past the page. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  min-width: 0;
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+  scroll-margin-top: var(--cp-space-6);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.name {
+  margin: 0;
+  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+  overflow-wrap: anywhere;
+}
+
+.marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+/* The figure beside the pill. Tabular digits so a live count does not shift the row as it changes. */
+.count {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The words as written, including the line breaks the creator typed, held to a reading measure. */
+.body-read {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.body {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+  font: inherit;
+}
+
+.findings,
+.issues {
+  display: grid;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

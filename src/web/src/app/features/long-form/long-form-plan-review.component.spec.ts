@@ -747,21 +747,26 @@ describe('LongFormPlanReviewComponent', () => {
   });
 
   it('holds a browser close while there are unsaved edits, and only then', async () => {
+    // The listener is captured and called directly: dispatching a real `beforeunload` on the window is what
+    // the test runner itself listens for, and it reads one as the page having reloaded.
+    const listen = spyOn(window, 'addEventListener').and.callThrough();
+    const unlisten = spyOn(window, 'removeEventListener').and.callThrough();
     await create();
 
+    const handler = listen.calls.allArgs().find(([kind]) => kind === 'beforeunload')?.[1] as (event: Event) => void;
+    expect(handler).toBeDefined();
+
     const clean = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(clean);
+    handler(clean);
     expect(clean.defaultPrevented).toBeFalse();
 
     await type(headingInput(0), 'Unsaved');
     const dirty = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(dirty);
+    handler(dirty);
     expect(dirty.defaultPrevented).toBeTrue();
 
     fixture.destroy();
-    const after = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(after);
-    expect(after.defaultPrevented).toBeFalse();
+    expect(unlisten.calls.allArgs().some(([kind, removed]) => kind === 'beforeunload' && removed === handler)).toBeTrue();
   });
 
   it('does not replace unsaved edits with a plan that arrives while the creator is typing', async () => {

@@ -17,6 +17,8 @@ using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Content;
+using CreatorPantry.Domain.Modules.Recipes;
+using CreatorPantry.Domain.Modules.Content.Business;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
@@ -55,7 +57,7 @@ namespace CreatorPantry.Tests.Ai;
 /// concurrency; the endpoint tests do that against SQL Server.
 /// </para>
 /// </remarks>
-public sealed class LongFormOutlineRequestSeamTests : IAsyncDisposable
+public sealed partial class LongFormOutlineRequestSeamTests : IAsyncDisposable
 {
     private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid WorkspaceB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -69,11 +71,13 @@ public sealed class LongFormOutlineRequestSeamTests : IAsyncDisposable
     private readonly ServiceProvider _provider;
     private readonly AiTaskOptions _tasks = new();
     private readonly ScriptedTaskHandler _handler = new();
+    private readonly ScriptedTaskHandler _sectionHandler = new();
 
     public LongFormOutlineRequestSeamTests()
     {
         _connection.Open();
         _tasks.Enabled.Add(AiTaskCatalog.LongFormOutline);
+        _tasks.Enabled.Add(AiTaskCatalog.LongFormSection);
 
         _provider = new ServiceCollection()
             .AddLogging()
@@ -85,6 +89,11 @@ public sealed class LongFormOutlineRequestSeamTests : IAsyncDisposable
             .AddAiTaskGate()
             .AddAiUsageModule()
             .AddContentModule()
+
+            // After the module, for the same reason as the stub below it: the section writes read the recipe
+            // versions a revision is pinned to (LF.3.2), and this fixture does not carry the recipes module.
+            .AddScoped<ILongFormClaimSourceReader, PinnedBread>()
+            .AddAiClaimScanning()
 
             // After the module, so this is the registration that resolves: see the remarks on the stub.
             .AddScoped<ICreativeContextFacade, ContextsFromTheDatabase>()
@@ -101,6 +110,12 @@ public sealed class LongFormOutlineRequestSeamTests : IAsyncDisposable
             .AddScoped<IValidator<RequestLongFormOutlineViewModel>, RequestLongFormOutlineViewModelValidator>()
             .AddKeyedSingleton<IAiTaskHandler>(AiTaskType.LongFormOutline, _handler)
             .AddKeyedScoped<IAiProposalLandingHandler, LongFormOutlineProposalLanding>(AiTaskType.LongFormOutline)
+            .AddScoped<IAiLongFormSectionRequestBusiness, AiLongFormSectionRequestBusiness>()
+            .AddScoped<IAiLongFormSectionRequestFacade, AiLongFormSectionRequestFacade>()
+            .AddScoped<IValidator<RequestLongFormSectionViewModel>, RequestLongFormSectionViewModelValidator>()
+            .AddScoped<IValidator<RequestLongFormSectionBatchViewModel>, RequestLongFormSectionBatchViewModelValidator>()
+            .AddKeyedSingleton<IAiTaskHandler>(AiTaskType.LongFormSection, _sectionHandler)
+            .AddKeyedScoped<IAiProposalLandingHandler, LongFormSectionProposalLanding>(AiTaskType.LongFormSection)
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
                 .ReplaceService<IModelCustomizer, SqliteModelCustomizer>())
@@ -630,6 +645,191 @@ public sealed class LongFormOutlineRequestSeamTests : IAsyncDisposable
 
     // ---- Helpers ----
 
+    // ---- LF.3.1: what the writer of one section is given about the draft ----
+
+    [Fact]
+    public async Task An_approved_plan_can_be_read_for_writing_one_of_its_sections_with_the_recipes_it_was_pinned_to()
+    {
+        var contextId = await SeedContextAsync(WorkspaceA);
+        var bread = await SeedRecipeReferenceAsync(WorkspaceA, contextId, 0);
+        var draft = await ApprovedDraftAsync(WorkspaceA, contextId, [bread], "key-1");
+        var middle = draft.Latest!.Sections[1];
+
+        var read = await WritingContextAsync(WorkspaceA, draft.Id, 1, middle.Id);
+
+        Assert.True(read.Succeeded, read.Error?.Code);
+        var writing = read.Value!;
+
+        Assert.Equal(draft.Id, writing.DraftId);
+        Assert.Equal(contextId, writing.CreativeContextId);
+        Assert.Equal(LongFormKind.BlogArticle, writing.Kind);
+        Assert.Equal(1, writing.RevisionNumber);
+        Assert.Equal(1, writing.TargetIndex);
+        Assert.Equal(Article.Select(section => section.Heading), writing.Sections.Select(section => section.Heading));
+
+        // A plan holds no prose yet: nothing is written, so there is no opening to show and no body to replace.
+        Assert.Null(writing.CurrentBody);
+        Assert.All(writing.Sections, section => Assert.Null(section.FirstLine));
+
+        var pin = Assert.Single(writing.Pins);
+        Assert.Equal((bread.ReferenceId, bread.RecipeId, bread.VersionId), (pin.ReferenceId, pin.RecipeId, pin.RecipeVersionId));
+    }
+
+    [Fact]
+    public async Task A_section_cannot_be_written_before_the_plan_is_approved_or_against_a_revision_that_has_moved_on()
+    {
+        var contextId = await SeedContextAsync(WorkspaceA);
+        var started = (await StartAsync(WorkspaceA, contextId, LongFormKind.BlogArticle, "key-1")).Result.Value!;
+        _handler.Behavior = (context, _) => Task.FromResult(PlanProposal(context, contextId, [], Article));
+        await RunPendingAsync();
+
+        var landed = await DraftAsync(WorkspaceA, started.Draft.Id);
+        var section = landed.Latest!.Sections[0];
+
+        Assert.Equal(
+            ContentErrorCodes.LongFormPlanNotApproved,
+            (await WritingContextAsync(WorkspaceA, landed.Id, 1, section.Id)).Error!.Code);
+
+        await DraftsAsync(WorkspaceA, facade => facade.ApprovePlanAsync(
+            AccountA,
+            landed.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = landed.ConcurrencyToken, RevisionNumber = 1 },
+            Ct));
+
+        // A revision that is not the latest, and one that never existed, get the same answer.
+        Assert.Equal(
+            ContentErrorCodes.LongFormRevisionStale,
+            (await WritingContextAsync(WorkspaceA, landed.Id, 2, section.Id)).Error!.Code);
+
+        // A section that is not in the plan — another draft's, or nobody's.
+        Assert.Equal(
+            ContentErrorCodes.LongFormSectionNotFound,
+            (await WritingContextAsync(WorkspaceA, landed.Id, 1, Guid.NewGuid())).Error!.Code);
+    }
+
+    [Fact]
+    public async Task An_accepted_draft_has_no_more_sections_written()
+    {
+        var contextId = await SeedContextAsync(WorkspaceA);
+        var draft = await ApprovedDraftAsync(WorkspaceA, contextId, [], "key-1");
+
+        using (var scope = _provider.CreateScope())
+        {
+            Resolve(scope, WorkspaceA);
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var row = await db.LongFormDrafts.SingleAsync(Ct);
+            row.Status = LongFormDraftStatus.Accepted;
+            row.AcceptedRevisionId = (await db.LongFormRevisions.AsNoTracking().SingleAsync(Ct)).Id;
+            row.AcceptedAt = Now;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(
+            ContentErrorCodes.LongFormDraftAccepted,
+            (await WritingContextAsync(WorkspaceA, draft.Id, 1, draft.Latest!.Sections[0].Id)).Error!.Code);
+    }
+
+    [Fact]
+    public async Task One_workspace_cannot_read_anothers_plan_to_write_a_section_of_it()
+    {
+        var contextA = await SeedContextAsync(WorkspaceA);
+        var contextB = await SeedContextAsync(WorkspaceB);
+        var a = await ApprovedDraftAsync(WorkspaceA, contextA, [], "key-1");
+        var b = await ApprovedDraftAsync(WorkspaceB, contextB, [], "key-1");
+        var sectionOfA = a.Latest!.Sections[0].Id;
+
+        // B, asking by A's ids: the draft is not there to be asked about, which is also what an unknown id gets.
+        var asB = await WritingContextAsync(WorkspaceB, a.Id, 1, sectionOfA);
+        Assert.Equal(ContentErrorCodes.LongFormDraftNotFound, asB.Error!.Code);
+        Assert.Equal(
+            asB.Error.Message,
+            (await WritingContextAsync(WorkspaceB, Guid.NewGuid(), 1, sectionOfA)).Error!.Message);
+
+        // B's own draft cannot be made to answer for a section of A's.
+        Assert.Equal(
+            ContentErrorCodes.LongFormSectionNotFound,
+            (await WritingContextAsync(WorkspaceB, b.Id, 1, sectionOfA)).Error!.Code);
+
+        // A wrong revision of A's draft is still a draft that is not there, not a revision that has moved on.
+        Assert.Equal(
+            ContentErrorCodes.LongFormDraftNotFound,
+            (await WritingContextAsync(WorkspaceB, a.Id, 9, sectionOfA)).Error!.Code);
+
+        // And each still reads its own.
+        Assert.True((await WritingContextAsync(WorkspaceA, a.Id, 1, sectionOfA)).Succeeded);
+        Assert.Equal(contextB, (await WritingContextAsync(WorkspaceB, b.Id, 1, b.Latest!.Sections[0].Id)).Value!.CreativeContextId);
+    }
+
+    [Fact]
+    public async Task Anothers_draft_is_not_there_whatever_state_it_is_in_and_its_pins_are_never_read()
+    {
+        var contextA = await SeedContextAsync(WorkspaceA);
+        var contextB = await SeedContextAsync(WorkspaceB);
+        var breadOfA = await SeedRecipeReferenceAsync(WorkspaceA, contextA, 0);
+
+        // A's draft has a plan nobody has approved. Asked as B, that is not "not approved": it is not there.
+        var started = (await StartAsync(WorkspaceA, contextA, LongFormKind.BlogArticle, "key-1")).Result.Value!;
+        _handler.Behavior = (context, _) => Task.FromResult(PlanProposal(context, contextA, [breadOfA], Article));
+        await RunPendingAsync();
+        var unapproved = await DraftAsync(WorkspaceA, started.Draft.Id);
+
+        Assert.Equal(
+            ContentErrorCodes.LongFormDraftNotFound,
+            (await WritingContextAsync(WorkspaceB, unapproved.Id, 1, unapproved.Latest!.Sections[0].Id)).Error!.Code);
+
+        // B's own draft, pinned to nothing, is given none of A's pins.
+        var b = await ApprovedDraftAsync(WorkspaceB, contextB, [], "key-1");
+        var ofB = await WritingContextAsync(WorkspaceB, b.Id, 1, b.Latest!.Sections[0].Id);
+
+        Assert.Empty(ofB.Value!.Pins);
+        Assert.Equal(WorkspaceB, ofB.Value.WorkspaceId);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("   \n  ", null)]
+    [InlineData("\n\nSome breads ask for an afternoon.\nThis one does not.", "Some breads ask for an afternoon.")]
+    [InlineData("  - Stir gently.  \n- Keep the oven hot.", "- Stir gently.")]
+    public void A_written_sections_opening_is_its_first_line_that_says_anything(string? body, string? expected)
+    {
+        Assert.Equal(expected, LongFormSectionBusiness.FirstLine(body));
+    }
+
+    [Fact]
+    public void A_long_opening_is_cut_at_a_fixed_length_and_not_shown_whole()
+    {
+        var opening = LongFormSectionBusiness.FirstLine(new string('a', 1000) + "\nNext.");
+
+        Assert.Equal(LongFormSectionBusiness.FirstLineMaxCharacters, opening!.Length);
+    }
+
+    /// <summary>A draft in <paramref name="workspaceId"/> whose article plan has landed and been approved.</summary>
+    private async Task<LongFormDraftServiceModel> ApprovedDraftAsync(
+        Guid workspaceId, Guid contextId, SeededRecipe[] recipes, string key)
+    {
+        var started = (await StartAsync(workspaceId, contextId, LongFormKind.BlogArticle, key)).Result.Value!;
+        _handler.Behavior = (context, _) => Task.FromResult(PlanProposal(context, contextId, recipes, Article));
+        await RunPendingAsync();
+
+        var landed = await DraftAsync(workspaceId, started.Draft.Id);
+
+        return await DraftsAsync(workspaceId, facade => facade.ApprovePlanAsync(
+            workspaceId == WorkspaceA ? AccountA : "user-b",
+            landed.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = landed.ConcurrencyToken, RevisionNumber = 1 },
+            Ct));
+    }
+
+    private async Task<OperationResult<LongFormWritingContextServiceModel>> WritingContextAsync(
+        Guid workspaceId, Guid draftId, int revisionNumber, Guid sectionId)
+    {
+        using var scope = _provider.CreateScope();
+        Resolve(scope, workspaceId);
+
+        return await scope.ServiceProvider.GetRequiredService<ILongFormSectionFacade>()
+            .GetWritingContextAsync(draftId, revisionNumber, sectionId, Ct);
+    }
+
     private static readonly (string Role, string Heading, string Intent, int? Source)[] Article =
     [
         ("Hook", "The loaf for people who do not bake", "Open on how little this bread asks of the cook.", null),
@@ -889,6 +1089,24 @@ public sealed class LongFormOutlineRequestSeamTests : IAsyncDisposable
     }
 
     /// <summary>A handler whose behaviour is set per test; the capability itself is LF.2.1's own suite.</summary>
+    /// <summary>
+    /// Every pinned recipe read as the same soda bread, whichever recipe the pin names. What the real reader
+    /// takes from a recipe version is <c>LongFormClaimSourceReaderTests</c>'; what this seam does with the
+    /// lines is what is under test here.
+    /// </summary>
+    private sealed class PinnedBread : ILongFormClaimSourceReader
+    {
+        public Task<IReadOnlyList<LongFormClaimRecipe>> ReadAsync(
+            IReadOnlyList<LongFormRevisionRecipePin> pins, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<LongFormClaimRecipe>>(
+            [
+                .. pins.OrderBy(pin => pin.SortOrder).Select(pin => new LongFormClaimRecipe(
+                    pin.CreativeContextReferenceId,
+                    "Buttermilk Soda Bread",
+                    ["450g plain flour", "400ml buttermilk", "Bake for 45 minutes.", "Makes 1 loaf"])),
+            ]);
+    }
+
     private sealed class ScriptedTaskHandler : IAiTaskHandler
     {
         public Func<AiTaskExecutionContext, CancellationToken, Task<AiTaskHandlerOutcome>> Behavior { get; set; } =

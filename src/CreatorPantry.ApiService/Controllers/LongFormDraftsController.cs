@@ -26,7 +26,11 @@ namespace CreatorPantry.ApiService.Controllers;
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/long-form-drafts")]
 public sealed class LongFormDraftsController(
-    IAiLongFormOutlineRequestFacade outlines, ILongFormDraftFacade drafts) : ControllerBase
+    IAiLongFormOutlineRequestFacade outlines,
+    ILongFormDraftFacade drafts,
+    IAiLongFormSectionRequestFacade writing,
+    ILongFormSectionFacade sections,
+    ILongFormDocumentFacade documents) : ControllerBase
 {
     /// <summary>Lists the workspace's long-form drafts, most recently updated first.</summary>
     /// <param name="workspaceSlug">
@@ -283,6 +287,191 @@ public sealed class LongFormDraftsController(
 
         var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
         var result = await drafts.ApprovePlanAsync(userId, draftId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>The draft's sections with their text, and where the writing of each stands.</summary>
+    /// <remarks>
+    /// Each section carries its own text, whether it is settled, how long it is and whether that is over the
+    /// section ceiling. `requests` holds the latest writing request for each section that has one, with an
+    /// `outcome`: `Waiting`, `Written`, `Superseded` (it finished, and its text is not the section's text now)
+    /// or `Failed`. A read only: nothing is written or spent by asking.
+    /// </remarks>
+    [HttpGet("{draftId:guid}/sections")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<LongFormSectionsStatusServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetSections(string workspaceSlug, Guid draftId, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await writing.GetSectionsAsync(draftId, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Asks for one section to be written, or written again.</summary>
+    /// <remarks>
+    /// Requires an `Idempotency-Key`. The same key for a different section, revision or instruction is refused
+    /// with `422`. The section is written only if its text has not changed since `revisionNumber`; other
+    /// sections changing does not matter. `409` when the draft is not approved or is finished, when the section
+    /// is settled, or when its text has changed. The first request closes the draft's plan. Writing a section
+    /// never changes another.
+    /// </remarks>
+    [HttpPost("{draftId:guid}/sections/{sectionId:guid}/writing-requests")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormSectionRequestedServiceModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
+    public async Task<IActionResult> RequestSection(
+        string workspaceSlug,
+        Guid draftId,
+        Guid sectionId,
+        RequestLongFormSectionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var outcome = await writing.RequestAsync(draftId, sectionId, model, idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, requested => Accepted(
+            $"/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/sections", requested));
+    }
+
+    /// <summary>Asks for every section not yet written to be written, one request to a section.</summary>
+    /// <remarks>
+    /// Requires an `Idempotency-Key`. Queues, in plan order, each section that has no text, is not settled and
+    /// is not already being written. All or none: when the AI allowance cannot cover every one of them the
+    /// answer is `429` with `sectionsRequested` and `sectionsCoverable`, and nothing is queued. `requests` is
+    /// empty when there was nothing to write. Each section's run still holds its own allowance when it starts.
+    /// </remarks>
+    [HttpPost("{draftId:guid}/section-writing-batches")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormSectionBatchServiceModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
+    public async Task<IActionResult> RequestRemainingSections(
+        string workspaceSlug,
+        Guid draftId,
+        RequestLongFormSectionBatchViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var outcome = await writing.RequestRestAsync(draftId, model, idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, batch => Accepted(
+            $"/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/sections", batch));
+    }
+
+    /// <summary>Saves the creator's own text for one section, as a new revision of the draft.</summary>
+    /// <remarks>
+    /// Every other section is carried over unchanged. Blank text makes the section not yet written again. Text
+    /// over the section ceiling is saved and reported as over it, never refused or trimmed. An edit clears the
+    /// section's settled mark and closes the draft's plan. `409` when `expectedConcurrencyToken` is not the
+    /// draft's, or the draft is not approved or is finished.
+    /// </remarks>
+    [HttpPatch("{draftId:guid}/sections/{sectionId:guid}")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormSectionsServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> EditSection(
+        string workspaceSlug, Guid draftId, Guid sectionId, EditLongFormSectionViewModel model, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+        var result = await sections.EditSectionAsync(userId, draftId, sectionId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Marks one section as settled, or clears the mark.</summary>
+    /// <remarks>
+    /// Settled says the creator is content with a section's text for now. It is reversible, changes no text,
+    /// and is not acceptance — that is of the whole document. A settled section is left alone by "write the
+    /// rest" and refuses to be written again until the mark is cleared. `409` for a section with no text.
+    /// </remarks>
+    [HttpPost("{draftId:guid}/sections/{sectionId:guid}/settlement")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormSectionsServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> SettleSection(
+        string workspaceSlug, Guid draftId, Guid sectionId, SettleLongFormSectionViewModel model, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+        var result = await sections.SettleSectionAsync(userId, draftId, sectionId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>The draft read whole: the document a creator would be accepting, and what is true of it.</summary>
+    /// <remarks>
+    /// `document.markdown` is every written section in plan order under the creator's own headings; the same
+    /// revision always gives the same text, and an unwritten section is left out of it. `document.sections`
+    /// lists every section of the plan, written or not, with its own text and length. `document.needsConfirmation`
+    /// is what an acceptance would have to confirm. `warnings` are what was found about each generated section
+    /// as it reads now — `code` is the server's finding, and `fromModel` marks a caution the model raised about
+    /// its own work. `requests` is the latest writing request for each section. A read only.
+    /// </remarks>
+    [HttpGet("{draftId:guid}/document")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<LongFormDocumentReviewServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> GetDocument(string workspaceSlug, Guid draftId, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await writing.GetDocumentAsync(draftId, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Accepts the draft's latest revision as the article of record.</summary>
+    /// <remarks>
+    /// Acceptance is of the whole document. It writes no new revision, and accepting the revision already
+    /// accepted returns the same answer and records nothing more. A document with an unwritten section or text
+    /// over a ceiling is accepted only when `confirmed` lists exactly the issues it has; otherwise the answer is `422`
+    /// with an `issues` extension naming each issue and its sections, and nothing is accepted. `422` also when
+    /// no section has any text. `409` when `expectedConcurrencyToken` or `revisionNumber` is not the draft's
+    /// latest, or the draft is not being written. Nothing here publishes, schedules or exports.
+    /// </remarks>
+    [HttpPost("{draftId:guid}/acceptance")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<LongFormAssembledDocumentServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> AcceptDocument(
+        string workspaceSlug, Guid draftId, AcceptLongFormDocumentViewModel model, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value;
+        var result = await documents.AcceptAsync(userId, draftId, model, cancellationToken);
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
