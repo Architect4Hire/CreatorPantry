@@ -47,7 +47,7 @@ internal sealed class AiSubstitutionRequestBusiness(
     IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiSubstitutionRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -58,7 +58,7 @@ internal sealed class AiSubstitutionRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.IngredientSubstitution))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.IngredientSubstitution, cancellationToken))
         {
             return Refuse(
                 AiSubstitutionRequestErrors.TaskNotEnabled,

@@ -8,12 +8,19 @@ public sealed class AiTaskOptions
     public const string SectionName = "Ai:Tasks";
 
     /// <summary>
-    /// The discriminators this deployment will run. Empty by default, on purpose.
+    /// The discriminators a workspace starts with switched on. Empty by default, on purpose.
     /// </summary>
     /// <remarks>
-    /// The endpoint ships dark. Every request is refused until a deployment opts a task in, so no environment
-    /// can start spending a provider budget because a route happened to be deployed. Turning one on is a
-    /// configuration change somebody makes deliberately.
+    /// <para>
+    /// The endpoint ships dark: a workspace that has chosen nothing is refused every task this list does not
+    /// name, so no environment starts spending a provider budget because a route happened to be deployed.
+    /// </para>
+    /// <para>
+    /// <strong>A default, not a ceiling.</strong> A workspace Owner's own choice replaces it in both
+    /// directions (<c>IAiTaskGate</c>), so a task left out here can still be switched on from workspace
+    /// settings. What bounds spend then is the account's AI allowance. The one exception is
+    /// <see cref="AiTaskCatalog.Diagnostic"/>, which no workspace can switch and which this list alone decides.
+    /// </para>
     /// </remarks>
     public HashSet<string> Enabled { get; } = new(StringComparer.OrdinalIgnoreCase);
 }

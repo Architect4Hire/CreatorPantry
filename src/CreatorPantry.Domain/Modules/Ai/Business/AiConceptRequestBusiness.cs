@@ -32,7 +32,7 @@ internal sealed class AiConceptRequestBusiness(
     IAiRequestQuotaGate quota,
     ICreativeContextFacade creativeContexts,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiConceptRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -42,7 +42,7 @@ internal sealed class AiConceptRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.RecipeConcepts))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.RecipeConcepts, cancellationToken))
         {
             return Refuse(
                 AiConceptRequestErrors.TaskNotEnabled,

@@ -77,6 +77,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
             .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextPackageFacade, CreatorPantry.Tests.Ai.NoCreativeContexts>()
             .AddSingleton<IClock>(_clock)
             .AddSingleton(tasks)
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddAiConceptRequestSeam()

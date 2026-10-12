@@ -43,7 +43,7 @@ internal sealed class AiRevisionRequestBusiness(
     IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiRevisionRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -54,7 +54,7 @@ internal sealed class AiRevisionRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.RecipeRevision))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.RecipeRevision, cancellationToken))
         {
             return Refuse(
                 AiRevisionRequestErrors.TaskNotEnabled,

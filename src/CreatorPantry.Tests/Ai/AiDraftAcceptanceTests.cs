@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -65,6 +66,7 @@ public sealed class AiDraftAcceptanceTests : IAsyncDisposable
             .AddApplicationCache()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(new AiTaskOptions())
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
             .AddApplicationTime()

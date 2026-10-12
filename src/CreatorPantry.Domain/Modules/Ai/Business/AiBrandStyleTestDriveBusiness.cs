@@ -49,7 +49,7 @@ internal sealed class AiBrandStyleTestDriveBusiness(
     IBrandContextAssembler brandContext,
     IBrandSourceDocumentFacade documents,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiBrandStyleTestDriveBusiness
 {
     /// <summary>How many of the guide's do/don't rules the comparison names, matching the writing preview's.</summary>
@@ -60,7 +60,7 @@ internal sealed class AiBrandStyleTestDriveBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.BrandStyleTestDrive))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.BrandStyleTestDrive, cancellationToken))
         {
             return Refuse(
                 AiBrandStyleTestDriveRequestErrors.TaskNotEnabled,

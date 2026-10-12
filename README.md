@@ -231,8 +231,9 @@ Normalized reference data may enrich creator content, but it never destructively
 10. Enable the AI tasks you want to exercise. The proposal routes ship dark — `AiTaskOptions.Enabled` starts
     empty so no deployment can spend a provider budget merely because a route was deployed — and a request
     for a task that is off is refused with `TaskNotEnabled` rather than queued. `src/CreatorPantry.ApiService/appsettings.Development.json`
-    opts in `diagnostic`, `recipe.concepts` and `recipe.first-draft` for local work; a deployed environment
-    opts in deliberately, through `Ai:Tasks:Enabled`.
+    opts in a starting set for local work; a deployed environment opts in deliberately, through
+    `Ai:Tasks:Enabled`. That list is the default a workspace starts from, not a ceiling: a workspace Owner can
+    switch any creator-facing task on or off under **Workspace settings → AI features**, and that choice wins.
 
 ## Installed design system
 

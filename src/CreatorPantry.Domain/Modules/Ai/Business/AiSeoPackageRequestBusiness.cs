@@ -40,7 +40,7 @@ internal sealed class AiSeoPackageRequestBusiness(
     IBrandProfileFacade brand,
     SeoRules rules,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiSeoPackageRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -48,7 +48,7 @@ internal sealed class AiSeoPackageRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.SeoPackage))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.SeoPackage, cancellationToken))
         {
             return Refuse(
                 AiSeoPackageRequestErrors.TaskNotEnabled,

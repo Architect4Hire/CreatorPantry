@@ -41,8 +41,13 @@ public sealed class AiProposalModelShapeTests : IDisposable
     /// passed against a schema SQL Server would not create, until the migration ran against a real database —
     /// which is what <see cref="Every_cascade_path_from_the_workspace_is_a_tree"/> now catches at this level.
     /// </para>
+    /// <para>
+    /// <see cref="WorkspaceAiTaskSwitch"/> is the second, and it is a root with nothing under it: a workspace's
+    /// setting rather than part of any request. Its one edge to <c>Workspaces</c> is its only foreign key, so
+    /// it adds a leaf to the cascade tree and no second path to anything.
+    /// </para>
     /// </remarks>
-    private static readonly Type[] AggregateRoots = [typeof(AiOperation)];
+    private static readonly Type[] AggregateRoots = [typeof(AiOperation), typeof(WorkspaceAiTaskSwitch)];
 
     /// <summary>
     /// No AI table is reachable from <c>Workspaces</c> by two cascading paths.
@@ -206,7 +211,8 @@ public sealed class AiProposalModelShapeTests : IDisposable
 
     /// <summary>
     /// Only the change row is editable, and only so the creator's decision can be written to it. Everything
-    /// else in the aggregate is write-once.
+    /// else in the aggregate is write-once. <see cref="WorkspaceAiTaskSwitch"/> is outside that aggregate: it is a
+    /// setting an Owner changes, so it is mutable by design.
     /// </summary>
     [Fact]
     public void Only_the_structured_change_is_not_write_once()
@@ -215,7 +221,9 @@ public sealed class AiProposalModelShapeTests : IDisposable
             .Where(type => !typeof(IImmutableRecord).IsAssignableFrom(type))
             .ToArray();
 
-        Assert.Equal([typeof(AiOperation), typeof(AiStructuredChange)], mutable.OrderBy(type => type.Name).ToArray());
+        Assert.Equal(
+            [typeof(AiOperation), typeof(AiStructuredChange), typeof(WorkspaceAiTaskSwitch)],
+            mutable.OrderBy(type => type.Name).ToArray());
     }
 
     /// <summary>

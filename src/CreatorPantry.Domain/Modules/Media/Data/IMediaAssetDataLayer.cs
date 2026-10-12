@@ -41,6 +41,12 @@ public sealed record MediaAssetCreation(
     PromptRecordSaveInput? Prompt,
     string UserId);
 
+/// <summary>
+/// Names a just-written asset version on the piece of work it was kept for: null when named, or the refusal.
+/// </summary>
+public delegate Task<OperationError?> RecordAssetOnWork(
+    Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken);
+
 /// <summary>How one asset creation ended.</summary>
 public enum MediaAssetCreateOutcome
 {
@@ -55,6 +61,9 @@ public enum MediaAssetCreateOutcome
     /// <summary>The prompt the request carried was refused. Nothing committed, including the asset.</summary>
     PromptRefused = 4,
 
+    /// <summary>The piece of work the picture was kept for refused it. Nothing was written.</summary>
+    WorkRefused = 6,
+
     /// <summary>The rows could not be committed. The object written for them has been removed.</summary>
     NotCommitted = 5,
 }
@@ -65,7 +74,8 @@ public sealed record MediaAssetCreateResult(
     MediaAssetCreateOutcome Outcome,
     MediaAsset? Asset = null,
     Guid? PromptRecordId = null,
-    OperationError? PromptError = null);
+    OperationError? PromptError = null,
+    OperationError? WorkError = null);
 
 /// <summary>Composes the DAM's persistence operations and owns its transaction boundaries (DAM-001).</summary>
 public interface IMediaAssetDataLayer
@@ -320,11 +330,18 @@ public interface IMediaAssetDataLayer
     /// transaction it has to happen inside belongs here. A data layer that injected another module's
     /// facade would be reaching past the next layer, and it would close a dependency cycle — the prompt
     /// seam resolves a DAM asset id through this module on its way in.
+    /// <para>
+    /// <paramref name="recordOnWork"/> is the same shape for the same reason: it names the new asset on the
+    /// piece of work it was kept for, inside this transaction, and is null when it was kept for none. A
+    /// refusal from it takes the asset down with it, so a creator is never left with a library picture their
+    /// work does not point at.
+    /// </para>
     /// </remarks>
     Task<MediaAssetCreateResult> CreateAsync(
         MediaAssetCreation creation,
         Func<Guid, CancellationToken, Task<OperationResult<SavedPromptRecordServiceModel>>>? savePrompt,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        RecordAssetOnWork? recordOnWork = null);
 }
 
 /// <inheritdoc cref="IMediaAssetDataLayer"/>
@@ -881,7 +898,8 @@ internal sealed class MediaAssetDataLayer(
     public async Task<MediaAssetCreateResult> CreateAsync(
         MediaAssetCreation creation,
         Func<Guid, CancellationToken, Task<OperationResult<SavedPromptRecordServiceModel>>>? savePrompt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        RecordAssetOnWork? recordOnWork = null)
     {
         ArgumentNullException.ThrowIfNull(creation);
 
@@ -933,7 +951,7 @@ internal sealed class MediaAssetDataLayer(
             ? await CarryRenditionsAsync(sourceImageId, version, now, cancellationToken)
             : [];
 
-        return await CommitAsync(creation, asset, version, carried, now, savePrompt, cancellationToken);
+        return await CommitAsync(creation, asset, version, carried, now, savePrompt, recordOnWork, cancellationToken);
     }
 
     /// <summary>
@@ -946,6 +964,7 @@ internal sealed class MediaAssetDataLayer(
         IReadOnlyList<MediaRendition> carried,
         DateTimeOffset now,
         Func<Guid, CancellationToken, Task<OperationResult<SavedPromptRecordServiceModel>>>? savePrompt,
+        RecordAssetOnWork? recordOnWork,
         CancellationToken cancellationToken)
     {
         // Null when one is already open — a request carrying an Idempotency-Key has one, and committing a
@@ -1027,6 +1046,16 @@ internal sealed class MediaAssetDataLayer(
                 }
 
                 promptRecordId = saved.Value!.PromptRecordId;
+            }
+
+            if (recordOnWork is not null
+                && await recordOnWork(asset.Id, version.VersionNumber, cancellationToken) is { } refusal)
+            {
+                // Inside the transaction, like the prompt: a work that will not name the picture does not
+                // get a picture kept for it.
+                await RollBackAsync(transaction, version.ObjectKey, carried);
+
+                return new MediaAssetCreateResult(MediaAssetCreateOutcome.WorkRefused, WorkError: refusal);
             }
 
             if (transaction is not null)

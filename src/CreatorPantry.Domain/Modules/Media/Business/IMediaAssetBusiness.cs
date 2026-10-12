@@ -158,6 +158,7 @@ public interface IMediaAssetBusiness
 internal sealed class MediaAssetBusiness(
     IMediaAssetDataLayer assets,
     IPromptRecordFacade prompts,
+    ICreativeContextKeptPictureFacade keptPictures,
     IRecipeFacade recipes,
     IGeneratedImageDataLayer stagedImages,
     IMalwareScanGateway scanner,
@@ -576,6 +577,15 @@ internal sealed class MediaAssetBusiness(
         // once, so a second attempt hands back the asset the first one made.
         if (await assets.FindByGeneratedImageAsync(request.GeneratedImageId, cancellationToken) is { } existing)
         {
+            // A repeat also finishes what an earlier attempt may not have: the picture is in the library, and
+            // the work it was kept for names it. Already named is done, so this is a no-op on a true replay.
+            if (request.CreativeContextId is { } keptFor
+                && await keptPictures.RecordAsync(
+                    keptFor, existing.Id, existing.CurrentVersionNumber, cancellationToken) is { } notNamed)
+            {
+                return WorkRefused(notNamed);
+            }
+
             return OperationResult<MediaAssetServiceModel>.Success(Map(existing, null, request.RecipeLink?.RecipeId));
         }
 
@@ -604,6 +614,14 @@ internal sealed class MediaAssetBusiness(
             return Invalid(failures);
         }
 
+        // Asked before a byte is written. The same question is answered again inside the transaction, where
+        // it is binding; this is what makes the common refusal cost nothing.
+        if (request.CreativeContextId is { } workId
+            && await keptPictures.CheckAsync(workId, cancellationToken) is { } refusal)
+        {
+            return WorkRefused(refusal);
+        }
+
         return await CreateAsync(
             new MediaAssetCreation(
                 MediaAssetKind.AiGenerated,
@@ -624,8 +642,22 @@ internal sealed class MediaAssetBusiness(
                 request.RecipeLink,
                 request.Prompt,
                 request.UserId),
-            cancellationToken);
+            cancellationToken,
+            request.CreativeContextId);
     }
+
+    /// <summary>
+    /// The piece of work's refusal, in this route's terms.
+    /// </summary>
+    /// <remarks>
+    /// A work this workspace does not have is a field of the request that names nothing, exactly as an unknown
+    /// recipe link is on this route — and it is one answer for an id nobody has and for a neighbour's
+    /// (tenancy.md). Every other refusal is the work's own and is passed on as it said it.
+    /// </remarks>
+    private static OperationResult<MediaAssetServiceModel> WorkRefused(OperationError refusal) =>
+        refusal.Code == ContentErrorCodes.CreativeContextNotFound
+            ? Invalid([(nameof(MediaAssetFromGeneratedImage.CreativeContextId), "That piece of work could not be found in this workspace.")])
+            : OperationResult<MediaAssetServiceModel>.Failure(refusal);
 
     /// <summary>
     /// Buffers an upload, bounds it, establishes what it actually is, and scans it.
@@ -728,7 +760,7 @@ internal sealed class MediaAssetBusiness(
     }
 
     private async Task<OperationResult<MediaAssetServiceModel>> CreateAsync(
-        MediaAssetCreation creation, CancellationToken cancellationToken)
+        MediaAssetCreation creation, CancellationToken cancellationToken, Guid? keptForContextId = null)
     {
         // The cross-module write lives here, where the decision does, and goes down as a delegate so the
         // data layer can run it inside its transaction without knowing another module's facade exists.
@@ -738,7 +770,10 @@ internal sealed class MediaAssetBusiness(
             creation.Prompt is { } prompt
                 ? (assetId, token) => prompts.SaveForAssetAsync(creation.UserId, prompt, assetId, token)
                 : null,
-            cancellationToken);
+            cancellationToken,
+            keptForContextId is { } contextId
+                ? (assetId, versionNumber, token) => keptPictures.RecordAsync(contextId, assetId, versionNumber, token)
+                : null);
 
         return created.Outcome switch
         {
@@ -748,6 +783,8 @@ internal sealed class MediaAssetBusiness(
 
             MediaAssetCreateOutcome.PromptRefused =>
                 OperationResult<MediaAssetServiceModel>.Failure(created.PromptError!),
+
+            MediaAssetCreateOutcome.WorkRefused => WorkRefused(created.WorkError!),
 
             MediaAssetCreateOutcome.StorageUnavailable => Error(
                 MediaErrorCodes.AssetStorageUnavailable,

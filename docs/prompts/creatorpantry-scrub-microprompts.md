@@ -2441,6 +2441,8 @@ immutable accepted history.
 
 ### 11.3 Derivative staleness propagation
 
+*Extended by LF.6.1 (`creatorpantry-long-form-scrub-prompts.md`) to long-form drafts. This prompt is unchanged.*
+
 ```text
 SCOPE: When a canonical recipe version changes, mark linked content proposals, social packages, prompts,
 and board packages NeedsReview through an outbox/durable job after commit.
@@ -2453,6 +2455,8 @@ prove a recipe update cannot leave an accepted derivative falsely current.
 
 ### 11.4 Editorial package AI task
 
+*Unchanged by the long-form document (`creatorpantry-long-form-scrub-prompts.md`): the seven sections remain, and an accepted editorial package becomes an input to long-form (LF.1.4, B-36). This prompt never wrote the article itself.*
+
 ```text
 SCOPE: Implement RCPUB-001 through the shared AI proposal lifecycle for headnote, introduction, tips,
 substitutions, storage/reheating, FAQ, and CTA using exact approved recipe and voice versions.
@@ -2464,6 +2468,8 @@ ai-safety-reviewer plus stale-source tests.
 ```
 
 ### 11.5 SEO package AI task
+
+*Extended by LF.5.3 (`creatorpantry-long-form-scrub-prompts.md`) to take a long-form draft as its subject as well as a recipe. Validators and claim rules are unchanged.*
 
 ```text
 SCOPE: Implement editable title, slug, meta description, key phrases, alt-text suggestions, and
@@ -2488,6 +2494,8 @@ golden JSON tests and invalid/missing-field cases.
 ```
 
 ### 11.7 Markdown export
+
+*Unchanged by the long-form document (`creatorpantry-long-form-scrub-prompts.md`): LF.5.1 adds a separate long-form export, and this export's bytes must not move.*
 
 ```text
 SCOPE: Implement RCPUB-003 deterministic Markdown export for a selected approved recipe version,
@@ -5506,6 +5514,8 @@ evaluation fixtures for workspace isolation on `content.editorial-package`, `con
 `recipe.*` capabilities; `inputs: []` on eleven prompt manifests; and kept AI images having no alt text until a
 creator writes one.*
 
+*Pick up here: run `creatorpantry-long-form-scrub-prompts.md` (LF.1.1 onward) before Phase 13.*
+
 ## Phase 13 — Social packages, content board, and publishing
 
 ### 13.1 Social package model - skip
@@ -5987,6 +5997,8 @@ BEHAVIOR: Show integration/state map, wait for approval, implement resume/deep-l
 ```
 
 ### 13A.18 “Write a blog post and SEO package” guided workflow screen
+
+*Narrowed by the long-form document (`creatorpantry-long-form-scrub-prompts.md`): this stays the wizard shell, and the writing steps it composes are LF.2–LF.5.*
 
 ```text
 SCOPE: Compose recipe/version selection, active brand guide, audience/goal, editorial proposal review/edit,

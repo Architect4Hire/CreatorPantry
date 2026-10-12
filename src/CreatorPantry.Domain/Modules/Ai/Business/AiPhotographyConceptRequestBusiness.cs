@@ -49,7 +49,7 @@ internal sealed class AiPhotographyConceptRequestBusiness(
     IRecipeFacade recipes,
     ICreativeContextFacade creativeContexts,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiPhotographyConceptRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -59,7 +59,7 @@ internal sealed class AiPhotographyConceptRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.PhotographyConcept))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.PhotographyConcept, cancellationToken))
         {
             return Refuse(
                 AiPhotographyConceptRequestErrors.TaskNotEnabled,

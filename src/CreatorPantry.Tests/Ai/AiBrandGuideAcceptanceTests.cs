@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -75,6 +76,7 @@ public sealed class AiBrandGuideAcceptanceTests : IAsyncDisposable
             .AddApplicationTime()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(new AiTaskOptions())
+            .AddAiTaskGate()
             .AddBrandModule()
 
             // The brand profile facade asks the Media module whether a submitted logo is in this workspace's

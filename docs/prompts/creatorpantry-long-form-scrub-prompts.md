@@ -212,7 +212,7 @@ rest" will spend before it spends it.
 
 # Phase 1 — Decisions and the long-form artifact
 
-## LF.1.1 Decision record and library reconciliation
+## LF.1.1 Decision record and library reconciliation - done
 
 ```text
 SCOPE: Documentation only. Add docs/architecture-decisions/long-form.md recording B-32 through B-37 above in
@@ -230,6 +230,13 @@ BEHAVIOR: Show the record outline and every file edit, wait for approval, write 
 decision the owner corrected together with every later prompt in this document that the correction changes.
 A corrected B-32 or B-35 stops the document until the affected prompts are rewritten.
 ```
+
+*Delivered 2026-10-12. The product owner confirmed B-32 through B-37 as written and approved B-34's four
+figures as proposed, so no decision was corrected and no later prompt changes; the record lists the figures
+as decided rather than open. The master library had no "pick up here" marker to move, so one was added above
+Phase 13. Three passages still say long-form stays with master 11.4 and were left as written because this
+prompt does not name them: decision 1 under "Decisions already made" in the AF document, and the B-27 bullet
+and B-27 open item in `ai-fluency.md`, the last two of which sit beside the new pointer.*
 
 ## LF.1.2 LongFormDraft entities and migration
 

@@ -92,4 +92,5 @@ public sealed record MediaAssetFromGeneratedImage(
     MediaAssetMetadataInput Metadata,
     MediaAssetRecipeLinkInput? RecipeLink,
     Content.Managers.PromptRecordSaveInput? Prompt,
-    string UserId);
+    string UserId,
+    Guid? CreativeContextId = null);

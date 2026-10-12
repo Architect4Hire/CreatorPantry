@@ -42,6 +42,7 @@ them; later documents may reference them.
 
 **Confirmed 2026-10-10:** the short-form reading of `blog` and `newsletter` was approved with the AF.6.2
 profile table. See [Open items](#open-items).
+**Long-form moved 2026-10-12:** the long-form article is no longer left to master 11.4 — it is [B-32](long-form.md) in `long-form.md`. The short-form reading of `blog` and `newsletter` stands.
 **Consequences:** the seven-output social model and generation prompts in the master library are superseded —
 see [Supersessions](#supersessions).
 **Rules:** `content.md`, `ai.md`.

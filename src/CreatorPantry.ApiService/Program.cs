@@ -82,6 +82,9 @@ builder.Services.AddAiUsageAdministration();
 // The request seam, which the worker does not register: it needs the recipe module, already added above.
 builder.Services.AddAiProposalSeam();
 
+// The workspace settings panel: which AI features are switched on, read by any member and replaced by an Owner.
+builder.Services.AddAiFeatureSeam();
+
 // The readiness evaluation, which needs the proposal seam above plus the ingredient module for the four rules
 // that read another module. The worker has no readiness route and deliberately does not register it.
 builder.Services.AddRecipeReadinessSeam();

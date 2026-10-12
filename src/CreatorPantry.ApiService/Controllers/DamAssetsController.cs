@@ -758,6 +758,15 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     /// commit together or not at all — a prompt record cannot be deleted afterwards, so it must never
     /// commit beside an asset that did not. A refused prompt takes the asset down with it and answers with
     /// the prompt's own error.
+    ///
+    /// **A picture kept for a piece of work is named on it in that same transaction.** Send
+    /// `creativeContextId` and the work gains the asset as a picture it made, so the picture is in the library
+    /// and on the work together or in neither — there is no second request to make and none to fail. A piece
+    /// of work this workspace does not have answers `400 media.asset.invalid_request` naming
+    /// `creativeContextId`, the same answer for an id nobody has and for another workspace's; one that already
+    /// names all the sources it can answers `422 content.creative_context.reference_limit.unprocessable`.
+    /// Either way nothing is stored. Repeating the request for an image already kept also names it on the
+    /// work if it was not, so a save made before this field existed can be finished by sending it again.
     /// </remarks>
     [HttpPost("from-generated-image")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
@@ -766,6 +775,7 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public async Task<IActionResult> KeepGeneratedImage(
         string workspaceSlug,
@@ -781,7 +791,8 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
                 model.Metadata ?? new MediaAssetMetadataInput(),
                 model.RecipeLink,
                 model.Prompt,
-                User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value),
+                User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value,
+                model.CreativeContextId),
             idempotencyKey,
             cancellationToken);
 
@@ -907,4 +918,13 @@ public sealed record KeepGeneratedImageViewModel
     /// server fills it in from inside the transaction that commits both.
     /// </remarks>
     public PromptRecordSaveInput? Prompt { get; init; }
+
+    /// <summary>
+    /// The piece of work this picture was made for, or null when it was made for none.
+    /// </summary>
+    /// <remarks>
+    /// Named by its own id and resolved inside the route's workspace. The work gains the new asset as a
+    /// picture it made, in the transaction that creates the asset.
+    /// </remarks>
+    public Guid? CreativeContextId { get; init; }
 }

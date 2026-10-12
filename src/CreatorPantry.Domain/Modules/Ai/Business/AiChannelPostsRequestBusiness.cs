@@ -45,7 +45,7 @@ internal sealed class AiChannelPostsRequestBusiness(
     ISocialPackageFacade posts,
     IContentChannelCatalog channels,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiChannelPostsRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -53,7 +53,7 @@ internal sealed class AiChannelPostsRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.ChannelPosts))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.ChannelPosts, cancellationToken))
         {
             return Refuse(
                 AiChannelPostsRequestErrors.TaskNotEnabled,

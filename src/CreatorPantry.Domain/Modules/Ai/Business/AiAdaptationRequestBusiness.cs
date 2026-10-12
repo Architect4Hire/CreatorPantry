@@ -51,7 +51,7 @@ internal sealed class AiAdaptationRequestBusiness(
     IAiRequestQuotaGate quota,
     IRecipeFacade recipes,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiAdaptationRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -62,7 +62,7 @@ internal sealed class AiAdaptationRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.RecipeAdaptation))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.RecipeAdaptation, cancellationToken))
         {
             return Refuse(
                 AiAdaptationRequestErrors.TaskNotEnabled,

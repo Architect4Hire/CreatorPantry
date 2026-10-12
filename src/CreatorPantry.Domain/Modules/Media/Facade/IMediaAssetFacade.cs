@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -231,7 +232,8 @@ internal sealed class MediaAssetFacade(
     IValidator<MediaAssetUtilizationViewModel> utilizationValidator,
     IClock clock,
     IWorkspaceContext workspace,
-    IIdempotentCommandExecutor idempotency) : IMediaAssetFacade
+    IIdempotentCommandExecutor idempotency,
+    IThemedDayHistoryInvalidationFacade history) : IMediaAssetFacade
 {
     /// <summary>Stable operation names for the idempotency scope. Changing one orphans in-flight keys.</summary>
     private const string UploadOperation = "media.asset.upload";
@@ -561,34 +563,52 @@ internal sealed class MediaAssetFacade(
             cancellationToken);
     }
 
-    public Task<IdempotentOutcome<MediaAssetServiceModel>> CreateFromGeneratedImageAsync(
+    public async Task<IdempotentOutcome<MediaAssetServiceModel>> CreateFromGeneratedImageAsync(
         MediaAssetFromGeneratedImage request, string? idempotencyKey, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         if (Refusal(request.Metadata, request.RecipeLink) is { } refusal)
         {
-            return Task.FromResult(refusal);
+            return refusal;
         }
 
         if (request.GeneratedImageId == Guid.Empty)
         {
-            return Task.FromResult(Refused(OperationError.Validation(
+            return Refused(OperationError.Validation(
                 MediaErrorCodes.AssetInvalidRequest,
                 "The asset could not be created.",
-                [(nameof(request.GeneratedImageId), "A generated image id is required.")])));
+                [(nameof(request.GeneratedImageId), "A generated image id is required.")]));
         }
 
-        return idempotency.ExecuteAsync(
+        if (request.CreativeContextId == Guid.Empty)
+        {
+            return Refused(OperationError.Validation(
+                MediaErrorCodes.AssetInvalidRequest,
+                "The asset could not be created.",
+                [(nameof(request.CreativeContextId), "That is not a piece of work's id. Leave it out to keep the picture for none.")]));
+        }
+
+        var outcome = await idempotency.ExecuteAsync(
             new IdempotentCommand(
                 request.UserId,
                 workspace.WorkspaceId,
                 KeepOperation,
                 idempotencyKey,
-                Fingerprint: new { request.GeneratedImageId, request.Metadata, request.RecipeLink },
+                Fingerprint: new { request.GeneratedImageId, request.Metadata, request.RecipeLink, request.CreativeContextId },
                 KeyRequired: false),
             token => business.CreateFromGeneratedImageAsync(request, token),
             cancellationToken);
+
+        // A picture kept for a piece of work is part of its themed day's history from this moment. Retired
+        // here rather than where the reference is written, because that happens inside the transaction and a
+        // history derived before the commit would be cached without the picture.
+        if (outcome.Result.Succeeded && request.CreativeContextId is not null)
+        {
+            await history.InvalidateAsync(cancellationToken);
+        }
+
+        return outcome;
     }
 
     /// <summary>The role gate and the shape checks, which are the same whichever way the bytes arrived.</summary>

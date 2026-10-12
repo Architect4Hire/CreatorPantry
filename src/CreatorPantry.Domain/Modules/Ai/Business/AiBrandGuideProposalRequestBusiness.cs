@@ -51,7 +51,7 @@ internal sealed class AiBrandGuideProposalRequestBusiness(
     IBrandSourceDocumentFacade documents,
     IContentChannelCatalog channels,
     IWorkspaceContext workspace,
-    AiTaskOptions tasks,
+    IAiTaskGate tasks,
     IClock clock) : IAiBrandGuideProposalRequestBusiness
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -59,7 +59,7 @@ internal sealed class AiBrandGuideProposalRequestBusiness(
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        if (!AiTaskCatalog.IsEnabled(tasks, AiTaskCatalog.BrandGuideProposal))
+        if (!await tasks.IsEnabledAsync(AiTaskCatalog.BrandGuideProposal, cancellationToken))
         {
             return Refuse(
                 AiBrandGuideProposalRequestErrors.TaskNotEnabled,

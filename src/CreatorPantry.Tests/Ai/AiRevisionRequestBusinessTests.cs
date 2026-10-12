@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
@@ -60,6 +61,7 @@ public sealed class AiRevisionRequestBusinessTests : IAsyncDisposable
             .AddApplicationCache()
             .AddSingleton<IClock>(new StoppedClock())
             .AddSingleton(tasks)
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
             .AddApplicationTime()
@@ -103,7 +105,7 @@ public sealed class AiRevisionRequestBusinessTests : IAsyncDisposable
             scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IRecipeFacade>(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-            new AiTaskOptions(),
+            new AiTaskGate(new AiTaskOptions(), scope.ServiceProvider.GetRequiredService<IAiTaskSwitchDataLayer>()),
             scope.ServiceProvider.GetRequiredService<IClock>());
 
         var outcome = await business.RequestAsync(

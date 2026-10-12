@@ -120,7 +120,8 @@ Reuse these; do not rebuild them:
 - An allowance charge for image generation. 12.10l left it open because it needs pricing decisions; it still
   needs a prompt of its own.
 - A conversational assistant or any model-written memory.
-- Long-form blog articles and SEO packages (master 11.4–11.5).
+- Long-form blog articles and SEO packages. *Amended by LF.1.1: no longer deferred to master 11.4–11.5 —
+  long-form is `creatorpantry-long-form-scrub-prompts.md`, which runs after this document.*
 
 ## Credentials and external prerequisites
 

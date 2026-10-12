@@ -1,4 +1,5 @@
 using CreatorPantry.AiProvider;
+using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Idempotency;
@@ -83,6 +84,7 @@ public sealed class ImagePromptAiTaskHandlerTests : IAsyncDisposable
             .AddIdempotency(new ConfigurationBuilder().Build())
             .AddLogging()
             .AddSingleton(new AiTaskOptions())
+            .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
