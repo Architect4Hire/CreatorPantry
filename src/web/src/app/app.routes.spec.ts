@@ -289,8 +289,8 @@ describe("the Content Pipeline's place in the route tree", () => {
     // The context routes come before ':step'. A step is one segment and so is `context`, so the other order
     // would hand `context/<id>` to nobody and `context` to the step route first.
     expect(children.map((route) => route.path)).toEqual(['', 'context/:contextId', 'context/:contextId/:step', ':step']);
-    expect(children[0].redirectTo).toBe('setup');
-    expect(children[1].redirectTo).toBe('context/:contextId/setup');
+    expect(children[0].redirectTo).toBe('about');
+    expect(children[1].redirectTo).toBe('context/:contextId/about');
     expect(children[1].pathMatch).toBe('full');
   });
 });

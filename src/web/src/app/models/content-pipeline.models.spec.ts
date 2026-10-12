@@ -6,8 +6,11 @@ import {
   DEFAULT_VARIANT_COUNT,
   clampVariantCount,
   cleanOverrides,
+  contentPipelinePictureCount,
+  contentPipelineStepFor,
   contentPipelineStepStatus,
   contentSeedQueryFor,
+  decodeContentPipelineConfig,
   decodeContentPipelineDraft,
   decodeContentPipelineRun,
   emptyContentPipelineDraft,
@@ -37,41 +40,78 @@ function draftWith(overrides: Partial<ContentPipelineDraft> = {}): ContentPipeli
 
 describe('content-pipeline.models', () => {
   describe('steps', () => {
-    it('declares the whole journey so the progress figure is about the pipeline, not about what shipped', () => {
-      expect(CONTENT_PIPELINE_STEP_SLUGS).toEqual(['setup', 'idea', 'prompt', 'images', 'posts', 'library']);
+    it('declares the whole journey as four steps', () => {
+      expect(CONTENT_PIPELINE_STEP_SLUGS).toEqual(['about', 'picture', 'images', 'finish']);
     });
 
     it('gives the built steps no coming-soon body and every unbuilt one a body', () => {
       const built = CONTENT_PIPELINE_STEPS.filter((step) => step.comingSoon === null).map((step) => step.slug);
 
-      // Every step is built as of AF.6.5, which closed `posts` — the last one that was not. The rule stays
-      // rather than being deleted with the last placeholder: the next step added arrives unbuilt, and this
-      // is what holds it to saying so.
-      expect(built).toEqual(['setup', 'idea', 'prompt', 'images', 'posts', 'library']);
-
-      // The loop that checked every unbuilt step for a non-empty body is gone, and the compiler is why: with
-      // every `comingSoon` now `null`, it narrows the type to `null` and calls the branch unreachable. The
-      // rule still holds on the type — `comingSoon: string | null` — and the check comes back with the next
-      // step that ships unbuilt.
+      // Every step is built. The rule stays rather than being deleted with the last placeholder: the next
+      // step added arrives unbuilt, and this is what holds it to saying so.
+      expect(built).toEqual(['about', 'picture', 'images', 'finish']);
       expect(CONTENT_PIPELINE_STEPS.every((step) => step.comingSoon === null)).toBeTrue();
     });
 
     it('states each built step’s legend once, for the shell to show above its sections', () => {
       expect(CONTENT_PIPELINE_STEPS[0].legend).toContain('optional');
-      expect(CONTENT_PIPELINE_STEPS[1].legend.length).toBeGreaterThan(0);
-      expect(CONTENT_PIPELINE_STEPS[2].legend).toContain('optional');
+      expect(CONTENT_PIPELINE_STEPS[1].legend).toContain('optional');
       // The images step's legend carries the one thing a tick on this screen does not mean, because that is
       // the sentence a creator most needs before they rely on having "kept" something.
-      expect(CONTENT_PIPELINE_STEPS[3].legend).toContain('library');
-      // The posts step's legend carries the one thing a creator most needs to know before reading generated
+      expect(CONTENT_PIPELINE_STEPS[2].legend).toContain('library');
+      // The last step's legend carries the one thing a creator most needs to know before reading generated
       // words: none of them counts as theirs until they say so (AF.6.5).
-      expect(CONTENT_PIPELINE_STEPS[4].legend).toContain('accepted until you say so');
+      expect(CONTENT_PIPELINE_STEPS[3].legend).toContain('accepted until you say so');
+    });
+
+    it('says in the first step’s help that the standing answers come from the brand', () => {
+      expect(CONTENT_PIPELINE_STEPS[0].help).toContain('from your brand');
     });
 
     it('reads a step before the furthest as done and one after it as not started', () => {
-      expect(contentPipelineStepStatus('setup', 'idea', 'idea')).toBe('done');
-      expect(contentPipelineStepStatus('idea', 'idea', 'idea')).toBe('current');
-      expect(contentPipelineStepStatus('prompt', 'idea', 'idea')).toBe('upcoming');
+      expect(contentPipelineStepStatus('about', 'picture', 'picture')).toBe('done');
+      expect(contentPipelineStepStatus('picture', 'picture', 'picture')).toBe('current');
+      expect(contentPipelineStepStatus('images', 'picture', 'picture')).toBe('upcoming');
+    });
+
+    it('opens a run kept under the six-step journey on the step that now holds its place', () => {
+      expect(contentPipelineStepFor('setup')).toBe('about');
+      expect(contentPipelineStepFor('idea')).toBe('picture');
+      expect(contentPipelineStepFor('prompt')).toBe('picture');
+      expect(contentPipelineStepFor('images')).toBe('images');
+      expect(contentPipelineStepFor('posts')).toBe('finish');
+      expect(contentPipelineStepFor('library')).toBe('finish');
+      expect(contentPipelineStepFor('nowhere')).toBe('about');
+      expect(contentPipelineStepFor(null)).toBe('about');
+    });
+  });
+
+  describe('how many pictures a run tries', () => {
+    const config = emptyContentPipelineDraft().config;
+
+    it('uses the brand’s default until the creator chooses for this run', () => {
+      expect(contentPipelinePictureCount(config, 4)).toBe(4);
+      expect(contentPipelinePictureCount({ ...config, variantCount: 1, variantCountChosen: true }, 4)).toBe(1);
+    });
+
+    it('falls back to the product’s default when the brand states none, and clamps one that is out of range', () => {
+      expect(contentPipelinePictureCount(config, null)).toBe(DEFAULT_VARIANT_COUNT);
+      expect(contentPipelinePictureCount(config, 9)).toBe(CONTENT_PIPELINE_LIMITS.maxVariants);
+    });
+
+    it('reads a count kept before the choice was recorded as chosen only when it is not the fallback', () => {
+      expect(decodeContentPipelineConfig({ variantCount: 3 })?.variantCountChosen).toBeTrue();
+      expect(decodeContentPipelineConfig({ variantCount: DEFAULT_VARIANT_COUNT })?.variantCountChosen).toBeFalse();
+      expect(decodeContentPipelineConfig({ variantCount: 2, variantCountChosen: true })?.variantCountChosen).toBeTrue();
+    });
+
+    it('does not count an unchosen run as started, and does count a chosen one', () => {
+      const base = emptyContentPipelineDraft();
+
+      expect(isContentPipelineDraftEmpty(base)).toBeTrue();
+      expect(
+        isContentPipelineDraftEmpty({ ...base, config: { ...base.config, variantCountChosen: true } }),
+      ).toBeFalse();
     });
   });
 
@@ -144,6 +184,7 @@ describe('content-pipeline.models', () => {
           channelKey: 'instagram',
           day: 'Friday',
           variantCount: 4,
+          variantCountChosen: true,
           scene: ['marble slab'],
           style: ['soft window light'],
           concept: 'A tight crop of the first slice.',
@@ -156,7 +197,7 @@ describe('content-pipeline.models', () => {
           accepted: SEED,
           nameReading: { requestId: 'r-1', subject: 'Miso butter corn', applied: true },
         },
-        furthestStep: 'idea',
+        furthestStep: 'picture',
       });
 
       const read = decodeContentPipelineDraft(encodeContentPipelineDraft(draft));
@@ -224,7 +265,7 @@ describe('content-pipeline.models', () => {
           finalPrompt: 'A three-quarter view, closer.',
           promptSource: 'creator',
         },
-        furthestStep: 'prompt',
+        furthestStep: 'picture',
       };
 
       expect(decodeContentPipelineDraft(encodeContentPipelineDraft(draft))).toEqual(draft);
@@ -266,9 +307,9 @@ describe('content-pipeline.models', () => {
     });
 
     it('starts at the first step when the stored one is not a step this build knows', () => {
-      const stored = encodeContentPipelineDraft(draftWith({ furthestStep: 'idea' })).replace('"idea"', '"nowhere"');
+      const stored = encodeContentPipelineDraft(draftWith({ furthestStep: 'picture' })).replace('"picture"', '"nowhere"');
 
-      expect(decodeContentPipelineDraft(stored)?.furthestStep).toBe('setup');
+      expect(decodeContentPipelineDraft(stored)?.furthestStep).toBe('about');
     });
 
     it("round-trips the images step's run", () => {

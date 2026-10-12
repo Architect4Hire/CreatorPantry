@@ -1,0 +1,17 @@
+{
+  "id": "content.long-form-outline.an-issue-with-no-recipe-has-no-items",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "An issue written from a brief alone names no recipe, so its plan has no item section and is still a valid plan.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Greeting\", \"heading\": \"Hello again\", \"intent\": \"Say hello and set up a week of easy baking.\"}, {\"role\": \"Lead\", \"heading\": \"What I learned running a bake sale\", \"intent\": \"Say what the issue is about and why it is worth opening.\"}, {\"role\": \"Signoff\", \"heading\": \"Until next week\", \"intent\": \"Sign off in the creator's own way.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "NewsletterIssue",
+    "recipes": []
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

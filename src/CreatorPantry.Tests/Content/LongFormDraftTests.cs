@@ -1,12 +1,15 @@
 using System.Text.Json;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Tests.Recipes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CreatorPantry.Tests.Content;
 
@@ -446,6 +449,84 @@ public sealed class LongFormDraftTests(SqlServerRecipeFixture fixture) : IClassF
         Assert.Equal(
             LongFormDraftStatus.Outlined,
             (await InAsync(WsA, db => db.LongFormDrafts.AsNoTracking().SingleAsync(item => item.Id == draft.Id, Ct))).Status);
+    }
+
+    /// <summary>
+    /// LF.2.2's write seam on the engine whose row version really moves — which the HTTP fixture's SQLite store
+    /// cannot show: every write hands back a new token, and a writer still holding an old one is refused.
+    /// </summary>
+    [Fact]
+    public async Task Each_write_through_the_seam_moves_the_token_and_a_writer_holding_an_old_one_is_refused()
+    {
+        var (seeded, _, _) = await SeedDraftWithPinAsync(WsA);
+
+        PatchLongFormPlanViewModel Edit(string token, string heading) => new()
+        {
+            ExpectedConcurrencyToken = token,
+            Sections = [new LongFormPlanSectionInputViewModel { Role = LongFormSectionRole.Hook, Heading = heading, Intent = "Open." }],
+        };
+
+        var read = await SeamAsync(facade => facade.GetAsync(seeded.Id, Ct));
+        var firstWrite = await SeamAsync(facade => facade.PatchPlanAsync("user-1", seeded.Id, Edit(read.Value!.ConcurrencyToken, "First writer"), Ct));
+
+        Assert.True(firstWrite.Succeeded, firstWrite.Error?.Code);
+        Assert.NotEqual(read.Value!.ConcurrencyToken, firstWrite.Value!.ConcurrencyToken);
+        Assert.Equal(2, firstWrite.Value.Latest!.RevisionNumber);
+
+        // Composed against the read before the first write landed.
+        var secondWrite = await SeamAsync(facade => facade.PatchPlanAsync("user-2", seeded.Id, Edit(read.Value.ConcurrencyToken, "Second writer"), Ct));
+        var staleApproval = await SeamAsync(facade => facade.ApprovePlanAsync(
+            "user-2",
+            seeded.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, RevisionNumber = 2 },
+            Ct));
+
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, secondWrite.Error!.Code);
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, staleApproval.Error!.Code);
+
+        var approved = await SeamAsync(facade => facade.ApprovePlanAsync(
+            "user-1",
+            seeded.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = firstWrite.Value.ConcurrencyToken, RevisionNumber = 2 },
+            Ct));
+
+        Assert.Equal(LongFormDraftStatus.Outlined, approved.Value!.Status);
+        Assert.NotEqual(firstWrite.Value.ConcurrencyToken, approved.Value.ConcurrencyToken);
+
+        // The retry after a lost response still holds the token the approval moved. It is the same approval.
+        var retried = await SeamAsync(facade => facade.ApprovePlanAsync(
+            "user-1",
+            seeded.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = firstWrite.Value.ConcurrencyToken, RevisionNumber = 2 },
+            Ct));
+
+        Assert.True(retried.Succeeded, retried.Error?.Code);
+        Assert.Equal(approved.Value.ConcurrencyToken, retried.Value!.ConcurrencyToken);
+
+        await InAsync(WsA, async db =>
+        {
+            var stored = await db.LongFormRevisions.AsNoTracking()
+                .Where(revision => revision.LongFormDraftId == seeded.Id)
+                .OrderBy(revision => revision.RevisionNumber)
+                .ToListAsync(Ct);
+
+            // Two revisions, the first writer's last, each pinned to the recipe the first was written against.
+            Assert.Equal(2, stored.Count);
+            Assert.Contains("First writer", stored[1].Content, StringComparison.Ordinal);
+            Assert.Equal(1, await db.LongFormRevisionRecipePins.CountAsync(pin => pin.LongFormRevisionId == stored[1].Id, Ct));
+
+            var resourceId = seeded.Id.ToString("D");
+            Assert.Equal(1, await db.AuditLogs.CountAsync(
+                entry => entry.ResourceId == resourceId && entry.Action == ContentAuditActions.LongFormPlanApproved, Ct));
+        });
+    }
+
+    private async Task<OperationResult<LongFormDraftServiceModel>> SeamAsync(
+        Func<ILongFormDraftFacade, Task<OperationResult<LongFormDraftServiceModel>>> ask)
+    {
+        await using var scope = fixture.ScopeFor(WsA);
+
+        return await ask(scope.ServiceProvider.GetRequiredService<ILongFormDraftFacade>());
     }
 
     // ---- Two workspaces ----

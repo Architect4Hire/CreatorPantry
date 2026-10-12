@@ -1,0 +1,34 @@
+{
+  "id": "content.long-form-outline.a-storage-section-may-be-named-for-what-it-covers",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "A storage section's plan line says it will cover storage. That is the section's name, not advice, and is not flagged.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Storage\", \"heading\": \"Storing and reheating\", \"intent\": \"Cover how to keep the loaf and bring it back the next day.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

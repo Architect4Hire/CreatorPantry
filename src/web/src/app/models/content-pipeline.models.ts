@@ -43,53 +43,41 @@ export interface ContentPipelineStepDefinition {
 }
 
 /**
- * The whole journey, including the four steps that are not built yet.
+ * The whole journey: four steps, each a thing the creator decides rather than a form they fill in.
  *
- * Declared in full on purpose. The progress figure a creator reads has to be the truth about the journey rather
- * than about how much of it has shipped, and a later step can then be filled in without reworking the shell —
- * which is how `BrandSetupShellComponent` was grown. A step with a `comingSoon` body offers no action at all.
+ * It was six until the standing answers moved out of the run. Where the posts go and how many pictures to try
+ * are read from the brand's settings, and the look from the active style guide, so the first step asks only
+ * what this piece of work is about; the idea and the prompt are one decision about the picture, and the posts
+ * and the filing are one way of finishing. {@link LEGACY_STEP_SLUGS} carries a run kept under the old six
+ * to the step that now holds its place.
  */
 export const CONTENT_PIPELINE_STEPS = [
   {
-    slug: 'setup',
-    label: 'Set it up',
-    help: 'Where the post is going, which day it is for, how many pictures to try, and anything you already know you want in the shot. All of it is optional, and you can change any of it later.',
+    slug: 'about',
+    label: 'What it is about',
+    help: 'The recipe or dish this piece of work is for, the day it is for, and anything you already picture. Where the posts go, how many pictures to try and the look all come from your brand, and you can change any of them for this run.',
     legend: 'Everything on this step is optional. Fill in what you already know.',
     comingSoon: null,
   },
   {
-    slug: 'idea',
-    label: 'Pick an idea',
-    help: 'A starting point put together from the cooking vocabulary and your own weekly theme. Say what you already know — the cuisine, the kind of dish, how it is cooked — and the rest is suggested around it. Keep the parts you like, swap the rest, and pick one when it looks right. Nothing is written down until you do.',
-    legend: 'Say what you know, keep what you like, and try again for the rest. Nothing is saved until you pick one.',
-    comingSoon: null,
-  },
-  {
-    slug: 'prompt',
-    label: 'Write the prompt',
-    help: 'A few looks planned for you, then the words that describe the picture. Add a brief or a photograph you like if you have one. Whatever you write yourself is what gets used.',
-    legend: 'Pick a look and a shot, then the prompt. Everything in Extras is optional.',
+    slug: 'picture',
+    label: 'Plan the picture',
+    help: 'An idea to start from, then a few looks planned for it and the words that describe the picture. Keep the parts of the idea you like and swap the rest; add a brief or a photograph you like if you have one. Whatever you write yourself is what gets used.',
+    legend: 'Pick an idea, then a look and a shot, then the prompt. Everything in Extras is optional.',
     comingSoon: null,
   },
   {
     slug: 'images',
     label: 'Make the images',
-    help: 'Your prompt goes off to be turned into pictures — one to four of them, as you asked on the first step. Look at what comes back, keep the ones worth using, download any you want a copy of, and tidy the rest away.',
+    help: 'Your prompt goes off to be turned into pictures — as many as your brand settings say, or as you asked for this run. Look at what comes back, keep the ones worth using, download any you want a copy of, and tidy the rest away.',
     legend: 'Keep at least one picture. Nothing is filed in your library on this step.',
     comingSoon: null,
   },
   {
-    slug: 'posts',
-    label: 'Write the posts',
-    help: 'The words that go out with the pictures, one post per place you publish. Each one is written to that channel’s own length, and you read them through one at a time — edit any of them, have one written again, and accept the ones you want. Nothing is accepted for you, and nothing goes out from here.',
-    legend: 'Nothing is accepted until you say so. Accept the ones you want and leave the rest.',
-    comingSoon: null,
-  },
-  {
-    slug: 'library',
-    label: 'Save to your library',
-    help: 'Filing the pictures you kept, so you can find them again and see where they came from. Each one is saved on its own, with what you want to say about it.',
-    legend: 'Save the ones you want to keep. A picture you do not save is not kept.',
+    slug: 'finish',
+    label: 'Posts and library',
+    help: 'The words that go out with the pictures, one post per place you publish, each written to that channel’s own length — then the pictures you kept, filed in your library so you can find them again. Nothing is accepted for you, and nothing goes out from here.',
+    legend: 'Nothing is accepted until you say so. Accept the posts you want, and save the pictures you want to keep — one you do not save is not kept.',
     comingSoon: null,
   },
 ] as const satisfies readonly ContentPipelineStepDefinition[];
@@ -107,6 +95,25 @@ const STEP_SLUG_SET: ReadonlySet<string> = new Set(CONTENT_PIPELINE_STEP_SLUGS);
 
 export function isContentPipelineStepSlug(value: unknown): value is ContentPipelineStepSlug {
   return typeof value === 'string' && STEP_SLUG_SET.has(value);
+}
+
+/**
+ * Where each step of the six-step journey went, so a run kept before the journey was shortened opens on the
+ * step that now holds its place rather than back at the start.
+ */
+const LEGACY_STEP_SLUGS: Readonly<Record<string, ContentPipelineStepSlug>> = {
+  setup: 'about',
+  idea: 'picture',
+  prompt: 'picture',
+  posts: 'finish',
+  library: 'finish',
+};
+
+/** A stored step, read into one this build has: itself, the step that replaced it, or the first. */
+export function contentPipelineStepFor(value: unknown): ContentPipelineStepSlug {
+  if (isContentPipelineStepSlug(value)) return value;
+
+  return (typeof value === 'string' ? LEGACY_STEP_SLUGS[value] : undefined) ?? FIRST_CONTENT_PIPELINE_STEP;
 }
 
 export function contentPipelineStepIndex(slug: string | null | undefined): number {
@@ -200,6 +207,12 @@ export interface ContentPipelineConfig {
   readonly channelKey: string | null;
   readonly day: DayOfWeek | null;
   readonly variantCount: number;
+  /**
+   * True once the creator has said how many pictures *this run* tries. Until then {@link variantCount} is only
+   * the product's fallback and the brand's own default is what a run uses — see
+   * {@link contentPipelinePictureCount}. Absent reads as false.
+   */
+  readonly variantCountChosen?: boolean;
   /** Scene elements — a surface, a season, a time of day, a prop. The creator's own words. */
   readonly scene: readonly string[];
   /** Style directions — a mood, a palette, a treatment. The creator's own words. */
@@ -216,6 +229,22 @@ export interface ContentPipelineConfig {
    * reads {@link concept} or an idea in its place. Empty until they have chosen.
    */
   readonly brief: string;
+}
+
+/**
+ * How many pictures a run tries: what the creator chose for this run, else the brand's default, else the
+ * product's.
+ *
+ * The one place that order is decided. A brand default that cannot be read falls through to the product's
+ * rather than stopping the run — the count is a preference, not something to refuse work over.
+ */
+export function contentPipelinePictureCount(
+  config: Pick<ContentPipelineConfig, 'variantCount' | 'variantCountChosen'>,
+  brandDefault: number | null,
+): number {
+  if (config.variantCountChosen === true) return clampVariantCount(config.variantCount);
+
+  return clampVariantCount(brandDefault ?? DEFAULT_VARIANT_COUNT);
 }
 
 /** One string for a linked recipe and its pinned version, for telling two apart. Empty for none. */
@@ -554,6 +583,7 @@ export function emptyContentPipelineConfig(): ContentPipelineConfig {
     channelKey: null,
     day: null,
     variantCount: DEFAULT_VARIANT_COUNT,
+    variantCountChosen: false,
     scene: [],
     style: [],
     concept: '',
@@ -612,6 +642,7 @@ export function isContentPipelineDraftEmpty(draft: ContentPipelineDraft): boolea
     config.channelKey === null &&
     config.day === null &&
     config.variantCount === DEFAULT_VARIANT_COUNT &&
+    config.variantCountChosen !== true &&
     config.scene.length === 0 &&
     config.style.length === 0 &&
     config.concept.trim() === '' &&
@@ -752,11 +783,17 @@ export function decodeContentPipelineConfig(value: unknown): ContentPipelineConf
   const rawDay = value['day'];
   const day = rawDay === null || rawDay === undefined ? null : decodeEnum<DayOfWeek>(DAY_OF_WEEK_VALUES, rawDay);
 
+  const variantCount = clampVariantCount(value['variantCount']);
+  const rawChosen = value['variantCountChosen'];
+
   return {
     subject: typeof subject === 'string' ? subject.slice(0, CONTENT_PIPELINE_LIMITS.subjectMaxLength) : '',
     channelKey: typeof channelKey === 'string' && channelKey.trim() !== '' ? channelKey.trim() : null,
     day,
-    variantCount: clampVariantCount(value['variantCount']),
+    variantCount,
+    // A record from before this was kept has no flag. A count that is not the product's fallback can only
+    // have been picked, so it stays the creator's; the fallback itself reads as not chosen.
+    variantCountChosen: typeof rawChosen === 'boolean' ? rawChosen : variantCount !== DEFAULT_VARIANT_COUNT,
     scene,
     style,
     concept: typeof concept === 'string' ? concept.slice(0, CONTENT_PIPELINE_LIMITS.conceptMaxLength) : '',
@@ -1027,7 +1064,7 @@ function decodeDraftBody(parsed: Record<string, unknown>): ContentPipelineDraft 
     prompt,
     images,
     posts,
-    furthestStep: isContentPipelineStepSlug(furthest) ? furthest : FIRST_CONTENT_PIPELINE_STEP,
+    furthestStep: contentPipelineStepFor(furthest),
     savedAt: typeof savedAt === 'string' ? savedAt : '',
   };
 }
@@ -1119,7 +1156,12 @@ export function encodeContentPipelineRun(
   draft: ContentPipelineDraft,
   unsent: Partial<CreativeContextFields> | null,
 ): string {
-  const { variantCount, scene, style } = draft.config;
+  const { variantCount, variantCountChosen, scene, style } = draft.config;
 
-  return JSON.stringify({ v: CONTENT_PIPELINE_RUN_VERSION, ...draft, config: { variantCount, scene, style }, unsent });
+  return JSON.stringify({
+    v: CONTENT_PIPELINE_RUN_VERSION,
+    ...draft,
+    config: { variantCount, variantCountChosen: variantCountChosen === true, scene, style },
+    unsent,
+  });
 }

@@ -176,4 +176,38 @@ public static class ContentErrorCodes
     /// neighbour owns.
     /// </summary>
     public const string SocialSourceUnprocessable = "content.social.source.unprocessable";
+
+    /// <summary>
+    /// A long-form draft was asked for a creative context this workspace does not have (LF.2.2).
+    /// </summary>
+    /// <remarks>
+    /// One code and one sentence for a context that does not exist and one that is another workspace's, so the
+    /// request cannot be used to ask what a neighbour holds.
+    /// </remarks>
+    public const string LongFormContextUnprocessable = "content.long_form.context.unprocessable";
+
+    /// <summary>No such draft in this workspace — or one in another, which is the same answer.</summary>
+    public const string LongFormDraftNotFound = "content.long_form.draft.not_found";
+
+    /// <summary>The draft moved since the read this write was composed against.</summary>
+    public const string LongFormDraftStale = "content.long_form.draft.stale.conflict";
+
+    /// <summary>A plan edit or approval for a draft that has no plan yet.</summary>
+    public const string LongFormPlanNotStarted = "content.long_form.plan.not_started.conflict";
+
+    /// <summary>A plan edit, approval or new outline for a draft whose sections are already being written.</summary>
+    public const string LongFormPlanLocked = "content.long_form.plan.locked.conflict";
+
+    /// <summary>A submitted plan is not one that could be kept: its shape, not its readiness.</summary>
+    public const string LongFormPlanInvalid = "content.long_form.plan.invalid";
+
+    /// <summary>
+    /// Approval of a plan that does not meet the long-form shape rules. The field errors name each section.
+    /// </summary>
+    public const string LongFormPlanUnprocessable = "content.long_form.plan.unprocessable";
+
+    /// <summary>A generated plan names a source this workspace cannot pin it to. One code, whichever it was.</summary>
+    public const string LongFormSourceUnprocessable = "content.long_form.source.unprocessable";
+
+    public const string LongFormCursorInvalid = "content.long_form.cursor.invalid";
 }

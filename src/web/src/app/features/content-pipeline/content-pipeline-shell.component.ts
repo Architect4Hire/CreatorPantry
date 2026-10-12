@@ -43,6 +43,7 @@ import {
   FIRST_CONTENT_PIPELINE_STEP,
   contentPipelineBriefAfter,
   contentPipelineConfigWith,
+  contentPipelinePictureCount,
   contentPipelineStepIndex,
   contentPipelineStepStatus,
   emptyContentPipelineDraft,
@@ -57,9 +58,14 @@ import { CreativeContextFields } from '../../models/creative-context-fields.mode
 import { keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
 import { DamKeepRecipe } from '../../models/dam-asset.models';
 import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.component';
+import { BrandProfileService } from '../../services/brand-profile.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CreativeContextSaveNoticeComponent } from '../../shared/creative-context-save-notice/creative-context-save-notice.component';
+import {
+  ContentPipelineBrandDefaultsComponent,
+  ContentPipelineBrandStatus,
+} from './content-pipeline-brand-defaults.component';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 import { ContentPipelineImagesStepComponent } from './content-pipeline-images-step.component';
 import { ContentPipelineLibraryStepComponent } from './content-pipeline-library-step.component';
@@ -126,8 +132,10 @@ const HEADING_ID = 'cp-pipeline-step-heading';
  * empty piece of work behind. A whole draft found on this device from before contexts existed is filed on one
  * before anything is shown, and is not touched until that has worked.
  *
- * **The step list is the whole journey, including the four steps not built yet**, so "Step 2 of 6" is the truth
- * about the pipeline rather than about how much of it has shipped. A step that is not built offers no action.
+ * **Four steps, because the standing answers are not asked.** Where the posts go and how many pictures to try
+ * are read from the brand's settings, and the look from its active style guide; the first step shows them and
+ * lets a run change any of them for itself. A brand that cannot be read never stops a run — it falls back to
+ * the product's own defaults and says so.
  *
  * **Leaving costs nothing, so leaving is not confirmed.** Every change is kept as it is made — on this device
  * at once, and an answer still on its way to the server is sent as the page goes — which is why there is no
@@ -147,6 +155,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     CpProgressComponent,
     CreativeContextSaveNoticeComponent,
     RecipePickerComponent,
+    ContentPipelineBrandDefaultsComponent,
     ContentPipelineSetupStepComponent,
     ContentPipelineIdeaStepComponent,
     ContentPipelinePromptStepComponent,
@@ -173,6 +182,7 @@ export class ContentPipelineShellComponent {
   protected readonly session = inject(CreativeContextSession);
   private readonly drafts = inject(ContentPipelineDraftService);
   private readonly memberships = inject(WorkspaceMembershipService);
+  private readonly brandProfiles = inject(BrandProfileService);
   private readonly confirm = inject(ConfirmService);
   private readonly injector = inject(Injector);
 
@@ -193,6 +203,21 @@ export class ContentPipelineShellComponent {
   private readonly resumeOffered = signal(false);
   /** True when work found on this device could not be put on a context. It is still on the device. */
   private readonly filingFailed = signal(false);
+
+  /**
+   * What this workspace's brand says a run starts with. Read once per owner; `channelKeys` and `pictureCount`
+   * are empty and null until it has been, and stay so when it cannot be.
+   */
+  protected readonly brand = signal<{
+    readonly status: ContentPipelineBrandStatus;
+    readonly channelKeys: readonly string[];
+    readonly pictureCount: number | null;
+  }>({ status: 'loading', channelKeys: [], pictureCount: null });
+  /** The owner whose brand is in hand, so it is not read twice. */
+  private brandKey: string | null = null;
+
+  /** How many pictures this run tries: its own answer, else the brand's, else the product's. */
+  protected readonly pictureCount = computed(() => contentPipelinePictureCount(this.draft().config, this.brand().pictureCount));
 
   private stepParam: string | null = null;
 
@@ -307,26 +332,25 @@ export class ContentPipelineShellComponent {
   /**
    * Whether Continue is offered.
    *
-   * Setup asks nothing required, so it always continues. The idea step continues once an idea has been picked —
-   * which is what picking one is for.
+   * The first step asks nothing required, so it always continues. Planning the picture continues once there is
+   * an idea and a prompt, which is what that step is for.
    *
    * **A step that is not built is passed through rather than blocking the journey** (AF.4.3). It asks nothing,
    * so there is nothing to answer, and the step after it may well be built — stopping there would hide a
    * finished step behind an unfinished one. Every step is built as of AF.6.5, and the rule stays: the next
    * one added will arrive unbuilt like the rest did.
    *
-   * **The posts step asks nothing required either.** A creator may carry on to their library without writing
-   * a post, and gating it would make a journey about pictures depend on words they did not want.
+   * **The last step asks nothing required either**, and has nowhere to continue to. A creator may leave
+   * without writing a post, because gating it would make a journey about pictures depend on words they did
+   * not want.
    */
   readonly canContinue = computed(() => {
     const slug = this.currentSlug();
     if (slug === null) return false;
     // An idea, and — where the creator also described a picture — their answer to which of the two to work
-    // from. That is asked rather than assumed: it decides what every later step plans around.
-    if (slug === 'idea') return this.draft().seed.accepted !== null && !this.needsBriefChoice();
-    // A prompt is what this step is for, so carrying on means having one. The creator's own text counts: a
-    // prompt they wrote themselves is as finished as one that was written for them.
-    if (slug === 'prompt') return this.draft().prompt.finalPrompt.trim() !== '';
+    // from, which is asked rather than assumed: it decides what the looks are planned around. Then a prompt.
+    // The creator's own text counts: a prompt they wrote themselves is as finished as one written for them.
+    if (slug === 'picture') return this.pictureProblem() === null;
     // A picture is what the steps after this one are about, so one has to be kept. Pictures that came back and
     // were not chosen are not a decision, which is why the keepers rather than the run are what count. Read
     // from the work itself since AF.4.3, which is where a keeper now lives.
@@ -334,6 +358,20 @@ export class ContentPipelineShellComponent {
 
     return contentPipelineStepIndex(slug) < this.total - 1;
   });
+
+  /** What planning the picture still needs before carrying on, or null when it needs nothing. */
+  readonly pictureProblem = computed<string | null>(() => {
+    const draft = this.draft();
+
+    if (draft.seed.accepted === null) return 'Pick an idea to carry on.';
+    if (this.needsBriefChoice()) return 'Choose what to work from to carry on.';
+    if (draft.prompt.finalPrompt.trim() === '') return 'Write the prompt, or have one written, to carry on.';
+
+    return null;
+  });
+
+  /** True once the idea is settled, which is when the looks and the prompt have something to be planned from. */
+  readonly ideaSettled = computed(() => this.draft().seed.accepted !== null && !this.needsBriefChoice());
 
   /** The pictures this work names as keepers: what the images step marked, and what the library step files. */
   readonly keepers = computed(() => keeperReferencesOf(this.session.context()));
@@ -460,6 +498,15 @@ export class ContentPipelineShellComponent {
       untracked(() => void this.open(owner, contextId));
     });
 
+    // The brand is read once the memberships say who is asking, and again for another workspace or person.
+    effect(() => {
+      const key = this.ownerKey();
+      if (this.owner() === null || key === this.brandKey) return;
+
+      this.brandKey = key;
+      untracked(() => void this.loadBrand(this.workspaceSlug(), key));
+    });
+
     // The context's answers are laid over the run whenever they change underneath it — on the first read, when
     // the creator loads the latest, or when another tab changed a field this one had not touched.
     effect(() => {
@@ -495,6 +542,30 @@ export class ContentPipelineShellComponent {
     });
   }
 
+  /**
+   * Read what the brand says a run starts with.
+   *
+   * Never an error the run stops on: a workspace with no profile, and one whose profile cannot be read, both
+   * leave the run on the product's own defaults, and the first step says which.
+   */
+  private async loadBrand(slug: string, key: string): Promise<void> {
+    this.brand.set({ status: 'loading', channelKeys: [], pictureCount: null });
+
+    const outcome = await this.brandProfiles.getBrandProfile(slug);
+    // Another workspace, or another person, arrived while this was being read: it is theirs to answer now.
+    if (key !== this.brandKey) return;
+
+    this.brand.set(
+      outcome.status === 'found'
+        ? {
+            status: 'ready',
+            channelKeys: outcome.profile.channelDefaults,
+            pictureCount: outcome.profile.defaultPictureCount,
+          }
+        : { status: outcome.status === 'first_use' ? 'none' : 'unavailable', channelKeys: [], pictureCount: null },
+    );
+  }
+
   /** Every route node from this one up to the root, so a parameter can be found wherever it was declared. */
   private ancestors(): readonly ActivatedRoute[] {
     const nodes: ActivatedRoute[] = [];
@@ -514,6 +585,8 @@ export class ContentPipelineShellComponent {
     this.openTicket++;
     this.loadedKey = null;
     this.loadedOwner = null;
+    this.brandKey = null;
+    this.brand.set({ status: 'loading', channelKeys: [], pictureCount: null });
     this.resumeContextId = null;
     this.filedContextId = null;
     this.keptHere = false;

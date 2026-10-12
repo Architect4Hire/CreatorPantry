@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-outline.an-intent-on-two-lines-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "An intent is one line. A line break is how a second sentence, and then a paragraph, gets in.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Hook\", \"heading\": \"The loaf for people who do not bake\", \"intent\": \"Open on how little this bread asks.\\nThen tell the story of the first loaf.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_outline_intent_invalid",
+    "category": "DomainInvalid"
+  }
+}

@@ -5,6 +5,7 @@ import {
   ingredientLineStatesAmount,
   missingRequiredFieldsOf,
   otherWarningsOf,
+  pictureBriefFromDraft,
   unresolvedQuestionsOf,
 } from './recipe-draft.models';
 
@@ -343,6 +344,42 @@ describe('countItems', () => {
     );
 
     expect(countItems(draft.ingredientGroups)).toBe(3);
+  });
+});
+
+describe('pictureBriefFromDraft', () => {
+  const lines = (names: readonly string[]): AiProposedChange[] => [
+    change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1' }),
+    ...names.map((name, index) =>
+      change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: `l${index}`, afterValue: name }),
+    ),
+  ];
+
+  it('names each ingredient once, by its own name where the draft gave one', () => {
+    const draft = draftFromProposal(
+      proposal([
+        ...lines(['4 ears corn', '2 tbsp white miso', 'Corn']),
+        change({ targetKind: 'Ingredient', targetId: 'l0', fieldName: 'ingredientNameText', afterValue: 'corn' }),
+      ]),
+    );
+
+    expect(pictureBriefFromDraft(draft, 1000)).toBe(
+      'Show the dish as its recipe makes it. Its ingredients: corn; 2 tbsp white miso. Add no food that is not one of them.',
+    );
+  });
+
+  it('says nothing for a draft with no ingredients', () => {
+    expect(pictureBriefFromDraft(draftFromProposal(proposal([])), 1000)).toBe('');
+  });
+
+  it('drops whole names to fit, and never cuts one short', () => {
+    const names = Array.from({ length: 40 }, (_, index) => `ingredient number ${index}`);
+    const brief = pictureBriefFromDraft(draftFromProposal(proposal(lines(names))), 300);
+
+    expect(brief.length).toBeLessThanOrEqual(300);
+    expect(brief).toContain('ingredient number 0;');
+    expect(brief).toMatch(/ingredient number \d+\. Add no food/);
+    expect(brief).not.toContain('ingredient number 39');
   });
 });
 

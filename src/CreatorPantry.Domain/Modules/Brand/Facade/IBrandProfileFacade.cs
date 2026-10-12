@@ -160,6 +160,7 @@ internal sealed class BrandProfileFacade(
         Add("defaultAudience", model.DefaultAudience);
         Add("locale", model.Locale);
         Add("timeZoneId", model.TimeZoneId);
+        Add("defaultPictureCount", model.DefaultPictureCount);
         Add("channelDefaults", model.ChannelDefaults);
         Add("links", model.Links);
         Add("assets", model.Assets);

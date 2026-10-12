@@ -42,6 +42,13 @@ public class BrandProfile : IWorkspaceOwned
     /// <summary>IANA zone identifier, validated by the write seam through <c>ITimeZoneConverter</c>.</summary>
     public string? TimeZoneId { get; set; }
 
+    /// <summary>
+    /// How many pictures a run tries unless the creator says otherwise for that run, or null for the product's
+    /// own default. A working preference, not visual direction: what the pictures look like stays the style
+    /// guide's.
+    /// </summary>
+    public int? DefaultPictureCount { get; set; }
+
     /// <summary>Edit counter, starting at 1 and incremented by the write seam on every change.</summary>
     public int Revision { get; set; } = 1;
 

@@ -39,6 +39,30 @@ public sealed class BrandProfileValidatorTests
     }
 
     [Theory]
+    [InlineData(null, true)]
+    [InlineData(1, true)]
+    [InlineData(4, true)]
+    [InlineData(0, false)]
+    [InlineData(5, false)]
+    [InlineData(-1, false)]
+    public void A_default_picture_count_is_between_one_and_four_or_absent(int? count, bool valid)
+    {
+        Assert.Equal(valid, Create.Validate(new CreateBrandProfileViewModel { BrandName = "B", DefaultPictureCount = count }).IsValid);
+        Assert.Equal(valid, Update.Validate(Patch() with { DefaultPictureCount = PatchField<int?>.Submitted(count) }).IsValid);
+    }
+
+    /// <summary>
+    /// The brand's bounds are a restatement of the image route's, because a policy does not cross a module
+    /// boundary. If they drift, a creator could save a default the route that reads it refuses.
+    /// </summary>
+    [Fact]
+    public void The_default_picture_count_bounds_are_the_image_routes_bounds()
+    {
+        Assert.Equal(CreatorPantry.Domain.Modules.Media.Managers.MediaPolicy.MinVariantsPerOperation, BrandPolicy.MinDefaultPictureCount);
+        Assert.Equal(CreatorPantry.Domain.Modules.Media.Managers.MediaPolicy.MaxVariantsPerOperation, BrandPolicy.MaxDefaultPictureCount);
+    }
+
+    [Theory]
     [InlineData("en", true)]
     [InlineData("en-US", true)]
     [InlineData("zh-Hant-TW", true)]

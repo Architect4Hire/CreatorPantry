@@ -20,6 +20,7 @@ import {
   CpDialogComponent,
   CpDiffLegendComponent,
   CpDrawerComponent,
+  CpLightboxComponent,
   CpEmptyStateComponent,
   CpFactComponent,
   CpFactsComponent,
@@ -78,6 +79,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpCardComponent,
     CpDialogComponent,
     CpDrawerComponent,
+    CpLightboxComponent,
     CpFieldComponent,
     CpFieldRowComponent,
     CpFormSectionComponent,
@@ -167,6 +169,18 @@ export class DesignSystemShowcaseComponent {
   // --- Drawer ---
   private readonly confirm = inject(ConfirmService);
   private readonly drawerTitleAtOpen = 'Tomato soup, overhead';
+  readonly lightboxOpen = signal<'plain' | 'full' | null>(null);
+  /**
+   * A stand-in picture, inline so the showcase asks the network for nothing. Its greys are the picture's own
+   * pixels, not theme colours: a photograph does not change with the theme either.
+   */
+  readonly samplePicture =
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900"><rect width="1200" height="900" fill="#8a8f8c"/>' +
+        '<circle cx="600" cy="450" r="260" fill="#c9cdc9"/><circle cx="600" cy="450" r="170" fill="#a3a8a4"/></svg>',
+    );
+
   readonly drawerOpen = signal<'form' | 'long' | null>(null);
   readonly drawerTitle = signal(this.drawerTitleAtOpen);
 

@@ -48,7 +48,7 @@
               <form class="name-form" (submit)="start($event)" novalidate>
                 <cp-form-section
                   heading="The dish"
-                  intro="Just what it is called. We write a first draft of the recipe and make one picture for it, and you see both before anything is saved."
+                  intro="Just what it is called. We write a first draft of the recipe, then make one picture from what that draft contains, and you see both before anything is saved."
                   [problem]="askProblem() ?? ''"
                 >
                   <cp-field
@@ -108,7 +108,7 @@
                     <p class="cp-muted" role="status">The picture is ready.</p>
                   }
                   @case ('none') {
-                    <p class="cp-muted" role="status">Starts once the draft is on its way.</p>
+                    <p class="cp-muted" role="status">Starts once the recipe is drafted, so it can show what is in it.</p>
                   }
                   @default {
                     <p class="cp-muted" role="status">{{ $any(pictureView()).sentence }}</p>
@@ -164,7 +164,8 @@
                         />
                         <p class="cp-muted">
                           <cp-badge tone="purple">Generated</cp-badge>
-                          Made from the name you gave, not from this draft — check it shows the dish as written.
+                          Planned from this draft's ingredients. Nothing has checked the picture against them, so
+                          look that it shows the dish as written.
                         </p>
                       }
                       @case ('working') {
@@ -179,11 +180,20 @@
                         <p class="cp-muted">No picture was asked for.</p>
                       }
                     }
-                    @if (!alreadySaved() && !pictureWorking()) {
-                      <button cpButton type="button" variant="text" size="sm" [disabled]="saving()" (click)="anotherPicture()">
-                        {{ pictureView().kind === 'ready' ? 'Make a different picture' : 'Try the picture again' }}
-                      </button>
-                    }
+                    <div class="cp-actions">
+                      @if (pictureView().kind === 'ready') {
+                        <!-- A button beside the picture rather than the picture as a button: the picture can
+                             hold a control of its own ("Try again"), and a button inside a button is invalid. -->
+                        <button cpButton type="button" variant="secondary" size="sm" (click)="viewPictureLarger($event)">
+                          View larger
+                        </button>
+                      }
+                      @if (!alreadySaved() && !pictureWorking()) {
+                        <button cpButton type="button" variant="text" size="sm" [disabled]="saving()" (click)="anotherPicture()">
+                          {{ pictureView().kind === 'ready' ? 'Make a different picture' : 'Try the picture again' }}
+                        </button>
+                      }
+                    </div>
                   </section>
 
                   <section class="recipe" aria-labelledby="cp-quick-recipe-draft-heading">
@@ -309,6 +319,24 @@
           }
         </cp-topic-card>
       </div>
+
+      @if (pictureView().kind === 'ready') {
+        <cp-lightbox
+          [open]="pictureOpen()"
+          heading="Lead picture"
+          [description]="pictureFacts()"
+          (closeRequested)="pictureOpen.set(false)"
+        >
+          @if (pictureOpen()) {
+            <cp-content-pipeline-staged-image
+              [workspaceSlug]="workspaceSlug()"
+              [image]="$any(pictureView()).image"
+              [position]="1"
+              [total]="1"
+            />
+          }
+        </cp-lightbox>
+      }
     }
   }
 </div>

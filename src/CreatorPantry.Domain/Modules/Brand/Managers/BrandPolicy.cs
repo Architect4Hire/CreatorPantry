@@ -23,6 +23,16 @@ public static class BrandPolicy
     /// </summary>
     public const int ChannelKeyMaxLength = 64;
 
+    /// <summary>
+    /// The fewest and most pictures a run may try by default. The same numbers as
+    /// <c>MediaPolicy.MinVariantsPerOperation</c> and <c>MaxVariantsPerOperation</c>, restated because a policy
+    /// does not cross a module boundary; <c>BrandProfileValidatorTests</c> holds the two together.
+    /// </summary>
+    public const int MinDefaultPictureCount = 1;
+
+    /// <inheritdoc cref="MinDefaultPictureCount"/>
+    public const int MaxDefaultPictureCount = 4;
+
     /// <summary>The creator's note on why an edit was made, recorded on its revision.</summary>
     public const int ReasonMaxLength = 500;
 

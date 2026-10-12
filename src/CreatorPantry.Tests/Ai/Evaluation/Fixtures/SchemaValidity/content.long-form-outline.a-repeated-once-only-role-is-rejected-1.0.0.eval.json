@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-outline.a-repeated-once-only-role-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "A role that may appear once appears twice. The plan fails rather than having its second hook dropped.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Hook\", \"heading\": \"The loaf for people who do not bake\", \"intent\": \"Open on how little this bread asks of the cook.\"}, {\"role\": \"Hook\", \"heading\": \"A second way in\", \"intent\": \"Open again from another angle.\"}, {\"role\": \"Closing\", \"heading\": \"Bake it this weekend\", \"intent\": \"Send the reader off to try it.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_outline_role_repeated",
+    "category": "DomainInvalid"
+  }
+}

@@ -22,6 +22,7 @@ const WIRE = {
   defaultAudience: null,
   locale: 'en-US',
   timeZoneId: 'America/Chicago',
+  defaultPictureCount: null,
   channelDefaults: [{ channelKey: 'instagram' }, { channelKey: 'tiktok' }],
   links: [{ kind: 'Website', url: 'https://example.com', label: null }],
   assets: [{ mediaAssetId: 'a1', role: 'PrimaryLogo' }],
@@ -109,6 +110,26 @@ describe('buildUpdateRequest', () => {
       expectedConcurrencyToken: 'tok',
       shortDescription: null,
     });
+  });
+
+  it('sends the default picture count when it changes, and null to go back to no preference', () => {
+    expect(buildUpdateRequest(profile(), { ...draftFromProfile(profile()), defaultPictureCount: 3 }, options)).toEqual({
+      expectedConcurrencyToken: 'tok',
+      defaultPictureCount: 3,
+    });
+
+    const withCount = decodeBrandProfile({ ...WIRE, defaultPictureCount: 3 })!;
+    expect(withCount.defaultPictureCount).toBe(3);
+    expect(buildUpdateRequest(withCount, { ...draftFromProfile(withCount), defaultPictureCount: null }, options)).toEqual({
+      expectedConcurrencyToken: 'tok',
+      defaultPictureCount: null,
+    });
+  });
+
+  it('reads a profile written before the picture count existed as having no preference', () => {
+    const { defaultPictureCount: _omitted, ...older } = WIRE;
+    expect(decodeBrandProfile(older)?.defaultPictureCount).toBeNull();
+    expect(decodeBrandProfile({ ...WIRE, defaultPictureCount: 'three' })).toBeNull();
   });
 
   it('sends a whole list when it changes, including an empty one to clear it', () => {

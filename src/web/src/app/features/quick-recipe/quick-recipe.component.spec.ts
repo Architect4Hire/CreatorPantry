@@ -84,6 +84,8 @@ const DRAFT = proposal(
     row({ changeId: 'd-yield', fieldName: 'yieldText', afterValue: 'Serves 4' }),
     row({ changeId: 'd-group', changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1' }),
     row({ changeId: 'd-line', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'i1', afterValue: '4 ears corn' }),
+    row({ changeId: 'd-line-name', targetKind: 'Ingredient', targetId: 'i1', fieldName: 'ingredientNameText', afterValue: 'corn' }),
+    row({ changeId: 'd-line-2', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'i2', afterValue: '2 tbsp white miso' }),
     row({ changeId: 'd-method', changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'g2' }),
     row({ changeId: 'd-step', changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's1', afterValue: 'Char the corn.' }),
   ],
@@ -351,7 +353,14 @@ describe('QuickRecipeComponent', () => {
 
       expect(calls.filter((call) => !call.endsWith('.watch'))).toEqual(['draft', 'looks', 'prompt', 'picture']);
       expect(sent['draft'].slice(0, 2)).toEqual([SLUG, 'Miso butter corn']);
-      expect(sent['looks'][1]).toEqual(jasmine.objectContaining({ dishName: 'Miso butter corn' }));
+      // The look is planned from what the draft lists: a name where it gave one, the whole line where not.
+      expect(sent['looks'][1]).toEqual(
+        jasmine.objectContaining({
+          dishName: 'Miso butter corn',
+          creatorConcept:
+            'Show the dish as its recipe makes it. Its ingredients: corn; 2 tbsp white miso. Add no food that is not one of them.',
+        }),
+      );
       // The main shot, though the look listed a detail shot first.
       expect(sent['prompt'][1]).toEqual(
         jasmine.objectContaining({ conceptRequestId: 'r-looks', conceptId: 'look-1', shotKind: 'Hero' }),
@@ -395,6 +404,34 @@ describe('QuickRecipeComponent', () => {
       expect(control('Save')).toBeNull();
     });
 
+    it('asks nothing of the picture until the draft has been written', async () => {
+      await create({
+        draftOutcome: { status: 'accepted', operation: operation('r-draft', null, 'Requested'), replayed: false },
+        draftWatch: () => NEVER,
+      });
+
+      await nameAndStart();
+
+      expect(calls.filter((call) => !call.endsWith('.watch'))).toEqual(['draft']);
+      expect(text()).toContain('Starts once the recipe is drafted');
+    });
+
+    it('picks up a reloaded run whose draft is written and whose picture was never asked for', async () => {
+      await create({ url: `/${SLUG}/workflows/quick-recipe?name=Miso%20butter%20corn&draft=r-draft` });
+
+      expect(calls.filter((call) => !call.endsWith('.watch'))).toEqual(['looks', 'prompt', 'picture']);
+    });
+
+    it('asks for no picture for a draft that is already a recipe', async () => {
+      await create({
+        url: `/${SLUG}/workflows/quick-recipe?name=Miso%20butter%20corn&draft=r-draft`,
+        draftWatch: () => of<AiWatchOperationOutcome>({ status: 'found', operation: operation('r-draft', DRAFT, 'Accepted') }),
+      });
+
+      expect(calls).toEqual(['draft.watch']);
+      expect(text()).toContain('already been saved as a recipe');
+    });
+
     it('does not spend a picture when the draft was refused', async () => {
       await create({ draftOutcome: { status: 'task_not_enabled' } });
 
@@ -414,6 +451,7 @@ describe('QuickRecipeComponent', () => {
 
       expect(control('Try again')).not.toBeNull();
       expect(control('Save')).toBeNull();
+      expect(calls).not.toContain('looks');
     });
   });
 
@@ -433,12 +471,55 @@ describe('QuickRecipeComponent', () => {
       expect(calls).not.toContain('keep');
     });
 
-    it('says the picture was made from the name, not from the draft', async () => {
+    it('says what the picture was planned from, and that nobody has checked it', async () => {
       await create();
       await nameAndStart();
 
       expect(root().querySelector('cp-content-pipeline-staged-image')).not.toBeNull();
-      expect(text()).toContain('Made from the name you gave, not from this draft');
+      expect(text()).toContain("Planned from this draft's ingredients");
+      expect(text()).toContain('Nothing has checked the picture against them');
+    });
+
+    it('opens the picture large, says only its size, and gives focus back on close', async () => {
+      await create();
+      await nameAndStart();
+      document.body.appendChild(root());
+
+      try {
+        expect(root().querySelector('[role="dialog"]')).toBeNull();
+
+        await press('View larger');
+
+        const dialog = root().querySelector<HTMLElement>('[role="dialog"]')!;
+        expect(dialog.querySelector('h2')?.textContent).toContain('Lead picture');
+        expect(dialog.textContent).toContain('1024 × 1024 pixels');
+        expect(dialog.querySelector('cp-content-pipeline-staged-image')).not.toBeNull();
+
+        dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await settle();
+
+        expect(root().querySelector('[role="dialog"]')).toBeNull();
+        expect(document.activeElement).toBe(control('View larger'));
+      } finally {
+        root().remove();
+      }
+    });
+
+    it('offers no larger view when there is no picture', async () => {
+      await create({ imageWatch: { status: 'found', operation: imageRun('Failed', 'provider-not-configured') } });
+      await nameAndStart();
+
+      expect(control('View larger')).toBeNull();
+    });
+
+    it('makes a different picture from the same draft, asking once', async () => {
+      await create();
+      await nameAndStart();
+
+      await press('Make a different picture');
+
+      const asked = calls.filter((call) => !call.endsWith('.watch'));
+      expect(asked).toEqual(['draft', 'looks', 'prompt', 'picture', 'looks', 'prompt', 'picture']);
     });
 
     it('offers the same draft for line-by-line review', async () => {

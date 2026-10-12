@@ -154,6 +154,7 @@ builder.Services.AddAiReferenceImageSeam();
 // AF.6.4. The content module is its prerequisite: the piece of work and its post package are read through
 // that module's facades, and the posts themselves are written there.
 builder.Services.AddAiChannelPostsSeam();
+builder.Services.AddAiLongFormOutlineSeam();
 builder.Services.AddAudit();
 builder.Services.AddOutbox();
 builder.Services.AddIdempotency(builder.Configuration);

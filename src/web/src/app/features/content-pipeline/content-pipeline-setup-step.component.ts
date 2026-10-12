@@ -51,8 +51,12 @@ type ChannelsState =
   | { readonly status: 'unavailable' };
 
 /**
- * Step 1 of the Content Pipeline: what the picture is of, where the post is going, which day, how many
- * pictures, and anything the creator already knows they want in the shot (PIPE-UI-001).
+ * What a picture is of, where the post is going, which day, how many pictures, and anything the creator
+ * already knows they want in the shot (PIPE-UI-001).
+ *
+ * **Asked in one place or two, as its host says** ({@link show}). The Image Studio asks all of it on one
+ * screen. The Content Pipeline asks only what the run is about on its first step, and shows the rest as the
+ * brand's own answers — this component is then what its "Adjust for this run" drawer holds.
  *
  * **Every field is optional, and that is the capability's shape** — a creator may be planning a shoot for a
  * finished recipe, a draft, or an idea with nothing behind it yet. The legend above says so once; no field
@@ -99,6 +103,20 @@ export class ContentPipelineSetupStepComponent implements OnInit {
    * week and has no idea step for a day's theme to feed, so offering one there would be a field with no effect.
    */
   readonly showDay = input(true);
+  /**
+   * Which of its questions this instance asks.
+   *
+   * `subject` is what a run is about — its name, its day, the picture in mind. `defaults` is what a run starts
+   * with from the brand and may change for itself — the channel, the count, scene and style. The Content
+   * Pipeline asks them in two places, the second only when the creator wants to change something; the Image
+   * Studio asks `everything` on one screen.
+   */
+  readonly show = input<'everything' | 'subject' | 'defaults'>('everything');
+  /**
+   * How many pictures the run tries until the creator says otherwise here, or null to show the config's own.
+   * The brand's default: shown as the answer already given, and replaced by the first choice made.
+   */
+  readonly pictureCountDefault = input<number | null>(null);
   /**
    * Where the workspace's themed days are managed, or null to offer no way there.
    *
@@ -159,6 +177,17 @@ export class ContentPipelineSetupStepComponent implements OnInit {
       : `Planned around “${title}” from your library instead. This name is kept, and used again if you unlink that recipe.`;
   });
 
+  protected readonly asksSubject = computed(() => this.show() !== 'defaults');
+  protected readonly asksDefaults = computed(() => this.show() !== 'subject');
+
+  /** The section that holds the channel, the day, or both, named for what it is asking here. */
+  protected readonly placeHeading = computed(() => (this.asksDefaults() ? 'Where it is going' : 'When it is for'));
+  protected readonly placeIntro = computed(() =>
+    this.asksDefaults()
+      ? 'So the pictures and the words suit the place you publish.'
+      : 'A day with a theme of yours gives the idea something to start from.',
+  );
+
   protected readonly sceneAtCap = computed(() => this.sceneRows().length >= CONTENT_PIPELINE_LIMITS.maxOverrides);
   protected readonly styleAtCap = computed(() => this.styleRows().length >= CONTENT_PIPELINE_LIMITS.maxOverrides);
 
@@ -176,7 +205,7 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    void this.loadChannels();
+    if (this.asksDefaults()) void this.loadChannels();
   }
 
   protected async loadChannels(): Promise<void> {
@@ -198,7 +227,7 @@ export class ContentPipelineSetupStepComponent implements OnInit {
 
   protected setVariantCount(values: readonly string[]): void {
     const value = Number(values[0]);
-    if (Number.isFinite(value)) this.emit({ variantCount: value });
+    if (Number.isFinite(value)) this.emit({ variantCount: value, variantCountChosen: true });
   }
 
   protected setSubject(text: string): void {
@@ -244,7 +273,10 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   }
 
   protected variantValue(): readonly string[] {
-    return [String(this.config().variantCount)];
+    const config = this.config();
+    const fallback = this.pictureCountDefault();
+
+    return [String(config.variantCountChosen === true || fallback === null ? config.variantCount : fallback)];
   }
 
   /** Blank rows are dropped on the way out: an empty row is one the creator emptied, not an answer. */

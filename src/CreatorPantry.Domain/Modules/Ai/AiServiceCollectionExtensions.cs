@@ -482,6 +482,24 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers LF.2.2's request seam: starting a long-form draft and asking for its outline.
+    /// </summary>
+    /// <remarks>
+    /// Its prerequisite is the content module: the piece of work, the draft and the shape rules are all reached
+    /// through that module's facades.
+    /// </remarks>
+    public static IServiceCollection AddAiLongFormOutlineSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiLongFormOutlineRequestBusiness, AiLongFormOutlineRequestBusiness>();
+        services.AddScoped<IAiLongFormOutlineRequestFacade, AiLongFormOutlineRequestFacade>();
+        services.AddScoped<IValidator<StartLongFormDraftViewModel>, StartLongFormDraftViewModelValidator>();
+        services.AddScoped<IValidator<RequestLongFormOutlineViewModel>, RequestLongFormOutlineViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers 11A.19's brand-context assembler, which grounds a generation in the workspace's brand voice.
     /// </summary>
     /// <remarks>
@@ -569,6 +587,11 @@ public static class AiServiceCollectionExtensions
         // The step after the proposal (AF.6.4): the generated bodies become post revisions once the proposal
         // they name has committed. Keyed by task type like the handlers, and only this task has one.
         services.AddKeyedScoped<IAiProposalLandingHandler, ChannelPostsProposalLanding>(AiTaskType.ChannelPosts);
+
+        // Reads the content module's long-form grounding package and its shape rules (LF.2.1). It stops at the
+        // proposal: the step that turns a plan into a draft revision arrives with the request seam (LF.2.2).
+        services.AddKeyedScoped<IAiTaskHandler, LongFormOutlineAiTaskHandler>(AiTaskType.LongFormOutline);
+        services.AddKeyedScoped<IAiProposalLandingHandler, LongFormOutlineProposalLanding>(AiTaskType.LongFormOutline);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

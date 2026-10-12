@@ -1,0 +1,130 @@
+<cp-form-section
+  heading="From your brand"
+  intro="Where the posts go, how many pictures to try and the look are read from your brand, so you are not asked each time. Change any of it for this run only."
+>
+  @if (brandStatus() === 'loading') {
+    <p class="cp-muted" role="status">Loading your brand…</p>
+  }
+  @if (brandStatus() === 'unavailable') {
+    <cp-notice tone="warning" role="status">
+      Your brand settings could not be loaded, so this run is using CreatorPantry’s own defaults. Everything else
+      still works.
+    </cp-notice>
+  }
+  @if (brandStatus() === 'none') {
+    <cp-notice role="note">
+      This workspace has no brand settings yet, so this run is using CreatorPantry’s own defaults.
+      <a [routerLink]="brandLink()">Set up your brand</a>
+    </cp-notice>
+  }
+
+  @if (brandStatus() !== 'loading') {
+    <dl cpFacts>
+      <div cpFact label="Posts are written for">
+        @if (channelNames().length > 0) {
+          <span class="values">
+            @for (name of channelNames(); track name) {
+              <cp-badge tone="success">{{ name }}</cp-badge>
+            }
+          </span>
+        } @else {
+          No default channels yet. You choose where each post goes on the last step.
+        }
+      </div>
+
+      @if (runChannel(); as name) {
+        <div cpFact label="This picture is for">
+          <span class="values">
+            <cp-badge tone="blue">{{ name }}</cp-badge>
+            <span class="cp-muted">For this run</span>
+          </span>
+        </div>
+      }
+
+      <div cpFact label="Pictures to try">
+        <span class="values">
+          <cp-badge tone="success">{{ pictureCountText() }}</cp-badge>
+          <span class="cp-muted">{{ pictureCountSource() }}</span>
+        </span>
+      </div>
+
+      <div cpFact label="The look">
+        @switch (guide().status) {
+          @case ('loading') {
+            <span class="cp-muted" role="status">Loading your style guide…</span>
+          }
+          @case ('unavailable') {
+            Your style guide could not be loaded just now. If one is active, the looks are still planned from it.
+          }
+          @default {
+            @if (guide(); as state) {
+              @if (state.status === 'ready') {
+                @if (state.guide.activeGuide; as active) {
+                  <span class="values">
+                    <cp-badge tone="purple">{{ active.name }}</cp-badge>
+                    <span class="cp-muted">Version {{ active.versionNumber }} of your style guide</span>
+                  </span>
+                  @if (state.guide.styleLines.length > 0) {
+                    <ul class="lines">
+                      @for (line of state.guide.styleLines; track line.label) {
+                        <li><strong>{{ line.label }}.</strong> {{ line.summary }}</li>
+                      }
+                    </ul>
+                  } @else {
+                    <p class="note cp-muted">This guide does not describe a look for pictures yet.</p>
+                  }
+                  @if (state.guide.negativeGuidance; as avoid) {
+                    <p class="note"><strong>Kept out of the picture.</strong> {{ avoid }}</p>
+                  }
+                } @else {
+                  No style guide is active, so the looks are planned without one.
+                }
+              }
+            }
+          }
+        }
+      </div>
+
+      @if (additions().length > 0) {
+        <div cpFact label="Added for this run">
+          <span class="values">
+            @for (line of config().scene; track $index) {
+              <cp-badge tone="orange">{{ line }}</cp-badge>
+            }
+            @for (line of config().style; track $index) {
+              <cp-badge tone="pink">{{ line }}</cp-badge>
+            }
+          </span>
+        </div>
+      }
+    </dl>
+
+    <div class="cp-actions">
+      <button cpButton type="button" variant="secondary" (click)="adjust($event)">Adjust for this run</button>
+      <a cpButton variant="text" [routerLink]="brandLink()">Brand settings</a>
+      @if (guideLink(); as link) {
+        <a cpButton variant="text" [routerLink]="link">Edit the look</a>
+      }
+    </div>
+  }
+</cp-form-section>
+
+<cp-drawer
+  [open]="open()"
+  heading="Adjust for this run"
+  description="These changes are for this run only, and are kept as you make them. Your brand settings and style guide stay as they are."
+  (closeRequested)="close()"
+>
+  @if (open()) {
+    <cp-content-pipeline-setup-step
+      show="defaults"
+      [showDay]="false"
+      [config]="config()"
+      [pictureCountDefault]="brandPictureCount()"
+      (changed)="changed.emit($event)"
+    />
+  }
+  <div cpDrawerActions class="cp-actions">
+    <button cpButton type="button" variant="primary" (click)="close()">Done</button>
+  </div>
+</cp-drawer>

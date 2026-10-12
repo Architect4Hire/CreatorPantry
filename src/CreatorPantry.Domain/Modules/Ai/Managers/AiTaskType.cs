@@ -334,4 +334,25 @@ public enum AiTaskType
     /// </para>
     /// </remarks>
     ChannelPosts = 17,
+
+    /// <summary>
+    /// LF.2.1: a section plan for a long-form piece — a blog article or a newsletter issue (baseline B-33).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>It writes a plan and no prose.</strong> <see cref="AiLongFormOutlineOutputDocument"/> has a
+    /// role, a heading and a one-line intent for each section and nowhere to put a body. Which roles a piece
+    /// may use is the content module's rule, asked after generation; a plan that breaks it fails whole.
+    /// </para>
+    /// <para>
+    /// <strong>It names no recipe of its own.</strong> Its source is a creative context, which may name
+    /// several recipes or none, so it runs from its own inputs like <see cref="ChannelPosts"/> and its rows are
+    /// absent from <c>AiChangeApplicability</c>.
+    /// </para>
+    /// </remarks>
+    LongFormOutline = 18,
+
+    /// <summary>LF.3.1: the prose of one section of a long-form piece.</summary>
+    /// <remarks>Declared with LF.1.4 for the same reason as <see cref="LongFormOutline"/>; arrives with LF.3.1.</remarks>
+    LongFormSection = 19,
 }

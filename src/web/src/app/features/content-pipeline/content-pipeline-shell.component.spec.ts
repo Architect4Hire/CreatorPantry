@@ -2,6 +2,7 @@ import { Location } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of } from 'rxjs';
 
@@ -23,7 +24,9 @@ import { ImagePromptService } from '../../services/image-prompt.service';
 import { PhotographyConceptService } from '../../services/photography-concept.service';
 import { ReferenceImageService } from '../../services/reference-image.service';
 import { AuthService, SessionState } from '../../services/auth.service';
-import { BrandProfileService } from '../../services/brand-profile.service';
+import { decodeBrandProfile } from '../../models/brand-profile.models';
+import { BrandProfileOutcome, BrandProfileService } from '../../services/brand-profile.service';
+import { BrandVisualGuideService } from '../../services/brand-visual-guide.service';
 import { ChannelPostService } from '../../services/channel-post.service';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
@@ -35,6 +38,7 @@ import { FakeRecipeLibrary } from '../../services/recipe-library.fake';
 import { RecipeService } from '../../services/recipe.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CONTENT_PIPELINE_ROUTES } from './content-pipeline.routes';
+import { GeneratedImageRunComponent } from './generated-image-run.component';
 import { ContentPipelineShellComponent } from './content-pipeline-shell.component';
 
 @Component({ selector: 'cp-test-elsewhere', template: '<p>elsewhere</p>' })
@@ -102,6 +106,7 @@ let server: FakeCreativeContextService;
 let library: FakeRecipeLibrary;
 let confirmAnswer: boolean;
 let seedQueries: ContentSeedQuery[];
+let brandReads: string[] = [];
 let seedToReturn: ContentSeed;
 let conceptRequests: { readonly slug: string; readonly request: RequestPhotographyConceptsRequest }[];
 
@@ -132,12 +137,15 @@ async function create(
     url?: string;
     offline?: boolean;
     setup?: (server: FakeCreativeContextService) => void;
+    /** What reading the workspace's brand profile answers. A workspace with none, unless a spec says otherwise. */
+    brand?: BrandProfileOutcome;
     /** Pictures the work names as keepers, which is where a keeper lives since AF.4.3. */
     keepers?: readonly string[];
   } = {},
 ): Promise<void> {
   localStorage.clear();
   seedQueries = [];
+  brandReads = [];
   seedToReturn = SEED;
   conceptRequests = [];
   confirmAnswer = true;
@@ -206,8 +214,17 @@ async function create(
         provide: BrandProfileService,
         useValue: {
           listContentChannels: () => Promise.resolve({ status: 'found', channels: [] }),
-          getBrandProfile: () => Promise.resolve({ status: 'first_use' }),
+          getBrandProfile: (slug: string) => {
+            brandReads.push(slug);
+            return Promise.resolve(options.brand ?? { status: 'first_use' });
+          },
         },
+      },
+      // The first step shows the look the active style guide describes. None is active here: what the panel
+      // does with one is its own spec's.
+      {
+        provide: BrandVisualGuideService,
+        useValue: { get: () => Promise.resolve({ status: 'unavailable' }) },
       },
 
       // The posts step reads the work's posts as it opens. Nothing written yet is the shell's case: what the
@@ -263,7 +280,7 @@ async function create(
 
   router = TestBed.inject(Router);
   harness = await RouterTestingHarness.create();
-  shell = await harness.navigateByUrl(options.url ?? `${PIPELINE}/setup`, ContentPipelineShellComponent);
+  shell = await harness.navigateByUrl(options.url ?? `${PIPELINE}/about`, ContentPipelineShellComponent);
   await settle();
 }
 
@@ -344,16 +361,96 @@ function reachedImages(): ContentPipelineDraft {
   };
 }
 
+/** A brand profile that states where posts go and how many pictures to try. */
+function brandWith(defaultPictureCount: number | null, channelKeys: readonly string[] = ['instagram']): BrandProfileOutcome {
+  return {
+    status: 'found',
+    profile: decodeBrandProfile({
+      id: 'p1',
+      brandName: 'Cozy Fall',
+      shortDescription: null,
+      defaultAudience: null,
+      locale: null,
+      timeZoneId: null,
+      defaultPictureCount,
+      channelDefaults: channelKeys.map((channelKey) => ({ channelKey })),
+      links: [],
+      assets: [],
+      revision: 1,
+      createdAt: '2026-10-01T12:00:00Z',
+      updatedAt: '2026-10-01T12:00:00Z',
+      concurrencyToken: 'tok',
+    })!,
+  };
+}
+
+/** How many pictures the images step would ask for, read from the control it hands the count to. */
+function askedPictureCount(): number {
+  const run = harness.routeDebugElement!.query(By.directive(GeneratedImageRunComponent));
+
+  return (run.componentInstance as GeneratedImageRunComponent).variantCount();
+}
+
 describe('ContentPipelineShellComponent', () => {
   afterEach(() => localStorage.clear());
+
+  describe('what a run starts with from the brand', () => {
+    it('shows the brand’s channels and picture count on the first step instead of asking for them', async () => {
+      await create({ brand: brandWith(3) });
+
+      expect(brandReads).toEqual([SLUG]);
+      expect(text()).toContain('From your brand');
+      expect(text()).toContain('3 pictures');
+      expect(text()).toContain('instagram');
+      // Asked only in the drawer, for a run that wants something different.
+      expect(root().querySelector('#cp-pipeline-channel')).toBeNull();
+      expect(text()).not.toContain('How many pictures to try');
+      expect(server.creates.length).withContext('reading the brand is not an answer, so it files nothing').toBe(0);
+    });
+
+    it('asks the images step for the brand’s count until the run chooses its own', async () => {
+      await create({ run: reachedImages(), url: `${RUN}/images`, brand: brandWith(4) });
+
+      expect(askedPictureCount()).toBe(4);
+    });
+
+    it('asks for the run’s own count once the creator has chosen one, whatever the brand says', async () => {
+      const reached = reachedImages();
+      await create({
+        run: { ...reached, config: { ...reached.config, variantCount: 1, variantCountChosen: true } },
+        url: `${RUN}/images`,
+        brand: brandWith(4),
+      });
+
+      expect(askedPictureCount()).toBe(1);
+    });
+
+    it('falls back to the product’s own count when the workspace has no brand, or it cannot be read', async () => {
+      await create({ run: reachedImages(), url: `${RUN}/images` });
+      expect(askedPictureCount()).toBe(2);
+
+      await create({ run: reachedImages(), url: `${RUN}/images`, brand: { status: 'unavailable' } });
+      expect(askedPictureCount()).toBe(2);
+    });
+
+    it('reads the second workspace’s own brand, never showing the first one’s under its name', async () => {
+      await create({ brand: brandWith(3) });
+      expect(text()).toContain('3 pictures');
+
+      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/about`, ContentPipelineShellComponent);
+      await settle();
+
+      expect(brandReads).toEqual([SLUG, OTHER_SLUG]);
+    });
+  });
 
   it('opens on the first step with the whole journey listed and an honest step figure', async () => {
     await create();
 
-    expect(text()).toContain('Set it up');
-    expect(text()).toContain('Step 1 of 6');
-    expect(root().querySelectorAll('cp-stepper li').length).toBe(6);
-    expect(root().querySelector('[aria-current="step"]')?.textContent).toContain('Set it up');
+    expect(text()).toContain('What it is about');
+    expect(text()).toContain('Step 1 of 4');
+    expect(root().querySelectorAll('cp-stepper li').length).toBe(4);
+    expect(root().querySelector('[aria-current="step"]')?.textContent).toContain('What it is about');
   });
 
   it('reads as a flow: one head with the way back, the stepper, and one card headed by the step', async () => {
@@ -370,7 +467,7 @@ describe('ContentPipelineShellComponent', () => {
     const card = root().querySelector('cp-topic-card') as HTMLElement;
     const heading = card.querySelector('h2') as HTMLElement;
     expect(heading.id).toBe('cp-pipeline-step-heading');
-    expect(heading.textContent?.trim()).toBe('Set it up');
+    expect(heading.textContent?.trim()).toBe('What it is about');
     // A destination for focus when the step changes, never a tab stop.
     expect(heading.tabIndex).toBe(-1);
     expect(card.querySelector('.actions')?.textContent).toContain('Continue');
@@ -402,7 +499,7 @@ describe('ContentPipelineShellComponent', () => {
 
     await click('Continue');
 
-    expect(live.textContent).toContain('Pick an idea. Step 2 of 6.');
+    expect(live.textContent).toContain('Plan the picture. Step 2 of 4.');
   });
 
   it("says a workspace it cannot find and one the creator is not in alike", async () => {
@@ -429,23 +526,23 @@ describe('ContentPipelineShellComponent', () => {
   });
 
   it('offers to pick up the run this device last had open, and opens it at its own address', async () => {
-    await create({ run: filledDraft({ furthestStep: 'idea' }) });
+    await create({ run: filledDraft({ furthestStep: 'picture' }) });
 
     expect(text()).toContain('Pick up where you left off');
-    expect(text()).toContain('Pick an idea');
+    expect(text()).toContain('Plan the picture');
     expect(server.gets.length).withContext('offered from this device, without asking the server').toBe(0);
 
     await click('Continue');
 
-    expect(router.url).toBe(`${RUN}/idea`);
-    expect(text()).toContain('Step 2 of 6');
+    expect(router.url).toBe(`${RUN}/picture`);
+    expect(text()).toContain('Step 2 of 4');
   });
 
   it('does not offer to resume when nothing was ever filled in', async () => {
     await create({ unfiled: emptyContentPipelineDraft() });
 
     expect(text()).not.toContain('Pick up where you left off');
-    expect(text()).toContain('Set it up');
+    expect(text()).toContain('What it is about');
     expect(server.creates.length).withContext('an empty draft is not worth a context').toBe(0);
   });
 
@@ -462,17 +559,19 @@ describe('ContentPipelineShellComponent', () => {
     expect(button('Continue')!.disabled).toBeFalse();
     await click('Continue');
 
-    expect(router.url).toBe(`${PIPELINE}/idea`);
+    expect(router.url).toBe(`${PIPELINE}/picture`);
     // Nothing has been answered, so there is still no context: only how far the creator got, on this device.
     expect(server.creates.length).toBe(0);
-    expect(JSON.parse(localStorage.getItem(UNFILED_KEY)!).furthestStep).toBe('idea');
+    expect(JSON.parse(localStorage.getItem(UNFILED_KEY)!).furthestStep).toBe('picture');
   });
 
-  it('will not carry on from the idea step until an idea has been picked', async () => {
-    await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/idea` });
+  it('will not carry on from planning the picture until there is an idea, a choice of brief and a prompt', async () => {
+    await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
 
     expect(button('Continue')!.disabled).toBeTrue();
     expect(text()).toContain('Pick an idea to carry on');
+    // The looks and the prompt are planned from the idea, so they are not offered before there is one.
+    expect(root().querySelector('cp-content-pipeline-prompt-step')).toBeNull();
 
     await click('Suggest an idea');
     await click('Pick this idea');
@@ -483,7 +582,11 @@ describe('ContentPipelineShellComponent', () => {
 
     await chooseBrief(0);
 
-    expect(button('Continue')!.disabled).toBeFalse();
+    // The idea is settled, so the looks and the prompt appear on the same step — and the prompt is what is
+    // still owed.
+    expect(root().querySelector('cp-content-pipeline-prompt-step')).not.toBeNull();
+    expect(button('Continue')!.disabled).toBeTrue();
+    expect(text()).toContain('Write the prompt, or have one written, to carry on');
   });
 
   describe('the picture described in setup', () => {
@@ -492,7 +595,7 @@ describe('ContentPipelineShellComponent', () => {
 
     /** A run with a description, at the idea step, with the idea picked and one way of working chosen. */
     async function chosen(index: number): Promise<void> {
-      await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/idea` });
+      await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
       await click('Suggest an idea');
       await click('Pick this idea');
       await chooseBrief(index);
@@ -557,7 +660,7 @@ describe('ContentPipelineShellComponent', () => {
       // Another device: nothing kept locally, only the context.
       localStorage.clear();
       await harness.navigateByUrl(`/${SLUG}/workflows`);
-      shell = await harness.navigateByUrl(`${RUN}/setup`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(`${RUN}/about`, ContentPipelineShellComponent);
       await settle();
 
       const fields = session().fields();
@@ -575,12 +678,10 @@ describe('ContentPipelineShellComponent', () => {
       expect(server.stored(SLUG, CTX)?.workingBrief).toBe('A tight crop of the first slice.');
 
       await click('Continue');
-      await click('Continue');
       const box = root().querySelector<HTMLTextAreaElement>('#cp-pipeline-brief-text')!;
       box.value = 'My edited brief.';
       box.dispatchEvent(new Event('input'));
       await settle();
-      await click('Back');
       await click('Back');
       await typeConcept('Something else.');
       await saved();
@@ -602,8 +703,8 @@ describe('ContentPipelineShellComponent', () => {
   it('sends the setup step’s channel and day as pins when an idea is asked for', async () => {
     const base = emptyContentPipelineDraft();
     await create({
-      run: { ...base, config: { ...base.config, channelKey: 'instagram', day: 'Friday' }, furthestStep: 'idea' },
-      url: `${RUN}/idea`,
+      run: { ...base, config: { ...base.config, channelKey: 'instagram', day: 'Friday' }, furthestStep: 'picture' },
+      url: `${RUN}/picture`,
     });
     await click('Suggest an idea');
 
@@ -612,12 +713,12 @@ describe('ContentPipelineShellComponent', () => {
   });
 
   it('goes back without taking away the steps already reached', async () => {
-    await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/idea` });
+    await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
     await click('Back');
 
-    expect(router.url).toBe(`${RUN}/setup`);
+    expect(router.url).toBe(`${RUN}/about`);
     await click('Continue');
-    expect(router.url).toBe(`${RUN}/idea`);
+    expect(router.url).toBe(`${RUN}/picture`);
   });
 
   it('offers no Back on the first step', async () => {
@@ -627,49 +728,49 @@ describe('ContentPipelineShellComponent', () => {
   });
 
   it('sends a step nobody has reached yet back to the furthest one, without adding history', async () => {
-    await create({ url: `${PIPELINE}/posts` });
+    await create({ url: `${PIPELINE}/finish` });
 
-    expect(router.url).toBe(`${PIPELINE}/setup`);
+    expect(router.url).toBe(`${PIPELINE}/about`);
   });
 
   it('sends a step it does not know back to the furthest one', async () => {
-    await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/nowhere` });
+    await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/nowhere` });
 
-    expect(router.url).toBe(`${RUN}/idea`);
+    expect(router.url).toBe(`${RUN}/picture`);
   });
 
   describe('opened for a creative context', () => {
     it('opens at the first step when the address names no step', async () => {
       await create({ url: RUN, setup: (fake) => fake.seed(SLUG, CTX) });
 
-      expect(router.url).toBe(`${RUN}/setup`);
+      expect(router.url).toBe(`${RUN}/about`);
     });
 
     it('keeps the context in the address when moving on and back', async () => {
-      await create({ url: `${RUN}/setup`, setup: (fake) => fake.seed(SLUG, CTX) });
+      await create({ url: `${RUN}/about`, setup: (fake) => fake.seed(SLUG, CTX) });
 
       await click('Continue');
-      expect(router.url).toBe(`${RUN}/idea`);
+      expect(router.url).toBe(`${RUN}/picture`);
 
       await click('Back');
-      expect(router.url).toBe(`${RUN}/setup`);
+      expect(router.url).toBe(`${RUN}/about`);
     });
 
     it('keeps the context when it sends an unreached step back to the furthest one', async () => {
-      await create({ url: `${RUN}/posts`, setup: (fake) => fake.seed(SLUG, CTX) });
+      await create({ url: `${RUN}/finish`, setup: (fake) => fake.seed(SLUG, CTX) });
 
-      expect(router.url).toBe(`${RUN}/setup`);
+      expect(router.url).toBe(`${RUN}/about`);
     });
 
     it('still treats a bare `context` segment as a step it does not know', async () => {
       await create({ url: `${PIPELINE}/context` });
 
-      expect(router.url).toBe(`${PIPELINE}/setup`);
+      expect(router.url).toBe(`${PIPELINE}/about`);
     });
 
     it('shows what the context holds, with nothing kept on this device — a fresh browser profile', async () => {
       await create({
-        url: `${RUN}/setup`,
+        url: `${RUN}/about`,
         setup: (fake) =>
           fake.seed(SLUG, CTX, {
             channelKeys: ['instagram'],
@@ -684,7 +785,7 @@ describe('ContentPipelineShellComponent', () => {
       // step 2's idea is built around it without the creator saying it twice.
       expect(subjectValue()).toBe('Fattoush Salad with Radishes');
       expect(conceptValue()).toBe('A tight crop of the first slice.');
-      expect(text()).toContain('Step 1 of 6');
+      expect(text()).toContain('Step 1 of 4');
       expect(text()).toContain('Saved');
       expect(server.patches.length).withContext('reading is not an edit').toBe(0);
       expect(localStorage.getItem(keptKey(CTX))).withContext('opening leaves no record').toBeNull();
@@ -697,7 +798,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('reads an id that does not resolve as not found, never as an empty run', async () => {
-      await create({ url: `${RUN}/setup` });
+      await create({ url: `${RUN}/about` });
 
       expect(text()).toContain("couldn't find this piece of work");
       expect(root().querySelector('#cp-pipeline-step-heading')).toBeNull();
@@ -706,14 +807,14 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it("reads another workspace's context as not found", async () => {
-      await create({ url: `${RUN}/setup`, setup: (fake) => fake.seed(OTHER_SLUG, CTX, { pictureBrief: 'Theirs.' }) });
+      await create({ url: `${RUN}/about`, setup: (fake) => fake.seed(OTHER_SLUG, CTX, { pictureBrief: 'Theirs.' }) });
 
       expect(text()).toContain("couldn't find this piece of work");
       expect(text()).not.toContain('Theirs.');
     });
 
     it('says so when the context could not be read, and reads it on a retry', async () => {
-      await create({ url: `${RUN}/setup`, offline: true, setup: (fake) => fake.seed(SLUG, CTX, { pictureBrief: 'A tight crop.' }) });
+      await create({ url: `${RUN}/about`, offline: true, setup: (fake) => fake.seed(SLUG, CTX, { pictureBrief: 'A tight crop.' }) });
 
       expect(text()).toContain("couldn't be loaded right now");
       expect(root().querySelector('#cp-pipeline-concept')).toBeNull();
@@ -728,27 +829,25 @@ describe('ContentPipelineShellComponent', () => {
   it('redirects the bare pipeline route to its first step', async () => {
     await create({ url: PIPELINE });
 
-    expect(router.url).toBe(`${PIPELINE}/setup`);
+    expect(router.url).toBe(`${PIPELINE}/about`);
   });
 
   it('shows the posts step and lets the creator past it without writing one', async () => {
     // Built since AF.6.5, and deliberately not a gate: a creator may carry on to their library without
     // writing a post, and gating it would make a journey about pictures depend on words they did not want.
-    await create({ run: { ...reachedImages(), furthestStep: 'posts' }, url: `${RUN}/posts` });
+    await create({ run: { ...reachedImages(), furthestStep: 'finish' }, url: `${RUN}/finish` });
 
-    expect(text()).toContain('Write the posts');
+    expect(text()).toContain('Posts and library');
     expect(text()).toContain('Choose where they go');
     expect(text()).not.toContain('coming soon');
-    expect(text()).toContain('Step 5 of 6');
-    expect(button('Continue')?.disabled).toBeFalse();
-
-    await click('Continue');
-
-    expect(router.url).toBe(`${RUN}/library`);
+    expect(text()).toContain('Step 4 of 4');
+    // The last step: nothing here has to be answered, and leaving is always offered.
+    expect(button('Continue')).toBeNull();
+    expect(button('Save and exit')).not.toBeNull();
   });
 
   it('offers no Continue on the last step, which has nowhere to go', async () => {
-    await create({ run: { ...reachedImages(), furthestStep: 'library' }, url: `${RUN}/library` });
+    await create({ run: { ...reachedImages(), furthestStep: 'finish' }, url: `${RUN}/finish` });
 
     expect(button('Continue')).toBeNull();
   });
@@ -757,14 +856,14 @@ describe('ContentPipelineShellComponent', () => {
     // The step is reachable on a resume, not only by walking the journey (AF.4.3).
     const reached = reachedImages();
     await create({
-      run: { ...reached, images: { operationId: 'op-1' }, furthestStep: 'library' },
+      run: { ...reached, images: { operationId: 'op-1' }, furthestStep: 'finish' },
       keepers: ['img-1'],
-      url: `${RUN}/library`,
+      url: `${RUN}/finish`,
     });
 
-    expect(text()).toContain('Save to your library');
+    expect(root().querySelector('cp-content-pipeline-library-step')).not.toBeNull();
     expect(text()).not.toContain('coming soon');
-    expect(text()).toContain('Step 6 of 6');
+    expect(text()).toContain('Step 4 of 4');
   });
 
   it('holds the images step at Continue until a picture has been kept, and says why', async () => {
@@ -820,7 +919,7 @@ describe('ContentPipelineShellComponent', () => {
     }
 
     it('is chosen on the setup step and stored on the context, pinned to its current version', async () => {
-      await create({ url: `${RUN}/setup`, setup: (fake) => fake.seed(SLUG, CTX) });
+      await create({ url: `${RUN}/about`, setup: (fake) => fake.seed(SLUG, CTX) });
 
       await linkSodaBread();
 
@@ -832,7 +931,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('is named, with its pinned version, on the photography-concept request', async () => {
-      await create({ url: `${RUN}/setup`, setup: (fake) => fake.seed(SLUG, CTX) });
+      await create({ url: `${RUN}/about`, setup: (fake) => fake.seed(SLUG, CTX) });
       await linkSodaBread();
 
       await planLooks();
@@ -843,7 +942,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('is not named at all when the run has no recipe linked', async () => {
-      await create({ url: `${RUN}/setup`, setup: (fake) => fake.seed(SLUG, CTX) });
+      await create({ url: `${RUN}/about`, setup: (fake) => fake.seed(SLUG, CTX) });
 
       await planLooks();
 
@@ -864,7 +963,7 @@ describe('ContentPipelineShellComponent', () => {
 
     it('is still the pinned version after the recipe changes, until the creator re-pins it', async () => {
       await create({
-        url: `${RUN}/setup`,
+        url: `${RUN}/about`,
         setup: (fake) =>
           fake.seed(SLUG, CTX, {
             references: [fake.reference({ kind: 'Recipe', recipeId: 'r-soda', recipeVersionId: 'v-soda-1' }, 0)],
@@ -877,7 +976,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it("cannot be another workspace's recipe: it is not offered, and one named by id is refused", async () => {
-      await create({ url: `${RUN}/setup`, setup: (fake) => fake.seed(SLUG, CTX) });
+      await create({ url: `${RUN}/about`, setup: (fake) => fake.seed(SLUG, CTX) });
       await linkSodaBread();
 
       expect(library.searches.every((search) => search.slug === SLUG)).toBeTrue();
@@ -901,13 +1000,13 @@ describe('ContentPipelineShellComponent', () => {
       expect(server.creates.length).toBe(1);
       expect(server.creates[0].slug).toBe(SLUG);
       const contextId = session().context()!.id;
-      expect(router.url).withContext('the screen was not replaced').toBe(`${PIPELINE}/setup`);
-      expect(TestBed.inject(Location).path()).toBe(`${PIPELINE}/context/${contextId}/setup`);
+      expect(router.url).withContext('the screen was not replaced').toBe(`${PIPELINE}/about`);
+      expect(TestBed.inject(Location).path()).toBe(`${PIPELINE}/context/${contextId}/about`);
       expect(conceptValue()).toBe('A tight crop of the first slice.');
     });
 
     it('saves the picture to the context, and keeps no copy of it on this device once it is there', async () => {
-      await create({ run: filledDraft(), url: `${RUN}/setup` });
+      await create({ run: filledDraft(), url: `${RUN}/about` });
 
       await typeConcept('A tight crop of the first slice.');
       await saved();
@@ -919,7 +1018,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('keeps the rest of the run on this device under the context, the workspace and the member', async () => {
-      await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/idea` });
+      await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
 
       await click('Suggest an idea');
       await click('Pick this idea');
@@ -932,8 +1031,8 @@ describe('ContentPipelineShellComponent', () => {
     it("takes the picked idea's theme when the idea is for the run's day", async () => {
       const base = emptyContentPipelineDraft();
       await create({
-        run: { ...base, config: { ...base.config, day: 'Wednesday' }, furthestStep: 'idea' },
-        url: `${RUN}/idea`,
+        run: { ...base, config: { ...base.config, day: 'Wednesday' }, furthestStep: 'picture' },
+        url: `${RUN}/picture`,
       });
       seedToReturn = {
         ...SEED,
@@ -948,7 +1047,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('leaves without having to save, sending what was still waiting', async () => {
-      await create({ run: filledDraft(), url: `${RUN}/setup` });
+      await create({ run: filledDraft(), url: `${RUN}/about` });
       await typeConcept('Typed, then left.');
 
       await click('Save and exit');
@@ -962,7 +1061,7 @@ describe('ContentPipelineShellComponent', () => {
     const OLD = filledDraft({
       config: { ...emptyContentPipelineDraft().config, channelKey: 'instagram', day: 'Friday', concept: 'A tight crop.', scene: ['marble slab'] },
       seed: { lastToken: 'abc-123', keep: {}, accepted: SEED },
-      furthestStep: 'prompt',
+      furthestStep: 'picture',
     });
 
     it('is moved onto a new context once, cleared from where it was, and opened where the creator had got to', async () => {
@@ -971,8 +1070,8 @@ describe('ContentPipelineShellComponent', () => {
       expect(server.creates.length).toBe(1);
       expect(server.creates[0].draft).toEqual({ channelKeys: ['instagram'], day: 'Friday', pictureBrief: 'A tight crop.' });
       const contextId = session().context()!.id;
-      expect(router.url).toBe(`${PIPELINE}/context/${contextId}/prompt`);
-      expect(text()).toContain('Step 3 of 6');
+      expect(router.url).toBe(`${PIPELINE}/context/${contextId}/picture`);
+      expect(text()).toContain('Step 2 of 4');
 
       expect(localStorage.getItem(UNFILED_KEY)).withContext('the old draft is cleared').toBeNull();
       expect(localStorage.getItem(LAST_KEY)).toBe(contextId);
@@ -986,13 +1085,13 @@ describe('ContentPipelineShellComponent', () => {
       await create({ unfiled: OLD });
       const contextId = session().context()!.id;
 
-      shell = await harness.navigateByUrl(`${PIPELINE}/setup`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(`${PIPELINE}/about`, ContentPipelineShellComponent);
       await settle();
 
       expect(server.creates.length).toBe(1);
       expect(text()).toContain('Pick up where you left off');
       await click('Continue');
-      expect(router.url).toBe(`${PIPELINE}/context/${contextId}/prompt`);
+      expect(router.url).toBe(`${PIPELINE}/context/${contextId}/picture`);
     });
 
     it('stays exactly where it is when the move fails, and nothing opens as an empty run', async () => {
@@ -1014,13 +1113,13 @@ describe('ContentPipelineShellComponent', () => {
       expect(server.creates.length).toBe(1);
       expect(router.url).toContain('/context/');
       expect(localStorage.getItem(UNFILED_KEY)).toBeNull();
-      expect(text()).toContain('Step 3 of 6');
+      expect(text()).toContain('Step 2 of 4');
     });
   });
 
   describe('when the server cannot be reached', () => {
     it('keeps the edit on screen and on this device, and says it is not saved', async () => {
-      await create({ run: filledDraft(), url: `${RUN}/setup` });
+      await create({ run: filledDraft(), url: `${RUN}/about` });
       server.offline = true;
 
       await typeConcept('Typed on a train.');
@@ -1033,7 +1132,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('sends it when the creator tries again', async () => {
-      await create({ run: filledDraft(), url: `${RUN}/setup` });
+      await create({ run: filledDraft(), url: `${RUN}/about` });
       server.offline = true;
       await typeConcept('Typed on a train.');
       await saved();
@@ -1048,7 +1147,7 @@ describe('ContentPipelineShellComponent', () => {
 
     it('brings unsent words back after the tab was closed, and sends them', async () => {
       await create({
-        url: `${RUN}/setup`,
+        url: `${RUN}/about`,
         setup: (fake) => {
           fake.seed(SLUG, CTX, { pictureBrief: 'A tight crop.' });
           localStorage.setItem(
@@ -1083,7 +1182,7 @@ describe('ContentPipelineShellComponent', () => {
 
   describe('when the context was changed somewhere else', () => {
     async function conflicted(): Promise<void> {
-      await create({ run: filledDraft(), url: `${RUN}/setup` });
+      await create({ run: filledDraft(), url: `${RUN}/about` });
       server.changeElsewhere(SLUG, CTX, { pictureBrief: 'A wide shot of the table.' });
 
       await typeConcept('A tight crop, soft light.');
@@ -1125,7 +1224,7 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('does not interrupt when what changed is something this screen had not touched', async () => {
-      await create({ run: filledDraft(), url: `${RUN}/setup` });
+      await create({ run: filledDraft(), url: `${RUN}/about` });
       server.changeElsewhere(SLUG, CTX, { day: 'Friday' });
 
       await typeConcept('A tight crop, soft light.');
@@ -1139,12 +1238,12 @@ describe('ContentPipelineShellComponent', () => {
 
   describe('starting over', () => {
     it('asks first, and keeps everything when the answer is no', async () => {
-      await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/idea` });
+      await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
 
       confirmAnswer = false;
       await click('Start over');
 
-      expect(router.url).toBe(`${RUN}/idea`);
+      expect(router.url).toBe(`${RUN}/picture`);
       expect(keptFor(CTX)).not.toBeNull();
     });
 
@@ -1155,14 +1254,14 @@ describe('ContentPipelineShellComponent', () => {
           ...base,
           config: { ...base.config, concept: 'A tight crop.', scene: ['marble slab'] },
           seed: { lastToken: 'abc-123', keep: {}, accepted: SEED },
-          furthestStep: 'idea',
+          furthestStep: 'picture',
         },
-        url: `${RUN}/idea`,
+        url: `${RUN}/picture`,
       });
 
       await click('Start over');
 
-      expect(router.url).toBe(`${PIPELINE}/setup`);
+      expect(router.url).toBe(`${PIPELINE}/about`);
       expect(localStorage.getItem(keptKey(CTX))).toBeNull();
       expect(localStorage.getItem(LAST_KEY)).toBeNull();
       expect(conceptValue()).toBe('');
@@ -1174,24 +1273,24 @@ describe('ContentPipelineShellComponent', () => {
 
   describe('two workspaces', () => {
     it('shows nothing of one workspace once the route names another', async () => {
-      await create({ run: filledDraft({ furthestStep: 'idea' }), url: `${RUN}/idea` });
+      await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
 
-      expect(text()).toContain('Step 2 of 6');
+      expect(text()).toContain('Step 2 of 4');
 
-      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/setup`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/about`, ContentPipelineShellComponent);
       await settle();
 
       // The other workspace has no run of its own, so neither the first one's progress nor its picture may
       // still be on screen.
-      expect(text()).toContain('Step 1 of 6');
+      expect(text()).toContain('Step 1 of 4');
       expect(text()).not.toContain('Pick up where you left off');
       expect(conceptValue()).toBe('');
     });
 
     it("never offers one workspace's run in the other, and files the other's work under its own key and slug", async () => {
-      await create({ run: filledDraft({ furthestStep: 'idea' }) });
+      await create({ run: filledDraft({ furthestStep: 'picture' }) });
 
-      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/setup`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/about`, ContentPipelineShellComponent);
       await settle();
       await typeConcept('For the other kitchen.');
       await saved();
@@ -1210,10 +1309,10 @@ describe('ContentPipelineShellComponent', () => {
   it('waits for the memberships before judging the step in the URL against a run', async () => {
     // Memberships never resolve, so nothing is known about who is asking. The shell must not decide the step
     // from a default draft and send the creator back to the start of their own run.
-    await create({ run: filledDraft({ furthestStep: 'idea' }), memberships: 'loading', url: `${RUN}/idea` });
+    await create({ run: filledDraft({ furthestStep: 'picture' }), memberships: 'loading', url: `${RUN}/picture` });
 
     expect(text()).toContain('Loading your pipeline');
-    expect(router.url).toBe(`${RUN}/idea`);
+    expect(router.url).toBe(`${RUN}/picture`);
     expect(server.gets.length).toBe(0);
   });
 

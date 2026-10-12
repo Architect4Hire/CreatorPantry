@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-outline.a-search-metric-in-an-intent-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "No search data is connected, so a claim about how often something is searched is invented and is flagged.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Context\", \"heading\": \"Why soda bread, why now\", \"intent\": \"Note that this is the most searched bread recipe every March.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "sectionIndex": 0,
+        "containing": "most searched"
+      }
+    ]
+  }
+}

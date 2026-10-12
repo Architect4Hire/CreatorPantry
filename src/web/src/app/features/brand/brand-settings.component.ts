@@ -5,6 +5,8 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpCheckboxComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
   CpComboboxComponent,
   CpComboboxOption,
   CpFieldComponent,
@@ -136,6 +138,7 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
     CpButtonComponent,
     CpCardComponent,
     CpCheckboxComponent,
+    CpChoiceGroupComponent,
     CpComboboxComponent,
     CpFieldComponent,
     CpFieldRowComponent,
@@ -287,6 +290,32 @@ export class BrandSettingsComponent {
 
   setField<K extends 'brandName' | 'shortDescription' | 'defaultAudience' | 'locale'>(field: K, value: string): void {
     this.draft.update((draft) => ({ ...draft, [field]: value }));
+  }
+
+  /** "" is the tile for leaving the count to the product; anything else is a number the policy allows. */
+  protected readonly pictureCountChoices: readonly CpChoiceOption[] = [
+    { value: '', label: 'No preference' },
+    ...Array.from(
+      { length: BRAND_LIMITS.maxDefaultPictureCount - BRAND_LIMITS.minDefaultPictureCount + 1 },
+      (_, index) => {
+        const count = BRAND_LIMITS.minDefaultPictureCount + index;
+        return { value: String(count), label: count === 1 ? '1 picture' : `${count} pictures` };
+      },
+    ),
+  ];
+
+  protected pictureCountValue(): readonly string[] {
+    const count = this.draft().defaultPictureCount;
+    return [count === null ? '' : String(count)];
+  }
+
+  setPictureCount(values: readonly string[]): void {
+    const value = values[0] ?? '';
+    const count = Number(value);
+    this.draft.update((draft) => ({
+      ...draft,
+      defaultPictureCount: value === '' || !Number.isInteger(count) ? null : count,
+    }));
   }
 
   onZoneSelected(option: CpComboboxOption | null): void {
@@ -459,6 +488,7 @@ export class BrandSettingsComponent {
       defaultAudience: mine.defaultAudience.trim() === before.defaultAudience.trim() ? theirs.defaultAudience : mine.defaultAudience,
       locale: mine.locale.trim() === before.locale.trim() ? theirs.locale : mine.locale,
       timeZoneId: mine.timeZoneId.trim() === before.timeZoneId.trim() ? theirs.timeZoneId : mine.timeZoneId,
+      defaultPictureCount: mine.defaultPictureCount === before.defaultPictureCount ? theirs.defaultPictureCount : mine.defaultPictureCount,
       channelKeys: sameKeys(mine.channelKeys, before.channelKeys) ? theirs.channelKeys : mine.channelKeys,
       links: sameLinks(mine.links, before.links) ? theirs.links : mine.links,
       assets: sameAssets(mine.assets, before.assets) ? theirs.assets : mine.assets,

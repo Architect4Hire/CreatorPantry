@@ -43,6 +43,9 @@ public sealed record CreateBrandProfileViewModel
 
     public string? TimeZoneId { get; init; }
 
+    /// <summary>How many pictures a run tries by default, or null to leave that to the product.</summary>
+    public int? DefaultPictureCount { get; init; }
+
     public IReadOnlyList<BrandChannelDefaultInput?>? ChannelDefaults { get; init; }
 
     public IReadOnlyList<BrandLinkInput?>? Links { get; init; }
@@ -74,6 +77,8 @@ public sealed record UpdateBrandProfileViewModel
     public PatchField<string?> Locale { get; init; }
 
     public PatchField<string?> TimeZoneId { get; init; }
+
+    public PatchField<int?> DefaultPictureCount { get; init; }
 
     public PatchField<IReadOnlyList<BrandChannelDefaultInput?>?> ChannelDefaults { get; init; }
 

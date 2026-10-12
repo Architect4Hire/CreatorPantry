@@ -35,7 +35,7 @@ export const RULES = {
   'toolbar-field': "A toolbar's search box is the feature's own `<input type=\"search\">` inside `cp-search-field` (inside `cp-field` where it has a visible label); a toolbar filter or sort is a `<select>` inside `cp-select-field`.",
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
-  drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`); a feature positions nothing against the viewport.',
+  drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
 };
 

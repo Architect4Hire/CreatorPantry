@@ -181,6 +181,8 @@ Three surfaces can hold a task, and which one is decided by what the creator nee
 
 **A dialog** (`CpDialogComponent`) hosts one short thing that does not need the page in view: creating something new from a few fields, or picking one thing from a list. It interrupts, so it is brief.
 
+**A lightbox** (`CpLightboxComponent`) shows one picture larger than the page has room for, and nothing else: no form, no task, no second picture beside it. The picture is the consumer's own `<img>`, held to the window's height and to its own pixels, so it is never scaled past the size it was made at. What is known about the picture goes in its caption, and a consumer with a set of pictures puts Previous and Next in its footer and moves between them itself. The control that opens it is a button beside the picture reading "View larger", not the picture itself: a picture can hold a control of its own, and its alt text is not the name of an action. `QuickRecipeComponent` is the reference for one picture, `ContentPipelineImageLightboxComponent` for a set.
+
 **A confirmation** is none of these. It is `ConfirmService`; see "Confirmations".
 
 When two fit, ask in order: does the creator need to see the page to do this? Then a drawer. Would they want its address? Then a page. Otherwise a dialog.
@@ -195,7 +197,7 @@ What a drawer does, so a feature does not have to:
 - **At `40rem` and narrower it is a full-screen sheet,** for both widths. That is the breakpoint `--cp-page-gutter` drops at, and where a 1280px window lands at 200% zoom. A media query cannot read a token, so the number is written in the component and here.
 - **It slides on `--cp-duration-normal` and `--cp-ease`,** and does not move at all under `prefers-reduced-motion`.
 
-`CpDialogComponent` shares the focus return, the Tab trap and the scroll lock (`modal-surface.ts`, internal to the library). It stays where it is in the DOM and does not make the page inert. They are two components: a drawer is not a dialog variant, and neither takes an input that turns it into the other.
+`CpDialogComponent` and `CpLightboxComponent` share the focus return, the Tab trap and the scroll lock (`modal-surface.ts`, internal to the library). Each stays where it is in the DOM and does not make the page inert. They are two components: a drawer is not a dialog variant, and neither takes an input that turns it into the other.
 
 ### What the build checks
 
@@ -213,7 +215,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `toolbar-field` | a stylesheet styles `.search-field`, `.select-field` or `input[type=search]`; a search input sits outside both `cp-search-field` and `cp-field` | `cp-search-field` and `cp-select-field` in a toolbar; `cp-field` where the search has a visible label |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
-| `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, or `cp-dialog` |
+| `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
@@ -230,7 +232,7 @@ A browser close, refresh or full navigation cannot be confirmed this way — the
 
 ## Accessibility baseline
 
-Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color alone. Touch targets should be at least 40px. Dialogs and drawers require a title and close action, hold Tab inside themselves, and return focus to what opened them. Form errors remain adjacent to their field and use `role="alert"`. `global.css` honors `prefers-reduced-motion: reduce` for every animation/transition; do not add motion that bypasses it.
+Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color alone. Touch targets should be at least 40px. Dialogs, drawers and lightboxes require a title and close action, hold Tab inside themselves, and return focus to what opened them. Form errors remain adjacent to their field and use `role="alert"`. `global.css` honors `prefers-reduced-motion: reduce` for every animation/transition; do not add motion that bypasses it.
 
 ## Meters and figures
 

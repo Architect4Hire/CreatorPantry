@@ -58,6 +58,7 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new DishFacetsOutputValidationCase(),
             new ChannelPostsOutputValidationCase(),
             new PictureGroundingCase(),
+            new LongFormOutlineOutputValidationCase(),
         }.ToDictionary(evaluationCase => evaluationCase.Kind);
 
     public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(store, Cases);

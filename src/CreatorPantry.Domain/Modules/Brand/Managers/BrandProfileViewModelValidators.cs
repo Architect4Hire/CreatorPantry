@@ -16,6 +16,7 @@ public sealed class CreateBrandProfileViewModelValidator : AbstractValidator<Cre
                 BrandProfileInputChecks.Text(nameof(model.DefaultAudience), model.DefaultAudience, BrandPolicy.DefaultAudienceMaxLength),
                 BrandProfileInputChecks.Locale(model.Locale),
                 BrandProfileInputChecks.TimeZone(model.TimeZoneId),
+                BrandProfileInputChecks.PictureCount(model.DefaultPictureCount),
                 BrandProfileInputChecks.Channels(model.ChannelDefaults, channels),
                 BrandProfileInputChecks.Links(model.Links),
                 BrandProfileInputChecks.Assets(model.Assets),
@@ -96,6 +97,14 @@ public sealed class UpdateBrandProfileViewModelValidator : AbstractValidator<Upd
         if (model.TimeZoneId.TryGetSubmitted(out var zone))
         {
             foreach (var failure in BrandProfileInputChecks.TimeZone(zone))
+            {
+                yield return failure;
+            }
+        }
+
+        if (model.DefaultPictureCount.TryGetSubmitted(out var pictureCount))
+        {
+            foreach (var failure in BrandProfileInputChecks.PictureCount(pictureCount))
             {
                 yield return failure;
             }

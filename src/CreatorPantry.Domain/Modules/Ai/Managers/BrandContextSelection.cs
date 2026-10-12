@@ -134,6 +134,10 @@ public static class BrandContextSelection
         // Long-form editorial: the full voice plus how a post is built.
         AiTaskType.EditorialPackage => LongForm,
 
+        // A full article or newsletter issue is the same kind of writing at greater length (LF.1.4): the plan
+        // decides how the piece is built and each section is written in the voice, so both get all of it.
+        AiTaskType.LongFormOutline or AiTaskType.LongFormSection => LongForm,
+
         // Metadata written in the brand's voice, but not a narrative: no storytelling, no calls to action.
         AiTaskType.SeoPackage => Voice,
 

@@ -22,6 +22,7 @@ import {
   CpFactsComponent,
   CpFieldComponent,
   CpFormSectionComponent,
+  CpLightboxComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
   CpProgressComponent,
@@ -41,8 +42,12 @@ import {
   isStagedImageActionable,
 } from '../../models/generated-image.models';
 import { decodeComposedImagePrompt } from '../../models/image-prompt.models';
-import { PhotographyShotKind, decodePhotographyConcepts } from '../../models/photography-concept.models';
-import { RecipeDraft, draftFromProposal } from '../../models/recipe-draft.models';
+import {
+  PHOTOGRAPHY_CREATOR_CONCEPT_MAX_LENGTH,
+  PhotographyShotKind,
+  decodePhotographyConcepts,
+} from '../../models/photography-concept.models';
+import { RecipeDraft, draftFromProposal, pictureBriefFromDraft } from '../../models/recipe-draft.models';
 import { AiUsageService } from '../../services/ai-usage.service';
 import { DamAssetService } from '../../services/dam-asset.service';
 import { GeneratedImageService } from '../../services/generated-image.service';
@@ -93,6 +98,11 @@ type PictureView =
  * picture (IMG-003) — run without the choices in between; the save is the draft's acceptance, the picture's
  * keep, and a `Hero` asset link. This page only does them in order so a creator does not have to.
  *
+ * **The draft comes first, and the picture is planned from it.** Nothing is asked of the picture chain until
+ * the draft has been written, and the look is then planned from the name plus what the draft lists as its
+ * ingredients — so the picture shows the dish this draft makes rather than whatever the name suggests. A draft
+ * that fails costs no picture.
+ *
  * **One press saves, and nothing is saved before it.** The draft stays a proposal and the picture stays staged
  * until "Save" — the creator has both in front of them when they decide (.claude/rules/ai.md). What saving
  * creates is a Draft recipe, which they go on editing in the recipe editor.
@@ -103,9 +113,10 @@ type PictureView =
  * **The run is in the address.** Every request id is a query parameter, written with `replaceUrl`, so a reload
  * picks the run back up and asks for nothing twice. Nothing is kept on the device.
  *
- * **The picture is made from the name, not from the draft** — there is no recipe to name until one is saved —
- * and the page says so, because a picture that shows something the draft does not contain is the creator's to
- * catch (.claude/rules/media.md).
+ * **The draft reaches the picture as a brief, not as a recipe.** There is no recipe to pin until one is saved,
+ * so the ingredients travel as the request's own brief beside the name — untrusted text, as generated words
+ * should be (.claude/rules/ai.md). Nothing has compared the pixels with the draft, and the page says so: a
+ * picture that shows something the draft does not contain is the creator's to catch (.claude/rules/media.md).
  */
 @Component({
   selector: 'cp-quick-recipe',
@@ -123,6 +134,7 @@ type PictureView =
     CpFactsComponent,
     CpFieldComponent,
     CpFormSectionComponent,
+    CpLightboxComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
     CpProgressComponent,
@@ -339,6 +351,19 @@ export class QuickRecipeComponent {
     return view.kind === 'ready' ? view.image : null;
   });
 
+  /** Whether the picture is open large. Only ever true while there is a picture to show. */
+  protected readonly pictureOpen = signal(false);
+
+  /**
+   * What the large view says about the picture: its size, which the server stated. Never what it shows —
+   * nothing here has looked at the pixels (.claude/rules/media.md).
+   */
+  protected readonly pictureFacts = computed(() => {
+    const image = this.stagedPicture();
+
+    return image === null ? '' : `${image.width} × ${image.height} pixels`;
+  });
+
   protected readonly canSaveWithPicture = computed(() => this.stagedPicture() !== null);
   protected readonly pictureWorking = computed(() => this.pictureView().kind === 'working');
 
@@ -386,6 +411,24 @@ export class QuickRecipeComponent {
 
     // The chain. Each link asks once the one before it has answered, which is also what carries a reloaded run
     // on from wherever it had got to. `idle` is the guard: a tracker that has been asked is never asked again.
+    //
+    // Its first link waits for the draft, because the picture is planned from what the draft contains. A draft
+    // already saved asks for nothing: its picture, if it had one, was decided with it.
+    effect(() => {
+      const drafted = this.reviewOperation();
+      if (drafted === null || drafted.status === 'Accepted' || this.savedRecipeId() !== null) return;
+      if (this.phase() !== 'ready' || this.pictureProblem() !== null) return;
+      if (
+        this.looks.phase().kind !== 'idle' ||
+        this.prompt.phase().kind !== 'idle' ||
+        this.picture.phase().kind !== 'idle'
+      ) {
+        return;
+      }
+
+      untracked(() => void this.planPicture());
+    });
+
     effect(() => {
       const looks = this.looks.phase();
       if (looks.kind !== 'ready' || this.prompt.phase().kind !== 'idle' || this.pictureProblem() !== null) return;
@@ -421,7 +464,7 @@ export class QuickRecipeComponent {
     this.nameError.set('');
   }
 
-  /** Ask for the draft, and — once it is on its way — start on the picture beside it. */
+  /** Ask for the draft. The picture follows on its own once there is a draft to plan it from. */
   protected async start(event?: Event): Promise<void> {
     event?.preventDefault();
     if (this.draft.busy()) return;
@@ -452,9 +495,6 @@ export class QuickRecipeComponent {
     this.draftKey.clear();
     this.writeUrl();
     void this.usage.refresh();
-
-    // Only now: a draft that was refused — no allowance, switched off — must not cost a picture as well.
-    await this.planPicture();
   }
 
   /** A deliberate second go at the draft after it failed: a new question, so a new key. */
@@ -469,13 +509,23 @@ export class QuickRecipeComponent {
     if (requestId !== null) this.draft.resume(requestId);
   }
 
-  /** Another picture for the same name. A new question each time, so new keys throughout. */
-  protected async anotherPicture(): Promise<void> {
+  /**
+   * Another picture for the same draft. A new question each time, so new keys throughout.
+   *
+   * Only clears the chain: the effect that starts it is what asks, so there is one place a picture is asked for
+   * and no way to ask twice.
+   */
+  protected anotherPicture(): void {
     if (this.pictureWorking() || this.saving()) return;
 
     this.resetPicture();
     this.writeUrl();
-    await this.planPicture();
+  }
+
+  /** Open the picture large. Focuses its button first, so closing returns there in every browser. */
+  protected viewPictureLarger(event: Event): void {
+    (event.currentTarget as HTMLElement).focus();
+    this.pictureOpen.set(true);
   }
 
   private async planPicture(): Promise<void> {
@@ -488,7 +538,15 @@ export class QuickRecipeComponent {
     const requestId = await this.looks.submit(() =>
       this.concepts.request(
         this.workspaceSlug(),
-        { channelKey: null, dishName: name, creatorConcept: '', sceneOverrides: [], styleOverrides: [] },
+        {
+          channelKey: null,
+          dishName: name,
+          // What the draft is made of. The name says what the dish is called and the planner may read nothing
+          // more out of it, so this is the only thing that tells the picture what is in the dish.
+          creatorConcept: pictureBriefFromDraft(this.recipeDraft(), PHOTOGRAPHY_CREATOR_CONCEPT_MAX_LENGTH),
+          sceneOverrides: [],
+          styleOverrides: [],
+        },
         this.looksKey.next(),
       ),
     );
@@ -708,6 +766,7 @@ export class QuickRecipeComponent {
     this.pictureKey.clear();
     this.keepKey.clear();
     this.pictureProblem.set(null);
+    this.pictureOpen.set(false);
   }
 
   private restoreFromUrl(): void {

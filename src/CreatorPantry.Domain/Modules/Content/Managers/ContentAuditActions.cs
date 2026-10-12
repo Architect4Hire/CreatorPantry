@@ -67,4 +67,15 @@ public static class ContentAuditActions
     /// stale by hand.
     /// </summary>
     public const string SocialChannelMarkedStale = "content.social_channel.marked_stale";
+
+    public const string LongFormDraftResourceType = "LongFormDraft";
+
+    /// <summary>
+    /// A creator saved their own edit of a long-form plan (LF.2.2). Summaries name a revision number and a
+    /// status, never a heading, an intent or any other word of the piece.
+    /// </summary>
+    public const string LongFormPlanEdited = "content.long_form_plan.edited";
+
+    /// <inheritdoc cref="LongFormPlanEdited"/>
+    public const string LongFormPlanApproved = "content.long_form_plan.approved";
 }

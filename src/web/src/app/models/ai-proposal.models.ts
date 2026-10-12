@@ -112,7 +112,11 @@ export type AiTaskType =
   /** A dish name read into a cuisine, a dish type and a method. Names no recipe; changes nothing. */
   | 'DishFacetSuggestion'
   /** AF.6.3's posts for the channels a creator picked. Copy to review per channel; changes no recipe. */
-  | 'ChannelPosts';
+  | 'ChannelPosts'
+  /** LF.2.1's section plan for a blog article or newsletter issue. Declared by LF.1.4; no route requests it yet. */
+  | 'LongFormOutline'
+  /** LF.3.1's prose for one section of a long-form piece. Declared by LF.1.4; no route requests it yet. */
+  | 'LongFormSection';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -134,6 +138,8 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'ReferenceImageAnalysis',
   'DishFacetSuggestion',
   'ChannelPosts',
+  'LongFormOutline',
+  'LongFormSection',
 ]);
 
 /**
@@ -196,6 +202,9 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   DishFacetSuggestion: null,
   // And posts through their own request seam (AF.6.4), which names a creative context and its channels.
   ChannelPosts: null,
+  // And long-form through its own request seam (LF.2.2, LF.3.3), which names a draft rather than a recipe.
+  LongFormOutline: null,
+  LongFormSection: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */
@@ -313,7 +322,11 @@ export type AiChangeTargetKind =
   /** A dish name's reading. Catalogue codes a creator's own controls are filled from; never an edit. */
   | 'DishFacetSuggestion'
   /** One channel's post and what its writing profile measured. Never applied to a recipe. */
-  | 'ChannelPost';
+  | 'ChannelPost'
+  /** One planned section of a long-form piece (LF.2.1): a heading, with its role and intent beside it. */
+  | 'LongFormSectionPlan'
+  /** One recipe version a long-form plan was written against (LF.2.2). Provenance, never a change to accept. */
+  | 'LongFormRecipePin';
 
 const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTargetKind>([
   'Unspecified',
@@ -338,6 +351,8 @@ const AI_CHANGE_TARGET_KIND_VALUES: ReadonlySet<string> = new Set<AiChangeTarget
   'ReferenceImageAnalysis',
   'DishFacetSuggestion',
   'ChannelPost',
+  'LongFormSectionPlan',
+  'LongFormRecipePin',
 ]);
 
 /** Mirrors AiChangeDisposition. What the creator decided about one change; `Pending` until they decide. */

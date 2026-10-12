@@ -796,6 +796,31 @@ public static class AiPolicy
     public const int MaxChannelPostsWarnings = 12;
 
     /// <summary>
+    /// The most sections one long-form outline may propose (LF.2.1).
+    /// </summary>
+    /// <remarks>
+    /// The largest plan the content module's role rules allow — an article's eleven once-only roles and its
+    /// four creator-headed sections. A bound on the answer's size, checked before those rules are asked, so a
+    /// runaway list is refused without walking it.
+    /// </remarks>
+    public const int MaxLongFormOutlineSections = 15;
+
+    /// <summary>The most warnings a model may attach to one outline.</summary>
+    public const int MaxLongFormOutlineWarnings = 12;
+
+    /// <summary>The shortest piece a long-form request may ask to be planned, in words.</summary>
+    public const int LongFormTargetWordsMin = 150;
+
+    /// <summary>
+    /// The longest piece a long-form request may ask to be planned, in words.
+    /// </summary>
+    /// <remarks>
+    /// A bound on what a request may ask for, not a ceiling on a document: that is the content module's, in
+    /// characters, and is measured after writing. Three thousand words is about what its document ceiling holds.
+    /// </remarks>
+    public const int LongFormTargetWordsMax = 3000;
+
+    /// <summary>
     /// How long after a proposal was stored the maintenance sweep keeps re-running its landing step.
     /// </summary>
     /// <remarks>

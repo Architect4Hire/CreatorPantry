@@ -25,11 +25,11 @@ function member(workspaceId: string, slug: string, membershipId: string, role: W
   return { workspaceId, workspaceSlug: slug, workspaceName: slug, membershipId, role, status: 'Active' as const };
 }
 
-/** A draft that has reached the prompt step, which is step 3 of 6. */
+/** A draft that has reached the prompt step, which is step 3 of 4. */
 function inProgress(concept = 'A tight crop.'): ContentPipelineDraft {
   const base = emptyContentPipelineDraft(new Date('2026-10-07T12:00:00Z'));
 
-  return { ...base, config: { ...base.config, concept }, furthestStep: 'prompt' };
+  return { ...base, config: { ...base.config, concept }, furthestStep: 'picture' };
 }
 
 let harness: RouterTestingHarness;
@@ -145,7 +145,7 @@ describe('WorkflowsHubComponent', () => {
       expect(text()).toContain('Content Pipeline');
       expect(text()).toContain('From an idea to pictures and posts, one step at a time.');
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Start']);
-      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/setup`);
+      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/about`);
       expect(root().querySelector('cp-status-pill')).toBeNull();
     });
 
@@ -161,7 +161,7 @@ describe('WorkflowsHubComponent', () => {
       links()[0].click();
       await settle();
 
-      expect(TestBed.inject(Router).url).toBe(`/${SLUG}/workflows/content-pipeline/setup`);
+      expect(TestBed.inject(Router).url).toBe(`/${SLUG}/workflows/content-pipeline/about`);
       expect(text()).toContain('a pipeline step');
     });
   });
@@ -170,10 +170,10 @@ describe('WorkflowsHubComponent', () => {
     it('says Continue, names the step reached, and goes to it', async () => {
       await create({ drafts: { 'w1.m1': inProgress() } });
 
-      expect(text()).toContain('You were on Write the prompt, step 3 of 6.');
+      expect(text()).toContain('You were on Plan the picture, step 2 of 4.');
       expect(text()).toContain('You last worked on it here on');
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Continue']);
-      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/prompt`);
+      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/picture`);
     });
 
     it('says it is in progress in words, not by colour alone', async () => {
@@ -193,18 +193,18 @@ describe('WorkflowsHubComponent', () => {
     it('sends Continue to the context this device last had open, at the step reached', async () => {
       await create({ runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } } });
 
-      expect(text()).toContain('You were on Write the prompt, step 3 of 6.');
+      expect(text()).toContain('You were on Plan the picture, step 2 of 4.');
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Continue']);
-      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/context/ctx-run/prompt`);
+      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/context/ctx-run/picture`);
     });
 
     it('prefers a whole draft not yet on a context, which opening the pipeline will file', async () => {
       await create({
-        drafts: { 'w1.m1': { ...inProgress(), furthestStep: 'idea' } },
+        drafts: { 'w1.m1': { ...inProgress(), furthestStep: 'picture' } },
         runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } },
       });
 
-      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/idea`);
+      expect(links()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/content-pipeline/picture`);
     });
 
     it("never sends one workspace to the other's context", async () => {
@@ -214,7 +214,7 @@ describe('WorkflowsHubComponent', () => {
       await settle();
 
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Start']);
-      expect(links()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/content-pipeline/setup`);
+      expect(links()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/content-pipeline/about`);
     });
 
     it('reads nothing kept for a Viewer', async () => {
@@ -342,7 +342,7 @@ describe('WorkflowsHubComponent', () => {
       await settle();
 
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Start']);
-      expect(links()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/content-pipeline/setup`);
+      expect(links()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/content-pipeline/about`);
       expect(text()).not.toContain('You were on');
     });
 
@@ -362,7 +362,7 @@ describe('WorkflowsHubComponent', () => {
       await harness.navigateByUrl(`/${OTHER_SLUG}/workflows`);
       await settle();
 
-      expect(text()).toContain('You were on Make the images, step 4 of 6.');
+      expect(text()).toContain('You were on Make the images, step 3 of 4.');
       expect(links()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/content-pipeline/images`);
     });
 

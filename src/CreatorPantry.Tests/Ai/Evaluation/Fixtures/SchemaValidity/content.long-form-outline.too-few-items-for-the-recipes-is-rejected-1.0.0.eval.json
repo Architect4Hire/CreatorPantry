@@ -1,0 +1,49 @@
+{
+  "id": "content.long-form-outline.too-few-items-for-the-recipes-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "Two recipes were shown and one item was planned. A referenced recipe with no item is one the creator chose and the issue leaves out.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Greeting\", \"heading\": \"Hello again\", \"intent\": \"Say hello and set up a week of easy baking.\"}, {\"role\": \"Item\", \"heading\": \"A loaf with no kneading\", \"intent\": \"Introduce the soda bread and who it suits.\", \"source\": 1}, {\"role\": \"Signoff\", \"heading\": \"Until next week\", \"intent\": \"Sign off in the creator's own way.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "NewsletterIssue",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      },
+      {
+        "title": "Olive Oil Cake",
+        "yieldText": "Serves 8",
+        "cookTimeMinutes": 25,
+        "ingredients": [
+          "200 g plain flour",
+          "150 ml olive oil",
+          "3 eggs"
+        ],
+        "steps": [
+          "Whisk the eggs with the oil.",
+          "Bake for 25 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_outline_items_invalid",
+    "category": "DomainInvalid"
+  }
+}

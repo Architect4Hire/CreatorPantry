@@ -486,7 +486,7 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
     }
 
     [Fact]
-    public void Every_task_type_has_been_decided_and_only_five_ground_in_anything()
+    public void Every_task_type_has_been_decided_and_only_seven_ground_in_anything()
     {
         // A task type added later is shown nothing until somebody decides otherwise and edits the table — and
         // this is where they find out they have to.
@@ -501,6 +501,8 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
                 AiTaskType.PhotographyConcept,
                 AiTaskType.ImagePrompt,
                 AiTaskType.ChannelPosts,
+                AiTaskType.LongFormOutline,
+                AiTaskType.LongFormSection,
             ],
             grounded);
     }
@@ -2018,6 +2020,675 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
     private sealed class MovableClock : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = Now;
+    }
+
+    // ---- long-form grounding (LF.1.4) -------------------------------------------------------------------
+
+    [Fact]
+    public void Teaching_the_package_long_form_did_not_move_an_existing_tasks_checksum()
+    {
+        // Taken from the assembler as it stood before LF.1.4. A package that carries no working brief, no
+        // editorial copy and no key phrases must hash exactly as it always did, or every stored generation's
+        // record of what it was grounded on would stop matching a package assembled today.
+        var checksum = CreativeContextPackageSelection.Checksum(
+            AiTaskType.ImagePrompt,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            "AAAAAAAAB9E=",
+            new CreativeContextWords("Soda bread, autumn", "Overhead, on linen."),
+            [new CreativeContextChannelEntry("blog", "Blog")],
+            new CreativeContextDayEntry(DayOfWeek.Monday, "meat-free-monday", "Meat-free Monday", "Under 30 minutes.", 3),
+            [
+                new CreativeContextRecipeEntry(
+                    Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                    Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                    Guid.Parse("44444444-4444-4444-4444-444444444444"),
+                    1, "Buttermilk Soda Bread", "Makes 1 loaf", 10, 45, null, null,
+                    ["450g plain flour"], ["Mix.", "Bake."], 0, 0),
+            ],
+            [],
+            [],
+            [],
+            []);
+
+        Assert.Equal("sha256:e474d0b49c517e88afb92016f8b12a899cf26773953d19b3fbffe139a0f1394b", checksum);
+    }
+
+    private const string EditorialPackage =
+        """
+        {"schemaVersion":"content.editorial-package.v1","sections":{
+          "headnote":{"text":"A headnote."},
+          "introduction":{"text":"An intro."},
+          "tips":[{"text":"Tip one."},{"text":"Tip two."}],
+          "substitutions":[{"lineId":"55555555-5555-5555-5555-555555555555","suggestion":"Use oat flour","culinaryNote":"Denser."}],
+          "storageReheating":{"text":"Keep covered."},
+          "faq":[{"question":"Freeze?","answer":"Yes."}],
+          "cta":{"text":"Tag us!"}}}
+        """;
+
+    private const string SeoPackage =
+        """{"schemaVersion":"content.seo-package.v1","sections":{"metaDescription":{"text":"A dense, tangy loaf."},"keyPhrases":[{"phrase":"soda bread"},{"phrase":"no yeast"}]}}""";
+
+    /// <summary>An accepted editorial or SEO revision for a recipe, pinned to one of its versions.</summary>
+    private Task<Guid> AcceptAsync(
+        Guid workspaceId,
+        Guid recipeId,
+        Guid versionId,
+        ContentPackageKind kind,
+        string content,
+        ContentProposalStatus status = ContentProposalStatus.Accepted) =>
+        DbAsync(workspaceId, async db =>
+        {
+            var proposal = new ContentProposal
+            {
+                Id = Guid.NewGuid(), RecipeId = recipeId, Kind = kind, Status = ContentProposalStatus.Proposed,
+                CreatedByMembershipId = Guid.NewGuid(), CreatedAt = Now, UpdatedAt = Now,
+            };
+            var revision = new ContentRevision
+            {
+                Id = Guid.NewGuid(), ContentProposalId = proposal.Id, RecipeId = recipeId, RevisionNumber = 1,
+                Source = ContentRevisionSource.CreatorEdit, RecipeVersionId = versionId, SchemaVersion = 1,
+                Content = content, CreatedByMembershipId = Guid.NewGuid(), CreatedAt = Now,
+            };
+            db.ContentProposals.Add(proposal);
+            db.ContentRevisions.Add(revision);
+            await db.SaveChangesAsync(Ct);
+
+            proposal.Status = status;
+            proposal.AcceptedRevisionId = revision.Id;
+
+            if (status is ContentProposalStatus.NeedsReview)
+            {
+                proposal.StaleSince = Now;
+                proposal.StaleReasons = ContentStaleReasons.RecipeChanged;
+            }
+
+            await db.SaveChangesAsync(Ct);
+
+            return revision.Id;
+        });
+
+    private Task SetWorkingBriefAsync(Guid workspaceId, CreativeContext context, string brief) =>
+        DbAsync(workspaceId, async db =>
+        {
+            var tracked = await db.CreativeContexts.SingleAsync(item => item.Id == context.Id, Ct);
+            tracked.WorkingBrief = brief;
+            tracked.BriefSource = CreativeContextBriefSource.Description;
+
+            return await db.SaveChangesAsync(Ct);
+        });
+
+    private Task<Guid> ReferRecipeAsync(Guid workspaceId, CreativeContext context, (Guid RecipeId, Guid VersionId) recipe) =>
+        ReferAsync(workspaceId, context, CreativeContextReferenceKind.Recipe, reference =>
+        {
+            reference.RecipeId = recipe.RecipeId;
+            reference.RecipeVersionId = recipe.VersionId;
+        });
+
+    [Theory]
+    [InlineData(AiTaskType.LongFormOutline)]
+    [InlineData(AiTaskType.LongFormSection)]
+    public async Task A_long_form_writer_is_shown_the_brief_the_recipe_and_the_copy_already_accepted_for_it(AiTaskType task)
+    {
+        var context = await FullContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, context, "Why soda bread is the loaf for people who do not bake.");
+
+        var recipe = await DbAsync(WorkspaceA, db => db.CreativeContextReferences
+            .Where(reference => reference.CreativeContextId == context.Id && reference.RecipeId != null)
+            .Select(reference => new { RecipeId = reference.RecipeId!.Value, VersionId = reference.RecipeVersionId!.Value })
+            .SingleAsync(Ct));
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo, SeoPackage);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, task);
+
+        Assert.Equal("Soda bread, autumn", package.Words!.WorkingTitle);
+        Assert.Equal("Why soda bread is the loaf for people who do not bake.", package.Words.WorkingBrief);
+        Assert.NotNull(package.Words.PictureBrief);
+
+        // An article is not written for a channel.
+        Assert.Empty(package.Channels);
+
+        var entry = Assert.Single(package.Recipes);
+        Assert.Equal(recipe.VersionId, entry.RecipeVersionId);
+
+        var editorial = entry.Editorial!;
+        Assert.Equal(1, editorial.RevisionNumber);
+        Assert.Equal(
+            ["headnote", "introduction", "tips", "substitutions", "storageReheating", "faq", "cta"],
+            editorial.SectionsCarried);
+        Assert.Equal("A headnote.", editorial.Headnote);
+        Assert.Equal(["Tip one.", "Tip two."], editorial.Tips);
+        Assert.Equal(new CreativeContextEditorialSubstitution("Use oat flour", "Denser."), Assert.Single(editorial.Substitutions));
+        Assert.Equal(new CreativeContextEditorialFaq("Freeze?", "Yes."), Assert.Single(editorial.Faq));
+
+        Assert.Equal(new CreativeContextSeoEntry(1, ["soda bread", "no yeast"], 0), entry.Seo, SeoComparer.Instance);
+
+        // The other sources a piece can start from are all here, a saved prompt included.
+        Assert.Single(package.Concepts);
+        Assert.Equal(2, package.Pictures.Count);
+        Assert.Single(package.Prompts);
+        Assert.Empty(package.Dropped);
+        Assert.Empty(package.Omissions);
+
+        var rendered = Rendered(package);
+        Assert.Contains("\"briefTheCreatorIsWorkingFrom\":\"Why soda bread", rendered, StringComparison.Ordinal);
+        Assert.Contains(CreativeContextPromptRenderer.EditorialAuthor, rendered, StringComparison.Ordinal);
+        Assert.Contains("\"acceptedKeyPhrases\":[\"soda bread\",\"no yeast\"]", rendered, StringComparison.Ordinal);
+
+        // A meta description is not key phrases, and no line id reaches a prompt.
+        Assert.DoesNotContain("A dense, tangy loaf.", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("55555555", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain(CreativeContextPackage.NoRecipeFacts, rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task No_other_task_is_shown_the_working_brief_or_any_accepted_copy()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, context, "A brief only an article is written from.");
+        var recipe = await RecipeAsync(WorkspaceA);
+        await ReferRecipeAsync(WorkspaceA, context, recipe);
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo, SeoPackage);
+
+        foreach (var task in new[] { AiTaskType.ImagePrompt, AiTaskType.PhotographyConcept, AiTaskType.ChannelPosts })
+        {
+            var package = await AssembleAsync(WorkspaceA, context.Id, task);
+
+            Assert.Null(package.Words!.WorkingBrief);
+            Assert.Null(Assert.Single(package.Recipes).Editorial);
+            Assert.Null(package.Recipes[0].Seo);
+            Assert.DoesNotContain("A headnote.", Rendered(package), StringComparison.Ordinal);
+            Assert.DoesNotContain("only an article", Rendered(package), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Only_the_plan_is_shown_what_the_day_has_already_had_and_the_brand_voice_applies_to_both()
+    {
+        var outline = CreativeContextPackageSelection.SectionsFor(AiTaskType.LongFormOutline);
+        var section = CreativeContextPackageSelection.SectionsFor(AiTaskType.LongFormSection);
+
+        Assert.True(outline.HasFlag(CreativeContextSections.DayHistory));
+        Assert.False(section.HasFlag(CreativeContextSections.DayHistory));
+        Assert.Equal(outline & ~CreativeContextSections.DayHistory, section);
+        Assert.False(outline.HasFlag(CreativeContextSections.Channels));
+
+        // The brand package is assembled beside this one, by the handler. Both tasks get what an editorial
+        // package gets: the whole voice and how a post is built.
+        var editorial = BrandContextSelection.SectionKeysFor(AiTaskType.EditorialPackage);
+        Assert.Equal(editorial, BrandContextSelection.SectionKeysFor(AiTaskType.LongFormOutline));
+        Assert.Equal(editorial, BrandContextSelection.SectionKeysFor(AiTaskType.LongFormSection));
+    }
+
+    [Fact]
+    public async Task A_recipe_with_nothing_accepted_carries_no_copy_and_reports_nothing()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        await ReferRecipeAsync(WorkspaceA, context, await RecipeAsync(WorkspaceA));
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+
+        var entry = Assert.Single(package.Recipes);
+        Assert.Null(entry.Editorial);
+        Assert.Null(entry.Seo);
+        Assert.Empty(package.Omissions);
+        Assert.DoesNotContain("acceptedEditorialCopy", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Copy_accepted_for_other_facts_is_not_carried_and_the_package_says_so(bool markedForReview)
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var recipe = await RecipeAsync(WorkspaceA);
+
+        if (markedForReview)
+        {
+            // Accepted for this version, and since marked stale.
+            await AcceptAsync(
+                WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage,
+                ContentProposalStatus.NeedsReview);
+            await AcceptAsync(
+                WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo, SeoPackage,
+                ContentProposalStatus.NeedsReview);
+        }
+        else
+        {
+            // Accepted, and still marked accepted — but for another version than the one the piece pins.
+            var other = await DbAsync(WorkspaceA, async db =>
+            {
+                var version = new Domain.Modules.Recipes.Data.Entities.RecipeVersion
+                {
+                    Id = Guid.NewGuid(), RecipeId = recipe.RecipeId, VersionNumber = 99,
+                    CreatedByMembershipId = Guid.NewGuid(), CreatedAt = Now,
+                };
+                db.RecipeVersions.Add(version);
+                await db.SaveChangesAsync(Ct);
+
+                return version.Id;
+            });
+            await AcceptAsync(WorkspaceA, recipe.RecipeId, other, ContentPackageKind.Editorial, EditorialPackage);
+            await AcceptAsync(WorkspaceA, recipe.RecipeId, other, ContentPackageKind.Seo, SeoPackage);
+        }
+
+        await ReferRecipeAsync(WorkspaceA, context, recipe);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+
+        // The recipe is still there, whole. Only the copy written against other figures is withheld.
+        var entry = Assert.Single(package.Recipes);
+        Assert.Null(entry.Editorial);
+        Assert.Null(entry.Seo);
+        Assert.Equal(
+            [CreativeContextOmission.EditorialNotCurrent, CreativeContextOmission.SeoNotCurrent], package.Omissions);
+        Assert.DoesNotContain("A headnote.", Rendered(package), StringComparison.Ordinal);
+        Assert.DoesNotContain("no yeast", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Editorial_copy_is_carried_in_whole_parts_and_the_entry_names_the_parts_that_are_there()
+    {
+        var accepted = new AcceptedEditorialServiceModel(
+            RevisionNumber: 4,
+            Headnote: new string('h', CreativeContextPackageSelection.MaxEditorialProseLength),
+            Introduction: new string('i', CreativeContextPackageSelection.MaxEditorialProseLength + 1),
+            Tips: ["Short tip.", new string('t', CreativeContextPackageSelection.MaxEditorialListItemLength + 1), "Never reached."],
+            Substitutions: [new(Guid.NewGuid(), "Oat flour", new string('n', CreativeContextPackageSelection.MaxEditorialListItemLength + 1))],
+            StorageReheating: "  Keep covered.  ",
+            Faq: [new("Freeze?", "Yes."), new("   ", "  ")],
+            Cta: null,
+            IsCurrent: true);
+
+        var (entry, omitted) = CreativeContextPackageSelection.FitEditorial(accepted);
+
+        Assert.True(omitted);
+        Assert.Equal(4, entry!.RevisionNumber);
+
+        // At the cap is carried; one over is left out whole, never cut.
+        Assert.Equal(CreativeContextPackageSelection.MaxEditorialProseLength, entry.Headnote!.Length);
+        Assert.Null(entry.Introduction);
+
+        // A list with one item too long to carry is left out whole: a part named as carried is all there, and
+        // two tips of five with nothing to say three were lost would read as the creator's five.
+        Assert.Empty(entry.Tips);
+        Assert.Empty(entry.Substitutions);
+
+        Assert.Equal("Keep covered.", entry.StorageReheating);
+        Assert.Equal(new CreativeContextEditorialFaq("Freeze?", "Yes."), Assert.Single(entry.Faq));
+        Assert.Null(entry.Cta);
+        Assert.Equal(["headnote", "storageReheating", "faq"], entry.SectionsCarried);
+    }
+
+    [Fact]
+    public void Editorial_copy_too_long_as_a_whole_loses_whole_parts_and_later_ones_are_still_tried()
+    {
+        var prose = new string('p', CreativeContextPackageSelection.MaxEditorialProseLength);
+        var tip = new string('t', CreativeContextPackageSelection.MaxEditorialListItemLength);
+
+        // 2,000 + 2,000 + 3,000 + 2,000 fits in 10,000 with 1,000 to spare; the 3,000 of answers does not, and
+        // the short call to action after it does.
+        var accepted = new AcceptedEditorialServiceModel(
+            1, prose, prose, [tip, tip, tip, tip, tip], [], prose,
+            [new("Q1", tip), new("Q2", tip), new("Q3", tip), new("Q4", tip), new("Q5", tip)], "Tag us!", true);
+
+        var (entry, omitted) = CreativeContextPackageSelection.FitEditorial(accepted);
+
+        Assert.True(omitted);
+        Assert.Empty(entry!.Faq);
+        Assert.Equal("Tag us!", entry.Cta);
+        Assert.Equal(["headnote", "introduction", "tips", "storageReheating", "cta"], entry.SectionsCarried);
+
+        var carried = entry.Headnote!.Length + entry.Introduction!.Length + entry.Tips.Sum(item => item.Length)
+            + entry.StorageReheating!.Length + entry.Cta.Length;
+        Assert.True(carried <= CreativeContextPackageSelection.MaxEditorialLength);
+    }
+
+    [Fact]
+    public void Nothing_to_carry_is_no_entry_at_all()
+    {
+        var empty = new AcceptedEditorialServiceModel(1, " ", null, [], [], null, [], null, true);
+
+        Assert.Equal((null, false), CreativeContextPackageSelection.FitEditorial(empty));
+        Assert.Null(CreativeContextPackageSelection.FitKeyPhrases(new AcceptedSeoServiceModel(1, null, [" "], true)));
+    }
+
+    [Fact]
+    public async Task Key_phrases_past_the_cap_are_dropped_from_the_end_and_counted()
+    {
+        var phrases = string.Join(',', Enumerable.Range(1, 12).Select(number => $"{{\"phrase\":\"phrase {number}\"}}"));
+        var context = await ContextAsync(WorkspaceA);
+        var recipe = await RecipeAsync(WorkspaceA);
+        await ReferRecipeAsync(WorkspaceA, context, recipe);
+        await AcceptAsync(
+            WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo,
+            $"{{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{{\"keyPhrases\":[{phrases}]}}}}");
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormOutline);
+
+        var seo = package.Recipes[0].Seo!;
+        Assert.Equal(Enumerable.Range(1, 10).Select(number => $"phrase {number}"), seo.KeyPhrases);
+        Assert.Equal(2, seo.OmittedKeyPhraseCount);
+        Assert.Equal([CreativeContextOmission.SeoKeyPhrasesOverCap], package.Omissions);
+        Assert.Contains("\"keyPhrasesNotShown\":2", Rendered(package), StringComparison.Ordinal);
+
+        // One phrase too long to carry ends the list where it stands.
+        var tooLong = new AcceptedSeoServiceModel(
+            1, null, ["kept", new string('k', CreativeContextPackageSelection.MaxKeyPhraseLength + 1), "after"], true);
+        var fitted = CreativeContextPackageSelection.FitKeyPhrases(tooLong)!;
+        Assert.Equal(["kept"], fitted.KeyPhrases);
+        Assert.Equal(2, fitted.OmittedKeyPhraseCount);
+    }
+
+    [Fact]
+    public async Task An_issue_naming_five_recipes_too_many_to_fit_drops_whole_ones_from_the_end_and_says_so()
+    {
+        var context = await ContextAsync(WorkspaceA);
+
+        // A small described picture, named first: the first thing a long-form package gives up.
+        var picture = await AssetAsync(WorkspaceA, "A torn loaf.");
+        var pictureReference = await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset,
+            reference => reference.MediaAssetId = picture);
+
+        // Each recipe is legal line by line and about 3,500 estimated tokens: three fit in 12,000, five do not.
+        var steps = Enumerable.Range(1, 14).Select(number => $"Step {number}: " + new string('s', 990)).ToList();
+        var references = new List<Guid>();
+
+        foreach (var number in Enumerable.Range(1, 5))
+        {
+            var recipe = await RecipeAsync(WorkspaceA, title: $"Loaf number {number}", steps: steps);
+            references.Add(await ReferRecipeAsync(WorkspaceA, context, recipe));
+        }
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormOutline);
+
+        // The first three recipes, whole and in order. Nothing was trimmed to make a fourth fit.
+        Assert.Equal(["Loaf number 1", "Loaf number 2", "Loaf number 3"], package.Recipes.Select(recipe => recipe.Title));
+        Assert.All(package.Recipes, recipe =>
+        {
+            Assert.Equal(14, recipe.Steps.Count);
+            Assert.Equal(0, recipe.OmittedStepCount);
+        });
+
+        // The picture went before any recipe did, then the last two recipes.
+        Assert.Empty(package.Pictures);
+        Assert.Equal(
+            [pictureReference, references[3], references[4]],
+            package.Dropped.Select(drop => drop.ReferenceId));
+        Assert.All(package.Dropped, drop => Assert.Equal(CreativeContextDropReason.OverBudget, drop.Reason));
+
+        Assert.True(package.EstimatedTokens <= CreativeContextPackageSelection.LongFormMaxEstimatedTokens);
+        Assert.True(package.EstimatedTokens > CreativeContextPackageSelection.MaxEstimatedTokens);
+        Assert.Equal("Soda bread, autumn", package.Words!.WorkingTitle);
+
+        var rendered = Rendered(package);
+        Assert.Contains("\"sourcesNotShown\":{\"recipes\":2,\"pictures\":1}", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loaf number 4", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_sixth_recipe_is_over_the_cap_and_a_dropped_recipe_takes_its_accepted_copy_with_it()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var steps = Enumerable.Range(1, 14).Select(number => $"Step {number}: " + new string('s', 990)).ToList();
+        var references = new List<Guid>();
+
+        foreach (var number in Enumerable.Range(1, 6))
+        {
+            var recipe = await RecipeAsync(WorkspaceA, title: $"Loaf number {number}", steps: number == 4 ? steps : null);
+            references.Add(await ReferRecipeAsync(WorkspaceA, context, recipe));
+
+            if (number == 4)
+            {
+                await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+            }
+        }
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+
+        Assert.Equal(CreativeContextPackageSelection.LongFormMaxRecipes, package.Recipes.Count);
+        var drop = Assert.Single(package.Dropped);
+        Assert.Equal(references[5], drop.ReferenceId);
+        Assert.Equal(CreativeContextDropReason.OverCap, drop.Reason);
+
+        // The fourth is here, so its copy is; had it been dropped there would be no copy left behind without it.
+        Assert.NotNull(package.Recipes[3].Editorial);
+        Assert.All(package.Recipes.Where(recipe => recipe.Title != "Loaf number 4"), recipe => Assert.Null(recipe.Editorial));
+    }
+
+    [Fact]
+    public async Task A_piece_with_no_recipe_says_outright_that_it_has_no_recipe_facts()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, context, "Five things I learned running a bake sale.");
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormOutline);
+
+        Assert.Empty(package.Recipes);
+        Assert.Contains(
+            $"\"recipeFacts\":\"{CreativeContextPackage.NoRecipeFacts}\"",
+            CreativeContextPromptRenderer.Sources(package),
+            StringComparison.Ordinal);
+
+        // Only a long-form writer is told: every other task simply has no recipe in what it is shown.
+        var image = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ImagePrompt);
+        Assert.DoesNotContain("recipeFacts", Rendered(image), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_recipe_that_no_longer_resolves_is_dropped_and_reported_and_the_piece_is_told_it_has_no_recipe_facts()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        var recipe = await RecipeAsync(WorkspaceA, title: "The retired loaf");
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+        var reference = await ReferRecipeAsync(WorkspaceA, context, recipe);
+        var picture = await AssetAsync(WorkspaceA, "A torn loaf.");
+        await ReferAsync(WorkspaceA, context, CreativeContextReferenceKind.DamAsset, item => item.MediaAssetId = picture);
+
+        await DbAsync(WorkspaceA, async db =>
+        {
+            (await db.Recipes.SingleAsync(item => item.Id == recipe.RecipeId, Ct)).Status = RecipeStatus.Archived;
+
+            return await db.SaveChangesAsync(Ct);
+        });
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+
+        var drop = Assert.Single(package.Dropped);
+        Assert.Equal(reference, drop.ReferenceId);
+        Assert.Equal(CreativeContextDropReason.Unavailable, drop.Reason);
+
+        // The rest still assembles, and nothing of the recipe or of the copy accepted for it is guessed at.
+        Assert.Single(package.Pictures);
+        var rendered = Rendered(package);
+        Assert.Contains(CreativeContextPackage.NoRecipeFacts, rendered, StringComparison.Ordinal);
+        Assert.Contains("\"sourcesNotShown\":{\"recipes\":1}", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("The retired loaf", rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain("A headnote.", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_long_form_package_is_the_same_bytes_whenever_it_is_assembled_and_moves_with_what_it_carries()
+    {
+        var context = await FullContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, context, "The first brief.");
+        var recipe = await DbAsync(WorkspaceA, db => db.CreativeContextReferences
+            .Where(reference => reference.CreativeContextId == context.Id && reference.RecipeId != null)
+            .Select(reference => new { RecipeId = reference.RecipeId!.Value, VersionId = reference.RecipeVersionId!.Value })
+            .SingleAsync(Ct));
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo, SeoPackage);
+
+        var first = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+        _clock.UtcNow = Now.AddHours(6);
+        var second = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+
+        Assert.NotEqual(first.AssembledAt, second.AssembledAt);
+        Assert.Equal(first.Checksum, second.Checksum);
+        Assert.Equal(
+            System.Text.Encoding.UTF8.GetBytes(Rendered(first)),
+            System.Text.Encoding.UTF8.GetBytes(Rendered(second)));
+        Assert.Equal(first with { AssembledAt = second.AssembledAt }, second, PackageComparer.Instance);
+
+        // Accepting editorial copy changes what a writer is shown, so it changes the checksum; so does the task.
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+        var withEditorial = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+        var outline = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormOutline);
+
+        Assert.NotEqual(first.Checksum, withEditorial.Checksum);
+        Assert.NotEqual(withEditorial.Checksum, outline.Checksum);
+
+        await SetWorkingBriefAsync(WorkspaceA, context, "The second brief.");
+        Assert.NotEqual(withEditorial.Checksum, (await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection)).Checksum);
+    }
+
+    [Fact]
+    public async Task An_injection_in_the_working_brief_or_any_accepted_copy_arrives_fenced_untrusted_and_only_in_the_user_message()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, context, $"WorkingBrief {Injection}");
+        var recipe = await RecipeAsync(WorkspaceA);
+        await ReferRecipeAsync(WorkspaceA, context, recipe);
+
+        // The same instruction in every part of the copy a creator accepted — and a model first wrote.
+        await AcceptAsync(
+            WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial,
+            """
+            {"schemaVersion":"content.editorial-package.v1","sections":{
+              "headnote":{"text":"Headnote __INJ__"},
+              "introduction":{"text":"Introduction __INJ__"},
+              "tips":[{"text":"Tip __INJ__"}],
+              "substitutions":[{"lineId":"55555555-5555-5555-5555-555555555555","suggestion":"Suggestion __INJ__","culinaryNote":"Note __INJ__"}],
+              "storageReheating":{"text":"Storage __INJ__"},
+              "faq":[{"question":"Question __INJ__","answer":"Answer __INJ__"}],
+              "cta":{"text":"Cta __INJ__"}}}
+            """.Replace("__INJ__", Injection, StringComparison.Ordinal));
+        await AcceptAsync(
+            WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo,
+            """{"schemaVersion":"content.seo-package.v1","sections":{"keyPhrases":[{"phrase":"Phrase __INJ__"}]}}""".Replace("__INJ__", Injection, StringComparison.Ordinal));
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.LongFormSection);
+
+        var envelope = CreativeContextPromptRenderer
+            .AddTo(new PromptEnvelopeBuilder(WorkspaceA).WithTask("Write one section.").WithOutputSchema("{}"), package)
+            .Build();
+
+        // All eleven made it through unaltered: nothing is stripped or escaped out of the words.
+        foreach (var field in new[]
+        {
+            "WorkingBrief", "Headnote", "Introduction", "Tip", "Suggestion", "Note", "Storage", "Question", "Answer", "Cta", "Phrase",
+        })
+        {
+            Assert.Contains($"{field} {Injection}", envelope.UserMessage, StringComparison.Ordinal);
+        }
+
+        // And none of it is where instructions live.
+        Assert.DoesNotContain(Marker, envelope.SystemMessage, StringComparison.Ordinal);
+
+        var carrying = envelope.Segments.Where(segment => segment.Content.Contains(Marker, StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(carrying);
+        Assert.All(carrying, segment =>
+        {
+            Assert.Equal(PromptSegmentKind.References, segment.Kind);
+            Assert.Equal(PromptSegmentTrust.Untrusted, segment.Trust);
+            Assert.Equal(WorkspaceA, segment.WorkspaceId);
+        });
+        Assert.All(
+            envelope.Segments.Where(segment => segment.Trust is PromptSegmentTrust.Instruction),
+            segment => Assert.DoesNotContain(Marker, segment.Content, StringComparison.Ordinal));
+
+        // One physical line per segment body, so nothing a creator wrote can begin a line of its own.
+        Assert.DoesNotContain('\n', CreativeContextPromptRenderer.Sources(package)!);
+    }
+
+    [Fact]
+    public async Task Another_workspaces_recipe_and_the_copy_accepted_for_it_contribute_nothing_to_a_long_form_package()
+    {
+        // B's own, real recipe, with accepted editorial copy and key phrases that would be unmistakable.
+        var recipeB = await RecipeAsync(WorkspaceB, title: "B's secret loaf", ingredients: ["B's secret flour"]);
+        await AcceptAsync(
+            WorkspaceB, recipeB.RecipeId, recipeB.VersionId, ContentPackageKind.Editorial,
+            """{"schemaVersion":"content.editorial-package.v1","sections":{"headnote":{"text":"B's secret headnote."}}}""");
+        await AcceptAsync(
+            WorkspaceB, recipeB.RecipeId, recipeB.VersionId, ContentPackageKind.Seo,
+            """{"schemaVersion":"content.seo-package.v1","sections":{"keyPhrases":[{"phrase":"B's secret phrase"}]}}""");
+
+        // A's context, naming B's recipe with enforcement off, beside one of its own.
+        var context = await ContextAsync(WorkspaceA);
+        var recipeA = await RecipeAsync(WorkspaceA, title: "A's own loaf");
+        await AcceptAsync(WorkspaceA, recipeA.RecipeId, recipeA.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+
+        using (var off = _connection.CreateCommand())
+        {
+            off.CommandText = "PRAGMA foreign_keys = OFF;";
+            off.ExecuteNonQuery();
+        }
+
+        Guid foreignReference;
+
+        try
+        {
+            foreignReference = await ReferRecipeAsync(WorkspaceA, context, recipeB);
+        }
+        finally
+        {
+            using var on = _connection.CreateCommand();
+            on.CommandText = "PRAGMA foreign_keys = ON;";
+            on.ExecuteNonQuery();
+        }
+
+        await ReferRecipeAsync(WorkspaceA, context, recipeA);
+
+        foreach (var task in new[] { AiTaskType.LongFormOutline, AiTaskType.LongFormSection })
+        {
+            var package = await AssembleAsync(WorkspaceA, context.Id, task);
+
+            // A's recipe and A's copy, and of B's only that one source could not be shown — the same answer a
+            // reference to something deleted gets.
+            Assert.Equal("A's own loaf", Assert.Single(package.Recipes).Title);
+            Assert.NotNull(package.Recipes[0].Editorial);
+
+            var drop = Assert.Single(package.Dropped);
+            Assert.Equal(foreignReference, drop.ReferenceId);
+            Assert.Equal(CreativeContextDropReason.Unavailable, drop.Reason);
+
+            var rendered = Rendered(package);
+            Assert.DoesNotContain("secret", rendered, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(
+                "secret", System.Text.Json.JsonSerializer.Serialize(package), StringComparison.OrdinalIgnoreCase);
+        }
+
+        // The copy's own read is filtered too, not merely guarded by the recipe read in front of it: asked
+        // directly for B's recipe, A is told nothing was ever accepted.
+        var (editorialForA, seoForA) = await InAsync(WorkspaceA, async services => (
+            await services.GetRequiredService<IContentEditorialFacade>()
+                .GetAcceptedEditorialAsync(recipeB.RecipeId, recipeB.VersionId, null, Ct),
+            await services.GetRequiredService<IContentSeoFacade>()
+                .GetAcceptedSeoAsync(recipeB.RecipeId, recipeB.VersionId, null, Ct)));
+
+        Assert.True(editorialForA.Succeeded);
+        Assert.Null(editorialForA.Value);
+        Assert.True(seoForA.Succeeded);
+        Assert.Null(seoForA.Value);
+
+        // B assembling its own piece is shown its own copy, so the words above were there to be found.
+        var contextB = await ContextAsync(WorkspaceB);
+        await ReferRecipeAsync(WorkspaceB, contextB, recipeB);
+        var own = await AssembleAsync(WorkspaceB, contextB.Id, AiTaskType.LongFormSection);
+
+        Assert.Equal("B's secret headnote.", own.Recipes[0].Editorial!.Headnote);
+        Assert.Equal(["B's secret phrase"], own.Recipes[0].Seo!.KeyPhrases);
+        Assert.Equal(WorkspaceB, own.WorkspaceId);
+    }
+
+    private sealed class SeoComparer : IEqualityComparer<CreativeContextSeoEntry?>
+    {
+        public static readonly SeoComparer Instance = new();
+
+        public bool Equals(CreativeContextSeoEntry? left, CreativeContextSeoEntry? right) =>
+            System.Text.Json.JsonSerializer.Serialize(left) == System.Text.Json.JsonSerializer.Serialize(right);
+
+        public int GetHashCode(CreativeContextSeoEntry? entry) => entry?.RevisionNumber ?? 0;
     }
 
     /// <summary>

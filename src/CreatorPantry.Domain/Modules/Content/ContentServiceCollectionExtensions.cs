@@ -92,6 +92,20 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<ICreativeContextFacade, CreativeContextFacade>();
         services.AddScoped<ICreativeContextPackageBusiness, CreativeContextPackageBusiness>();
         services.AddScoped<ICreativeContextPackageFacade, CreativeContextPackageFacade>();
+
+        // The long-form shape rules (LF.1.3), offered to the AI module that proposes a plan (LF.2.1). Stateless.
+        services.AddSingleton<ILongFormPlanBusiness, LongFormPlanBusiness>();
+        services.AddSingleton<ILongFormPlanFacade, LongFormPlanFacade>();
+
+        // The long-form draft and its plan (LF.2.2): the routes' seam, and what the AI module starts a draft
+        // and lands a generated plan through.
+        services.AddScoped<ILongFormDraftRepository, LongFormDraftRepository>();
+        services.AddScoped<ILongFormDraftDataLayer, LongFormDraftDataLayer>();
+        services.AddScoped<ILongFormDraftBusiness, LongFormDraftBusiness>();
+        services.AddScoped<ILongFormDraftFacade, LongFormDraftFacade>();
+        services.AddScoped<IValidator<PatchLongFormPlanViewModel>, PatchLongFormPlanViewModelValidator>();
+        services.AddScoped<IValidator<ApproveLongFormPlanViewModel>, ApproveLongFormPlanViewModelValidator>();
+        services.AddScoped<IValidator<LongFormDraftListViewModel>, LongFormDraftListViewModelValidator>();
         services.AddScoped<IValidator<CreateCreativeContextViewModel>, CreateCreativeContextViewModelValidator>();
         services.AddScoped<IValidator<PatchCreativeContextViewModel>, PatchCreativeContextViewModelValidator>();
         services.AddScoped<IValidator<AddCreativeContextReferenceViewModel>, AddCreativeContextReferenceViewModelValidator>();

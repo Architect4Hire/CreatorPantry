@@ -31,6 +31,9 @@ export const BRAND_LIMITS = {
   maxLinks: 20,
   /** `BrandPolicy.MaxAssetLinks`: the primary logo and its alternates together. */
   maxLogos: 10,
+  /** `BrandPolicy.MinDefaultPictureCount` and `MaxDefaultPictureCount`. */
+  minDefaultPictureCount: 1,
+  maxDefaultPictureCount: 4,
 } as const;
 
 export interface BrandLink {
@@ -52,6 +55,8 @@ export interface BrandProfile {
   readonly locale: string | null;
   /** The workspace's scheduling zone, an IANA identifier. */
   readonly timeZoneId: string | null;
+  /** How many pictures a run tries unless the creator says otherwise for that run. Null leaves it to the product. */
+  readonly defaultPictureCount: number | null;
   /** Channel keys in the creator's order. */
   readonly channelDefaults: readonly string[];
   readonly links: readonly BrandLink[];
@@ -118,6 +123,10 @@ export function decodeBrandProfile(value: unknown): BrandProfile | null {
   const optional = [value['shortDescription'], value['defaultAudience'], value['locale'], value['timeZoneId']];
   if (!optional.every(isStringOrNull)) return null;
 
+  // Absent reads as null: a profile written before the field existed has no answer, which is what null says.
+  const rawCount = value['defaultPictureCount'];
+  if (rawCount !== undefined && rawCount !== null && (typeof rawCount !== 'number' || !Number.isInteger(rawCount))) return null;
+
   const channels = decodeList(value['channelDefaults'], (item) =>
     isRecord(item) && typeof item['channelKey'] === 'string' ? item['channelKey'] : null,
   );
@@ -132,6 +141,7 @@ export function decodeBrandProfile(value: unknown): BrandProfile | null {
     defaultAudience: value['defaultAudience'] as string | null,
     locale: value['locale'] as string | null,
     timeZoneId: value['timeZoneId'] as string | null,
+    defaultPictureCount: typeof rawCount === 'number' ? rawCount : null,
     channelDefaults: channels,
     links,
     assets,
@@ -169,6 +179,8 @@ export interface BrandDraft {
   readonly defaultAudience: string;
   readonly locale: string;
   readonly timeZoneId: string;
+  /** Null for "leave it to CreatorPantry". */
+  readonly defaultPictureCount: number | null;
   readonly channelKeys: readonly string[];
   readonly links: readonly BrandLinkDraft[];
   /** The logos in the order they are saved: the primary first when there is one, then the alternates. */
@@ -181,6 +193,7 @@ export const EMPTY_BRAND_DRAFT: BrandDraft = {
   defaultAudience: '',
   locale: '',
   timeZoneId: '',
+  defaultPictureCount: null,
   channelKeys: [],
   links: [],
   assets: [],
@@ -201,6 +214,7 @@ export function draftFromProfile(profile: BrandProfile): BrandDraft {
     defaultAudience: profile.defaultAudience ?? '',
     locale: profile.locale ?? '',
     timeZoneId: profile.timeZoneId ?? '',
+    defaultPictureCount: profile.defaultPictureCount,
     channelKeys: profile.channelDefaults,
     links: profile.links.map((link) => ({ id: newLinkDraftId(), kind: link.kind, url: link.url, label: link.label ?? '' })),
     assets: profile.assets,
@@ -289,6 +303,7 @@ export function buildCreateRequest(draft: BrandDraft): Record<string, unknown> {
     if (value !== null) body[field] = value;
   }
 
+  if (draft.defaultPictureCount !== null) body['defaultPictureCount'] = draft.defaultPictureCount;
   if (draft.channelKeys.length > 0) body['channelDefaults'] = draft.channelKeys.map((channelKey) => ({ channelKey }));
   if (draft.links.length > 0) body['links'] = wireLinks(draft.links);
   if (draft.assets.length > 0) body['assets'] = wireAssets(draft.assets);
@@ -323,6 +338,8 @@ export function buildUpdateRequest(
     if (next !== before) patch[field] = next;
   }
 
+  if (draft.defaultPictureCount !== base.defaultPictureCount) patch['defaultPictureCount'] = draft.defaultPictureCount;
+
   if (options.includeChannels && !sameKeys(base.channelDefaults, draft.channelKeys)) {
     patch['channelDefaults'] = draft.channelKeys.map((channelKey) => ({ channelKey }));
   }
@@ -354,6 +371,7 @@ export function draftDiffers(base: BrandProfile | null, draft: BrandDraft, inclu
       optional(draft.defaultAudience) !== null ||
       optional(draft.locale) !== null ||
       optional(draft.timeZoneId) !== null ||
+      draft.defaultPictureCount !== null ||
       draft.channelKeys.length > 0 ||
       draft.links.length > 0 ||
       draft.assets.length > 0

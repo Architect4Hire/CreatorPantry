@@ -52,7 +52,7 @@ The deferral pointed at a prompt that was never about long-form. This document i
 | LFC-006 | A newsletter issue that may cover more than one source. | 4 |
 | LFC-007 | Markdown and HTML export of an accepted long-form draft, with its SEO package. | 5 |
 | LFC-008 | Staleness when a pinned source version moves. | 6 |
-| LFC-009 | The surfaces: a Content Pipeline step and a Workflows Hub entry. | 6 |
+| LFC-009 | The surfaces: a long-form pipeline of its own and its Workflows Hub entry (B-38). | 6 |
 
 ## Decisions this document assumes
 
@@ -124,6 +124,27 @@ Sections are edited as plain Markdown in a `textarea` inside `CpFieldComponent`.
 contenteditable, no new frontend dependency. The design system has no rich-text primitive and this document
 does not add one.
 
+### B-38 Long-form is its own pipeline; the short-form pipeline does not grow a step for it
+
+Decided by the product owner on 2026-10-12, with the short-form pipeline's reduction from six steps to four.
+
+- **Two guided journeys, one per kind of work.** The Content Pipeline is short-form — a picture and the posts
+  that go out with it — in four steps: *What it is about → Plan the picture → Make the images → Posts and
+  library*. Long-form is a second pipeline with its own route and its own Workflows entry: *What it is about →
+  Outline → Write → Review and accept*.
+- **Neither pipeline asks what the brand already answers.** Default channels and the default picture count
+  are read from `BrandProfile`; the look and the voice are read from the active `BrandStyleGuideVersion`,
+  which stays their one source (DEC-010). A run shows those answers and may change them for itself; it never
+  writes them back to the brand.
+- **Both root on a creative context, and may share one.** A long-form draft and a short-form run about the
+  same recipe are two pieces of work on one `CreativeContext`, which is how a teaser post comes to name the
+  article it is a teaser for — by reference, not by a step that runs one journey inside the other.
+
+*Why not a seventh step:* the complaint that produced this decision was that the pipeline had too many steps.
+An article is a dozen generations and a review of its own; nesting it between "posts" and "library" would make
+the longest journey in the product longer, and would make a creator who only wants an article walk through
+pictures to reach it.
+
 ## How this list was built
 
 A code map taken on 2026-10-10 (branch `dev`, after `d758e9a AF Prompts 6.4 - 6.6`). File references below
@@ -139,7 +160,7 @@ The honest finding: **the material for a long-form post is almost all there, and
 | `RecipeMarkdownExporter` already assembles recipe plus every accepted editorial section into one document — but recipe-first, and every editorial heading is labelled `(editorial)`, which is review scaffolding rather than publishable copy. | `Modules/Recipes/Managers/RecipeMarkdownExporter.cs` |
 | `ContentProposal` is one slot per recipe and kind, with a required `RecipeId`; `ContentRevision` is immutable, holds versioned JSON of named sections, and pins recipe version, brand profile, style guide, and prompt template with its body checksum. The shape to mirror. | `Modules/Content/Data/Entities/` |
 | `SocialPackage` is rooted on a `CreativeContext` with one output per channel key. The rooting to mirror. | `Modules/Content/Data/Entities/SocialPackage.cs` |
-| The pipeline is six steps — setup, idea, prompt, images, posts, library — all built. | `src/web/src/app/models/content-pipeline.models.ts` |
+| The pipeline was six steps — setup, idea, prompt, images, posts, library — when this map was taken. It is four since B-38: about, picture, images, finish. | `src/web/src/app/models/content-pipeline.models.ts` |
 | Master 13A.18 "Write a blog post and SEO package" is a *wizard shell* prompt: it composes selection, editorial review, SEO review, JSON-LD, preview, export. It has no writing step of its own. | master library |
 
 ## Prerequisites already satisfied
@@ -174,7 +195,7 @@ Reuse these; do not rebuild them:
 | master 11.3 Derivative staleness propagation | **Extended by LF.6.1** to long-form drafts. |
 | master 13.3 Social Studio UI | Unchanged. |
 | master 13A.18 "Write a blog post and SEO package" | **Narrowed.** It stays the wizard shell; the writing steps it composes are LF.2–LF.5. |
-| AF.6.1–AF.6.6 | Unchanged. The posts step gains a teaser-for-the-article relationship in LF.6.2. |
+| AF.6.1–AF.6.6 | Unchanged in what they write. The posts now sit on the short-form pipeline's last step, and gain a teaser-for-the-article relationship in LF.6.2 when the run's context also holds a long-form draft. |
 
 ## Out of bounds for this document
 
@@ -205,7 +226,7 @@ rest" will spend before it spends it.
 | **LF.3.4** | A full-length article exists, written section by section, each regenerable on its own, assembled into one document the creator reads whole and accepts once. |
 | **LF.4.3** | A newsletter issue covering two recipes and the creator's own framing, from one creative context. |
 | **LF.5.3** | An accepted article exports as Markdown and HTML with its SEO package, and the recipe Markdown export is byte-identical to before. |
-| **LF.6.2** | The pipeline writes the article and the teaser posts in one run, and the teasers point at the article. |
+| **LF.6.3** | A creator starts the long-form pipeline from Workflows, from a recipe or a blank brief, and walks it to an accepted article; short-form teasers on the same context point at it. |
 | **LF.7.2** | One recorded journey — recipe → context → outline → sections → assembled → accepted → export — passes end to end over HTTP for two workspaces that cannot see each other. |
 
 ---
@@ -283,7 +304,7 @@ and the ids inside the JSON document (`sourceReferenceId`, a section's `aiPropos
 `reusedEditorialRevisionId`) have no database key, so the seam must derive or resolve each inside the
 workspace filter, never take one from the client, and answer a miss uniformly.*
 
-## LF.1.3 Section roles and the long-form policy
+## LF.1.3 Section roles and the long-form policy - done
 
 ```text
 SCOPE: Add the deterministic shape rules in the Content module's Managers area: the closed section-role
@@ -306,7 +327,19 @@ single-use role, an unknown role, a body section over the cap of four, multi-cod
 word-count rule's documented edge cases.
 ```
 
-## LF.1.4 Long-form grounding package
+*Delivered 2026-10-12 as `LongFormPolicy` (version `1.0.0`), `LongFormWordCounter` and
+`LongFormDocumentValidator`, with three things the prompt did not state. (1) Findings have three severities,
+not two: a shape `Failure` (which makes a plan unapprovable), an `OverCeiling` flag (stored as written, never
+refuses a save, confirmed before acceptance in LF.3.4), and a `Warning` for a missed word target. (2) A
+heading is capped at 120 characters and an intent at 200, as failures; the owner approved both figures with
+this prompt. (3) The word target is assessed only once every planned section has a body — a half-written
+document reads as not yet assessed rather than short. Characters are grapheme clusters of the stored
+Markdown; the document ceiling sums section bodies and does not count headings. No role is required and
+order is not enforced. Nothing stores a measurement: a result is recomputed from the immutable revision and
+carries the policy version that produced it. The word-count rule is documented on `LongFormWordCounter`, and
+changing it bumps the policy version.*
+
+## LF.1.4 Long-form grounding package - done
 
 ```text
 SCOPE: Extend the AF.1.5 CreativeContextPackage assembler with a long-form section, exposed through the
@@ -334,11 +367,37 @@ absent, an injection string in each creator-written and retrieved field, and a t
 foreign reference contributes nothing.
 ```
 
+*Delivered 2026-10-12, with these differences from the prompt as written.*
+
+- *The `BrandContextPackage` is assembled beside this package, not inside it. The brand assembler belongs to
+  the AI module and is not a facade, so the Content module calling it would break the facade-to-facade rule,
+  and every existing handler joins the two itself. This prompt adds both long-form tasks to
+  `BrandContextSelection` with the editorial package's keys; **the LF.2.1 and LF.3.1 handlers assemble the
+  brand package and record both checksums.***
+- *`AiTaskType.LongFormOutline = 18` and `LongFormSection = 19` are declared here, because the allow-list is
+  keyed by task type. They have no catalogue discriminator, handler or route until LF.2.1 and LF.3.1. The enum
+  is on the wire, so the TypeScript mirror, the usage screen's labels and the OpenAPI snapshot changed
+  additively in this prompt rather than in those.*
+- *An accepted editorial or SEO revision that is not current for the pinned recipe version is not carried; it
+  is reported as `EditorialNotCurrent` or `SeoNotCurrent`.*
+- *Long-form figures, all approved with this prompt: a 12,000 estimated-token budget (every other task keeps
+  4,000), five recipes, 10,000 characters of editorial per recipe with 2,000 per prose part and 600 per list
+  field, and ten key phrases of 100 characters. Over budget, saved prompts, pictures and concepts go first,
+  last-named first, then whole recipes from the end, each taking its editorial copy and key phrases with it.*
+- *An editorial list with any over-long item is left out whole rather than shortened, so a part named as
+  carried is all there (from the AI safety review). The label on editorial copy says it is prose about the
+  recipe, not its facts, and not checked for safety; **the LF.3.1 template should still state that recipe
+  lines prevail over it.***
+- *Every existing task's package is byte-identical: the new checksum fields are written only where they
+  exist, and a test pins a pre-change checksum.*
+- *Not done here: the per-item grounding slice for a newsletter (LF.4.2), and any prompt template. The package
+  is data; fencing it as untrusted is the renderer's and the envelope's, which the injection test covers.*
+
 ---
 
 # Phase 2 — The plan the creator approves
 
-## LF.2.1 `content.long-form-outline` capability
+## LF.2.1 `content.long-form-outline` capability - done
 
 ```text
 SCOPE: Add the capability that proposes a section plan: a versioned prompt file, an output schema of
@@ -362,7 +421,43 @@ body smuggled into an intent line, a food-safety or allergen claim, a wrong item
 prompt injection through each untrusted section, missing source, and workspace isolation.
 ```
 
-## LF.2.2 Outline request and approval endpoints
+*Delivered 2026-10-12 as prompt `content.long-form-outline` 1.0.0, schema `content.long-form-outline.v1`,
+`LongFormOutlineAiTaskHandler`, and 48 evaluation fixtures. What shipped that the prompt did not state, or
+states differently:*
+
+- *A newsletter item names its recipe by **position** in the list the prompt shows (`source`, from 1), and
+  the server turns that into the reference id. No id reaches the model.*
+- *"The sections the creator already wants" are **roles only**, never headings, so no creator-typed text
+  enters the instruction segment. A request for an item the piece has no recipe for is refused before the
+  provider is called.*
+- *The target length is optional, 150 to 3,000 words, defaulting to the kind's B-34 range. It guides how
+  many sections are planned; nothing measures a plan against it.*
+- *Claims are **warnings, not refusals**, as they are for posts: each heading and intent is read by the
+  existing editorial and SEO scanners and a finding is written beside its section. One exemption: in a
+  section whose role is Storage, the storage scanner's own naming words ("storage", "storing", "reheating")
+  are forgiven, because that scanner answers to the bare word; advice such as "keeps for a week" is still
+  flagged there.*
+- *The AI module reaches the LF.1.3 role rules through a new `ILongFormPlanFacade` in the Content module,
+  because a policy and a validator may not cross a module boundary. **LF.2.2's approval check should call the
+  same facade**, so a generated plan and an edited one are held to one definition.*
+- *Stored as one target per section under a new `AiChangeTargetKind.LongFormSectionPlan`: the heading, with
+  `role` (its number), `intent` and, for an item, `sourceReferenceId` beside it. The enum is on the wire, so
+  the TypeScript mirror and OpenAPI snapshot changed additively.*
+- *It stops at the proposal. **LF.2.2 owns** the landing step that turns it into a `LongFormRevision` (and
+  adding the task to `AiTaskCatalog.LandedTasks`), the request route, and the task's entry in the
+  per-workspace AI feature switches (`AiFeaturePolicy.SwitchableTasks` and its web label) — there is nothing
+  for a workspace to switch until a route exists. The task is enabled in development configuration only.*
+- *The handler joins the brand package beside the LF.1.4 package and records both, as LF.1.4 carried forward.*
+
+*Evaluation: the harness has no fixture path for injection, missing source or isolation through a real
+handler, so those are `LongFormOutlineAiTaskHandlerTests` against a fake provider, plus ten generic
+envelope fixtures. Nothing judges whether a plan is a good one: `LiveLongFormOutlineCheck` asks the real
+deployment and writes a transcript, runs only when `CP_LIVE_CHAT` is set, and **has not been run**.*
+
+*Left as they are, matching the posts capability: a schema-failure message may quote a fragment of the
+model's own JSON, and a model's own warning text is labelled as the model's but not claim-scanned.*
+
+## LF.2.2 Outline request and approval endpoints - done
 
 ```text
 SCOPE: Add the request seam under /api/v1/workspaces/{workspaceSlug}/long-form-drafts: POST a draft for a
@@ -384,6 +479,47 @@ with tests for idempotent create, a foreign-workspace context, stale ETag, doubl
 allowance refusal, cancellation marking the outcome accurately, and two-workspace isolation; regenerate the
 OpenAPI snapshot with UPDATE_OPENAPI_SNAPSHOT=1 and read the diff.
 ```
+
+*Delivered 2026-10-12 as `LongFormDraftsController`, the content module's `ILongFormDraftFacade` seam and the
+AI module's `IAiLongFormOutlineRequestFacade` seam. Routes, all under `long-form-drafts`: `GET /` (list),
+`POST /` (start, 202), `GET /{draftId}`, `POST /{draftId}/outline-requests` (ask again, 202),
+`GET /{draftId}/outline-requests/{requestId}` (status), `PATCH /{draftId}/plan`, and
+`POST /{draftId}/plan/approval`. What differs from the prompt as written:*
+
+- *The concurrency token travels in the body as `expectedConcurrencyToken`, with a stale one answering
+  `409 content.long_form.draft.stale.conflict` — every existing edit route's convention — rather than as an
+  `If-Match` header.*
+- *`POST /{draftId}/outline-requests` is an addition: without it a failed or cancelled outline leaves a dead
+  draft. Its plan lands as the draft's next revision and returns an approved plan to `Draft`.*
+- ***The draft's id is the id of the outline request that started it.** The request is queued first,
+  idempotently by key, and the draft is then made under that id, so a retry cannot make a second draft. A
+  later outline request names the draft in its stored inputs. The landing step creates the draft if a fast
+  worker reaches it first.*
+- *A plan may be saved while it is not valid; `planCheck` on the draft says what stands in the way, and only
+  approval enforces LF.1.3, answering `422 content.long_form.plan.unprocessable` with errors keyed
+  `sections[n]`. Editing an approved plan returns the draft to `Draft`. Approving the revision already
+  approved changes nothing and writes no second audit entry, whatever token it carries.*
+- *A plan cannot be hand-written from scratch: `PATCH` on a draft with no revision is
+  `409 content.long_form.plan.not_started.conflict`. Once a draft is `Writing` or later its plan is closed:
+  `409 content.long_form.plan.locked.conflict`.*
+- *The outline proposal now also stores one row per recipe it was shown, under a new
+  `AiChangeTargetKind.LongFormRecipePin`, because the proposal's own provenance names only one recipe. The
+  landing step pins the revision from those rows and reads nothing again. This changed LF.2.1's handler.*
+- *The list returns each draft's latest revision number rather than a section count, so no plan is read to
+  build it. A cursor is bound to the workspace and to the `kind` and `creativeContextId` filters.*
+- *The task is now in the per-workspace AI feature switches, with a web label, and in
+  `AiTaskCatalog.LandedTasks`. Staleness fields are not on the draft's service model yet; LF.6.1 adds them.*
+
+*Tests: `LongFormOutlineRequestSeamTests` (the real worker, SQLite) covers idempotent create, the allowance
+refusal, landing and its idempotency, cancellation, asking again, the locked plan and two-workspace
+isolation; `LongFormDraftEndpointTests` (through the gateway) covers the HTTP contract, roles and isolation;
+`LongFormDraftTests` (SQL Server) proves the token moves on each write and a second writer is refused,
+which the gateway fixture's SQLite store cannot show. Not covered: an allowance refusal over HTTP for this
+route — it is proved at the seam, and the status mapping by the shared quota tests — and the maintenance
+sweep's re-landing with two workspaces.*
+
+*Known and left: if creating the draft fails after the request is queued, the creator gets an error but the
+request still runs and its plan creates the draft when it lands. No Angular model exists yet; that is LF.2.3.*
 
 ## LF.2.3 Outline review surface
 
@@ -625,37 +761,42 @@ commit, failure, replay and two-workspace tests, and prove a recipe update canno
 falsely current.
 ```
 
-## LF.6.2 Content Pipeline article step
+## LF.6.2 Long-form pipeline shell
 
 ```text
-SCOPE: Add a seventh pipeline step, "Write the post", between posts and library: it runs the LF.2–LF.3
-journey inside the pipeline shell for the run's creative context, and the posts step's teasers then name the
-article they are teasers for.
-CONSTRAINT: LFC-009; AF.6.5 and the pipeline shell's step list in content-pipeline.models.ts; the "easy as
-pie" rule; .claude/rules/frontend.md and design-system.md; new-component and creatorpantry-design-system
-skills.
-RESTRICTION: Reuse the LF.2.3 and LF.3.4 components; do not fork a second long-form surface for the
-pipeline. The step's progress figure stays the truth about the journey — adding a step changes "of 6" to
-"of 7" everywhere it is computed, including the Workflows Hub. A long-form draft is optional: a creator who
-only wants posts skips the step and the run still completes. State kept for the step lives on the server
-with the draft, not in localStorage. Nothing is accepted or published for the creator.
-UTILIZATION: design-review after implementation.
-BEHAVIOR: Show the step's placement, help and legend text, the skip path and every place the step count is
-computed; wait for approval; implement with component, contract, accessibility and resume specs, including
-a run that skips the step.
+SCOPE: Add the long-form pipeline (B-38) as its own flow at workflows/long-form, rooted on a creative
+context like the short-form one: four steps — What it is about (recipe references, the creator's brief or a
+saved prompt, and article or newsletter issue), Outline (LF.2.3), Write (LF.3.3–LF.3.4 section by section),
+Review and accept (LF.3.4, with export from LF.5.2). When the context also holds accepted short-form posts,
+the last step names them as the article's teasers.
+CONSTRAINT: LFC-009; B-38; LF.2.3 and LF.3.4 as built; ContentPipelineShellComponent and
+BrandSetupShellComponent as the flow references; the "easy as pie" rule; .claude/rules/frontend.md and
+design-system.md; new-component and creatorpantry-design-system skills.
+RESTRICTION: Do not add a step to the short-form pipeline, and do not fork the LF.2.3 or LF.3.4 surfaces —
+the shell composes them. The first step asks only what this piece is about: voice comes from the active
+style guide and audience from the brand profile, shown as read and never asked again; anything a run
+changes is for that run and is not written back to the brand. State for every step lives on the server with
+the draft, not in localStorage; only the step reached is the device's. The step list is the whole journey and
+its progress figure is the truth about it. Nothing is accepted or published for the creator, and "write the
+rest" shows what it will spend before it spends it.
+UTILIZATION: design-review and workspace-isolation-auditor after implementation.
+BEHAVIOR: Show the route, the four steps with their help and legend text, what is read from the brand and
+where it is shown, and the teaser relationship; wait for approval; implement with component, contract,
+accessibility and resume specs, including a draft with no recipe reference and a two-workspace spec.
 ```
 
 ## LF.6.3 Workflows Hub entry
 
 ```text
-SCOPE: Add "Write a blog post or newsletter" to the Workflows Hub as its own entry, starting from a recipe
-or from a blank brief, and reconcile it with master 13A.18 — which stays the wizard shell and now composes
-LF.2–LF.5 rather than specifying a writing step of its own.
-CONSTRAINT: LFC-009; master 13A.18 and Phase 11A's shell; workflows-hub.component.ts; the "easy as pie"
-rule; new-component skill.
+SCOPE: Add "Write a blog post or newsletter" to the Workflows Hub as its own entry beside the short-form
+Content Pipeline, starting the LF.6.2 pipeline from a recipe or from a blank brief, and reconcile it with
+master 13A.18 — which stays the wizard shell and now composes LF.2–LF.5 rather than specifying a writing
+step of its own. Say on each card which kind of work it is for, so the two are told apart at a glance.
+CONSTRAINT: LFC-009; B-38; master 13A.18 and Phase 11A's shell; workflows-hub.component.ts; the "easy as
+pie" rule; new-component skill.
 RESTRICTION: Do not fork a second guide wizard and do not activate anything implicitly. The entry offers
-only the destinations that exist; an unbuilt one is not offered. Annotate 13A.18 in the master library
-rather than rewriting it.
+only the destinations that exist; an unbuilt one is not offered. A long-form draft in progress is read from
+the server, not from this device. Annotate 13A.18 in the master library rather than rewriting it.
 UTILIZATION: design-review after implementation.
 BEHAVIOR: Show the entry, its starting points and the 13A.18 annotation; wait for approval; implement with
 deep-link, resume and error specs.

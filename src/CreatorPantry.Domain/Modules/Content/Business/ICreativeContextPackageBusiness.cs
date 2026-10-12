@@ -56,6 +56,8 @@ internal sealed class CreativeContextPackageBusiness(
     IMediaPictureAnalysisFacade analyses,
     IPromptRecordFacade prompts,
     IThemedDayHistoryFacade themedDayHistory,
+    IContentEditorialFacade editorial,
+    IContentSeoFacade seo,
     IClock clock) : ICreativeContextPackageBusiness
 {
     /// <summary>One resolved source, with what it costs, in the order the context names it.</summary>
@@ -121,13 +123,13 @@ internal sealed class CreativeContextPackageBusiness(
 
             // The cap is checked before the read: a source there is no room for is not worth a query, and
             // the answer must not depend on whether a source nobody will use happens to still exist.
-            if (counts.GetValueOrDefault(section) >= CapFor(section))
+            if (counts.GetValueOrDefault(section) >= CapFor(section, taskType))
             {
                 dropped.Add(Drop(reference, CreativeContextDropReason.OverCap));
                 continue;
             }
 
-            var entry = await ResolveAsync(reference, omissions, cancellationToken);
+            var entry = await ResolveAsync(reference, allowed, omissions, cancellationToken);
 
             if (entry is null)
             {
@@ -146,12 +148,25 @@ internal sealed class CreativeContextPackageBusiness(
             + CreativeContextPackageSelection.Estimate(channelEntries)
             + CreativeContextPackageSelection.Estimate(day);
 
-        while (resolved.Count > 0
-            && fixedCost + resolved.Sum(item => item.Cost) > CreativeContextPackageSelection.MaxEstimatedTokens)
+        // A long-form task gives up its supporting sources before any recipe (LF.1.4): an article is written
+        // from its recipes, and a picture or a saved prompt is worth less to it than the facts. A recipe goes
+        // with the editorial copy and key phrases it carries, so what is left is never one without the other.
+        var budget = CreativeContextPackageSelection.MaxEstimatedTokensFor(taskType);
+        var recipesLast = CreativeContextPackageSelection.IsLongForm(taskType);
+
+        while (resolved.Count > 0 && fixedCost + resolved.Sum(item => item.Cost) > budget)
         {
-            var last = resolved[^1];
-            resolved.RemoveAt(resolved.Count - 1);
-            dropped.Add(Drop(last.Reference, CreativeContextDropReason.OverBudget));
+            var index = recipesLast
+                ? resolved.FindLastIndex(item => item.Entry is not CreativeContextRecipeEntry)
+                : -1;
+
+            if (index < 0)
+            {
+                index = resolved.Count - 1;
+            }
+
+            dropped.Add(Drop(resolved[index].Reference, CreativeContextDropReason.OverBudget));
+            resolved.RemoveAt(index);
         }
 
         var recipeEntries = resolved.Select(item => item.Entry).OfType<CreativeContextRecipeEntry>().ToList();
@@ -225,8 +240,12 @@ internal sealed class CreativeContextPackageBusiness(
         var title = allowed.HasFlag(CreativeContextSections.WorkingTitle) ? context.WorkingTitle : null;
         var brief = allowed.HasFlag(CreativeContextSections.PictureBrief) ? context.PictureBrief : null;
 
-        // Both are bounded by their own columns, so there is nothing to cap here and nothing is ever cut.
-        return title is null && brief is null ? null : new CreativeContextWords(title, brief);
+        var workingBrief = allowed.HasFlag(CreativeContextSections.WorkingBrief) ? context.WorkingBrief : null;
+
+        // Each is bounded by its own column, so there is nothing to cap here and nothing is ever cut.
+        return title is null && brief is null && workingBrief is null
+            ? null
+            : new CreativeContextWords(title, brief, workingBrief);
     }
 
     private List<CreativeContextChannelEntry> ReadChannels(CreativeContext context)
@@ -447,6 +466,7 @@ internal sealed class CreativeContextPackageBusiness(
 
     private async Task<Resolved?> ResolveAsync(
         CreativeContextReference reference,
+        CreativeContextSections allowed,
         SortedSet<CreativeContextOmission> omissions,
         CancellationToken cancellationToken)
     {
@@ -454,7 +474,7 @@ internal sealed class CreativeContextPackageBusiness(
         {
             case CreativeContextReferenceKind.Recipe when reference.RecipeId is { } recipeId:
             {
-                var recipe = await ReadRecipeAsync(reference, recipeId, omissions, cancellationToken);
+                var recipe = await ReadRecipeAsync(reference, recipeId, allowed, omissions, cancellationToken);
 
                 return recipe is null
                     ? null
@@ -608,6 +628,7 @@ internal sealed class CreativeContextPackageBusiness(
     private async Task<CreativeContextRecipeEntry?> ReadRecipeAsync(
         CreativeContextReference reference,
         Guid recipeId,
+        CreativeContextSections allowed,
         SortedSet<CreativeContextOmission> omissions,
         CancellationToken cancellationToken)
     {
@@ -680,7 +701,84 @@ internal sealed class CreativeContextPackageBusiness(
             steps,
             omittedIngredients,
             omittedSteps,
-            LatestRecipeVersionId: detail.Value.CurrentVersion?.Id);
+            LatestRecipeVersionId: detail.Value.CurrentVersion?.Id,
+            Editorial: allowed.HasFlag(CreativeContextSections.Editorial)
+                ? await ReadEditorialAsync(recipeId, pinned, omissions, cancellationToken)
+                : null,
+            Seo: allowed.HasFlag(CreativeContextSections.SeoKeyPhrases)
+                ? await ReadKeyPhrasesAsync(recipeId, pinned, omissions, cancellationToken)
+                : null);
+    }
+
+    /// <summary>
+    /// The editorial copy already accepted for this recipe, as a long-form writer may reuse it (LF.1.4, B-36);
+    /// null when nothing usable was accepted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Read through the editorial facade, for the version this package read.</strong> It answers inside
+    /// the resolved workspace and judges currency against the version it is given, so the copy carried is copy
+    /// accepted for these very facts. A recipe this workspace cannot read never reaches here: its reference
+    /// did not resolve.
+    /// </para>
+    /// <para>
+    /// <strong>An acceptance that is not current contributes nothing, and says so.</strong> One that cannot be
+    /// read contributes nothing and says nothing, like any source that is not there.
+    /// </para>
+    /// </remarks>
+    private async Task<CreativeContextEditorialEntry?> ReadEditorialAsync(
+        Guid recipeId, Guid recipeVersionId, SortedSet<CreativeContextOmission> omissions, CancellationToken cancellationToken)
+    {
+        var found = await editorial.GetAcceptedEditorialAsync(recipeId, recipeVersionId, revisionNumber: null, cancellationToken);
+
+        if (!found.Succeeded || found.Value is not { } accepted)
+        {
+            return null;
+        }
+
+        if (!accepted.IsCurrent)
+        {
+            omissions.Add(CreativeContextOmission.EditorialNotCurrent);
+
+            return null;
+        }
+
+        var (entry, omitted) = CreativeContextPackageSelection.FitEditorial(accepted);
+
+        if (omitted)
+        {
+            omissions.Add(CreativeContextOmission.EditorialPartOverCap);
+        }
+
+        return entry;
+    }
+
+    /// <summary>The key phrases already accepted for this recipe, on the same terms as its editorial copy.</summary>
+    private async Task<CreativeContextSeoEntry?> ReadKeyPhrasesAsync(
+        Guid recipeId, Guid recipeVersionId, SortedSet<CreativeContextOmission> omissions, CancellationToken cancellationToken)
+    {
+        var found = await seo.GetAcceptedSeoAsync(recipeId, recipeVersionId, revisionNumber: null, cancellationToken);
+
+        if (!found.Succeeded || found.Value is not { } accepted)
+        {
+            return null;
+        }
+
+        if (!accepted.IsCurrent)
+        {
+            omissions.Add(CreativeContextOmission.SeoNotCurrent);
+
+            return null;
+        }
+
+        var entry = CreativeContextPackageSelection.FitKeyPhrases(accepted);
+
+        if (entry is { OmittedKeyPhraseCount: > 0 })
+        {
+            omissions.Add(CreativeContextOmission.SeoKeyPhrasesOverCap);
+        }
+
+        return entry;
     }
 
     private static CreativeContextSections SectionOf(CreativeContextReferenceKind kind) => kind switch
@@ -695,9 +793,9 @@ internal sealed class CreativeContextPackageBusiness(
         _ => CreativeContextSections.None,
     };
 
-    private static int CapFor(CreativeContextSections section) => section switch
+    private static int CapFor(CreativeContextSections section, AiTaskType taskType) => section switch
     {
-        CreativeContextSections.Recipe => CreativeContextPackageSelection.MaxRecipes,
+        CreativeContextSections.Recipe => CreativeContextPackageSelection.MaxRecipesFor(taskType),
         CreativeContextSections.Concept => CreativeContextPackageSelection.MaxConcepts,
         CreativeContextSections.Pictures => CreativeContextPackageSelection.MaxPictures,
         CreativeContextSections.Prompts => CreativeContextPackageSelection.MaxPrompts,

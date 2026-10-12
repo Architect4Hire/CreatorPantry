@@ -176,6 +176,9 @@ export interface RequestPhotographyConceptsRequest {
   readonly applyDayNotes?: boolean;
 }
 
+/** `AiPolicy.PhotographyCreatorConceptMaxLength`. */
+export const PHOTOGRAPHY_CREATOR_CONCEPT_MAX_LENGTH = 1000;
+
 /**
  * The request body, with everything blank left out.
  *

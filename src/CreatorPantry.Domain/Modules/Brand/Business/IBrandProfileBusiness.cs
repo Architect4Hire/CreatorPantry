@@ -94,6 +94,7 @@ internal sealed class BrandProfileBusiness(
             DefaultAudience = BrandProfileInputChecks.Normalize(model.DefaultAudience),
             Locale = BrandProfileInputChecks.Normalize(model.Locale),
             TimeZoneId = zone,
+            DefaultPictureCount = model.DefaultPictureCount,
             Revision = 1,
             CreatedAt = now,
             UpdatedAt = now,
@@ -216,6 +217,11 @@ internal sealed class BrandProfileBusiness(
         if (model.TimeZoneId.TryGetSubmitted(out var zone))
         {
             profile.TimeZoneId = BrandProfileInputChecks.Normalize(zone);
+        }
+
+        if (model.DefaultPictureCount.TryGetSubmitted(out var pictureCount))
+        {
+            profile.DefaultPictureCount = pictureCount;
         }
 
         // Lists replace as a whole, but only when they differ: replacing an identical list would delete and
@@ -425,6 +431,7 @@ internal sealed class BrandProfileBusiness(
         profile.DefaultAudience,
         profile.Locale,
         profile.TimeZoneId,
+        profile.DefaultPictureCount,
         [.. profile.ChannelDefaults.OrderBy(item => item.SortOrder).Select(item => new BrandChannelDefaultServiceModel(item.ChannelKey))],
         [.. profile.Links.OrderBy(link => link.SortOrder).Select(link => new BrandLinkServiceModel(link.Kind, link.Url, link.Label))],
         [.. profile.AssetLinks.OrderBy(link => link.SortOrder).Select(link => new BrandAssetServiceModel(link.MediaAssetId, link.Role))],

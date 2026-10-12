@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-outline.a-source-on-a-section-that-is-not-an-item-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "Only an item names a source. A greeting bound to a recipe would make that recipe's facts the greeting's to state.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Greeting\", \"heading\": \"Hello again\", \"intent\": \"Say hello.\", \"source\": 1}, {\"role\": \"Item\", \"heading\": \"A loaf with no kneading\", \"intent\": \"Introduce the soda bread and who it suits.\", \"source\": 1}, {\"role\": \"Signoff\", \"heading\": \"Until next week\", \"intent\": \"Sign off in the creator's own way.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "NewsletterIssue",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_outline_items_invalid",
+    "category": "DomainInvalid"
+  }
+}

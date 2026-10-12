@@ -6,6 +6,7 @@ export * from './lib/components/field.component';
 export * from './lib/components/progress.component';
 export * from './lib/components/dialog.component';
 export * from './lib/components/drawer.component';
+export * from './lib/components/lightbox.component';
 export * from './lib/components/quick-action.component';
 export * from './lib/components/status-pill.component';
 export * from './lib/components/list-shell.component';

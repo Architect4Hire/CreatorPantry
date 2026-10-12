@@ -155,8 +155,8 @@ describe('handing a chosen concept to another surface', () => {
     await choose('Start a content run');
 
     // The destination names no step; the pipeline's own redirect supplies the first one and keeps the id.
-    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/workflows/content-pipeline/context/${CONTEXT}/setup`);
-    expect(arrived).toEqual({ contextId: CONTEXT, step: 'setup' });
+    expect(TestBed.inject(Router).url).toBe(`/${SLUG}/workflows/content-pipeline/context/${CONTEXT}/about`);
+    expect(arrived).toEqual({ contextId: CONTEXT, step: 'about' });
   });
 
   it('still opens each destination without a context, as it always has', async () => {
@@ -166,8 +166,8 @@ describe('handing a chosen concept to another surface', () => {
     expect(arrived).toEqual({ contextId: null, step: null });
 
     await router.navigateByUrl(`/${SLUG}/workflows/content-pipeline`);
-    expect(router.url).toBe(`/${SLUG}/workflows/content-pipeline/setup`);
-    expect(arrived).toEqual({ contextId: null, step: 'setup' });
+    expect(router.url).toBe(`/${SLUG}/workflows/content-pipeline/about`);
+    expect(arrived).toEqual({ contextId: null, step: 'about' });
   });
 
   it('does not mistake a context id for a pipeline step', async () => {
