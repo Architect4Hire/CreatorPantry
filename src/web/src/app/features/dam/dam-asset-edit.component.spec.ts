@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Observable, of } from 'rxjs';
@@ -93,8 +94,22 @@ describe('DamAssetEditComponent', () => {
   let tagsSpy: jasmine.Spy<(slug: string) => Promise<WorkspaceTagsOutcome>>;
   let confirmSpy: jasmine.Spy<(request: ConfirmRequest) => Promise<boolean>>;
 
+  /**
+   * This fixture's own drawer panel, wherever it sits. An open drawer moves itself to `<body>`, but it is still
+   * this fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function panel(): HTMLElement | null {
+    return (fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  function scrim(): HTMLElement {
+    return fixture.debugElement.query(By.css('.scrim')).nativeElement as HTMLElement;
+  }
+
+  /** Where this component's content is: its open drawer, or the fixture while the drawer is closed. */
   function root(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+    return panel() ?? (fixture.nativeElement as HTMLElement);
   }
 
   function text(): string {
@@ -192,13 +207,13 @@ describe('DamAssetEditComponent', () => {
     host.open.set(false);
     await settle();
 
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(panel()).toBeNull();
   });
 
   it('opens as a named modal dialog holding the asset as it was read', async () => {
     await create();
 
-    const dialog = root().querySelector('[role="dialog"]') as HTMLElement;
+    const dialog = panel() as HTMLElement;
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(root().querySelector(`#${dialog.getAttribute('aria-labelledby')}`)?.textContent).toContain('Edit details');
 
@@ -634,18 +649,47 @@ describe('DamAssetEditComponent', () => {
     type('title', 'My title');
     await settle();
 
-    field('add-tag').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    field('add-tag').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await settle();
     expect(confirmSpy).not.toHaveBeenCalled();
 
-    field('title').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    field('title').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await settle();
     expect(confirmSpy).toHaveBeenCalledTimes(1);
 
-    (root().querySelector('button[aria-label="Close dialog"]') as HTMLButtonElement).click();
+    (root().querySelector('button[aria-label="Close"]') as HTMLButtonElement).click();
     await settle();
     expect(confirmSpy).toHaveBeenCalledTimes(2);
+
+    // The scrim is the drawer's own way out, which a dialog did not have: it asks like the others.
+    (scrim() as HTMLElement).click();
+    await settle();
+    expect(confirmSpy).toHaveBeenCalledTimes(3);
     expect(host.closes).toBe(0);
+  });
+
+  it('lets Escape close the tag picker’s open list without asking to close the drawer', async () => {
+    await create();
+    confirmSpy.and.resolveTo(false);
+    type('title', 'My title');
+    await settle();
+
+    const picker = field('add-tag');
+    picker.focus();
+    picker.value = 'a';
+    picker.dispatchEvent(new Event('input'));
+    await settle();
+    picker.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    await settle();
+    expect(picker.getAttribute('aria-expanded')).toBe('true');
+
+    picker.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await settle();
+
+    expect(picker.getAttribute('aria-expanded')).toBe('false');
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(host.closes).toBe(0);
+    expect(panel()).toBeTruthy();
   });
 
   it('starts from the asset again each time it is opened, not from a previous abandoned edit', async () => {

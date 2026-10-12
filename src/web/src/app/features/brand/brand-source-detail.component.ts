@@ -1,17 +1,20 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
+  CpBackLinkComponent,
   CpBadgeComponent,
   CpButtonComponent,
   CpCardComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
-  CpTabDefinition,
-  CpTabPanelComponent,
-  CpTabsComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ContentChannel } from '../../models/brand-profile.models';
 import {
@@ -67,19 +70,24 @@ const COULD_NOT_LOAD = 'This example couldn’t be loaded. Check your connection
     RouterLink,
     BrandSourceReplaceComponent,
     BrandSourceTextComponent,
+    CpBackLinkComponent,
     CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpNoticeComponent,
+    CpPageHeadComponent,
     CpStatusPillComponent,
-    CpTabPanelComponent,
-    CpTabsComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './brand-source-detail.component.html',
   styleUrl: './brand-source-detail.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSourceDetailComponent {
+  /** The page's name, from its own route: the `h1` for a state that has no title of its own. */
+  private readonly routeTitle = injectRouteTitle();
   private readonly documents = inject(BrandSourceDocumentService);
   private readonly profiles = inject(BrandProfileService);
   private readonly confirmService = inject(ConfirmService);
@@ -112,7 +120,8 @@ export class BrandSourceDetailComponent {
    */
   private readonly chosenVersion = signal<number | null>(null);
 
-  readonly selectedTabId = signal('details');
+  /** The card holding the example's text, which "View text" on a version brings into view. */
+  private readonly textCard = viewChild('textCard', { read: ElementRef<HTMLElement> });
 
   readonly typeLabels = DOCUMENT_TYPE_LABELS;
   readonly purposeLabels = PURPOSE_LABELS;
@@ -136,12 +145,22 @@ export class BrandSourceDetailComponent {
 
   readonly isViewingCurrent = computed(() => this.viewedVersion() === this.document()?.versionNumber);
 
-  readonly tabs = computed<CpTabDefinition[]>(() => [
-    { id: 'details', label: 'Details' },
-    { id: 'text', label: 'Text' },
-    { id: 'versions', label: 'Versions' },
-    { id: 'usage', label: 'Where it’s used' },
-  ]);
+  /**
+   * What the page is called right now. One `h1` for every state: the example's own name once there is one,
+   * what happened when there is not, and the route's name while that is still unknown.
+   */
+  protected readonly headTitle = computed(() => {
+    const state = this.stateSignal();
+
+    switch (state.status) {
+      case 'ready':
+        return state.document.title;
+      case 'missing':
+        return 'We couldn’t find this example';
+      default:
+        return this.routeTitle;
+    }
+  });
 
   extractionTone(state: BrandSourceExtractionState): CpStatusPillTone {
     return EXTRACTION_TONE[state];
@@ -199,12 +218,19 @@ export class BrandSourceDetailComponent {
 
   // ---- Actions ----
 
+  /**
+   * Show one version's text. The text card is further up the page than the list that asked for it, so it is
+   * brought into view; the status line at its top says which version is showing.
+   */
   viewVersionText(versionNumber: number): void {
     this.chosenVersion.set(versionNumber);
-    this.selectedTabId.set('text');
+    this.textCard()?.nativeElement.scrollIntoView({ block: 'start' });
   }
 
-  openReplace(): void {
+  openReplace(event?: Event): void {
+    // A drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
+    // button in every browser, so the button is focused here rather than left to chance.
+    if (event?.currentTarget instanceof HTMLElement) event.currentTarget.focus();
     this.replaceOpen.set(true);
   }
 
@@ -214,7 +240,7 @@ export class BrandSourceDetailComponent {
 
   /**
    * A new version changes the document's number, its token and what the history says, so everything is read
-   * again rather than patched from the response — and the Text tab follows the new current version.
+   * again rather than patched from the response — and the text card follows the new current version.
    */
   onReplaced(): void {
     this.chosenVersion.set(null);

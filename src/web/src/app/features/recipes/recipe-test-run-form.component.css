@@ -130,10 +130,7 @@ form {
 
 /* Actions --------------------------------------------------------------- */
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+.form-footer {
   justify-content: space-between;
   gap: var(--cp-space-4);
   padding-block-start: var(--cp-space-4);

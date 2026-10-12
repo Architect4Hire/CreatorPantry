@@ -7,16 +7,6 @@
   gap: var(--cp-space-6);
 }
 
-.page-header h1 {
-  margin: 0;
-  font-family: var(--cp-font-display);
-}
-
-.lede {
-  margin: var(--cp-space-2) 0 0;
-  color: var(--cp-text-muted);
-}
-
 .layout {
   display: grid;
   gap: var(--cp-space-6);
@@ -35,67 +25,12 @@
   gap: var(--cp-space-4);
 }
 
-.step-list {
-  display: grid;
-  gap: var(--cp-space-2);
+.plain {
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.step-list li {
-  display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  column-gap: var(--cp-space-2);
-  padding: var(--cp-space-2) var(--cp-space-3);
-  border: 1px solid transparent;
-  border-radius: var(--cp-radius-md);
-  color: var(--cp-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.step-list li[aria-current='step'] {
-  border-color: var(--cp-primary);
-  background: var(--cp-primary-soft);
-  color: var(--cp-text);
-  font-weight: 700;
-}
-
-.step-list li[data-status='done'] .glyph {
-  color: var(--cp-primary);
-}
-
-.glyph {
-  grid-row: span 2;
-  line-height: var(--cp-leading-normal);
-}
-
-.word {
-  grid-column: 2;
-  font-size: var(--cp-font-size-xs);
 }
 
 .steps-disclosure summary {
   font-weight: 700;
-}
-
-.step {
-  display: grid;
-  gap: var(--cp-space-4);
-}
-
-.step h2,
-.resume h2,
-.summary h2 {
-  margin: 0;
-  font-family: var(--cp-font-display);
-}
-
-.step h2:focus,
-.resume h2:focus,
-.summary h2:focus {
-  outline: 2px solid var(--cp-focus);
-  outline-offset: 4px;
 }
 
 .help summary {
@@ -103,8 +38,6 @@
 }
 
 .help p,
-.resume p,
-.summary p,
 .state {
   margin: 0;
 }
@@ -114,16 +47,10 @@
   margin: 0;
 }
 
-.resume,
-.summary {
-  display: grid;
-  gap: var(--cp-space-4);
-}
-
 .footer {
   display: grid;
   gap: var(--cp-space-4);
-  margin-top: var(--cp-space-8);
+  margin-top: var(--cp-space-5);
   padding-top: var(--cp-space-4);
   border-top: 1px solid var(--cp-border);
 }

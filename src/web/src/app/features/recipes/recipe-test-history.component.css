@@ -32,8 +32,7 @@
   font-weight: 700;
 }
 
-.field input,
-.issues-field select {
+.field input {
   min-height: 40px;
   padding: 0 var(--cp-space-3);
   border: 1px solid var(--cp-border);
@@ -47,36 +46,7 @@
   min-width: 9rem;
 }
 
-.filter-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
-}
-
-/* A toggle, so its state is carried by aria-pressed and by more than colour: a selected chip also changes its
-   border weight and background, which survives both themes and a monochrome display. */
-.chip {
-  min-height: 40px;
-  padding: 0 var(--cp-space-3);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-full);
-  background: var(--cp-surface);
-  color: var(--cp-text-muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-/* --cp-primary, not --cp-primary-ink: the ink token is for text on a solid primary fill. */
-.chip--on {
-  border-color: var(--cp-primary);
-  background: var(--cp-primary-soft);
-  color: var(--cp-primary);
-  font-weight: 600;
-}
-
-.chip:focus-visible,
-.field input:focus-visible,
-.issues-field select:focus-visible {
+.field input:focus-visible {
   outline: 2px solid var(--cp-focus);
   outline-offset: 2px;
 }

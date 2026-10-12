@@ -12,6 +12,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-5);
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* The bar ---------------------------------------------------------------- */
@@ -41,12 +42,6 @@
 
 
 .intro,
-.muted {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-  overflow-wrap: anywhere;
-}
 
 /* Why a control is unavailable, next to the control. The flag is decorative; the sentence carries it. */
 .note {
@@ -97,35 +92,6 @@
 
 .detail-notes {
   margin: 0;
-  overflow-wrap: anywhere;
-}
-
-/* Short, labelled values, as many across as fit — the same shape a field row takes, for the same reason:
-   each is a couple of words and reads as one set. */
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--cp-space-3) var(--cp-space-4);
-  margin: 0;
-  min-width: 0;
-}
-
-.fact {
-  display: grid;
-  gap: var(--cp-space-1);
-  min-width: 0;
-}
-
-.fact dt {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.fact dd {
-  margin: 0;
-  font-size: var(--cp-font-size-sm);
   overflow-wrap: anywhere;
 }
 

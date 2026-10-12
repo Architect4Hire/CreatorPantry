@@ -1,11 +1,10 @@
-<header class="page-head">
-  <h1>Prompt Library</h1>
-  <p class="lede">Every picture prompt saved in this workspace. Open one to read it in full, copy it, download it, or start something new from it.</p>
-</header>
+<cp-page-head
+  [heading]="pageTitle"
+  lede="Every picture prompt saved in this workspace. Open one to read it in full, copy it, download it, or start something new from it."
+/>
 
 <cp-toolbar ariaLabel="Prompt filters" [loading]="phase() === 'loading'">
-  <label class="search-field" cpToolbarSearch>
-    <span class="cp-sr-only">Search prompts</span>
+  <cp-search-field cpToolbarSearch label="Search prompts">
     <input
       type="search"
       name="search"
@@ -14,17 +13,16 @@
       [value]="searchText()"
       (input)="onSearchInput($event)"
     />
-  </label>
+  </cp-search-field>
 
-  <label class="channel-field" cpToolbarFilters>
-    <span class="cp-sr-only">Filter by channel</span>
+  <cp-select-field cpToolbarFilters label="Filter by channel">
     <select name="channel" [disabled]="channelPhase() !== 'ready'" (change)="setChannel($event)">
       <option value="" [selected]="channel() === null">All channels</option>
       @for (option of channelOptions(); track option.key) {
         <option [value]="option.key" [selected]="option.key === channel()">{{ option.label }}</option>
       }
     </select>
-  </label>
+  </cp-select-field>
 
   @if (hasActiveFilters()) {
     <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
@@ -67,33 +65,37 @@
     }
   </div>
 
-  @for (prompt of items(); track prompt.promptRecordId) {
-    <cp-card class="prompt-row">
-      <article class="prompt" [attr.data-prompt-id]="prompt.promptRecordId">
-        <div class="prompt-main">
-          <h3 class="title"><a [routerLink]="[prompt.promptRecordId]">{{ title(prompt) }}</a></h3>
-          <p class="preview">{{ prompt.textPreview }}@if (truncated(prompt)) {<span aria-hidden="true">…</span><span class="cp-sr-only"> (continues)</span>}</p>
-          <p class="meta">
-            <cp-badge tone="blue">{{ channelName(prompt) }}</cp-badge>
-            <cp-badge>{{ kindLabel(prompt) }}</cp-badge>
-            <cp-badge [tone]="prompt.source === 'Manual' ? 'neutral' : 'purple'">{{ sourceLabel(prompt) }}</cp-badge>
-            <span class="saved">Saved {{ prompt.createdAt | date: 'mediumDate' }}</span>
-          </p>
-        </div>
-        <button
-          cpButton
-          class="preview-button"
-          variant="secondary"
-          size="sm"
-          type="button"
-          [attr.aria-label]="'Preview ' + title(prompt)"
-          (click)="openPreview(prompt, $event)"
-        >
-          Preview
-        </button>
-      </article>
-    </cp-card>
-  }
+  <!-- Wider than a picture card's floor: what a prompt card shows is a few lines of the prompt itself. -->
+  <ul cpCardGrid minColumn="20rem">
+    @for (prompt of items(); track prompt.promptRecordId) {
+      <li [attr.data-prompt-id]="prompt.promptRecordId">
+        <!-- No picture is projected: a prompt is words, so every card takes the panel. -->
+        <cp-media-card glyph="❝" [description]="preview(prompt)">
+          <a cpMediaCardTitle [routerLink]="[prompt.promptRecordId]">{{ title(prompt) }}</a>
+
+          <cp-badge cpMediaCardBadges tone="blue">{{ channelName(prompt) }}</cp-badge>
+          <cp-badge cpMediaCardBadges>{{ kindLabel(prompt) }}</cp-badge>
+          <cp-badge cpMediaCardBadges [tone]="prompt.source === 'Manual' ? 'neutral' : 'purple'">{{ sourceLabel(prompt) }}</cp-badge>
+
+          <dl cpFacts layout="inline">
+            <div cpFact label="Saved">{{ prompt.createdAt | date: 'mediumDate' }}</div>
+          </dl>
+
+          <button
+            cpMediaCardActions
+            cpButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [attr.aria-label]="'Preview ' + title(prompt)"
+            (click)="openPreview(prompt, $event)"
+          >
+            Preview
+          </button>
+        </cp-media-card>
+      </li>
+    }
+  </ul>
 
   <div cpListShellPagination class="pager">
     <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>

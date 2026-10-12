@@ -1,27 +1,45 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, merge, switchMap, tap } from 'rxjs';
+import { Subject, debounceTime, map, merge, switchMap, tap } from 'rxjs';
 import {
   CpBadgeComponent,
   CpButtonComponent,
-  CpCardComponent,
+  CpCardGridComponent,
+  CpChipComponent,
+  CpChipGroupComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpListShellComponent,
   CpListShellState,
+  CpMediaCardComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
+  CpSearchFieldComponent,
+  CpSelectFieldComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpToolbarComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ContentChannel } from '../../models/brand-profile.models';
 import {
   BRAND_LIBRARY_STATUSES,
   BRAND_SOURCE_DOCUMENT_TYPES,
   BRAND_SOURCE_PURPOSES,
-  BrandLibraryPage,
   BrandLibraryQuery,
   BrandLibraryRow,
   BrandLibraryStatus,
@@ -36,19 +54,14 @@ import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/
 import { DOCUMENT_TYPE_LABELS, EXTRACTION_STATE_LABELS, PURPOSE_LABELS } from './brand-library-labels';
 import { BrandLibraryUploadComponent } from './brand-library-upload.component';
 
-type LibraryState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'error'; readonly message: string }
-  /**
-   * The last page that loaded, still on screen, after a later read failed (audit 11A.24a).
-   *
-   * Without this a creator who had the library open and then changed a filter, typed in the search box or
-   * paged lost the rows they were reading to a full-width error — the degraded state `frontend.md` requires of
-   * every data surface, and the one the version history already has as `pagingDegraded`. What they are looking
-   * at is real and still theirs to use; what failed is the newest read, and only that is said.
-   */
-  | { readonly status: 'degraded'; readonly page: BrandLibraryPage; readonly message: string }
-  | { readonly status: 'ready'; readonly page: BrandLibraryPage };
+/** How the first page of a search can stand. Later pages have their own two flags, so a failure there keeps the cards. */
+type Phase = 'loading' | 'error' | 'ready';
+
+/** One page asked for: where it resumes, and which search it belongs to. */
+interface PageRequest {
+  readonly cursor: string | null;
+  readonly generation: number;
+}
 
 /**
  * A tone per extraction state. Exhaustive by type, so a state added to the read model has to be given one
@@ -96,9 +109,11 @@ const COULD_NOT_REFRESH =
  * filters it was issued under change, and the server refuses it when they do. Reloading therefore returns to
  * the first page of the same search rather than to a position that may no longer exist.
  *
- * **Rows do not link anywhere yet.** Source detail is a separate screen, so a row states the facts it has and
- * offers no destination — a card that looked like a link and went nowhere would be worse than one that does
- * not.
+ * **Pages are appended, never replaced.** "Load more" follows the server's cursor, so what is on screen is
+ * always a true prefix of the whole set. The route reports no total, so the summary counts what is shown.
+ *
+ * **A card has no picture.** An example is a document — and where it is an image, this list does not load it —
+ * so every card shows the panel in a picture's place and says what the example is in badges and facts.
  */
 @Component({
   selector: 'cp-brand-library',
@@ -109,10 +124,18 @@ const COULD_NOT_REFRESH =
     BrandLibraryUploadComponent,
     CpBadgeComponent,
     CpButtonComponent,
-    CpCardComponent,
+    CpCardGridComponent,
+    CpChipComponent,
+    CpChipGroupComponent,
     CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpListShellComponent,
+    CpMediaCardComponent,
     CpNoticeComponent,
+    CpPageHeadComponent,
+    CpSearchFieldComponent,
+    CpSelectFieldComponent,
     CpStatusPillComponent,
     CpToolbarComponent,
   ],
@@ -121,15 +144,33 @@ const COULD_NOT_REFRESH =
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandLibraryComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly documents = inject(BrandSourceDocumentService);
   private readonly profiles = inject(BrandProfileService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly workspaceSlug = this.resolveWorkspaceSlug();
 
-  private readonly stateSignal = signal<LibraryState>({ status: 'loading' });
-  readonly state = this.stateSignal.asReadonly();
+  protected readonly phase = signal<Phase>('loading');
+  protected readonly errorMessage = signal(COULD_NOT_LOAD);
+  protected readonly items = signal<readonly BrandLibraryRow[]>([]);
+  private readonly nextCursor = signal<string | null>(null);
+  protected readonly loadingMore = signal(false);
+  protected readonly moreFailed = signal(false);
+
+  /**
+   * Set while the cards on screen are the last ones that loaded and a newer first-page read has failed
+   * (audit 11A.24a). What the creator is looking at is real and still theirs to open; what failed is the
+   * newest read, and only that is said.
+   */
+  protected readonly degradedMessage = signal('');
+
+  /** Whether {@link items} holds a page that loaded, so a later failed read has something to keep. */
+  private held = false;
 
   readonly searchText = signal('');
   readonly status = signal<BrandLibraryStatus>('Active');
@@ -147,16 +188,6 @@ export class BrandLibraryComponent {
 
   readonly uploadOpen = signal(false);
 
-  private readonly cursor = signal<string | null>(null);
-
-  /**
-   * The cursors of the pages already visited, newest last. A keyset is forward-only, so "previous" is not a
-   * query the server can answer — it is a position this screen remembers having been at.
-   */
-  private readonly history = signal<readonly (string | null)[]>([]);
-
-  readonly pageNumber = computed(() => this.history().length + 1);
-
   readonly statusOptions = BRAND_LIBRARY_STATUSES;
   readonly documentTypeOptions = BRAND_SOURCE_DOCUMENT_TYPES;
   readonly purposeOptions = BRAND_SOURCE_PURPOSES;
@@ -165,23 +196,67 @@ export class BrandLibraryComponent {
   readonly purposeLabels = PURPOSE_LABELS;
   readonly extractionLabels = EXTRACTION_STATE_LABELS;
 
+  /**
+   * Which search the cards on screen belong to. Raised whenever the filters change or an example is added, so
+   * an answer to an earlier search — still in flight behind the debounce — is dropped rather than appended.
+   */
+  private generation = 0;
+
   private readonly typed$ = new Subject<void>();
-  private readonly immediate$ = new Subject<void>();
+  private readonly requests$ = new Subject<PageRequest>();
+
+  /** Not while degraded: the cursor held belongs to the cards on screen, not to the search that just failed. */
+  protected readonly hasMore = computed(
+    () => this.phase() === 'ready' && this.degradedMessage() === '' && this.nextCursor() !== null,
+  );
+
+  protected readonly listShellState = computed<CpListShellState>(() => {
+    const phase = this.phase();
+    if (phase !== 'ready') return phase;
+
+    return this.items().length === 0 ? 'empty' : 'ready';
+  });
+
+  /** What the live region announces after each page, so a result count is not sight-only. */
+  protected readonly resultSummary = computed(() => {
+    // Nothing while degraded: the cards are not the answer to the search in force, so a count of them would
+    // read as one.
+    if (this.phase() !== 'ready' || this.degradedMessage() !== '') return '';
+
+    const shown = this.items().length;
+    if (shown === 0) return this.hasActiveFilters() ? 'No examples match these filters.' : 'No examples yet.';
+
+    const counted = `${shown} ${shown === 1 ? 'example' : 'examples'}`;
+
+    return this.nextCursor() === null ? `Showing ${counted}.` : `Showing the first ${counted}.`;
+  });
 
   constructor() {
     this.restoreFromUrl();
 
-    merge(this.typed$.pipe(debounceTime(SEARCH_DEBOUNCE_MS)), this.immediate$)
+    merge(
+      this.typed$.pipe(
+        debounceTime(SEARCH_DEBOUNCE_MS),
+        map((): PageRequest => this.firstPage()),
+      ),
+      this.requests$,
+    )
       .pipe(
-        tap(() => this.stateSignal.set({ status: 'loading' })),
+        tap((request) => {
+          if (request.cursor === null) this.phase.set('loading');
+        }),
         // switchMap, not mergeMap: unsubscribing aborts the superseded request, so a slow early response can
         // never arrive after a fast later one and overwrite what the creator is looking at.
-        switchMap(() => this.documents.searchLibrary(this.workspaceSlug, this.currentQuery())),
+        switchMap((request) =>
+          this.documents
+            .searchLibrary(this.workspaceSlug, this.queryFor(request))
+            .pipe(map((outcome) => ({ request, outcome }))),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe((outcome) => this.apply(outcome));
+      .subscribe(({ request, outcome }) => this.apply(request, outcome));
 
-    this.immediate$.next();
+    this.requests$.next(this.firstPage());
     void this.loadChannels();
   }
 
@@ -248,7 +323,7 @@ export class BrandLibraryComponent {
   }
 
   retry(): void {
-    this.immediate$.next();
+    this.requests$.next(this.firstPage());
   }
 
   // ---- Adding ----
@@ -266,73 +341,22 @@ export class BrandLibraryComponent {
    * search to show it — or to show honestly that the filters in force exclude it.
    */
   onUploaded(): void {
-    this.cursor.set(null);
-    this.history.set([]);
-    this.immediate$.next();
+    this.resetPaging();
+    this.requests$.next(this.firstPage());
   }
 
   // ---- Paging ----
 
-  hasNextPage(): boolean {
-    const state = this.stateSignal();
-    // Degraded included: the page on screen is real, so its cursor is still a place to go next, and a failed
-    // read should not take paging away from a creator who can see rows in front of them.
-    return (state.status === 'ready' || state.status === 'degraded') && state.page.nextCursor !== null;
+  protected loadMore(): void {
+    const cursor = this.nextCursor();
+    if (!this.hasMore() || cursor === null || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    this.moreFailed.set(false);
+    this.requests$.next({ cursor, generation: this.generation });
   }
 
-  hasPreviousPage(): boolean {
-    return this.history().length > 0;
-  }
-
-  nextPage(): void {
-    const state = this.stateSignal();
-    if ((state.status !== 'ready' && state.status !== 'degraded') || state.page.nextCursor === null) return;
-
-    this.history.update((visited) => [...visited, this.cursor()]);
-    this.cursor.set(state.page.nextCursor);
-    this.immediate$.next();
-  }
-
-  previousPage(): void {
-    const visited = this.history();
-    if (visited.length === 0) return;
-
-    this.cursor.set(visited[visited.length - 1]);
-    this.history.set(visited.slice(0, -1));
-    this.immediate$.next();
-  }
-
-  // ---- Rendering ----
-
-  listShellState(): CpListShellState {
-    const state = this.stateSignal();
-
-    // Degraded renders as ready, with its own notice above the rows: the shell's error state is full-width and
-    // would replace the very rows this state exists to keep.
-    if (state.status === 'ready' || state.status === 'degraded') {
-      return state.page.items.length === 0 ? 'empty' : 'ready';
-    }
-
-    return state.status;
-  }
-
-  /** The message beside the rows when the newest read failed, or empty when nothing has. */
-  degradedMessage(): string {
-    const state = this.stateSignal();
-
-    return state.status === 'degraded' ? state.message : '';
-  }
-
-  errorMessage(): string {
-    const state = this.stateSignal();
-    return state.status === 'error' ? state.message : COULD_NOT_LOAD;
-  }
-
-  rows(): readonly BrandLibraryRow[] {
-    const state = this.stateSignal();
-
-    return state.status === 'ready' || state.status === 'degraded' ? state.page.items : [];
-  }
+  // ---- Cards ----
 
   extractionTone(state: BrandSourceExtractionState): CpStatusPillTone {
     return EXTRACTION_TONE[state];
@@ -351,17 +375,6 @@ export class BrandLibraryComponent {
     return `${(bytes / (1000 * 1000)).toFixed(1)} MB`;
   }
 
-  /** What the live region announces after each search, so a result count is not sight-only. */
-  resultSummary(): string {
-    const state = this.stateSignal();
-    if (state.status !== 'ready') return '';
-
-    const shown = state.page.items.length;
-    if (shown === 0) return 'No examples match these filters.';
-
-    return `Showing ${shown} ${shown === 1 ? 'example' : 'examples'}, page ${this.pageNumber()}.`;
-  }
-
   // ---- Internals ----
 
   /**
@@ -374,7 +387,11 @@ export class BrandLibraryComponent {
     return (options as readonly string[]).includes(value) ? (value as T) : '';
   }
 
-  private currentQuery(): BrandLibraryQuery {
+  private firstPage(): PageRequest {
+    return { cursor: null, generation: this.generation };
+  }
+
+  private queryFor(request: PageRequest): BrandLibraryQuery {
     return {
       ...DEFAULT_BRAND_LIBRARY_QUERY,
       search: this.searchText(),
@@ -383,7 +400,7 @@ export class BrandLibraryComponent {
       purpose: filtered(this.purpose()),
       channelKey: filtered(this.channelKey()),
       extractionState: filtered(this.extractionState()),
-      cursor: this.cursor(),
+      cursor: request.cursor,
     };
   }
 
@@ -393,60 +410,105 @@ export class BrandLibraryComponent {
    * set.
    */
   private onFilterChanged(options: { debounced?: boolean } = {}): void {
-    this.cursor.set(null);
-    this.history.set([]);
+    this.resetPaging();
     this.writeUrl();
 
     if (options.debounced) {
       this.typed$.next();
     } else {
-      this.immediate$.next();
+      this.requests$.next(this.firstPage());
     }
   }
 
-  /** The newest page that loaded, kept so a later failed read can degrade rather than blank the list. */
-  private lastPage: BrandLibraryPage | null = null;
+  /** The cards stay where they are: they are what a failed read of the new search degrades to. */
+  private resetPaging(): void {
+    this.generation += 1;
+    this.loadingMore.set(false);
+    this.moreFailed.set(false);
+  }
 
-  private apply(outcome: BrandLibraryOutcome): void {
+  private apply(request: PageRequest, outcome: BrandLibraryOutcome): void {
+    // An answer to a search the creator has since changed. Its cards belong to a set no longer on screen.
+    if (request.generation !== this.generation) return;
+
+    const first = request.cursor === null;
+
     switch (outcome.status) {
-      case 'ok':
-        this.lastPage = outcome.page;
-        this.stateSignal.set({ status: 'ready', page: outcome.page });
+      case 'ok': {
+        this.nextCursor.set(outcome.page.nextCursor);
+
+        if (first) {
+          this.held = true;
+          this.degradedMessage.set('');
+          this.items.set(outcome.page.items);
+          this.phase.set('ready');
+          return;
+        }
+
+        // A keyset page cannot repeat a row, but a card is tracked by id, so a repeat would break the grid
+        // rather than merely look odd. Dropped rather than trusted.
+        const held = new Set(this.items().map((item) => item.id));
+        const added = outcome.page.items.filter((item) => !held.has(item.id));
+
+        this.items.update((items) => [...items, ...added]);
+        this.loadingMore.set(false);
+        if (added.length > 0) this.focusCard(added[0].id);
         return;
+      }
 
       case 'cursor_expired':
-        // The position is gone, but the search is not. Dropping back to the first page of the same filters is
-        // what the creator asked for; showing them an error for a cursor they never saw is not.
-        this.cursor.set(null);
-        this.history.set([]);
-        this.immediate$.next();
+        // The position is gone, but the search is not. Starting the same search again is what the creator
+        // asked for; showing them an error for a cursor they never saw is not.
+        this.nextCursor.set(null);
+        this.loadingMore.set(false);
+        this.requests$.next(this.firstPage());
         return;
 
       case 'invalid_request':
-        // Forgotten deliberately: those rows answered a question the server has just refused, so they must not
-        // come back as a degraded view of filters it would not apply.
-        this.lastPage = null;
-        // The filters, not the connection: the rows on screen were found under filters the server has just
-        // refused, so keeping them beside this message would be showing results for a question it would not
-        // answer.
-        this.stateSignal.set({ status: 'error', message: FILTER_REJECTED });
+        // The filters, not the connection. The cards on screen were found under filters the server has just
+        // refused, so they are forgotten: keeping them beside this message — or bringing them back later as a
+        // degraded view — would be showing results for a question it would not answer.
+        this.held = false;
+        this.items.set([]);
+        this.nextCursor.set(null);
+        this.loadingMore.set(false);
+        this.degradedMessage.set('');
+        this.errorMessage.set(FILTER_REJECTED);
+        this.phase.set('error');
         return;
 
       default:
-        this.stateSignal.set(this.degradeOrFail());
+        if (!first) {
+          // The cards already read are still true, so they stay; only the next page is missing.
+          this.loadingMore.set(false);
+          this.moreFailed.set(true);
+        } else if (this.held) {
+          // Degraded: the last cards that loaded stay on screen, and only the newest read is reported.
+          this.degradedMessage.set(COULD_NOT_REFRESH);
+          this.phase.set('ready');
+        } else {
+          this.errorMessage.set(COULD_NOT_LOAD);
+          this.phase.set('error');
+        }
     }
   }
 
   /**
-   * Keeps the page that is already on screen and says the newest read failed, or fails outright when there is
-   * nothing to keep.
+   * Put focus on the first card a "Load more" added.
+   *
+   * The button that was pressed may have just gone — the last page has none — and focus left on a removed
+   * element falls back to the top of the document. The new card's title link takes focus: that is where
+   * reading resumes.
    */
-  private degradeOrFail(): LibraryState {
-    // The last page that loaded, not the current state: every read sets 'loading' first, so by the time a
-    // failure arrives the page is no longer on the state to read back off it.
-    return this.lastPage === null
-      ? { status: 'error', message: COULD_NOT_LOAD }
-      : { status: 'degraded', page: this.lastPage, message: COULD_NOT_REFRESH };
+  private focusCard(documentId: string): void {
+    afterNextRender(
+      () => {
+        this.host.nativeElement
+          .querySelector<HTMLElement>(`[data-example-id="${CSS.escape(documentId)}"] .title a`)
+          ?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   /**

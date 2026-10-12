@@ -1,18 +1,15 @@
 /* Semantic --cp-* tokens only. */
 
 /*
- * The page frame every other routed section in the shell carries. `<main>` pads only its own page title, so a
- * routed component with no padding of its own sat flush against the sidebar and the window edge while the
- * title above it was indented. 90rem is the recipe editor's cap, for the same reason: use a desktop's width,
- * but do not stretch a line of prose across it — the measure is capped per block below.
+ * The gutter and the width are the shell's (DESIGN-SYSTEM.md, "Composing a page"); this route asks for the
+ * wide step, to use a desktop's width without stretching a line of prose across it — the measure is capped
+ * per block below.
  *
  * container-type, not a viewport media query, so the layout answers to the space this page actually has and
  * responds identically to a narrowed window and to 200% zoom.
  */
 :host {
   display: block;
-  padding: var(--cp-space-8);
-  max-width: 90rem;
   container: cp-recipe-concept-studio / inline-size;
 }
 
@@ -20,14 +17,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-5);
-}
-
-.studio-intro {
-  margin: 0;
-  max-width: var(--cp-measure-prose);
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-  line-height: var(--cp-leading-normal);
 }
 
 /*
@@ -103,23 +92,11 @@
 }
 
 .studio-selection {
-  display: grid;
-  gap: var(--cp-space-3);
-  margin: 0;
-  padding: var(--cp-space-4);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
-  color: var(--cp-text);
   font-size: var(--cp-font-size-sm);
 }
 
-.studio-selection-heading,
 .studio-selection-text {
   margin: 0;
-}
-
-.studio-selection-heading {
-  font-size: var(--cp-font-size-md);
 }
 
 /* The action and the line that says what pressing it costs and does not do, kept together when they wrap. */
@@ -133,23 +110,6 @@
 .studio-selection-hint {
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-xs);
-}
-
-/* Separated from the concepts above it the way the advisory surface separates its own general warnings, so
-   the two AI result surfaces read as one system. */
-.warnings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-2);
-  padding-top: var(--cp-space-2);
-  border-top: 1px solid var(--cp-border);
-}
-
-.warnings-title {
-  margin: 0;
-  font-size: var(--cp-font-size-sm);
-  font-weight: 700;
-  color: var(--cp-text);
 }
 
 .warnings-list {
@@ -168,17 +128,6 @@
 
 .warning[data-kind='SafetyCaution'] {
   color: var(--cp-danger);
-}
-
-/* Same `min(...)` floor as the brief's field rows, and for the same reason: a fixed 18rem floor could not
-   shrink, so one card held the grid wider than a narrow page. */
-.concept-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
-  gap: var(--cp-space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .concept-title {

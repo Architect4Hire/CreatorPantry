@@ -1,13 +1,11 @@
-<cp-dialog
+<cp-drawer
   [open]="open()"
-  title="Edit details"
+  heading="Edit details"
   description="Change what you said about this picture. The picture itself is not changed here."
-  titleId="cp-dam-edit-title-heading"
-  (closed)="cancel()"
-  (keydown.escape)="onEscape($event)"
+  (closeRequested)="cancel()"
 >
   @if (draft(); as form) {
-    <form class="form" novalidate (submit)="onSubmit($event)">
+    <form class="form" novalidate (submit)="onSubmit($event)" (keydown.escape)="onEscape($event)">
       <!-- Optionality is said once, here, rather than field by field. -->
       <p class="legend">Only the title is needed. Leave anything else empty to clear it.</p>
 
@@ -140,7 +138,7 @@
 
       <cp-form-section heading="Tags" intro="Tags come from this workspace's own list.">
         @if (chosenTags().length === 0) {
-          <p class="plain muted">No tags on this picture.</p>
+          <p class="plain cp-muted">No tags on this picture.</p>
         } @else {
           <ul class="chosen" aria-label="Tags on this picture">
             @for (tag of chosenTags(); track tag.id) {
@@ -163,7 +161,7 @@
 
         @switch (tagPhase()) {
           @case ('loading') {
-            <p class="plain muted" role="status">Loading your tags…</p>
+            <p class="plain cp-muted" role="status">Loading your tags…</p>
           }
           @case ('unavailable') {
             <cp-notice tone="warning" role="status">
@@ -173,7 +171,7 @@
           }
           @default {
             @if (addableTags().length === 0) {
-              <p class="plain muted">
+              <p class="plain cp-muted">
                 @if (chosenTags().length === 0) {
                   This workspace has no tags yet. A tag is made when you tag a recipe.
                 } @else {
@@ -203,15 +201,13 @@
         }
       </cp-form-section>
 
-      <!-- So Enter in a text box saves. The visible Save lives in the dialog's footer, outside this form. -->
+      <!-- So Enter in a text box saves. The visible Save lives in the drawer's footer, outside this form. -->
       <button type="submit" hidden tabindex="-1"></button>
     </form>
   }
 
-  <div cpDialogActions>
-    <button cpButton variant="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
-    <button cpButton type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
-      {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
-    </button>
-  </div>
-</cp-dialog>
+  <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
+  <button cpDrawerActions cpButton type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
+    {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
+  </button>
+</cp-drawer>

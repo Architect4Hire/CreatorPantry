@@ -52,7 +52,7 @@
 
     <p class="cp-muted hint">Use the left and right arrow keys to move between your pictures.</p>
 
-    <div cpDialogActions class="actions">
+    <div cpDialogActions class="cp-actions">
       @if (save(); as save) {
         @if (save.state !== 'saved' && save.state !== 'saving') {
           <button cpButton type="button" [disabled]="!canAct()" (click)="requestSave()">

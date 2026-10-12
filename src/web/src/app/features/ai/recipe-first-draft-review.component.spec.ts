@@ -961,15 +961,16 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(text()).toContain('Optional');
   }));
 
-  it('leaves the page title to the shell instead of repeating it', fakeAsync(() => {
+  it('names the page once, in the page head, and nowhere else', fakeAsync(() => {
     service.statuses = [ready()];
     render();
 
-    // The shell renders the h1 from the route's data.title ("Recipe first draft"); a second heading saying
-    // the same words gave the page two names.
-    expect(element().querySelector('h1')).toBeNull();
+    // The page head prints the one h1 from the route's data.title ("Recipe first draft"); a second heading
+    // saying the same words gave the page two names.
+    expect(element().querySelectorAll('h1').length).toBe(1);
+    expect(element().querySelector('cp-page-head h1')).toBeTruthy();
     expect(element().querySelector('h2')).toBeNull();
-    expect(element().querySelector('.draft-lede')?.textContent).toContain('nothing on this page is saved');
+    expect(element().querySelector('cp-page-head .lede')?.textContent).toContain('nothing on this page is saved');
   }));
 
   // ---- ingredient lines that do not say how much -------------------------------------------------------
@@ -1074,7 +1075,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
       expect(text()).not.toContain("isn't built yet");
 
       // Still a suggestion, still editable, until that button is pressed and confirmed.
-      expect(element().querySelector('.draft-lede')?.textContent).toContain('No recipe has been created');
+      expect(element().querySelector('cp-page-head .lede')?.textContent).toContain('No recipe has been created');
       expect(element().querySelector('button[data-edit-for="recipe:title"]')).not.toBeNull();
     }));
 

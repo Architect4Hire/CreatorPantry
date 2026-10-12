@@ -666,4 +666,14 @@ describe('BrandGuideHistoryComponent', () => {
 
     expect(root().querySelector('.comparison-region')?.getAttribute('tabindex')).toBe('-1');
   });
+
+  it('offers one link back, to Brand settings, in the page head', async () => {
+    await create();
+
+    const crumb = root().querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Brand settings');
+    expect(crumb.textContent).not.toContain('Back to');
+    expect(crumb.getAttribute('href')).toBe('/sams-kitchen/brand');
+    expect(root().querySelectorAll('h1').length).toBe(1);
+  });
 });

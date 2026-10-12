@@ -98,6 +98,20 @@
     </div>
   </section>
 
+  <section aria-labelledby="drawer-heading">
+    <h2 id="drawer-heading">Drawer</h2>
+    <p class="section-note">
+      One task beside the page it is about. The page stays in view and is inert, focus is held inside and
+      returns to the button that opened it, and under <code>40rem</code> the drawer is a full-screen sheet.
+      Escape, the scrim and the close control only <em>ask</em> to close: the form below confirms a discard
+      through <code>ConfirmService</code> once something has been typed, and closes at once when nothing has.
+    </p>
+    <div class="button-extras">
+      <button cpButton (click)="openDrawer('form')">Open a drawer holding a form</button>
+      <button cpButton variant="secondary" (click)="openDrawer('long')">Open a wide drawer with long content</button>
+    </div>
+  </section>
+
   <section aria-labelledby="progress-heading">
     <h2 id="progress-heading">Progress</h2>
     <p class="section-note">Zero, mid-range, complete, and an over-100 input clamped to 100.</p>
@@ -431,6 +445,169 @@
     </div>
   </section>
 
+  <section aria-labelledby="page-head-heading">
+    <h2 id="page-head-heading">Page head</h2>
+    <p class="section-note">
+      The top of a page: where it sits, what it is called, what it is, and the one thing to do with it. It owns
+      the page's one <code>h1</code> — the shell prints none — so this showcase, which has a title of its own, is
+      the one place a second appears. The breadcrumb is the consumer's own link with <code>cpBackLink</code> on
+      it, so the library names no route; an empty slot takes no room.
+    </p>
+    <div class="showcase-stack">
+      <cp-card>
+        <cp-page-head heading="Soda bread hero">
+          <a cpBackLink cpPageHeadBreadcrumb href="#page-head-heading">DAM</a>
+          <cp-badge cpPageHeadBadges tone="purple">AI generated</cp-badge>
+          <cp-badge cpPageHeadBadges tone="blue">Instagram</cp-badge>
+        </cp-page-head>
+      </cp-card>
+      <cp-card>
+        <cp-page-head heading="DAM" lede="Every finished picture kept in this workspace. Search and filter to find one.">
+          <button cpButton cpPageHeadActions type="button">Upload a picture</button>
+        </cp-page-head>
+      </cp-card>
+      <cp-card>
+        <cp-page-head heading="Workspace settings" />
+      </cp-card>
+    </div>
+  </section>
+
+  <section aria-labelledby="card-grid-heading">
+    <h2 id="card-grid-heading">Card grid</h2>
+    <p class="section-note">
+      A list of cards as a grid: as many columns as fit, one at a narrow width or high zoom. It is an attribute
+      on the consumer's own <code>ul</code>, so the list and its items stay the feature's. A few cards keep
+      their size rather than stretching across the row; <code>minColumn</code> widens the floor.
+    </p>
+    <ul cpCardGrid aria-label="Example cards">
+      <li><cp-card>Soda bread hero</cp-card></li>
+      <li><cp-card>Brown butter cookies, overhead</cp-card></li>
+      <li><cp-card>A title long enough to wrap onto a second line inside its card</cp-card></li>
+      <li><cp-card>Weeknight ramen</cp-card></li>
+      <li><cp-card>Lemon tart</cp-card></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="media-card-heading">
+    <h2 id="media-card-heading">Media card</h2>
+    <p class="section-note">
+      One thing in a library, shown by its picture. The picture is projected — the feature that owns it
+      authorises and loads it — and a tinted panel with a glyph stands in when there is none, so a row of
+      cards stays even. The title is the link; the card is not one. An action that does not open the thing — a
+      preview — goes last, in the actions slot.
+    </p>
+    <ul cpCardGrid aria-label="Example media cards">
+      <li>
+        <cp-media-card description="Overhead, on the oak board.">
+          <div cpMediaCardPicture class="showcase-picture" role="img" aria-label="A stand-in for a photograph"></div>
+          <a cpMediaCardTitle href="#media-card-heading">Soda bread hero</a>
+          <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
+          <cp-badge cpMediaCardBadges tone="blue">Instagram</cp-badge>
+          <dl cpFacts layout="inline">
+            <div cpFact label="File">JPEG · 2.4 MB</div>
+            <div cpFact label="Versions">3</div>
+          </dl>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card glyph="❝" description="No picture: the panel keeps the card's shape.">
+          <a cpMediaCardTitle href="#media-card-heading">Cosy autumn caption, long enough to wrap onto a second line</a>
+          <cp-badge cpMediaCardBadges>Prompt</cp-badge>
+          <button cpMediaCardActions cpButton variant="secondary" size="sm" type="button">Preview</button>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card>
+          <a cpMediaCardTitle href="#media-card-heading">Title only</a>
+        </cp-media-card>
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="topic-card-heading">
+    <h2 id="topic-card-heading">Topic card and facts</h2>
+    <p class="section-note">
+      One topic on a page about a single thing: a heading that names its region, a body held to the reading
+      measure, and the actions last. <code>wide</code> lifts the measure for a table. The facts list is a real
+      <code>dl</code> — <code>stacked</code> here, <code>inline</code> on the media cards above.
+    </p>
+    <div class="showcase-stack">
+      <cp-topic-card heading="About this picture" [headingLevel]="3">
+        <dl cpFacts>
+          <div cpFact label="Description" prose>{{ topicCardNotes }}</div>
+          <div cpFact label="Tags"><cp-badge>bread</cp-badge> <cp-badge>autumn</cp-badge></div>
+          <div cpFact label="Added">12 September 2026</div>
+        </dl>
+        <div cpTopicCardActions>
+          <button cpButton variant="secondary" type="button">Edit details</button>
+        </div>
+      </cp-topic-card>
+      <cp-topic-card heading="Versions" [headingLevel]="3" wide>
+        <p class="cp-muted">Wide: this line may run the width of the card, as a table of six columns needs to.</p>
+      </cp-topic-card>
+    </div>
+  </section>
+
+  <section aria-labelledby="toolbar-field-heading">
+    <h2 id="toolbar-field-heading">Toolbar search and select fields</h2>
+    <p class="section-note">
+      The consumer's own native control, named by a label that is announced but not shown, and drawn at the
+      toolbar's 40px. Its value and its events stay in the feature.
+    </p>
+    <cp-toolbar ariaLabel="Example filters">
+      <cp-search-field cpToolbarSearch label="Search the library">
+        <input type="search" name="showcase-search" placeholder="Search by title or description" autocomplete="off" />
+      </cp-search-field>
+      <cp-select-field cpToolbarFilters label="Filter by channel">
+        <select name="showcase-channel">
+          <option value="">All channels</option>
+          <option value="instagram">Instagram</option>
+          <option value="newsletter">Newsletter</option>
+        </select>
+      </cp-select-field>
+      <cp-select-field cpToolbarActions label="Sort the library">
+        <select name="showcase-sort" disabled>
+          <option>Newest first</option>
+        </select>
+      </cp-select-field>
+    </cp-toolbar>
+  </section>
+
+  <section aria-labelledby="stepper-heading">
+    <h2 id="stepper-heading">Stepper</h2>
+    <p class="section-note">
+      The steps of a flow, in order, saying where the creator is: each state in a word as well as a glyph and a
+      fill. A read-out, not navigation — a flow moves by its own Back and Continue, so no row is a link.
+    </p>
+    <div class="showcase-stepper">
+      <nav aria-label="Example progress">
+        <cp-stepper label="Example steps" [steps]="stepperSteps()" />
+      </nav>
+      <div class="cp-actions">
+        <button cpButton variant="secondary" type="button" [disabled]="stepperAt() === 0" (click)="moveStepper(-1)">Back</button>
+        <button cpButton type="button" [disabled]="stepperAt() === stepperNames.length - 1" (click)="moveStepper(1)">Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="chip-heading">
+    <h2 id="chip-heading">Chips</h2>
+    <p class="section-note">
+      A filter with a handful of fixed answers, all of them in view. Each chip is the consumer's own button and
+      says whether it is on with <code>aria-pressed</code>, a border, a fill and a heavier label; the group
+      is named, and whether one chip or several may be on is the page's rule. A filter with many answers, or
+      answers read from the server, is a select.
+    </p>
+    <cp-toolbar ariaLabel="Example status filter">
+      <div cpChipGroup cpToolbarFilters label="Filter by status">
+        @for (status of chipStatuses; track status) {
+          <button cpChip [pressed]="chipsOn().includes(status)" (click)="toggleChip(status)">{{ status }}</button>
+        }
+        <button cpChip disabled>Mine</button>
+      </div>
+    </cp-toolbar>
+  </section>
+
   <section aria-labelledby="notice-heading">
     <h2 id="notice-heading">Notice</h2>
     <p class="section-note">
@@ -558,6 +735,39 @@
     <button cpButton type="button" (click)="closeDialog()">Confirm</button>
   </div>
 </cp-dialog>
+
+<cp-drawer
+  [open]="drawerOpen() === 'form'"
+  heading="Edit details"
+  description="A short form, at the standard width."
+  (closeRequested)="requestDrawerClose()"
+>
+  <div class="drawer-form">
+    <cp-field label="Title" forId="showcase-drawer-title" [required]="true">
+      <input id="showcase-drawer-title" [value]="drawerTitle()" (input)="onDrawerTitleInput($event)" />
+    </cp-field>
+    <cp-field label="Alt text" forId="showcase-drawer-alt" hint="What is in the picture, in a sentence.">
+      <textarea id="showcase-drawer-alt" rows="4"></textarea>
+    </cp-field>
+  </div>
+  <button cpDrawerActions cpButton variant="ghost" type="button" (click)="requestDrawerClose()">Cancel</button>
+  <button cpDrawerActions cpButton type="button" (click)="closeDrawer()">Save</button>
+</cp-drawer>
+
+<cp-drawer
+  [open]="drawerOpen() === 'long'"
+  heading="A preview with a long title that has to wrap inside the drawer's header at a narrow width"
+  size="wide"
+  (closeRequested)="closeDrawer()"
+>
+  @for (paragraph of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; track paragraph) {
+    <p>
+      Paragraph {{ paragraph }} of a long preview. Only this body scrolls: the header above and the footer below
+      stay where they are, and reaching the end does not carry the scroll on into the page behind.
+    </p>
+  }
+  <button cpDrawerActions cpButton variant="ghost" type="button" (click)="closeDrawer()">Close</button>
+</cp-drawer>
 
 <section aria-labelledby="brand-guide-heading" class="showcase-brand-guide">
   <h2 id="brand-guide-heading">Brand guide control</h2>

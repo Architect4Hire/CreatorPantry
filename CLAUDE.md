@@ -175,8 +175,10 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 
 - Angular components do not inject `HttpClient`; typed API services own HTTP.
 - `src/web/projects/creator-pantry-ui` is the only reusable UI library. Import its public API as `@creator-pantry/ui`; never deep-import `src/lib` files.
-- The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, `CpToastRegionComponent`, `CpAnchorNavComponent`, `CpCheckboxComponent`, `CpComboboxComponent`, `CpFormSectionComponent`,
-  `CpFieldRowComponent`, `CpChoiceGroupComponent`, and `CpNoticeComponent`.
+- The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpDrawerComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, `CpToastRegionComponent`, `CpAnchorNavComponent`, `CpCheckboxComponent`, `CpComboboxComponent`, `CpFormSectionComponent`,
+  `CpFieldRowComponent`, `CpChoiceGroupComponent`, `CpNoticeComponent`, `CpPageHeadComponent`, `CpBackLinkComponent`,
+  `CpCardGridComponent`, `CpMediaCardComponent`, `CpTopicCardComponent`, `CpFactsComponent`, `CpFactComponent`,
+  `CpSearchFieldComponent`, `CpSelectFieldComponent`, `CpChipGroupComponent`, `CpChipComponent`, and `CpStepperComponent`.
 - Import `tokens.css`, `themes.css`, and `global.css` once, in that order, from `@creator-pantry/ui/styles/`.
 - `src/web/DESIGN-SYSTEM.md`, the library styles, and the showcase are the visual source of truth. Do not invent a separate visual reference.
 - The browser never stores access tokens in local or session storage.

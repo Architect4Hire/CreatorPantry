@@ -8,28 +8,8 @@
 
 .page {
   display: grid;
-  gap: var(--cp-space-8);
-}
-
-header {
-  display: grid;
-  gap: var(--cp-space-2);
-}
-
-h1 {
-  margin: 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-2xl);
-  font-weight: 400;
-  color: var(--cp-text);
-}
-
-h2 {
-  margin: 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-lg);
-  font-weight: 400;
-  color: var(--cp-text);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
 }
 
 h3 {
@@ -41,9 +21,6 @@ h3 {
   letter-spacing: 0.04em;
 }
 
-.lede,
-.back,
-.muted,
 .waiting,
 .generated {
   margin: 0;
@@ -52,17 +29,8 @@ h3 {
   line-height: var(--cp-leading-normal);
 }
 
-.ask {
-  display: grid;
-  gap: var(--cp-space-5);
-}
-
-.ask-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cp-space-3);
+.standing {
+  margin: 0;
 }
 
 /* The one field on the page keeps the shared field measure, so it does not stretch to the comparison's width. */
@@ -70,21 +38,9 @@ cp-field {
   max-width: var(--cp-measure-field);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-3);
-}
-
 .degraded {
   display: block;
   margin-top: var(--cp-space-1);
-}
-
-.result,
-.why {
-  display: grid;
-  gap: var(--cp-space-4);
 }
 
 .generated {
@@ -134,7 +90,7 @@ cp-field {
 .notices {
   display: grid;
   gap: var(--cp-space-2);
-  margin: var(--cp-space-4) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   color: var(--cp-text-muted);
@@ -147,25 +103,4 @@ cp-field {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-2);
-}
-
-.rules {
-  display: grid;
-  gap: var(--cp-space-3);
-  margin: 0;
-}
-
-.rules dt {
-  font-size: var(--cp-font-size-xs);
-  font-weight: 700;
-  color: var(--cp-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.rules dd {
-  margin: var(--cp-space-1) 0 0;
-  color: var(--cp-text);
-  font-size: var(--cp-font-size-sm);
-  line-height: var(--cp-leading-normal);
 }

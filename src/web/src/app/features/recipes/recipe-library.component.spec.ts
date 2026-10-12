@@ -81,8 +81,20 @@ describe('RecipeLibraryComponent', () => {
     return match as HTMLAnchorElement;
   }
 
+  function cards(): HTMLElement[] {
+    return Array.from(root().querySelectorAll<HTMLElement>('ul[cpCardGrid] > li cp-media-card'));
+  }
+
+  function titles(): string[] {
+    return cards().map((card) => card.querySelector('.title a')?.textContent?.trim() ?? '');
+  }
+
+  function offersLoadMore(): boolean {
+    return Array.from(root().querySelectorAll('button')).some((each) => each.textContent?.includes('Load more'));
+  }
+
   function chip(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('.chip')).find(
+    const match = Array.from(root().querySelectorAll('button[cpChip]')).find(
       (each) => (each as HTMLElement).textContent?.trim() === label,
     );
     if (!match) throw new Error(`no chip labelled "${label}"`);
@@ -130,13 +142,44 @@ describe('RecipeLibraryComponent', () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
     await create();
 
-    const rows = root().querySelectorAll('.recipe-link');
+    const rows = cards();
     expect(rows.length).toBe(2);
     expect(rows[0].textContent).toContain('Weeknight Chili');
     expect(rows[0].textContent).toContain('Approved');
-    expect(rows[0].textContent).toContain('v3');
-    expect(rows[0].textContent).toContain('Updated');
-    expect(rows[0].getAttribute('href')).toContain('/r1');
+    expect(rows[0].textContent).toContain('v3 Ready');
+    expect(rows[0].querySelector('dl[cpFacts] dt')?.textContent).toBe('Updated');
+    expect(rows[0].querySelector('dl[cpFacts] dd')?.textContent).toContain('2026');
+
+    // The title is the link, and the only one: the card itself is not a card-sized link.
+    const links = rows[0].querySelectorAll('a');
+    expect(links.length).toBe(1);
+    expect(links[0].textContent?.trim()).toBe('Weeknight Chili');
+    expect(links[0].getAttribute('href')).toContain('/r1');
+  });
+
+  it('lays the recipes out as a list of cards, each with the panel a card with no picture takes', async () => {
+    searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
+    await create();
+
+    expect(root().querySelectorAll('ul[cpCardGrid] > li').length).toBe(2);
+
+    // The list response carries no picture, so nothing is projected and the panel stands in for one.
+    const card = cards()[0];
+    expect(card.querySelector('.picture')?.children.length).toBe(0);
+    expect(card.querySelector('.panel')?.getAttribute('aria-hidden')).toBe('true');
+    expect(getComputedStyle(card.querySelector('.panel')!).display).not.toBe('none');
+  });
+
+  it("shows a recipe's description when it has one, and nothing in its place when it has none", async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(
+        found(page([summary('r1', 'Chili', { description: 'Ready in forty minutes.' }), summary('r2', 'Gnocchi')])),
+      );
+    await create();
+
+    expect(cards()[0].querySelector('.description')?.textContent).toBe('Ready in forty minutes.');
+    expect(cards()[1].querySelector('.description')).toBeNull();
   });
 
   it('marks a recipe whose ingredient lines are unresolved', async () => {
@@ -160,10 +203,10 @@ describe('RecipeLibraryComponent', () => {
     button('Try again').click();
     await settle();
 
-    expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+    expect(cards().length).toBe(2);
   });
 
-  it('still offers "New recipe" when the list fails to load, beside the retry rather than instead of it', async () => {
+  it('still offers "New recipe" when the list fails to load, in the page head above the retry', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(of<RecipeSearchOutcome>({ status: 'unavailable' }));
     await create();
 
@@ -172,6 +215,7 @@ describe('RecipeLibraryComponent', () => {
     expect(root().querySelector('[role="alert"]')).toBeTruthy();
     expect(button('Try again')).toBeTruthy();
     expect(link('New recipe').getAttribute('href')).toContain('new');
+    expect(link('New recipe').closest('cp-page-head')).toBeTruthy();
   });
 
   it('keeps the retry working with the create action beside it', async () => {
@@ -182,7 +226,7 @@ describe('RecipeLibraryComponent', () => {
     button('Try again').click();
     await settle();
 
-    expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+    expect(cards().length).toBe(2);
     // Recovered: the retry has done its job and gone, and the create action is still there.
     expect(root().querySelector('[role="alert"]')).toBeNull();
     expect(link('New recipe')).toBeTruthy();
@@ -236,7 +280,7 @@ describe('RecipeLibraryComponent', () => {
 
     // The server answered with both recipes, so both must still be rendered. Re-filtering here would hide
     // matches that live on pages this screen has not fetched.
-    expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+    expect(cards().length).toBe(2);
   });
 
   it('sends the mine filter rather than deciding authorship locally', async () => {
@@ -291,14 +335,14 @@ describe('RecipeLibraryComponent', () => {
     chip('Approved').click();
     await settle();
 
-    expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+    expect(cards().length).toBe(2);
 
     // The first request is unsubscribed by switchMap, so a late answer cannot replace what is on screen.
     slow.next({ status: 'found', page: page([summary('stale', 'Stale result')]) });
     harness.detectChanges();
 
     expect(text()).not.toContain('Stale result');
-    expect(root().querySelectorAll('.recipe-link').length).toBe(2);
+    expect(cards().length).toBe(2);
   });
 
   it('clears every filter and restarts the search', async () => {
@@ -368,39 +412,73 @@ describe('RecipeLibraryComponent', () => {
 
   // ---- Paging ----
 
-  it('pages forward with the cursor and carries the total rather than re-counting it', async () => {
+  it('appends the next page under the cursor and carries the total rather than re-counting it', async () => {
     const first = page([summary('r1', 'One')], { nextCursor: 'cursor-1', totalCount: 3 });
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(first));
     await create();
 
     expect(queries()[0].cursor).toBeNull();
-    expect(text()).toContain('Showing 1 of 3 recipes, page 1.');
+    expect(text()).toContain('Showing 1 of 3, most recently updated first.');
 
     searchSpy.and.returnValue(found(page([summary('r2', 'Two')], { nextCursor: null, totalCount: null })));
-    button('Next').click();
+    button('Load more').click();
     await settle();
 
     expect(lastQuery().cursor).toBe('cursor-1');
-    expect(text()).toContain('page 2');
-    expect(text()).toContain('of 3 recipes');
+    // Appended, not replaced: what is on screen is a true prefix of the whole set.
+    expect(titles()).toEqual(['One', 'Two']);
+    expect(text()).toContain('Showing 2 of 3');
+    // The last page: nothing more to ask for.
+    expect(offersLoadMore()).toBeFalse();
   });
 
-  it('pages back to the cursor it came from', async () => {
+  it("moves focus to the first new card's title, since the button that was pressed may have gone", async () => {
     searchSpy = jasmine
       .createSpy('searchRecipes')
       .and.returnValue(found(page([summary('r1', 'One')], { nextCursor: 'cursor-1' })));
     await create();
 
-    expect(button('Previous').disabled).toBeTrue();
-
-    button('Next').click();
+    searchSpy.and.returnValue(found(page([summary('r2', 'Two'), summary('r3', 'Three')])));
+    button('Load more').click();
     await settle();
-    button('Previous').click();
     await settle();
 
-    // Back to the first page, which a keyset cannot query for — the screen remembers having been there.
-    expect(lastQuery().cursor).toBeNull();
-    expect(text()).toContain('page 1');
+    expect(document.activeElement?.textContent?.trim()).toBe('Two');
+  });
+
+  it('keeps the cards already read when a later page fails, and offers the page again', async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'One')], { nextCursor: 'cursor-1' })));
+    await create();
+
+    searchSpy.and.returnValue(of<RecipeSearchOutcome>({ status: 'unavailable' }));
+    button('Load more').click();
+    await settle();
+
+    expect(titles()).toEqual(['One']);
+    expect(root().querySelector('[role="alert"]')!.textContent).toContain("Couldn't load more recipes");
+
+    searchSpy.and.returnValue(found(page([summary('r2', 'Two')])));
+    button('Try loading more again').click();
+    await settle();
+
+    expect(lastQuery().cursor).toBe('cursor-1');
+    expect(titles()).toEqual(['One', 'Two']);
+    expect(root().querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('drops a row the server repeats rather than tracking two cards by one id', async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'One')], { nextCursor: 'cursor-1' })));
+    await create();
+
+    searchSpy.and.returnValue(found(page([summary('r1', 'One'), summary('r2', 'Two')])));
+    button('Load more').click();
+    await settle();
+
+    expect(titles()).toEqual(['One', 'Two']);
   });
 
   it('restarts paging when a filter changes under it', async () => {
@@ -409,16 +487,38 @@ describe('RecipeLibraryComponent', () => {
       .and.returnValue(found(page([summary('r1', 'One')], { nextCursor: 'cursor-1' })));
     await create();
 
-    button('Next').click();
+    button('Load more').click();
     await settle();
     expect(lastQuery().cursor).toBe('cursor-1');
 
+    searchSpy.and.returnValue(found(page([summary('r9', 'Nine')])));
     chip('Draft').click();
     await settle();
 
-    // The cursor named a position in the old ordered set, so it must not be carried into the new one.
+    // The cursor named a position in the old ordered set, so it must not be carried into the new one — and
+    // the cards read under the old filters are replaced, not added to.
     expect(lastQuery().cursor).toBeNull();
-    expect(text()).toContain('page 1');
+    expect(titles()).toEqual(['Nine']);
+  });
+
+  it('does not append a page that answers a search the creator has since changed', async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'One')], { nextCursor: 'cursor-1' })));
+    await create();
+
+    const slow = new Subject<RecipeSearchOutcome>();
+    searchSpy.and.returnValue(slow);
+    button('Load more').click();
+
+    searchSpy.and.returnValue(found(page([summary('r9', 'Nine')])));
+    chip('Draft').click();
+    await settle();
+
+    slow.next({ status: 'found', page: page([summary('r2', 'Two')]) });
+    harness.detectChanges();
+
+    expect(titles()).toEqual(['Nine']);
   });
 
   it('starts the list again when the server rejects the cursor', async () => {
@@ -430,21 +530,22 @@ describe('RecipeLibraryComponent', () => {
       query.cursor === null ? found(first) : of<RecipeSearchOutcome>({ status: 'cursor_expired' }),
     );
 
-    button('Next').click();
+    button('Load more').click();
     await settle();
     await settle();
 
-    // A cursor the creator never saw is not an error they can act on: the same search reloads from page one.
+    // A cursor the creator never saw is not an error they can act on: the same search reloads from the start.
     expect(lastQuery().cursor).toBeNull();
     expect(root().querySelector('[role="alert"]')).toBeNull();
-    expect(text()).toContain('page 1');
+    expect(titles()).toEqual(['One']);
   });
 
-  it('offers no pager when a single page holds everything', async () => {
+  it('offers no "Load more" when a single page holds everything', async () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
     await create();
 
-    expect(root().querySelector('nav[aria-label="Recipe pages"]')).toBeNull();
+    expect(offersLoadMore()).toBeFalse();
+    expect(text()).toContain('Showing 2 of 2');
   });
 
   // ---- Keyboard and naming ----
@@ -453,9 +554,17 @@ describe('RecipeLibraryComponent', () => {
     searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
     await create();
 
-    expect(root().querySelector('.search-field .cp-sr-only')?.textContent).toContain('Search recipes');
-    expect(root().querySelector('.sort-field .cp-sr-only')?.textContent).toContain('Sort recipes');
-    expect(root().querySelector('[aria-label="Filter by status"]')).toBeTruthy();
+    expect(root().querySelector('cp-search-field label')?.textContent).toContain('Search recipes');
+    expect(root().querySelector('cp-select-field label')?.textContent).toContain('Sort recipes');
+    expect(root().querySelector('[role="group"][aria-label="Filter by status"]')).toBeTruthy();
+  });
+
+  it('reflects the restored sort in the control', async () => {
+    searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(found(TWO_RECIPES));
+    await create('?sort=Title');
+
+    expect((root().querySelector('select[name="sort"]') as HTMLSelectElement).value).toBe('Title');
+    expect(text()).toContain('by title');
   });
 
   it('leaves caret keys to the search input rather than roving away from it', async () => {

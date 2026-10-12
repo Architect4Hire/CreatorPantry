@@ -1,3 +1,5 @@
+<cp-page-head [heading]="pageTitle" />
+
 <section class="workspace-settings" aria-label="Workspace settings">
   @switch (load().status) {
     @case ('loading') {
@@ -38,7 +40,7 @@
           </cp-form-section>
 
           @if (canEdit()) {
-            <div class="actions">
+            <div class="cp-actions">
               <button cpButton type="submit" [disabled]="!dirty() || saving()">
                 {{ saving() ? 'Saving…' : 'Save' }}
               </button>
@@ -64,15 +66,16 @@
 
       <!-- A page of its own rather than a section here: a week of themes, their notes and their history is a
            screen's worth, and it is saved separately from the setting above. -->
-      <cp-card class="more">
-        <h2 class="more-title">Themed days</h2>
+      <cp-topic-card class="more" heading="Themed days">
         <p class="cp-muted">
           Give a day of your week a standing theme, with notes that what you generate for that day will follow.
         </p>
-        <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'settings', 'themed-days']">
-          Manage themed days
-        </a>
-      </cp-card>
+        <div cpTopicCardActions class="cp-actions">
+          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'settings', 'themed-days']">
+            Manage themed days
+          </a>
+        </div>
+      </cp-topic-card>
     }
   }
 </section>

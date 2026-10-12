@@ -12,6 +12,8 @@
   --cp-font-size-md: .9375rem;
   --cp-font-size-lg: 1.125rem;
   --cp-font-size-xl: 1.375rem;
+  /* The page title: the one h1 cp-page-head prints. Above -xl, which a card heading on the same page uses. */
+  --cp-font-size-title: 2rem;
   --cp-font-size-2xl: clamp(2.125rem, 4vw, 3.5rem);
   --cp-leading-tight: 1.1;
   --cp-leading-normal: 1.5;
@@ -41,4 +43,20 @@
   --cp-z-modal: 100;
   --cp-sidebar-width: 15rem;
   --cp-topbar-height: 4.25rem;
+  /* The page frame. One gutter and one of three widths, applied by the app shell and by nothing else: a
+     routed page that pads or caps its own host is a defect. The widths include the gutter. */
+  --cp-page-gutter: var(--cp-space-8);
+  --cp-page-width-reading: 52rem;
+  --cp-page-width-standard: 80rem;
+  --cp-page-width-wide: 90rem;
+  /* cp-drawer's two widths: a short form, and a comparison or a preview. At 40rem and narrower the drawer is
+     a full-screen sheet and neither applies. */
+  --cp-drawer-width: 30rem;
+  --cp-drawer-width-wide: 48rem;
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --cp-page-gutter: var(--cp-space-4);
+  }
 }

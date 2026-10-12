@@ -18,13 +18,17 @@ import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
   CpAnchorNavComponent,
   CpAnchorNavItem,
+  CpBackLinkComponent,
   CpBadgeComponent,
   CpButtonComponent,
   CpCardComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -135,6 +139,7 @@ interface EditTarget {
   selector: 'cp-recipe-first-draft-review',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     FormsModule,
     NgTemplateOutlet,
     AiOperationStatusComponent,
@@ -146,12 +151,19 @@ interface EditTarget {
     CpFieldComponent,
     CpNoticeComponent,
     RouterLink,
+    CpBackLinkComponent,
   ],
   templateUrl: './recipe-first-draft-review.component.html',
   styleUrl: './recipe-first-draft-review.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeFirstDraftReviewComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
+
+  /** The one sentence the whole page rests on, under its title. */
+  protected readonly lede =
+    'A suggestion to read and change before anything is kept. No recipe has been created, and nothing on this page is saved until you create one from it.';
   private readonly drafts = inject(RecipeDraftService);
   private readonly confirmService = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);

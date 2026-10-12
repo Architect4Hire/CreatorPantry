@@ -45,13 +45,16 @@ cp-card {
 }
 
 .intro,
-.muted,
+.measure,
+.caveat {
+  max-width: var(--cp-measure-prose);
+  line-height: var(--cp-leading-normal);
+}
+
 .caveat {
   margin: 0;
-  max-width: var(--cp-measure-prose);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
-  line-height: var(--cp-leading-normal);
 }
 
 /* Set apart because it is a limit on what this panel claims, not commentary on it. */
@@ -182,7 +185,7 @@ cp-card {
 
 /* Actions --------------------------------------------------------------- */
 
-.actions {
+.footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-3);

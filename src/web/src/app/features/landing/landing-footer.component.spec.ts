@@ -23,24 +23,6 @@ describe('LandingFooterComponent', () => {
     expect(brand?.textContent).toContain(String(new Date().getFullYear()));
   });
 
-  it('links to /sign-in', async () => {
-    const fixture = await createFixture();
-    const el: HTMLElement = fixture.nativeElement;
-    const footerSignIn = el.querySelector<HTMLAnchorElement>('.footer-links a');
-
-    expect(footerSignIn?.getAttribute('href')).toBe('/sign-in');
-  });
-
-  it('gives the sign-in link at least a 40px touch target', async () => {
-    const fixture = await createFixture();
-    const el: HTMLElement = fixture.nativeElement;
-    const link = el.querySelector<HTMLAnchorElement>('.footer-links a')!;
-    const minHeight = getComputedStyle(link).minHeight;
-
-    // jsdom-free (real Chrome via Karma) computed style; 2.5rem == 40px at the default 16px root.
-    expect(parseFloat(minHeight)).toBeGreaterThanOrEqual(40);
-  });
-
   it('renders the placeholder legal links as visibly disabled, not fabricated real links, outside the Footer nav', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
@@ -70,11 +52,12 @@ describe('LandingFooterComponent', () => {
     expect(el.querySelector('.legal-link')?.textContent).toContain('Cookie Policy');
   });
 
-  it('labels the footer navigation region, containing only the real sign-in link', async () => {
+  it('labels the footer navigation region, which holds no link since sign-in left the footer', async () => {
     const fixture = await createFixture();
     const nav = fixture.nativeElement.querySelector('nav');
 
+    // The sign-in link was taken out of the footer in 305994b, and the region was left in place.
     expect(nav?.getAttribute('aria-label')).toBe('Footer');
-    expect(nav?.querySelectorAll('a').length).toBe(1);
+    expect(nav?.querySelectorAll('a').length).toBe(0);
   });
 });

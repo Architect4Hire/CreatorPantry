@@ -9,17 +9,6 @@
   gap: var(--cp-space-6);
 }
 
-.page-header h1 {
-  margin: 0;
-  font-family: var(--cp-font-display);
-}
-
-.lede {
-  margin: var(--cp-space-2) 0 0;
-  max-width: var(--cp-measure-prose);
-  color: var(--cp-text-muted);
-}
-
 /* A form is named sections a --cp-space-8 apart (.claude/rules/frontend.md). The two shared panels that bring
    several sections of their own are given the same rhythm between them, so the page reads as one form. */
 .sections,

@@ -3,7 +3,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
   computed,
   inject,
   signal,
@@ -12,7 +11,19 @@ import {
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, tap } from 'rxjs';
-import { CpBadgeComponent, CpButtonComponent, CpCardComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpBackLinkComponent,
+  CpBadgeComponent,
+  CpButtonComponent,
+  CpCardComponent,
+  CpFactComponent,
+  CpFactsComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+  CpTopicCardComponent,
+} from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
 import { ContentChannel } from '../../models/brand-profile.models';
@@ -101,10 +112,15 @@ interface Fact {
   imports: [
     DatePipe,
     RouterLink,
+    CpBackLinkComponent,
     CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpNoticeComponent,
+    CpPageHeadComponent,
+    CpTopicCardComponent,
     DamAssetEditComponent,
     DamAssetLogUseComponent,
     DamAssetThumbnailComponent,
@@ -122,7 +138,6 @@ export class DamAssetDetailComponent {
   private readonly confirm = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly workspaceSlug = signal('');
   private readonly assetId = signal('');
@@ -200,6 +215,28 @@ export class DamAssetDetailComponent {
     const state = this.state();
 
     return state.status === 'ready' ? state.asset : null;
+  });
+
+  private readonly routeTitle = injectRouteTitle();
+  private readonly pageHead = viewChild(CpPageHeadComponent);
+
+  /**
+   * What the page is called right now. One `h1` for every state: the picture's own title once there is a
+   * picture, what happened to it when there is not, and the route's name while that is still unknown.
+   */
+  protected readonly headTitle = computed(() => {
+    const state = this.state();
+
+    switch (state.status) {
+      case 'ready':
+        return state.asset.title;
+      case 'not_found':
+        return 'Picture not found';
+      case 'removed':
+        return 'Removed from the library';
+      default:
+        return this.routeTitle;
+    }
   });
 
   protected readonly picture = computed(() => {
@@ -366,6 +403,9 @@ export class DamAssetDetailComponent {
 
   protected openDialog(which: 'edit' | 'version' | 'use', event: Event): void {
     this.dialogOpener = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    // A drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
+    // button in every browser, so the button is focused here rather than left to chance.
+    this.dialogOpener?.focus();
     this.notice.set('');
     this.problem.set('');
     this.dialog.set(which);
@@ -444,7 +484,7 @@ export class DamAssetDetailComponent {
         this.dialog.set(null);
         this.state.set({ status: 'removed', removal: outcome.removal });
         // The button that was pressed is gone with the page it was on, so focus goes to what replaced it.
-        setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('#dam-removed-heading')?.focus());
+        setTimeout(() => this.pageHead()?.focusHeading());
         return;
 
       case 'stale':

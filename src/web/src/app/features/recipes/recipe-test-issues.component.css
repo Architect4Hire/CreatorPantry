@@ -21,11 +21,8 @@ cp-card {
   font-size: var(--cp-font-size-md);
 }
 
-.muted {
-  margin: 0;
+.measure {
   max-width: var(--cp-measure-prose);
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
   line-height: var(--cp-leading-normal);
 }
 

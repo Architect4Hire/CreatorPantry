@@ -12,6 +12,7 @@ interface FakeRouteNode {
   readonly slug?: string;
   readonly section?: string;
   readonly title?: string;
+  readonly pageWidth?: string;
 }
 
 /** Builds a fake ActivatedRoute descendant chain (each entry one level deeper) matching what readRouteState() walks. */
@@ -24,7 +25,7 @@ function buildRouteChain(nodes: readonly FakeRouteNode[]): { firstChild: unknown
       snapshot: {
         paramMap: { get: (key: string) => (key === 'workspaceSlug' ? (node.slug ?? null) : null) },
         url: node.section ? [{ path: node.section }] : [],
-        data: node.title ? { title: node.title } : {},
+        data: { ...(node.title ? { title: node.title } : {}), ...(node.pageWidth ? { pageWidth: node.pageWidth } : {}) },
       },
     };
   }
@@ -105,9 +106,79 @@ describe('AppShellComponent', () => {
     expect(fixture.nativeElement.querySelector('a.dev-link')?.textContent).toContain('Design system');
   });
 
-  it('renders an h1 from the matched route\'s data.title', async () => {
+  it("prints no h1 of its own — the page's cp-page-head owns the one title — and still knows the route's", async () => {
     const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
-    expect(fixture.nativeElement.querySelector('h1.page-title')?.textContent?.trim()).toBe('Recipes');
+    expect(fixture.nativeElement.querySelector('h1')).toBeNull();
+    expect(fixture.componentInstance.currentPageTitle()).toBe('Recipes');
+  });
+
+  describe('page frame', () => {
+    // The spec build loads no global stylesheet, so the tokens are given values here. Deliberately not the
+    // real ones: what is asserted is that the frame reads the tokens, not what tokens.css sets them to.
+    const TOKENS: Record<string, string> = {
+      '--cp-page-gutter': '28px',
+      // The frame's top padding. Left unset, the whole padding shorthand would be invalid and compute to 0.
+      '--cp-space-5': '20px',
+      '--cp-page-width-reading': '500px',
+      '--cp-page-width-standard': '700px',
+      '--cp-page-width-wide': '900px',
+    };
+
+    beforeEach(() => {
+      for (const [name, value] of Object.entries(TOKENS)) document.documentElement.style.setProperty(name, value);
+    });
+
+    afterEach(() => {
+      for (const name of Object.keys(TOKENS)) document.documentElement.style.removeProperty(name);
+    });
+
+    async function createFrame(pageWidth?: string) {
+      const route = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'recipes', title: 'Recipes', pageWidth }]);
+      const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall', 'recipes', route);
+      // Attached, because a detached element has no computed layout to read.
+      document.body.appendChild(fixture.nativeElement);
+      const frame = fixture.nativeElement.querySelector('main > .page-frame') as HTMLElement;
+      return { fixture, frame, style: getComputedStyle(frame) };
+    }
+
+    it('holds the routed page, so every page starts from the same left edge', async () => {
+      const { frame } = await createFrame();
+
+      expect(frame.querySelector(':scope > router-outlet')).toBeTruthy();
+    });
+
+    it('applies the gutter token on both sides and at the bottom', async () => {
+      const { style } = await createFrame();
+
+      expect(style.paddingLeft).toBe('28px');
+      expect(style.paddingRight).toBe('28px');
+      expect(style.paddingBottom).toBe('28px');
+    });
+
+    it('takes the standard width when the route names none', async () => {
+      const { frame, style } = await createFrame();
+
+      expect(frame.getAttribute('data-page-width')).toBe('standard');
+      expect(style.maxWidth).toBe('700px');
+    });
+
+    it("takes the width the route's data asks for", async () => {
+      const wide = await createFrame('wide');
+      expect(wide.frame.getAttribute('data-page-width')).toBe('wide');
+      expect(wide.style.maxWidth).toBe('900px');
+      TestBed.resetTestingModule();
+
+      const reading = await createFrame('reading');
+      expect(reading.frame.getAttribute('data-page-width')).toBe('reading');
+      expect(reading.style.maxWidth).toBe('500px');
+    });
+
+    it('falls back to standard for a width that is not one of the three steps', async () => {
+      const { frame, style } = await createFrame('enormous');
+
+      expect(frame.getAttribute('data-page-width')).toBe('standard');
+      expect(style.maxWidth).toBe('700px');
+    });
   });
 
   it('resolves slug/section/title from a chain deeper than 2 levels, using the deepest values', async () => {

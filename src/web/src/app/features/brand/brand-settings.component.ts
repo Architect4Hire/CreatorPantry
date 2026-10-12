@@ -10,9 +10,14 @@ import {
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
   CpToast,
   CpToastRegionComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -137,12 +142,17 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
     CpFormSectionComponent,
     CpToastRegionComponent,
     BrandLogosComponent,
+    CpNoticeComponent,
+    CpPageHeadComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './brand-settings.component.html',
   styleUrl: './brand-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSettingsComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle('Brand settings');
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(BrandProfileService);
   private readonly memberships = inject(WorkspaceMembershipService);

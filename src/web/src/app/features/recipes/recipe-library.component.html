@@ -1,6 +1,11 @@
-<cp-toolbar ariaLabel="Recipe filters" [loading]="state().status === 'loading'">
-  <label class="search-field" cpToolbarSearch>
-    <span class="cp-sr-only">Search recipes</span>
+<cp-page-head [heading]="pageTitle" lede="Every recipe in this workspace. Search and filter to find one.">
+  <!-- In the head rather than beside the list: writing a recipe has nothing to do with whether this list
+       could be read, so a failed search never takes it away. -->
+  <a cpButton cpPageHeadActions routerLink="new">New recipe</a>
+</cp-page-head>
+
+<cp-toolbar ariaLabel="Recipe filters" [loading]="phase() === 'loading'">
+  <cp-search-field cpToolbarSearch label="Search recipes">
     <input
       type="search"
       name="search"
@@ -9,53 +14,33 @@
       [value]="searchText()"
       (input)="onSearchInput($event)"
     />
-  </label>
+  </cp-search-field>
 
-  <div class="filter-group" cpToolbarFilters role="group" aria-label="Filter by status">
+  <div cpChipGroup cpToolbarFilters label="Filter by status">
     @for (status of statusOptions; track status) {
-      <button
-        type="button"
-        class="chip"
-        [class.chip--on]="isStatusSelected(status)"
-        [attr.aria-pressed]="isStatusSelected(status)"
-        (click)="toggleStatus(status)"
-      >
-        {{ status }}
-      </button>
+      <button cpChip [pressed]="isStatusSelected(status)" (click)="toggleStatus(status)">{{ status }}</button>
     }
 
-    <button type="button" class="chip" [class.chip--on]="mine()" [attr.aria-pressed]="mine()" (click)="toggleMine()">
-      Mine
-    </button>
+    <button cpChip [pressed]="mine()" (click)="toggleMine()">Mine</button>
   </div>
 
-  <label class="sort-field" cpToolbarActions>
-    <span class="cp-sr-only">Sort recipes</span>
-    <select name="sort" [value]="sort()" (change)="setSort($event)">
-      <option value="RecentlyUpdated">Recently updated</option>
-      <option value="Title">Title</option>
+  <cp-select-field cpToolbarActions label="Sort recipes">
+    <select name="sort" (change)="setSort($event)">
+      <option value="RecentlyUpdated" [selected]="sort() === 'RecentlyUpdated'">Recently updated</option>
+      <option value="Title" [selected]="sort() === 'Title'">Title</option>
     </select>
-  </label>
+  </cp-select-field>
 
   @if (hasActiveFilters()) {
     <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
   }
 </cp-toolbar>
 
-<cp-list-shell
-  heading="Recipes"
-  [state]="listShellState()"
-  [errorMessage]="errorMessage()"
-  emptyMessage="No recipes yet."
->
-  <!-- Creating a recipe has nothing to do with whether this list could be read, so a failed search offers the
-       retry *beside* it rather than instead of it. Retry first: it is the secondary action, matching the
-       editor header's order, and it is what someone reading "Couldn't load" reaches for first. -->
+<cp-list-shell heading="Recipes" [state]="listShellState()" [errorMessage]="errorMessage()" emptyMessage="No recipes yet.">
   <div cpListShellActions>
-    @if (state().status === 'error') {
+    @if (phase() === 'error') {
       <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
     }
-    <a cpButton routerLink="new">New recipe</a>
   </div>
 
   <div cpListShellEmpty>
@@ -84,45 +69,42 @@
     }
   </div>
 
-  @for (recipe of recipes(); track recipe.id) {
-    <cp-card [interactive]="true" class="recipe-row">
-      <a class="recipe-link" [routerLink]="[recipe.id]">
-        <span class="recipe-main">
-          <span class="title">{{ recipe.title }}</span>
-          <span class="meta">
-            <cp-status-pill [tone]="statusTone(recipe.status)">{{ recipe.status }}</cp-status-pill>
+  <ul cpCardGrid>
+    @for (recipe of items(); track recipe.id) {
+      <li [attr.data-recipe-id]="recipe.id">
+        <!-- No picture is projected: the list response carries none, so every card takes the panel. -->
+        <cp-media-card glyph="⌘" [description]="recipe.description ?? ''">
+          <a cpMediaCardTitle [routerLink]="[recipe.id]">{{ recipe.title }}</a>
 
-            @if (recipe.latestVersionReadiness) {
-              <cp-status-pill [tone]="recipe.latestVersionReadiness === 'Ready' ? 'success' : 'progress'">
-                v{{ recipe.latestVersionNumber }} {{ recipe.latestVersionReadiness }}
-              </cp-status-pill>
-            }
+          <cp-status-pill cpMediaCardBadges [tone]="statusTone(recipe.status)">{{ recipe.status }}</cp-status-pill>
+          @if (recipe.latestVersionReadiness) {
+            <cp-status-pill cpMediaCardBadges [tone]="recipe.latestVersionReadiness === 'Ready' ? 'success' : 'progress'">
+              v{{ recipe.latestVersionNumber }} {{ recipe.latestVersionReadiness }}
+            </cp-status-pill>
+          }
+          @if (recipe.hasUnmatchedIngredients) {
+            <cp-status-pill cpMediaCardBadges tone="warning">Ingredients need review</cp-status-pill>
+          }
 
-            @if (recipe.hasUnmatchedIngredients) {
-              <cp-status-pill tone="warning">Ingredients need review</cp-status-pill>
-            }
-
-            <span class="updated">Updated {{ recipe.updatedAt | date: 'mediumDate' }}</span>
-          </span>
-        </span>
-        <span class="chevron" aria-hidden="true">→</span>
-      </a>
-    </cp-card>
-  }
+          <dl cpFacts layout="inline">
+            <div cpFact label="Updated">{{ recipe.updatedAt | date: 'mediumDate' }}</div>
+          </dl>
+        </cp-media-card>
+      </li>
+    }
+  </ul>
 
   <div cpListShellPagination class="pager">
     <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>
 
-    @if (hasPreviousPage() || hasNextPage()) {
-      <nav class="pager-actions" aria-label="Recipe pages">
-        <button cpButton variant="secondary" type="button" [disabled]="!hasPreviousPage()" (click)="previousPage()">
-          Previous
-        </button>
-        <span class="page-number">Page {{ pageNumber() }}</span>
-        <button cpButton variant="secondary" type="button" [disabled]="!hasNextPage()" (click)="nextPage()">
-          Next
-        </button>
-      </nav>
+    @if (moreFailed()) {
+      <cp-notice tone="error" role="alert">Couldn't load more recipes. The ones above are still here.</cp-notice>
+    }
+
+    @if (hasMore()) {
+      <button cpButton variant="secondary" type="button" [disabled]="loadingMore()" (click)="loadMore()">
+        {{ loadingMore() ? 'Loading more…' : moreFailed() ? 'Try loading more again' : 'Load more' }}
+      </button>
     }
   </div>
 </cp-list-shell>

@@ -150,4 +150,14 @@ describe('WorkspaceSettingsComponent', () => {
 
     expect(host.querySelector('[role="alert"]')?.textContent).toContain("couldn't find this workspace");
   });
+
+  it('points to Themed days from a card named for it, with the link as its action', async () => {
+    const host = await render();
+
+    const card = host.querySelector('cp-topic-card') as HTMLElement;
+    expect(card.querySelector('h2')?.textContent?.trim()).toBe('Themed days');
+    expect(card.querySelector('.cp-actions a')?.textContent).toContain('Manage themed days');
+    // A top-level page: nothing to go back to.
+    expect(host.querySelector('cp-page-head a[cpBackLink]')).toBeNull();
+  });
 });

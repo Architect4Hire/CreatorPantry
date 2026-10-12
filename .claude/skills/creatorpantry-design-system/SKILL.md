@@ -24,17 +24,18 @@ A **confirmation** — a question with two answers, one of which loses work the 
 
 ## Workflow
 
-1. Classify the request as token, primitive, reusable component, product pattern, or feature composition.
-2. Search `public-api.ts`, component source, and the showcase for existing behavior.
-3. Decide whether the work is domain-neutral enough for the library. Recipe/content/media workflow code normally stays in `src/web/src/app/features/`.
-4. Define the contract first: selector, typed signal inputs/outputs, projected regions, ARIA semantics, states, responsive behavior, and theme behavior.
-5. Prefer composition over adding variants to a low-level component.
-6. Implement standalone Angular 22 with strict templates and `OnPush`.
-7. Style with semantic `--cp-*` tokens only. A new semantic intent is added to both light and dark themes.
-8. Export intentional public components from `projects/creator-pantry-ui/src/public-api.ts`.
-9. Add or update a realistic CreatorPantry showcase example in `src/web/src/app/`.
-10. Verify keyboard operation, visible focus, screen-reader naming, 200% zoom, long text, narrow layout, light/dark themes, reduced motion, and empty/error/disabled states.
-11. From `src/web/`, run `npm run build` and `npm test`.
-12. Update `src/web/README.md` and `src/web/DESIGN-SYSTEM.md` for public API or visual-contract changes.
+1. If the work is a routed page, or sits on one, say which of the three shapes that page is before anything else — library, detail or flow (`src/web/DESIGN-SYSTEM.md`, "Composing a page"). A page that fits none is a question to raise, not a fourth shape to draw.
+2. Classify the request as token, primitive, reusable component, product pattern, or feature composition.
+3. Search `public-api.ts`, component source, and the showcase for existing behavior.
+4. Decide whether the work is domain-neutral enough for the library. Recipe/content/media workflow code normally stays in `src/web/src/app/features/`.
+5. Define the contract first: selector, typed signal inputs/outputs, projected regions, ARIA semantics, states, responsive behavior, and theme behavior.
+6. Prefer composition over adding variants to a low-level component.
+7. Implement standalone Angular 22 with strict templates and `OnPush`.
+8. Style with semantic `--cp-*` tokens only. A new semantic intent is added to both light and dark themes.
+9. Export intentional public components from `projects/creator-pantry-ui/src/public-api.ts`.
+10. Add or update a realistic CreatorPantry showcase example in `src/web/src/app/`.
+11. Verify keyboard operation, visible focus, screen-reader naming, 200% zoom, long text, narrow layout, light/dark themes, reduced motion, and empty/error/disabled states.
+12. From `src/web/`, run `npm run build` and `npm test`. `npm test` runs `scripts/check-page-contract.mjs` first; a part the library gains is a part that check should stop features redrawing, so add its rule there in the same change, and fix a page it objects to rather than exempting it.
+13. Update `src/web/README.md` and `src/web/DESIGN-SYSTEM.md` for public API or visual-contract changes.
 
 Never deep-import library internals, place API calls or recipe business logic in the library, create a second token vocabulary, or commit `dist/`/`node_modules/`.

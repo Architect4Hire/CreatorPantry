@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
+import { ConfirmService } from '../core/confirm.service';
 import { DesignSystemShowcaseComponent } from './design-system-showcase.component';
 
 describe('DesignSystemShowcaseComponent', () => {
@@ -111,6 +112,61 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(paragraphs.length).toBe(8);
   });
 
+  describe('drawer', () => {
+    // The drawer moves itself to <body>, so it is found from the document, not the fixture.
+    const drawer = () => document.body.querySelector<HTMLElement>(':scope > section[role="dialog"]');
+
+    async function openDrawer(label: string) {
+      const confirm = jasmine.createSpyObj<ConfirmService>('ConfirmService', ['confirm']);
+      TestBed.configureTestingModule({ providers: [{ provide: ConfirmService, useValue: confirm }] });
+      const fixture = await createFixture();
+      const openButton = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+        (el) => (el as HTMLElement).textContent?.trim() === label,
+      ) as HTMLButtonElement;
+      openButton.click();
+      fixture.detectChanges();
+      return { fixture, confirm };
+    }
+
+    it('closes a form drawer at once when nothing was typed', async () => {
+      const { fixture, confirm } = await openDrawer('Open a drawer holding a form');
+      expect(drawer()?.querySelector('h2')?.textContent).toBe('Edit details');
+
+      drawer()!.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(confirm.confirm).not.toHaveBeenCalled();
+      expect(drawer()).toBeNull();
+    });
+
+    it('asks before discarding what was typed, and stays open on "keep editing"', async () => {
+      const { fixture, confirm } = await openDrawer('Open a drawer holding a form');
+      const title = drawer()!.querySelector<HTMLInputElement>('#showcase-drawer-title')!;
+      title.value = 'Tomato soup, from the side';
+      title.dispatchEvent(new Event('input'));
+
+      confirm.confirm.and.resolveTo(false);
+      drawer()!.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(confirm.confirm).toHaveBeenCalledTimes(1);
+      expect(drawer()).not.toBeNull();
+
+      confirm.confirm.and.resolveTo(true);
+      drawer()!.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(drawer()).toBeNull();
+    });
+
+    it('holds long content in the wide drawer', async () => {
+      await openDrawer('Open a wide drawer with long content');
+      expect(drawer()!.classList).toContain('wide');
+      expect(drawer()!.querySelectorAll('.body p').length).toBe(16);
+    });
+  });
+
   it('renders all 6 status-pill tones', async () => {
     const fixture = await createFixture();
     const pills = fixture.nativeElement.querySelectorAll('.badge-row cp-status-pill');
@@ -190,5 +246,36 @@ describe('DesignSystemShowcaseComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.toasts().length).toBe(0);
+  });
+
+  it('shows chips in a named group, and turns one on when it is pressed', async () => {
+    const fixture = await createFixture();
+    const group = fixture.nativeElement.querySelector('[cpChipGroup]') as HTMLElement;
+    const chips = Array.from(group.querySelectorAll<HTMLButtonElement>('button[cpChip]'));
+
+    expect(group.getAttribute('aria-label')).toBe('Filter by status');
+    expect(chips.map((chip) => chip.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false', 'false', 'false']);
+
+    chips[0].click();
+    fixture.detectChanges();
+
+    expect(chips[0].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('shows a stepper that says each state in a word and follows Back and Continue', async () => {
+    const fixture = await createFixture();
+    const stepper = fixture.nativeElement.querySelector('cp-stepper') as HTMLElement;
+    const words = (): (string | null)[] => Array.from(stepper.querySelectorAll('.word')).map((word) => word.textContent);
+
+    expect(stepper.querySelector('ol')?.getAttribute('aria-label')).toBe('Example steps');
+    expect(words()).toEqual(['Done', 'Skipped', 'You are here', 'Not started']);
+
+    const next = Array.from(fixture.nativeElement.querySelectorAll('.showcase-stepper button')).find(
+      (el) => (el as HTMLElement).textContent?.trim() === 'Continue',
+    ) as HTMLButtonElement;
+    next.click();
+    fixture.detectChanges();
+
+    expect(words()).toEqual(['Done', 'Skipped', 'Done', 'You are here']);
   });
 });

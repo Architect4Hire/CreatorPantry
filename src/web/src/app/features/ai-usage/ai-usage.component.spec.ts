@@ -200,10 +200,24 @@ describe('AiUsageComponent', () => {
    * The shell renders the route's title as the page's h1. A second one here would show the same words twice
    * and give the page two top-level headings.
    */
-  it('renders no heading of its own', async () => {
+  it("has one h1, and it is the page head's", async () => {
     const host = await render();
 
-    expect(host.querySelector('h1')).toBeNull();
+    expect(host.querySelectorAll('h1').length).toBe(1);
+    expect(host.querySelector('cp-page-head h1')).toBeTruthy();
+  });
+
+  it('says what the page is for in the head, and puts the allowance in a card named for it', async () => {
+    const host = await render();
+
+    expect(host.querySelector('cp-page-head .lede')?.textContent).toContain('What you have left for AI help');
+    // A top-level page: nothing to go back to.
+    expect(host.querySelector('cp-page-head a[cpBackLink]')).toBeNull();
+
+    const card = host.querySelector('cp-topic-card') as HTMLElement;
+    expect(card.querySelector('h2')?.textContent?.trim()).toBe('Your allowance');
+    expect(card.querySelector('cp-status-pill')).toBeTruthy();
+    expect(card.querySelector('.headline')).toBeTruthy();
   });
 
   /**

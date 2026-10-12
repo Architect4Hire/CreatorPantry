@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { BrandSourceExtraction } from '../../models/brand-source-extraction.models';
@@ -6,6 +7,7 @@ import {
   BrandSourceExtractionService,
   BrandSourceExtractionWriteOutcome,
 } from '../../services/brand-source-extraction.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { BrandSourceTextComponent } from './brand-source-text.component';
 
 type CorrectArgs = [string, string, number, { expectedExtractionId: string; text: string; reason: string }, string];
@@ -30,9 +32,28 @@ describe('BrandSourceTextComponent', () => {
   let retrySpy: jasmine.Spy<(...args: RetryArgs) => Promise<BrandSourceExtractionWriteOutcome>>;
   let correctSpy: jasmine.Spy<(...args: CorrectArgs) => Promise<BrandSourceExtractionWriteOutcome>>;
   let fixture: ComponentFixture<BrandSourceTextComponent>;
+  let confirmSpy: jasmine.Spy<() => Promise<boolean>>;
 
+  beforeEach(() => {
+    confirmSpy = jasmine.createSpy('confirm').and.resolveTo(true);
+  });
+
+  /**
+   * This fixture's own drawer panel, wherever it sits. An open drawer moves itself to `<body>`, but it is still
+   * this fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function panel(): HTMLElement | null {
+    return (fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  function scrim(): HTMLElement {
+    return fixture.debugElement.query(By.css('.scrim')).nativeElement as HTMLElement;
+  }
+
+  /** Where this component's content is: its open drawer, or the fixture while the drawer is closed. */
   function root(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+    return panel() ?? (fixture.nativeElement as HTMLElement);
   }
 
   function text(): string {
@@ -77,6 +98,7 @@ describe('BrandSourceTextComponent', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
         { provide: BrandSourceExtractionService, useValue: { get: getSpy, retry: retrySpy, correct: correctSpy } },
       ],
     }).compileComponents();
@@ -137,6 +159,7 @@ describe('BrandSourceTextComponent', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
+        { provide: ConfirmService, useValue: { confirm: confirmSpy } },
         { provide: BrandSourceExtractionService, useValue: { get: getSpy, retry: jasmine.createSpy(), correct: jasmine.createSpy() } },
       ],
     }).compileComponents();
@@ -247,7 +270,7 @@ describe('BrandSourceTextComponent', () => {
     await save();
 
     expect(changes.length).toBe(1);
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(panel()).toBeNull();
   });
 
   // ---- Conflict ----
@@ -333,5 +356,86 @@ describe('BrandSourceTextComponent', () => {
     await save();
 
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('nothing was stored');
+  });
+
+  // ---- The correction drawer ----
+
+  it('opens the correction in a wide drawer over the page, which stays in view and cannot be acted on', async () => {
+    await create({ status: 'ok', extraction: extraction() });
+
+    button('Correct the text').click();
+    fixture.detectChanges();
+
+    const shown = panel() as HTMLElement;
+    expect(shown.parentElement).toBe(document.body);
+    expect(shown.classList).toContain('wide');
+    expect((fixture.nativeElement as HTMLElement).closest('[inert]')).toBeTruthy();
+  });
+
+  it('closes at once when nothing was typed, with nothing to ask', async () => {
+    await create({ status: 'ok', extraction: extraction() });
+
+    button('Correct the text').click();
+    fixture.detectChanges();
+    button('Close').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(panel()).toBeNull();
+  });
+
+  it('asks before discarding a correction that was typed, and keeps it when the answer is no', async () => {
+    await create({ status: 'ok', extraction: extraction() });
+    confirmSpy.and.resolveTo(false);
+
+    button('Correct the text').click();
+    fixture.detectChanges();
+    enter('brand-source-correct-reason', 'Fixed a typo.');
+
+    (panel() as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect((root().querySelector('#brand-source-correct-reason') as HTMLInputElement).value).toBe('Fixed a typo.');
+
+    confirmSpy.and.resolveTo(true);
+    button('Close').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
+    expect(panel()).toBeNull();
+    expect(correctSpy).not.toHaveBeenCalled();
+  });
+
+  it('stays open, without asking, while a correction is being saved', async () => {
+    await create({ status: 'ok', extraction: extraction() });
+    let finish: (outcome: BrandSourceExtractionWriteOutcome) => void = () => undefined;
+    correctSpy.and.returnValue(new Promise<BrandSourceExtractionWriteOutcome>((resolve) => (finish = resolve)));
+
+    button('Correct the text').click();
+    fixture.detectChanges();
+    enter('brand-source-correct-reason', 'Fixed a typo.');
+    button('Save the text').click();
+    fixture.detectChanges();
+
+    (panel() as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    (scrim() as HTMLElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Every way out waits for the save to end, so the creator sees how it ended.
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(panel()).toBeTruthy();
+
+    finish({ status: 'ok', extraction: extraction() });
+    await fixture.whenStable();
+    fixture.detectChanges();
   });
 });

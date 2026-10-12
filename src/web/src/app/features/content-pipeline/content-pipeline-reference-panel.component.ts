@@ -21,6 +21,7 @@ import { FormsModule } from '@angular/forms';
 import {
   CpBadgeComponent,
   CpButtonComponent,
+  CpCardGridComponent,
   CpFieldComponent,
   CpNoticeComponent,
   CpTabDefinition,
@@ -80,6 +81,7 @@ const CHOOSE_FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 
   selector: 'cp-content-pipeline-reference-panel',
   standalone: true,
   imports: [
+    CpCardGridComponent,
     FormsModule,
     NgTemplateOutlet,
     CpBadgeComponent,

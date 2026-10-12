@@ -1,4 +1,4 @@
-import { Location, NgTemplateOutlet } from '@angular/common';
+import { Location } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -19,9 +19,20 @@ import {
   HANDOFF_ROUTES,
 } from '../../shared/use-this-in/handoff-destinations';
 import { combineLatest, map } from 'rxjs';
-import { CpButtonComponent, CpCardComponent, CpNoticeComponent, CpProgressComponent } from '@creator-pantry/ui';
+import {
+  CpBackLinkComponent,
+  CpButtonComponent,
+  CpCardComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+  CpProgressComponent,
+  CpStep,
+  CpStepperComponent,
+  CpTopicCardComponent,
+} from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { injectRouteTitle } from '../../core/route-title';
 import {
   CONTENT_PIPELINE_STEPS,
   CONTENT_PIPELINE_STEP_COUNT,
@@ -32,8 +43,6 @@ import {
   FIRST_CONTENT_PIPELINE_STEP,
   contentPipelineBriefAfter,
   contentPipelineConfigWith,
-  STEP_STATUS_GLYPH,
-  STEP_STATUS_WORD,
   contentPipelineStepIndex,
   contentPipelineStepStatus,
   emptyContentPipelineDraft,
@@ -131,7 +140,6 @@ const HEADING_ID = 'cp-pipeline-step-heading';
   selector: 'cp-content-pipeline-shell',
   standalone: true,
   imports: [
-    NgTemplateOutlet,
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
@@ -146,6 +154,10 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     ContentPipelineLibraryStepComponent,
     ContentPipelinePostsStepComponent,
     ContentPipelineStepPlaceholderComponent,
+    CpBackLinkComponent,
+    CpPageHeadComponent,
+    CpStepperComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './content-pipeline-shell.component.html',
   styleUrl: './content-pipeline-shell.component.css',
@@ -153,6 +165,8 @@ const HEADING_ID = 'cp-pipeline-step-heading';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineShellComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle('Content Pipeline');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly location = inject(Location);
@@ -271,11 +285,13 @@ export class ContentPipelineShellComponent {
     const current = this.currentSlug();
     const furthest = this.draft().furthestStep;
 
-    return CONTENT_PIPELINE_STEPS.map((step) => {
-      const status = contentPipelineStepStatus(step.slug, current, furthest);
-      return { step, status, glyph: STEP_STATUS_GLYPH[status], word: STEP_STATUS_WORD[status] };
-    });
+    return CONTENT_PIPELINE_STEPS.map((step) => ({ step, status: contentPipelineStepStatus(step.slug, current, furthest) }));
   });
+
+  /** The same rows as `cp-stepper` takes them: it owns the word and the glyph for each state. */
+  protected readonly stepperSteps = computed<readonly CpStep[]>(() =>
+    this.rows().map((row) => ({ id: row.step.slug, label: row.step.label, status: row.status })),
+  );
 
   readonly stepNumber = computed(() => (this.currentIndex() ?? 0) + 1);
   readonly progressText = computed(() => `Step ${this.stepNumber()} of ${this.total}`);

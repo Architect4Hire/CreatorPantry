@@ -631,7 +631,7 @@ describe('BrandSettingsComponent', () => {
 
       expect(enter.defaultPrevented).toBeTrue();
       // No form of its own: the only form it sits in is the settings form, whose Save it must not trigger.
-      expect(search.closest('form')).toBe(root().querySelector('form[aria-labelledby="brand-heading"]'));
+      expect(search.closest('form')).toBe(root().querySelector('form[aria-label="Brand settings"]'));
       expect(spies.update).not.toHaveBeenCalled();
     });
 
@@ -719,7 +719,18 @@ describe('BrandSettingsComponent', () => {
     await type('brand-default-audience', 'X');
     await save();
 
-    expect(root().querySelector('.banner[role="alert"]')).toBeTruthy();
+    expect(root().querySelector('cp-notice[role="alert"]')).toBeTruthy();
     expect(root().querySelector('cp-toast-region [aria-live]')).toBeTruthy();
+  });
+
+  it('has one head for the page, with its two ways out as actions and nothing to go back to', async () => {
+    await create();
+
+    expect(root().querySelectorAll('h1').length).toBe(1);
+    expect(root().querySelector('cp-page-head .lede')?.textContent).toContain('The facts about your brand');
+    expect(root().querySelector('cp-page-head a[cpBackLink]')).toBeNull();
+
+    const actions = Array.from(root().querySelectorAll('cp-page-head .actions a')).map((each) => each.textContent?.trim());
+    expect(actions).toEqual(['Create my voice', 'Brand library']);
   });
 });

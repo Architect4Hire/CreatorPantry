@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -113,6 +114,21 @@ describe('PromptLibraryComponent', () => {
     return Array.from(root().querySelectorAll<HTMLElement>('[data-prompt-id]'));
   }
 
+  /**
+   * This page's own open drawer, wherever it sits. A drawer moves itself to `<body>`, but it is still this
+   * fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function drawer(): HTMLElement | null {
+    return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  /** Long enough for the drawer's leave animation to finish and its nodes to go. */
+  async function drawerGone(): Promise<void> {
+    await delay(400);
+    await settle();
+  }
+
   function channelSelect(): HTMLSelectElement {
     return root().querySelector('select[name="channel"]') as HTMLSelectElement;
   }
@@ -138,7 +154,7 @@ describe('PromptLibraryComponent', () => {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: ':workspaceSlug/prompt-library', pathMatch: 'full', component: PromptLibraryComponent },
+          { path: ':workspaceSlug/prompt-library', pathMatch: 'full', component: PromptLibraryComponent, data: { title: 'Prompt Library' } },
           { path: ':workspaceSlug/prompt-library/:promptRecordId', component: DetailStubComponent },
         ]),
         { provide: PromptLibraryService, useValue: { search: searchSpy, get: getSpy } },
@@ -202,9 +218,23 @@ describe('PromptLibraryComponent', () => {
       .and.returnValue(found(page([summary('p1', 'Whole'), summary('p2', 'Cut', { textLength: 4000 })])));
     await create();
 
-    expect(rows()[0].textContent).not.toContain('…');
-    expect(rows()[1].textContent).toContain('…');
-    expect(rows()[1].querySelector('.cp-sr-only')?.textContent).toContain('continues');
+    expect(rows()[0].querySelector('.description')?.textContent).toBe('Preview of p1');
+    expect(rows()[1].querySelector('.description')?.textContent).toBe('Preview of p2…');
+  });
+
+  it('lays the prompts out as a list of cards, each with the panel a card with no picture takes', async () => {
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
+    await create();
+
+    expect(root().querySelectorAll('ul[cpCardGrid] > li cp-media-card').length).toBe(2);
+    expect(rows()[0].querySelector('.picture')?.children.length).toBe(0);
+    expect(rows()[0].querySelector('.panel')?.textContent).toBe('❝');
+    expect(getComputedStyle(rows()[0].querySelector('.panel')!).display).not.toBe('none');
+
+    // Everything a row showed has a slot: three badges, the saved date as a fact, and Preview as the action.
+    expect(rows()[0].querySelectorAll('.badges cp-badge').length).toBe(3);
+    expect(rows()[0].querySelector('dl[cpFacts] dt')?.textContent).toBe('Saved');
+    expect(rows()[0].querySelector('.actions button')?.textContent?.trim()).toBe('Preview');
   });
 
   it('links each prompt to its own detail route', async () => {
@@ -461,7 +491,7 @@ describe('PromptLibraryComponent', () => {
 
   // ---- Preview ----
 
-  it('opens a preview that reads the whole prompt, and returns focus to its button on close', async () => {
+  it('opens a preview in a drawer that reads the whole prompt, and returns focus to its card on close', async () => {
     searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
     getSpy = jasmine
       .createSpy('get')
@@ -474,14 +504,37 @@ describe('PromptLibraryComponent', () => {
     await settle();
 
     expect(getSpy).toHaveBeenCalledWith(SLUG, 'p1');
-    const dialog = root().querySelector('[role="dialog"]') as HTMLElement;
-    expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(dialog.textContent).toContain('The whole prompt, every word.');
+    const panel = drawer() as HTMLElement;
+    expect(panel.getAttribute('aria-modal')).toBe('true');
+    expect(panel.textContent).toContain('The whole prompt, every word.');
+    // Over the page rather than in it: the grid is still there behind the drawer, and cannot be acted on.
+    expect(panel.parentElement).toBe(document.body);
+    expect(rows().length).toBe(2);
+    expect(root().closest('[inert]')).toBeTruthy();
 
-    (dialog.querySelector('button[aria-label="Close dialog"]') as HTMLButtonElement).click();
+    (panel.querySelector('button[aria-label="Close preview"]') as HTMLButtonElement).click();
+    await drawerGone();
+
+    expect(drawer()).toBeNull();
+    expect(root().closest('[inert]')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('closes the preview on Escape, with nothing to confirm, and returns focus to its card', async () => {
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
+    getSpy = jasmine
+      .createSpy('get')
+      .and.returnValue(of<PromptDetailOutcome>({ status: 'found', prompt: detail('p2', 'Second prompt.') }));
+    await create();
+
+    const opener = rows()[1].querySelector('button') as HTMLButtonElement;
+    opener.click();
     await settle();
 
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    (drawer() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await drawerGone();
+
+    expect(drawer()).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
 
@@ -500,16 +553,17 @@ describe('PromptLibraryComponent', () => {
     // Leave a preview open, so there is something of workspace A to still be showing.
     (rows()[0].querySelector('button') as HTMLButtonElement).click();
     await settle();
-    expect(text()).toContain('Workspace A words.');
+    expect(drawer()?.textContent).toContain('Workspace A words.');
 
     await harness.navigateByUrl(`/${OTHER_SLUG}/prompt-library`);
-    await settle();
+    await drawerGone();
 
-    // While workspace B's page is still in flight: no row, no preview and no words of workspace A.
+    // While workspace B's page is still in flight: no row, no preview and no words of workspace A — on the
+    // page or in the drawer, which sits in <body> outside it.
     expect(rows().length).toBe(0);
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(drawer()).toBeNull();
     expect(text()).not.toContain('Chili hero');
-    expect(text()).not.toContain('Workspace A words.');
+    expect(drawer()?.textContent ?? '').not.toContain('Workspace A words.');
     expect(hasButton('Load more')).toBeFalse();
 
     const last = searches()[searches().length - 1];
@@ -530,7 +584,8 @@ describe('PromptLibraryComponent', () => {
     searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
     await create();
 
-    expect(root().querySelector('h1')?.textContent).toContain('Prompt Library');
+    expect(root().querySelectorAll('h1').length).toBe(1);
+    expect(root().querySelector('cp-page-head h1')?.textContent).toContain('Prompt Library');
     expect(searchInput().closest('label')?.textContent).toContain('Search prompts');
     expect(channelSelect().closest('label')?.textContent).toContain('Filter by channel');
 

@@ -1,4 +1,4 @@
-<ul class="sheet" aria-label="The pictures this run made">
+<ul cpCardGrid class="sheet" aria-label="The pictures this run made">
   @for (tile of tiles(); track tile.image.id) {
     <li>
       <cp-content-pipeline-staged-image
@@ -13,7 +13,7 @@
         <span class="name">Picture {{ tile.position }} of {{ tile.total }}</span>
         <cp-status-pill [tone]="tile.statusTone">{{ tile.statusLabel }}</cp-status-pill>
       </p>
-      <p class="cp-muted facts">{{ tile.facts }}</p>
+      <p class="cp-muted specs">{{ tile.facts }}</p>
 
       @if (tile.save; as save) {
         <!-- Saving is the decision on this surface, so there is no mark to make beside it. -->

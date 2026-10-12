@@ -144,7 +144,7 @@
               </cp-field>
             }
 
-            <div class="row-fields">
+            <cp-field-row class="row-fields" minColumn="10rem">
               <cp-field label="Quantity" [forId]="'row-quantity-' + row.key">
                 <input
                   [id]="'row-quantity-' + row.key"
@@ -200,7 +200,7 @@
                   [name]="'rowPrep' + row.key"
                 />
               </cp-field>
-            </div>
+            </cp-field-row>
 
             <div class="row-toggles">
               <cp-checkbox

@@ -27,7 +27,7 @@
         <div class="notice" data-kind="stale" role="alert">
           <strong>This guide may be out of date</strong>
           <p>{{ staleReason() }}</p>
-          <div class="actions">
+          <div class="cp-actions">
             <button cpButton variant="secondary" size="sm" type="button" (click)="reviewGuide.emit()">
               Review guide
             </button>
@@ -60,7 +60,7 @@
       }
 
       @if (use().kind === 'none' && activeGuide() === null && choices().length === 0) {
-        <div class="actions">
+        <div class="cp-actions">
           <button cpButton variant="secondary" size="sm" type="button" (click)="setUpGuide.emit()">
             Set up my brand style guide
           </button>
@@ -91,7 +91,7 @@
         </div>
       }
 
-      <div class="actions">
+      <div class="cp-actions">
         <button
           #changeButton
           cpButton
@@ -142,7 +142,7 @@
       @if (use().kind === 'guide' && negativeGuidance(); as avoid) {
         <div class="block">
           <h4>Kept out of the picture</h4>
-          <p class="muted">{{ avoid }}</p>
+          <p class="cp-muted measure">{{ avoid }}</p>
         </div>
       }
 
@@ -151,14 +151,14 @@
 
         @switch (referencesStatus()) {
           @case ('loading') {
-            <p class="muted" role="status">Loading your references…</p>
+            <p class="cp-muted measure" role="status">Loading your references…</p>
           }
           @case ('error') {
-            <p class="muted" role="status">We could not load your references. You can still continue without them.</p>
+            <p class="cp-muted measure" role="status">We could not load your references. You can still continue without them.</p>
           }
           @default {
             @if (references().length === 0) {
-              <p class="muted">You have no visual references yet.</p>
+              <p class="cp-muted measure">You have no visual references yet.</p>
             } @else {
               <ul class="reference-list">
                 @for (reference of references(); track reference.documentId) {
@@ -176,7 +176,7 @@
           }
         }
 
-        <p class="muted" [id]="countId" role="status">
+        <p class="cp-muted measure" [id]="countId" role="status">
           @if (!referencesUsed()) {
             References are not used when you make this without your visual style.
           } @else {
@@ -187,7 +187,7 @@
           }
         </p>
 
-        <div class="actions">
+        <div class="cp-actions">
           <button cpButton variant="text" size="sm" type="button" [disabled]="!referencesUsed()" (click)="addReference.emit()">
             Add a reference
           </button>

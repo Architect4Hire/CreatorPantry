@@ -121,14 +121,6 @@
   font-size: var(--cp-font-size-xs);
 }
 
-/* The floor is clamped: minmax's first argument is a hard floor, so an unclamped 10rem keeps a 160px track
-   inside a row that has about 152px at a 320px viewport, and the page scrolls sideways (DESIGN-SYSTEM.md). */
-.row-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
-  gap: var(--cp-space-3);
-}
-
 .row-toggles {
   display: flex;
   flex-wrap: wrap;

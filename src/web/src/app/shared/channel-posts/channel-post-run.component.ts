@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import {
   CpButtonComponent,
+  CpCardGridComponent,
   CpChoiceGroupComponent,
   CpChoiceOption,
   CpFormSectionComponent,
@@ -114,6 +115,7 @@ interface ChannelCard {
   selector: 'cp-channel-post-run',
   standalone: true,
   imports: [
+    CpCardGridComponent,
     AiAllowanceNoticeComponent,
     ChannelPostPictureComponent,
     ChannelPostReviewComponent,

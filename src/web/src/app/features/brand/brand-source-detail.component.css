@@ -1,107 +1,29 @@
 :host {
-  display: block;
-  padding: var(--cp-space-8);
-}
-
-.crumb {
-  margin-bottom: var(--cp-space-4);
-}
-
-.crumb a {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-  text-decoration: none;
-}
-
-.crumb a:hover {
-  color: var(--cp-primary);
-  text-decoration: underline;
-}
-
-.crumb a:focus-visible {
-  outline: 2px solid var(--cp-focus);
-  outline-offset: 2px;
-}
-
-.page-header {
   display: grid;
-  gap: var(--cp-space-3);
-  margin-bottom: var(--cp-space-6);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
 }
 
-.heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--cp-space-4);
+/* The grid's gap is the space under the head here, as it is between every card below it. */
+cp-page-head {
+  margin-bottom: 0;
 }
 
-h1 {
+.plain {
   margin: 0;
-  font: 400 var(--cp-font-size-2xl) / var(--cp-leading-tight) var(--cp-font-display);
-  color: var(--cp-text);
-  overflow-wrap: anywhere;
-}
-
-.header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
-}
-
-.classification,
-.standing {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-2);
-  margin: 0;
-}
-
-.missing-title {
-  margin: 0 0 var(--cp-space-2);
-  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
-  color: var(--cp-text);
 }
 
 .state {
   max-width: var(--cp-measure-prose);
-  margin: 0 0 var(--cp-space-3);
+  margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
   line-height: var(--cp-leading-normal);
 }
 
+/* A notice is a sentence: it keeps the reading measure even in a card that has lifted it for a list. */
 cp-notice {
-  display: block;
   max-width: var(--cp-measure-prose);
-}
-
-/* Facts in pairs, wrapping to as many columns as fit. A fact and its label stay together. */
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--cp-space-4);
-  margin: 0 0 var(--cp-space-5);
-}
-
-.facts .wide {
-  grid-column: 1 / -1;
-}
-
-.facts dt {
-  margin-bottom: var(--cp-space-1);
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-xs);
-  font-weight: 700;
-}
-
-.facts dd {
-  margin: 0;
-  color: var(--cp-text);
-  font-size: var(--cp-font-size-sm);
-  overflow-wrap: anywhere;
 }
 
 .checksum {
@@ -109,18 +31,12 @@ cp-notice {
   font-size: var(--cp-font-size-xs);
 }
 
-.download {
-  display: grid;
-  gap: var(--cp-space-2);
-  justify-items: start;
-}
-
 .viewing {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-2);
-  margin: 0 0 var(--cp-space-4);
+  margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
 }
@@ -129,7 +45,7 @@ cp-notice {
 .holds {
   display: grid;
   gap: var(--cp-space-3);
-  margin: 0 0 var(--cp-space-4);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -191,7 +107,7 @@ cp-notice {
 }
 
 .usage-summary {
-  margin: 0 0 var(--cp-space-4);
+  margin: 0;
   color: var(--cp-text);
   font-size: var(--cp-font-size-sm);
 }

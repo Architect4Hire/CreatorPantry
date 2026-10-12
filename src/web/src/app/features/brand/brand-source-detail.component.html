@@ -1,6 +1,26 @@
-<nav class="crumb" aria-label="Back to the library">
-  <a [routerLink]="['/', workspaceSlug, 'brand', 'library']">← Brand library</a>
-</nav>
+<!-- One head for every state, so the page always has exactly one h1 and it is always in the same place. -->
+<cp-page-head [heading]="headTitle()">
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'brand', 'library']">Brand library</a>
+  <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+  <ng-container ngProjectAs="[cpPageHeadBadges]">
+    @if (document(); as doc) {
+      <!-- What state it is in, then what it is: the order a card in the library gives them. -->
+      <cp-status-pill [tone]="isArchived() ? 'stale' : 'neutral'">{{ doc.status }}</cp-status-pill>
+      <cp-status-pill tone="neutral">v{{ doc.versionNumber }}</cp-status-pill>
+      <cp-status-pill [tone]="extractionTone(doc.extraction.state)">
+        {{ extractionLabels[doc.extraction.state] }}
+      </cp-status-pill>
+      <cp-badge tone="purple">{{ typeLabels[doc.documentType] }}</cp-badge>
+      <cp-badge tone="blue">{{ purposeLabels[doc.purpose] }}</cp-badge>
+      @if (doc.channelKey) {
+        <cp-badge tone="pink">{{ channelLabel(doc.channelKey) }}</cp-badge>
+      }
+      @for (tag of doc.tags; track tag) {
+        <cp-badge tone="neutral">{{ tag }}</cp-badge>
+      }
+    }
+  </ng-container>
+</cp-page-head>
 
 @switch (state().status) {
   @case ('loading') {
@@ -11,11 +31,9 @@
   @case ('missing') {
     <cp-card>
       <!-- One answer for three cases, because the API gives one: unknown, another workspace's, and removed. -->
-      <h1 class="missing-title">We couldn’t find this example</h1>
       <p class="state">
         It may have been removed, or the link may be wrong. Your brand library shows everything this workspace has.
       </p>
-      <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'library']">Back to the library</a>
     </cp-card>
   }
   @case ('error') {
@@ -26,120 +44,54 @@
   }
   @default {
     @if (document(); as doc) {
-      <header class="page-header">
-        <div class="heading">
-          <h1>{{ doc.title }}</h1>
+      <!-- Always present, so what a replacement or a trip to the shelf just did is announced reliably. -->
+      <cp-notice class="outcome" tone="neutral" role="status" [quiet]="notice() === ''">{{ notice() }}</cp-notice>
 
-          <div class="header-actions">
-            @if (isArchived()) {
-              <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
-                {{ busy() === 'archive' ? 'Working…' : 'Bring it back' }}
-              </button>
-            } @else {
-              <button cpButton variant="secondary" type="button" (click)="openReplace()">Replace file</button>
-              <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
-                {{ busy() === 'archive' ? 'Working…' : 'Put on the shelf' }}
-              </button>
-            }
-          </div>
-        </div>
+      @if (isArchived()) {
+        <!-- Said plainly: archiving is a shelf. The controls it removes are absent below rather than
+             present and refusing. -->
+        <cp-notice tone="warning" role="status">
+          This example is on the shelf. It still reads and still downloads, but it is not offered as grounding and
+          takes no new file until you bring it back.
+        </cp-notice>
+      }
 
-        <p class="classification">
-          <cp-badge tone="purple">{{ typeLabels[doc.documentType] }}</cp-badge>
-          <cp-badge tone="blue">{{ purposeLabels[doc.purpose] }}</cp-badge>
-          @if (doc.channelKey) {
-            <cp-badge tone="pink">{{ channelLabel(doc.channelKey) }}</cp-badge>
-          }
-          @for (tag of doc.tags; track tag) {
-            <cp-badge tone="neutral">{{ tag }}</cp-badge>
-          }
-        </p>
-
-        <p class="standing">
-          <cp-status-pill [tone]="isArchived() ? 'stale' : 'neutral'">{{ doc.status }}</cp-status-pill>
-          <cp-status-pill tone="neutral">v{{ doc.versionNumber }}</cp-status-pill>
-          <cp-status-pill [tone]="extractionTone(doc.extraction.state)">
-            {{ extractionLabels[doc.extraction.state] }}
-          </cp-status-pill>
-        </p>
-
-        @if (isArchived()) {
-          <!-- Said plainly: archiving is a shelf. The controls it removes are absent above rather than
-               present and refusing. -->
-          <cp-notice tone="warning" role="status">
-            This example is on the shelf. It still reads and still downloads, but it is not offered as grounding and
-            takes no new file until you bring it back.
-          </cp-notice>
-        }
-
-        @if (notice()) {
-          <cp-notice tone="neutral" role="status">{{ notice() }}</cp-notice>
-        }
-      </header>
-
-      <cp-tabs [tabs]="tabs()" ariaLabel="This example" [(selectedId)]="selectedTabId">
-        <cp-tab-panel id="details">
-          <cp-card>
-            <dl class="facts">
-              <div>
-                <dt>File</dt>
-                <dd>{{ doc.fileName }}</dd>
-              </div>
-              <div>
-                <dt>Kind of file</dt>
-                <dd>{{ doc.mediaType }}</dd>
-              </div>
-              <div>
-                <dt>Size</dt>
-                <dd>{{ fileSize(doc.sizeBytes) }}</dd>
-              </div>
-              <div>
-                <dt>Current version</dt>
-                <dd>{{ doc.versionNumber }}</dd>
-              </div>
+      <cp-topic-card heading="About this example" headingId="brand-source-about-heading">
+            <dl cpFacts>
+              <div cpFact label="File">{{ doc.fileName }}</div>
+              <div cpFact label="Kind of file">{{ doc.mediaType }}</div>
+              <div cpFact label="Size">{{ fileSize(doc.sizeBytes) }}</div>
+              <div cpFact label="Current version">{{ doc.versionNumber }}</div>
               @if (doc.audience) {
-                <div>
-                  <dt>Audience</dt>
-                  <dd>{{ doc.audience }}</dd>
-                </div>
+                <div cpFact label="Audience">{{ doc.audience }}</div>
               }
-              <div>
-                <dt>Added</dt>
-                <dd>{{ doc.createdAt | date: 'medium' }}</dd>
-              </div>
-              <div>
-                <dt>Last changed</dt>
-                <dd>{{ doc.updatedAt | date: 'medium' }}</dd>
-              </div>
+              <div cpFact label="Added">{{ doc.createdAt | date: 'medium' }}</div>
+              <div cpFact label="Last changed">{{ doc.updatedAt | date: 'medium' }}</div>
               @if (doc.archivedAt) {
-                <div>
-                  <dt>Put on the shelf</dt>
-                  <dd>{{ doc.archivedAt | date: 'medium' }}</dd>
-                </div>
+                <div cpFact label="Put on the shelf">{{ doc.archivedAt | date: 'medium' }}</div>
               }
-              <div class="wide">
-                <dt>Checksum</dt>
-                <!-- Published because it is the download's entity tag: a creator holding a file can tell
-                     whether it is still these bytes. It is not an address. -->
-                <dd class="checksum">{{ doc.contentChecksum }}</dd>
-              </div>
+              <!-- Published because it is the download's entity tag: a creator holding a file can tell
+                   whether it is still these bytes. It is not an address. -->
+              <div cpFact label="Checksum"><span class="checksum">{{ doc.contentChecksum }}</span></div>
             </dl>
 
-            <div class="download">
+            @if (!downloadUrl(doc.versionNumber)) {
+              <p class="state">Downloads aren’t available right now. Reload the page and try again.</p>
+            }
+
+            <div cpTopicCardActions class="cp-actions">
               @if (downloadUrl(doc.versionNumber); as href) {
                 <a cpButton variant="secondary" [href]="href" download>
                   Download version {{ doc.versionNumber }}
                 </a>
               } @else {
                 <button cpButton variant="secondary" type="button" disabled>Download version {{ doc.versionNumber }}</button>
-                <p class="state">Downloads aren’t available right now. Reload the page and try again.</p>
               }
             </div>
-          </cp-card>
-        </cp-tab-panel>
+      </cp-topic-card>
 
-        <cp-tab-panel id="text">
-          <cp-card>
+      <!-- Wide: what it holds is the example's own text, which the text component gives its own measure. -->
+      <cp-topic-card #textCard heading="Its text" headingId="brand-source-text-heading" wide>
             @if (!isViewingCurrent()) {
               <p class="viewing" role="status">
                 Showing the text of version {{ viewedVersion() }}.
@@ -157,11 +109,9 @@
               [isArchived]="isArchived()"
               (changed)="onTextChanged()"
             />
-          </cp-card>
-        </cp-tab-panel>
+      </cp-topic-card>
 
-        <cp-tab-panel id="versions">
-          <cp-card>
+      <cp-topic-card heading="Versions" headingId="brand-source-versions-heading" wide>
             @if (versionsDegraded()) {
               <p class="state" role="alert">
                 The version history couldn’t be loaded. Everything else on this page is up to date.
@@ -212,11 +162,16 @@
                 <button cpButton variant="secondary" type="button" (click)="loadMoreVersions()">Show earlier versions</button>
               }
             }
-          </cp-card>
-        </cp-tab-panel>
 
-        <cp-tab-panel id="usage">
-          <cp-card>
+            <!-- Absent on the shelf rather than present and refusing: an archived example takes no new file. -->
+            @if (!isArchived()) {
+              <div cpTopicCardActions class="cp-actions">
+                <button cpButton variant="secondary" type="button" (click)="openReplace($event)">Replace file</button>
+              </div>
+            }
+      </cp-topic-card>
+
+      <cp-topic-card heading="Where it’s used" headingId="brand-source-usage-heading" wide>
             @if (usageDegraded()) {
               <p class="state" role="alert">
                 What points at this example couldn’t be loaded. Everything else on this page is up to date.
@@ -263,9 +218,27 @@
             } @else {
               <p class="state" role="status">Loading…</p>
             }
-          </cp-card>
-        </cp-tab-panel>
-      </cp-tabs>
+      </cp-topic-card>
+
+      <!-- Last, in a card of its own that says what it does before the button. -->
+      <cp-topic-card
+        [heading]="isArchived() ? 'Bring this example back' : 'Put this example on the shelf'"
+        headingId="brand-source-shelf-heading"
+      >
+        @if (isArchived()) {
+          <p class="plain">It returns to the library and can be offered as grounding again. You'll be asked first.</p>
+        } @else {
+          <p class="plain">
+            It stays here and keeps every version, but it drops out of the library and stops being offered as
+            grounding. You can bring it back at any time, and you'll be asked before anything happens.
+          </p>
+        }
+        <div cpTopicCardActions class="cp-actions">
+          <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
+            {{ busy() === 'archive' ? 'Working…' : isArchived() ? 'Bring it back' : 'Put on the shelf' }}
+          </button>
+        </div>
+      </cp-topic-card>
 
       <cp-brand-source-replace
         [open]="replaceOpen()"

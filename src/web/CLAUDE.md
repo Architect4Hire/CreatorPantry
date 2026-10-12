@@ -15,14 +15,16 @@ Read `README.md` and `DESIGN-SYSTEM.md` before changing UI code.
 
 ## Before editing
 
-1. Identify whether the request is a token, primitive, component, pattern, or feature composition.
-2. Search for an existing component before creating one.
-3. State the accessibility semantics and all interactive states.
-4. Make the smallest coherent change.
+1. For a routed page, or anything on one, say which of the three shapes the page is — library, detail or flow (`DESIGN-SYSTEM.md`, "Composing a page") — before anything else.
+2. Identify whether the request is a token, primitive, component, pattern, or feature composition.
+3. Search for an existing component before creating one.
+4. State the accessibility semantics and all interactive states.
+5. Make the smallest coherent change.
 
 ## Definition of done
 
 - Build succeeds for the library and showcase.
+- `npm test` passes, including `scripts/check-page-contract.mjs`, with no new exemption.
 - Public API exports are intentional.
 - Inputs and outputs are typed.
 - Light and dark themes both work.

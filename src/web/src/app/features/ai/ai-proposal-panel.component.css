@@ -157,8 +157,7 @@
 
 .bulk,
 .row-actions,
-.row-edit-actions,
-.actions {
+.row-edit-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

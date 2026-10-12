@@ -51,17 +51,11 @@ h3 {
   border: 1px solid var(--cp-border);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface);
-}
-
-.fact,
-.caption {
-  margin: 0;
   overflow-wrap: anywhere;
 }
 
-.fact {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+.caption {
+  margin: 0;
 }
 
 @media (max-width: 40rem) {

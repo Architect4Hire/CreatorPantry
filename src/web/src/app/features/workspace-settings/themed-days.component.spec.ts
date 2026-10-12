@@ -607,4 +607,14 @@ describe('ThemedDaysComponent', () => {
     expect(confirm.asked.length).toBe(1);
     expect(confirm.asked[0].title).toBe('Discard unsaved changes?');
   });
+
+  it('offers one link back, to Workspace settings, in the page head and in every state', async () => {
+    const host = await render();
+
+    const crumb = host.querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Workspace settings');
+    expect(crumb.textContent).not.toContain('Back to');
+    expect(crumb.getAttribute('href')).toBe('/sams-kitchen/settings');
+    expect(host.querySelectorAll('h1').length).toBe(1);
+  });
 });

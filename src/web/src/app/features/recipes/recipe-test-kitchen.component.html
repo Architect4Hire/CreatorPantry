@@ -45,7 +45,7 @@
         <span>{{ recordBlockedReason() }}</span>
       </p>
     } @else if (versionNumber() !== null) {
-      <p class="muted">A new test will be filed against version {{ versionNumber() }}, the saved one.</p>
+      <p class="cp-muted">A new test will be filed against version {{ versionNumber() }}, the saved one.</p>
     }
 
     <cp-recipe-test-history
@@ -72,7 +72,7 @@
             <h3 class="detail-title" [id]="idPrefix + '-open-title'">
               Version {{ row.versionNumber }}, cooked {{ row.testedAt | date: 'mediumDate' }}
             </h3>
-            <p class="muted">
+            <p class="cp-muted">
               by {{ testerName(row) }}
               @if (row.rating !== null) {
                 · rated {{ row.rating }} of 5
@@ -93,36 +93,21 @@
 
         <!-- The facts a list row has no space for: the phase times, the clock time it was cooked, and when
              the write-up was filed and last changed. -->
-        <dl class="facts">
-          <div class="fact">
-            <dt>Cooked</dt>
-            <dd>{{ row.testedAt | date: 'medium' }}</dd>
-          </div>
+        <dl cpFacts layout="inline">
+          <div cpFact label="Cooked">{{ row.testedAt | date: 'medium' }}</div>
 
           @if (row.actualYieldText) {
-            <div class="fact">
-              <dt>Made</dt>
-              <dd>{{ row.actualYieldText }}</dd>
-            </div>
+            <div cpFact label="Made">{{ row.actualYieldText }}</div>
           }
 
           @for (time of openTimes(); track time.label) {
-            <div class="fact">
-              <dt>{{ time.label }}</dt>
-              <dd>{{ time.minutes }} min</dd>
-            </div>
+            <div cpFact [label]="time.label">{{ time.minutes }} min</div>
           }
 
-          <div class="fact">
-            <dt>Written up</dt>
-            <dd>{{ row.createdAt | date: 'medium' }}</dd>
-          </div>
+          <div cpFact label="Written up">{{ row.createdAt | date: 'medium' }}</div>
 
           @if (openWasCorrected()) {
-            <div class="fact">
-              <dt>Last corrected</dt>
-              <dd>{{ row.updatedAt | date: 'medium' }}</dd>
-            </div>
+            <div cpFact label="Last corrected">{{ row.updatedAt | date: 'medium' }}</div>
           }
         </dl>
 
@@ -165,7 +150,7 @@
 
     @switch (openState().status) {
       @case ('loading') {
-        <p class="muted" role="status">Opening this test…</p>
+        <p class="cp-muted" role="status">Opening this test…</p>
       }
 
       @case ('not_found') {
@@ -212,7 +197,7 @@
         />
       }
     } @else if (openRun() !== null && !canWrite()) {
-      <p class="muted">
+      <p class="cp-muted">
         Correcting a write-up needs the Contributor role or above in this workspace.
       </p>
     }

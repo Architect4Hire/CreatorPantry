@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
@@ -60,8 +61,22 @@ describe('DamAssetLogUseComponent', () => {
   const tomorrow = damLocalDateValue(new Date(), 1);
   const dayAfter = damLocalDateValue(new Date(), 2);
 
+  /**
+   * This fixture's own drawer panel, wherever it sits. An open drawer moves itself to `<body>`, but it is still
+   * this fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function panel(): HTMLElement | null {
+    return (fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  function scrim(): HTMLElement {
+    return fixture.debugElement.query(By.css('.scrim')).nativeElement as HTMLElement;
+  }
+
+  /** Where this component's content is: its open drawer, or the fixture while the drawer is closed. */
   function root(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+    return panel() ?? (fixture.nativeElement as HTMLElement);
   }
 
   function text(): string {
@@ -123,7 +138,7 @@ describe('DamAssetLogUseComponent', () => {
   it('opens as a named modal dialog with an empty entry dated today', async () => {
     await create();
 
-    const dialog = root().querySelector('[role="dialog"]') as HTMLElement;
+    const dialog = panel() as HTMLElement;
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(root().querySelector(`#${dialog.getAttribute('aria-labelledby')}`)?.textContent).toContain('Log a use');
 
@@ -395,8 +410,17 @@ describe('DamAssetLogUseComponent', () => {
     expect(host.closes).toBe(0);
     expect(field<HTMLTextAreaElement>('notes').value).toBe('Half a thought');
 
+    // Escape and the scrim are the drawer's own ways out, and ask the same question.
+    const asked = confirmSpy.calls.count();
+    (panel() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await settle();
+    (scrim() as HTMLElement).click();
+    await settle();
+    expect(confirmSpy.calls.count()).toBe(asked + 2);
+    expect(host.closes).toBe(0);
+
     confirmSpy.and.resolveTo(true);
-    (root().querySelector('button[aria-label="Close dialog"]') as HTMLButtonElement).click();
+    (root().querySelector('button[aria-label="Close"]') as HTMLButtonElement).click();
     await settle();
     expect(host.closes).toBe(1);
   });

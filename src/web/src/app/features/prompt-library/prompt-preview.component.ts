@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output, si
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { BehaviorSubject, combineLatest, of, switchMap, tap } from 'rxjs';
-import { CpButtonComponent, CpDialogComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpDrawerComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { ClipboardService } from '../../core/clipboard.service';
 import { PromptDetail, PromptSummary, promptTitle } from '../../models/prompt-library.models';
@@ -22,8 +22,15 @@ type PreviewState =
  * comes from the detail route — which is also why Copy lives here and not on the row: copying a truncated
  * prompt would hand the creator something that looks whole and is not.
  *
- * `CpDialogComponent` rather than `ConfirmService`: this hosts content with its own states, not a question
- * with two answers. Open while `summary` is set; the consumer owns closing it and putting focus back.
+ * **A drawer, not a dialog.** A preview is read *about the list while still in it*: the grid, its filters and
+ * the creator's place in it stay in view beside the prompt, which is the case `DESIGN-SYSTEM.md` gives a
+ * drawer for. `wide`, because what it holds is prose. Open while `summary` is set.
+ *
+ * **It holds nothing unsaved, so it closes when asked.** Escape, the scrim and the close control each emit
+ * `closed` at once, with nothing to confirm; the drawer gives focus back to whatever opened it.
+ *
+ * **What Copy says is said in here.** The page behind an open drawer is inert, the toast region with it, so
+ * the outcome of a copy goes in a notice inside the drawer.
  *
  * **Nothing read for one prompt is shown for another.** The state is cleared before each read, so changing the
  * row — or the workspace — never leaves the previous prompt's words under the new title.
@@ -31,14 +38,14 @@ type PreviewState =
 @Component({
   selector: 'cp-prompt-preview',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpDialogComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpDrawerComponent, CpNoticeComponent],
   template: `
-    <cp-dialog
+    <cp-drawer
       [open]="summary() !== null"
-      [title]="title()"
-      titleId="cp-prompt-preview-title"
-      (closed)="closed.emit()"
-      (keydown.escape)="closed.emit()"
+      [heading]="title()"
+      size="wide"
+      closeLabel="Close preview"
+      (closeRequested)="closed.emit()"
     >
       @switch (state().status) {
         @case ('loading') {
@@ -62,15 +69,20 @@ type PreviewState =
         copyMessage()
       }}</cp-notice>
 
-      <div cpDialogActions>
-        <button cpButton type="button" variant="secondary" [disabled]="state().status !== 'ready'" (click)="copy()">
-          Copy prompt
-        </button>
-        @if (detailLink(); as link) {
-          <a cpButton variant="primary" [routerLink]="link">Open full details</a>
-        }
-      </div>
-    </cp-dialog>
+      <button
+        cpDrawerActions
+        cpButton
+        type="button"
+        variant="secondary"
+        [disabled]="state().status !== 'ready'"
+        (click)="copy()"
+      >
+        Copy prompt
+      </button>
+      @if (detailLink(); as link) {
+        <a cpDrawerActions cpButton variant="primary" [routerLink]="link">Open full details</a>
+      }
+    </cp-drawer>
   `,
   styles: [
     `
@@ -80,6 +92,7 @@ type PreviewState =
       /* The creator's own line breaks are part of the prompt; a long unbroken run still wraps. */
       .prompt-text {
         margin: 0;
+        max-width: var(--cp-measure-prose);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }

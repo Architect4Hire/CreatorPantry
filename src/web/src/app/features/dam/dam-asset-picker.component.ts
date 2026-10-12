@@ -14,7 +14,13 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, debounceTime, of, switchMap, tap } from 'rxjs';
-import { CpButtonComponent, CpEmptyStateComponent, CpFieldComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCardGridComponent,
+  CpEmptyStateComponent,
+  CpFieldComponent,
+  CpNoticeComponent,
+} from '@creator-pantry/ui';
 
 import { DamAssetSearchQuery, DamAssetSummary } from '../../models/dam-asset.models';
 import { DamAssetSearchOutcome, DamAssetService } from '../../services/dam-asset.service';
@@ -48,7 +54,7 @@ const SEARCH_ID = 'cp-dam-picker-search';
 @Component({
   selector: 'cp-dam-asset-picker',
   standalone: true,
-  imports: [CpButtonComponent, CpEmptyStateComponent, CpFieldComponent, CpNoticeComponent, DamAssetThumbnailComponent],
+  imports: [CpCardGridComponent, CpButtonComponent, CpEmptyStateComponent, CpFieldComponent, CpNoticeComponent, DamAssetThumbnailComponent],
   template: `
     <div class="picker">
       <!-- A search landmark and not a form: a host may itself sit inside a form (brand settings does), and a
@@ -98,7 +104,7 @@ const SEARCH_ID = 'cp-dam-picker-search';
           }
         }
         @default {
-          <ul class="grid" aria-label="Library pictures">
+          <ul cpCardGrid minColumn="9.5rem" aria-label="Library pictures">
             @for (asset of items(); track asset.id) {
               <li class="tile">
                 <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="asset" />
@@ -143,16 +149,6 @@ const SEARCH_ID = 'cp-dam-picker-search';
       .picker {
         display: grid;
         gap: var(--cp-space-5);
-      }
-      /* As many columns as fit the host, and one at a narrow width or high zoom: a tile never shrinks below a
-         width its title can be read at. */
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-        gap: var(--cp-space-4);
-        margin: 0;
-        padding: 0;
-        list-style: none;
       }
       .tile {
         display: grid;

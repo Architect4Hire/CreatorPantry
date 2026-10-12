@@ -230,7 +230,12 @@ describe('BrandSetupShellComponent', () => {
       expect(root().querySelectorAll('h1').length).toBe(1);
       expect(root().querySelector('h1')?.textContent).toBe('Create my voice');
       expect(heading().textContent).toBe("What you're making");
-      expect(root().querySelector('section.step')?.getAttribute('aria-labelledby')).toBe('cp-step-heading');
+      expect(root().querySelector('cp-topic-card section')?.getAttribute('aria-labelledby')).toBe('cp-step-heading');
+
+      // One link back, to the page setup sits under, named for where it goes.
+      const crumb = root().querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+      expect(crumb.textContent).toContain('Brand settings');
+      expect(crumb.textContent).not.toContain('Back to');
       expect(button('Back')?.disabled).toBeTrue();
       expect(text()).toContain('What are you creating for?');
     });
@@ -313,7 +318,7 @@ describe('BrandSetupShellComponent', () => {
   describe('progress and accessibility', () => {
     it('marks exactly one step current with a glyph and a word, never colour alone', async () => {
       await create();
-      const items = Array.from(root().querySelectorAll('ol.step-list li'));
+      const items = Array.from(root().querySelectorAll('cp-stepper ol li'));
       expect(items.length).toBe(7);
       const current = items.filter((li) => li.getAttribute('aria-current') === 'step');
       expect(current.length).toBe(1);
@@ -435,7 +440,7 @@ describe('BrandSetupShellComponent', () => {
       await click('Skip for now');
       expect(save.calls.mostRecent().args[1].skippedSteps).toEqual(['examples']);
       expect(router.url).toBe(`/${SLUG}/brand/setup/review-text`);
-      const word = root().querySelectorAll('ol.step-list li')[2].querySelector('.word')?.textContent;
+      const word = root().querySelectorAll('cp-stepper ol li')[2].querySelector('.word')?.textContent;
       expect(word).toBe('Skipped');
     });
 
@@ -629,7 +634,7 @@ describe('BrandSetupShellComponent', () => {
       expect(router.url).toBe(`/${SLUG}/brand/setup/goals`);
       expect(heading().textContent).toBe("What you're making");
       expect(shell.data().completed).toEqual([]);
-      expect(root().querySelectorAll('ol.step-list li .word')[0].textContent).toBe('You are here');
+      expect(root().querySelectorAll('cp-stepper ol li .word')[0].textContent).toBe('You are here');
     });
 
     it('on a 409 does not clear anything, return to step 1 or lose the draft, and offers Try again', async () => {
@@ -692,7 +697,7 @@ describe('BrandSetupShellComponent', () => {
       await click('Continue');
       expect(router.url).toBe(`/${SLUG}/brand/setup/examples`);
       expect(heading().textContent).toBe('Your examples');
-      const words = Array.from(root().querySelectorAll('ol.step-list li .word')).map((w) => w.textContent);
+      const words = Array.from(root().querySelectorAll('cp-stepper ol li .word')).map((w) => w.textContent);
       expect(words.slice(0, 3)).toEqual(['Done', 'Done', 'You are here']);
     });
 
@@ -792,14 +797,14 @@ describe('BrandSetupShellComponent', () => {
       // It no longer claims nothing is active: the last step is where that was decided and said.
       expect(root().querySelector('h2')?.textContent).toContain('Setup finished');
       expect(text()).toContain('brand settings');
-      const words = Array.from(root().querySelectorAll('.summary ol li .word')).map((w) => w.textContent);
+      const words = Array.from(root().querySelectorAll('cp-topic-card cp-stepper li .word')).map((w) => w.textContent);
       expect(words).toEqual(['Done', 'Done', 'Skipped', 'Skipped', 'Done', 'Done', 'Done']);
     });
 
     it('shows a finished session as a summary, not a wizard', async () => {
       await create({ sessions: { [SLUG]: session({ status: 'completed', completedUtc: '2026-10-01T12:00:00Z' }) } });
-      expect(root().querySelector('.summary')).not.toBeNull();
-      expect(root().querySelector('section.step')).toBeNull();
+      expect(root().querySelector('#summary-heading')).not.toBeNull();
+      expect(root().querySelector('#cp-step-heading')).toBeNull();
     });
 
     it('does not claim completion when the complete call fails', async () => {
@@ -810,7 +815,7 @@ describe('BrandSetupShellComponent', () => {
       await click('Keep it as a draft');
       complete.and.resolveTo({ status: 'unavailable' });
       await click('Finish setup');
-      expect(root().querySelector('.summary')).toBeNull();
+      expect(root().querySelector('#summary-heading')).toBeNull();
       expect(text()).toContain("couldn't finish setup");
     });
   });
@@ -820,7 +825,7 @@ describe('BrandSetupShellComponent', () => {
       await create({ role: 'Viewer' });
       expect(root().querySelector('[role="note"]')?.textContent).toContain('view-only');
       expect(button('Continue')).toBeNull();
-      expect(root().querySelector('section.step')).toBeNull();
+      expect(root().querySelector('#cp-step-heading')).toBeNull();
       expect(save).not.toHaveBeenCalled();
     });
   });

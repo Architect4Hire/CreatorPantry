@@ -1,22 +1,41 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, merge, switchMap, tap } from 'rxjs';
+import { Subject, debounceTime, map, merge, switchMap, tap } from 'rxjs';
 import {
   CpButtonComponent,
-  CpCardComponent,
+  CpCardGridComponent,
+  CpChipComponent,
+  CpChipGroupComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpListShellComponent,
   CpListShellState,
+  CpMediaCardComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+  CpSearchFieldComponent,
+  CpSelectFieldComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpToolbarComponent,
 } from '@creator-pantry/ui';
 
+import { injectRouteTitle } from '../../core/route-title';
+
 import {
   DEFAULT_RECIPE_SEARCH_QUERY,
-  RecipeSearchPage,
   RecipeSearchQuery,
   RecipeSearchSort,
   RecipeStatus,
@@ -24,10 +43,14 @@ import {
 } from '../../models/recipe.models';
 import { RecipeSearchOutcome, RecipeService } from '../../services/recipe.service';
 
-type LibraryState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'error'; readonly message: string }
-  | { readonly status: 'ready'; readonly page: RecipeSearchPage };
+/** How the first page of a search can stand. Later pages have their own two flags, so a failure there keeps the cards. */
+type Phase = 'loading' | 'error' | 'ready';
+
+/** One page asked for: where it resumes, and which search it belongs to. */
+interface PageRequest {
+  readonly cursor: string | null;
+  readonly generation: number;
+}
 
 /**
  * A tone per editorial state. Exhaustive by type, so a state added to the machine has to be given one here
@@ -72,10 +95,16 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
  * would silently drop matches that live on pages this screen has not fetched, which is the one mistake a
  * partial-page list makes that a user cannot see.
  *
+ * **Pages are appended, never replaced.** "Load more" follows the server's cursor, so what is on screen is
+ * always a true prefix of the whole set. The total is asked for once per search and carried, because following
+ * a cursor cannot change it.
+ *
  * **Filters and sort live in the URL; the cursor does not.** The query string is what makes a search
  * shareable and restorable, and a keyset cursor is neither: it is a position in one ordered set, meaningless
  * once the filters it was issued under change, and the server refuses it when they do. Reloading therefore
  * returns to the first page of the same search rather than to a position that may no longer exist.
+ *
+ * **A card has no picture.** The search response carries none, so every card shows the panel in its place.
  */
 @Component({
   selector: 'cp-recipe-library',
@@ -84,9 +113,18 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
     RouterLink,
     DatePipe,
     CpButtonComponent,
-    CpCardComponent,
+    CpCardGridComponent,
+    CpChipComponent,
+    CpChipGroupComponent,
     CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpListShellComponent,
+    CpMediaCardComponent,
+    CpNoticeComponent,
+    CpPageHeadComponent,
+    CpSearchFieldComponent,
+    CpSelectFieldComponent,
     CpStatusPillComponent,
     CpToolbarComponent,
   ],
@@ -95,53 +133,90 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeLibraryComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly recipeService = inject(RecipeService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly workspaceSlug = this.resolveWorkspaceSlug();
 
-  private readonly stateSignal = signal<LibraryState>({ status: 'loading' });
-  readonly state = this.stateSignal.asReadonly();
+  protected readonly phase = signal<Phase>('loading');
+  protected readonly errorMessage = signal(COULD_NOT_LOAD);
+  protected readonly items = signal<readonly RecipeSummary[]>([]);
+  private readonly nextCursor = signal<string | null>(null);
+  /** Carried across pages: the total is asked for once, because following a cursor cannot change it. */
+  private readonly total = signal<number | null>(null);
+  protected readonly loadingMore = signal(false);
+  protected readonly moreFailed = signal(false);
 
   readonly searchText = signal('');
   readonly statuses = signal<readonly RecipeStatus[]>([]);
   readonly mine = signal(false);
   readonly sort = signal<RecipeSearchSort>('RecentlyUpdated');
 
-  private readonly cursor = signal<string | null>(null);
-
-  /**
-   * The cursors of the pages already visited, newest last. A keyset is forward-only, so "previous" is not a
-   * query the server can answer — it is a position this screen remembers having been at.
-   */
-  private readonly history = signal<readonly (string | null)[]>([]);
-
-  /** Carried across pages: the total is asked for once, because turning a page cannot change it. */
-  private readonly total = signal<number | null>(null);
-
-  readonly pageNumber = computed(() => this.history().length + 1);
-  readonly totalCount = this.total.asReadonly();
-
   readonly statusOptions = FILTERABLE_STATUSES;
 
+  /**
+   * Which search the cards on screen belong to. Raised whenever the filters or ordering change, so an answer
+   * to an earlier search — still in flight behind the debounce — is dropped rather than appended.
+   */
+  private generation = 0;
+
   private readonly typed$ = new Subject<void>();
-  private readonly immediate$ = new Subject<void>();
+  private readonly requests$ = new Subject<PageRequest>();
+
+  protected readonly hasMore = computed(() => this.phase() === 'ready' && this.nextCursor() !== null);
+
+  protected readonly listShellState = computed<CpListShellState>(() => {
+    const phase = this.phase();
+    if (phase !== 'ready') return phase;
+
+    return this.items().length === 0 ? 'empty' : 'ready';
+  });
+
+  /** What the live region announces after each page, so a result count is not sight-only. */
+  protected readonly resultSummary = computed(() => {
+    if (this.phase() !== 'ready') return '';
+
+    const shown = this.items().length;
+    if (shown === 0) return this.hasActiveFilters() ? 'No recipes match these filters.' : 'No recipes yet.';
+
+    const total = this.total();
+    const counted = total === null ? `${shown} ${shown === 1 ? 'recipe' : 'recipes'}` : `${shown} of ${total}`;
+    const order = this.sort() === 'Title' ? 'by title' : 'most recently updated first';
+
+    return `Showing ${counted}, ${order}.`;
+  });
 
   constructor() {
     this.restoreFromUrl();
 
-    merge(this.typed$.pipe(debounceTime(SEARCH_DEBOUNCE_MS)), this.immediate$)
+    merge(
+      this.typed$.pipe(
+        debounceTime(SEARCH_DEBOUNCE_MS),
+        map((): PageRequest => this.firstPage()),
+      ),
+      this.requests$,
+    )
       .pipe(
-        tap(() => this.stateSignal.set({ status: 'loading' })),
+        tap((request) => {
+          if (request.cursor === null) this.phase.set('loading');
+        }),
         // switchMap, not mergeMap: unsubscribing aborts the superseded request, so a slow early response can
         // never arrive after a fast later one and overwrite what the creator is looking at.
-        switchMap(() => this.recipeService.searchRecipes(this.workspaceSlug, this.currentQuery())),
+        switchMap((request) =>
+          this.recipeService
+            .searchRecipes(this.workspaceSlug, this.queryFor(request))
+            .pipe(map((outcome) => ({ request, outcome }))),
+        ),
         takeUntilDestroyed(),
       )
-      .subscribe((outcome) => this.apply(outcome));
+      .subscribe(({ request, outcome }) => this.apply(request, outcome));
 
-    this.immediate$.next();
+    this.requests$.next(this.firstPage());
   }
 
   // ---- Filters ----
@@ -189,126 +264,130 @@ export class RecipeLibraryComponent {
   }
 
   retry(): void {
-    this.immediate$.next();
+    this.requests$.next(this.firstPage());
   }
 
   // ---- Paging ----
 
-  hasNextPage(): boolean {
-    const state = this.stateSignal();
-    return state.status === 'ready' && state.page.nextCursor !== null;
+  protected loadMore(): void {
+    const cursor = this.nextCursor();
+    if (this.phase() !== 'ready' || cursor === null || this.loadingMore()) return;
+
+    this.loadingMore.set(true);
+    this.moreFailed.set(false);
+    this.requests$.next({ cursor, generation: this.generation });
   }
 
-  hasPreviousPage(): boolean {
-    return this.history().length > 0;
-  }
-
-  nextPage(): void {
-    const state = this.stateSignal();
-    if (state.status !== 'ready' || state.page.nextCursor === null) return;
-
-    this.history.update((visited) => [...visited, this.cursor()]);
-    this.cursor.set(state.page.nextCursor);
-    this.immediate$.next();
-  }
-
-  previousPage(): void {
-    const visited = this.history();
-    if (visited.length === 0) return;
-
-    this.cursor.set(visited[visited.length - 1]);
-    this.history.set(visited.slice(0, -1));
-    this.immediate$.next();
-  }
-
-  // ---- Rendering ----
-
-  listShellState(): CpListShellState {
-    const state = this.stateSignal();
-    if (state.status === 'ready') return state.page.items.length === 0 ? 'empty' : 'ready';
-    return state.status;
-  }
-
-  errorMessage(): string {
-    const state = this.stateSignal();
-    return state.status === 'error' ? state.message : COULD_NOT_LOAD;
-  }
-
-  recipes(): readonly RecipeSummary[] {
-    const state = this.stateSignal();
-    return state.status === 'ready' ? state.page.items : [];
-  }
+  // ---- Cards ----
 
   statusTone(status: RecipeStatus): CpStatusPillTone {
     return STATUS_TONE[status];
   }
 
-  /** What the live region announces after each search, so a result count is not sight-only. */
-  resultSummary(): string {
-    const state = this.stateSignal();
-    if (state.status !== 'ready') return '';
-
-    const shown = state.page.items.length;
-    const total = this.total();
-    if (shown === 0) return 'No recipes match these filters.';
-
-    const counted = total === null ? `${shown} recipes` : `${total} ${total === 1 ? 'recipe' : 'recipes'}`;
-    return `Showing ${shown} of ${counted}, page ${this.pageNumber()}.`;
-  }
-
   // ---- Internals ----
 
-  private currentQuery(): RecipeSearchQuery {
+  private firstPage(): PageRequest {
+    return { cursor: null, generation: this.generation };
+  }
+
+  private queryFor(request: PageRequest): RecipeSearchQuery {
     return {
       ...DEFAULT_RECIPE_SEARCH_QUERY,
       search: this.searchText(),
       statuses: this.statuses(),
       mine: this.mine(),
       sort: this.sort(),
-      cursor: this.cursor(),
+      cursor: request.cursor,
     };
   }
 
   /**
-   * Any change to what is being searched for restarts paging. The cursor names a position in the old ordered
-   * set, so carrying it into a new one would either be refused by the server or, worse, answer from the wrong
-   * set — and the total belongs to the old filters too.
+   * Any change to what is being searched for, or how it is ordered, restarts paging. The cursor names a
+   * position in the old ordered set, so carrying it into a new one would either be refused by the server or,
+   * worse, answer from the wrong set — and the total belongs to the old filters too.
    */
   private onFilterChanged(options: { debounced?: boolean } = {}): void {
-    this.cursor.set(null);
-    this.history.set([]);
+    this.generation += 1;
+    this.nextCursor.set(null);
     this.total.set(null);
+    this.loadingMore.set(false);
+    this.moreFailed.set(false);
     this.writeUrl();
 
     if (options.debounced) {
       this.typed$.next();
     } else {
-      this.immediate$.next();
+      this.requests$.next(this.firstPage());
     }
   }
 
-  private apply(outcome: RecipeSearchOutcome): void {
+  private apply(request: PageRequest, outcome: RecipeSearchOutcome): void {
+    // An answer to a search the creator has since changed. Its cards belong to a set no longer on screen.
+    if (request.generation !== this.generation) return;
+
+    const first = request.cursor === null;
+
     switch (outcome.status) {
-      case 'found':
-        if (outcome.page.totalCount !== null) this.total.set(outcome.page.totalCount);
-        this.stateSignal.set({ status: 'ready', page: outcome.page });
+      case 'found': {
+        this.nextCursor.set(outcome.page.nextCursor);
+
+        if (first) {
+          this.total.set(outcome.page.totalCount);
+          this.items.set(outcome.page.items);
+          this.phase.set('ready');
+          return;
+        }
+
+        // A keyset page cannot repeat a row, but a card is tracked by id, so a repeat would break the grid
+        // rather than merely look odd. Dropped rather than trusted.
+        const held = new Set(this.items().map((item) => item.id));
+        const added = outcome.page.items.filter((item) => !held.has(item.id));
+
+        this.items.update((items) => [...items, ...added]);
+        this.loadingMore.set(false);
+        if (added.length > 0) this.focusCard(added[0].id);
         return;
+      }
 
       case 'cursor_expired':
-        // The position is gone, but the search is not. Dropping back to the first page of the same filters is
-        // what the creator asked for; showing them an error for a cursor they never saw is not.
-        this.cursor.set(null);
-        this.history.set([]);
-        this.immediate$.next();
+        // The position is gone, but the search is not. Starting the same search again is what the creator
+        // asked for; showing them an error for a cursor they never saw is not.
+        this.nextCursor.set(null);
+        this.loadingMore.set(false);
+        this.requests$.next(this.firstPage());
         return;
 
-      case 'invalid_request':
-        this.stateSignal.set({ status: 'error', message: FILTER_REJECTED });
-        return;
+      default: {
+        const message = outcome.status === 'invalid_request' ? FILTER_REJECTED : COULD_NOT_LOAD;
 
-      default:
-        this.stateSignal.set({ status: 'error', message: COULD_NOT_LOAD });
+        if (first) {
+          this.errorMessage.set(message);
+          this.phase.set('error');
+        } else {
+          // The cards already read are still true, so they stay; only the next page is missing.
+          this.loadingMore.set(false);
+          this.moreFailed.set(true);
+        }
+      }
     }
+  }
+
+  /**
+   * Put focus on the first card a "Load more" added.
+   *
+   * The button that was pressed may have just gone — the last page has none — and focus left on a removed
+   * element falls back to the top of the document. The new card's title link takes focus: that is where
+   * reading resumes.
+   */
+  private focusCard(recipeId: string): void {
+    afterNextRender(
+      () => {
+        this.host.nativeElement
+          .querySelector<HTMLElement>(`[data-recipe-id="${CSS.escape(recipeId)}"] .title a`)
+          ?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   private restoreFromUrl(): void {

@@ -42,8 +42,22 @@ describe('BrandSourceReplaceComponent', () => {
   let replaceSpy: jasmine.Spy<(...args: ReplaceArgs) => Promise<BrandSourceReplaceOutcome>>;
   let fixture: ComponentFixture<BrandSourceReplaceComponent>;
 
+  /**
+   * This fixture's own drawer panel, wherever it sits. An open drawer moves itself to `<body>`, but it is still
+   * this fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function panel(): HTMLElement | null {
+    return (fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  function scrim(): HTMLElement {
+    return fixture.debugElement.query(By.css('.scrim')).nativeElement as HTMLElement;
+  }
+
+  /** Where this component's content is: its open drawer, or the fixture while the drawer is closed. */
   function root(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+    return panel() ?? (fixture.nativeElement as HTMLElement);
   }
 
   function text(): string {
@@ -256,9 +270,10 @@ describe('BrandSourceReplaceComponent', () => {
     await create();
     pick(file());
 
-    const dialog = root().querySelector('[role="dialog"]');
+    const dialog = panel();
     expect(dialog?.getAttribute('aria-modal')).toBe('true');
-    expect(dialog?.getAttribute('aria-labelledby')).toBe('brand-source-replace-title');
+    const titleId = dialog?.getAttribute('aria-labelledby') as string;
+    expect(document.getElementById(titleId)?.textContent).toContain('Replace this file');
 
     const labels = Array.from(root().querySelectorAll('button')).map((each) => each.textContent?.trim());
     expect(labels.filter((label) => label === 'Cancel').length).toBe(1);

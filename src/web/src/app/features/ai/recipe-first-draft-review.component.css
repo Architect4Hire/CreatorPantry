@@ -10,7 +10,6 @@
  */
 :host {
   display: block;
-  padding: var(--cp-space-8);
 }
 
 /*
@@ -26,13 +25,6 @@
 }
 
 /* The shell's page title is this page's heading; nothing here draws a second one. */
-.draft-lede {
-  margin: 0;
-  max-width: var(--cp-measure-prose);
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-}
-
 .draft-notice {
   margin: 0;
   padding: var(--cp-space-3) var(--cp-space-4);

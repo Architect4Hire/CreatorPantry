@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -68,12 +69,17 @@ describe('PromptPreviewComponent', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
+  /**
+   * This fixture's own drawer panel, wherever it sits. An open drawer moves itself to `<body>`, but it is still
+   * this fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
   function dialog(): HTMLElement | null {
-    return root().querySelector('[role="dialog"]');
+    return (fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label));
+    const match = Array.from((dialog() ?? root()).querySelectorAll('button')).find((each) => each.textContent?.includes(label));
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -114,7 +120,7 @@ describe('PromptPreviewComponent', () => {
     expect(getSpy).not.toHaveBeenCalled();
   });
 
-  it('opens as a modal dialog named by the prompt, with focus inside it', async () => {
+  it('opens as a wide drawer over the page, modal and named by the prompt, with focus inside it', async () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt('p1', 'x'));
     await create();
     await open(summary('p1', 'Chili hero'));
@@ -122,8 +128,13 @@ describe('PromptPreviewComponent', () => {
     const shown = dialog() as HTMLElement;
     expect(shown.getAttribute('aria-modal')).toBe('true');
     const titleId = shown.getAttribute('aria-labelledby') as string;
-    expect(root().querySelector(`#${titleId}`)?.textContent).toContain('Chili hero');
+    expect(document.getElementById(titleId)?.textContent).toContain('Chili hero');
     expect(document.activeElement).toBe(shown);
+
+    // A drawer, not a dialog in the page: moved to <body>, with the page it was opened from made inert.
+    expect(shown.parentElement).toBe(document.body);
+    expect(shown.classList).toContain('wide');
+    expect(root().closest('[inert]')).toBeTruthy();
   });
 
   it('says it is loading, then shows the whole prompt rather than the truncated row', async () => {
@@ -148,7 +159,7 @@ describe('PromptPreviewComponent', () => {
     await create();
     await open(summary('p1', 'Chili hero'));
 
-    const status = root().querySelector('.copy-status') as HTMLElement;
+    const status = dialog()?.querySelector('.copy-status') as HTMLElement;
     // Present before it has anything to say, which is what makes the announcement reliable.
     expect(status.getAttribute('role')).toBe('status');
     expect(status.textContent?.trim()).toBe('');
@@ -169,8 +180,8 @@ describe('PromptPreviewComponent', () => {
     button('Copy prompt').click();
     await settle();
 
-    expect(root().querySelector('.copy-status')?.textContent).toContain("couldn't be copied");
-    expect(root().querySelector('.copy-status')?.textContent).not.toContain('Prompt copied.');
+    expect(dialog()?.querySelector('.copy-status')?.textContent).toContain("couldn't be copied");
+    expect(dialog()?.querySelector('.copy-status')?.textContent).not.toContain('Prompt copied.');
   });
 
   it('reports a prompt that is not there, and offers nothing to copy', async () => {
@@ -202,20 +213,41 @@ describe('PromptPreviewComponent', () => {
     await create();
     await open(summary('p1', 'Chili hero'));
 
-    const link = Array.from(root().querySelectorAll('a')).find((each) => each.textContent?.includes('Open full details'));
+    const link = Array.from((dialog() as HTMLElement).querySelectorAll('a')).find((each) => each.textContent?.includes('Open full details'));
     expect(link?.getAttribute('href')).toBe('/cozy-fall/prompt-library/p1');
   });
 
-  it('asks to close on Escape and on its close button', async () => {
+  it('asks to close on Escape, on its close control and on the scrim, and closes nothing itself', async () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt('p1', 'x'));
     await create();
     await open(summary('p1', 'Chili hero'));
 
-    (dialog() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    (dialog() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(fixture.componentInstance.closes).toBe(1);
 
-    (root().querySelector('button[aria-label="Close dialog"]') as HTMLButtonElement).click();
+    ((dialog() as HTMLElement).querySelector('button[aria-label="Close preview"]') as HTMLButtonElement).click();
     expect(fixture.componentInstance.closes).toBe(2);
+
+    (fixture.debugElement.query(By.css('.scrim')).nativeElement as HTMLElement).click();
+    expect(fixture.componentInstance.closes).toBe(3);
+
+    // The consumer owns `summary`: until it clears it, the preview is still there.
+    expect(dialog()).toBeTruthy();
+  });
+
+  it('goes, and gives the page back, once the consumer clears the row', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt('p1', 'x'));
+    await create();
+    await open(summary('p1', 'Chili hero'));
+
+    fixture.componentInstance.summary.set(null);
+    await settle();
+    // The leave animation holds the nodes for its duration.
+    await delay(400);
+    await settle();
+
+    expect(dialog()).toBeNull();
+    expect(root().closest('[inert]')).toBeNull();
   });
 
   it("never shows one prompt's words under another: a slow read is dropped when the row changes", async () => {

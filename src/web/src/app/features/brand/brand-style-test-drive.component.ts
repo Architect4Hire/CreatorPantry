@@ -3,21 +3,27 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
+  CpBackLinkComponent,
   CpBadgeComponent,
   CpButtonComponent,
   CpCardComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpFieldComponent,
   CpNoticeComponent,
   CpNoticeTone,
+  CpPageHeadComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpTabDefinition,
   CpTabPanelComponent,
   CpTabsComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { injectRouteTitle } from '../../core/route-title';
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import {
@@ -79,15 +85,20 @@ const SAMPLE_LABELS: Readonly<Record<string, string>> = {
   imports: [
     RouterLink,
     AiAllowanceNoticeComponent,
+    CpBackLinkComponent,
     CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
     CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpFieldComponent,
     CpNoticeComponent,
+    CpPageHeadComponent,
     CpStatusPillComponent,
     CpTabPanelComponent,
     CpTabsComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './brand-style-test-drive.component.html',
   styleUrl: './brand-style-test-drive.component.css',
@@ -162,6 +173,16 @@ export class BrandStyleTestDriveComponent {
 
   /** A version number the route did not carry is not a version to try, and nothing is offered against it. */
   readonly hasVersion = computed(() => Number.isInteger(this.versionNumber) && this.versionNumber > 0);
+
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle('Test my style');
+
+  /** The sentence under the title: what this page does with the version it was opened for. */
+  protected readonly lede = computed(() =>
+    this.hasVersion()
+      ? `See what version ${this.versionNumber} of your guide does to writing, next to the same writing with no guidance at all.`
+      : 'This page needs to know which version of your guide to try.',
+  );
 
   readonly canSubmit = computed(
     () =>

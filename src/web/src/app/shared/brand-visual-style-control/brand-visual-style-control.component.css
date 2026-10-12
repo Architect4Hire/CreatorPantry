@@ -30,22 +30,12 @@ h4 {
 }
 
 .summary,
-.muted,
+.measure,
 .notice p {
   margin: 0;
   max-width: var(--cp-measure-prose);
   font-size: var(--cp-font-size-sm);
   line-height: var(--cp-leading-normal);
-}
-
-.muted {
-  color: var(--cp-text-muted);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-2);
 }
 
 /* Tint is the quieter half of what the words and the pill already say (WCAG 1.4.1). */

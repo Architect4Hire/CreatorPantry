@@ -1,14 +1,17 @@
-<section class="brand-settings" aria-labelledby="brand-heading">
-  <header class="page-header">
-    <h1 id="brand-heading">Brand settings</h1>
-    <p class="lede">The facts about your brand that every piece of work in this workspace starts from.</p>
-    <p class="create-voice">
-      <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'setup']">Create my voice</a>
-      <!-- The way into the examples this brand is built from. A sibling of the wizard rather than a step in
-           it: the library is where a creator goes back to, long after setup. -->
-      <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'library']">Brand library</a>
-    </p>
-  </header>
+<cp-page-head
+  [heading]="pageTitle"
+  lede="The facts about your brand that every piece of work in this workspace starts from."
+>
+  <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+  <ng-container ngProjectAs="[cpPageHeadActions]">
+    <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'setup']">Create my voice</a>
+    <!-- The way into the examples this brand is built from. A sibling of the wizard rather than a step in
+         it: the library is where a creator goes back to, long after setup. -->
+    <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'brand', 'library']">Brand library</a>
+  </ng-container>
+</cp-page-head>
+
+<div class="brand-settings">
 
   @switch (load().status) {
     @case ('loading') {
@@ -29,40 +32,39 @@
     }
     @default {
       @if (isFirstUse()) {
-        <cp-card class="intro">
-          <h2 class="intro-title">Set up your brand</h2>
-          <p>Start with a name. Everything else is optional and you can fill it in whenever you like.</p>
-        </cp-card>
+        <cp-topic-card heading="Set up your brand">
+          <p class="plain">Start with a name. Everything else is optional and you can fill it in whenever you like.</p>
+        </cp-topic-card>
       }
 
       @if (!canEdit()) {
-        <p class="banner" role="note" id="brand-readonly-note">
+        <cp-notice role="note" id="brand-readonly-note">
           You can view these settings. An Editor or Owner of this workspace can change them.
-        </p>
+        </cp-notice>
       }
 
       @switch (saveState().status) {
         @case ('conflict') {
-          <p class="banner warning" role="alert">
+          <cp-notice tone="warning" role="alert">
             Someone else changed the brand settings while you were editing. Your edits are still here, and anything you
             hadn't touched now shows the latest. Review it, then save again.
-          </p>
+          </cp-notice>
         }
         @case ('forbidden') {
-          <p class="banner warning" role="alert">You don't have permission to change the brand settings in this workspace.</p>
+          <cp-notice tone="warning" role="alert">You don't have permission to change the brand settings in this workspace.</cp-notice>
         }
         @case ('retry_key') {
-          <p class="banner warning" role="alert">That save couldn't be completed. Please press Save again.</p>
+          <cp-notice tone="warning" role="alert">That save couldn't be completed. Please press Save again.</cp-notice>
         }
         @case ('unavailable') {
-          <p class="banner warning" role="alert">The brand settings couldn't be saved right now. Your edits are still here; try again.</p>
+          <cp-notice tone="warning" role="alert">The brand settings couldn't be saved right now. Your edits are still here; try again.</cp-notice>
         }
         @case ('invalid') {
-          <p class="banner warning" role="alert">Some details need another look. They are marked below.</p>
+          <cp-notice tone="warning" role="alert">Some details need another look. They are marked below.</cp-notice>
         }
       }
 
-      <form (ngSubmit)="save()" novalidate aria-labelledby="brand-heading">
+      <form (ngSubmit)="save()" novalidate aria-label="Brand settings">
         <cp-card>
           <p class="legend">Fields marked * are required. Everything else is optional.</p>
 
@@ -310,7 +312,7 @@
                 </cp-field>
               }
 
-              <div class="actions">
+              <div class="cp-actions">
                 <button cpButton type="submit" variant="primary" [disabled]="saveState().status === 'saving'">
                   {{ saveState().status === 'saving' ? 'Saving…' : isFirstUse() ? 'Create brand settings' : 'Save changes' }}
                 </button>
@@ -329,4 +331,4 @@
   }
 
   <cp-toast-region [toasts]="toasts()" (dismissed)="dismissToast($event)" />
-</section>
+</div>

@@ -11,15 +11,19 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
+  CpBackLinkComponent,
   CpButtonComponent,
   CpEmptyStateComponent,
   CpListShellComponent,
   CpListShellState,
   CpNoticeComponent,
   CpNoticeTone,
+  CpPageHeadComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import {
@@ -81,6 +85,7 @@ const ACTIVATE_ROLES: readonly WorkspaceRole[] = ['Owner'];
   selector: 'cp-brand-guide-history',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     DatePipe,
     RouterLink,
     CpButtonComponent,
@@ -90,12 +95,15 @@ const ACTIVATE_ROLES: readonly WorkspaceRole[] = ['Owner'];
     CpStatusPillComponent,
     BrandGuideActivateComponent,
     BrandGuideVersionComparisonComponent,
+    CpBackLinkComponent,
   ],
   templateUrl: './brand-guide-history.component.html',
   styleUrl: './brand-guide-history.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideHistoryComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly guides = inject(BrandStyleGuideService);
   private readonly membershipService = inject(WorkspaceMembershipService);
   private readonly route = inject(ActivatedRoute);

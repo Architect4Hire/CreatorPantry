@@ -56,7 +56,7 @@ type LinkedAssetState =
       }
     </div>
 
-    <div class="facts">
+    <div class="about">
       @switch (current.status) {
         @case ('found') {
           @if (current.status === 'found') {
@@ -98,7 +98,7 @@ type LinkedAssetState =
         background: var(--cp-surface-subtle);
         text-align: center;
       }
-      .facts {
+      .about {
         display: grid;
         gap: var(--cp-space-2);
         min-width: 0;

@@ -10,23 +10,11 @@
   gap: var(--cp-space-6);
 }
 
-.intro {
-  margin: 0;
-  max-width: var(--cp-measure-prose);
-  color: var(--cp-text-muted);
-  line-height: var(--cp-leading-normal);
-}
-
-.summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--cp-space-3);
-}
-
-.summary-head {
+.status {
   display: flex;
   flex-wrap: wrap;
   gap: var(--cp-space-2);
+  margin: 0;
 }
 
 /* Bold sans, not the display face: DESIGN-SYSTEM.md assigns metrics to sans bold, and this is a figure to

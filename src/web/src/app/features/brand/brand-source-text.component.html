@@ -50,14 +50,14 @@
       }
 
       @if (canRetry() || canCorrect()) {
-        <div class="actions">
+        <div class="cp-actions">
           @if (canRetry()) {
             <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="retry()">
               {{ busy() === 'retry' ? 'Asking…' : 'Try reading again' }}
             </button>
           }
           @if (canCorrect()) {
-            <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="openCorrect()">
+            <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="openCorrect($event)">
               Correct the text
             </button>
           }
@@ -67,12 +67,13 @@
   }
 }
 
-<cp-dialog
+<!-- Wide: what it holds is the example's whole text, read beside the page it belongs to. -->
+<cp-drawer
   [open]="correctOpen()"
-  title="Correct the text"
+  heading="Correct the text"
   description="Your words replace what was read. The earlier version of the text stays on record."
-  titleId="brand-source-correct-title"
-  (closed)="closeCorrect()"
+  size="wide"
+  (closeRequested)="closeCorrect()"
 >
   <cp-form-section heading="The text" [problem]="failure()">
     <cp-field
@@ -112,12 +113,17 @@
     </cp-field>
   </cp-form-section>
 
-  <div cpDialogActions>
-    <button cpButton variant="secondary" type="button" [disabled]="busy() === 'correct'" (click)="closeCorrect()">
-      Close
-    </button>
-    <button cpButton type="button" [disabled]="busy() === 'correct'" (click)="save()">
-      {{ busy() === 'correct' ? 'Saving…' : 'Save the text' }}
-    </button>
-  </div>
-</cp-dialog>
+  <button
+    cpDrawerActions
+    cpButton
+    variant="secondary"
+    type="button"
+    [disabled]="busy() === 'correct'"
+    (click)="closeCorrect()"
+  >
+    Close
+  </button>
+  <button cpDrawerActions cpButton type="button" [disabled]="busy() === 'correct'" (click)="save()">
+    {{ busy() === 'correct' ? 'Saving…' : 'Save the text' }}
+  </button>
+</cp-drawer>

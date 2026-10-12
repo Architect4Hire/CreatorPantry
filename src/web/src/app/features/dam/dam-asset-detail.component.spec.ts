@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -117,17 +118,18 @@ describe('DamAssetDetailComponent', () => {
   }
 
   function hasButton(label: string): boolean {
-    return Array.from(root().querySelectorAll('button')).some((each) => each.textContent?.trim().startsWith(label));
+    return everywhere<HTMLButtonElement>('button').some((each) => each.textContent?.trim().startsWith(label));
   }
 
   function typeInto(id: string, value: string): void {
-    const control = root().querySelector(`[id="${id}"]`) as HTMLInputElement;
+    // In the drawer while one is open: its fields sit in <body>, outside the routed page.
+    const control = (drawerPanel() ?? root()).querySelector(`[id="${id}"]`) as HTMLInputElement;
     control.value = value;
     control.dispatchEvent(new Event('input'));
   }
 
   function chooseFile(file: File): void {
-    const input = root().querySelector('input[type="file"]') as HTMLInputElement;
+    const input = (drawerPanel() ?? root()).querySelector('input[type="file"]') as HTMLInputElement;
     const transfer = new DataTransfer();
     transfer.items.add(file);
     input.files = transfer.files;
@@ -136,6 +138,20 @@ describe('DamAssetDetailComponent', () => {
 
   function root(): HTMLElement {
     return harness.routeNativeElement as HTMLElement;
+  }
+
+  /**
+   * This page's own open drawer, wherever it sits. A drawer moves itself to `<body>`, but it is still this
+   * fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function drawerPanel(): HTMLElement | null {
+    return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  /** Everything matching in the page and in its open drawer. */
+  function everywhere<T extends Element>(selector: string): T[] {
+    return [...Array.from(root().querySelectorAll<T>(selector)), ...Array.from(drawerPanel()?.querySelectorAll<T>(selector) ?? [])];
   }
 
   function text(): string {
@@ -155,7 +171,8 @@ describe('DamAssetDetailComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label));
+    // The page and its open drawer, so a button in either is found.
+    const match = everywhere<HTMLButtonElement>('button').find((each) => each.textContent?.includes(label));
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -310,7 +327,7 @@ describe('DamAssetDetailComponent', () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
-    const head = root().querySelector('.page-head') as HTMLElement;
+    const head = root().querySelector('cp-page-head') as HTMLElement;
     expect(head.querySelector('h1')?.textContent).toBe('Soda bread hero');
     expect(head.textContent).toContain('AI generated');
     expect(head.textContent).toContain('Instagram');
@@ -579,7 +596,7 @@ describe('DamAssetDetailComponent', () => {
       'a1',
       { platformKey: 'newsletter', utilizedOn: '2026-10-04', campaignName: null, notes: null },
     ]);
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(drawerPanel()).toBeNull();
     expect(root().querySelector('.outcome')?.textContent).toContain('Use logged for Oct 4, 2026.');
     // The history is read again from the top, and so is the asset; the picture is not.
     expect(usageSpy.calls.allArgs()).toEqual([
@@ -605,7 +622,7 @@ describe('DamAssetDetailComponent', () => {
     button('Log this use').click();
     await settle();
 
-    const dialog = root().querySelector('[role="dialog"]') as HTMLElement;
+    const dialog = drawerPanel() as HTMLElement;
     expect(dialog.textContent).toContain("no longer in the library, so a use can't be logged");
     // The sentence is left standing until the creator closes it, and nothing more can be logged from it.
     expect(button('Log this use').disabled).toBeTrue();
@@ -871,7 +888,7 @@ describe('DamAssetDetailComponent', () => {
     const opener = button('Edit details');
     opener.click();
     await settle();
-    expect(root().querySelector('[role="dialog"]')?.textContent).toContain('Edit details');
+    expect(drawerPanel()?.textContent).toContain('Edit details');
 
     typeInto('cp-dam-edit-title', 'A better title');
     await settle();
@@ -883,7 +900,7 @@ describe('DamAssetDetailComponent', () => {
       'a1',
       { expectedConcurrencyToken: 'token-1', title: 'A better title' },
     ]);
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(drawerPanel()).toBeNull();
     expect(root().querySelector('h1')?.textContent).toBe('A better title');
     expect(root().querySelector('.outcome')?.textContent).toContain('Your changes were saved.');
     // In place: the asset was read once, and the picture and history were not fetched again.
@@ -939,8 +956,8 @@ describe('DamAssetDetailComponent', () => {
 
     button('Add a version').click();
     await settle();
-    expect(root().querySelector('[role="dialog"]')?.textContent).toContain('Nothing already here is overwritten');
-    expect(root().querySelector('[role="dialog"]')?.textContent).toContain('becomes version 3');
+    expect(drawerPanel()?.textContent).toContain('Nothing already here is overwritten');
+    expect(drawerPanel()?.textContent).toContain('becomes version 3');
 
     const file = new File(['bytes'], 'new.png', { type: 'image/png' });
     chooseFile(file);
@@ -949,7 +966,7 @@ describe('DamAssetDetailComponent', () => {
     await settle();
 
     expect(addVersionSpy.calls.mostRecent().args.slice(0, 3)).toEqual([SLUG, 'a1', file]);
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(drawerPanel()).toBeNull();
     expect(root().querySelector('.outcome')?.textContent).toContain('Version 3 was added. Earlier versions are unchanged.');
 
     const rows = Array.from(section('dam-versions-heading').querySelectorAll('tbody tr'));
@@ -973,12 +990,12 @@ describe('DamAssetDetailComponent', () => {
     button('Add as version 3').click();
     await settle();
 
-    (Array.from(root().querySelectorAll('cp-uploader button')).find((each) => each.textContent?.includes('Cancel')) as HTMLButtonElement).click();
+    (everywhere<HTMLButtonElement>('cp-uploader button').find((each) => each.textContent?.includes('Cancel')) as HTMLButtonElement).click();
     await settle();
 
     expect(pending.observed).toBeFalse();
     expect(detailSpy).toHaveBeenCalledTimes(2);
-    expect(root().querySelector('[role="dialog"]')?.textContent).toContain('cancelled');
+    expect(drawerPanel()?.textContent).toContain('cancelled');
   });
 
   // ---- Leaving with work in progress ----
@@ -1071,14 +1088,14 @@ describe('DamAssetDetailComponent', () => {
     await harness.navigateByUrl(`/${OTHER_SLUG}/dam/a1`);
     await settle();
 
-    expect(root().querySelector('[role="dialog"]')).toBeNull();
+    expect(drawerPanel()).toBeNull();
     expect(text()).not.toContain('Typed in workspace A');
     expect(root().querySelector('h1')?.textContent).toBe('Workspace B picture');
 
     patchSpy.and.resolveTo({ status: 'updated', asset: asset({ title: 'B edited', concurrencyToken: 'token-b2' }) });
     button('Edit details').click();
     await settle();
-    expect((root().querySelector('[id="cp-dam-edit-title"]') as HTMLInputElement).value).toBe('Workspace B picture');
+    expect(((drawerPanel() ?? root()).querySelector('[id="cp-dam-edit-title"]') as HTMLInputElement).value).toBe('Workspace B picture');
 
     typeInto('cp-dam-edit-title', 'B edited');
     await settle();

@@ -1,14 +1,9 @@
-<!--
-  No heading of its own. The shell renders the page's `h1` from this route's `data.title` ("AI Recipe Studio"),
-  and a second heading repeating it word for word gave the page two names — the recipe library's pattern, which
-  lets the shell own the title, is the one followed here.
--->
-<div class="studio">
-  <p class="studio-intro">
-    Describe what you're after and get a handful of distinct recipe pitches back. Nothing here writes a
-    recipe — choosing one is the start of a draft, not the recipe itself.
-  </p>
+<cp-page-head
+  [heading]="pageTitle"
+  lede="Describe what you're after and get a handful of distinct recipe pitches back. Nothing here writes a recipe — choosing one is the start of a draft, not the recipe itself."
+/>
 
+<div class="studio">
   <!-- Opened for a piece of work (AF.7.4): say which, so the creator knows what the ideas are for, and say
        when its themed day has standing notes that will shape them. -->
   @switch (work().status) {
@@ -330,7 +325,7 @@
         />
       </div>
 
-      <ul class="concept-list" role="list">
+      <ul cpCardGrid minColumn="18rem" class="concept-list">
         @for (concept of conceptCards(); track concept.targetId) {
           <li>
             <cp-card>
@@ -408,14 +403,13 @@
          advisory surface puts "About this request", because it is the same kind of note â about the answer as
          a whole rather than about any one item. -->
     @if (state() === 'proposed' && generalWarnings().length > 0) {
-      <section class="warnings" aria-labelledby="cp-concept-warnings-heading">
-        <h3 id="cp-concept-warnings-heading" class="warnings-title">What the model flagged</h3>
+      <cp-topic-card class="warnings" heading="What the model flagged" headingId="cp-concept-warnings-heading" [headingLevel]="3">
         <ul class="warnings-list" role="list">
           @for (warning of generalWarnings(); track $index) {
             <li class="warning" [attr.data-kind]="warning.kind">{{ warning.message }}</li>
           }
         </ul>
-      </section>
+      </cp-topic-card>
     }
 
     @if (selectedConcept(); as chosen) {
@@ -423,8 +417,7 @@
         The one next step for a chosen concept, directly under the list it was chosen from. A named region, so
         it can be found again; the sentence is a status, so choosing is announced without moving focus.
       -->
-      <section class="studio-selection" aria-labelledby="studio-selection-heading">
-        <h3 class="studio-selection-heading" id="studio-selection-heading">Your chosen concept</h3>
+      <cp-topic-card class="studio-selection" heading="Your chosen concept" headingId="studio-selection-heading" [headingLevel]="3">
         <p class="studio-selection-text" role="status">
           You've chosen “{{ chosen.title }}.” Draft it as a recipe to review, edit and save.
         </p>
@@ -473,7 +466,7 @@
             [disabled]="drafting()"
           />
         }
-      </section>
+      </cp-topic-card>
     }
 
     @if (state() === 'proposed' && conceptCards().length > 0) {

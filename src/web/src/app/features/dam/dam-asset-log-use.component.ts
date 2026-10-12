@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import {
   CpButtonComponent,
-  CpDialogComponent,
+  CpDrawerComponent,
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
@@ -45,7 +45,7 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
 /**
  * Recording that one library asset was used: where, and on which day (DAM-UI-004).
  *
- * `CpDialogComponent` rather than `ConfirmService`: this hosts a form with its own fields and validation.
+ * `CpDrawerComponent` rather than `ConfirmService`: this hosts a form with its own fields and validation.
  *
  * **The date is a calendar date and is sent as one.** It defaults to today in the creator's own calendar, and
  * may be any earlier day — recording where a photograph went out last year is a creator entering their own
@@ -63,15 +63,13 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
 @Component({
   selector: 'cp-dam-asset-log-use',
   standalone: true,
-  imports: [CpButtonComponent, CpDialogComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [CpButtonComponent, CpDrawerComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
   template: `
-    <cp-dialog
+    <cp-drawer
       [open]="open()"
-      title="Log a use"
+      heading="Log a use"
       description="Record where this picture was used, and on which day."
-      titleId="cp-dam-use-title"
-      (closed)="cancel()"
-      (keydown.escape)="cancel()"
+      (closeRequested)="cancel()"
     >
       @if (draft(); as form) {
         <form class="form" novalidate (submit)="onSubmit($event)">
@@ -145,13 +143,13 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
         </form>
       }
 
-      <div cpDialogActions>
-        <button cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">Cancel</button>
-        <button cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
-          {{ saving() ? 'Logging…' : 'Log this use' }}
-        </button>
-      </div>
-    </cp-dialog>
+      <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">
+        Cancel
+      </button>
+      <button cpDrawerActions cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
+        {{ saving() ? 'Logging…' : 'Log this use' }}
+      </button>
+    </cp-drawer>
   `,
   styles: [
     `
@@ -341,7 +339,8 @@ export class DamAssetLogUseComponent {
   private focusField(field: DamUseField): void {
     // After the render that shows the error, so the control is described by it when focus arrives.
     setTimeout(() => {
-      this.host.nativeElement.querySelector<HTMLElement>(`[id="${FIELD_IDS[field]}"]`)?.focus();
+      // From the document, not this element: an open drawer moves its content to <body>.
+      this.host.nativeElement.ownerDocument.getElementById(FIELD_IDS[field])?.focus();
     });
   }
 }
