@@ -114,6 +114,11 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<ILongFormDocumentBusiness, LongFormDocumentBusiness>();
         services.AddScoped<ILongFormDocumentFacade, LongFormDocumentFacade>();
         services.AddScoped<IValidator<AcceptLongFormDocumentViewModel>, AcceptLongFormDocumentViewModelValidator>();
+
+        // The export of an accepted draft (LF.5.1). A read: it names its recipes through the recipes facade.
+        services.AddScoped<ILongFormExportRecipeReader, LongFormExportRecipeReader>();
+        services.AddScoped<ILongFormExportBusiness, LongFormExportBusiness>();
+        services.AddScoped<ILongFormExportFacade, LongFormExportFacade>();
         services.AddScoped<IValidator<PatchLongFormPlanViewModel>, PatchLongFormPlanViewModelValidator>();
         services.AddScoped<IValidator<ApproveLongFormPlanViewModel>, ApproveLongFormPlanViewModelValidator>();
         services.AddScoped<IValidator<LongFormDraftListViewModel>, LongFormDraftListViewModelValidator>();

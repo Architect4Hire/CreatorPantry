@@ -1,0 +1,106 @@
+<cp-form-section
+  heading="SEO suggestions"
+  intro="A title, a slug, a description, key phrases and ideas for linking to your recipes, written from this piece as you accepted it. They are suggestions to copy from. Nothing is added to the piece, and none of it is search data."
+  [sectionId]="sectionId()"
+>
+  <p class="cp-sr-only" role="status" aria-live="polite" data-testid="seo-status">{{ announcement() }}</p>
+
+  @if (state(); as current) {
+    @if (current.kind === 'problem') {
+      <cp-notice tone="error" role="alert" data-testid="seo-problem">{{ current.message }}</cp-notice>
+    }
+
+    @if (current.kind === 'asking' || current.kind === 'waiting') {
+      <p class="cp-muted" data-testid="seo-waiting">Writing suggestions. This card updates when they arrive.</p>
+    }
+  }
+
+  @if (seo(); as found) {
+    <p class="marks">
+      <cp-badge tone="purple">Written for you</cp-badge>
+      <span class="cp-muted">Read each one before you use it.</span>
+    </p>
+
+    @if (nothing()) {
+      <cp-notice role="note" data-testid="seo-empty">
+        Nothing could be suggested from this piece as it reads.
+      </cp-notice>
+    }
+
+    @for (caution of found.warnings; track caution) {
+      <cp-notice tone="warning" role="note">{{ caution }}</cp-notice>
+    }
+
+    <dl cpFacts data-testid="seo-facts">
+      @if (found.seoTitle; as title) {
+        <div cpFact label="Title">
+          {{ title.text }}
+          @for (caution of title.warnings; track caution) {
+            <cp-notice tone="warning" role="note">{{ caution }}</cp-notice>
+          }
+        </div>
+      }
+
+      @if (found.slug; as slug) {
+        <div cpFact label="Slug">
+          {{ slug.text }}
+          @for (caution of slug.warnings; track caution) {
+            <cp-notice role="note">{{ caution }}</cp-notice>
+          }
+        </div>
+      }
+
+      @if (found.metaDescription; as meta) {
+        <div cpFact label="Description">
+          {{ meta.text }}
+          @for (caution of meta.warnings; track caution) {
+            <cp-notice tone="warning" role="note">{{ caution }}</cp-notice>
+          }
+        </div>
+      }
+
+      @if (found.keyPhrases.length > 0) {
+        <div cpFact label="Key phrases">
+          <ul class="suggestions">
+            @for (phrase of found.keyPhrases; track $index) {
+              <li>{{ phrase.text }}</li>
+            }
+          </ul>
+          @for (caution of cautionsOf(found.keyPhrases); track caution) {
+            <cp-notice role="note">{{ caution }}</cp-notice>
+          }
+        </div>
+      }
+
+      @if (found.internalLinks.length > 0) {
+        <div cpFact label="Ideas for links to your recipes">
+          <ul class="suggestions">
+            @for (idea of found.internalLinks; track $index) {
+              <li>
+                <strong>{{ idea.text }}</strong>
+                @if (idea.reason) {
+                  <span class="cp-muted"> — {{ idea.reason }}</span>
+                }
+              </li>
+            }
+          </ul>
+          @for (caution of cautionsOf(found.internalLinks); track caution) {
+            <cp-notice role="note">{{ caution }}</cp-notice>
+          }
+        </div>
+      }
+    </dl>
+  }
+
+  <div class="cp-actions">
+    <button
+      cpButton
+      type="button"
+      variant="secondary"
+      [attr.aria-disabled]="busy() ? 'true' : null"
+      (click)="ask()"
+    >
+      {{ busy() ? 'Writing suggestions…' : seo() ? 'Suggest again' : 'Suggest SEO details' }}
+    </button>
+  </div>
+</cp-form-section>

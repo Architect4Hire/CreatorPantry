@@ -38,6 +38,21 @@
           <cp-notice role="note">This piece cannot be changed at the moment.</cp-notice>
         }
 
+        @if (needsReview()) {
+          <cp-notice tone="warning" role="status" data-testid="needs-review">
+            Something this piece was written from has changed since you accepted it. A download is the piece as
+            you accepted it.
+          </cp-notice>
+        }
+
+        @if (downloads().length > 0) {
+          <div class="cp-actions" data-testid="downloads">
+            @for (download of downloads(); track download.href) {
+              <a cpButton variant="secondary" [href]="download.href" download>{{ download.label }}</a>
+            }
+          </div>
+        }
+
         @if (behind()) {
           <cp-notice tone="warning" role="status">
             This is the last reading of your piece we could get, so it may be behind what has been saved.
@@ -418,6 +433,18 @@
             }
           </div>
         </cp-form-section>
+      }
+
+      <!-- Only about the article of record, and only while it is current: a package is written about words
+           the creator has cleared (LF.5.3). -->
+      @if (seoRevision(); as revision) {
+        <cp-long-form-seo-suggestions
+          [workspaceSlug]="workspaceSlug()"
+          [draftId]="draftId()"
+          [revisionNumber]="revision"
+          [sectionId]="idPrefix() + '-seo'"
+          (blocked)="refusal.set($event)"
+        />
       }
     }
   }

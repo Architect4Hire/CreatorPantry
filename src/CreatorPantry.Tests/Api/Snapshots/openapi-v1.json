@@ -11903,6 +11903,461 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/exports/markdown": {
+      "get": {
+        "tags": [
+          "LongFormExports"
+        ],
+        "summary": "Renders an accepted long-form draft as a Markdown file.",
+        "description": "Read-only (LFC-007): a projection of the revision the creator accepted, never a stored document, and\nthe same accepted revision always gives the same bytes. There is nothing to choose and so no query\nparameter: the document is the accepted revision\u0027s \u2014 a title when the piece has one, an issue\u0027s note,\nthe written sections in plan order under the creator\u0027s own headings, and an attribution naming the\nrevision and the recipe versions it was written from. The title, headings and recipe titles are each\nescaped to one inert line; a section\u0027s text is the creator\u0027s own Markdown and is written as it stands.\n\nThe body is the Markdown and nothing else, with \u0060Content-Type: text/markdown; charset=utf-8\u0060, offered\nas a download: \u0060Content-Disposition: attachment\u0060 with a deterministic ASCII name \u2014 the title as a slug\n(or \u0060article\u0060 / \u0060newsletter\u0060 when there is none) plus \u0060-r{revision}.md\u0060 \u2014 that carries no id, workspace\nor path.\n\nOnly an accepted draft is exported, and there is no override: any other answers\n\u0060409 content.long_form.export.not_accepted.conflict\u0060. A draft accepted and since marked for review is\nstill its creator\u0027s accepted article and is exported as it was accepted, with\n\u0060content.long_form.export.sources_moved\u0060 in \u0060Cp-Export-Warnings\u0060 \u2014 a comma-separated list of stable\ncodes, absent when there is nothing to report, which may also carry\n\u0060content.long_form.export.sections_unwritten\u0060 and \u0060content.long_form.export.recipe_unavailable\u0060. An\naccepted revision with no written section answers\n\u0060422 content.long_form.export.nothing_written.unprocessable\u0060.\n\nThe response is private and must be revalidated: \u0060ETag\u0060 and \u0060If-None-Match\u0060 are supported and a match\nanswers 304. A refusal is never stored.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to export. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown draft and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/exports/html": {
+      "get": {
+        "tags": [
+          "LongFormExports"
+        ],
+        "summary": "Renders an accepted long-form draft as an HTML file.",
+        "description": "The same document as the Markdown export, with the same rules for what is exported, the same warnings\nand the same refusals, as one complete unstyled HTML page. Every creator string is escaped; HTML a\ncreator typed into their Markdown is written as its text and never as markup; a link is kept only when\nit is \u0060http\u0060, \u0060https\u0060 or \u0060mailto\u0060, and a picture only when it is \u0060http\u0060 or \u0060https\u0060. Nothing is fetched\nand no bytes are embedded.\n\nThe body is the page and nothing else, with \u0060Content-Type: text/html; charset=utf-8\u0060, and is always a\ndownload, never shown in place: \u0060Content-Disposition: attachment\u0060 with the same name as the Markdown\nexport ending \u0060.html\u0060. Like every response from this API it carries the edge\u0027s\n\u0060Content-Security-Policy: default-src \u0027none\u0027; \u2026\u0060, so a browser that renders it from this origin\nregardless runs, loads and submits nothing.\n\nThe response is private and must be revalidated: \u0060ETag\u0060 and \u0060If-None-Match\u0060 are supported and a match\nanswers 304. A refusal is never stored.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to export. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown draft and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/seo-package-requests": {
+      "post": {
+        "tags": [
+          "LongFormSeoPackageRequests"
+        ],
+        "summary": "Asks for an SEO package written about an accepted long-form draft.",
+        "description": "Queued, not run: \u0060202\u0060 with the request to follow. The package is written against the article\u0027s own\ntext \u2014 its title, an issue\u0027s note and the written sections \u2014 and is a set of recommendations for the\ncreator to read and use as they see fit. Nothing is applied to the piece, and nothing is published.\n\n\u0060sections\u0060 names any of \u0060seoTitle\u0060, \u0060metaDescription\u0060, \u0060keyPhrases\u0060, \u0060slug\u0060 and \u0060internalLinks\u0060; omitted\nor empty means all five. There is no \u0060altText\u0060 for an article \u2014 it carries no image the package has\nbeen given a fact about \u2014 and naming it, an unknown section, the same section twice or the slug alone\nanswers \u0060400 ai.seoPackage.invalid_request\u0060. The slug is derived from the proposed title by rule, never\nwritten by a model. An internal-link idea names one of the workspace\u0027s approved recipes.\n\nOnly an accepted piece is written about: any other, including one accepted and since marked for review,\nanswers \u0060409 ai.seoPackage.longFormDraft.not_accepted.conflict\u0060. \u0060revisionNumber\u0060 must be the accepted\nrevision; another answers \u0060400 ai.seoPackageLongFormRevision.invalid_request\u0060. An unknown draft answers\n\u0060404 ai.seoPackage.longFormDraft.not_found\u0060. A deployment with the task switched off answers\n\u0060400 ai.seoPackage.not_enabled\u0060, and an account that cannot pay for it is refused before anything is\nqueued.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to write about. Another workspace\u0027s is simply not there.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required: a retried request returns the first answer and spends nothing more.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSeoPackage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSeoPackage"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSeoPackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/seo-package-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "LongFormSeoPackageRequests"
+        ],
+        "summary": "Reads one SEO package request for a long-form draft, with its package once there is one.",
+        "description": "Every member including a Viewer. One \u0060404 ai.seoPackageRequest.not_found\u0060 for a request that does not\nexist, is another workspace\u0027s, is about another draft or a recipe, or ran a different task.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft the request was made for.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The request, as the \u0060202\u0060 named it.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -32330,6 +32785,28 @@
           }
         }
       },
+      "RequestLongFormSeoPackage": {
+        "type": "object",
+        "properties": {
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sections": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "RequestPasswordReset": {
         "type": "object",
         "properties": {
@@ -35364,6 +35841,12 @@
     },
     {
       "name": "LongFormDrafts"
+    },
+    {
+      "name": "LongFormExports"
+    },
+    {
+      "name": "LongFormSeoPackageRequests"
     },
     {
       "name": "Me"

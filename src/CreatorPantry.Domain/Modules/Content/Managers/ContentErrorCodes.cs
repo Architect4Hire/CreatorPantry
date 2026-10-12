@@ -267,4 +267,15 @@ public static class ContentErrorCodes
 
     /// <summary>A subject line or note is not one that could be kept: its shape or its length.</summary>
     public const string LongFormFramingInvalid = "content.long_form.framing.invalid";
+
+    /// <summary>An export was asked for in a format there is none of (LF.5.1).</summary>
+    public const string LongFormExportInvalid = "content.long_form.export.invalid";
+
+    /// <summary>
+    /// An export was asked for of a draft whose creator has not accepted it. Only the article of record leaves.
+    /// </summary>
+    public const string LongFormExportNotAccepted = "content.long_form.export.not_accepted.conflict";
+
+    /// <summary>The accepted revision has no written section, so there is no document to export.</summary>
+    public const string LongFormExportNothingWritten = "content.long_form.export.nothing_written.unprocessable";
 }

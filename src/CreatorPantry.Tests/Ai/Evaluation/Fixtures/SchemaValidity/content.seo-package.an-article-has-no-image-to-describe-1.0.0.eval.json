@@ -1,0 +1,19 @@
+{
+  "id": "content.seo-package.an-article-has-no-image-to-describe",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "LF.5.3: an article is offered no alt text, because it carries no image the package was given a fact about. An answer that writes one is rejected, never kept.",
+  "input": {
+    "subject": "article",
+    "candidates": [
+      "bbbbbbbb-0000-0000-0000-000000000001"
+    ],
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Soda Bread for Days With No Time\"},\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Soda bread\",\"basis\":\"RecipeTitle\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.editorial_section_not_requested"
+  }
+}

@@ -93,6 +93,19 @@ describe('LongFormDocumentService', () => {
 
   afterEach(() => http.verify());
 
+  // ---- downloading -------------------------------------------------------------------------------------
+
+  it('builds each download link from the gateway’s own export route and fetches nothing', () => {
+    expect(service.exportUrl('cozy fall', 'd/1', 'markdown')).toBe(
+      'https://gateway.example/api/v1/workspaces/cozy%20fall/long-form-drafts/d%2F1/exports/markdown',
+    );
+    expect(service.exportUrl('cozy-fall', 'd1', 'html')).toBe(
+      'https://gateway.example/api/v1/workspaces/cozy-fall/long-form-drafts/d1/exports/html',
+    );
+
+    // afterEach verifies that no request was made.
+  });
+
   // ---- reading -----------------------------------------------------------------------------------------
 
   it('reads the document with its warnings and requests', async () => {

@@ -33,6 +33,12 @@ public interface ILongFormDraftDataLayer
 
     Task<LongFormRevision?> FindRevisionAsync(Guid draftId, int revisionNumber, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="ILongFormDraftRepository.FindRevisionByIdAsync"/>
+    Task<LongFormRevision?> FindRevisionByIdAsync(Guid draftId, Guid revisionId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="ILongFormDraftRepository.FindContextWorkingTitleAsync"/>
+    Task<string?> FindContextWorkingTitleAsync(Guid contextId, CancellationToken cancellationToken);
+
     Task<bool> HasRevisionForProposalAsync(Guid draftId, Guid aiProposalId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<LongFormRevisionRecipePin>> ListPinsAsync(Guid revisionId, CancellationToken cancellationToken);
@@ -77,6 +83,12 @@ internal sealed class LongFormDraftDataLayer(
 
     public Task<LongFormRevision?> FindRevisionAsync(Guid draftId, int revisionNumber, CancellationToken cancellationToken) =>
         drafts.FindRevisionAsync(draftId, revisionNumber, cancellationToken);
+
+    public Task<LongFormRevision?> FindRevisionByIdAsync(Guid draftId, Guid revisionId, CancellationToken cancellationToken) =>
+        drafts.FindRevisionByIdAsync(draftId, revisionId, cancellationToken);
+
+    public Task<string?> FindContextWorkingTitleAsync(Guid contextId, CancellationToken cancellationToken) =>
+        drafts.FindContextWorkingTitleAsync(contextId, cancellationToken);
 
     public Task<bool> HasRevisionForProposalAsync(Guid draftId, Guid aiProposalId, CancellationToken cancellationToken) =>
         drafts.HasRevisionForProposalAsync(draftId, aiProposalId, cancellationToken);

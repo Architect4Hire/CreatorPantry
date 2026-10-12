@@ -22,6 +22,11 @@
          No blob SDK type may appear in an interface, a ServiceModel or a module (external.md). -->
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <!-- Named only by Modules/Content/Managers/LongFormHtmlRenderer: a creator's Markdown read as CommonMark
+         for the long-form HTML export (LF.5.1), with raw HTML switched off. Pinned, because an upgrade can move
+         the export's bytes; the golden files under Tests/Content/Golden/LongFormExport say when one has. No
+         Markdig type may appear in an interface, a ServiceModel or another module. -->
+    <PackageReference Include="Markdig" Version="1.4.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

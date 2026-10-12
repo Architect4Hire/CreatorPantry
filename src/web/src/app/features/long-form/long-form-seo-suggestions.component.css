@@ -1,0 +1,21 @@
+:host {
+  display: block;
+}
+
+/* The badge that says these were written for the creator, and the sentence beside it. */
+.marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+/* Several suggestions of one kind: key phrases, link ideas. A plain list, one to a line. */
+.suggestions {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

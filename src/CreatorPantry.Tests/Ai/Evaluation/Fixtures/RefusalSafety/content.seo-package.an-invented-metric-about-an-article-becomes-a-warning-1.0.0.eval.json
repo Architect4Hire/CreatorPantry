@@ -1,0 +1,23 @@
+{
+  "id": "content.seo-package.an-invented-metric-about-an-article-becomes-a-warning",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "LF.5.3: a ranking and a search-volume claim about an article have no connected source either; the package validates and each is reported.",
+  "input": {
+    "subject": "article",
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"The number one soda bread article, with high search volume among bakers who have no time to knead.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [],
+      "prose": "# The soda bread I make when there is no time\n\n## Why there is no kneading\n\nButtermilk and bicarbonate of soda do the work yeast would. Mix until it only just holds.\n\n## From bowl to oven\n\nBake at 220C for 25 minutes, until the base sounds hollow.\n",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.unsupported_metric"
+    ]
+  }
+}

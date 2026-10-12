@@ -1,0 +1,23 @@
+{
+  "id": "content.seo-package.a-figure-the-article-does-not-state-is-reported",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "SeoPackageOutputValidation",
+  "description": "LF.5.3: an article package is held to the article's own text. The article says 25 minutes; a package that says 45 is reported.",
+  "input": {
+    "subject": "article",
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A soda bread with no kneading and no yeast that bakes in 45 minutes, for days with no time.\"}}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [],
+      "prose": "# The soda bread I make when there is no time\n\n## Why there is no kneading\n\nButtermilk and bicarbonate of soda do the work yeast would. Mix until it only just holds.\n\n## From bowl to oven\n\nBake at 220C for 25 minutes, until the base sounds hollow.\n",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

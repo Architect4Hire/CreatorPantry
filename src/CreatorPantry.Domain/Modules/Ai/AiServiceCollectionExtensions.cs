@@ -341,6 +341,7 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<IAiSeoPackageRequestBusiness, AiSeoPackageRequestBusiness>();
         services.AddScoped<IAiSeoPackageRequestFacade, AiSeoPackageRequestFacade>();
         services.AddScoped<IValidator<RequestSeoPackageViewModel>, RequestSeoPackageViewModelValidator>();
+        services.AddScoped<IValidator<RequestLongFormSeoPackageViewModel>, RequestLongFormSeoPackageViewModelValidator>();
 
         return services;
     }

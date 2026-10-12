@@ -23,6 +23,7 @@ import {
   LongFormSectionWriteOutcome,
   LongFormWritingOutcome,
 } from '../../services/long-form-document.service';
+import { LongFormSeoService } from '../../services/long-form-seo.service';
 import {
   LONG_FORM_REVIEW_POLL_MS,
   LongFormDocumentReviewComponent,
@@ -147,6 +148,13 @@ class FakeLongFormDocumentService {
   sectionRequests: [string, RequestLongFormSectionRequest, string][] = [];
   restRequests: [number, string][] = [];
   acceptances: AcceptLongFormDocumentRequest[] = [];
+
+  /** Null stands for a gateway address that is not known yet. */
+  gateway: string | null = 'https://gateway.example';
+
+  exportUrl(slug: string, draftId: string, format: string): string | null {
+    return this.gateway ? `${this.gateway}/${slug}/${draftId}/exports/${format}` : null;
+  }
 
   read(slug: string, draftId: string): Promise<LongFormDocumentOutcome> {
     this.readCalls.push([slug, draftId]);
@@ -316,6 +324,9 @@ describe('LongFormDocumentReviewComponent', () => {
     await TestBed.configureTestingModule({
       providers: [
         { provide: LongFormDocumentService, useValue: service },
+
+        // The SEO card under an accepted piece has its own spec; here it only has to be mountable.
+        { provide: LongFormSeoService, useValue: { request: () => new Promise(() => undefined), watch: () => new Promise(() => undefined) } },
         { provide: LongFormDraftService, useValue: issue },
         { provide: ConfirmService, useValue: confirmService },
       ],
@@ -1066,6 +1077,69 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(el.querySelectorAll('article button').length).toBe(0);
     expect(el.querySelector('[data-testid="accept-actions"]')).toBeNull();
     expect(el.querySelectorAll('article .body-read').length).toBe(3);
+  });
+
+  // ---- downloading (LF.5.2) ----------------------------------------------------------------------------
+
+  function downloads(): { label: string; href: string | null; download: boolean }[] {
+    return Array.from(el.querySelectorAll<HTMLAnchorElement>('[data-testid="downloads"] a')).map((link) => ({
+      label: text(link),
+      href: link.getAttribute('href'),
+      download: link.hasAttribute('download'),
+    }));
+  }
+
+  it('offers both downloads of an accepted piece as plain links to the export routes', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    await create();
+
+    expect(downloads()).toEqual([
+      { label: 'Download Markdown', href: 'https://gateway.example/cozy-fall/d-1/exports/markdown', download: true },
+      { label: 'Download HTML', href: 'https://gateway.example/cozy-fall/d-1/exports/html', download: true },
+    ]);
+    expect(el.querySelector('[data-testid="needs-review"]')).toBeNull();
+  });
+
+  // ---- SEO suggestions (LF.5.3) --------------------------------------------------------------------------
+
+  it('offers SEO suggestions for an accepted piece only, and about its accepted revision', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    await create();
+
+    expect(el.querySelector('cp-long-form-seo-suggestions')).not.toBeNull();
+    expect(button('Suggest SEO details')).not.toBeNull();
+
+    for (const status of ['Outlined', 'Writing', 'Assembled', 'NeedsReview'] as const) {
+      service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status, acceptedRevisionNumber: status === 'NeedsReview' ? 4 : null })) }];
+      await create();
+
+      expect(el.querySelector('cp-long-form-seo-suggestions')).withContext(status).toBeNull();
+    }
+  });
+
+  it('offers no download of a piece that has not been accepted', async () => {
+    for (const status of ['Outlined', 'Writing', 'Assembled'] as const) {
+      service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status })) }];
+      await create();
+
+      expect(el.querySelector('[data-testid="downloads"]')).withContext(status).toBeNull();
+    }
+  });
+
+  it('still offers the downloads once the sources have moved, and says they are the piece as accepted', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'NeedsReview', acceptedRevisionNumber: 4 })) }];
+    await create();
+
+    expect(downloads().map((link) => link.label)).toEqual(['Download Markdown', 'Download HTML']);
+    expect(el.querySelector('[data-testid="needs-review"]')?.textContent).toContain('as you accepted it');
+  });
+
+  it('offers no dead link while the gateway address is not known', async () => {
+    service.gateway = null;
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    await create();
+
+    expect(el.querySelector('[data-testid="downloads"]')).toBeNull();
   });
 
   it('says a piece cannot be changed when it is neither being written nor accepted', async () => {

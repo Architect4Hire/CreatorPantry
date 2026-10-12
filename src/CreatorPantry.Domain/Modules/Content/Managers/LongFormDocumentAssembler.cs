@@ -22,7 +22,13 @@ internal static class LongFormMarkdownEscaper
     private const string InlineSpecials = "\\`*_[]<>|~&";
 
     /// <summary>One line of text; any line breaks collapse to a single space.</summary>
-    public static string Line(string? text)
+    public static string Line(string? text) => Escape(Plain(text));
+
+    /// <summary>
+    /// The same one line before any escaping: control characters gone, line breaks and tabs a single space.
+    /// For a format that escapes in its own way, as the HTML export does (LF.5.1).
+    /// </summary>
+    public static string Plain(string? text)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -48,7 +54,7 @@ internal static class LongFormMarkdownEscaper
             .Select(line => line.Trim())
             .Where(line => line.Length > 0);
 
-        return Escape(string.Join(' ', lines));
+        return string.Join(' ', lines);
     }
 
     private static string Escape(string line)
@@ -177,7 +183,7 @@ public static class LongFormDocumentAssembler
             }
 
             markdown.Append("## ").Append(LongFormMarkdownEscaper.Line(section.Heading)).Append("\n\n");
-            markdown.Append(Body(section.Body!)).Append('\n');
+            markdown.Append(Normalise(section.Body!)).Append('\n');
         }
 
         return new LongFormAssembledDocument(
@@ -197,6 +203,6 @@ public static class LongFormDocumentAssembler
     /// Nothing inside the body is touched — not its indentation, not the spaces that end a line and make a
     /// Markdown break. Leading blank lines go too, so a heading is always exactly one blank line above its text.
     /// </remarks>
-    private static string Body(string body) =>
+    internal static string Normalise(string body) =>
         body.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Trim('\n').TrimEnd();
 }

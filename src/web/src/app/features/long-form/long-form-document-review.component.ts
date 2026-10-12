@@ -47,12 +47,14 @@ import {
 import { AiAllowanceState } from '../../services/ai-usage.service';
 import {
   LongFormDocumentService,
+  LongFormExportFormat,
   LongFormSectionWriteOutcome,
   LongFormWritingOutcome,
 } from '../../services/long-form-document.service';
 import { LongFormDraftService, LongFormPlanWriteOutcome } from '../../services/long-form-draft.service';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
+import { LongFormSeoSuggestionsComponent } from './long-form-seo-suggestions.component';
 
 type LoadState = 'loading' | 'ready' | 'not_found' | 'forbidden' | 'unavailable';
 
@@ -135,6 +137,7 @@ interface FramingDraft {
     CpFormSectionComponent,
     CpNoticeComponent,
     CpStatusPillComponent,
+    LongFormSeoSuggestionsComponent,
   ],
   templateUrl: './long-form-document-review.component.html',
   styleUrl: './long-form-document-review.component.css',
@@ -212,6 +215,32 @@ export class LongFormDocumentReviewComponent {
   });
 
   protected readonly isAccepted = computed(() => this.document()?.status === 'Accepted');
+
+  /**
+   * The piece was accepted and something it was written from has since changed. It is still the creator's
+   * accepted article, and still theirs to download as they accepted it.
+   */
+  protected readonly needsReview = computed(() => this.document()?.status === 'NeedsReview');
+
+  /**
+   * The accepted revision an SEO package may be written about (LF.5.3), or null when there is none: the piece
+   * is not accepted, or was and its sources have since moved.
+   */
+  protected readonly seoRevision = computed(() => (this.isAccepted() ? (this.document()?.acceptedRevisionNumber ?? null) : null));
+
+  /**
+   * The downloads of the accepted piece (LF.5.2): plain links the browser follows, offered only once there is
+   * an accepted article to download. Empty while the gateway's address is not known.
+   */
+  protected readonly downloads = computed<readonly { readonly label: string; readonly href: string }[]>(() => {
+    if (!this.isAccepted() && !this.needsReview()) return [];
+
+    return EXPORTS.flatMap(({ format, label }) => {
+      const href = this.service.exportUrl(this.workspaceSlug(), this.draftId(), format);
+
+      return href ? [{ label, href }] : [];
+    });
+  });
 
   protected readonly isIssue = computed(() => this.document()?.kind === 'NewsletterIssue');
 
@@ -956,6 +985,11 @@ function noticeOf(request: LongFormSectionRequestSummary | null): string {
 
   return '';
 }
+
+const EXPORTS: readonly { readonly format: LongFormExportFormat; readonly label: string }[] = [
+  { format: 'markdown', label: 'Download Markdown' },
+  { format: 'html', label: 'Download HTML' },
+];
 
 /** Whose words a section began as, when it was written from copy the creator had already accepted (B-36). */
 function attributionOf(section: LongFormDocumentSection): string {

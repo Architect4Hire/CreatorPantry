@@ -21,6 +21,15 @@ public interface ILongFormDraftRepository
     /// <summary>One revision of a draft by its number, or null when the draft has none with it.</summary>
     Task<LongFormRevision?> FindRevisionAsync(Guid draftId, int revisionNumber, CancellationToken cancellationToken);
 
+    /// <summary>One revision of a draft by its id, or null when the draft has none with it.</summary>
+    Task<LongFormRevision?> FindRevisionByIdAsync(Guid draftId, Guid revisionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The creator's working title for this workspace's creative context, or null when it has none. Another
+    /// workspace's context has none.
+    /// </summary>
+    Task<string?> FindContextWorkingTitleAsync(Guid contextId, CancellationToken cancellationToken);
+
     Task<bool> HasRevisionForProposalAsync(Guid draftId, Guid aiProposalId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<LongFormRevisionRecipePin>> ListPinsAsync(Guid revisionId, CancellationToken cancellationToken);
@@ -69,6 +78,20 @@ internal sealed class LongFormDraftRepository(CreatorPantryDbContext context) : 
             .FirstOrDefaultAsync(
                 revision => revision.LongFormDraftId == draftId && revision.RevisionNumber == revisionNumber,
                 cancellationToken);
+
+    public Task<LongFormRevision?> FindRevisionByIdAsync(Guid draftId, Guid revisionId, CancellationToken cancellationToken) =>
+        context.LongFormRevisions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                revision => revision.LongFormDraftId == draftId && revision.Id == revisionId,
+                cancellationToken);
+
+    public Task<string?> FindContextWorkingTitleAsync(Guid contextId, CancellationToken cancellationToken) =>
+        context.CreativeContexts
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == contextId)
+            .Select(candidate => candidate.WorkingTitle)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<bool> HasRevisionForProposalAsync(Guid draftId, Guid aiProposalId, CancellationToken cancellationToken) =>
         context.LongFormRevisions

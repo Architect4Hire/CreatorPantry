@@ -28,6 +28,9 @@ import { LONG_FORM_DRAFT_STALE_CODE } from '../models/long-form-draft.models';
 import { isRecord } from '../models/recipe.models';
 import { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf } from './ai-request';
 
+/** The two files an accepted piece can be downloaded as (LF.5.2). */
+export type LongFormExportFormat = 'markdown' | 'html';
+
 /** The document read whole, or the one reason it could not be. */
 export type LongFormDocumentOutcome =
   | { readonly status: 'found'; readonly review: LongFormDocumentReview }
@@ -284,6 +287,17 @@ export class LongFormDocumentService {
 
       return { status: 'unavailable' };
     }
+  }
+
+  /**
+   * The link a browser follows to download an accepted piece, or null while the gateway address is not known.
+   *
+   * Only the link is built here. The file is made by the server and fetched by the browser with the session
+   * cookie, so this never holds its bytes and never produces an address that is not the gateway's own export
+   * route. There is nothing to choose: the export is always of the accepted revision.
+   */
+  exportUrl(workspaceSlug: string, draftId: string, format: LongFormExportFormat): string | null {
+    return this.url(workspaceSlug, draftId, `/exports/${format}`);
   }
 
   private url(workspaceSlug: string, draftId: string, suffix: string): string | null {

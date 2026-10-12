@@ -14,19 +14,46 @@ public interface IAiSeoPackageRequestFacade
 
     Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(
         Guid recipeId, Guid requestId, CancellationToken cancellationToken);
+
+    /// <summary>The same package with an accepted long-form draft as its subject (LF.5.3).</summary>
+    Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestForLongFormAsync(
+        Guid draftId, RequestLongFormSeoPackageViewModel model, string? idempotencyKey, CancellationToken cancellationToken);
+
+    Task<OperationResult<AiProposalStatusServiceModel>> GetForLongFormAsync(
+        Guid draftId, Guid requestId, CancellationToken cancellationToken);
 }
 
 internal sealed class AiSeoPackageRequestFacade(
     IAiSeoPackageRequestBusiness business,
-    IValidator<RequestSeoPackageViewModel> validator) : IAiSeoPackageRequestFacade
+    IValidator<RequestSeoPackageViewModel> validator,
+    IValidator<RequestLongFormSeoPackageViewModel> longFormValidator) : IAiSeoPackageRequestFacade
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
         Guid recipeId, RequestSeoPackageViewModel model, string? idempotencyKey, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(model);
 
-        var validation = await validator.ValidateAsync(model, cancellationToken);
+        return Refusal(await validator.ValidateAsync(model, cancellationToken), idempotencyKey)
+            ?? await business.RequestAsync(recipeId, model, idempotencyKey!, cancellationToken);
+    }
 
+    public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestForLongFormAsync(
+        Guid draftId, RequestLongFormSeoPackageViewModel model, string? idempotencyKey, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        return Refusal(await longFormValidator.ValidateAsync(model, cancellationToken), idempotencyKey)
+            ?? await business.RequestForLongFormAsync(draftId, model, idempotencyKey!, cancellationToken);
+    }
+
+    public Task<OperationResult<AiProposalStatusServiceModel>> GetForLongFormAsync(
+        Guid draftId, Guid requestId, CancellationToken cancellationToken) =>
+        business.GetForLongFormAsync(draftId, requestId, cancellationToken);
+
+    /// <summary>Why a request goes no further, whichever subject it names; null when it may.</summary>
+    private static IdempotentOutcome<AiProposalStatusServiceModel>? Refusal(
+        FluentValidation.Results.ValidationResult validation, string? idempotencyKey)
+    {
         if (!validation.IsValid)
         {
             return new IdempotentOutcome<AiProposalStatusServiceModel>(
@@ -48,7 +75,7 @@ internal sealed class AiSeoPackageRequestFacade(
                 Replayed: false);
         }
 
-        return await business.RequestAsync(recipeId, model, idempotencyKey, cancellationToken);
+        return null;
     }
 
     public Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(

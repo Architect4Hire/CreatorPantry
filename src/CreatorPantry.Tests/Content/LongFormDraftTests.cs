@@ -954,6 +954,143 @@ public sealed class LongFormDraftTests(SqlServerRecipeFixture fixture) : IClassF
         }
     }
 
+    // ---- The export (LF.5.1) ----
+
+    /// <summary>
+    /// The export seam on a real database: the accepted revision is read by its id, the title is the piece of
+    /// work's, the pin is named through the recipes module's own facade, and nothing at all is written.
+    /// </summary>
+    /// <remarks>
+    /// The recipe version this fixture seeds has no stored snapshot, so the attribution names it as one that
+    /// can no longer be read. A readable version named by its title is <c>LongFormExporterTests</c>'.
+    /// </remarks>
+    [Fact]
+    public async Task An_accepted_draft_is_exported_in_both_formats_and_exporting_writes_nothing()
+    {
+        var (seeded, revision, _) = await SeedDraftWithPinAsync(WsA, "The words the creator accepted.");
+        await AcceptDirectlyAsync(WsA, seeded.Id, revision.Id);
+
+        var before = await WrittenAsync(WsA, seeded.Id);
+
+        var markdown = await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Markdown);
+        var html = await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Html);
+
+        Assert.True(markdown.Succeeded, markdown.Error?.Code);
+        Assert.True(html.Succeeded, html.Error?.Code);
+
+        Assert.Equal(
+            "# Soda bread, autumn\n\n## Start here\n\nThe words the creator accepted.\n\n---\n\n"
+            + "Exported from CreatorPantry · Blog article · Revision 1\n\nWritten from:\n\n"
+            + "- A recipe that is no longer available\n",
+            markdown.Value!.Content);
+        Assert.Equal("Soda bread, autumn", markdown.Value.Title);
+        Assert.Equal(1, markdown.Value.RevisionNumber);
+        Assert.Equal(LongFormExportCodes.RecipeUnavailable, Assert.Single(markdown.Value.Warnings).Code);
+
+        Assert.Equal(LongFormExportFormat.Html, html.Value!.Format);
+        Assert.Contains(
+            "<h1>Soda bread, autumn</h1>\n<section>\n<h2>Start here</h2>\n<p>The words the creator accepted.</p>\n</section>\n",
+            html.Value.Content,
+            StringComparison.Ordinal);
+
+        // Asked again, the same bytes.
+        Assert.Equal(markdown.Value.Content, (await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Markdown)).Value!.Content);
+
+        // No revision, no audit entry, and a draft whose row version has not moved.
+        Assert.Equal(before, await WrittenAsync(WsA, seeded.Id));
+    }
+
+    [Fact]
+    public async Task A_draft_that_has_not_been_accepted_is_not_exported_and_one_whose_sources_moved_still_is()
+    {
+        var (seeded, revision, _) = await SeedDraftWithPinAsync(WsA);
+
+        foreach (var format in Enum.GetValues<LongFormExportFormat>())
+        {
+            var refused = await ExportAsync(WsA, seeded.Id, format);
+
+            Assert.False(refused.Succeeded);
+            Assert.Equal(ContentErrorCodes.LongFormExportNotAccepted, refused.Error!.Code);
+        }
+
+        await InAsync(WsA, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == seeded.Id, Ct);
+            row.Status = LongFormDraftStatus.NeedsReview;
+            row.AcceptedRevisionId = revision.Id;
+            row.AcceptedAt = Now;
+            row.StaleSince = Now;
+            row.StaleReasons = ContentStaleReasons.RecipeChanged;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        // Still the creator's accepted article: exported as it was accepted, and said to be out of step.
+        var stale = await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Markdown);
+
+        Assert.True(stale.Succeeded, stale.Error?.Code);
+        Assert.Contains("The first draft of the opening.", stale.Value!.Content, StringComparison.Ordinal);
+        Assert.Contains(stale.Value.Warnings, warning => warning.Code == LongFormExportCodes.SourcesMoved);
+
+        var unknown = await ExportAsync(WsA, seeded.Id, (LongFormExportFormat)99);
+        Assert.Equal(ContentErrorCodes.LongFormExportInvalid, unknown.Error!.Code);
+    }
+
+    [Fact]
+    public async Task One_workspace_cannot_export_anothers_accepted_draft_and_each_export_holds_only_its_own_words()
+    {
+        var (ofA, revisionA, _) = await SeedDraftWithPinAsync(WsA, "Workspace A's accepted words.");
+        var (ofB, revisionB, _) = await SeedDraftWithPinAsync(WsB, "Workspace B's accepted words.");
+        await AcceptDirectlyAsync(WsA, ofA.Id, revisionA.Id);
+        await AcceptDirectlyAsync(WsB, ofB.Id, revisionB.Id);
+
+        foreach (var format in Enum.GetValues<LongFormExportFormat>())
+        {
+            // Another workspace's draft is not refused as unaccepted or forbidden. It is not there.
+            Assert.Equal(ContentErrorCodes.LongFormDraftNotFound, (await ExportAsync(WsB, ofA.Id, format)).Error!.Code);
+            Assert.Equal(ContentErrorCodes.LongFormDraftNotFound, (await ExportAsync(WsA, ofB.Id, format)).Error!.Code);
+
+            var a = await ExportAsync(WsA, ofA.Id, format);
+            var b = await ExportAsync(WsB, ofB.Id, format);
+
+            Assert.Contains("Workspace A's accepted words.", a.Value!.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain("Workspace B", a.Value.Content, StringComparison.Ordinal);
+            Assert.Contains("Workspace B's accepted words.", b.Value!.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain("Workspace A", b.Value.Content, StringComparison.Ordinal);
+        }
+    }
+
+    private async Task<OperationResult<LongFormExportServiceModel>> ExportAsync(
+        Guid workspaceId, Guid draftId, LongFormExportFormat format)
+    {
+        await using var scope = fixture.ScopeFor(workspaceId);
+
+        return await scope.ServiceProvider.GetRequiredService<ILongFormExportFacade>().ExportAsync(draftId, format, Ct);
+    }
+
+    /// <summary>The acceptance as a row, where the seam that grants it is not what is under test.</summary>
+    private Task AcceptDirectlyAsync(Guid workspaceId, Guid draftId, Guid revisionId) =>
+        InAsync(workspaceId, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == draftId, Ct);
+            row.Status = LongFormDraftStatus.Accepted;
+            row.AcceptedRevisionId = revisionId;
+            row.AcceptedAt = Now;
+            await db.SaveChangesAsync(Ct);
+        });
+
+    /// <summary>Everything an export could have written for one draft, as one comparable value.</summary>
+    private Task<(int Revisions, int AuditEntries, string RowVersion)> WrittenAsync(Guid workspaceId, Guid draftId) =>
+        InAsync(workspaceId, async db =>
+        {
+            var resourceId = draftId.ToString("D");
+            var row = await db.LongFormDrafts.AsNoTracking().SingleAsync(draft => draft.Id == draftId, Ct);
+
+            return (
+                await db.LongFormRevisions.CountAsync(revision => revision.LongFormDraftId == draftId, Ct),
+                await db.AuditLogs.CountAsync(entry => entry.ResourceId == resourceId, Ct),
+                Convert.ToHexString(row.RowVersion));
+        });
+
     // ---- Helpers ----
 
     private async Task InAsync(Guid workspaceId, Func<CreatorPantryDbContext, Task> work)

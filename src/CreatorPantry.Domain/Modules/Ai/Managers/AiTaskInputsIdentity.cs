@@ -38,9 +38,17 @@ internal static class AiTaskInputsIdentity
             var inputs = JsonSerializer.Deserialize<Dictionary<string, string>>(inputsJson);
 
             // Both packages name their requested sections under the same key.
-            return inputs is not null && inputs.TryGetValue(AiEditorialPackageInputs.Sections, out var sections)
-                ? sections
-                : inputsJson;
+            if (inputs is null || !inputs.TryGetValue(AiEditorialPackageInputs.Sections, out var sections))
+            {
+                return inputsJson;
+            }
+
+            // A recipe subject is named by the operation's own recipe columns. An article subject (LF.5.3) is
+            // named only here, so it is part of what was asked: the same sections for another draft, or for
+            // another revision of this one, is a different request.
+            return task is AiTaskType.SeoPackage && AiSeoPackageInputs.ReadLongFormDraftId(inputs) is { } draftId
+                ? $"{sections}|{draftId:D}|{inputs.GetValueOrDefault(AiSeoPackageInputs.LongFormRevisionNumber)}"
+                : sections;
         }
         catch (JsonException)
         {
