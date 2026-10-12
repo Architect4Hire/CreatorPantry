@@ -51,6 +51,29 @@ public static class GeneratedImageInputChecks
                     + $"{MediaPolicy.MaxVariantsPerOperation} images.");
         }
 
+        var subject = request.Subject ?? GeneratedImageSubject.None;
+
+        // A version without its recipe names nothing resolvable, the rule every other version pin obeys.
+        if (subject.RecipeVersionId is not null && subject.RecipeId is null)
+        {
+            yield return (nameof(subject.RecipeVersionId), "Name the recipe the version belongs to.");
+        }
+
+        if (subject.RecipeId == Guid.Empty)
+        {
+            yield return (nameof(subject.RecipeId), "That is not a recipe's id. Leave it out to name none.");
+        }
+
+        if (subject.RecipeVersionId == Guid.Empty)
+        {
+            yield return (nameof(subject.RecipeVersionId), "That is not a version's id. Leave it out to name none.");
+        }
+
+        if (subject.CreativeContextId == Guid.Empty)
+        {
+            yield return (nameof(subject.CreativeContextId), "That is not a piece of work's id. Leave it out to name none.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
             // Required rather than generated when absent. A key the server invented would make every

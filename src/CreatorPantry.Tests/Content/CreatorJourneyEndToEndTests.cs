@@ -270,11 +270,23 @@ public sealed class CreatorJourneyEndToEndTests : IAsyncLifetime
         await AssertNotFoundAsync(theirs.GetAsync(In(B, $"image-prompt-requests/{promptRequestId}"), Ct), "the prompt request");
 
         // 8. Generate from that prompt, naming the proposal it came from. Queued, not generated.
-        var generate = new { promptText, aiProposalId = promptProposalId, variantCount = 2 };
+        var generate = new { promptText, aiProposalId = promptProposalId, variantCount = 2, recipeId, creativeContextId = contextId };
 
         var stolenPrompt = await theirs.PostAsJsonAsync(In(B, "generated-images"), generate, Key(), Ct);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, stolenPrompt.StatusCode);
         Assert.Equal(MediaErrorCodes.GenerationProposalUnprocessable, await CodeOf(stolenPrompt));
+
+        // Each thing the run says it is for is refused on its own, too: a prompt of the neighbour's own cannot
+        // be generated for our recipe or our piece of work.
+        var forOurRecipe = await theirs.PostAsJsonAsync(
+            In(B, "generated-images"), new { promptText = "Theirs.", variantCount = 1, recipeId }, Key(), Ct);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, forOurRecipe.StatusCode);
+        Assert.Equal(MediaErrorCodes.GenerationRecipeUnprocessable, await CodeOf(forOurRecipe));
+
+        var forOurWork = await theirs.PostAsJsonAsync(
+            In(B, "generated-images"), new { promptText = "Theirs.", variantCount = 1, creativeContextId = contextId }, Key(), Ct);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, forOurWork.StatusCode);
+        Assert.Equal(MediaErrorCodes.GenerationContextUnprocessable, await CodeOf(forOurWork));
 
         var requested = await ours.PostAsJsonAsync(In(A, "generated-images"), generate, Key(), Ct);
         Assert.Equal(HttpStatusCode.Accepted, requested.StatusCode);
@@ -306,6 +318,10 @@ public sealed class CreatorJourneyEndToEndTests : IAsyncLifetime
         var run = await BodyOf(await ours.GetAsync(In(A, $"generated-images/operations/{operationId}"), Ct));
         var staged = run.GetProperty("images").EnumerateArray().Select(image => image.GetProperty("id").GetGuid()).ToList();
         Assert.Equal(2, staged.Count);
+
+        // The run says what it was for, so it can be traced to the recipe and the piece of work without the prompt.
+        Assert.Equal(recipeId, run.GetProperty("recipeId").GetGuid());
+        Assert.Equal(contextId, run.GetProperty("creativeContextId").GetGuid());
         Assert.DoesNotContain(theirStaged[0], staged);
 
         await AssertNotFoundAsync(theirs.GetAsync(In(B, $"generated-images/operations/{operationId}"), Ct), "the generation run");

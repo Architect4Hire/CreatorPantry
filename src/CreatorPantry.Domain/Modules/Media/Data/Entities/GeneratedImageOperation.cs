@@ -57,6 +57,23 @@ public sealed class GeneratedImageOperation : IWorkspaceOwned
     /// </remarks>
     public Guid? AiProposalId { get; set; }
 
+    /// <summary>
+    /// The recipe these pictures were asked for, when they were asked for one.
+    /// </summary>
+    /// <remarks>
+    /// What the run was <em>for</em>, recorded when it was requested and never changed. It grounds nothing:
+    /// the worker sends <see cref="PromptText"/> and does not read the recipe. It is here so a run can be
+    /// traced to the work that asked for it without going through a proposal that a hand-written prompt
+    /// does not have.
+    /// </remarks>
+    public Guid? RecipeId { get; set; }
+
+    /// <summary>The exact version of <see cref="RecipeId"/> the request named. Never set without it.</summary>
+    public Guid? RecipeVersionId { get; set; }
+
+    /// <summary>The piece of work these pictures were asked for, when they were asked for one.</summary>
+    public Guid? CreativeContextId { get; set; }
+
     /// <summary>How many images were asked for. Between one and four (<see cref="MediaPolicy"/>).</summary>
     public int VariantCount { get; set; }
 

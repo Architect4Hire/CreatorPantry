@@ -127,16 +127,21 @@ function text(): string {
   return (root().textContent ?? '').replace(/\s+/g, ' ');
 }
 
+/** The Content Pipeline's own links. The card beside it has its own, read by {@link quickRecipeLinks}. */
 function links(): HTMLAnchorElement[] {
-  return Array.from(root().querySelectorAll('a'));
+  return Array.from(root().querySelectorAll('article[aria-labelledby="workflow-pipeline-heading"] a'));
+}
+
+function quickRecipeLinks(): HTMLAnchorElement[] {
+  return Array.from(root().querySelectorAll('article[aria-labelledby="workflow-quick-recipe-heading"] a'));
 }
 
 describe('WorkflowsHubComponent', () => {
   describe('first use', () => {
-    it('offers the one journey that exists, in plain language, with one way in', async () => {
+    it('offers each journey that exists, in plain language, with one way in', async () => {
       await create();
 
-      expect(root().querySelectorAll('article').length).toBe(1);
+      expect(root().querySelectorAll('article').length).toBe(2);
       expect(text()).toContain('Content Pipeline');
       expect(text()).toContain('From an idea to pictures and posts, one step at a time.');
       expect(links().map((link) => link.textContent?.trim())).toEqual(['Start']);
@@ -216,6 +221,39 @@ describe('WorkflowsHubComponent', () => {
       await create({ role: 'Viewer', runs: { 'w1.m1': { contextId: 'ctx-run', draft: inProgress() } } });
 
       expect(links().length).toBe(0);
+    });
+  });
+
+  describe('Quick Recipe', () => {
+    it('is offered beside the pipeline, with one way in that reads alone in a list of links', async () => {
+      await create();
+
+      expect(text()).toContain('Name a dish and get a draft recipe and a lead picture for it, saved together.');
+      expect(quickRecipeLinks().map((link) => link.textContent?.trim())).toEqual(['Start']);
+      expect(quickRecipeLinks()[0].getAttribute('href')).toBe(`/${SLUG}/workflows/quick-recipe`);
+      expect(quickRecipeLinks()[0].getAttribute('aria-label')).toBe('Start a Quick Recipe');
+    });
+
+    it('always says Start, whatever the pipeline has in progress', async () => {
+      await create({ drafts: { 'w1.m1': inProgress() } });
+
+      expect(quickRecipeLinks().map((link) => link.textContent?.trim())).toEqual(['Start']);
+    });
+
+    it('shows a Viewer the journey without a way in', async () => {
+      await create({ role: 'Viewer' });
+
+      expect(text()).toContain('Quick Recipe');
+      expect(quickRecipeLinks()).toEqual([]);
+    });
+
+    it("points at the workspace on screen, never the one before it", async () => {
+      await create();
+
+      await harness.navigateByUrl(`/${OTHER_SLUG}/workflows`);
+      await settle();
+
+      expect(quickRecipeLinks()[0].getAttribute('href')).toBe(`/${OTHER_SLUG}/workflows/quick-recipe`);
     });
   });
 

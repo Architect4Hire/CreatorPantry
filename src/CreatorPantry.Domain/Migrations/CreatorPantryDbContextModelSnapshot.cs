@@ -4232,6 +4232,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("CreativeContextId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("FailureCategory")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -4268,6 +4271,12 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("RecipeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecipeVersionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTimeOffset>("RequestedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -4297,6 +4306,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("WorkspaceId", "AiProposalId");
 
+                    b.HasIndex("WorkspaceId", "CreativeContextId");
+
                     b.HasIndex("WorkspaceId", "IdempotencyKey")
                         .IsUnique()
                         .HasDatabaseName("UX_GeneratedImageOperations_Workspace_IdempotencyKey");
@@ -4305,9 +4316,13 @@ namespace CreatorPantry.Domain.Migrations
                         .IsDescending(false, true)
                         .HasDatabaseName("IX_GeneratedImageOperations_Workspace_RequestedAt");
 
+                    b.HasIndex("WorkspaceId", "RecipeId", "RecipeVersionId");
+
                     b.ToTable("GeneratedImageOperations", null, t =>
                         {
                             t.HasCheckConstraint("CK_GeneratedImageOperations_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_Status_Declared", "Status <> 0");
 
@@ -7233,6 +7248,24 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "AiProposalId")
                         .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.CreativeContext", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "CreativeContextId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Recipes.Data.Entities.RecipeVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "RecipeId", "RecipeVersionId")
+                        .HasPrincipalKey("WorkspaceId", "RecipeId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

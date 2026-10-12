@@ -59,12 +59,21 @@ public sealed class GeneratedImagesController(
     /// the retry arrives.
     ///
     /// **A key names one request.** The same key sent again with a different prompt, avoid list, variant
-    /// count or proposal — or by a different member — answers `422 idempotency.key_reused` and queues
-    /// nothing, rather than returning the first request's operation for something else that was asked.
+    /// count, proposal, recipe or piece of work — or by a different member — answers
+    /// `422 idempotency.key_reused` and queues nothing, rather than returning the first request's operation
+    /// for something else that was asked.
     ///
     /// `aiProposalId`, when sent, must name a prompt proposal of this workspace. One that names nothing and
     /// another workspace's both answer `422 media.generation.proposal.unprocessable` naming `aiProposalId`,
     /// in the same words.
+    ///
+    /// **A run can say what it is for.** `recipeId`, `recipeVersionId` and `creativeContextId` are each
+    /// optional and are recorded on the run and returned with it, so a run can be traced to the recipe and
+    /// the piece of work that asked for it. They ground nothing — the prompt is sent as written. Each must be
+    /// this workspace's: a recipe or version that is not answers `422 media.generation.recipe.unprocessable`
+    /// and a piece of work that is not answers `422 media.generation.context.unprocessable`, each naming its
+    /// field and each in the same words for an id nobody has and for another workspace's. A version sent
+    /// without its recipe answers `400 media.generation.invalid_request`.
     ///
     /// A missing header answers `400 idempotency.key_required`. Asking for fewer than one or more than
     /// four variants answers `400 media.generation.invalid_request`; a Viewer answers
@@ -105,7 +114,8 @@ public sealed class GeneratedImagesController(
                 model.AvoidText,
                 model.AiProposalId,
                 model.VariantCount ?? 0,
-                idempotencyKey),
+                idempotencyKey,
+                new GeneratedImageSubject(model.RecipeId, model.RecipeVersionId, model.CreativeContextId)),
             cancellationToken);
 
         return result.Succeeded
@@ -382,4 +392,16 @@ public sealed record RequestGeneratedImagesViewModel
 
     /// <summary>How many images to ask for. One to four — every one of them is a separate charge.</summary>
     public int? VariantCount { get; init; }
+
+    /// <summary>
+    /// The recipe these pictures are for, when they are for one. Recorded on the run; it grounds nothing,
+    /// because the prompt is sent as written.
+    /// </summary>
+    public Guid? RecipeId { get; init; }
+
+    /// <summary>The exact version of that recipe. Never valid without <see cref="RecipeId"/>.</summary>
+    public Guid? RecipeVersionId { get; init; }
+
+    /// <summary>The piece of work these pictures are for, when they are for one. Recorded on the run.</summary>
+    public Guid? CreativeContextId { get; init; }
 }

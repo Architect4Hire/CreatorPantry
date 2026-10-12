@@ -9126,7 +9126,7 @@
           "GeneratedImages"
         ],
         "summary": "Asks for one to four images to be generated from a prompt.",
-        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount or proposal \u2014 or by a different member \u2014 answers \u0060422 idempotency.key_reused\u0060 and queues\nnothing, rather than returning the first request\u0027s operation for something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -24013,6 +24013,27 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -24095,6 +24116,27 @@
             "items": {
               "$ref": "#/components/schemas/StagedImage"
             }
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -28859,6 +28901,30 @@
             ],
             "description": "How many images to ask for. One to four \u2014 every one of them is a separate charge.",
             "format": "int32"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The recipe these pictures are for, when they are for one. Recorded on the run; it grounds nothing,\nbecause the prompt is sent as written.",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The exact version of that recipe. Never valid without .",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The piece of work these pictures are for, when they are for one. Recorded on the run.",
+            "format": "uuid"
           }
         },
         "description": "The body of an image-generation request (IMG-003)."

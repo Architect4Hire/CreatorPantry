@@ -148,6 +148,11 @@ export class SaveToLibraryDialogComponent {
   /** The prompt that made the picture, with its lineage. Null when the surface has none to offer. */
   readonly prompt = input<DamKeepPrompt | null>(null);
   /**
+   * The piece of work the picture was made for, once it is filed. Sent with the save, so the library and the
+   * work learn of the picture together. Null for work with no context yet, and for a surface with no work.
+   */
+  readonly creativeContextId = input<string | null>(null);
+  /**
    * Alt text from a stored analysis of this picture's own pixels, or null. Nothing else may be passed here:
    * not the prompt, not a filename, not a recipe title.
    */
@@ -406,7 +411,7 @@ export class SaveToLibraryDialogComponent {
 
     const outcome = await this.assets.keepGeneratedImage(
       this.workspaceSlug(),
-      encodeDamKeep(this.generatedImageId(), draft, prompt),
+      encodeDamKeep(this.generatedImageId(), draft, prompt, this.creativeContextId()),
       this.idempotencyKey,
     );
 

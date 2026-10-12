@@ -1,4 +1,6 @@
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Data.Entities;
+using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
@@ -59,6 +61,34 @@ internal sealed class GeneratedImageOperationConfiguration
             .HasForeignKey(operation => new { operation.WorkspaceId, operation.AiProposalId })
             .HasPrincipalKey(proposal => new { proposal.WorkspaceId, proposal.Id })
             .OnDelete(DeleteBehavior.Restrict);
+
+        // What the run was for. The same pattern and for the same two reasons: paired with the workspace so
+        // one workspace's run cannot name another's recipe or piece of work, and restricted because each
+        // target already cascades from that workspace.
+        builder.HasOne<Recipe>()
+            .WithMany()
+            .HasForeignKey(operation => new { operation.WorkspaceId, operation.RecipeId })
+            .HasPrincipalKey(recipe => new { recipe.WorkspaceId, recipe.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Through the recipe as well as the workspace, so a version of some other recipe is unrepresentable.
+        builder.HasOne<RecipeVersion>()
+            .WithMany()
+            .HasForeignKey(operation => new { operation.WorkspaceId, operation.RecipeId, operation.RecipeVersionId })
+            .HasPrincipalKey(version => new { version.WorkspaceId, version.RecipeId, version.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<CreativeContext>()
+            .WithMany()
+            .HasForeignKey(operation => new { operation.WorkspaceId, operation.CreativeContextId })
+            .HasPrincipalKey(context => new { context.WorkspaceId, context.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A composite key with a null in it is not checked at all, so a version named without its recipe
+        // would be a pin on nothing. Refused here rather than left to the request's own validation.
+        builder.ToTable(table => table.HasCheckConstraint(
+            "CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe",
+            "RecipeVersionId IS NULL OR RecipeId IS NOT NULL"));
 
         // A retry returns the first answer. Image generation is the most expensive call this product makes,
         // so this index is the difference between a lost response and a second charge.

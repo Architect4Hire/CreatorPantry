@@ -64,6 +64,7 @@ const PROMPT: DamKeepPrompt = {
       [defaultTitle]="defaultTitle()"
       [defaultRecipe]="defaultRecipe()"
       [prompt]="prompt()"
+      [creativeContextId]="creativeContextId()"
       [altTextSuggestion]="suggestion()"
       (saved)="saved.push($event)"
       (progress)="progress.push($event)"
@@ -79,6 +80,7 @@ class HostComponent {
   readonly defaultTitle = signal('Soda bread hero');
   readonly defaultRecipe = signal<DamKeepRecipe | null>(null);
   readonly prompt = signal<DamKeepPrompt | null>(null);
+  readonly creativeContextId = signal<string | null>(null);
   readonly suggestion = signal<string | null>(null);
   readonly saved: DamCreatedAsset[] = [];
   readonly progress: SaveToLibraryProgress[] = [];
@@ -304,6 +306,28 @@ describe('SaveToLibraryDialogComponent', () => {
 
     expect(host.saved.map((each) => each.id)).toEqual(['a1']);
     expect(host.closes).toBe(1);
+  });
+
+  it('sends the piece of work the picture was made for, so the save names it there', async () => {
+    await create((each) => each.creativeContextId.set('ctx-a'));
+
+    type('title', 'Soda bread, overhead');
+    await settle();
+    button('Save to library').click();
+    await settle();
+
+    expect(sentBody()['creativeContextId']).toBe('ctx-a');
+  });
+
+  it('names no piece of work for work that has none yet', async () => {
+    await create(() => undefined);
+
+    type('title', 'Soda bread, overhead');
+    await settle();
+    button('Save to library').click();
+    await settle();
+
+    expect(Object.keys(sentBody())).not.toContain('creativeContextId');
   });
 
   it('offers the recipe from the context as the link, and lets it be removed or another be found', async () => {

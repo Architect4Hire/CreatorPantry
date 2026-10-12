@@ -238,7 +238,7 @@ Phase 13. Three passages still say long-form stays with master 11.4 and were lef
 prompt does not name them: decision 1 under "Decisions already made" in the AF document, and the B-27 bullet
 and B-27 open item in `ai-fluency.md`, the last two of which sit beside the new pointer.*
 
-## LF.1.2 LongFormDraft entities and migration
+## LF.1.2 LongFormDraft entities and migration - done
 
 ```text
 SCOPE: Add the workspace-owned LongFormDraft and the immutable LongFormRevision in the Content module. A
@@ -265,6 +265,23 @@ staleness columns' contract; wait for approval; implement configuration and migr
 restart aspire run so MigrationService applies it; test immutability, revision numbering, pin requirements,
 a dangling context reference, concurrency, and two-workspace isolation.
 ```
+
+*Delivered 2026-10-12 as migration `AddLongFormDrafts`, with four differences from the prompt as written.
+(1) The recipe pins are a third table, `LongFormRevisionRecipePin`, not columns: a newsletter issue pins
+several recipe versions and a brief-only piece pins none, and rows keep the foreign key and the index LF.6.1
+needs. Each pin carries the recipe ids itself and names its creative-context reference by a plain id with no
+key, which is what lets a revision outlive a reference the context drops. (2) A context may hold any number
+of drafts of a kind; the index on context and kind is not unique. (3) No transition-history table — status
+changes are audited through `AuditLog` when the endpoints arrive in LF.2.2, as `SocialPackageChannel` does.
+(4) No repository, data layer, business or facade yet: this is entities, configuration, migration and
+engine-level tests, and revision numbering is enforced by constraint with no assigner until LF.2.2. The
+`LongFormSectionRole` numbering is fixed here because stored documents depend on it; which roles a kind
+allows is still LF.1.3's.*
+
+*Owed by the LF.2.2 write seam, from the isolation audit: `LongFormRevisionRecipePin.CreativeContextReferenceId`
+and the ids inside the JSON document (`sourceReferenceId`, a section's `aiProposalId`,
+`reusedEditorialRevisionId`) have no database key, so the seam must derive or resolve each inside the
+workspace filter, never take one from the client, and answer a miss uniformly.*
 
 ## LF.1.3 Section roles and the long-form policy
 

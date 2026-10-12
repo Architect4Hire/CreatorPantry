@@ -39,7 +39,7 @@ import {
 import { CreativeContextFields, EMPTY_CREATIVE_CONTEXT_FIELDS } from '../../models/creative-context-fields.models';
 import { linkedRecipeOf } from '../../models/creative-context.models';
 import { DamCreatedAsset, DamKeepRecipe } from '../../models/dam-asset.models';
-import { avoidTextFor } from '../../models/generated-image.models';
+import { avoidTextFor, generatedImageSubjectOf } from '../../models/generated-image.models';
 import { ImageStudioDraft, emptyImageStudioDraft, isImageStudioDraftEmpty } from '../../models/image-studio.models';
 import { ImageStudioDraftOwner, ImageStudioDraftService } from '../../services/image-studio-draft.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
@@ -318,7 +318,15 @@ export class ImageStudioComponent {
       defaultTitle: working !== '' ? working : recipe?.title ?? '',
       defaultRecipe: recipe,
       references: context?.references ?? [],
+      creativeContextId: context?.id ?? null,
     };
+  });
+
+  /** What a run made here is for: this piece of work, once filed, and the recipe it names. */
+  protected readonly runSubject = computed(() => {
+    const context = this.session.context();
+
+    return generatedImageSubjectOf(context?.id ?? null, linkedRecipeOf(context));
   });
 
   protected readonly prompt = computed(() => this.draft().prompt);
@@ -704,20 +712,14 @@ export class ImageStudioComponent {
   /**
    * A picture made here is in the library: the work is made to name the asset it became (AF.4.2).
    *
-   * **The save and the naming are separate, and said separately.** The picture is in the library the moment
-   * the route answers; putting the asset on this piece of work is a second write, and one that fails leaves a
-   * saved picture that this work does not point at. The creator is told exactly that rather than left to
-   * believe either more or less than happened.
+   * **For filed work the save does both.** The request carried this piece of work, so the server named the
+   * asset on it in the transaction that stored the picture, and what is left is to read the work again. Only
+   * work that had no context when the picture was saved still needs naming here, and that one write can fail
+   * after the save has landed — which the creator is told exactly, rather than left to believe either more or
+   * less than happened.
    */
   protected async onSaved(asset: DamCreatedAsset): Promise<void> {
-    const outcome = await this.session.addReference({
-      kind: 'DamAsset',
-      // A picture this work *made*, not one it takes cues from — so the reference panel never offers it back
-      // as inspiration the creator did not choose, and replacing the cue cannot remove it (AF.4.3).
-      purpose: 'Keeper',
-      mediaAssetId: asset.id,
-      mediaAssetVersionNumber: asset.currentVersionNumber,
-    });
+    const outcome = await this.session.nameKeptPicture(asset.id, asset.currentVersionNumber);
     if (outcome === 'saved' || outcome === 'duplicate') return;
 
     this.announcement.set(

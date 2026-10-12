@@ -8,6 +8,7 @@ import {
   decodeStagedImage,
   encodeRequestGeneratedImages,
   generatedImageFailureSentence,
+  generatedImageSubjectOf,
   isGeneratedImageOperationFailed,
   isGeneratedImageOperationFinished,
   isStagedImageActionable,
@@ -271,6 +272,62 @@ describe('generated-image.models', () => {
       const body = encodeRequestGeneratedImages({ promptText: 'A tight crop.', avoidText: null, variantCount: 1 });
 
       expect(body['aiProposalId']).toBeNull();
+    });
+
+    it('says what the pictures are for when the surface knows, and leaves out what it does not', () => {
+      const request = { promptText: 'A tight crop.', avoidText: null, variantCount: 1 };
+
+      expect(
+        encodeRequestGeneratedImages({
+          ...request,
+          subject: { recipeId: 'r1', recipeVersionId: 'v2', creativeContextId: 'ctx-a' },
+        }),
+      ).toEqual(jasmine.objectContaining({ recipeId: 'r1', recipeVersionId: 'v2', creativeContextId: 'ctx-a' }));
+
+      const workOnly = encodeRequestGeneratedImages({
+        ...request,
+        subject: { recipeId: null, recipeVersionId: null, creativeContextId: 'ctx-a' },
+      });
+      expect(workOnly['creativeContextId']).toBe('ctx-a');
+      expect(Object.keys(workOnly)).not.toContain('recipeId');
+      expect(Object.keys(workOnly)).not.toContain('recipeVersionId');
+
+      expect(Object.keys(encodeRequestGeneratedImages({ ...request, subject: null })).sort()).toEqual([
+        'aiProposalId',
+        'avoidText',
+        'promptText',
+        'variantCount',
+      ]);
+    });
+
+    it('never sends a version without its recipe, which the server refuses', () => {
+      const body = encodeRequestGeneratedImages({
+        promptText: 'A tight crop.',
+        avoidText: null,
+        variantCount: 1,
+        subject: { recipeId: null, recipeVersionId: 'v2', creativeContextId: null },
+      });
+
+      expect(Object.keys(body)).not.toContain('recipeVersionId');
+    });
+  });
+
+  describe('generatedImageSubjectOf', () => {
+    it('is the work and the recipe it names', () => {
+      expect(generatedImageSubjectOf('ctx-a', { recipeId: 'r1', recipeVersionId: 'v2' })).toEqual({
+        recipeId: 'r1',
+        recipeVersionId: 'v2',
+        creativeContextId: 'ctx-a',
+      });
+      expect(generatedImageSubjectOf('ctx-a', null)).toEqual({
+        recipeId: null,
+        recipeVersionId: null,
+        creativeContextId: 'ctx-a',
+      });
+    });
+
+    it('is nothing for work that is not filed and names no recipe', () => {
+      expect(generatedImageSubjectOf(null, null)).toBeNull();
     });
   });
 

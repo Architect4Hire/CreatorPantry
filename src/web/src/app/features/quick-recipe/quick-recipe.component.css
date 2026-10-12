@@ -1,0 +1,74 @@
+:host {
+  display: block;
+}
+
+.quick,
+.progress,
+.name-form,
+.stage,
+.shot,
+.recipe {
+  display: grid;
+  gap: var(--cp-space-4);
+  /* minmax(0, …) so a long value inside the card cannot push the page sideways (DESIGN-SYSTEM.md). */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.quick {
+  gap: var(--cp-space-6);
+}
+
+.stage,
+.recipe {
+  gap: var(--cp-space-2);
+}
+
+.layout,
+.made {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 72rem) {
+  .made {
+    grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
+  }
+}
+
+.shot {
+  justify-items: start;
+}
+
+.shot cp-content-pipeline-staged-image {
+  justify-self: stretch;
+}
+
+h3,
+h4,
+h5,
+.plain,
+.lines {
+  margin: 0;
+}
+
+h3 {
+  font-family: var(--cp-font-display);
+}
+
+.lines {
+  display: grid;
+  gap: var(--cp-space-1);
+  padding-inline-start: var(--cp-space-5);
+}
+
+.notes {
+  white-space: pre-line;
+}

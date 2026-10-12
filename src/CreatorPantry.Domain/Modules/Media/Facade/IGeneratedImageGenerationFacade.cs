@@ -2,8 +2,10 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Managers;
+using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Facade;
@@ -71,6 +73,8 @@ public interface IGeneratedImageGenerationFacade
 internal sealed class GeneratedImageGenerationFacade(
     IGeneratedImageGenerationBusiness business,
     IAiProposalLookupFacade proposals,
+    IRecipeFacade recipes,
+    ICreativeContextLookupFacade contexts,
     IWorkspaceContext workspace) : IGeneratedImageGenerationFacade
 {
     public async Task<OperationResult<GeneratedImageOperationDetailServiceModel>> GetOperationAsync(
@@ -128,6 +132,37 @@ internal sealed class GeneratedImageGenerationFacade(
                 [(nameof(request.AiProposalId), "That prompt proposal is not in this workspace.")]));
         }
 
+        var subject = request.Subject ?? GeneratedImageSubject.None;
+
+        // What the run is for has to be this workspace's too, and for the same reason and in the same way:
+        // each is asked through its own module's facade under the workspace filter, so an id that names
+        // nothing and a neighbour's are one answer, and the composite keys on the operation never get to
+        // refuse it as an exception. A version is asked for through its recipe, so a version of some other
+        // recipe is that same answer.
+        if (subject.RecipeId is { } recipeId)
+        {
+            var known = subject.RecipeVersionId is { } versionId
+                ? (await recipes.GetSnapshotAsync(recipeId, versionId, cancellationToken)).Succeeded
+                : (await recipes.GetDetailAsync(recipeId, cancellationToken)).Succeeded;
+
+            if (!known)
+            {
+                return OperationResult<GeneratedImageOperationServiceModel>.Failure(OperationError.Validation(
+                    MediaErrorCodes.GenerationRecipeUnprocessable,
+                    "The images could not be requested.",
+                    [(subject.RecipeVersionId is null ? nameof(subject.RecipeId) : nameof(subject.RecipeVersionId),
+                        "That recipe is not in this workspace.")]));
+            }
+        }
+
+        if (subject.CreativeContextId is { } contextId && !await contexts.ExistsAsync(contextId, cancellationToken))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(OperationError.Validation(
+                MediaErrorCodes.GenerationContextUnprocessable,
+                "The images could not be requested.",
+                [(nameof(subject.CreativeContextId), "That piece of work is not in this workspace.")]));
+        }
+
         var result = await business.RequestAsync(
             promptText,
             avoidText,
@@ -135,6 +170,7 @@ internal sealed class GeneratedImageGenerationFacade(
             request.VariantCount,
             workspace.MembershipId,
             request.IdempotencyKey.Trim(),
+            subject,
             cancellationToken);
 
         // A key names one request. Found again with anything about the request different — the words, the
@@ -145,6 +181,9 @@ internal sealed class GeneratedImageGenerationFacade(
             && !(string.Equals(result.Operation.PromptText, promptText, StringComparison.Ordinal)
                 && string.Equals(result.Operation.AvoidText, avoidText, StringComparison.Ordinal)
                 && result.Operation.AiProposalId == request.AiProposalId
+                && result.Operation.RecipeId == subject.RecipeId
+                && result.Operation.RecipeVersionId == subject.RecipeVersionId
+                && result.Operation.CreativeContextId == subject.CreativeContextId
                 && result.Operation.VariantCount == request.VariantCount
                 && result.Operation.RequestedByMembershipId == workspace.MembershipId))
         {
@@ -171,7 +210,10 @@ internal sealed class GeneratedImageGenerationFacade(
                 result.Operation.FailureCategory,
                 result.Operation.FailureSummary,
                 result.Operation.RequestedAt,
-                result.Operation.CompletedAt));
+                result.Operation.CompletedAt,
+                result.Operation.RecipeId,
+                result.Operation.RecipeVersionId,
+                result.Operation.CreativeContextId));
     }
 
     public Task<GeneratedImageRunOutcome> ExecuteAsync(

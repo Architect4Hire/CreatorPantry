@@ -173,6 +173,32 @@ export interface RequestGeneratedImagesRequest {
   /** What to avoid, when the creator's prompt came with a list. Untrusted text, like the prompt. */
   readonly avoidText: string | null;
   readonly variantCount: number;
+  /** What the pictures are for, when the surface asking knows. Recorded on the run; it grounds nothing. */
+  readonly subject?: GeneratedImageSubject | null;
+}
+
+/**
+ * What a run of pictures is asked for: the recipe the work is about, the exact version it names, and the
+ * piece of work itself. Each is optional, and each is one the work already holds — never something typed.
+ */
+export interface GeneratedImageSubject {
+  readonly recipeId: string | null;
+  readonly recipeVersionId: string | null;
+  readonly creativeContextId: string | null;
+}
+
+/** The subject of a run for this piece of work: the work, and the recipe it names if it names one. */
+export function generatedImageSubjectOf(
+  creativeContextId: string | null,
+  recipe: { readonly recipeId: string; readonly recipeVersionId: string | null } | null,
+): GeneratedImageSubject | null {
+  if (creativeContextId === null && recipe === null) return null;
+
+  return {
+    recipeId: recipe?.recipeId ?? null,
+    recipeVersionId: recipe?.recipeVersionId ?? null,
+    creativeContextId,
+  };
 }
 
 /**
@@ -185,12 +211,22 @@ export interface RequestGeneratedImagesRequest {
  * sent is the same either way, so nothing a creator sees depends on it.
  */
 export function encodeRequestGeneratedImages(request: RequestGeneratedImagesRequest): Record<string, unknown> {
-  return {
+  const body: Record<string, unknown> = {
     promptText: request.promptText,
     avoidText: request.avoidText,
     aiProposalId: null,
     variantCount: request.variantCount,
   };
+
+  // Left out rather than sent null, and a version never without its recipe: the server refuses that pairing.
+  const subject = request.subject ?? null;
+  if (subject?.recipeId) {
+    body['recipeId'] = subject.recipeId;
+    if (subject.recipeVersionId) body['recipeVersionId'] = subject.recipeVersionId;
+  }
+  if (subject?.creativeContextId) body['creativeContextId'] = subject.creativeContextId;
+
+  return body;
 }
 
 /** `GeneratedImageInputChecks.PromptTextMaxLength`, for both the prompt and the avoid list. */

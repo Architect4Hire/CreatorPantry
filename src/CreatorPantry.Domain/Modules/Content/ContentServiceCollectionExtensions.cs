@@ -74,6 +74,8 @@ public static class ContentServiceCollectionExtensions
         // the creative-context facade needs.
         services.AddScoped<ICreativeContextKeptPictureBusiness, CreativeContextKeptPictureBusiness>();
         services.AddScoped<ICreativeContextKeptPictureFacade, CreativeContextKeptPictureFacade>();
+        services.AddScoped<ICreativeContextLookupBusiness, CreativeContextLookupBusiness>();
+        services.AddScoped<ICreativeContextLookupFacade, CreativeContextLookupFacade>();
         services.AddScoped<IValidator<ThemedDayHistoryViewModel>, ThemedDayHistoryViewModelValidator>();
 
         services.AddScoped<IPromptRecordRepository, PromptRecordRepository>();

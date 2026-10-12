@@ -514,6 +514,54 @@ describe('CreativeContextSession', () => {
       expect(settled(session.addReference(SODA))).toBe('unavailable');
       expect(server.stored(SLUG, CTX)?.references).toEqual([]);
     }));
+
+    describe('a picture just saved to the library', () => {
+      const KEPT = { kind: 'DamAsset', purpose: 'Keeper', mediaAssetId: 'asset-1', mediaAssetVersionNumber: 1 } as const;
+
+      it('reads the work again and writes nothing when the save already named it', fakeAsync(() => {
+        server.seed(SLUG, CTX);
+        load();
+        // What the keep route does for filed work: the asset is on the context before this is ever asked.
+        server.changeElsewhere(SLUG, CTX, { references: [server.reference(KEPT, 0)] });
+
+        expect(settled(session.nameKeptPicture('asset-1', 1))).toBe('saved');
+
+        expect(server.added).withContext('no second write').toEqual([]);
+        expect(session.context()?.references.map((each) => each.mediaAssetId)).toEqual(['asset-1']);
+        expect(session.context()?.concurrencyToken)
+          .withContext('and the session is on the token that write produced')
+          .toBe(server.stored(SLUG, CTX)!.concurrencyToken);
+      }));
+
+      it('names it here when the work was not filed in time for the save to', fakeAsync(() => {
+        session.begin(SLUG, filingStore());
+
+        expect(settled(session.nameKeptPicture('asset-1', 1))).toBe('saved');
+
+        expect(server.creates.length).toBe(1);
+        expect(server.added.map((each) => each.source)).toEqual([KEPT]);
+      }));
+
+      it('names it here when the work is filed but the server did not', fakeAsync(() => {
+        server.seed(SLUG, CTX);
+        load();
+
+        expect(settled(session.nameKeptPicture('asset-1', 1))).toBe('saved');
+
+        expect(server.added.map((each) => each.source)).toEqual([KEPT]);
+      }));
+
+      it('asks nothing at all for a picture the work already names', fakeAsync(() => {
+        server.seed(SLUG, CTX, { references: [server.reference(KEPT, 0)] });
+        load();
+        const reads = server.gets.length;
+
+        expect(settled(session.nameKeptPicture('asset-1', 1))).toBe('saved');
+
+        expect(server.gets.length).toBe(reads);
+        expect(server.added).toEqual([]);
+      }));
+    });
   });
 
   describe('being pointed somewhere else', () => {

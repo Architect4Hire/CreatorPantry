@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { CpNoticeComponent } from '@creator-pantry/ui';
 
 import { ContentPipelineDraft, ContentPipelineImagesState } from '../../models/content-pipeline.models';
-import { keeperReferencesOf } from '../../models/creative-context.models';
-import { avoidTextFor } from '../../models/generated-image.models';
+import { keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
+import { avoidTextFor, generatedImageSubjectOf } from '../../models/generated-image.models';
 import { CreativeContextReferenceOutcome, CreativeContextSession } from '../../services/creative-context-session';
 import { GeneratedImageRunComponent } from './generated-image-run.component';
 
@@ -42,6 +42,7 @@ const MARK_FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 's
       [promptText]="promptText()"
       [avoidText]="avoidText()"
       [variantCount]="draft().config.variantCount"
+      [subject]="subject()"
       [state]="draft().images"
       [keepers]="keepers()"
       (changed)="onImages($event)"
@@ -84,6 +85,13 @@ export class ContentPipelineImagesStepComponent {
    * is left where it is and simply not shown: this step is about the run in front of the creator, and the
    * library step is where every keeper of the work is accounted for.
    */
+  /** What a run made on this step is for: this piece of work, and the recipe it names. */
+  protected readonly subject = computed(() => {
+    const context = this.session().context();
+
+    return generatedImageSubjectOf(context?.id ?? null, linkedRecipeOf(context));
+  });
+
   protected readonly keepers = computed<readonly string[]>(() =>
     keeperReferencesOf(this.session().context())
       .map((reference) => reference.generatedImageId)

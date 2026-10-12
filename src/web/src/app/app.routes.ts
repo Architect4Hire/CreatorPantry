@@ -15,6 +15,8 @@ const SECTION_ROUTES: Routes = [
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/workflows/workflows-hub.component').then((m) => m.WorkflowsHubComponent), data: { title: 'Workflows' } },
       { path: 'content-pipeline', loadChildren: () => import('./features/content-pipeline/content-pipeline.routes').then((m) => m.CONTENT_PIPELINE_ROUTES) },
+      // One page: the run is in its query parameters, so there is no step segment and nothing to guard on leaving.
+      { path: 'quick-recipe', loadComponent: () => import('./features/quick-recipe/quick-recipe.component').then((m) => m.QuickRecipeComponent), data: { title: 'Quick Recipe' } },
     ],
   },
   { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },

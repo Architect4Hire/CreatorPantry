@@ -185,6 +185,7 @@
     [generatedImageId]="saveTargetId()"
     [defaultTitle]="library.defaultTitle"
     [defaultRecipe]="library.defaultRecipe"
+    [creativeContextId]="library.creativeContextId ?? null"
     (saved)="onSaved($event)"
     (progress)="onSaveProgress($event)"
     (imageGone)="onSaveImageGone()"
