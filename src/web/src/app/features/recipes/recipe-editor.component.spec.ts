@@ -1,6 +1,7 @@
+import { By } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ApplicationRef, Component, signal } from '@angular/core';
+import { ApplicationRef, Component, DestroyRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -234,6 +235,37 @@ async function createHarness(
   return { harness, component };
 }
 
+/** The Tools control in the page head. */
+function toolsControl(root: HTMLElement): HTMLButtonElement {
+  return root.querySelector('cp-page-head #recipe-tools-control') as HTMLButtonElement;
+}
+
+/**
+ * The tools drawer's panel, or null while it is shut. Found through the fixture rather than the document: an
+ * open drawer moves itself to `<body>`, but it is still this fixture's in Angular's tree.
+ */
+function toolsDrawer(harness: RouterTestingHarness): HTMLElement | null {
+  return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+}
+
+/** Opens the drawer and chooses a tool from its list, as a creator does. */
+function openTool(harness: RouterTestingHarness, label: string): HTMLElement {
+  if (toolsDrawer(harness) === null) {
+    toolsControl(harness.routeNativeElement!).click();
+    harness.detectChanges();
+  }
+
+  const drawer = toolsDrawer(harness)!;
+  const choice = Array.from(drawer.querySelectorAll<HTMLButtonElement>('.tool-choice')).find(
+    (button) => button.querySelector('.tool-choice-name')?.textContent?.trim() === label,
+  );
+  if (!choice) throw new Error(`no tool called "${label}" in the list`);
+  choice.click();
+  harness.detectChanges();
+
+  return drawer;
+}
+
 function tabButton(root: HTMLElement, label: string): HTMLButtonElement | undefined {
   return Array.from(root.querySelectorAll<HTMLButtonElement>('button[role="tab"]')).find((btn) => btn.textContent?.trim() === label);
 }
@@ -287,12 +319,44 @@ describe('RecipeEditorComponent', () => {
       expect(harness.routeNativeElement?.querySelector('#recipe-title')).toBeTruthy();
     });
 
+    it('has one h1, the page head’s, which says New recipe in create mode whatever is typed', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const root = harness.routeNativeElement!;
+      const heading = (): string => root.querySelector('cp-page-head h1')?.textContent?.trim() ?? '';
+
+      expect(root.querySelectorAll('h1').length).toBe(1);
+      expect(heading()).toBe('New recipe');
+
+      const title = root.querySelector('#recipe-title') as HTMLInputElement;
+      title.value = 'Weeknight Chili';
+      title.dispatchEvent(new Event('input'));
+      harness.detectChanges();
+
+      // Create mode keeps saying what the page is for; the title field is where the name is read.
+      expect(heading()).toBe('New recipe');
+      expect(root.querySelectorAll('h1').length).toBe(1);
+    });
+
+    it('keeps the way back and a single h1 when the recipe cannot be found', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'not_found' });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+      const root = harness.routeNativeElement!;
+
+      expect(root.textContent).toContain('Recipe not found');
+      expect(root.querySelectorAll('h1').length).toBe(1);
+      expect(root.querySelector('cp-page-head a[cpBackLink]')?.getAttribute('href')).toBe('/cozy-fall/recipes');
+    });
+
     /** The way back to the list is a link, so the route guard confirms an unsaved change as it does elsewhere. */
     it('links back to the recipe list of the workspace in the route', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      const back = harness.routeNativeElement?.querySelector('nav.back a') as HTMLAnchorElement;
+      const back = harness.routeNativeElement?.querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
 
       expect(back.textContent).toContain('Recipes');
       expect(back.getAttribute('href')).toBe('/cozy-fall/recipes');
@@ -307,7 +371,7 @@ describe('RecipeEditorComponent', () => {
       expect(component.canSave()).toBeTrue();
     });
 
-    it('offers seven areas at the top level, with the form itself split inside Edit', async () => {
+    it('offers six areas at the top level, with the form itself split inside Edit', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       const root = harness.routeNativeElement!;
@@ -315,7 +379,8 @@ describe('RecipeEditorComponent', () => {
       // Scoped to the outer tablist: the Edit area now contains a tablist of its own, and an unscoped query
       // would conflate the two levels.
       const areas = Array.from(root.querySelector('[role="tablist"]')!.querySelectorAll('button[role="tab"]'));
-      expect(areas.map((tab) => tab.textContent?.trim())).toEqual(['Edit', 'Tools', 'Media', 'History', 'Test kitchen', 'Readiness', 'Publish']);
+      // Tools is not an area: it is a control in the page head that opens beside the recipe.
+      expect(areas.map((tab) => tab.textContent?.trim())).toEqual(['Edit', 'Media', 'History', 'Test kitchen', 'Readiness', 'Publish']);
 
       const form = Array.from(formTablist(root).querySelectorAll('button[role="tab"]'));
       expect(form.map((tab) => tab.textContent?.trim())).toEqual(['General', 'Ingredients', 'Instructions']);
@@ -324,11 +389,24 @@ describe('RecipeEditorComponent', () => {
       expect(form.some((tab) => (tab as HTMLButtonElement).disabled)).toBeFalse();
     });
 
-    it('disables the Tools, Media, History, Test kitchen, Readiness and Publish areas (no recipe exists yet)', async () => {
+    it('locks Tools and disables the Media, History, Test kitchen, Readiness and Publish areas (no recipe exists yet)', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      const root = harness.routeNativeElement!;
 
-      expect(tabButton(harness.routeNativeElement!, 'Tools')?.disabled).toBeTrue();
+      // Locked by exactly what locked the tab: there is no saved recipe for a tool to read. aria-disabled
+      // rather than disabled, so a keyboard user can still reach it and hear why — the same sentence that
+      // explains the greyed-out areas, which still names Tools.
+      const tools = toolsControl(root);
+      expect(tools.getAttribute('aria-disabled')).toBe('true');
+      expect(tools.disabled).toBeFalse();
+      const reason = root.querySelector(`#${tools.getAttribute('aria-describedby')}`);
+      expect(reason?.textContent).toContain('Tools, Media, History, Test kitchen, Readiness and Publish open once you save this recipe.');
+
+      tools.click();
+      harness.detectChanges();
+      expect(toolsDrawer(harness)).toBeNull();
+
       expect(tabButton(harness.routeNativeElement!, 'Media')?.disabled).toBeTrue();
       expect(tabButton(harness.routeNativeElement!, 'History')?.disabled).toBeTrue();
       expect(tabButton(harness.routeNativeElement!, 'Test kitchen')?.disabled).toBeTrue();
@@ -390,7 +468,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      const links = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLAnchorElement>('.editor-header-actions a'));
+      const links = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLAnchorElement>('cp-page-head .actions a'));
       const hrefOf = (text: string) => links.find((link) => link.textContent?.trim() === text)?.getAttribute('href');
 
       expect(hrefOf('Kitchen view')).toBe('/cozy-fall/recipes/r1/kitchen');
@@ -400,7 +478,7 @@ describe('RecipeEditorComponent', () => {
     it('offers neither for a recipe that has not been saved yet', async () => {
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeServiceSpy());
 
-      expect(harness.routeNativeElement!.querySelector('.editor-header-actions a')).toBeNull();
+      expect(harness.routeNativeElement!.querySelector('cp-page-head .actions a')).toBeNull();
     });
 
     it('shows a not-found state distinctly from a generic failure', async () => {
@@ -427,12 +505,13 @@ describe('RecipeEditorComponent', () => {
       expect(harness.routeNativeElement?.querySelector('#recipe-title')).toBeTruthy();
     });
 
-    it('enables the Tools, Media, History, Test kitchen, Readiness and Publish areas once the recipe exists', async () => {
+    it('unlocks Tools and enables the Media, History, Test kitchen, Readiness and Publish areas once the recipe exists', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      expect(tabButton(harness.routeNativeElement!, 'Tools')?.disabled).toBeFalse();
+      expect(toolsControl(harness.routeNativeElement!).getAttribute('aria-disabled')).toBeNull();
+      expect(toolsControl(harness.routeNativeElement!).getAttribute('aria-describedby')).toBeNull();
       expect(tabButton(harness.routeNativeElement!, 'Media')?.disabled).toBeFalse();
       expect(tabButton(harness.routeNativeElement!, 'History')?.disabled).toBeFalse();
       expect(tabButton(harness.routeNativeElement!, 'Test kitchen')?.disabled).toBeFalse();
@@ -694,11 +773,12 @@ describe('RecipeEditorComponent', () => {
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       // The note is a label on the existing behaviour, not a way around it.
-      for (const label of ['Tools', 'Media', 'History']) {
+      for (const label of ['Media', 'History']) {
         expect(tabButton(harness.routeNativeElement!, label)?.disabled)
           .withContext(label)
           .toBeTrue();
       }
+      expect(toolsControl(harness.routeNativeElement!).getAttribute('aria-disabled')).toBe('true');
       expect(tabButton(harness.routeNativeElement!, 'Edit')?.disabled).toBeFalse();
     });
   });
@@ -814,33 +894,138 @@ describe('RecipeEditorComponent', () => {
     });
 
 
-    it('keeps each calculator lazy behind the Tools inner tabs, and History lazy behind its own area', async () => {
+    it('keeps each tool unmounted until it is chosen, and History lazy behind its own area', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+      const mounted = (selector: string): boolean => harness.fixture.debugElement.query(By.css(selector)) !== null;
+
+      // Nothing that fetches on mount has mounted just because the editor loaded.
+      expect(mounted('cp-recipe-scaling-preview')).toBeFalse();
+      expect(root.querySelector('cp-recipe-history')).toBeNull();
+
+      // Opening Tools shows the list and starts nothing: no tool is mounted until one is chosen.
+      toolsControl(root).click();
+      harness.detectChanges();
+      expect(mounted('cp-recipe-scaling-preview')).toBeFalse();
+
+      openTool(harness, 'Scale');
+      expect(mounted('cp-recipe-scaling-preview')).toBeTrue();
+      expect(mounted('cp-recipe-unit-conversion')).toBeFalse();
+      expect(mounted('cp-recipe-yield-reconciliation')).toBeFalse();
+      expect(root.querySelector('cp-recipe-history')).toBeNull();
+    });
+
+    it('opens Tools as a wide drawer over the recipe, listing the seven tools in order', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
       const root = harness.routeNativeElement!;
 
-      // Nothing that fetches on mount has mounted just because the editor loaded.
-      expect(root.querySelector('cp-recipe-scaling-preview')).toBeNull();
-      expect(root.querySelector('cp-recipe-history')).toBeNull();
-
-      tabButton(root, 'Tools')!.click();
+      toolsControl(root).click();
       harness.detectChanges();
 
-      // Opening Tools mounts only the calculator whose inner tab is selected — the other two stay lazy, so
-      // one click does not start three requests.
-      expect(root.querySelector('cp-recipe-scaling-preview')).toBeTruthy();
-      expect(root.querySelector('cp-recipe-unit-conversion')).toBeNull();
-      expect(root.querySelector('cp-recipe-yield-reconciliation')).toBeNull();
-      expect(root.querySelector('cp-recipe-history')).toBeNull();
+      const drawer = toolsDrawer(harness)!;
+      expect(drawer.parentElement).toBe(document.body);
+      expect(drawer.classList).toContain('wide');
+      expect(drawer.querySelector('h2')?.textContent?.trim()).toBe('Tools');
+      // The recipe stays in view behind it and cannot be acted on.
+      expect(root.closest('[inert]')).toBeTruthy();
 
-      tabButton(root, 'Convert')!.click();
-      harness.detectChanges();
-      expect(root.querySelector('cp-recipe-unit-conversion')).toBeTruthy();
-      expect(root.querySelector('cp-recipe-yield-reconciliation')).toBeNull();
+      const names = Array.from(drawer.querySelectorAll('.tool-choice-name')).map((name) => name.textContent?.trim());
+      expect(names).toEqual([
+        'Scale',
+        'Convert',
+        'Yield & display',
+        'Revise with AI',
+        'Adapt with AI',
+        'Substitute an ingredient',
+        'Review with AI',
+      ]);
+      // Each says what it is for, in words under its name.
+      for (const choice of Array.from(drawer.querySelectorAll('.tool-choice'))) {
+        expect(choice.querySelector('.tool-choice-note')?.textContent?.trim()).not.toBe('');
+      }
     });
 
-    it('reaches the AI revision request from the Tools tab once the recipe has a current version', async () => {
+    it('shows the chosen tool under its own name, with a way back to the list that takes focus', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      const drawer = openTool(harness, 'Convert');
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(drawer.querySelector('h2')?.textContent?.trim()).toBe('Convert');
+      expect(drawer.querySelector('.tool-list')).toBeNull();
+      expect(drawer.querySelector('cp-recipe-unit-conversion')).toBeTruthy();
+      expect(drawer.querySelector('cp-recipe-temperature-conversion')).toBeTruthy();
+
+      // The button that was pressed went with the list, and the page behind is inert: focus has somewhere to be.
+      const back = drawer.querySelector('#recipe-tools-all') as HTMLButtonElement;
+      expect(document.activeElement).toBe(back);
+
+      back.click();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(drawer.querySelector('h2')?.textContent?.trim()).toBe('Tools');
+      expect(document.activeElement?.id).toBe('recipe-tool-choice-converting');
+    });
+
+    it('keeps an opened tool alive while the drawer is shut, and reopens on it', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      openTool(harness, 'Scale');
+      const scalingElement = harness.fixture.debugElement.query(By.css('cp-recipe-scaling-preview'));
+      const scaling = scalingElement.componentInstance;
+      let destroyed = false;
+      scalingElement.injector.get(DestroyRef).onDestroy(() => (destroyed = true));
+
+      // Escape, with nothing to confirm: closing accepts nothing, discards nothing and abandons nothing.
+      toolsDrawer(harness)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(component.toolsOpen()).toBeFalse();
+      expect(confirmService.confirm).not.toHaveBeenCalled();
+      expect(root.closest('[inert]')).toBeNull();
+      // Not destroyed by the close: a tool that is torn down would stop watching a request it had sent.
+      expect(destroyed).toBeFalse();
+
+      toolsControl(root).click();
+      harness.detectChanges();
+
+      expect(toolsDrawer(harness)!.querySelector('h2')?.textContent?.trim()).toBe('Scale');
+      // The very same instance, not a fresh one: whatever it was showing or waiting on is still there.
+      expect(harness.fixture.debugElement.query(By.css('cp-recipe-scaling-preview')).componentInstance).toBe(scaling);
+      expect(destroyed).toBeFalse();
+    });
+
+    it('gives focus back to the Tools control when the drawer closes', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      toolsControl(root).click();
+      harness.detectChanges();
+      (toolsDrawer(harness)!.querySelector('button[aria-label="Close tools"]') as HTMLButtonElement).click();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(document.activeElement).toBe(toolsControl(root));
+    });
+
+    it('reaches the AI revision request from Tools once the recipe has a current version', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({
         status: 'found',
@@ -857,16 +1042,151 @@ describe('RecipeEditorComponent', () => {
         },
       });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const mounted = (): boolean => harness.fixture.debugElement.query(By.css('cp-recipe-revision-request')) !== null;
+
+      toolsControl(harness.routeNativeElement!).click();
+      harness.detectChanges();
+      expect(mounted()).toBeFalse();
+
+      const drawer = openTool(harness, 'Revise with AI');
+
+      expect(mounted()).toBeTrue();
+      expect(drawer.querySelector('cp-recipe-revision-request')).toBeTruthy();
+    });
+
+    it('says in the page head that Tools has an AI request to come back to, until the creator answers it', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          currentVersion: {
+            id: 'v1',
+            versionNumber: 1,
+            source: 'CreatorEdit',
+            readiness: 'Draft',
+            reason: null,
+            createdAt: '2026-03-01T00:00:00Z',
+          },
+        },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
       const root = harness.routeNativeElement!;
+      const indicator = (): string => root.querySelector('cp-page-head .tools-indicator')?.textContent ?? '';
 
-      tabButton(root, 'Tools')!.click();
+      openTool(harness, 'Revise with AI');
+      expect(indicator()).toBe('');
+
+      // The tool's own record of the request it sent, set the way a successful ask sets it.
+      const tool = harness.fixture.debugElement.query(By.css('cp-recipe-revision-request')).componentInstance as {
+        requestIdSignal: { set(value: string | null): void };
+      };
+      tool.requestIdSignal.set('request-1');
       harness.detectChanges();
-      expect(root.querySelector('cp-recipe-revision-request')).toBeNull();
 
-      tabButton(root, 'Revise with AI')!.click();
+      expect(component.openToolRequests()).toBe(1);
+      expect(indicator()).toContain('Tools has an AI request to come back to');
+
+      // Shut the drawer: the request is still open, and the head still says so.
+      component.closeTools();
+      harness.detectChanges();
+      expect(indicator()).toContain('Tools has an AI request to come back to');
+
+      // A second proposal tool with a request of its own: both are counted, and the first stays mounted.
+      component.openTools();
+      harness.detectChanges();
+      component.chooseTool('ai-adaptation');
+      harness.detectChanges();
+      const adaptation = harness.fixture.debugElement.query(By.css('cp-recipe-adaptation-request')).componentInstance as {
+        requestIdSignal: { set(value: string | null): void };
+      };
+      adaptation.requestIdSignal.set('request-2');
+      harness.detectChanges();
+      expect(indicator()).toContain('Tools has 2 AI requests to come back to');
+
+      // Answered — accepted or declined — and it is no longer open.
+      component.onToolDecided('ai-revision');
+      component.onToolDecided('ai-adaptation');
+      harness.detectChanges();
+      expect(component.openToolRequests()).toBe(0);
+      expect(indicator()).toBe('');
+
+      // Asked again from the same tool: a new request, so there is something to come back to once more.
+      tool.requestIdSignal.set('request-3');
+      harness.detectChanges();
+      expect(indicator()).toContain('Tools has an AI request to come back to');
+
+      // Withdrawn by "ask for another" before it was answered: nothing is pending.
+      tool.requestIdSignal.set(null);
+      harness.detectChanges();
+      expect(indicator()).toBe('');
+    });
+
+    it('never says an advisory tool has left something to answer', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          currentVersion: { id: 'v1', versionNumber: 1, source: 'CreatorEdit', readiness: 'Draft', reason: null, createdAt: '2026-03-01T00:00:00Z' },
+        },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      openTool(harness, 'Review with AI');
+      const review = harness.fixture.debugElement.query(By.css('cp-recipe-review-request')).componentInstance as {
+        requestIdSignal: { set(value: string | null): void };
+      };
+      review.requestIdSignal.set('review-1');
       harness.detectChanges();
 
-      expect(root.querySelector('cp-recipe-revision-request')).toBeTruthy();
+      // A review returns something to read and nothing to decide, so it never counts as pending.
+      expect(component.openToolRequests()).toBe(0);
+      expect(harness.routeNativeElement!.querySelector('cp-page-head .tools-indicator')).toBeNull();
+    });
+
+    it('keeps a first tool mounted and hidden behind a second, and finds it as it was', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      const drawer = openTool(harness, 'Scale');
+      const scaling = harness.fixture.debugElement.query(By.css('cp-recipe-scaling-preview')).componentInstance;
+
+      component.chooseTool('converting');
+      harness.detectChanges();
+
+      // Both are in the drawer; only the chosen one is showing.
+      const wrappers = Array.from(drawer.querySelectorAll<HTMLElement>('.tool'));
+      expect(wrappers.length).toBe(2);
+      const showing = wrappers.filter((wrapper) => !wrapper.hidden);
+      expect(showing.length).toBe(1);
+      expect(showing[0].querySelector('cp-recipe-unit-conversion')).toBeTruthy();
+      expect(getComputedStyle(wrappers.find((wrapper) => wrapper.hidden)!).display).toBe('none');
+
+      component.chooseTool('scaling');
+      harness.detectChanges();
+
+      expect(harness.fixture.debugElement.query(By.css('cp-recipe-scaling-preview')).componentInstance).toBe(scaling);
+      expect(drawer.querySelectorAll('.tool:not([hidden])').length).toBe(1);
+    });
+
+    it('takes the drawer and the inert page with it when the creator leaves the editor', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      const drawer = openTool(harness, 'Scale');
+      expect(drawer.isConnected).toBeTrue();
+
+      await TestBed.inject(Router).navigateByUrl('/cozy-fall/recipes');
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+
+      // Asked of the document itself: the drawer lives in <body>, outside anything the router replaced.
+      expect(drawer.isConnected).toBeFalse();
+      expect(document.body.querySelector(':scope > .scrim')).toBeNull();
+      expect(document.body.querySelector(':scope > [inert]')).toBeNull();
     });
   });
 
@@ -3591,6 +3911,19 @@ describe('RecipeEditorComponent', () => {
       expect(archiveButton(harness.routeNativeElement!)).toBeUndefined();
     });
 
+    it('explains the unavailable Save by pointing at the banner that says why', async () => {
+      const { harness } = await loaded(ARCHIVED);
+      const root = harness.routeNativeElement!;
+      const save = saveButton(root)!;
+
+      // In the page head with everything else that acts on the whole recipe, and described by a banner that
+      // is really on the page: an aria-describedby that points at nothing explains nothing.
+      expect(save.closest('cp-page-head')).toBeTruthy();
+      expect(save.getAttribute('aria-describedby')).toBe('recipe-archived-banner');
+      expect(root.querySelector('#recipe-archived-banner')).toBeTruthy();
+      expect(save.getAttribute('title')).toContain('Archived recipes cannot be saved');
+    });
+
     it('shows the banner to a member who cannot bring it back, without offering them the button', async () => {
       const { harness } = await loaded(ARCHIVED, 'Contributor');
 
@@ -3877,6 +4210,107 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
       return { harness, component, recipeService };
     }
+
+    // ---- From the drawer ----
+
+    it('applies a calculation raised from a tool in the drawer through the same handshake, and says so in the drawer', async () => {
+      const { harness, component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const drawer = openTool(harness, 'Yield & display');
+      const tool = harness.fixture.debugElement.query(By.css('cp-recipe-yield-reconciliation')).componentInstance as {
+        applyRequested: { emit(value: typeof YIELD_APPLICATION): void };
+      };
+
+      // Raised by the tool itself, through its own output: the drawer adds no way round the confirmation.
+      tool.applyRequested.emit(YIELD_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+
+      confirmService.answer(true);
+      await waitUntil(() => recipeService.updateRecipe.calls.count() === 1);
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      // The same single write as from anywhere else: the recipe's token, and a new version.
+      const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+      expect(request.expectedConcurrencyToken).toBe('AAAAAAAAB9E=');
+      expect(component.currentVersionNumber()).toBe(4);
+      // It was saved, not left in the form: nothing here is an unsaved edit for the guard to ask about.
+      expect(component.isDirty()).toBeFalse();
+
+      // The page behind is inert, so the drawer says what happened itself — and stays open on the tool.
+      expect(component.toolsOpen()).toBeTrue();
+      expect(drawer.querySelector('.tool-outcome')?.textContent).toContain('The recipe is now at version 4.');
+      expect(drawer.querySelector('.tool-outcome')?.getAttribute('role')).toBe('status');
+    });
+
+    it('never leaves one tool’s outcome above another tool, or above the same tool reopened', async () => {
+      const { harness, component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: updatedDetail(4), replayed: false });
+
+      const drawer = openTool(harness, 'Yield & display');
+      const applying = component.onYieldApplyRequested(YIELD_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+      harness.detectChanges();
+      expect(drawer.querySelector('.tool-outcome')?.textContent).toContain('version 4');
+
+      component.chooseTool('scaling');
+      harness.detectChanges();
+      expect(component.toolOutcome()).toBeNull();
+      expect(drawer.querySelector('.tool-outcome')?.textContent?.trim()).toBe('');
+
+      // And not when the drawer is shut and opened again on the tool that raised it.
+      component.chooseTool('yield-display');
+      const again = component.onYieldApplyRequested(YIELD_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await again;
+      component.closeTools();
+      harness.detectChanges();
+      component.openTools();
+      harness.detectChanges();
+
+      expect(component.toolOutcome()).toBeNull();
+    });
+
+    it('says inside the drawer when an apply raised from it did not happen', async () => {
+      const { harness, component, recipeService } = await loadedEditor();
+      recipeService.updateRecipe.and.resolveTo({ status: 'unavailable' });
+
+      const drawer = openTool(harness, 'Yield & display');
+      const applying = component.onYieldApplyRequested(YIELD_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(true);
+      await applying;
+      harness.detectChanges();
+
+      expect(component.toolOutcome()?.isProblem).toBeTrue();
+      expect(drawer.querySelector('.tool-outcome')?.textContent?.trim()).not.toBe('');
+      expect(component.currentVersionNumber()).toBe(3);
+    });
+
+    it('writes nothing when a calculation raised from the drawer is not confirmed', async () => {
+      const { harness, component, recipeService } = await loadedEditor();
+
+      const drawer = openTool(harness, 'Yield & display');
+      const tool = harness.fixture.debugElement.query(By.css('cp-recipe-yield-reconciliation')).componentInstance as {
+        applyRequested: { emit(value: typeof YIELD_APPLICATION): void };
+      };
+
+      tool.applyRequested.emit(YIELD_APPLICATION);
+      await waitUntil(() => confirmService.isOpen);
+      confirmService.answer(false);
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(recipeService.updateRecipe).not.toHaveBeenCalled();
+      expect(component.currentVersionNumber()).toBe(3);
+      expect(component.toolsOpen()).toBeTrue();
+      expect(drawer.querySelector('.tool-outcome')?.textContent?.trim()).toBe('');
+    });
 
     // ---- Success ----
 

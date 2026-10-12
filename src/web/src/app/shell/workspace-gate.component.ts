@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { CpButtonComponent, CpEmptyStateComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpEmptyStateComponent, CpPageHeadComponent } from '@creator-pantry/ui';
 
+import { injectRouteTitle } from '../core/route-title';
 import { CreateWorkspaceFormComponent } from './create-workspace-form.component';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 
@@ -14,8 +15,9 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
 @Component({
   selector: 'cp-workspace-gate',
   standalone: true,
-  imports: [CpEmptyStateComponent, CpButtonComponent, CreateWorkspaceFormComponent],
+  imports: [CpPageHeadComponent, CpEmptyStateComponent, CpButtonComponent, CreateWorkspaceFormComponent],
   template: `
+    <cp-page-head [heading]="pageTitle" />
     @let state = memberships.state();
     @switch (state.status) {
       @case ('loading') {
@@ -43,7 +45,7 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
     }
   `,
   styles: [`
-    :host { display: block; padding: var(--cp-space-10); }
+    :host { display: block; }
     .status { margin: 0; color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -51,6 +53,7 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
 export class WorkspaceGateComponent {
   private readonly router = inject(Router);
   readonly memberships = inject(WorkspaceMembershipService);
+  readonly pageTitle = injectRouteTitle();
 
   private readonly redirected = signal(false);
   private destroyed = false;

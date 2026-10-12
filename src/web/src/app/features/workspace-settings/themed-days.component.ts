@@ -12,14 +12,18 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
+  CpBackLinkComponent,
   CpButtonComponent,
   CpCardComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
 import { WorkspaceRole } from '../../models/auth.models';
@@ -126,6 +130,7 @@ function orNull(value: string): string | null {
   selector: 'cp-themed-days',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     CpButtonComponent,
     CpCardComponent,
     CpEmptyStateComponent,
@@ -136,12 +141,15 @@ function orNull(value: string): string | null {
     DatePipe,
     NgTemplateOutlet,
     RouterLink,
+    CpBackLinkComponent,
   ],
   templateUrl: './themed-days.component.html',
   styleUrl: './themed-days.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ThemedDaysComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(WeeklyThemesService);
   private readonly workspaces = inject(WorkspaceSettingsService);

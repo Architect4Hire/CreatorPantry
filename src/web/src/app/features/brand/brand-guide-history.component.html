@@ -2,9 +2,9 @@
      reliably announced, so a creator who pressed Compare would hear nothing when the answer landed. -->
 <p class="status" role="status">{{ statusMessage() }}</p>
 
-<nav class="back" aria-label="Back">
-  <a [routerLink]="['/', workspaceSlug, 'brand']">Brand</a>
-</nav>
+<cp-page-head [heading]="pageTitle">
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'brand']">Brand settings</a>
+</cp-page-head>
 
 <!-- The outcome of an activation, which is about the whole workspace rather than about one panel. Assertive,
      because it reports a decision the creator has just taken and the list behind it has reloaded. -->

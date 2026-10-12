@@ -7,7 +7,11 @@ import {
   CpChoiceOption,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { Workspace, WorkspaceMeasurementSystem, isWorkspaceMeasurementSystem } from '../../models/workspace.models';
 import { WorkspaceSettingsService } from '../../services/workspace-settings.service';
@@ -43,18 +47,22 @@ const NOT_ALLOWED = 'Only an Owner of this workspace can change this.';
   selector: 'cp-workspace-settings',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     CpButtonComponent,
     CpCardComponent,
     CpChoiceGroupComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
     RouterLink,
+    CpTopicCardComponent,
   ],
   templateUrl: './workspace-settings.component.html',
   styleUrl: './workspace-settings.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceSettingsComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly route = inject(ActivatedRoute);
   private readonly settings = inject(WorkspaceSettingsService);
 

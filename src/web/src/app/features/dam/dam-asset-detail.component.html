@@ -1,6 +1,19 @@
-<nav class="back" aria-label="Breadcrumb">
-  <a [routerLink]="libraryLink()"><span aria-hidden="true">← </span>DAM</a>
-</nav>
+<!-- One head for every state, so the page always has exactly one h1 and it is always in the same place. -->
+<cp-page-head [heading]="headTitle()">
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="libraryLink()">DAM</a>
+  <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+  <ng-container ngProjectAs="[cpPageHeadBadges]">
+    @if (asset(); as shown) {
+      <cp-badge [tone]="shown.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel() }}</cp-badge>
+      @if (channelName(); as name) {
+        <cp-badge tone="blue">{{ name }}</cp-badge>
+      }
+      @if (shown.day; as weekday) {
+        <cp-badge>{{ weekday }}</cp-badge>
+      }
+    }
+  </ng-container>
+</cp-page-head>
 
 @switch (state().status) {
   @case ('loading') {
@@ -8,7 +21,6 @@
   }
   @case ('not_found') {
     <cp-card>
-      <h1>Picture not found</h1>
       <cp-notice tone="error" role="alert">We couldn't find this picture.</cp-notice>
     </cp-card>
   }
@@ -23,9 +35,7 @@
   @case ('removed') {
     @if (removal(); as gone) {
       <cp-card>
-        <section class="block" aria-labelledby="dam-removed-heading">
-          <h1 id="dam-removed-heading" tabindex="-1">Removed from the library</h1>
-
+        <section class="block" aria-label="Removed from the library">
           <cp-notice tone="success" role="status">
             @if (gone.alreadyDeleted) {
               “{{ gone.title }}” had already been removed on {{ gone.deletedAt | date: 'medium' }}. Nothing was
@@ -39,7 +49,7 @@
 
           @if (gone.recipes.length > 0 || stillPointing(gone).length > 0) {
             <h2 id="dam-removed-links-heading">Still pointing at it</h2>
-            <p class="plain muted">These links were left as they are, and now point at a picture that is not in the library.</p>
+            <p class="plain cp-muted">These links were left as they are, and now point at a picture that is not in the library.</p>
             <ul class="links" aria-labelledby="dam-removed-links-heading">
               @for (recipe of gone.recipes; track recipe.id) {
                 <li>
@@ -66,19 +76,6 @@
   }
   @case ('ready') {
     @if (asset(); as shown) {
-      <header class="page-head">
-        <h1>{{ shown.title }}</h1>
-        <p class="badges">
-          <cp-badge [tone]="shown.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel() }}</cp-badge>
-          @if (channelName(); as name) {
-            <cp-badge tone="blue">{{ name }}</cp-badge>
-          }
-          @if (shown.day; as weekday) {
-            <cp-badge>{{ weekday }}</cp-badge>
-          }
-        </p>
-      </header>
-
       <!-- Always present, so what a save or an upload just did is announced reliably and outlives the dialog. -->
       <cp-notice class="outcome" tone="success" role="status" [quiet]="notice() === ''">{{ notice() }}</cp-notice>
 
@@ -101,228 +98,194 @@
         }
       }
 
-      <cp-card>
-        <section class="block" aria-labelledby="dam-picture-heading">
-          <h2 id="dam-picture-heading">The picture</h2>
+      <cp-topic-card heading="The picture" headingId="dam-picture-heading">
+        @if (picture(); as current) {
+          <cp-dam-asset-thumbnail class="preview" [workspaceSlug]="workspaceSlug()" [asset]="current" rendition="web" />
+        }
 
-          @if (picture(); as current) {
-            <cp-dam-asset-thumbnail class="preview" [workspaceSlug]="workspaceSlug()" [asset]="current" rendition="web" />
-          }
+        @if (shown.currentVersion; as current) {
+          <p class="cp-muted">{{ pictureSize(current) }}</p>
+        }
 
-          @if (shown.currentVersion; as current) {
-            <p class="cp-muted">{{ pictureSize(current) }}</p>
-          }
-
-          @if (downloadUrl(); as href) {
-            <div class="cp-actions">
-              @if (webDownloadUrl(); as webHref) {
-                <a
-                  cpButton
-                  variant="secondary"
-                  [href]="webHref"
-                  [attr.aria-label]="'Download ' + shown.title + ' at web size, ' + webSizeLabel()"
-                >
-                  Download web size ({{ webSizeLabel() }})
-                </a>
-              }
+        @if (downloadUrl(); as href) {
+          <div cpTopicCardActions class="cp-actions">
+            @if (webDownloadUrl(); as webHref) {
               <a
                 cpButton
                 variant="secondary"
-                [href]="href"
-                [attr.aria-label]="'Download the original of ' + shown.title + ', ' + originalSizeLabel()"
+                [href]="webHref"
+                [attr.aria-label]="'Download ' + shown.title + ' at web size, ' + webSizeLabel()"
               >
-                Download original ({{ originalSizeLabel() }})
+                Download web size ({{ webSizeLabel() }})
               </a>
-            </div>
-          } @else if (shown.currentVersion === null) {
-            <cp-notice tone="warning" role="status">This picture's current version can't be read, so there is nothing to download.</cp-notice>
-          }
-        </section>
-      </cp-card>
-
-      <cp-card>
-        <section class="block" aria-labelledby="dam-about-heading">
-          <h2 id="dam-about-heading">About this picture</h2>
-
-          <dl class="facts">
-            @for (fact of facts(); track fact.label) {
-              <div>
-                <dt>{{ fact.label }}</dt>
-                <dd class="prose">{{ fact.value }}</dd>
-              </div>
             }
-            @if (shown.tags.length > 0) {
-              <div>
-                <dt>Tags</dt>
-                <dd>
-                  <ul class="tags" aria-label="Tags">
-                    @for (tag of shown.tags; track tag.id) {
-                      <li><cp-badge>{{ tag.name }}</cp-badge></li>
-                    }
-                  </ul>
-                </dd>
-              </div>
+            <a
+              cpButton
+              variant="secondary"
+              [href]="href"
+              [attr.aria-label]="'Download the original of ' + shown.title + ', ' + originalSizeLabel()"
+            >
+              Download original ({{ originalSizeLabel() }})
+            </a>
+          </div>
+        } @else if (shown.currentVersion === null) {
+          <cp-notice tone="warning" role="status">This picture's current version can't be read, so there is nothing to download.</cp-notice>
+        }
+      </cp-topic-card>
+
+      <cp-topic-card heading="About this picture" headingId="dam-about-heading">
+        <dl cpFacts>
+          @for (fact of facts(); track fact.label) {
+            <div cpFact [label]="fact.label" prose>{{ fact.value }}</div>
+          }
+          @if (shown.tags.length > 0) {
+            <div cpFact label="Tags">
+              <ul class="tags" aria-label="Tags">
+                @for (tag of shown.tags; track tag.id) {
+                  <li><cp-badge>{{ tag.name }}</cp-badge></li>
+                }
+              </ul>
+            </div>
+          }
+          <div cpFact label="Added">{{ shown.createdAt | date: 'medium' }}</div>
+          <div cpFact label="Last changed">{{ shown.updatedAt | date: 'medium' }}</div>
+        </dl>
+
+        @if (changeAccess() === 'allowed') {
+          <div cpTopicCardActions class="cp-actions">
+            <button cpButton type="button" variant="secondary" (click)="openDialog('edit', $event)">Edit details</button>
+          </div>
+        }
+      </cp-topic-card>
+
+      <cp-topic-card heading="Where it came from" headingId="dam-lineage-heading">
+        <h3>Recipes</h3>
+        @if (shown.recipeLinks.length === 0) {
+          <p class="plain cp-muted">Not linked to a recipe.</p>
+        } @else {
+          <ul class="links" aria-label="Recipes that use this picture">
+            @for (link of shown.recipeLinks; track link.recipeId + link.role) {
+              <li>
+                <a [routerLink]="recipeLink(link)">{{ link.title }}</a>
+                <span class="note">{{ roleLabel(link) }}</span>
+                @if (link.caption) {
+                  <span class="note prose">“{{ link.caption }}”</span>
+                }
+              </li>
             }
-            <div>
-              <dt>Added</dt>
-              <dd>{{ shown.createdAt | date: 'medium' }}</dd>
-            </div>
-            <div>
-              <dt>Last changed</dt>
-              <dd>{{ shown.updatedAt | date: 'medium' }}</dd>
-            </div>
-          </dl>
+          </ul>
+        }
 
-          @if (changeAccess() === 'allowed') {
-            <div class="cp-actions">
-              <button cpButton type="button" variant="secondary" (click)="openDialog('edit', $event)">Edit details</button>
-            </div>
-          }
-        </section>
-      </cp-card>
+        <h3>Prompts</h3>
+        @if (shown.prompts.length === 0) {
+          <p class="plain cp-muted">No saved prompt is linked to this picture.</p>
+        } @else {
+          <ul class="links" aria-label="Prompts that produced this picture">
+            @for (prompt of shown.prompts; track prompt.id) {
+              <li>
+                <a [routerLink]="promptLink(prompt)">{{ promptName(prompt) }}</a>
+                <span class="note">{{ promptSource(prompt) }}</span>
+                <span class="note">Saved {{ prompt.createdAt | date: 'mediumDate' }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </cp-topic-card>
 
-      <cp-card>
-        <section class="block" aria-labelledby="dam-lineage-heading">
-          <h2 id="dam-lineage-heading">Where it came from</h2>
-
-          <h3>Recipes</h3>
-          @if (shown.recipeLinks.length === 0) {
-            <p class="plain muted">Not linked to a recipe.</p>
-          } @else {
-            <ul class="links" aria-label="Recipes that use this picture">
-              @for (link of shown.recipeLinks; track link.recipeId + link.role) {
-                <li>
-                  <a [routerLink]="recipeLink(link)">{{ link.title }}</a>
-                  <span class="note">{{ roleLabel(link) }}</span>
-                  @if (link.caption) {
-                    <span class="note prose">“{{ link.caption }}”</span>
-                  }
-                </li>
-              }
-            </ul>
-          }
-
-          <h3>Prompts</h3>
-          @if (shown.prompts.length === 0) {
-            <p class="plain muted">No saved prompt is linked to this picture.</p>
-          } @else {
-            <ul class="links" aria-label="Prompts that produced this picture">
-              @for (prompt of shown.prompts; track prompt.id) {
-                <li>
-                  <a [routerLink]="promptLink(prompt)">{{ promptName(prompt) }}</a>
-                  <span class="note">{{ promptSource(prompt) }}</span>
-                  <span class="note">Saved {{ prompt.createdAt | date: 'mediumDate' }}</span>
-                </li>
-              }
-            </ul>
-          }
-        </section>
-      </cp-card>
-
-      <cp-card>
-        <section class="block block--wide" aria-labelledby="dam-versions-heading">
-          <h2 id="dam-versions-heading">Versions</h2>
-
-          @if (shown.versions.length === 0) {
-            <p class="plain muted">No version of this picture can be read.</p>
-          } @else {
-            <div class="scroll" role="region" tabindex="0" aria-labelledby="dam-versions-heading">
-              <table>
-                <caption class="cp-sr-only">
-                  Every version of this picture, newest first
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Version</th>
-                    <th scope="col">File</th>
-                    <th scope="col">Original name</th>
-                    <th scope="col">How it arrived</th>
-                    <th scope="col">Added</th>
-                    <th scope="col"><span class="cp-sr-only">Download</span></th>
+      <cp-topic-card heading="Versions" headingId="dam-versions-heading" wide>
+        @if (shown.versions.length === 0) {
+          <p class="plain cp-muted">No version of this picture can be read.</p>
+        } @else {
+          <div class="scroll" role="region" tabindex="0" aria-labelledby="dam-versions-heading">
+            <table>
+              <caption class="cp-sr-only">
+                Every version of this picture, newest first
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Version</th>
+                  <th scope="col">File</th>
+                  <th scope="col">Original name</th>
+                  <th scope="col">How it arrived</th>
+                  <th scope="col">Added</th>
+                  <th scope="col"><span class="cp-sr-only">Download</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (version of shown.versions; track version.versionNumber) {
+                  <tr [attr.data-version]="version.versionNumber">
+                    <th scope="row">
+                      Version {{ version.versionNumber }}
+                      @if (isCurrent(version)) {
+                        <cp-badge tone="success">Current</cp-badge>
+                      }
+                    </th>
+                    <td>{{ versionFacts(version) }}</td>
+                    <td class="file-name">
+                      @if (version.originalFileName) {
+                        {{ version.originalFileName }}
+                      } @else {
+                        <span class="cp-muted">None</span>
+                      }
+                    </td>
+                    <td>{{ versionSource(version) }}</td>
+                    <td>{{ version.createdAt | date: 'mediumDate' }}</td>
+                    <td>
+                      @if (versionDownloadUrl(version); as href) {
+                        <a
+                          cpButton
+                          variant="ghost"
+                          size="sm"
+                          [href]="href"
+                          [attr.aria-label]="'Download version ' + version.versionNumber + ' of ' + shown.title"
+                        >
+                          Download
+                        </a>
+                      }
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  @for (version of shown.versions; track version.versionNumber) {
-                    <tr [attr.data-version]="version.versionNumber">
-                      <th scope="row">
-                        Version {{ version.versionNumber }}
-                        @if (isCurrent(version)) {
-                          <cp-badge tone="success">Current</cp-badge>
-                        }
-                      </th>
-                      <td>{{ versionFacts(version) }}</td>
-                      <td class="file-name">
-                        @if (version.originalFileName) {
-                          {{ version.originalFileName }}
-                        } @else {
-                          <span class="muted">None</span>
-                        }
-                      </td>
-                      <td>{{ versionSource(version) }}</td>
-                      <td>{{ version.createdAt | date: 'mediumDate' }}</td>
-                      <td>
-                        @if (versionDownloadUrl(version); as href) {
-                          <a
-                            cpButton
-                            variant="ghost"
-                            size="sm"
-                            [href]="href"
-                            [attr.aria-label]="'Download version ' + version.versionNumber + ' of ' + shown.title"
-                          >
-                            Download
-                          </a>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
+                }
+              </tbody>
+            </table>
+          </div>
+        }
 
-          @if (changeAccess() === 'allowed') {
-            <div class="cp-actions">
-              <button cpButton type="button" variant="secondary" (click)="openDialog('version', $event)">
-                Add a version
-              </button>
-            </div>
-          }
-        </section>
-      </cp-card>
+        @if (changeAccess() === 'allowed') {
+          <div cpTopicCardActions class="cp-actions">
+            <button cpButton type="button" variant="secondary" (click)="openDialog('version', $event)">
+              Add a version
+            </button>
+          </div>
+        }
+      </cp-topic-card>
 
-      <cp-card>
-        <section class="block block--wide" aria-labelledby="dam-usage-heading">
-          <h2 id="dam-usage-heading">Usage history</h2>
-          <cp-dam-asset-usage-history
-            [workspaceSlug]="workspaceSlug()"
-            [assetId]="shown.id"
-            [reloadToken]="usageReload()"
-          />
+      <cp-topic-card heading="Usage history" headingId="dam-usage-heading" wide>
+        <cp-dam-asset-usage-history
+          [workspaceSlug]="workspaceSlug()"
+          [assetId]="shown.id"
+          [reloadToken]="usageReload()"
+        />
 
-          @if (changeAccess() === 'allowed') {
-            <div class="cp-actions">
-              <button cpButton type="button" variant="secondary" (click)="openDialog('use', $event)">Log a use</button>
-            </div>
-          }
-        </section>
-      </cp-card>
+        @if (changeAccess() === 'allowed') {
+          <div cpTopicCardActions class="cp-actions">
+            <button cpButton type="button" variant="secondary" (click)="openDialog('use', $event)">Log a use</button>
+          </div>
+        }
+      </cp-topic-card>
 
       @if (canRemove()) {
-        <cp-card>
-          <section class="block" aria-labelledby="dam-remove-heading">
-            <h2 id="dam-remove-heading">Remove from the library</h2>
-            <p class="plain">
-              Takes this picture out of the library for everyone in the workspace. Its files, versions and usage
-              history are kept, and anything that links to it is left as it is. You'll be asked before anything
-              happens.
-            </p>
-            <div class="cp-actions">
-              <button cpButton type="button" variant="danger" [disabled]="removing()" (click)="remove()">
-                {{ removing() ? 'Removing…' : 'Remove from library' }}
-              </button>
-            </div>
-          </section>
-        </cp-card>
+        <cp-topic-card heading="Remove from the library" headingId="dam-remove-heading">
+          <p class="plain">
+            Takes this picture out of the library for everyone in the workspace. Its files, versions and usage
+            history are kept, and anything that links to it is left as it is. You'll be asked before anything
+            happens.
+          </p>
+          <div cpTopicCardActions class="cp-actions">
+            <button cpButton type="button" variant="danger" [disabled]="removing()" (click)="remove()">
+              {{ removing() ? 'Removing…' : 'Remove from library' }}
+            </button>
+          </div>
+        </cp-topic-card>
       }
 
       @if (changeAccess() === 'allowed') {

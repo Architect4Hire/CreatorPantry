@@ -31,7 +31,7 @@
         <div class="notice" data-kind="stale" role="alert">
           <strong>This guide may be out of date</strong>
           <p>{{ staleReason() }}</p>
-          <div class="actions">
+          <div class="cp-actions">
             <button cpButton variant="secondary" size="sm" type="button" (click)="reviewGuide.emit()">
               Review guide
             </button>
@@ -53,14 +53,14 @@
       }
 
       @if (use().kind === 'none' && choices().length === 0 && activeGuide() === null) {
-        <div class="actions">
+        <div class="cp-actions">
           <button cpButton variant="secondary" size="sm" type="button" (click)="setUpGuide.emit()">
             Set up my brand voice
           </button>
         </div>
       }
 
-      <div class="actions">
+      <div class="cp-actions">
         <button
           #changeButton
           cpButton
@@ -100,14 +100,14 @@
 
           @switch (rulesStatus()) {
             @case ('loading') {
-              <p class="muted" role="status">Loading…</p>
+              <p class="cp-muted measure" role="status">Loading…</p>
             }
             @case ('error') {
-              <p class="muted" role="status">We could not load the rules for this channel. Your guide still applies.</p>
+              <p class="cp-muted measure" role="status">We could not load the rules for this channel. Your guide still applies.</p>
             }
             @default {
               @if (rules().length === 0) {
-                <p class="muted">No channel-specific rules, so your general voice applies.</p>
+                <p class="cp-muted measure">No channel-specific rules, so your general voice applies.</p>
               } @else {
                 <ul>
                   @for (rule of rules(); track rule.channel) {

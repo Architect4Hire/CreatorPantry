@@ -99,11 +99,33 @@ describe('BrandLibraryComponent', () => {
   }
 
   function chip(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('.chip')).find(
+    const match = Array.from(root().querySelectorAll('button[cpChip]')).find(
       (each) => (each as HTMLElement).textContent?.trim() === label,
     );
     if (!match) throw new Error(`no chip labelled "${label}"`);
     return match as HTMLButtonElement;
+  }
+
+  function cards(): HTMLElement[] {
+    return Array.from(root().querySelectorAll<HTMLElement>('ul[cpCardGrid] > li cp-media-card'));
+  }
+
+  function titles(): string[] {
+    return cards().map((card) => card.querySelector('.title a')?.textContent?.trim() ?? '');
+  }
+
+  function hasButton(label: string): boolean {
+    return Array.from(root().querySelectorAll('button')).some((each) => each.textContent?.includes(label));
+  }
+
+  /** A card's facts, as term -> value. */
+  function facts(card: HTMLElement): Record<string, string> {
+    return Object.fromEntries(
+      Array.from(card.querySelectorAll('dl[cpFacts] > div')).map((fact) => [
+        fact.querySelector('dt')?.textContent?.trim() ?? '',
+        fact.querySelector('dd')?.textContent?.trim() ?? '',
+      ]),
+    );
   }
 
   function select(name: string): HTMLSelectElement {
@@ -177,14 +199,43 @@ describe('BrandLibraryComponent', () => {
     expect(text()).toContain('Not read yet');
   });
 
-  it('names a tag list for a screen reader rather than leaving badges to speak for themselves', async () => {
+  it('puts each thing a row showed in its place on the card: state and kind as badges, the rest as facts', async () => {
     searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(TWO_EXAMPLES));
     await create();
     await settle();
 
-    const tags = root().querySelector('.tags');
-    expect(tags?.textContent).toContain('Tags:');
-    expect(tags?.textContent).toContain('Evergreen');
+    const [first, second] = cards();
+    const badges = Array.from(first.querySelectorAll('.badges > *'));
+    // State first, as pills whose glyph says it a second way; then what it is, as badges.
+    expect(badges.map((each) => each.tagName.toLowerCase())).toEqual([
+      'cp-status-pill',
+      'cp-status-pill',
+      'cp-badge',
+      'cp-badge',
+      'cp-badge',
+    ]);
+    const labels = ['Active', 'Text ready', 'Style guide', 'Writing style', 'Instagram'];
+    badges.forEach((each, index) => expect(each.textContent).toContain(labels[index]));
+
+    expect(facts(first)).toEqual(
+      jasmine.objectContaining({ Version: 'v3', File: 'house-style.pdf · 48 KB', Tags: 'Evergreen, Launch' }),
+    );
+    expect(facts(first)['Updated']).toContain('2026');
+
+    // No channel and no tags: neither leaves an empty badge or an empty fact behind.
+    expect(second.querySelectorAll('.badges > *').length).toBe(4);
+    expect(Object.keys(facts(second))).toEqual(['Version', 'File', 'Updated']);
+  });
+
+  it('lays the examples out as a list of cards, each with the panel a card with no picture takes', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(TWO_EXAMPLES));
+    await create();
+    await settle();
+
+    expect(root().querySelectorAll('ul[cpCardGrid] > li').length).toBe(2);
+    expect(cards()[0].querySelector('.picture')?.children.length).toBe(0);
+    expect(cards()[0].querySelector('.panel')?.textContent).toBe('◆');
+    expect(getComputedStyle(cards()[0].querySelector('.panel')!).display).not.toBe('none');
   });
 
   it('reports a failed read and retries the same search when asked', async () => {
@@ -223,8 +274,55 @@ describe('BrandLibraryComponent', () => {
     await choose('purpose', 'Voice');
 
     expect(text()).toContain("Couldn't load the newest results");
-    expect(text()).toContain('House Style');
+    expect(titles()).toEqual(['House Style', 'Reel captions']);
     expect(button('Try again')).toBeTruthy();
+    // Not a count of the search in force, which these cards are not the answer to.
+    expect(root().querySelector('.result-summary')?.textContent?.trim()).toBe('');
+  });
+
+  it('offers no further page of cards that are not the answer to the search in force', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
+      ok(page([row('d1', 'House Style')], 'cursor-1')),
+      of<BrandLibraryOutcome>({ status: 'unavailable' }),
+      ok(TWO_EXAMPLES),
+    );
+    await create();
+    await settle();
+    expect(hasButton('Load more')).toBeTrue();
+
+    await choose('purpose', 'Voice');
+
+    // The cursor held belongs to the old search; following it under the new filters would be refused.
+    expect(text()).toContain("Couldn't load the newest results");
+    expect(hasButton('Load more')).toBeFalse();
+
+    button('Try again').click();
+    await settle();
+
+    expect(text()).not.toContain("Couldn't load the newest results");
+    expect(lastQuery()).toEqual(jasmine.objectContaining({ purpose: 'Voice', cursor: null }));
+    expect(titles()).toEqual(['House Style', 'Reel captions']);
+  });
+
+  it('forgets the cards it held once the server refuses the filters, rather than bringing them back degraded', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
+      ok(TWO_EXAMPLES),
+      of<BrandLibraryOutcome>({ status: 'invalid_request' }),
+      of<BrandLibraryOutcome>({ status: 'unavailable' }),
+    );
+    await create();
+    await settle();
+
+    await choose('purpose', 'Voice');
+    expect(text()).toContain('could not be applied');
+    expect(cards().length).toBe(0);
+
+    button('Try again').click();
+    await settle();
+
+    // Nothing to keep, so this is an error and not a degraded view of the refused question's cards.
+    expect(text()).toContain("Couldn't load your brand library");
+    expect(cards().length).toBe(0);
   });
 
   it('keeps Upload example available while a failed read is on screen', async () => {
@@ -251,7 +349,8 @@ describe('BrandLibraryComponent', () => {
     await create();
     await settle();
 
-    button('Next').click();
+    button('Load more').click();
+    await settle();
     await settle();
 
     // Not an error: the search survived, only the position did not.
@@ -403,30 +502,49 @@ describe('BrandLibraryComponent', () => {
 
   // ---- Paging ----
 
-  it('walks forward and back through pages, carrying the page number', async () => {
+  it("appends the next page under the server's cursor and moves focus to the first new card's title", async () => {
     const first = page([row('d1', 'House Style')], 'cursor-1');
-    const second = page([row('d2', 'Reel captions')]);
+    const second = page([row('d2', 'Reel captions'), row('d3', 'Autumn newsletter')]);
     searchSpy = jasmine.createSpy('searchLibrary').and.callFake((_slug, query) => ok(query.cursor === null ? first : second));
     await create();
     await settle();
 
-    expect(text()).toContain('page 1');
-    expect(button('Previous').disabled).toBeTrue();
+    // The route reports no total, so the summary says there is more rather than guessing how much.
+    expect(text()).toContain('Showing the first 1 example.');
 
-    button('Next').click();
+    button('Load more').click();
+    await settle();
     await settle();
 
     expect(lastQuery().cursor).toBe('cursor-1');
-    expect(text()).toContain('Reel captions');
-    expect(text()).toContain('page 2');
-    expect(button('Next').disabled).toBeTrue();
+    // Appended, not replaced: what is on screen is a true prefix of the whole set.
+    expect(titles()).toEqual(['House Style', 'Reel captions', 'Autumn newsletter']);
+    expect(text()).toContain('Showing 3 examples.');
+    expect(hasButton('Load more')).toBeFalse();
+    expect(document.activeElement?.textContent?.trim()).toBe('Reel captions');
+  });
 
-    button('Previous').click();
+  it('keeps the cards already read when a later page fails, and offers the page again', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
+      ok(page([row('d1', 'House Style')], 'cursor-1')),
+      of<BrandLibraryOutcome>({ status: 'unavailable' }),
+      ok(page([row('d2', 'Reel captions')])),
+    );
+    await create();
     await settle();
 
-    // Back is a position this screen remembered, not a query the keyset could answer.
-    expect(lastQuery().cursor).toBeNull();
-    expect(text()).toContain('page 1');
+    button('Load more').click();
+    await settle();
+
+    expect(titles()).toEqual(['House Style']);
+    expect(root().querySelector('[role="alert"]')?.textContent).toContain("Couldn't load more examples");
+
+    button('Try loading more again').click();
+    await settle();
+
+    expect(lastQuery().cursor).toBe('cursor-1');
+    expect(titles()).toEqual(['House Style', 'Reel captions']);
+    expect(root().querySelector('[role="alert"]')).toBeNull();
   });
 
   it('restarts paging whenever the search itself changes', async () => {
@@ -434,15 +552,43 @@ describe('BrandLibraryComponent', () => {
     await create();
     await settle();
 
-    button('Next').click();
+    button('Load more').click();
     await settle();
     expect(lastQuery().cursor).toBe('cursor-1');
 
+    searchSpy.and.returnValue(ok(page([row('d9', 'Voice notes')])));
     await choose('purpose', 'Voice');
 
-    // The cursor named a position in the old ordered set, so it is not carried into the new one.
+    // The cursor named a position in the old ordered set, so it is not carried into the new one — and the
+    // cards read under the old filters are replaced, not added to.
     expect(lastQuery().cursor).toBeNull();
-    expect(text()).toContain('page 1');
+    expect(titles()).toEqual(['Voice notes']);
+  });
+
+  it('does not append a page that answers a search the creator has since changed', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(page([row('d1', 'House Style')], 'cursor-1')));
+    await create();
+    await settle();
+
+    const slow = new Subject<BrandLibraryOutcome>();
+    searchSpy.and.returnValue(slow);
+    button('Load more').click();
+
+    searchSpy.and.returnValue(ok(page([row('d9', 'Voice notes')])));
+    await choose('purpose', 'Voice');
+
+    slow.next({ status: 'ok', page: page([row('d2', 'Reel captions')]) });
+    harness.detectChanges();
+
+    expect(titles()).toEqual(['Voice notes']);
+  });
+
+  it('offers no "Load more" when a single page holds everything', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(TWO_EXAMPLES));
+    await create();
+    await settle();
+
+    expect(hasButton('Load more')).toBeFalse();
   });
 
   // ---- Announcements ----
@@ -457,13 +603,31 @@ describe('BrandLibraryComponent', () => {
     expect(live?.textContent).toContain('Showing 2 examples');
   });
 
-  it('names the toolbar and the pager for a screen reader', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(page([row('d1', 'House Style')], 'cursor-1')));
+  it('names the toolbar and every control in it for a screen reader', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(TWO_EXAMPLES));
     await create();
     await settle();
 
     expect(root().querySelector('[role="toolbar"]')?.getAttribute('aria-label')).toBe('Brand library filters');
-    expect(root().querySelector('nav')?.getAttribute('aria-label')).toBe('Brand library pages');
+    expect(root().querySelector('cp-search-field label')?.textContent).toContain('Search examples by name or filename');
+    expect(root().querySelector('[role="group"][aria-label="Filter by status"]')).toBeTruthy();
+
+    const named = (name: string): string => select(name).closest('label')?.textContent ?? '';
+    expect(named('documentType')).toContain('Filter by kind of example');
+    expect(named('purpose')).toContain('Filter by what the example is evidence of');
+    expect(named('channelKey')).toContain('Filter by channel');
+    expect(named('extractionState')).toContain('Filter by whether the text has been read');
+  });
+
+  it('shows the restored filters in the controls, not just in the request', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(TWO_EXAMPLES));
+    await create('?documentType=StyleGuide&purpose=WritingStyle&extractionState=Succeeded&channelKey=instagram');
+    await settle();
+
+    expect(select('documentType').value).toBe('StyleGuide');
+    expect(select('purpose').value).toBe('WritingStyle');
+    expect(select('extractionState').value).toBe('Succeeded');
+    expect(select('channelKey').value).toBe('instagram');
   });
 
   it('links each row to that example, by its title rather than the whole card', async () => {
@@ -478,7 +642,7 @@ describe('BrandLibraryComponent', () => {
 
     // The title alone is the link: the badges and pills beside it stay readable rather than becoming part
     // of one very long accessible name.
-    expect(root().querySelectorAll('.example-row a').length).toBe(2);
+    expect(root().querySelectorAll('cp-media-card a').length).toBe(2);
   });
 
   // ---- Adding ----
@@ -492,8 +656,8 @@ describe('BrandLibraryComponent', () => {
     harness.detectChanges();
     expect(root().querySelector('[role="dialog"]')).toBeTruthy();
 
-    // Page 2, so the reload has somewhere to come back from.
-    button('Next').click();
+    // A second page read, so the reload has somewhere to come back from.
+    button('Load more').click();
     await settle();
     expect(lastQuery().cursor).toBe('cursor-1');
 
@@ -505,5 +669,7 @@ describe('BrandLibraryComponent', () => {
     await settle();
 
     expect(lastQuery().cursor).toBeNull();
+    // The first page again, replacing what was appended rather than adding to it.
+    expect(cards().length).toBe(1);
   });
 });

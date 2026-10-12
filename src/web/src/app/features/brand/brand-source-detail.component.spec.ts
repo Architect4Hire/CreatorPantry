@@ -117,14 +117,22 @@ describe('BrandSourceDetailComponent', () => {
     return Array.from(root().querySelectorAll('a'));
   }
 
-  async function tab(label: string): Promise<void> {
-    const match = Array.from(root().querySelectorAll('[role="tab"]')).find((each) =>
-      (each as HTMLElement).textContent?.includes(label),
+  /**
+   * This page's own open drawer, wherever it sits. A drawer moves itself to `<body>`, but it is still this
+   * fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function drawerPanel(): HTMLElement | null {
+    return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  /** The topic card with this heading. Every topic is on the page at once: there is nothing to switch to. */
+  function topic(heading: string): HTMLElement {
+    const match = Array.from(root().querySelectorAll<HTMLElement>('cp-topic-card')).find(
+      (each) => each.querySelector('h2')?.textContent?.trim() === heading,
     );
-    if (!match) throw new Error(`no tab labelled "${label}"`);
-    (match as HTMLElement).click();
-    harness.detectChanges();
-    await settle();
+    if (!match) throw new Error(`no topic card headed "${heading}"`);
+    return match;
   }
 
   async function settle(): Promise<void> {
@@ -316,7 +324,7 @@ describe('BrandSourceDetailComponent', () => {
 
   it('lists every version with its own file and its own text state', async () => {
     await create();
-    await tab('Versions');
+    expect(topic('Versions')).toBeTruthy();
 
     expect(text()).toContain('Version 2');
     expect(text()).toContain('take-2.pdf');
@@ -334,7 +342,7 @@ describe('BrandSourceDetailComponent', () => {
 
   it('keeps the page when the history alone could not be read', async () => {
     await create(undefined, { versions: { status: 'unavailable' } });
-    await tab('Versions');
+    expect(topic('Versions')).toBeTruthy();
 
     expect(text()).toContain('version history couldn’t be loaded');
 
@@ -345,7 +353,7 @@ describe('BrandSourceDetailComponent', () => {
   it('follows the cursor when there are earlier versions to show', async () => {
     versionsSpy = jasmine.createSpy('listVersions');
     await create(undefined, { versions: { status: 'ok', page: { items: [version(2, { isCurrent: true })], nextCursor: 'more==' } } });
-    await tab('Versions');
+    expect(topic('Versions')).toBeTruthy();
 
     button('Show earlier versions').click();
     await settle();
@@ -355,7 +363,7 @@ describe('BrandSourceDetailComponent', () => {
 
   it('reads an earlier version text, which the API allows, and says that is what is showing', async () => {
     await create();
-    await tab('Versions');
+    expect(topic('Versions')).toBeTruthy();
 
     // Version 1, not the current one: reading the current version's text shows no banner, because that is
     // what the tab already shows.
@@ -371,7 +379,7 @@ describe('BrandSourceDetailComponent', () => {
 
   it('says what points at the example, and that a removal would lose nothing', async () => {
     await create();
-    await tab('Where it’s used');
+    expect(topic('Where it’s used')).toBeTruthy();
 
     expect(text()).toContain('2 versions');
     expect(text()).toContain('96 KB');
@@ -384,7 +392,7 @@ describe('BrandSourceDetailComponent', () => {
   it('says when something was written from a file this example has since replaced', async () => {
     // The hold cites version 1; the document is at version 2.
     await create();
-    await tab('Where it’s used');
+    expect(topic('Where it’s used')).toBeTruthy();
 
     expect(text()).toContain('written from an earlier version');
     expect(text()).toContain('Since replaced');
@@ -401,7 +409,7 @@ describe('BrandSourceDetailComponent', () => {
         usage: { ...USAGE, holds: [{ ...USAGE.holds[0], sourceVersionNumber: 2 }] },
       },
     });
-    await tab('Where it’s used');
+    expect(topic('Where it’s used')).toBeTruthy();
 
     expect(text()).not.toContain('written from an earlier version');
     expect(text()).not.toContain('Since replaced');
@@ -409,7 +417,7 @@ describe('BrandSourceDetailComponent', () => {
 
   it('keeps the page when the usage alone could not be read', async () => {
     await create(undefined, { usage: { status: 'unavailable' } });
-    await tab('Where it’s used');
+    expect(topic('Where it’s used')).toBeTruthy();
 
     expect(text()).toContain('couldn’t be loaded');
     expect(text()).toContain('House Style');
@@ -454,10 +462,13 @@ describe('BrandSourceDetailComponent', () => {
 
   // ---- Accessibility ----
 
-  it('names its tablist and gives the page one heading', async () => {
+  it("names every card's region by its heading and gives the page one heading", async () => {
     await create();
 
-    expect(root().querySelector('[role="tablist"]')?.getAttribute('aria-label')).toBe('This example');
+    for (const region of Array.from(root().querySelectorAll('cp-topic-card section'))) {
+      const id = region.getAttribute('aria-labelledby') as string;
+      expect(root().querySelector(`[id="${id}"]`)?.textContent?.trim()).withContext(id).not.toBe('');
+    }
     expect(root().querySelectorAll('h1').length).toBe(1);
     expect(root().querySelector('h1')?.textContent).toContain('House Style');
   });
@@ -476,5 +487,52 @@ describe('BrandSourceDetailComponent', () => {
 
     // Once ready there is nothing to announce; what matters is that the loading state had a live region.
     expect(live === null || live.textContent !== null).toBeTrue();
+  });
+
+  // ---- The detail shape ----
+
+  it('reads top to bottom as breadcrumb, head, then one card per topic, with the shelf last', async () => {
+    await create();
+
+    const crumb = root().querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Brand library');
+    expect(crumb.textContent).not.toContain('Back to');
+    expect(crumb.getAttribute('href')).toBe('/sams-kitchen/brand/library');
+
+    expect(root().querySelectorAll('[role="tab"]').length).toBe(0);
+    const headings = Array.from(root().querySelectorAll('cp-topic-card h2')).map((each) => each.textContent?.trim());
+    expect(headings).toEqual(['About this example', 'Its text', 'Versions', 'Where it’s used', 'Put this example on the shelf']);
+  });
+
+  it('puts each action at the bottom of the card it acts on', async () => {
+    await create();
+
+    expect(topic('Versions').querySelector('.actions')?.textContent).toContain('Replace file');
+    expect(topic('Put this example on the shelf').querySelector('.actions')?.textContent).toContain('Put on the shelf');
+    expect(topic('About this example').querySelector('.actions')?.textContent).toContain('Download version');
+    expect(root().querySelector('cp-page-head')?.textContent).not.toContain('Replace file');
+  });
+
+  it('opens the replacement in a drawer over the page, and gives focus back to its button on close', async () => {
+    await create();
+
+    const opener = button('Replace file');
+    opener.click();
+    harness.detectChanges();
+    await settle();
+
+    const panel = drawerPanel() as HTMLElement;
+    expect(panel.parentElement).toBe(document.body);
+    expect(panel.textContent).toContain('Replace this file');
+    expect(root().closest('[inert]')).toBeTruthy();
+
+    (panel.querySelector('button[aria-label="Close"]') as HTMLButtonElement).click();
+    harness.detectChanges();
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    harness.detectChanges();
+
+    expect(drawerPanel()).toBeNull();
+    expect(document.activeElement).toBe(opener);
   });
 });

@@ -5,8 +5,6 @@
    the space the page actually has, so a narrowed window and 200% zoom behave alike. */
 :host {
   display: block;
-  padding: var(--cp-space-8);
-  max-width: 84rem;
   container: cp-kitchen / inline-size;
   color: var(--cp-text);
   font-size: var(--cp-font-size-lg);
@@ -14,55 +12,12 @@
 }
 
 .status,
-.muted {
-  margin: 0;
-  color: var(--cp-text-muted);
+.kitchen-note {
   font-size: var(--cp-font-size-md);
-}
-
-.back a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-md);
-}
-
-.back a:focus-visible {
-  outline: 2px solid var(--cp-focus);
-  outline-offset: 2px;
-}
-
-.kitchen-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--cp-space-4);
-  margin-bottom: var(--cp-space-5);
-}
-
-h1 {
-  margin: 0;
-  font: 400 var(--cp-font-size-2xl) / var(--cp-leading-tight) var(--cp-font-display);
-  overflow-wrap: anywhere;
-}
-
-.description {
-  max-width: var(--cp-measure-prose);
-  margin: var(--cp-space-3) 0 0;
-  color: var(--cp-text-muted);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-3);
 }
 
 /* The size the buttons beside it are labelled, so the row reads as one set of controls. */
-.actions cp-checkbox {
+.awake {
   --cp-checkbox-font-size: var(--cp-font-size-md);
 }
 
@@ -248,8 +203,6 @@ h3 {
    --------------------------------------------------------------------------- */
 @media print {
   :host {
-    padding: 0;
-    max-width: none;
     font-size: 12pt;
     line-height: 1.4;
   }
@@ -262,15 +215,25 @@ h3 {
     display: revert;
   }
 
-  .kitchen-header {
+  /* On paper the head is the title and the description at the sizes this page has always printed them, and
+     nothing else. The way back and the controls are chrome for using the page; their slots are taken out
+     whole, so neither leaves its margin behind. ::ng-deep, and only here: the page head draws its own title,
+     and a printed recipe is the one place this page has to set that title's size itself. */
+  .kitchen-head {
     margin-bottom: 8pt;
   }
 
-  h1 {
-    font-size: 24pt;
+  .kitchen-head ::ng-deep .breadcrumb,
+  .kitchen-head ::ng-deep .actions {
+    display: none;
   }
 
-  .description {
+  .kitchen-head ::ng-deep h1 {
+    font-size: 24pt;
+    line-height: var(--cp-leading-tight);
+  }
+
+  .kitchen-head ::ng-deep .lede {
     max-width: none;
     margin-top: 4pt;
     font-size: 11pt;

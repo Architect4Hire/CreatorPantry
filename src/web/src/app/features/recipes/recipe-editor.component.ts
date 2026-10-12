@@ -5,6 +5,7 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  viewChild,
   computed,
   effect,
   inject,
@@ -15,20 +16,24 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   CpAnchorNavComponent,
   CpAnchorNavItem,
+  CpBackLinkComponent,
   CpButtonComponent,
   CpCardComponent,
   CpComboboxComponent,
   CpComboboxOption,
+  CpDrawerComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
   CpStatusPillComponent,
   CpTabDefinition,
   CpTabPanelComponent,
   CpTabsComponent,
 } from '@creator-pantry/ui';
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
 import {
@@ -307,6 +312,29 @@ type RecipeEditorSaveState =
   | { readonly status: 'success' }
   | { readonly status: SaveFailureStatus };
 
+/** The tools that read a saved recipe and open beside it in the drawer. */
+export type RecipeToolId =
+  | 'scaling'
+  | 'converting'
+  | 'yield-display'
+  | 'ai-revision'
+  | 'ai-adaptation'
+  | 'ai-substitution'
+  | 'ai-review';
+
+interface RecipeTool {
+  readonly id: RecipeToolId;
+  readonly label: string;
+  /** One line under the name, saying what the tool is for. */
+  readonly note: string;
+}
+
+/**
+ * The tools whose request comes back as a proposal the creator has to answer. Substitution and review are
+ * advisory — they return something to read and nothing to decide — so they never leave anything pending.
+ */
+const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptation'];
+
 /**
  * The recipe-editor route shell: create at `:workspaceSlug/recipes/new`, edit at
  * `:workspaceSlug/recipes/:recipeId`. Instructions and ingredients are both fully editable
@@ -318,6 +346,7 @@ type RecipeEditorSaveState =
   selector: 'cp-recipe-editor',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     FormsModule,
     RouterLink,
     CpAnchorNavComponent,
@@ -347,12 +376,16 @@ type RecipeEditorSaveState =
     RecipeAdaptationRequestComponent,
     RecipeSubstitutionRequestComponent,
     RecipeReviewRequestComponent,
+    CpBackLinkComponent,
+    CpDrawerComponent,
   ],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeEditorComponent {
+  /** The page's name, from its own route: the `h1` for a state that has no title of its own. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly recipeService = inject(RecipeService);
@@ -378,13 +411,12 @@ export class RecipeEditorComponent {
    * save operation is no longer spread across five tablist clicks — which is what let the "Unsaved changes"
    * pill say only that *something* was dirty, and let a field error land on a panel nobody was looking at.
    *
-   * The calculators are grouped under `tools` rather than folded into the form because they read a *saved*
-   * version and refuse to run while the form is dirty: they are tools on a recipe, not fields of one.
+   * The tools — the calculators and the AI requests — are not an area at all. They read a *saved* version:
+   * they are tools on a recipe, not fields of one, and they open beside it in a drawer from the Tools control
+   * in the page head ({@link tools}).
    */
   readonly areas: CpTabDefinition[] = [
     { id: 'edit', label: 'Edit' },
-    // All three calculators read an exact saved version, which a recipe being created does not have yet.
-    { id: 'tools', label: 'Tools', disabled: this.isCreateMode },
     { id: 'media', label: 'Media', disabled: this.isCreateMode },
     { id: 'history', label: 'History', disabled: this.isCreateMode },
     // What happened when the recipe was cooked. Before Readiness because that is the order the work happens
@@ -411,19 +443,57 @@ export class RecipeEditorComponent {
    * not take their arrow key. And the rule is true from first render, which is the case a live region is
    * worst at: one populated at creation is not reliably announced.
    */
-  readonly lockedAreaNotice = describeLockedAreas(this.areas);
+  readonly lockedAreaNotice = describeLockedAreas([
+    // Named first, as it always was: Tools is a control in the page head now rather than a tab, and it is
+    // locked by the same thing and explained by the same sentence.
+    { id: 'tools', label: 'Tools', disabled: this.isCreateMode },
+    ...this.areas,
+  ]);
 
-  /** Inner tabs under Tools, still tabbed so each calculator fetches only when it is first opened. */
-  readonly toolTabs: CpTabDefinition[] = [
-    { id: 'scaling', label: 'Scale' },
-    { id: 'converting', label: 'Convert' },
-    { id: 'yield-display', label: 'Yield & display' },
-    { id: 'ai-revision', label: 'Revise with AI' },
-    { id: 'ai-adaptation', label: 'Adapt with AI' },
-    { id: 'ai-substitution', label: 'Substitute an ingredient' },
-    { id: 'ai-review', label: 'Review with AI' },
+  /**
+   * The seven tools, in the order they are listed. Each reads the saved recipe; none is a field of the form.
+   * A tool is mounted the first time it is chosen, so each fetches only when it is first opened.
+   */
+  readonly tools: readonly RecipeTool[] = [
+    { id: 'scaling', label: 'Scale', note: 'See every amount at a different yield.' },
+    { id: 'converting', label: 'Convert', note: 'Change the units of an amount, or the scale of a temperature.' },
+    { id: 'yield-display', label: 'Yield & display', note: "Check the recipe's yield against its amounts, and see how amounts will read." },
+    { id: 'ai-revision', label: 'Revise with AI', note: 'Ask for changes to one part of the recipe, to review before anything is kept.' },
+    { id: 'ai-adaptation', label: 'Adapt with AI', note: 'Ask for a version adapted to a need, to review before anything is kept.' },
+    { id: 'ai-substitution', label: 'Substitute an ingredient', note: 'Ask what could stand in for one ingredient.' },
+    { id: 'ai-review', label: 'Review with AI', note: 'Ask for a read-through and what it would look at again.' },
   ];
-  readonly selectedToolId = signal('scaling');
+
+  /** Whether the tools drawer is showing. */
+  readonly toolsOpen = signal(false);
+
+  /** The tool the drawer is showing, or null while it shows the list. Kept across a close, so it reopens there. */
+  readonly openToolId = signal<RecipeToolId | null>(null);
+
+  /** Every tool chosen at least once. A mounted tool stays mounted, shut drawer or not. */
+  private readonly mountedTools = signal<ReadonlySet<RecipeToolId>>(new Set());
+
+  /** What applying a calculation from the drawer just did, for the drawer itself to say. */
+  private readonly toolOutcomeSignal = signal<{ readonly text: string; readonly isProblem: boolean } | null>(null);
+  readonly toolOutcome = this.toolOutcomeSignal.asReadonly();
+
+  private readonly revisionTool = viewChild(RecipeRevisionRequestComponent);
+  private readonly adaptationTool = viewChild(RecipeAdaptationRequestComponent);
+
+  /** The request ids the creator has answered. A tool keeps showing its answered request until asked for another. */
+  private readonly decidedRequestIds = signal<ReadonlySet<string>>(new Set());
+
+  readonly toolsHeading = computed(() => this.tools.find((tool) => tool.id === this.openToolId())?.label ?? 'Tools');
+
+  /**
+   * How many proposal requests were sent from a tool and have not been answered by the creator. Whether one is
+   * still being written, is ready to review, or failed is the tool's to say — from here it is only known that
+   * there is something in Tools to come back to.
+   */
+  readonly openToolRequests = computed(
+    () => PROPOSAL_TOOL_IDS.filter((id) => this.toolHasOpenRequest(id)).length,
+  );
+
 
   /**
    * The three surfaces inside Edit. None is ever disabled: they hold the form a creator is filling in, and
@@ -1589,6 +1659,80 @@ export class RecipeEditorComponent {
     this.saveStateSignal.set({ status: outcome.status });
   }
 
+  // ---- Tools ----
+
+  toolMounted(id: RecipeToolId): boolean {
+    return this.mountedTools().has(id);
+  }
+
+  /** Whether this tool holds a proposal request that was sent and has not been answered. */
+  toolHasOpenRequest(id: RecipeToolId): boolean {
+    if (!PROPOSAL_TOOL_IDS.includes(id)) return false;
+
+    const requestId = this.toolRequestId(id);
+
+    return requestId !== null && !this.decidedRequestIds().has(requestId);
+  }
+
+  /**
+   * Open the drawer, on the list or on the tool that was last open. Refused before the first save: every tool
+   * reads a saved recipe, and the line the control is described by says so.
+   */
+  openTools(): void {
+    if (this.isCreateMode) return;
+
+    // The drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
+    // button in every browser, so the control is focused here rather than left to chance.
+    document.getElementById('recipe-tools-control')?.focus();
+    this.toolOutcomeSignal.set(null);
+    this.toolsOpen.set(true);
+  }
+
+  /**
+   * Shut the drawer. Nothing is accepted, discarded or abandoned by this: every opened tool stays mounted, so
+   * a running request is still watched and an unanswered proposal is still there. So there is nothing to ask.
+   */
+  closeTools(): void {
+    this.toolsOpen.set(false);
+  }
+
+  chooseTool(id: RecipeToolId): void {
+    this.mountedTools.update((mounted) => new Set([...mounted, id]));
+    this.toolOutcomeSignal.set(null);
+    this.openToolId.set(id);
+    // The button that was pressed has just gone with the list, and the page behind is inert, so focus would
+    // otherwise be lost to the body.
+    this.focusInDrawer('recipe-tools-all');
+  }
+
+  showToolList(): void {
+    const leaving = this.openToolId();
+    this.openToolId.set(null);
+    if (leaving !== null) this.focusInDrawer(`recipe-tool-choice-${leaving}`);
+  }
+
+  /** An AI tool's request was answered — accepted or declined — so it is no longer open. */
+  onToolDecided(id: RecipeToolId): void {
+    const requestId = this.toolRequestId(id);
+    if (requestId !== null) this.decidedRequestIds.update((decided) => new Set([...decided, requestId]));
+  }
+
+  private toolRequestId(id: RecipeToolId): string | null {
+    switch (id) {
+      case 'ai-revision':
+        return this.revisionTool()?.requestId() ?? null;
+      case 'ai-adaptation':
+        return this.adaptationTool()?.requestId() ?? null;
+      default:
+        return null;
+    }
+  }
+
+  /** From the document, not this element: an open drawer moves its content to <body>. */
+  private focusInDrawer(elementId: string): void {
+    afterNextRender(() => document.getElementById(elementId)?.focus(), { injector: this.injector });
+  }
+
   /**
    * Writes one converted temperature back to the step it came from.
    *
@@ -1787,17 +1931,17 @@ export class RecipeEditorComponent {
 
       // A replay is the same single write arriving twice, so it is reported as the success it is — and
       // never as a second version, because there is not one.
-      this.noticeSignal.set({
-        text: `${successText} The recipe is now at version ${outcome.recipe.currentVersion?.versionNumber ?? '—'}.`,
-        isProblem: false,
-        recipeLink: null,
-      });
+      const text = `${successText} The recipe is now at version ${outcome.recipe.currentVersion?.versionNumber ?? '—'}.`;
+      this.noticeSignal.set({ text, isProblem: false, recipeLink: null });
+      this.toolOutcomeSignal.set({ text, isProblem: false });
       return;
     }
 
     // Nothing was written in any of these. The key is kept for the cases a retry of the identical request
     // is the right next step, and dropped where it is not.
-    this.noticeSignal.set({ text: this.applyProblemText(outcome.status), isProblem: true, recipeLink: null });
+    const problem = this.applyProblemText(outcome.status);
+    this.noticeSignal.set({ text: problem, isProblem: true, recipeLink: null });
+    this.toolOutcomeSignal.set({ text: problem, isProblem: true });
     if (outcome.status !== 'unavailable') this.clearPendingApplyKey();
   }
 

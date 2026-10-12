@@ -3,7 +3,18 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, tap } from 'rxjs';
-import { CpBadgeComponent, CpButtonComponent, CpCardComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpBackLinkComponent,
+  CpBadgeComponent,
+  CpButtonComponent,
+  CpCardComponent,
+  CpFactComponent,
+  CpFactsComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+  CpTopicCardComponent,
+} from '@creator-pantry/ui';
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ClipboardService } from '../../core/clipboard.service';
 import { ContentChannel } from '../../models/brand-profile.models';
@@ -59,12 +70,26 @@ type ReuseAccess = 'checking' | 'unknown' | 'view_only' | 'allowed';
 @Component({
   selector: 'cp-prompt-detail',
   standalone: true,
-  imports: [DatePipe, RouterLink, CpBadgeComponent, CpButtonComponent, CpCardComponent, CpNoticeComponent],
+  imports: [
+    DatePipe,
+    RouterLink,
+    CpBackLinkComponent,
+    CpBadgeComponent,
+    CpButtonComponent,
+    CpCardComponent,
+    CpFactComponent,
+    CpFactsComponent,
+    CpNoticeComponent,
+    CpPageHeadComponent,
+    CpTopicCardComponent,
+  ],
   templateUrl: './prompt-detail.component.html',
   styleUrl: './prompt-detail.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PromptDetailComponent {
+  /** The page's name, from its own route: the `h1` for a state that has no title of its own. */
+  private readonly routeTitle = injectRouteTitle();
   private readonly prompts = inject(PromptLibraryService);
   private readonly brand = inject(BrandProfileService);
   private readonly memberships = inject(WorkspaceMembershipService);
@@ -116,6 +141,21 @@ export class PromptDetailComponent {
   });
 
   protected readonly title = computed(() => promptTitle(this.prompt()?.label ?? null));
+
+  /**
+   * What the page is called right now. One `h1` for every state: the prompt's own name once there is a
+   * prompt, what happened when there is not, and the route's name while that is still unknown.
+   */
+  protected readonly headTitle = computed(() => {
+    switch (this.state().status) {
+      case 'ready':
+        return this.title();
+      case 'not_found':
+        return 'Prompt not found';
+      default:
+        return this.routeTitle;
+    }
+  });
   protected readonly channelName = computed(() => promptChannelName(this.channels(), this.prompt()?.channelKey ?? ''));
   protected readonly kindLabel = computed(() => {
     const prompt = this.prompt();

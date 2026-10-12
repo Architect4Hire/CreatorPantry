@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpCheckboxComponent, CpNoticeComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCardGridComponent,
+  CpCheckboxComponent,
+  CpNoticeComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { StagedImage, isStagedImageActionable } from '../../models/generated-image.models';
 import { GeneratedImageService } from '../../services/generated-image.service';
@@ -60,6 +66,7 @@ interface Tile {
   selector: 'cp-content-pipeline-image-grid',
   standalone: true,
   imports: [
+    CpCardGridComponent,
     RouterLink,
     CpButtonComponent,
     CpCheckboxComponent,

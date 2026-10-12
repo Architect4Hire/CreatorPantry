@@ -16,13 +16,6 @@
   margin: 0;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-3);
-}
-
 .dirty {
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
@@ -34,15 +27,5 @@
 }
 
 .more {
-  display: block;
   margin-top: var(--cp-space-6);
-}
-
-.more-title {
-  margin: 0 0 var(--cp-space-2);
-  font-size: var(--cp-font-size-lg);
-}
-
-.more .cp-muted {
-  margin-bottom: var(--cp-space-4);
 }

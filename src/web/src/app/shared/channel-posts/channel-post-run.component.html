@@ -110,7 +110,7 @@
         </cp-notice>
       }
 
-      <ul class="posts">
+      <ul cpCardGrid minColumn="22rem" class="posts">
         @for (card of cards(); track card.channel.channelKey) {
           <li>
             <cp-channel-post-review

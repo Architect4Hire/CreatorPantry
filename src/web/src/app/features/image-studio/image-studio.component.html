@@ -1,12 +1,9 @@
-<section class="studio" aria-labelledby="image-studio-heading">
-  <header class="page-header">
-    <h1 id="image-studio-heading">Image Studio</h1>
-    <p class="lede">
-      Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept as you go, so
-      you can stop and pick up later.
-    </p>
-  </header>
+<cp-page-head
+  [heading]="pageTitle"
+  lede="Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept as you go, so you can stop and pick up later."
+/>
 
+<div class="studio">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
 
   @switch (phase()) {
@@ -216,4 +213,4 @@
       </cp-card>
     }
   }
-</section>
+</div>

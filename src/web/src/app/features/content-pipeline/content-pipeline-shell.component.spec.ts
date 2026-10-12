@@ -352,14 +352,34 @@ describe('ContentPipelineShellComponent', () => {
 
     expect(text()).toContain('Set it up');
     expect(text()).toContain('Step 1 of 6');
-    expect(root().querySelectorAll('.step-list li').length).toBe(6);
+    expect(root().querySelectorAll('cp-stepper li').length).toBe(6);
     expect(root().querySelector('[aria-current="step"]')?.textContent).toContain('Set it up');
+  });
+
+  it('reads as a flow: one head with the way back, the stepper, and one card headed by the step', async () => {
+    await create();
+
+    expect(root().querySelectorAll('h1').length).toBe(1);
+    expect(root().querySelector('cp-page-head h1')?.textContent).toContain('Content Pipeline');
+    expect(root().querySelector('cp-page-head .lede')?.textContent).toContain('one step at a time');
+
+    const crumb = root().querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Workflows');
+    expect(crumb.textContent).not.toContain('Back to');
+
+    const card = root().querySelector('cp-topic-card') as HTMLElement;
+    const heading = card.querySelector('h2') as HTMLElement;
+    expect(heading.id).toBe('cp-pipeline-step-heading');
+    expect(heading.textContent?.trim()).toBe('Set it up');
+    // A destination for focus when the step changes, never a tab stop.
+    expect(heading.tabIndex).toBe(-1);
+    expect(card.querySelector('.actions')?.textContent).toContain('Continue');
   });
 
   it('shows each step in the list with a word as well as a glyph, never colour alone', async () => {
     await create();
 
-    const words = Array.from(root().querySelectorAll('.step-list .word')).map((span) => span.textContent?.trim());
+    const words = Array.from(root().querySelectorAll('cp-stepper .word')).map((span) => span.textContent?.trim());
     expect(words[0]).toBe('You are here');
     expect(words[1]).toBe('Not started');
   });
@@ -390,7 +410,7 @@ describe('ContentPipelineShellComponent', () => {
 
     expect(text()).toContain("couldn't find this workspace");
     expect(root().querySelector('#cp-pipeline-step-heading')).toBeNull();
-    expect(root().querySelector('.step-list')).toBeNull();
+    expect(root().querySelector('cp-stepper ol')).toBeNull();
   });
 
   it('stops a Viewer at the door rather than walking them into a wall', async () => {

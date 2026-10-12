@@ -15,7 +15,7 @@ import {
   CpButtonComponent,
   CpComboboxComponent,
   CpComboboxOption,
-  CpDialogComponent,
+  CpDrawerComponent,
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
@@ -69,7 +69,7 @@ const FIELD_IDS: Readonly<Record<DamMetadataField, string>> = {
 /**
  * Editing what a creator said about one library asset (DAM-UI-004).
  *
- * `CpDialogComponent` rather than `ConfirmService`: this hosts a form with its own fields, validation and focus
+ * `CpDrawerComponent` rather than `ConfirmService`: this hosts a form with its own fields, validation and focus
  * order, not a question with two answers.
  *
  * **Only what changed is sent.** The save is a merge patch: a field the creator did not touch is left out, so
@@ -96,7 +96,7 @@ const FIELD_IDS: Readonly<Record<DamMetadataField, string>> = {
   imports: [
     CpButtonComponent,
     CpComboboxComponent,
-    CpDialogComponent,
+    CpDrawerComponent,
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
@@ -402,11 +402,13 @@ export class DamAssetEditComponent {
     this.end();
   }
 
-  /** Escape closes, unless it was pressed in the tag picker, where it closes the picker's own list. */
+  /**
+   * Escape in the tag picker belongs to the picker: it closes the picker's own list and never the drawer.
+   * Marking it handled is what the drawer looks for before it asks to close; Escape anywhere else reaches the
+   * drawer untouched, which asks through `closeRequested` and so through {@link cancel}.
+   */
   protected onEscape(event: Event): void {
-    if (event.target instanceof Element && event.target.closest('cp-combobox')) return;
-
-    void this.cancel();
+    if (event.target instanceof Element && event.target.closest('cp-combobox')) event.preventDefault();
   }
 
   protected onSubmit(event: Event): void {
@@ -476,7 +478,8 @@ export class DamAssetEditComponent {
   private focusField(field: DamMetadataField): void {
     // After the render that shows the error, so the control is described by it when focus arrives.
     setTimeout(() => {
-      this.host.nativeElement.querySelector<HTMLElement>(`[id="${FIELD_IDS[field]}"]`)?.focus();
+      // From the document, not this element: an open drawer moves its content to <body>.
+      this.host.nativeElement.ownerDocument.getElementById(FIELD_IDS[field])?.focus();
     });
   }
 }

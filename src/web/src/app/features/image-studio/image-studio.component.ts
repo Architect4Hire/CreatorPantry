@@ -19,7 +19,10 @@ import {
   CpCardComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -164,6 +167,7 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
     ContentPipelineReferencePanelComponent,
     ContentPipelineSetupStepComponent,
     GeneratedImageRunComponent,
+    CpPageHeadComponent,
   ],
   templateUrl: './image-studio.component.html',
   styleUrl: './image-studio.component.css',
@@ -171,6 +175,8 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ImageStudioComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle('Image Studio');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly location = inject(Location);

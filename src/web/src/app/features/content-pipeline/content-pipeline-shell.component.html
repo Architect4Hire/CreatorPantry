@@ -1,24 +1,11 @@
-<ng-template #stepList let-rows>
-  <ol class="step-list" aria-label="Pipeline steps">
-    @for (row of rows; track row.step.slug) {
-      <li [attr.aria-current]="row.status === 'current' ? 'step' : null" [attr.data-status]="row.status">
-        <span class="glyph" aria-hidden="true">{{ row.glyph }}</span>
-        <span class="name">{{ row.step.label }}</span>
-        <span class="word">{{ row.word }}</span>
-      </li>
-    }
-  </ol>
-</ng-template>
+<cp-page-head
+  [heading]="pageTitle"
+  lede="From an idea to finished posts, one step at a time. What you fill in is kept as you go, so you can stop and pick up later."
+>
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug(), 'workflows']">Workflows</a>
+</cp-page-head>
 
-<section class="pipeline" aria-labelledby="pipeline-heading">
-  <header class="page-header">
-    <h1 id="pipeline-heading">Content Pipeline</h1>
-    <p class="lede">
-      From an idea to finished posts, one step at a time. What you fill in is kept as you go, so you can stop and
-      pick up later.
-    </p>
-  </header>
-
+<div class="pipeline">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
 
   @switch (phase()) {
@@ -46,7 +33,6 @@
           You have view-only access to this workspace, so you can't run the pipeline. Ask an Owner or Editor to run
           it for you.
         </cp-notice>
-        <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'workflows']">Back to workflows</a>
       </cp-card>
     }
     @case ('context_not_found') {
@@ -75,18 +61,15 @@
       </cp-card>
     }
     @case ('resumable') {
-      <cp-card>
-        <section class="resume" aria-labelledby="resume-heading">
-          <h2 id="resume-heading" tabindex="-1">Pick up where you left off</h2>
-          <p>
-            You were on <strong>{{ resumeStep().label }}</strong>. {{ keptText() }}
-          </p>
-          <div class="cp-actions">
-            <button cpButton type="button" variant="primary" (click)="resume()">Continue</button>
-            <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
-          </div>
-        </section>
-      </cp-card>
+      <cp-topic-card heading="Pick up where you left off" headingId="resume-heading">
+        <p class="plain">
+          You were on <strong>{{ resumeStep().label }}</strong>. {{ keptText() }}
+        </p>
+        <div cpTopicCardActions class="cp-actions">
+          <button cpButton type="button" variant="primary" (click)="resume()">Continue</button>
+          <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
+        </div>
+      </cp-topic-card>
     }
   }
 
@@ -95,17 +78,18 @@
       <div class="progress">
         <cp-progress label="Pipeline progress" [value]="percent()" [valueText]="progressText()" />
         <nav aria-label="Pipeline progress">
-          <ng-container *ngTemplateOutlet="stepList; context: { $implicit: rows() }" />
+          <cp-stepper label="Pipeline steps" [steps]="stepperSteps()" />
         </nav>
       </div>
 
-      <cp-card>
+      <div class="step-slot">
         <!-- Keyed on the owner as well as the step: a change of workspace, or of who is signed in, destroys
              the step rather than swapping a new draft underneath a component still holding the last one's
              state. -->
         @for (step of currentStepList(); track step.slug + '@' + ownerKey()) {
-          <section class="step" aria-labelledby="cp-pipeline-step-heading">
-            <h2 id="cp-pipeline-step-heading" tabindex="-1">{{ step.label }}</h2>
+          <!-- One card for the step, headed by its name. Wide: a step is a form, and its sections keep their
+               own measure. The heading takes focus when the step changes. -->
+          <cp-topic-card [heading]="step.label" headingId="cp-pipeline-step-heading" wide>
 
             <details class="help cp-disclosure">
               <summary>Need help with this step?</summary>
@@ -198,7 +182,20 @@
 
             <p class="saved cp-muted" role="status">{{ savedText() }}</p>
 
-            <div class="cp-actions">
+            <!-- What the step still needs, said above the buttons it is about. -->
+            @if (step.slug === 'idea' && !canContinue()) {
+              <p class="cp-muted">
+                {{ needsBriefChoice() ? 'Choose what to work from to carry on.' : 'Pick an idea to carry on.' }}
+              </p>
+            }
+            @if (step.slug === 'prompt' && !canContinue()) {
+              <p class="cp-muted">Write the prompt, or have one written, to carry on.</p>
+            }
+            @if (step.slug === 'images' && !canContinue()) {
+              <p class="cp-muted">Keep at least one picture to carry on.</p>
+            }
+
+            <div cpTopicCardActions class="cp-actions">
               @if (!isFirst()) {
                 <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
               }
@@ -212,21 +209,9 @@
               <button cpButton type="button" variant="text" (click)="saveAndExit()">Save and exit</button>
               <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
             </div>
-
-            @if (step.slug === 'idea' && !canContinue()) {
-              <p class="cp-muted">
-                {{ needsBriefChoice() ? 'Choose what to work from to carry on.' : 'Pick an idea to carry on.' }}
-              </p>
-            }
-            @if (step.slug === 'prompt' && !canContinue()) {
-              <p class="cp-muted">Write the prompt, or have one written, to carry on.</p>
-            }
-            @if (step.slug === 'images' && !canContinue()) {
-              <p class="cp-muted">Keep at least one picture to carry on.</p>
-            }
-          </section>
+          </cp-topic-card>
         }
-      </cp-card>
+      </div>
     </div>
   }
-</section>
+</div>

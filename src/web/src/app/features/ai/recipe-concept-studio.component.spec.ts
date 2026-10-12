@@ -595,13 +595,13 @@ describe('RecipeConceptStudioComponent', () => {
 
   // ---- Page frame and results frame ----
 
-  it('leaves the page title to the shell instead of repeating it', fakeAsync(() => {
+  it('names the page once, in the page head, and nowhere else', fakeAsync(() => {
     render();
 
-    // The shell renders the h1 from the route's data.title. The h2s on this page name the brief's own parts;
-    // none of them repeats the page's name.
-    expect(element().querySelector('h1')).toBeNull();
-    expect(element().textContent).not.toContain('AI Recipe Studio');
+    // The page head prints the one h1 from the route's data.title. The h2s on this page name the brief's own
+    // parts; none of them repeats the page's name.
+    expect(element().querySelectorAll('h1').length).toBe(1);
+    expect(element().querySelector('cp-page-head h1')).toBeTruthy();
 
     const headings = Array.from(element().querySelectorAll('h2')).map((h) => h.textContent?.trim());
     expect(headings).toEqual(["The dish", "Who it's for", 'Ingredients and limits', 'Your voice']);

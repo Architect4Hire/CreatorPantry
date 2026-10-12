@@ -6,13 +6,18 @@ import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
   CpButtonComponent,
   CpCardComponent,
+  CpCardGridComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFormSectionComponent,
   CpListShellComponent,
   CpListShellState,
   CpNoticeComponent,
+  CpPageHeadComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { WorkspaceRole } from '../../models/auth.models';
 import { AiProposalStatus, isTerminalAiStatus } from '../../models/ai-proposal.models';
@@ -114,6 +119,8 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
   selector: 'cp-recipe-concept-studio',
   standalone: true,
   imports: [
+    CpCardGridComponent,
+    CpPageHeadComponent,
     FormsModule,
     AiAllowanceNoticeComponent,
     AiOperationStatusComponent,
@@ -126,12 +133,15 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpNoticeComponent,
     DayNotesNoticeComponent,
     UseThisInComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './recipe-concept-studio.component.html',
   styleUrl: './recipe-concept-studio.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeConceptStudioComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly concepts = inject(RecipeConceptService);
   private readonly drafts = inject(RecipeDraftService);
   private readonly memberships = inject(WorkspaceMembershipService);

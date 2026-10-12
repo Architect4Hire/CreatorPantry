@@ -228,7 +228,7 @@ describe('PromptDetailComponent', () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
     await create();
 
-    const facts = root().querySelector('.facts')?.textContent ?? '';
+    const facts = root().querySelector('dl[cpFacts]')?.textContent ?? '';
     expect(facts).toContain('Instagram');
     expect(facts).toContain('Hero shot');
     expect(facts).toContain('Written for you');
@@ -294,7 +294,7 @@ describe('PromptDetailComponent', () => {
     getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
     await create({ channels: null });
 
-    expect(root().querySelector('.facts')?.textContent).toContain('instagram');
+    expect(root().querySelector('dl[cpFacts]')?.textContent).toContain('instagram');
   });
 
   it('answers a prompt that is not there in one sentence, with no actions', async () => {
@@ -549,6 +549,17 @@ describe('PromptDetailComponent', () => {
     await create();
 
     expect(root().querySelectorAll('h1').length).toBe(1);
+    expect(root().querySelector('cp-page-head h1')?.textContent).toContain('Chili hero');
+
+    // One link back, to the library, named for where it goes.
+    const crumb = root().querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Prompt Library');
+    expect(crumb.textContent).not.toContain('Back to');
+    expect(crumb.getAttribute('href')).toBe(`/${SLUG}/prompt-library`);
+
+    // Every topic is a card whose region is named by its heading, in the order the page reads.
+    const headings = Array.from(root().querySelectorAll('cp-topic-card h2')).map((each) => each.textContent?.trim());
+    expect(headings).toEqual(['The prompt', 'Use it again', 'What was written for you', 'About this prompt']);
 
     for (const section of Array.from(root().querySelectorAll('section[aria-labelledby]'))) {
       const id = section.getAttribute('aria-labelledby') as string;
@@ -567,5 +578,8 @@ describe('PromptDetailComponent', () => {
       (each) => (each.textContent ?? '').trim() === '',
     );
     expect(quiet).toBeTruthy();
+    // In the page's one place for outcomes: under the head and above the first card, not inside one.
+    expect(quiet?.closest('cp-topic-card')).toBeNull();
+    expect(quiet?.nextElementSibling?.tagName.toLowerCase()).toBe('cp-topic-card');
   });
 });

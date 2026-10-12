@@ -1,8 +1,16 @@
 @switch (loadState().status) {
   @case ('loading') {
+    <!-- No title of its own in this state, so the page's one h1 is the route's name. -->
+    <cp-page-head [heading]="pageTitle">
+      <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
+    </cp-page-head>
     <p class="status" role="status">Loading recipe…</p>
   }
   @case ('not_found') {
+    <!-- No title of its own in this state, so the page's one h1 is the route's name. -->
+    <cp-page-head [heading]="pageTitle">
+      <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
+    </cp-page-head>
     <cp-empty-state title="Recipe not found" description="It may have been removed, or the link is incorrect." icon="⚠">
       <div cpEmptyStateActions>
         <a cpButton [routerLink]="['/', workspaceSlug, 'recipes']">Back to recipes</a>
@@ -10,6 +18,10 @@
     </cp-empty-state>
   }
   @case ('unavailable') {
+    <!-- No title of its own in this state, so the page's one h1 is the route's name. -->
+    <cp-page-head [heading]="pageTitle">
+      <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
+    </cp-page-head>
     <cp-empty-state title="Couldn't load this recipe" description="Check your connection and try again." icon="⚠">
       <div cpEmptyStateActions>
         <button cpButton (click)="retryLoad()">Try again</button>
@@ -17,15 +29,13 @@
     </cp-empty-state>
   }
   @case ('ready') {
-    <!-- The way back to the list. A plain link, so leaving with unsaved changes is the route guard's to
-         confirm, exactly as it is for the sidebar. -->
-    <nav class="back" aria-label="Breadcrumb">
-      <a [routerLink]="['/', workspaceSlug, 'recipes']"><span aria-hidden="true">← </span>Recipes</a>
-    </nav>
-
-    <header class="editor-header">
-      <h1>{{ isCreateMode ? 'New recipe' : title() || 'Edit recipe' }}</h1>
-      <div class="editor-header-actions">
+    <!-- The head holds the way back, the recipe's name, and everything that acts on the whole recipe. The
+         breadcrumb is a plain link, so leaving with unsaved changes is the route guard's to confirm, exactly
+         as it is for the sidebar. -->
+    <cp-page-head [heading]="isCreateMode ? 'New recipe' : title() || 'Edit recipe'">
+      <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
+      <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+      <ng-container ngProjectAs="[cpPageHeadActions]">
         @if (isDirty() && saveState().status !== 'saving') {
           <cp-status-pill tone="warning" role="status" class="dirty-indicator">Unsaved changes</cp-status-pill>
         }
@@ -50,6 +60,30 @@
           <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']">
             Kitchen view
           </a>
+        }
+
+        <!-- The seven tools that read the saved recipe, opened beside it in a drawer rather than behind a tab
+             of tabs. Before the first save there is no saved recipe to read: the control is still here and
+             still focusable, so a keyboard user can find out why it does nothing — aria-disabled, never
+             disabled — and it is described by the same line that explains the greyed-out areas. -->
+        <button
+          cpButton
+          id="recipe-tools-control"
+          variant="secondary"
+          type="button"
+          [attr.aria-disabled]="isCreateMode ? 'true' : null"
+          [attr.aria-describedby]="isCreateMode ? 'recipe-area-lock-note' : null"
+          (click)="openTools()"
+        >
+          Tools
+        </button>
+        <!-- A proposal request that was sent and has not been answered is still there while the drawer is
+             shut, so it is said here, in words, where it cannot be forgotten. It does not say what state the
+             request is in — writing, ready, failed — because only the tool knows; it says there is one. -->
+        @if (openToolRequests() > 0) {
+          <cp-status-pill tone="progress" role="status" class="tools-indicator">
+            {{ openToolRequests() === 1 ? 'Tools has an AI request to come back to' : 'Tools has ' + openToolRequests() + ' AI requests to come back to' }}
+          </cp-status-pill>
         }
 
         <!-- Shelving is not deleting, so it sits beside Save as an ordinary secondary action rather than as a
@@ -79,8 +113,8 @@
         >
           {{ saveState().status === 'saving' ? 'Saving…' : 'Save' }}
         </button>
-      </div>
-    </header>
+      </ng-container>
+    </cp-page-head>
 
     <!-- The discard confirmation is a SweetAlert2 modal raised by ConfirmService, not markup here: it has to
          outlive this view, because the router asks for it while navigating away from it. -->
@@ -188,7 +222,7 @@
            thing read after them rather than something to hunt for. Create mode only; see lockedAreaNotice
            for why this is plain text and not a tooltip on the disabled tabs. -->
       @if (isCreateMode && lockedAreaNotice) {
-        <p class="area-lock-note">
+        <p class="area-lock-note" id="recipe-area-lock-note">
           <span class="area-lock-icon" aria-hidden="true">⚑</span>
           <span>{{ lockedAreaNotice }}</span>
         </p>
@@ -555,7 +589,7 @@
       >
 
         @if (instructionGroups().length === 0) {
-          <p class="muted">No instructions yet. Add the first step, and give the method phases only if it has them.</p>
+          <p class="cp-muted">No instructions yet. Add the first step, and give the method phases only if it has them.</p>
           <div class="group-actions">
             <button cpButton type="button" (click)="addInstructionStep()">Add step</button>
           </div>
@@ -739,130 +773,6 @@
       </cp-tab-panel>
 
       @if (!isCreateMode) {
-        <cp-tab-panel id="tools">
-          <!-- An inner tablist, not three stacked sections: each calculator fetches on mount, and the
-               panels keep them lazy so opening Tools does not start three requests at once. -->
-          <cp-tabs [tabs]="toolTabs" ariaLabel="Recipe calculations" [(selectedId)]="selectedToolId">
-        <cp-tab-panel id="scaling">
-          <!-- Mounted lazily by the tab, and read-only throughout: the panel asks the server for a scaling
-               preview and renders it. Nothing it shows is saved, and the "before" column is the saved
-               ingredient lines this component already loaded — the same content the server scaled — so no
-               amount on screen was worked out twice. -->
-          <cp-recipe-scaling-preview
-            [workspaceSlug]="workspaceSlug"
-            [recipeId]="recipeIdOrEmpty"
-            [sourceVersionNumber]="currentVersionNumber()"
-            [savedIngredientGroups]="ingredientGroups()"
-            [recipeYieldQuantity]="savedYieldQuantity()"
-            [recipeYieldText]="savedYieldText()"
-            [editorIsDirty]="isDirty()"
-          />
-        </cp-tab-panel>
-
-        <cp-tab-panel id="converting">
-          <!-- Mounted lazily by the tab, and read-only throughout. Two calculations stacked rather than
-               nested in their own tabs: the units form refuses a temperature unit by pointing at the
-               section below it, which would be hidden exactly when it is needed. -->
-          <cp-recipe-unit-conversion
-            [workspaceSlug]="workspaceSlug"
-            [recipeId]="recipeIdOrEmpty"
-            [sourceVersionNumber]="currentVersionNumber()"
-            [savedIngredientGroups]="ingredientGroups()"
-            [editorIsDirty]="isDirty()"
-            (applyRequested)="onUnitConversionApplyRequested($event)"
-          />
-
-          <hr class="conversion-divider" />
-
-          <cp-recipe-temperature-conversion
-            [workspaceSlug]="workspaceSlug"
-            [recipeId]="recipeIdOrEmpty"
-            [sourceVersionNumber]="currentVersionNumber()"
-            [savedInstructionGroups]="savedInstructionGroups()"
-            [editorIsDirty]="isDirty()"
-            (applyRequested)="onTemperatureApplyRequested($event)"
-          />
-        </cp-tab-panel>
-
-        <cp-tab-panel id="yield-display">
-          <!-- Mounted lazily by the tab, and read-only throughout. Stacked for the reason the Convert tab
-               stacks: each section is short, and both are about reading the recipe's own numbers rather
-               than changing them. -->
-          <cp-recipe-yield-reconciliation
-            [workspaceSlug]="workspaceSlug"
-            [recipeId]="recipeIdOrEmpty"
-            [sourceVersionNumber]="currentVersionNumber()"
-            [yieldUnitId]="savedYieldUnitId()"
-            [savedYieldQuantity]="savedYieldQuantity()"
-            [editorIsDirty]="isDirty()"
-            (applyRequested)="onYieldApplyRequested($event)"
-          />
-
-          <hr class="conversion-divider" />
-
-          <cp-recipe-display-normalization
-            [workspaceSlug]="workspaceSlug"
-            [recipeId]="recipeIdOrEmpty"
-            [sourceVersionNumber]="currentVersionNumber()"
-            [savedIngredientGroups]="ingredientGroups()"
-          />
-        </cp-tab-panel>
-
-        <cp-tab-panel id="ai-revision">
-          <!-- Mounted lazily by the tab. Unlike the read-only calculators above, this one writes: it queues an
-               AI operation and reviews the resulting diff through the same panel every other diff-producing
-               capability uses, so it needs the current version's id, not only its display number. -->
-          @if (currentVersionId(); as versionId) {
-            <cp-recipe-revision-request
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [currentVersionId]="versionId"
-              [editorIsDirty]="isDirty()"
-            />
-          }
-        </cp-tab-panel>
-
-        <cp-tab-panel id="ai-adaptation">
-          <!-- Mounted lazily by the tab, same reasoning as ai-revision: this one writes and needs the current
-               version's id. -->
-          @if (currentVersionId(); as versionId) {
-            <cp-recipe-adaptation-request
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [currentVersionId]="versionId"
-              [editorIsDirty]="isDirty()"
-            />
-          }
-        </cp-tab-panel>
-
-        <cp-tab-panel id="ai-substitution">
-          <!-- Mounted lazily by the tab, same reasoning as ai-revision, and additionally needs the recipe's
-               own ingredient lines to offer as choices. -->
-          @if (currentVersionId(); as versionId) {
-            <cp-recipe-substitution-request
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [currentVersionId]="versionId"
-              [editorIsDirty]="isDirty()"
-              [ingredientGroups]="ingredientGroups()"
-            />
-          }
-        </cp-tab-panel>
-
-        <cp-tab-panel id="ai-review">
-          <!-- Mounted lazily by the tab, same reasoning as ai-revision. -->
-          @if (currentVersionId(); as versionId) {
-            <cp-recipe-review-request
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [currentVersionId]="versionId"
-              [editorIsDirty]="isDirty()"
-            />
-          }
-        </cp-tab-panel>
-          </cp-tabs>
-        </cp-tab-panel>
-
         <cp-tab-panel id="media">
           <!-- Mounted lazily by the tab. recipeId is non-null here — the tab is disabled entirely in create
                mode. The panel reads and changes links only; the recipe and its token belong to this component,
@@ -947,5 +857,166 @@
       }
     </cp-tabs>
     </cp-card>
+
+    <!-- The tools, beside the recipe they read. One drawer for all seven: it opens on the list, and on the
+         tool that was last open after that.
+
+         Every tool that has been opened stays alive while the drawer is shut, exactly as a tab panel that has
+         been visited stays alive while another tab shows: a request that is running goes on being watched, and
+         a proposal nobody has answered is still unanswered when the drawer opens again. So closing accepts
+         nothing, discards nothing and abandons nothing, and has nothing to ask. Each tool is mounted the first
+         time it is chosen, so opening Tools starts no request of its own. -->
+    @if (!isCreateMode) {
+      <cp-drawer
+        [open]="toolsOpen()"
+        [heading]="toolsHeading()"
+        [description]="openToolId() === null ? 'Each works from the recipe as last saved. Nothing changes until you accept or apply it.' : ''"
+        size="wide"
+        closeLabel="Close tools"
+        (closeRequested)="closeTools()"
+      >
+        @if (openToolId() === null) {
+          <ul class="tool-list" role="list">
+            @for (item of tools; track item.id) {
+              <li>
+                <button type="button" class="tool-choice" [id]="'recipe-tool-choice-' + item.id" (click)="chooseTool(item.id)">
+                  <span class="tool-choice-name">{{ item.label }}</span>
+                  <span class="tool-choice-note">{{ item.note }}</span>
+                  @if (toolHasOpenRequest(item.id)) {
+                    <cp-status-pill tone="progress">A request to come back to</cp-status-pill>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="tool-back">
+            <button cpButton id="recipe-tools-all" type="button" variant="text" size="sm" (click)="showToolList()">
+              <span aria-hidden="true">←</span> All tools
+            </button>
+          </p>
+        }
+
+        <!-- What applying a calculation just did. Said here as well as on the page, because the page behind
+             an open drawer is inert and its own notice cannot be read or heard until the drawer is shut.
+             Always present, so the sentence is announced when it arrives. -->
+        <cp-notice
+          class="tool-outcome"
+          role="status"
+          [tone]="toolOutcome()?.isProblem ? 'error' : 'success'"
+          [quiet]="toolOutcome() === null"
+        >{{ toolOutcome()?.text }}</cp-notice>
+
+      @if (toolMounted('scaling')) {
+        <div class="tool" [hidden]="openToolId() !== 'scaling'">
+          <cp-recipe-scaling-preview
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+            [recipeYieldQuantity]="savedYieldQuantity()"
+            [recipeYieldText]="savedYieldText()"
+            [editorIsDirty]="isDirty()"
+          />
+        </div>
+      }
+      @if (toolMounted('converting')) {
+        <div class="tool" [hidden]="openToolId() !== 'converting'">
+          <cp-recipe-unit-conversion
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+            [editorIsDirty]="isDirty()"
+            (applyRequested)="onUnitConversionApplyRequested($event)"
+          />
+
+          <hr class="conversion-divider" />
+
+          <cp-recipe-temperature-conversion
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedInstructionGroups]="savedInstructionGroups()"
+            [editorIsDirty]="isDirty()"
+            (applyRequested)="onTemperatureApplyRequested($event)"
+          />
+        </div>
+      }
+      @if (toolMounted('yield-display')) {
+        <div class="tool" [hidden]="openToolId() !== 'yield-display'">
+          <cp-recipe-yield-reconciliation
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [yieldUnitId]="savedYieldUnitId()"
+            [savedYieldQuantity]="savedYieldQuantity()"
+            [editorIsDirty]="isDirty()"
+            (applyRequested)="onYieldApplyRequested($event)"
+          />
+
+          <hr class="conversion-divider" />
+
+          <cp-recipe-display-normalization
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+          />
+        </div>
+      }
+      @if (toolMounted('ai-revision')) {
+        <div class="tool" [hidden]="openToolId() !== 'ai-revision'">
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-revision-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
+              (decided)="onToolDecided('ai-revision')"
+            />
+          }
+        </div>
+      }
+      @if (toolMounted('ai-adaptation')) {
+        <div class="tool" [hidden]="openToolId() !== 'ai-adaptation'">
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-adaptation-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
+              (decided)="onToolDecided('ai-adaptation')"
+            />
+          }
+        </div>
+      }
+      @if (toolMounted('ai-substitution')) {
+        <div class="tool" [hidden]="openToolId() !== 'ai-substitution'">
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-substitution-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
+              [ingredientGroups]="ingredientGroups()"
+            />
+          }
+        </div>
+      }
+      @if (toolMounted('ai-review')) {
+        <div class="tool" [hidden]="openToolId() !== 'ai-review'">
+          @if (currentVersionId(); as versionId) {
+            <cp-recipe-review-request
+              [workspaceSlug]="workspaceSlug"
+              [recipeId]="recipeIdOrEmpty"
+              [currentVersionId]="versionId"
+              [editorIsDirty]="isDirty()"
+            />
+          }
+        </div>
+      }
+      </cp-drawer>
+    }
   }
 }

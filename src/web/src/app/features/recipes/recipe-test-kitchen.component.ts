@@ -11,7 +11,13 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { CpButtonComponent, CpCardComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCardComponent,
+  CpFactComponent,
+  CpFactsComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { roleAllows } from '../../models/recipe-readiness.models';
 import { RecipeTestRun, TestRunSummary } from '../../models/recipe-test-run.models';
@@ -76,6 +82,8 @@ let nextInstance = 0;
     DatePipe,
     CpButtonComponent,
     CpCardComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpStatusPillComponent,
     RecipeTestHistoryComponent,
     RecipeTestIssuesComponent,

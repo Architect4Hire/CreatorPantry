@@ -138,11 +138,17 @@ main {
   padding-top: var(--cp-topbar-height);
   min-height: 100vh;
 }
-.page-title {
-  margin: 0;
-  padding: var(--cp-space-5) var(--cp-space-5) 0;
-  font: 400 var(--cp-font-size-xl) / 1.2 var(--cp-font-display);
-  color: var(--cp-text);
+/* Left-aligned, not centred: a page keeps its edge against the sidebar at every window width. The widths
+   include the gutter, so the box is the token and the content is the token less two gutters. */
+.page-frame {
+  max-width: var(--cp-page-width-standard);
+  padding: var(--cp-space-5) var(--cp-page-gutter) var(--cp-page-gutter);
+}
+.page-frame[data-page-width='reading'] {
+  max-width: var(--cp-page-width-reading);
+}
+.page-frame[data-page-width='wide'] {
+  max-width: var(--cp-page-width-wide);
 }
 
 @media (max-width: 900px) {
@@ -181,12 +187,17 @@ main {
     min-height: 0;
   }
   .sidebar,
-  .topbar,
-  .page-title {
+  .topbar {
     display: none;
   }
   main {
     margin-left: 0;
     padding-top: 0;
+  }
+  /* Paper has its own margins and its own width; the frame gives up both so a page prints as it did when
+     each one zeroed its own host. */
+  .page-frame {
+    max-width: none;
+    padding: 0;
   }
 }

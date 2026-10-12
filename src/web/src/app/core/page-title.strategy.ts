@@ -23,11 +23,14 @@ export class PageTitleStrategy extends TitleStrategy {
 }
 
 function deepestDataTitle(root: ActivatedRouteSnapshot): string | undefined {
+  // Walk to the leaf and keep the last title seen: returning at the first would name a child page after its
+  // section.
+  let deepest: string | undefined;
   for (let node: ActivatedRouteSnapshot | null = root; node; node = node.firstChild) {
     const value = node.data['title'];
     if (typeof value === 'string' && value.trim().length > 0) {
-      return value;
+      deepest = value;
     }
   }
-  return undefined;
+  return deepest;
 }

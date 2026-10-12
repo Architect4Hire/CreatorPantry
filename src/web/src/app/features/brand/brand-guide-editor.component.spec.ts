@@ -818,4 +818,18 @@ describe('BrandGuideEditorComponent', () => {
 
     expect(root().querySelector('cp-anchor-nav')).not.toBeNull();
   });
+
+  it('has one head for the page: one link back to Brand settings, the guide’s name, and its marks as badges', async () => {
+    await create();
+
+    expect(root().querySelectorAll('h1').length).toBe(1);
+    const crumb = root().querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Brand settings');
+    expect(crumb.textContent).not.toContain('Back to');
+    expect(crumb.getAttribute('href')).toBe('/sams-kitchen/brand');
+
+    const badges = root().querySelector('cp-page-head .badges') as HTMLElement;
+    expect(badges.textContent).toContain('Version');
+    expect(badges.querySelector('cp-status-pill')).toBeTruthy();
+  });
 });

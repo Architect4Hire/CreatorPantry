@@ -12,6 +12,18 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 import { CpLogoComponent } from '../features/landing/logo/logo/logo';
 
+/**
+ * The width a routed page asks the shell's frame for, through `data: { pageWidth }` beside its `title`.
+ * `standard` is what a route gets by saying nothing (DESIGN-SYSTEM.md, "Composing a page").
+ */
+export type PageWidth = 'reading' | 'standard' | 'wide';
+
+const PAGE_WIDTHS: readonly string[] = ['reading', 'standard', 'wide'] satisfies readonly PageWidth[];
+
+function isPageWidth(value: unknown): value is PageWidth {
+  return typeof value === 'string' && PAGE_WIDTHS.includes(value);
+}
+
 interface ShellNavItem {
   readonly path: string;
   readonly label: string;
@@ -87,6 +99,7 @@ export class AppShellComponent {
   readonly currentWorkspaceSlug = () => this.routeState().slug;
   readonly currentSection = () => this.routeState().section;
   readonly currentPageTitle = () => this.routeState().title;
+  readonly currentPageWidth = () => this.routeState().pageWidth;
 
   /**
    * The allowance, shown in the topbar beside the account rather than in the sidebar.
@@ -131,11 +144,12 @@ export class AppShellComponent {
     await this.router.navigateByUrl('/sign-in');
   }
 
-  private readRouteState(): { slug: string | null; section: string; title: string } {
+  private readRouteState(): { slug: string | null; section: string; title: string; pageWidth: PageWidth } {
     let node = this.route.firstChild;
     let slug: string | null = null;
     let section = 'dashboard';
     let title = 'CreatorPantry';
+    let pageWidth: PageWidth = 'standard';
     // A node can exist in the tree with its `snapshot` not yet assigned: this runs once synchronously
     // during construction (this component and its own '' child both activate in the same navigation),
     // before the router has finished wiring up that child's snapshot. Stop at that point rather than
@@ -148,8 +162,12 @@ export class AppShellComponent {
       if (segment) section = segment;
       const routeTitle = node.snapshot.data['title'];
       if (typeof routeTitle === 'string') title = routeTitle;
+      // The deepest route that names a width wins, as it does for the title; a value that is not one of the
+      // three steps is ignored rather than reaching the DOM as an attribute no rule matches.
+      const routeWidth: unknown = node.snapshot.data['pageWidth'];
+      if (isPageWidth(routeWidth)) pageWidth = routeWidth;
       node = node.firstChild;
     }
-    return { slug, section, title };
+    return { slug, section, title, pageWidth };
   }
 }

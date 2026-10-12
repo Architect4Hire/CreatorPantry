@@ -39,7 +39,7 @@
   }
 
   @if (loading() && readiness() === null) {
-    <p class="muted" role="status">Checking this recipe…</p>
+    <p class="cp-muted measure" role="status">Checking this recipe…</p>
   }
 
   @if (readiness(); as check) {
@@ -57,7 +57,7 @@
       }
     </div>
 
-    <p class="muted">
+    <p class="cp-muted measure">
       Checked
       @if (check.evaluatedVersionNumber !== null) {
         against version {{ check.evaluatedVersionNumber }}
@@ -79,7 +79,7 @@
       absence from the list below is visible rather than silent.
     -->
     @if (check.disabledRuleIds.length > 0) {
-      <p class="muted">
+      <p class="cp-muted measure">
         {{ check.disabledRuleIds.length }}
         {{ check.disabledRuleIds.length === 1 ? 'check is' : 'checks are' }} switched off for this workspace and
         did not run. A check that did not run has not passed.
@@ -179,7 +179,7 @@
     }
   }
 
-  <footer class="actions">
+  <footer class="footer">
     @if (transitionMessage()) {
       <p class="problem" [id]="idPrefix + '-transition-status'" role="alert">{{ transitionMessage() }}</p>
     }
@@ -201,7 +201,7 @@
     }
 
     @if (availableMoves().length === 0) {
-      <p class="muted">
+      <p class="cp-muted measure">
         @if (role() === null) {
           Your role in this workspace is still loading.
         } @else {

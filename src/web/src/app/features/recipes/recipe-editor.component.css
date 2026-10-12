@@ -1,5 +1,6 @@
-/* 90rem, not unbounded: the editor should use a desktop's width, but stretching Description or a step's
-   prose to a 2000px line is not readability. The reading measure is capped per control instead, below.
+/* The gutter and the width are the shell's (DESIGN-SYSTEM.md, "Composing a page"); this route asks for the
+   wide step. Wide, not unbounded: the editor should use a desktop's width, but stretching Description or a
+   step's prose to a 2000px line is not readability. The reading measure is capped per control instead, below.
 
    container-type here — not a viewport media query — so the layout answers to the space the editor actually
    has. It responds identically to a narrowed window and to 200% zoom (both shrink the container's CSS-px
@@ -8,8 +9,6 @@
    because Karma cannot resize the viewport. */
 :host {
   display: block;
-  padding: var(--cp-space-8);
-  max-width: 90rem;
   container: cp-editor / inline-size;
 }
 
@@ -17,29 +16,6 @@
   margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
-}
-
-.editor-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cp-space-4);
-  margin-bottom: var(--cp-space-5);
-  padding-bottom: var(--cp-space-5);
-  border-bottom: 1px solid var(--cp-border);
-}
-
-.editor-header h1 {
-  margin: 0;
-  font: 400 var(--cp-font-size-2xl) / var(--cp-leading-tight) var(--cp-font-display);
-  color: var(--cp-text);
-}
-
-.editor-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--cp-space-4);
 }
 
 /* The gap a notice used to carry itself, now that spacing is the page's business rather than the notice's. */
@@ -148,12 +124,6 @@ cp-tab-panel:not([hidden]) {
     top: var(--cp-space-4);
     --cp-anchor-nav-direction: column;
   }
-}
-
-.muted {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
 }
 
 .group {
@@ -361,15 +331,54 @@ cp-tab-panel:not([hidden]) {
   color: var(--cp-orange);
 }
 
-/* The way back to the recipe list, above the title. */
-.back a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  color: var(--cp-text-muted);
+/* The tools drawer: a list to choose from, then the chosen tool with the way back to the list above it. */
+.tool-list {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.back a:focus-visible {
+.tool-choice {
+  display: grid;
+  gap: var(--cp-space-1);
+  justify-items: start;
+  width: 100%;
+  /* 40px and more, the minimum target. */
+  min-height: 2.5rem;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tool-choice:hover {
+  border-color: var(--cp-primary);
+}
+
+.tool-choice:focus-visible {
   outline: 2px solid var(--cp-focus);
   outline-offset: 2px;
+}
+
+.tool-choice-name {
+  font-weight: 700;
+}
+
+.tool-choice-note {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.tool-back {
+  margin: 0 0 var(--cp-space-3);
+}
+
+.tool[hidden] {
+  display: none;
 }

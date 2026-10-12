@@ -654,7 +654,7 @@ describe('DamLibraryComponent', () => {
     searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
     await create();
 
-    const list = root().querySelector('ul.grid') as HTMLElement;
+    const list = root().querySelector('ul[cpCardGrid]') as HTMLElement;
     expect(list.children.length).toBe(2);
 
     for (const card of cards()) {

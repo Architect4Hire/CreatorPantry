@@ -1,4 +1,3 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -12,10 +11,21 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CpButtonComponent, CpCardComponent, CpNoticeComponent, CpProgressComponent } from '@creator-pantry/ui';
+import {
+  CpBackLinkComponent,
+  CpButtonComponent,
+  CpCardComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+  CpProgressComponent,
+  CpStep,
+  CpStepperComponent,
+  CpTopicCardComponent,
+} from '@creator-pantry/ui';
 import { combineLatest, map } from 'rxjs';
 
 import { ConfirmService } from '../../../core/confirm.service';
+import { injectRouteTitle } from '../../../core/route-title';
 import {
   BRAND_SETUP_DRAFT_MAX_CHARS,
   BRAND_SETUP_STEPS,
@@ -29,8 +39,6 @@ import {
   FIRST_BRAND_SETUP_STEP,
   LAST_BRAND_SETUP_STEP,
   NOT_READY_REPORT,
-  STEP_STATUS_GLYPH,
-  STEP_STATUS_WORD,
   normalizeSlugs,
   parseBrandSetupDraft,
   resolveStepRoute,
@@ -132,7 +140,6 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
   selector: 'cp-brand-setup-shell',
   standalone: true,
   imports: [
-    NgTemplateOutlet,
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
@@ -146,12 +153,18 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
     BrandSetupGoalsStepComponent,
     BrandSetupStyleStepComponent,
     BrandSetupStepPlaceholderComponent,
+    CpBackLinkComponent,
+    CpPageHeadComponent,
+    CpStepperComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './brand-setup-shell.component.html',
   styleUrl: './brand-setup-shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupShellComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle('Create my voice');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly service = inject(BrandSetupSessionService);
@@ -246,6 +259,10 @@ export class BrandSetupShellComponent {
 
   readonly rows = computed(() => this.rowsFor(this.currentSlug()));
   readonly summaryRows = computed(() => this.rowsFor(null));
+
+  /** The same rows as `cp-stepper` takes them: it owns the word and the glyph for each state. */
+  protected readonly stepperSteps = computed(() => this.rows().map(asStep));
+  protected readonly summaryStepperSteps = computed(() => this.summaryRows().map(asStep));
 
   readonly hasSession = computed(() => this.serverSession() !== null || this.phase() === 'active');
 
@@ -885,14 +902,9 @@ export class BrandSetupShellComponent {
   private rowsFor(current: BrandSetupStepSlug | null): readonly {
     readonly step: (typeof BRAND_SETUP_STEPS)[number];
     readonly status: BrandSetupStepStatus;
-    readonly glyph: string;
-    readonly word: string;
   }[] {
     const { completed, skipped } = this.data();
-    return BRAND_SETUP_STEPS.map((step) => {
-      const status = stepStatusOf(step.slug, current, completed, skipped);
-      return { step, status, glyph: STEP_STATUS_GLYPH[status], word: STEP_STATUS_WORD[status] };
-    });
+    return BRAND_SETUP_STEPS.map((step) => ({ step, status: stepStatusOf(step.slug, current, completed, skipped) }));
   }
 
   private ancestors(): ActivatedRoute[] {
@@ -912,4 +924,9 @@ export class BrandSetupShellComponent {
       ? ''
       : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
   }
+}
+
+/** One row as `cp-stepper` takes it. */
+function asStep(row: { readonly step: { readonly slug: string; readonly label: string }; readonly status: BrandSetupStepStatus }): CpStep {
+  return { id: row.step.slug, label: row.step.label, status: row.status };
 }

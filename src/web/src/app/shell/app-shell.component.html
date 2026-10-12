@@ -52,7 +52,10 @@
   </header>
 
   <main>
-    <h1 class="page-title">{{ currentPageTitle() }}</h1>
-    <router-outlet />
+    <!-- The one gutter and the one width every signed-in page has; a route picks its width with
+         `data: { pageWidth }`. No title here: the page's one h1 is its own cp-page-head (DESIGN-SYSTEM.md). -->
+    <div class="page-frame" [attr.data-page-width]="currentPageWidth()">
+      <router-outlet />
+    </div>
   </main>
 </div>

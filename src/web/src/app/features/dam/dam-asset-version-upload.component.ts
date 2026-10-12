@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { Subscription } from 'rxjs';
 import {
   CpButtonComponent,
-  CpDialogComponent,
+  CpDrawerComponent,
   CpFormSectionComponent,
   CpUploadItem,
   CpUploaderComponent,
@@ -55,15 +55,13 @@ const FAILURE_MESSAGE: Readonly<Record<DamVersionUploadFailure, string>> = {
 @Component({
   selector: 'cp-dam-asset-version-upload',
   standalone: true,
-  imports: [CpButtonComponent, CpDialogComponent, CpFormSectionComponent, CpUploaderComponent],
+  imports: [CpButtonComponent, CpDrawerComponent, CpFormSectionComponent, CpUploaderComponent],
   template: `
-    <cp-dialog
+    <cp-drawer
       [open]="open()"
-      title="Add a version"
+      heading="Add a version"
       description="The new file becomes the next version. Nothing already here is overwritten."
-      titleId="cp-dam-version-upload-title"
-      (closed)="close()"
-      (keydown.escape)="close()"
+      (closeRequested)="close()"
     >
       <cp-form-section heading="The new file" [problem]="failure()">
         <!-- Said plainly, because adding a version sounds like replacing one and is not. -->
@@ -92,14 +90,14 @@ const FAILURE_MESSAGE: Readonly<Record<DamVersionUploadFailure, string>> = {
         }
       </cp-form-section>
 
-      <div cpDialogActions>
-        <!-- "Close", not "Cancel": the uploader's own per-file control is already labelled Cancel. -->
-        <button cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="close()">Close</button>
-        <button cpButton type="button" [disabled]="isUploading() || file() === null" (click)="upload()">
-          {{ isUploading() ? 'Adding…' : 'Add as version ' + nextVersionNumber() }}
-        </button>
-      </div>
-    </cp-dialog>
+      <!-- "Close", not "Cancel": the uploader's own per-file control is already labelled Cancel. -->
+      <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="close()">
+        Close
+      </button>
+      <button cpDrawerActions cpButton type="button" [disabled]="isUploading() || file() === null" (click)="upload()">
+        {{ isUploading() ? 'Adding…' : 'Add as version ' + nextVersionNumber() }}
+      </button>
+    </cp-drawer>
   `,
   styles: [
     `

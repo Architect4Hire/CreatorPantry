@@ -5,7 +5,7 @@ import { brandSettingsCanDeactivateGuard } from './brand-settings.guard';
 import { brandSetupCanDeactivateGuard } from './setup/brand-setup.guard';
 
 export const BRAND_ROUTES: Routes = [
-  { path: '', pathMatch: 'full', loadComponent: () => import('./brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand' } },
+  { path: '', pathMatch: 'full', loadComponent: () => import('./brand-settings.component').then((m) => m.BrandSettingsComponent), canDeactivate: [brandSettingsCanDeactivateGuard], data: { title: 'Brand settings' } },
   // The examples this workspace has given the brand. Under 'brand' so the Brand nav item stays active.
   {
     path: 'library',

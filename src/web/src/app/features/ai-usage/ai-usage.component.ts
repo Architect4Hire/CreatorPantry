@@ -4,11 +4,15 @@ import {
   CpCardComponent,
   CpListShellComponent,
   CpListShellState,
+  CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
   CpStatusPillComponent,
   CpStatusPillTone,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { AiTaskType } from '../../models/ai-proposal.models';
 import { AiUsageService } from '../../services/ai-usage.service';
@@ -63,17 +67,21 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
   selector: 'cp-ai-usage',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     CpButtonComponent,
     CpCardComponent,
     CpListShellComponent,
     CpProgressComponent,
     CpStatusPillComponent,
+    CpTopicCardComponent,
   ],
   templateUrl: './ai-usage.component.html',
   styleUrl: './ai-usage.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiUsageComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly usage = inject(AiUsageService);
 
   protected readonly state = this.usage.state;

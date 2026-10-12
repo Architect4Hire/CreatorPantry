@@ -14,7 +14,7 @@
 
   @if (!hasIssues()) {
     <!-- An empty issue list is not a verdict: the tester's own outcome says how the cook went. -->
-    <p class="muted">
+    <p class="cp-muted measure">
       This test recorded no problems. That is not the same as the recipe being right — the tester's verdict on the
       test itself says how the cook went.
     </p>
@@ -25,7 +25,7 @@
     version should not be treated as a finished source; the absence of one clears nothing (recipes.md).
   -->
   @if (hasIssues()) {
-    <p class="muted">
+    <p class="cp-muted measure">
       How bad a problem is describes the recipe as a draft, not whether the food is safe.
     </p>
   }
@@ -210,7 +210,7 @@
             </button>
           </div>
         } @else {
-          <p class="muted">Nobody has recorded what was done about this yet.</p>
+          <p class="cp-muted measure">Nobody has recorded what was done about this yet.</p>
         }
 
         <span class="cp-sr-only">Problem {{ index + 1 }} of {{ issues().length }}.</span>

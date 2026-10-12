@@ -2,7 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { combineLatest, map } from 'rxjs';
-import { CpButtonComponent, CpCardComponent, CpNoticeComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCardComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import {
   CONTENT_PIPELINE_STEPS,
@@ -50,13 +56,14 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
 @Component({
   selector: 'cp-workflows-hub',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpCardComponent, CpNoticeComponent, CpStatusPillComponent],
+  imports: [RouterLink, CpButtonComponent, CpCardComponent, CpNoticeComponent, CpPageHeadComponent, CpStatusPillComponent],
   template: `
-    <section class="hub" aria-labelledby="workflows-heading">
-      <header>
-        <h1 id="workflows-heading">Workflows</h1>
-        <p class="lede">Guided, step-by-step ways to get something made. Stop whenever you like and pick up later.</p>
-      </header>
+    <cp-page-head
+      heading="Workflows"
+      lede="Guided, step-by-step ways to get something made. Stop whenever you like and pick up later."
+    />
+
+    <div class="hub">
 
       @switch (phase()) {
         @case ('loading') {
@@ -120,7 +127,7 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
           </cp-card>
         }
       }
-    </section>
+    </div>
   `,
   styles: [
     `
@@ -139,7 +146,6 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
         gap: var(--cp-space-3);
         max-width: var(--cp-measure-prose);
       }
-      h1,
       h2 {
         margin: 0;
         font-family: var(--cp-font-display);
@@ -149,11 +155,6 @@ type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
         flex-wrap: wrap;
         align-items: center;
         gap: var(--cp-space-3);
-      }
-      .lede {
-        margin: var(--cp-space-2) 0 0;
-        max-width: var(--cp-measure-prose);
-        color: var(--cp-text-muted);
       }
       .plain {
         margin: 0;

@@ -329,8 +329,8 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
     it('states each picture’s format, size on screen and size in bytes', async () => {
       await mount();
 
-      expect(rows()[0].querySelector('.facts')?.textContent).toContain('PNG');
-      expect(rows()[0].querySelector('.facts')?.textContent).toContain('482 KB');
+      expect(rows()[0].querySelector('.specs')?.textContent).toContain('PNG');
+      expect(rows()[0].querySelector('.specs')?.textContent).toContain('482 KB');
     });
   });
 

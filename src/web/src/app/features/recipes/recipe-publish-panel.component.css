@@ -5,6 +5,7 @@
 
 :host {
   display: block;
+  overflow-wrap: anywhere;
 }
 
 /* `minmax(0, 1fr)`: an auto track's floor is its content's max-content width, so one long line would hold
@@ -38,12 +39,6 @@ cp-card {
 }
 
 .intro,
-.muted {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-  overflow-wrap: anywhere;
-}
 
 .block {
   display: grid;

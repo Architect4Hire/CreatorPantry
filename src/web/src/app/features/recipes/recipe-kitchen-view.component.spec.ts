@@ -481,7 +481,7 @@ describe('RecipeKitchenViewComponent', () => {
   it('links back to the recipe it came from', async () => {
     const root = await open();
 
-    expect(root.querySelector('nav.back a')?.getAttribute('href')).toBe('/cozy-fall/recipes/r1');
+    expect(root.querySelector('cp-page-head a[cpBackLink]')?.getAttribute('href')).toBe('/cozy-fall/recipes/r1');
   });
 });
 

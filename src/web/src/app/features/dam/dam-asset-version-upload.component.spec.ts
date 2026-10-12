@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Observable, Subject } from 'rxjs';
@@ -56,8 +57,22 @@ describe('DamAssetVersionUploadComponent', () => {
   let spy: jasmine.Spy<(slug: string, id: string, file: File, key: string) => Observable<DamVersionUploadEvent>>;
   let uploads: Subject<DamVersionUploadEvent>[];
 
+  /**
+   * This fixture's own drawer panel, wherever it sits. An open drawer moves itself to `<body>`, but it is still
+   * this fixture's in Angular's tree — so it is found through the fixture, never by searching a document that
+   * another spec may have left something in.
+   */
+  function panel(): HTMLElement | null {
+    return (fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+  }
+
+  function scrim(): HTMLElement {
+    return fixture.debugElement.query(By.css('.scrim')).nativeElement as HTMLElement;
+  }
+
+  /** Where this component's content is: its open drawer, or the fixture while the drawer is closed. */
   function root(): HTMLElement {
-    return fixture.nativeElement as HTMLElement;
+    return panel() ?? (fixture.nativeElement as HTMLElement);
   }
 
   function text(): string {
@@ -139,7 +154,7 @@ describe('DamAssetVersionUploadComponent', () => {
   it('opens as a named modal dialog that says nothing is overwritten and which number the file takes', async () => {
     await create();
 
-    const dialog = root().querySelector('[role="dialog"]') as HTMLElement;
+    const dialog = panel() as HTMLElement;
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(root().querySelector(`#${dialog.getAttribute('aria-labelledby')}`)?.textContent).toContain('Add a version');
     expect(text()).toContain('Nothing already here is overwritten');
@@ -207,9 +222,13 @@ describe('DamAssetVersionUploadComponent', () => {
     expect((root().querySelector('cp-uploader [role="progressbar"]') as HTMLElement).getAttribute('aria-valuenow')).toBe('85');
 
     button('Close').click();
-    (root().querySelector('button[aria-label="Close dialog"]') as HTMLButtonElement).click();
+    (root().querySelector('button[aria-label="Close"]') as HTMLButtonElement).click();
+    // Escape and the scrim are refused too: every way out waits for the upload to end.
+    (panel() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    (scrim() as HTMLElement).click();
     await settle();
     expect(host.closes).toBe(0);
+    expect(panel()).toBeTruthy();
     expect(spy).toHaveBeenCalledTimes(1);
   });
 

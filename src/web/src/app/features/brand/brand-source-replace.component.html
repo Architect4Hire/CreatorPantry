@@ -1,9 +1,8 @@
-<cp-dialog
+<cp-drawer
   [open]="open()"
-  title="Replace this file"
+  heading="Replace this file"
   description="The new file becomes the next version. Nothing already here is overwritten."
-  titleId="brand-source-replace-title"
-  (closed)="cancel()"
+  (closeRequested)="cancel()"
 >
   <cp-form-section heading="The new file" [problem]="failure()">
     <!-- Said plainly, because "replace" sounds like loss and is not: the server keeps every earlier version's
@@ -30,11 +29,11 @@
     }
   </cp-form-section>
 
-  <div cpDialogActions>
-    <!-- "Close", not "Cancel": the uploader's own per-item control is already labelled Cancel. -->
-    <button cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="cancel()">Close</button>
-    <button cpButton type="button" [disabled]="isUploading()" (click)="replace()">
-      {{ isUploading() ? 'Replacing…' : 'Add as version ' + nextVersionNumber() }}
-    </button>
-  </div>
-</cp-dialog>
+  <!-- "Close", not "Cancel": the uploader's own per-item control is already labelled Cancel. -->
+  <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="cancel()">
+    Close
+  </button>
+  <button cpDrawerActions cpButton type="button" [disabled]="isUploading()" (click)="replace()">
+    {{ isUploading() ? 'Replacing…' : 'Add as version ' + nextVersionNumber() }}
+  </button>
+</cp-drawer>

@@ -7,7 +7,10 @@ import { ChangeDetectionStrategy, Component, ElementRef, inject, input } from '@
     :host { display:block; }
     .cp-toolbar { display:flex; flex-wrap:wrap; gap:var(--cp-space-3); align-items:center; }
     .cp-toolbar--disabled { opacity:.6; pointer-events:none; }
-    .group { display:flex; flex-wrap:wrap; gap:var(--cp-space-2); align-items:center; }
+    /* max-width so a group is never wider than the toolbar: without it a select with one long option sizes
+       its group to that option and pushes the page sideways at 320px, where max-width:100% on the select
+       has nothing definite to be a percentage of. */
+    .group { display:flex; flex-wrap:wrap; gap:var(--cp-space-2); align-items:center; min-width:0; max-width:100%; }
     .status { font:400 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans); color:var(--cp-text-muted); }
     .overflow { position:relative; }
     /* A "More actions" control that opens onto nothing is worse than no control, so the disclosure is

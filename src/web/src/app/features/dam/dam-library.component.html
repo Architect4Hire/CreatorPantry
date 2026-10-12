@@ -1,13 +1,9 @@
-<header class="page-head">
-  <h1>DAM</h1>
-  <p class="lede">Every finished picture kept in this workspace. Search and filter to find one.</p>
+<cp-page-head heading="DAM" lede="Every finished picture kept in this workspace. Search and filter to find one.">
   <!-- Offered to exactly the people the server accepts an upload from: Contributor and above. -->
   @if (canUpload()) {
-    <p class="page-actions">
-      <button cpButton type="button" (click)="uploadOpen.set(true)">Upload a picture</button>
-    </p>
+    <button cpButton cpPageHeadActions type="button" (click)="uploadOpen.set(true)">Upload a picture</button>
   }
-</header>
+</cp-page-head>
 
 @if (canUpload()) {
   <cp-dam-asset-upload
@@ -20,8 +16,7 @@
 }
 
 <cp-toolbar ariaLabel="Library filters" [loading]="phase() === 'loading'">
-  <label class="search-field" cpToolbarSearch>
-    <span class="cp-sr-only">Search the library</span>
+  <cp-search-field cpToolbarSearch label="Search the library">
     <input
       type="search"
       name="search"
@@ -30,35 +25,32 @@
       [value]="searchText()"
       (input)="onSearchInput($event)"
     />
-  </label>
+  </cp-search-field>
 
-  <label class="select-field" cpToolbarFilters>
-    <span class="cp-sr-only">Filter by channel</span>
+  <cp-select-field cpToolbarFilters label="Filter by channel">
     <select name="channel" [disabled]="channelPhase() !== 'ready'" (change)="setChannel($event)">
       <option value="" [selected]="channel() === null">All channels</option>
       @for (option of channelOptions(); track option.key) {
         <option [value]="option.key" [selected]="option.key === channel()">{{ option.label }}</option>
       }
     </select>
-  </label>
+  </cp-select-field>
 
-  <label class="select-field" cpToolbarFilters>
-    <span class="cp-sr-only">Filter by day</span>
+  <cp-select-field cpToolbarFilters label="Filter by day">
     <select name="day" (change)="setDay($event)">
       <option value="" [selected]="day() === null">Any day</option>
       @for (option of dayOptions; track option) {
         <option [value]="option" [selected]="option === day()">{{ option }}</option>
       }
     </select>
-  </label>
+  </cp-select-field>
 
-  <label class="select-field" cpToolbarActions>
-    <span class="cp-sr-only">Sort the library</span>
+  <cp-select-field cpToolbarActions label="Sort the library">
     <select name="sort" (change)="setSort($event)">
       <option value="RecentlyAdded" [selected]="sort() === 'RecentlyAdded'">Newest first</option>
       <option value="Title" [selected]="sort() === 'Title'">Title</option>
     </select>
-  </label>
+  </cp-select-field>
 
   @if (hasActiveFilters()) {
     <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
@@ -104,53 +96,33 @@
     }
   </div>
 
-  <ul class="grid">
+  <ul cpCardGrid>
     @for (asset of items(); track asset.id) {
       <li [attr.data-asset-id]="asset.id">
-        <cp-card class="asset">
-          <article class="asset-body">
-            <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="asset" />
+        <cp-media-card [description]="asset.description ?? ''">
+          <cp-dam-asset-thumbnail cpMediaCardPicture [workspaceSlug]="workspaceSlug()" [asset]="asset" />
 
-            <h3 class="title"><a [routerLink]="[asset.id]">{{ asset.title }}</a></h3>
+          <a cpMediaCardTitle [routerLink]="[asset.id]">{{ asset.title }}</a>
 
-            @if (asset.description; as description) {
-              <p class="description">{{ description }}</p>
+          <cp-badge cpMediaCardBadges [tone]="asset.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel(asset) }}</cp-badge>
+          @if (channelName(asset); as name) {
+            <cp-badge cpMediaCardBadges tone="blue">{{ name }}</cp-badge>
+          }
+          @if (asset.day; as weekday) {
+            <cp-badge cpMediaCardBadges>{{ weekday }}</cp-badge>
+          }
+
+          <dl cpFacts layout="inline">
+            @if (facts(asset); as file) {
+              <div cpFact label="File">{{ file }}</div>
             }
-
-            <p class="badges">
-              <cp-badge [tone]="asset.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel(asset) }}</cp-badge>
-              @if (channelName(asset); as name) {
-                <cp-badge tone="blue">{{ name }}</cp-badge>
-              }
-              @if (asset.day; as weekday) {
-                <cp-badge>{{ weekday }}</cp-badge>
-              }
-            </p>
-
-            <dl class="facts">
-              @if (facts(asset); as file) {
-                <div>
-                  <dt>File</dt>
-                  <dd>{{ file }}</dd>
-                </div>
-              }
-              <div>
-                <dt>Versions</dt>
-                <dd>{{ versions(asset) }}</dd>
-              </div>
-              @if (usage(asset); as used) {
-                <div>
-                  <dt>Usage</dt>
-                  <dd>{{ used }}</dd>
-                </div>
-              }
-              <div>
-                <dt>Added</dt>
-                <dd>{{ asset.createdAt | date: 'mediumDate' }}</dd>
-              </div>
-            </dl>
-          </article>
-        </cp-card>
+            <div cpFact label="Versions">{{ versions(asset) }}</div>
+            @if (usage(asset); as used) {
+              <div cpFact label="Usage">{{ used }}</div>
+            }
+            <div cpFact label="Added">{{ asset.createdAt | date: 'mediumDate' }}</div>
+          </dl>
+        </cp-media-card>
       </li>
     }
   </ul>

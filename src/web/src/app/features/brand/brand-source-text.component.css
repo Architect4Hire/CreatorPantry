@@ -45,12 +45,6 @@
   outline-offset: 2px;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-3);
-}
-
 cp-notice {
   display: block;
   max-width: var(--cp-measure-prose);

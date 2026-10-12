@@ -113,7 +113,7 @@
           @if (run.images.length === 0) {
             <p class="cp-muted">The pictures from this run are no longer available.</p>
           } @else {
-            <ul class="run-pictures">
+            <ul cpCardGrid minColumn="10rem" class="run-pictures">
               @for (image of run.images; track image.id; let index = $index) {
                 <li>
                   <cp-content-pipeline-staged-image

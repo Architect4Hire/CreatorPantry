@@ -15,13 +15,21 @@ import { Subject, combineLatest, debounceTime, map, merge, switchMap, tap } from
 import {
   CpBadgeComponent,
   CpButtonComponent,
-  CpCardComponent,
+  CpCardGridComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpListShellComponent,
   CpListShellState,
+  CpMediaCardComponent,
   CpNoticeComponent,
+  CpPageHeadComponent,
+  CpSearchFieldComponent,
+  CpSelectFieldComponent,
   CpToolbarComponent,
 } from '@creator-pantry/ui';
+
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ContentChannel } from '../../models/brand-profile.models';
 import {
@@ -73,8 +81,14 @@ const COULD_NOT_LOAD = "Couldn't load your prompts. Check your connection and tr
  * **Filters live in the URL; the cursor does not.** A search is shareable and restorable; a cursor is a
  * position in one ordered set, refused by the server once the filters or the workspace change.
  *
- * **A row carries a preview, not the prompt.** The whole text is read from the detail route when a creator
- * asks for it, so copying is offered there and in the preview — never from a truncated row.
+ * **A card carries a preview, not the prompt.** The whole text is read from the detail route when a creator
+ * asks for it, so copying is offered there and in the preview — never from a truncated card. On the card the
+ * preview is one run of text; the creator's own line breaks are kept where the whole prompt is shown.
+ *
+ * **The preview opens in a drawer,** so the grid, its filters and the creator's place in it stay in view
+ * beside the prompt, and closing it puts focus back on the card that opened it.
+ *
+ * **A card has no picture.** A prompt is words, so every card shows the panel in a picture's place.
  *
  * **Nothing of one workspace survives a change to another.** The rows, the cursor and the open preview all go
  * before the next workspace's first page is asked for (.claude/rules/tenancy.md).
@@ -87,10 +101,16 @@ const COULD_NOT_LOAD = "Couldn't load your prompts. Check your connection and tr
     DatePipe,
     CpBadgeComponent,
     CpButtonComponent,
-    CpCardComponent,
+    CpCardGridComponent,
     CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpListShellComponent,
+    CpMediaCardComponent,
     CpNoticeComponent,
+    CpPageHeadComponent,
+    CpSearchFieldComponent,
+    CpSelectFieldComponent,
     CpToolbarComponent,
     PromptPreviewComponent,
   ],
@@ -99,6 +119,8 @@ const COULD_NOT_LOAD = "Couldn't load your prompts. Check your connection and tr
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PromptLibraryComponent {
+  /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly prompts = inject(PromptLibraryService);
   private readonly brand = inject(BrandProfileService);
   private readonly route = inject(ActivatedRoute);
@@ -122,10 +144,8 @@ export class PromptLibraryComponent {
   protected readonly channelPhase = signal<ChannelPhase>('loading');
   private readonly channels = signal<readonly ContentChannel[]>([]);
 
-  /** The row whose prompt is open in the preview, or null. */
+  /** The card whose prompt is open in the preview, or null. */
   protected readonly previewing = signal<PromptSummary | null>(null);
-  /** What opened the preview, so focus goes back to it when the preview closes. */
-  private previewOpener: HTMLElement | null = null;
 
   /**
    * Which search the rows on screen belong to. Raised whenever the filters or the workspace change, so an
@@ -274,8 +294,12 @@ export class PromptLibraryComponent {
     return promptTitle(prompt.label);
   }
 
-  protected truncated(prompt: PromptSummary): boolean {
-    return isPromptPreviewTruncated(prompt);
+  /**
+   * What the card shows of the prompt, ending in an ellipsis only when the prompt is longer than what the
+   * server sent — so a short prompt shown whole is not made to look cut.
+   */
+  protected preview(prompt: PromptSummary): string {
+    return isPromptPreviewTruncated(prompt) ? `${prompt.textPreview}…` : prompt.textPreview;
   }
 
   protected channelName(prompt: PromptSummary): string {
@@ -293,17 +317,15 @@ export class PromptLibraryComponent {
   // ---- Preview ----
 
   protected openPreview(prompt: PromptSummary, event: Event): void {
-    this.previewOpener = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    // The drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
+    // button in every browser, so the button is focused here rather than left to chance.
+    if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
     this.previewing.set(prompt);
   }
 
+  /** Nothing in the preview is unsaved, so it closes as soon as it asks to; the drawer returns focus itself. */
   protected closePreview(): void {
     this.previewing.set(null);
-
-    // Back to the button that opened it, so a keyboard user is not left at the top of the document.
-    const opener = this.previewOpener;
-    this.previewOpener = null;
-    if (opener?.isConnected) opener.focus();
   }
 
   // ---- Internals ----
@@ -324,7 +346,6 @@ export class PromptLibraryComponent {
     this.items.set([]);
     this.phase.set('loading');
     this.previewing.set(null);
-    this.previewOpener = null;
     this.restoreFromUrl();
 
     this.requests$.next(this.firstPage());
@@ -378,7 +399,7 @@ export class PromptLibraryComponent {
 
         this.items.update((items) => [...items, ...added]);
         this.loadingMore.set(false);
-        if (added.length > 0) this.focusRow(added[0].promptRecordId);
+        if (added.length > 0) this.focusCard(added[0].promptRecordId);
         return;
       }
 
@@ -402,16 +423,17 @@ export class PromptLibraryComponent {
   }
 
   /**
-   * Put focus on the first row a "Load more" added.
+   * Put focus on the first card a "Load more" added.
    *
    * The button that was pressed may have just gone — the last page has none — and focus left on a removed
-   * element falls back to the top of the document. The first new row is also where reading resumes.
+   * element falls back to the top of the document. The new card's title link takes focus: that is where
+   * reading resumes.
    */
-  private focusRow(promptRecordId: string): void {
+  private focusCard(promptRecordId: string): void {
     afterNextRender(
       () => {
         this.host.nativeElement
-          .querySelector<HTMLElement>(`[data-prompt-id="${CSS.escape(promptRecordId)}"] a`)
+          .querySelector<HTMLElement>(`[data-prompt-id="${CSS.escape(promptRecordId)}"] .title a`)
           ?.focus();
       },
       { injector: this.injector },

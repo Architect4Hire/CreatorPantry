@@ -12,6 +12,7 @@ import {
   CpDialogComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
+  CpFieldRowComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -383,6 +384,7 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
   selector: 'cp-recipe-ingredient-editor',
   standalone: true,
   imports: [
+    CpFieldRowComponent,
     FormsModule,
     CpAnchorNavComponent,
     CpButtonComponent,

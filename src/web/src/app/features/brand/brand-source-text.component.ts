@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import {
   CpButtonComponent,
-  CpDialogComponent,
+  CpDrawerComponent,
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
@@ -15,6 +15,7 @@ import {
   BrandSourceExtraction,
   BrandSourceExtractionState,
 } from '../../models/brand-source-extraction.models';
+import { ConfirmService } from '../../core/confirm.service';
 import { BrandSourceExtractionFailure, BrandSourceExtractionService } from '../../services/brand-source-extraction.service';
 import { EXTRACTION_STATE_LABELS } from './brand-library-labels';
 
@@ -68,7 +69,7 @@ const FAILURE_MESSAGE: Record<BrandSourceExtractionFailure, string> = {
   standalone: true,
   imports: [
     CpButtonComponent,
-    CpDialogComponent,
+    CpDrawerComponent,
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
@@ -80,6 +81,10 @@ const FAILURE_MESSAGE: Record<BrandSourceExtractionFailure, string> = {
 })
 export class BrandSourceTextComponent {
   private readonly extractions = inject(BrandSourceExtractionService);
+  private readonly confirm = inject(ConfirmService);
+
+  /** The text the correction started from, so closing can tell a correction typed from one merely opened. */
+  private seeded = '';
 
   readonly workspaceSlug = input.required<string>();
   readonly documentId = input.required<string>();
@@ -199,10 +204,15 @@ export class BrandSourceTextComponent {
     void this.runRetry();
   }
 
-  protected openCorrect(): void {
+  protected openCorrect(event?: Event): void {
     const extraction = this.extraction();
 
+    // A drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
+    // button in every browser, so the button is focused here rather than left to chance.
+    if (event?.currentTarget instanceof HTMLElement) event.currentTarget.focus();
+
     // Seeded with whatever is on record, so a correction starts from the read rather than from nothing.
+    this.seeded = extraction?.text ?? '';
     this.draft.set(extraction?.text ?? '');
     this.reason.set('');
     this.submitted.set(false);
@@ -211,8 +221,22 @@ export class BrandSourceTextComponent {
     this.correctOpen.set(true);
   }
 
-  protected closeCorrect(): void {
+  /**
+   * Escape, the scrim, the close control and the Close button all come here. A correction that has been typed
+   * and not saved is asked about first, through `ConfirmService`, where dismissing means "stay".
+   */
+  protected async closeCorrect(): Promise<void> {
     if (this.busy() === 'correct') return;
+
+    if (this.draft() !== this.seeded || this.reason() !== '') {
+      const discard = await this.confirm.confirm({
+        title: 'Discard this correction?',
+        message: 'What you typed here has not been saved, and closing now will lose it.',
+        confirmLabel: 'Discard correction',
+        cancelLabel: 'Keep editing',
+      });
+      if (!discard) return;
+    }
 
     this.correctOpen.set(false);
   }

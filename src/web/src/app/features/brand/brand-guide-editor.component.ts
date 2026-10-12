@@ -16,6 +16,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   CpAnchorNavComponent,
   CpAnchorNavItem,
+  CpBackLinkComponent,
   CpButtonComponent,
   CpCardComponent,
   CpChoiceGroupComponent,
@@ -26,9 +27,11 @@ import {
   CpFormSectionComponent,
   CpNoticeComponent,
   CpNoticeTone,
+  CpPageHeadComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
+import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -140,6 +143,7 @@ export const BRAND_GUIDE_AUTOSAVE_DELAY_MS = new InjectionToken<number>('brand g
   selector: 'cp-brand-guide-editor',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
     FormsModule,
     RouterLink,
     CpAnchorNavComponent,
@@ -151,12 +155,15 @@ export const BRAND_GUIDE_AUTOSAVE_DELAY_MS = new InjectionToken<number>('brand g
     CpFormSectionComponent,
     CpNoticeComponent,
     CpStatusPillComponent,
+    CpBackLinkComponent,
   ],
   templateUrl: './brand-guide-editor.component.html',
   styleUrl: './brand-guide-editor.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideEditorComponent {
+  /** The page's name, from its own route: the `h1` for a state that has no title of its own. */
+  private readonly routeTitle = injectRouteTitle();
   private readonly guides = inject(BrandStyleGuideService);
   private readonly documents = inject(BrandSourceDocumentService);
   private readonly confirmService = inject(ConfirmService);
@@ -174,6 +181,14 @@ export class BrandGuideEditorComponent {
 
   private readonly guideSignal = signal<BrandStyleGuideDetail | null>(null);
   readonly guide = this.guideSignal.asReadonly();
+
+  /**
+   * What the page is called right now. One `h1` for every state: the guide's own name once it has loaded, and
+   * the route's name while it has not or could not.
+   */
+  protected readonly headTitle = computed(() =>
+    this.loadState().status === 'ready' ? (this.guide()?.displayName ?? this.routeTitle) : this.routeTitle,
+  );
 
   /** The working version's history row, which is the only place the stale-citation count is published. */
   private readonly rowSignal = signal<BrandStyleGuideVersionRow | null>(null);

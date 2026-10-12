@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { CpEmptyStateComponent } from '@creator-pantry/ui';
+import { CpEmptyStateComponent, CpPageHeadComponent } from '@creator-pantry/ui';
 
 /** Generic stand-in for a shell section whose feature hasn't been built yet — parametrized entirely by route `data`. */
 @Component({
   selector: 'cp-placeholder-section',
   standalone: true,
-  imports: [CpEmptyStateComponent],
-  template: `<cp-empty-state [title]="title" [description]="description" icon="✦" />`,
-  styles: [`:host{display:block;padding:var(--cp-space-8)}`],
+  imports: [CpEmptyStateComponent, CpPageHeadComponent],
+  template: `<cp-page-head [heading]="title" /><cp-empty-state [title]="title" [description]="description" icon="✦" />`,
+  styles: [`:host{display:block}`],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlaceholderSectionComponent {

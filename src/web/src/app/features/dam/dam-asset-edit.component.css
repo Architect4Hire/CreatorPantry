@@ -14,10 +14,6 @@
 }
 
 .legend,
-.muted {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-}
 
 .chosen {
   display: grid;

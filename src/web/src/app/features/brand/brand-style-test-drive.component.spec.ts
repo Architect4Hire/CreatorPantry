@@ -473,4 +473,20 @@ describe('BrandStyleTestDriveComponent', () => {
     expect(label.textContent).toContain('Subject');
     expect(input.getAttribute('maxlength')).toBe('120');
   });
+
+  it('reads as breadcrumb, head, then one card per topic', () => {
+    const host = render();
+
+    expect(host.querySelectorAll('h1').length).toBe(1);
+    expect(host.querySelector('cp-page-head .lede')?.textContent).toContain('version 2 of your guide');
+
+    const crumb = host.querySelector('cp-page-head a[cpBackLink]') as HTMLAnchorElement;
+    expect(crumb.textContent).toContain('Guide history');
+    expect(crumb.textContent).not.toContain('Back to');
+    expect(crumb.getAttribute('href')).toContain('/history');
+
+    const ask = host.querySelector('cp-topic-card') as HTMLElement;
+    expect(ask.querySelector('h2')?.textContent?.trim()).toBe('What the samples should be about');
+    expect(ask.querySelector('.actions')?.textContent).toContain('Write both versions');
+  });
 });

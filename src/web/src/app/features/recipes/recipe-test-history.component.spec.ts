@@ -519,7 +519,7 @@ describe('RecipeTestHistoryComponent', () => {
     expect(element.querySelector('cp-toolbar')?.querySelector('[role="toolbar"]')?.getAttribute('aria-label')).toBe(
       'Test history filters',
     );
-    expect(element.querySelector('.filter-group')?.getAttribute('aria-label')).toContain('verdict');
+    expect(element.querySelector('[cpChipGroup]')?.getAttribute('aria-label')).toContain('verdict');
   });
 
   it('carries chip state in aria-pressed, not only in colour', async () => {
@@ -548,7 +548,7 @@ describe('RecipeTestHistoryComponent', () => {
       expect(label.querySelector('input')).not.toBeNull();
     }
 
-    expect(element.querySelector('.issues-field .cp-sr-only')?.textContent).toContain('outstanding problems');
+    expect(element.querySelector('cp-select-field .label')?.textContent).toContain('outstanding problems');
   });
 
   it('names the pager as navigation', async () => {

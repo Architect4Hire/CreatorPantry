@@ -10,6 +10,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .cp-muted { margin: 0; color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); }
 /* A row of buttons under the thing they act on. Wraps rather than overflowing a narrow card. */
 .cp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cp-space-3); }
+/* A row whose every button is hidden for this creator's role would otherwise still take its gap. */
+.cp-actions:empty { display: none; }
 /* An expandable aside — "More options", "See all the text". The marker stays the browser's; what this fixes
    is the summary's target height, which the default line box leaves under the 40px minimum. */
 .cp-disclosure > summary { display: flex; align-items: center; min-height: 2.5rem; font-weight: 600; cursor: pointer; }

@@ -15,9 +15,12 @@ import { Subject, switchMap, tap } from 'rxjs';
 import {
   CpButtonComponent,
   CpCardComponent,
+  CpChipComponent,
+  CpChipGroupComponent,
   CpEmptyStateComponent,
   CpListShellComponent,
   CpListShellState,
+  CpSelectFieldComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpToolbarComponent,
@@ -100,6 +103,9 @@ let nextInstance = 0;
   selector: 'cp-recipe-test-history',
   standalone: true,
   imports: [
+    CpSelectFieldComponent,
+    CpChipGroupComponent,
+    CpChipComponent,
     DatePipe,
     CpButtonComponent,
     CpCardComponent,

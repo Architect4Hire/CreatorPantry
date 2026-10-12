@@ -78,10 +78,6 @@ import { CpNoticeComponent, CpStatusPillComponent, CpStatusPillTone } from '@cre
       .note {
         margin: 0;
       }
-      /* An empty actions row would otherwise still take its gap. */
-      .cp-actions:empty {
-        display: none;
-      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

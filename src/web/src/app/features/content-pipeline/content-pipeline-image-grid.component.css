@@ -1,14 +1,3 @@
-/* The floor is clamped on purpose: minmax()'s first argument is a hard floor, so an unclamped 16rem keeps a
-   full-width track inside a narrower phone and pushes the page sideways (DESIGN-SYSTEM.md). */
-.sheet {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
-  gap: var(--cp-space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .sheet > li {
   display: flex;
   flex-direction: column;
@@ -34,7 +23,7 @@
   font-size: var(--cp-font-size-sm);
 }
 
-.facts {
+.specs {
   margin: 0;
   font-size: var(--cp-font-size-xs);
 }

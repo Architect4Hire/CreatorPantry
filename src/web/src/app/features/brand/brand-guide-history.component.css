@@ -20,15 +20,6 @@
   border: 0;
 }
 
-.back {
-  margin-bottom: var(--cp-space-3);
-  font-size: var(--cp-font-size-sm);
-}
-
-.back a {
-  color: var(--cp-text-muted);
-}
-
 cp-notice {
   display: block;
   margin-bottom: var(--cp-space-4);

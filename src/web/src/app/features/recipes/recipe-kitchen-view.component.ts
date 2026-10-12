@@ -10,7 +10,15 @@ import {
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CpButtonComponent, CpCheckboxComponent, CpEmptyStateComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpBackLinkComponent,
+  CpButtonComponent,
+  CpCheckboxComponent,
+  CpEmptyStateComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
+} from '@creator-pantry/ui';
+import { injectRouteTitle } from '../../core/route-title';
 
 import { APP_NAME } from '../../core/page-title.strategy';
 import { PrintService } from '../../core/print.service';
@@ -94,12 +102,22 @@ function bySortOrder<T extends { readonly sortOrder: number }>(items: readonly T
 @Component({
   selector: 'cp-recipe-kitchen-view',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpCheckboxComponent, CpEmptyStateComponent, CpNoticeComponent],
+  imports: [
+    RouterLink,
+    CpBackLinkComponent,
+    CpButtonComponent,
+    CpCheckboxComponent,
+    CpEmptyStateComponent,
+    CpNoticeComponent,
+    CpPageHeadComponent,
+  ],
   templateUrl: './recipe-kitchen-view.component.html',
   styleUrl: './recipe-kitchen-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeKitchenViewComponent {
+  /** The page's name, from its own route: the `h1` for a state that has no title of its own. */
+  protected readonly pageTitle = injectRouteTitle();
   private readonly recipeService = inject(RecipeService);
   private readonly referenceService = inject(ReferenceService);
   private readonly printService = inject(PrintService);

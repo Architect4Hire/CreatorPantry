@@ -7,14 +7,8 @@
   gap: var(--cp-space-6);
 }
 
-.page-header h1 {
+.plain {
   margin: 0;
-  font-family: var(--cp-font-display);
-}
-
-.lede {
-  margin: var(--cp-space-2) 0 0;
-  color: var(--cp-text-muted);
 }
 
 .legend,
@@ -32,25 +26,6 @@
   padding: 0;
   border: 0;
   min-inline-size: 0;
-}
-
-.intro-title {
-  margin: 0 0 var(--cp-space-2);
-  font-family: var(--cp-font-display);
-}
-
-.banner {
-  margin: 0;
-  padding: var(--cp-space-3) var(--cp-space-4);
-  border: 1px solid var(--cp-border);
-  border-left: 4px solid var(--cp-blue);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-raised);
-  color: var(--cp-text);
-}
-
-.banner.warning {
-  border-left-color: var(--cp-orange);
 }
 
 .rows {
@@ -87,13 +62,6 @@
   max-width: var(--cp-measure-field);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--cp-space-3);
-}
-
 .dirty {
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
@@ -101,12 +69,4 @@
 
 .state {
   margin: 0 0 var(--cp-space-3);
-}
-
-/* Two destinations now, so they wrap rather than overflow on a narrow screen. */
-.create-voice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--cp-space-3);
-  margin: var(--cp-space-4) 0 0;
 }

@@ -1,43 +1,58 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 import {
+  CpAnchorNavComponent,
+  CpAnchorNavItem,
+  CpBackLinkComponent,
   CpBadgeComponent,
   CpButtonComponent,
   CpButtonSize,
   CpButtonVariant,
   CpCardComponent,
-  CpAnchorNavComponent,
-  CpAnchorNavItem,
+  CpCardGridComponent,
   CpCheckboxComponent,
+  CpChipComponent,
+  CpChipGroupComponent,
   CpChoiceGroupComponent,
   CpChoiceOption,
-  CpNoticeComponent,
   CpComboboxComponent,
   CpComboboxOption,
-  CpDiffLegendComponent,
   CpDialogComponent,
+  CpDiffLegendComponent,
+  CpDrawerComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
   CpListShellComponent,
   CpListShellState,
+  CpMediaCardComponent,
+  CpNoticeComponent,
+  CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
   CpQuickActionComponent,
+  CpSearchFieldComponent,
+  CpSelectFieldComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
+  CpStep,
+  CpStepperComponent,
   CpTabPanelComponent,
   CpTabsComponent,
   CpToast,
   CpToastRegionComponent,
   CpToastSeverity,
-  CpToolbarComponent,
   CpTone,
+  CpToolbarComponent,
+  CpTopicCardComponent,
   CpUploadItem,
   CpUploaderComponent,
 } from '@creator-pantry/ui';
 
+import { ConfirmService } from '../core/confirm.service';
 import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '../models/brand-guide-control.models';
 import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
 import { BrandVisualStyleControlComponent } from '../shared/brand-visual-style-control/brand-visual-style-control.component';
@@ -49,10 +64,20 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
   selector: 'cp-design-system-showcase',
   standalone: true,
   imports: [
+    CpPageHeadComponent,
+    CpBackLinkComponent,
+    CpCardGridComponent,
+    CpMediaCardComponent,
+    CpTopicCardComponent,
+    CpFactsComponent,
+    CpFactComponent,
+    CpSearchFieldComponent,
+    CpSelectFieldComponent,
     CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
     CpDialogComponent,
+    CpDrawerComponent,
     CpFieldComponent,
     CpFieldRowComponent,
     CpFormSectionComponent,
@@ -67,6 +92,8 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpUploaderComponent,
     CpAnchorNavComponent,
     CpCheckboxComponent,
+    CpChipComponent,
+    CpChipGroupComponent,
     CpChoiceGroupComponent,
     CpNoticeComponent,
     CpComboboxComponent,
@@ -74,12 +101,38 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpToastRegionComponent,
     BrandGuideControlComponent,
     BrandVisualStyleControlComponent,
+    CpStepperComponent,
   ],
   templateUrl: './design-system-showcase.component.html',
   styleUrl: './design-system-showcase.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DesignSystemShowcaseComponent {
+  /** The stepper example: Back and Continue move through it, and the second step was skipped. */
+  protected readonly stepperNames = ['What you make', 'Your examples', 'Your style', 'Finish'];
+  protected readonly stepperAt = signal(2);
+  protected readonly stepperSteps = computed<readonly CpStep[]>(() =>
+    this.stepperNames.map((label, index) => ({
+      id: label,
+      label,
+      status: index === this.stepperAt() ? 'current' : index > this.stepperAt() ? 'upcoming' : index === 1 ? 'skipped' : 'done',
+    })),
+  );
+
+  protected moveStepper(by: number): void {
+    this.stepperAt.update((at) => Math.min(this.stepperNames.length - 1, Math.max(0, at + by)));
+  }
+
+  /** The chips example: several statuses may be on at once, and the page holds which. */
+  protected readonly chipStatuses = ['Draft', 'Testing', 'Approved', 'Archived'] as const;
+  protected readonly chipsOn = signal<readonly string[]>(['Testing']);
+
+  protected toggleChip(status: string): void {
+    this.chipsOn.update((on) => (on.includes(status) ? on.filter((each) => each !== status) : [...on, status]));
+  }
+
+  /** A value with a line break of its own, to show what `prose` keeps. */
+  readonly topicCardNotes = 'Shot at noon, by the window.\nNo flash.';
   readonly buttonVariants: CpButtonVariant[] = ['primary', 'secondary', 'ghost', 'text', 'danger'];
   readonly buttonSizes: CpButtonSize[] = ['sm', 'md', 'lg'];
   readonly badgeTones: CpTone[] = ['neutral', 'success', 'pink', 'orange', 'purple', 'blue'];
@@ -109,6 +162,39 @@ export class DesignSystemShowcaseComponent {
 
   closeDialog(): void {
     this.dialogOpen.set(null);
+  }
+
+  // --- Drawer ---
+  private readonly confirm = inject(ConfirmService);
+  private readonly drawerTitleAtOpen = 'Tomato soup, overhead';
+  readonly drawerOpen = signal<'form' | 'long' | null>(null);
+  readonly drawerTitle = signal(this.drawerTitleAtOpen);
+
+  openDrawer(which: 'form' | 'long'): void {
+    this.drawerTitle.set(this.drawerTitleAtOpen);
+    this.drawerOpen.set(which);
+  }
+
+  onDrawerTitleInput(event: Event): void {
+    this.drawerTitle.set((event.target as HTMLInputElement).value);
+  }
+
+  /** The drawer only asks. With nothing typed it closes; with something typed the creator is asked first. */
+  async requestDrawerClose(): Promise<void> {
+    if (this.drawerTitle() !== this.drawerTitleAtOpen) {
+      const discard = await this.confirm.confirm({
+        title: 'Discard changes?',
+        message: 'The title you typed has not been saved.',
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+      });
+      if (!discard) return;
+    }
+    this.closeDrawer();
+  }
+
+  closeDrawer(): void {
+    this.drawerOpen.set(null);
   }
 
   // --- List shell ---

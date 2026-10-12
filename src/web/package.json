@@ -6,7 +6,8 @@
     "start": "node scripts/serve.mjs",
     "build": "ng build creator-pantry-ui && ng build showcase",
     "build:lib": "ng build creator-pantry-ui",
-    "test": "ng test creator-pantry-ui --watch=false && ng test showcase --watch=false"
+    "check:page-contract": "node --test scripts/check-page-contract.test.mjs && node scripts/check-page-contract.mjs",
+    "test": "npm run check:page-contract && ng test creator-pantry-ui --watch=false && ng test showcase --watch=false"
   },
   "dependencies": {
     "@angular/animations": "^22.0.0",

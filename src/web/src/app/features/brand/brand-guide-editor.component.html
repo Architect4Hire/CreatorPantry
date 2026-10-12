@@ -2,9 +2,32 @@
      reliably announced, so a creator would hear nothing when an autosave landed. -->
 <p class="status" role="status">{{ statusMessage() }}</p>
 
-<nav class="back" aria-label="Back">
-  <a [routerLink]="['/', workspaceSlug, 'brand']">Brand</a>
-</nav>
+<!-- One head for every state, so the page always has exactly one h1 and it is always in the same place. -->
+<cp-page-head [heading]="headTitle()">
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'brand']">Brand settings</a>
+  <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+  <ng-container ngProjectAs="[cpPageHeadBadges]">
+    @if (guide(); as guide) {
+      <span class="version">Version {{ baseVersion() }}</span>
+
+      @if (isActiveVersion()) {
+        <cp-status-pill tone="success" icon="●">Writing with this</cp-status-pill>
+      }
+
+      @if (row(); as row) {
+        <cp-status-pill [tone]="statusTone()" [icon]="row.status === 'Approved' ? '✓' : '✎'">
+          {{ row.status }}
+        </cp-status-pill>
+      }
+
+      @if (staleSourceCount() > 0) {
+        <cp-status-pill tone="stale" icon="!">
+          {{ staleSourceCount() === 1 ? 'An example it used has been replaced' : staleSourceCount() + ' examples it used have been replaced' }}
+        </cp-status-pill>
+      }
+    }
+  </ng-container>
+</cp-page-head>
 
 @switch (loadState().status) {
   @case ('loading') {
@@ -27,35 +50,11 @@
   }
   @case ('ready') {
     @if (guide(); as guide) {
-      <header class="head">
-        <h1 class="title">{{ guide.displayName }}</h1>
-
-        <p class="marks">
-          <span class="version">Version {{ baseVersion() }}</span>
-
-          @if (isActiveVersion()) {
-            <cp-status-pill tone="success" icon="●">Writing with this</cp-status-pill>
-          }
-
-          @if (row(); as row) {
-            <cp-status-pill [tone]="statusTone()" [icon]="row.status === 'Approved' ? '✓' : '✎'">
-              {{ row.status }}
-            </cp-status-pill>
-          }
-
-          @if (staleSourceCount() > 0) {
-            <cp-status-pill tone="stale" icon="!">
-              {{ staleSourceCount() === 1 ? 'An example it used has been replaced' : staleSourceCount() + ' examples it used have been replaced' }}
-            </cp-status-pill>
-          }
-        </p>
-
-        <p class="head-links">
-          <a [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'history']">
-            Version history and comparison
-          </a>
-        </p>
-      </header>
+      <p class="head-links">
+        <a [routerLink]="['/', workspaceSlug, 'brand', 'style-guide', guideId, 'history']">
+          Version history and comparison
+        </a>
+      </p>
 
       @if (guide.workingVersion.isApproved) {
         <!-- Editing an approved version does not change it: the approval stays with the version it was given

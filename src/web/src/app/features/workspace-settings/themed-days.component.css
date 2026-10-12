@@ -2,17 +2,6 @@
   display: block;
 }
 
-.back {
-  margin: 0 0 var(--cp-space-4);
-  font-size: var(--cp-font-size-sm);
-}
-
-/* The arrow is decoration; the link's own text already says where it goes. */
-.back a::before {
-  content: '← ';
-}
-
-.back a,
 .history a {
   color: var(--cp-primary);
 }
@@ -36,7 +25,6 @@
 
 .no-theme,
 .day-actions,
-.actions,
 .retired-head,
 .history-head {
   display: flex;

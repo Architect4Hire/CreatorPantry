@@ -72,7 +72,7 @@
                 (resolved)="onResolved(link, $event)"
               >
                 @if (stepText(link); as step) {
-                  <p class="fact">{{ step }}</p>
+                  <p class="cp-muted">{{ step }}</p>
                 }
 
                 @if (link.caption; as caption) {
@@ -82,9 +82,9 @@
                 <!-- Nothing is said about versions for a picture that could not be read: which one is current
                      is exactly what is not known. -->
                 @if (asset) {
-                  <p class="fact">{{ pinText(link, asset) }}</p>
+                  <p class="cp-muted">{{ pinText(link, asset) }}</p>
                 } @else if (asset === null) {
-                  <p class="fact">The link is still part of the recipe until you unlink it.</p>
+                  <p class="cp-muted">The link is still part of the recipe until you unlink it.</p>
                 }
               </cp-dam-linked-asset>
 

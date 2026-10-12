@@ -46,13 +46,11 @@
     <button cpButton variant="secondary" size="sm" type="submit">Apply</button>
   </form>
 
-  <div class="filter-group" cpToolbarFilters role="group" aria-label="Filter by the tester's verdict">
+  <div cpChipGroup cpToolbarFilters label="Filter by the tester's verdict">
     @for (outcome of outcomeOptions; track outcome) {
       <button
-        type="button"
-        class="chip"
-        [class.chip--on]="isOutcomeSelected(outcome)"
-        [attr.aria-pressed]="isOutcomeSelected(outcome)"
+        cpChip
+        [pressed]="isOutcomeSelected(outcome)"
         (click)="toggleOutcome(outcome)"
       >
         {{ outcomeLabels[outcome] }}
@@ -61,10 +59,8 @@
 
     @if (canFilterToMine()) {
       <button
-        type="button"
-        class="chip"
-        [class.chip--on]="mineOnly()"
-        [attr.aria-pressed]="mineOnly()"
+        cpChip
+        [pressed]="mineOnly()"
         (click)="toggleMine()"
       >
         Cooked by me
@@ -72,8 +68,7 @@
     }
   </div>
 
-  <label class="issues-field" cpToolbarActions>
-    <span class="cp-sr-only">Filter by outstanding problems</span>
+  <cp-select-field cpToolbarActions label="Filter by outstanding problems">
     <!--
       Single-valued, so a select rather than chips. Labelled as a record of what testers wrote: it is never a
       readiness, safety or dietary finding.
@@ -88,7 +83,7 @@
       <option value="HasUnresolved">{{ issueFilterLabels['HasUnresolved'] }}</option>
       <option value="AllResolved">{{ issueFilterLabels['AllResolved'] }}</option>
     </select>
-  </label>
+  </cp-select-field>
 
   @if (hasActiveFilters()) {
     <button cpButton cpToolbarActions variant="text" size="sm" type="button" (click)="clearFilters()">

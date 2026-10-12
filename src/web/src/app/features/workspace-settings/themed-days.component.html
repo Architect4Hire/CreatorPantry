@@ -1,7 +1,8 @@
+<cp-page-head [heading]="pageTitle">
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'settings']">Workspace settings</a>
+</cp-page-head>
+
 <section class="themed-days" aria-label="Themed days">
-  <p class="back">
-    <a [routerLink]="['/', workspaceSlug, 'settings']">Workspace settings</a>
-  </p>
 
   @switch (load().status) {
     @case ('loading') {
@@ -189,7 +190,7 @@
               </cp-form-section>
             }
 
-            <div class="actions">
+            <div class="cp-actions">
               <button cpButton type="submit" [disabled]="!dirty() || saving()">
                 {{ saving() ? 'Saving…' : 'Save' }}
               </button>

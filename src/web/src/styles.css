@@ -80,11 +80,10 @@
   box-shadow: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cp-swal {
-    animation: none !important;
-  }
-}
+/* Reduced motion needs no rule here, and must not get one. global.css already cuts every animation to
+   .001ms, which SweetAlert2 can still see end. `animation: none` on the popup is what it cannot: it reads the
+   .001ms transition-duration the same global rule sets, decides the popup animates, and waits for an
+   animationend that never comes — the promise resolves, but the container stays over the page for good. */
 
 /* The sheet's own margins, for every printed page. @page cannot live in a component stylesheet. */
 @page {

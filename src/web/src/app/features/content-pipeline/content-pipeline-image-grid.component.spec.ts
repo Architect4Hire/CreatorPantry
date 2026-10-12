@@ -132,9 +132,9 @@ describe('ContentPipelineImageGridComponent', () => {
   });
 
   it('states each picture’s format, size on screen and size in bytes', () => {
-    expect(tiles()[0].querySelector('.facts')?.textContent).toContain('PNG');
-    expect(tiles()[0].querySelector('.facts')?.textContent).toContain('1024 × 1024');
-    expect(tiles()[0].querySelector('.facts')?.textContent).toContain('482 KB');
+    expect(tiles()[0].querySelector('.specs')?.textContent).toContain('PNG');
+    expect(tiles()[0].querySelector('.specs')?.textContent).toContain('1024 × 1024');
+    expect(tiles()[0].querySelector('.specs')?.textContent).toContain('482 KB');
   });
 
   it('gives every control an accessible name that says which picture it acts on', () => {
