@@ -5122,6 +5122,51 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.ExternalPublicationReference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExternalUpdateId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LastConfirmedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ProviderKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("PublishingRecordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "PublishingRecordId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ExternalPublicationReferences_Workspace_Record");
+
+                    b.HasIndex("WorkspaceId", "ProviderKey", "ExternalUpdateId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ExternalPublicationReferences_Workspace_Provider_External");
+
+                    b.ToTable("ExternalPublicationReferences", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ExternalPublicationReferences_ExternalUpdateId_NotBlank", "trim(ExternalUpdateId) <> ''");
+
+                            t.HasCheckConstraint("CK_ExternalPublicationReferences_ProviderKey_NotBlank", "trim(ProviderKey) <> ''");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.ExternalPublishingProfileReference", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5163,6 +5208,64 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_ExternalPublishingProfileReferences_ExternalAccountId_NotBlank", "trim(ExternalAccountId) <> ''");
 
                             t.HasCheckConstraint("CK_ExternalPublishingProfileReferences_ExternalId_NotBlank", "trim(ExternalId) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingDeliveryAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FailureCategory")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("FailureSummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Operation")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProviderStatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PublishingRecordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "PublishingRecordId", "AttemptNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PublishingDeliveryAttempts_Record_AttemptNumber");
+
+                    b.ToTable("PublishingDeliveryAttempts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PublishingDeliveryAttempts_AttemptNumber_Positive", "AttemptNumber >= 1");
+
+                            t.HasCheckConstraint("CK_PublishingDeliveryAttempts_Operation_Range", "Operation >= 1 AND Operation <= 3");
+
+                            t.HasCheckConstraint("CK_PublishingDeliveryAttempts_Outcome_Range", "Outcome >= 1 AND Outcome <= 5");
+
+                            t.HasCheckConstraint("CK_PublishingDeliveryAttempts_ProviderStatusCode_Range", "ProviderStatusCode IS NULL OR (ProviderStatusCode >= 100 AND ProviderStatusCode <= 599)");
                         });
                 });
 
@@ -5262,6 +5365,161 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_PublishingProviderSyncs_LastOutcome_Attempt", "LastOutcome IN (1, 3, 4, 5)");
 
                             t.HasCheckConstraint("CK_PublishingProviderSyncs_ProviderKey_NotBlank", "trim(ProviderKey) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AvailableAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("CancelAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ConfirmedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ContentCardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentText")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FailureCategory")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("FailureSummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("LeasedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("MediaAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("MediaAssetVersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Platform")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PublishingProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("ScheduleTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("ScheduledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTime>("ScheduledLocal")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("StatusChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("SubmitAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("UncertainOperation")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("UncertainSince")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_PublishingRecords_Workspace_Id");
+
+                    b.HasIndex("Status", "AvailableAt")
+                        .HasDatabaseName("IX_PublishingRecords_Status_AvailableAt")
+                        .HasFilter("Status IN (1, 2, 3, 5)");
+
+                    b.HasIndex("WorkspaceId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PublishingRecords_Workspace_IdempotencyKey");
+
+                    b.HasIndex("WorkspaceId", "PublishingProfileId");
+
+                    b.HasIndex("WorkspaceId", "ContentCardId", "ScheduledAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_PublishingRecords_Workspace_Card_ScheduledAt");
+
+                    b.HasIndex("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber");
+
+                    b.HasIndex("WorkspaceId", "Status", "ScheduledAt")
+                        .HasDatabaseName("IX_PublishingRecords_Workspace_Status_ScheduledAt");
+
+                    b.HasIndex("WorkspaceId", "ContentCardId", "PublishingProfileId", "ScheduledAt")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PublishingRecords_Live_Card_Profile_Time")
+                        .HasFilter("ContentCardId IS NOT NULL AND Status IN (1, 2, 3, 5, 8)");
+
+                    b.ToTable("PublishingRecords", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PublishingRecords_AssetVersion_WithAsset", "(MediaAssetId IS NULL AND MediaAssetVersionNumber IS NULL) OR (MediaAssetId IS NOT NULL AND MediaAssetVersionNumber IS NOT NULL AND MediaAssetVersionNumber >= 1)");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_Attempts_NotNegative", "SubmitAttempts >= 0 AND CancelAttempts >= 0");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_ContentText_NotBlank", "trim(ContentText) <> ''");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_Lease_Paired", "(LeasedBy IS NULL AND LeaseExpiresAt IS NULL) OR (LeasedBy IS NOT NULL AND LeaseExpiresAt IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_NeedsAttention_HasReason", "Status <> 8 OR UncertainOperation IS NOT NULL OR FailureCategory IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_Platform_Range", "Platform >= 1 AND Platform <= 12");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_ScheduleTimeZoneId_NotBlank", "trim(ScheduleTimeZoneId) <> ''");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_Status_Range", "Status >= 1 AND Status <= 8");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_Uncertain_Operation_Writes", "UncertainOperation IS NULL OR UncertainOperation IN (1, 2)");
+
+                            t.HasCheckConstraint("CK_PublishingRecords_Uncertainty_Paired", "(UncertainOperation IS NULL AND UncertainSince IS NULL) OR (UncertainOperation IS NOT NULL AND UncertainSince IS NOT NULL)");
                         });
                 });
 
@@ -8034,11 +8292,31 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.ExternalPublicationReference", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingRecord", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "PublishingRecordId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.ExternalPublishingProfileReference", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingProfile", null)
                         .WithMany()
                         .HasForeignKey("WorkspaceId", "PublishingProfileId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingDeliveryAttempt", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingRecord", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "PublishingRecordId")
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -8060,6 +8338,34 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingRecord", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Content.Data.Entities.ContentCard", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "ContentCardId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Publishing.Data.Entities.PublishingProfile", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "PublishingProfileId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Media.Data.Entities.MediaAssetVersion", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "MediaAssetId", "MediaAssetVersionNumber")
+                        .HasPrincipalKey("WorkspaceId", "MediaAssetId", "VersionNumber")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>

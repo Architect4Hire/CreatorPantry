@@ -35,6 +35,10 @@
     <!-- The provider-neutral model abstractions only: IChatClient and IEmbeddingGenerator. A provider SDK
          in this assembly is an architectural defect; DomainReferenceTests enforces that. -->
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.10.1" />
+    <!-- RemoveAllResilienceHandlers, for the one client that must never retry: the publishing provider's
+         mutations are not safe to repeat, and the opt-out has to live beside the gateway that depends on it
+         rather than in whichever host happens to register it. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <!-- ResiliencePipelineProvider only. The pipeline itself is configured in ServiceDefaults, which this
          project may not reference (DomainReferenceTests); Polly is the shared vocabulary between them. -->
     <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.10.0" />

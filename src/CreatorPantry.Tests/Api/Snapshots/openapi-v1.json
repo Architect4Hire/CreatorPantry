@@ -14523,6 +14523,425 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/publishing/records": {
+      "post": {
+        "tags": [
+          "PublishingRecords"
+        ],
+        "summary": "Confirms that a piece of content should be published to one profile at one time.",
+        "description": "**Editor and above.** Publishing puts the workspace\u0027s content in public under its own name, so a\nContributor may prepare the card and the copy but not confirm the delivery.\n\n**\u0060Idempotency-Key\u0060 is required, and it is the only thing standing between a retry and a second post.**\nThe provider offers no key of its own, so CreatorPantry\u0027s is the guard: the same key, with the same body,\nfrom the same member always answers with the record the first confirmation made, carrying\n\u0060Idempotent-Replayed: true\u0060, and the provider is asked exactly once. A missing key answers \u0060400\nidempotency.key_required\u0060 and a malformed one \u0060400 idempotency.key_invalid\u0060; a key reused for a\ndifferent body, or by a different member, answers \u0060422 idempotency.key_reused\u0060. A key is durable here \u2014\nit keeps working long after the shared idempotency window would have expired.\n\n**A new key does not buy a second post either.** Confirming content that is already going out to the\nsame profile at the same time answers \u0060409 publishing.duplicate.conflict\u0060, with the existing record\u0027s\nid in \u0060publishingRecordId\u0060. A failed or cancelled publication does not block a fresh confirmation.\n\n**\u0060201\u0060 does not mean published.** It means the confirmation is recorded; \u0060status\u0060 says what became of\nit, and every state is a normal answer rather than an error:\n\n- \u0060Scheduled\u0060 \u2014 the provider accepted it and will publish it at \u0060scheduledAt\u0060.\n- \u0060Pending\u0060 \u2014 the provider was throttling and nothing was published. **Nothing retries it yet:** the\n  reconciliation worker that will submit it is a later phase, so for now it waits.\n- \u0060Submitting\u0060 with **\u0060outcomeUncertain: true\u0060** \u2014 the provider was asked and did not confirm, so a post\n  may or may not exist. This is never rounded to success or failure, and a client must not present it as\n  either; it is settled by asking the provider, not by guessing.\n- \u0060Failed\u0060 \u2014 the provider refused it. \u0060failureCategory\u0060 is CreatorPantry\u0027s own stable word for why.\n- \u0060NeedsAttention\u0060 \u2014 it has been tried as often as it will be, and a person has to look.\n- \u0060Published\u0060, \u0060Cancelling\u0060, \u0060Cancelled\u0060 \u2014 reached by later phases, not by this route. Treat the status\n  as an open set: a client should have a branch for a value it does not recognise.\n\n**Times.** \u0060scheduledAt\u0060 is an instant and must be at least five minutes ahead and within a year.\nIt is stored in UTC together with the workspace\u0027s own scheduling zone, read from its brand profile \u2014\nnever from the request \u2014 and \u0060scheduledLocal\u0060 is the wall-clock time that zone makes of it, with no\noffset of its own. A workspace with no zone set answers \u0060422\npublishing.time_zone.unset.unprocessable\u0060 rather than having one guessed for it.\n\n**A picture cannot be published yet** and answers \u0060422\npublishing.media.not_publishable.unprocessable\u0060. The provider fetches images by public address and\nCreatorPantry\u0027s storage deliberately issues none; the text is scheduled on its own, and sending it\nsilently without the picture would be worse than saying so.\n\n**No provider identifier, message or credential is ever returned here**, in a record or in an error.\n\u0060failureCategory\u0060 is one of CreatorPantry\u0027s own words and \u0060failureSummary\u0060 is a sentence composed from\nit on this server; nothing a provider wrote reaches either. \u0060publishingProfileId\u0060 is CreatorPantry\u0027s own\nid. \u0060expectedPlatform\u0060 is an optional guard: send what your copy of the profile list said and a mismatch\nanswers \u0060409 publishing.platform.mismatch.conflict\u0060 instead of publishing to a network you did not mean.\nA workspace with no provider answers \u0060422 publishing.provider.not_configured.unprocessable\u0060 \u2014 the same\nanswer a deployment with no provider gives, so this cannot be used to learn that a neighbour has one.\nA confirmation that was committed but could not be submitted answers \u0060503\npublishing.schedule.unavailable\u0060, and retrying it with the same key is safe. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "**Required.** See the remarks: without one, a retry could publish twice.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulePublishing"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulePublishing"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulePublishing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "PublishingRecords"
+        ],
+        "summary": "Reads the publications confirmed for one board card.",
+        "description": "Every member including a Viewer may read. Newest scheduled first, and **capped rather than paged**:\n\u0060complete\u0060 is \u0060false\u0060 when a card has more publications than one read returns, so a client is never\nshown part of a list believing it is all of it.\n\nA card with no publications, a card this workspace does not have, and another workspace\u0027s card are all\nan empty list \u2014 so asking about an id cannot reveal that a neighbour owns it. Each item is exactly what\nthe confirm route returns, with the same meanings and the same silences: no provider identifier,\nmessage or credential. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the confirm route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contentCardId",
+            "in": "query",
+            "description": "The card whose publications to read.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecordList"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecordList"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecordList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/publishing/records/{recordId}/cancellation": {
+      "post": {
+        "tags": [
+          "PublishingRecords"
+        ],
+        "summary": "Stops one publication going out.",
+        "description": "**Editor and above**, as confirming is: stopping a publication is the same decision in reverse.\n\n**Repeating it is safe, and there is no \u0060Idempotency-Key\u0060.** The record\u0027s id is what makes this\nconverge: asking twice cannot remove two posts, and a record that is already \u0060Cancelled\u0060 answers \u0060200\u0060\nwith itself rather than an error. A cancellation whose outcome is unknown is *meant* to be asked again\n\u2014 that is how it settles.\n\n**\u0060expectedConcurrencyToken\u0060 is required.** Quote the \u0060concurrencyToken\u0060 of the record you read; a\nstale one answers \u0060409 publishing.record.conflict\u0060. The race it catches is the post going out between\nthe screen being drawn and Cancel being pressed.\n\n**What \u0060200\u0060 means is in \u0060status\u0060:**\n\n- \u0060Cancelled\u0060 \u2014 it will not go out. Either the provider removed its post, or the provider never had\n  one, or it was never sent at all.\n- \u0060Cancelling\u0060 \u2014 the provider was asked and has not confirmed. With **\u0060outcomeUncertain: true\u0060**,\n  whether the post is gone is not known; send the cancellation again to settle it.\n- \u0060Scheduled\u0060 \u2014 the removal did not happen and the post still stands: the provider would not remove it,\n  or refused the credential. \u0060failureCategory\u0060 says which.\n- \u0060NeedsAttention\u0060 \u2014 it has been asked as often as it will be, and a person has to look.\n\n**A publication whose send outcome is unknown cannot be cancelled** and answers \u0060409\npublishing.outcome_unknown.conflict\u0060: without the provider\u0027s id for a post there is nothing to ask it\nto remove, and recording a cancellation would be a claim about a post that may be going out.\n\nOne that has already gone out answers \u0060409 publishing.already_published.conflict\u0060 \u2014 taking something\ndown again is a separate capability \u2014 and one that failed answers \u0060409\npublishing.not_cancellable.conflict\u0060, because nothing is going out to stop. An id this workspace does\nnot have answers \u0060404\u0060, as does another workspace\u0027s. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the confirm route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "in": "path",
+            "description": "The publication to stop.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelPublishing"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelPublishing"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelPublishing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/publishing/records/{recordId}": {
+      "get": {
+        "tags": [
+          "PublishingRecords"
+        ],
+        "summary": "Reads one publishing record of the workspace named by the route.",
+        "description": "Every member including a Viewer may read. The fields mean exactly what they mean on the confirm route,\n**\u0060outcomeUncertain\u0060 included**: a record whose outcome is unknown says so here for as long as it is\nunknown.\n\nAn id no record in this workspace has answers \u0060404 publishing.record.not_found\u0060, and so does another\nworkspace\u0027s, so asking cannot reveal that a record exists elsewhere. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the confirm route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "in": "path",
+            "description": "The record to read.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/adaptation-requests": {
       "post": {
         "tags": [
@@ -25870,6 +26289,17 @@
           }
         }
       },
+      "CancelPublishing": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CardMove": {
         "required": [
           "sequence",
@@ -32280,6 +32710,158 @@
         ],
         "type": "string"
       },
+      "PublishingRecord": {
+        "required": [
+          "id",
+          "contentCardId",
+          "publishingProfileId",
+          "platform",
+          "status",
+          "text",
+          "mediaAssetId",
+          "mediaAssetVersionNumber",
+          "scheduledAt",
+          "scheduleTimeZoneId",
+          "scheduledLocal",
+          "outcomeUncertain",
+          "failureCategory",
+          "failureSummary",
+          "submittedAt",
+          "completedAt",
+          "submitAttempts",
+          "confirmedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentCardId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "publishingProfileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/PublishingPlatform"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublishingRecordStatus"
+          },
+          "text": {
+            "type": "string"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduleTimeZoneId": {
+            "type": "string"
+          },
+          "scheduledLocal": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outcomeUncertain": {
+            "type": "boolean"
+          },
+          "failureCategory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureSummary": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "submittedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "submitAttempts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "PublishingRecordList": {
+        "required": [
+          "items",
+          "complete"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishingRecord"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PublishingRecordStatus": {
+        "enum": [
+          "Pending",
+          "Submitting",
+          "Scheduled",
+          "Published",
+          "Cancelling",
+          "Cancelled",
+          "Failed",
+          "NeedsAttention"
+        ],
+        "type": "string"
+      },
       "PutLongFormFraming": {
         "type": "object",
         "properties": {
@@ -36020,6 +36602,61 @@
           }
         }
       },
+      "SchedulePublishing": {
+        "type": "object",
+        "properties": {
+          "contentCardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publishingProfileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedPlatform": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PublishingPlatform"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scheduledAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
+      },
       "SetMeasurementPreference": {
         "required": [
           "defaultMeasurementSystem"
@@ -38345,6 +38982,9 @@
     },
     {
       "name": "PublishingProfiles"
+    },
+    {
+      "name": "PublishingRecords"
     },
     {
       "name": "RecipeAdaptationRequests"

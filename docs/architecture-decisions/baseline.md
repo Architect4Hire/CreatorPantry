@@ -958,6 +958,329 @@ reachable from every row of a guide's version history, including a draft, and fr
 exists.
 **Rules:** `ai.md`, `content.md`, `tenancy.md`, `backend.md`, `api-contract.md`, `frontend.md`.
 
+### B-27 Publishing ledger shape and retention
+
+*Recorded 2026-10-13 by microprompt 13.10. `DATA-005/006`, which it cites, are undefined in this
+repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+```text
+PublishingRecord                        root, workspace-owned
+├── ExternalPublicationReference 0..1   the provider's id for the post, and the only place it exists
+└── PublishingDeliveryAttempt    0..n   append-only, one per call to the provider
+```
+
+- **Three tables, so the ledger row holds no provider identifier.** B-10's `Publication`,
+  `ExternalPublicationReference` and `DeliveryAttempt`, with `PublishingProfile` (B-10's
+  `PublishingTarget`) already in place from 13.9. `PublicationRevision` is not among them: an edit after
+  confirmation is a new confirmation and a new row, which is a simpler way to keep the queued payload
+  unmutated than versioning one.
+- **The payload is a snapshot written once.** Content text, picture version, profile, platform and schedule
+  are what the creator confirmed; only the lifecycle columns move afterwards. `Platform` is copied rather than
+  read through the profile, because a profile row is a cache of what the provider last said and every
+  successful read rewrites it.
+- **A schedule is three facts:** the UTC instant, the IANA zone the creator chose (required, read from
+  `BrandProfile.TimeZoneId`, never guessed), and the local wall-clock time they asked for.
+- **`NeedsAttention` is a real state, not a tidy-up.** An outcome nobody knows is never recorded as success or
+  failure: `UncertainOperation` and `UncertainSince` say which write is in doubt and since when, and a
+  constraint refuses a record in that state with no reason attached. Only a write can be uncertain —
+  reconciliation is a read, so repeating it settles and blocks nothing.
+- **The ledger carries its own idempotency key, unique per workspace.** The shared `IdempotencyRecord` replays
+  a result for 24 hours and then expires; a confirmation replayed after that must still not publish twice, so
+  the durable guard is this index rather than that table.
+- **Retention: a record is never deleted to tidy up.** It is the only record that content left for a third
+  party. Rows leave by the workspace's cascade or a documented erasure path. Attempt rows are bounded by the
+  submit and cancel caps and the reconciliation window rather than pruned, so no sweeper owns them, and nothing
+  in the aggregate stores a request body, a response body, a header or a credential.
+- **`ContentCardId` is nullable with a restricted key.** 13.6c decided that a delivered or failed publication
+  does not block deleting its card, so the delete detaches terminal rows and refuses while one is live. A
+  set-null in the store is not available: SQL Server allows one action path from `Workspaces` into this table,
+  and the workspace's own cascade is it.
+- **The claim index is not led by `WorkspaceId`**, which is tenancy.md's queue-claim carve-out. This phase adds
+  the index only — nothing claims yet, so there is no `IgnoreQueryFilters` path and no
+  `BulkOperationBoundaryTests` exemption to grant until 13.10c. When that claim arrives it carries the
+  carve-out's two conditions: it selects identifiers only, never content, and it resolves the workspace through
+  the ordinary tenancy path before reading anything else. Every other read of these tables is workspace-led,
+  including a lookup by provider post id, which goes through
+  `(WorkspaceId, ProviderKey, ExternalUpdateId)` — the index exists in that order for that reason.
+
+**Options considered:** one table with the provider id on it (rejected by publishing.md's restriction); a
+`PublicationRevision` chain (rejected above); attempt counters with no per-call rows (rejected — "refused twice
+and then timed out" would only be answerable from logs); deferring the lease columns to 13.10c (rejected — the
+filtered claim index needs `AvailableAt` to be worth adding, and the shape is the one
+`GeneratedImageOperation` already proved); an automation-policy column (rejected as a column that could only be
+null until a policy exists).
+**Consequences:** `PublishingRecords` holds `ContentText` as `nvarchar(max)` because the ceiling it shares with
+`ContentPolicy.SocialBodyMaxLength` is above 4 000, so the length is an application limit rather than a column
+one — a test asserts the two numbers still agree. Nothing creates a row yet: 13.10a is the first writer, and it
+also owns wiring the card-delete check that 13.6c left a comment for.
+**Rules:** `publishing.md`, `external.md`, `tenancy.md`, `content.md`.
+
+### B-28 Scheduling a publication, and what a provider's silence means
+
+*Recorded 2026-10-13 by microprompt 13.10a. `INT-031` through `INT-033`, which it cites, are undefined in
+this repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+```text
+validate ──► commit Pending + audit ──► commit Submitting + uncertainty ──► createPost ──► commit the outcome
+             (transaction 1)             (transaction 2)                     (nothing open)  (transaction 3)
+```
+
+- **No transaction spans the provider call**, which is the shape the whole decision follows from. A commit held
+  open around `createPost` would hold a database write for as long as a stranger's server takes to answer, and
+  a rollback after a successful call would erase the only record that a post exists.
+- **The row is marked `Submitting` with `UncertainOperation = Submit` *before* the call**, not after it. That is
+  what makes a process dying mid-call recoverable: the ledger then says an outcome is unknown, rather than
+  claiming nothing was sent.
+- **Exactly one attempt, and no retry anywhere.** Buffer's API has no idempotency key and no client mutation id
+  (verified against developers.buffer.com), so nothing can tell a repeated `createPost` from a second post
+  somebody wanted — not the gateway, not the HTTP handler (the host already removes the resilience handler for
+  this reason), and not the caller.
+- **The ledger's unique `(WorkspaceId, IdempotencyKey)` index is the replay guard**, not
+  `IIdempotentCommandExecutor`, whose contract is one short transaction committing with the stored result and
+  cannot hold a provider call. A replay returns the first record with `Idempotent-Replayed: true`; a key reused
+  with a different payload — or by a different member — is `idempotency.key_reused`. The shared record expires
+  after a day and this index does not, which is the point: a retry on day three must still not publish twice.
+- **An unknown outcome stays unknown.** `Unknown` from the gateway leaves the record `Submitting` with its
+  uncertainty intact and writes an attempt row with no completion time. A replay of such a record never calls
+  the provider again. Reconciliation will have to match a possibly-created post on channel, `dueAt` and text,
+  because Buffer returns no correlation id of ours — which is why the payload snapshot is on the row (13.10c).
+- **Only a *provable* non-delivery may be retried, and Buffer can prove exactly one.** A throttle is the one
+  failure its documentation describes as happening instead of acting. A 5xx, an `UNEXPECTED`, a dropped
+  connection, a timeout, a payload member this server was not written against, and an unreadable answer are
+  all `Unknown` — none of them establishes that the mutation did not run, and its error guide actually
+  *advises* retrying `UNEXPECTED`, which for `createPost` is the duplicate-post path. `Unavailable` therefore
+  exists on the gateway contract but is never returned by the Buffer adapter.
+- **A success is read before the complaints beside it.** Buffer documents that a successful mutation can
+  answer with an `errors` array, so the reply carries its `data` whatever else came with it: a post that was
+  made and warned about must not be recorded as a post that was never made.
+- **One claim on a record, and only the call that made it may talk to the provider.** Taking a row from
+  `Pending` to `Submitting` reports whether *this* call performed the transition; a row another request or a
+  worker already claimed is returned untouched and nothing is sent.
+- **A second key does not buy a second post.** The key's unique index cannot see two keys for one publication,
+  so a confirmation that matches a *live* record's card, profile, text and time is refused with
+  `publishing.duplicate.conflict` and the existing record's id. A failed or cancelled publication may be
+  confirmed again.
+- **A caller that gives up mid-call still leaves the attempt behind**, written with an uncancellable token:
+  the trail that matters most is the one for a call whose end nobody saw. The outcome write after a successful
+  provider call is likewise not bound to the client's token.
+- **A provider's refusal is a state, not a failed command.** The route answers `201` with the record whenever
+  the confirmation was committed; `status` and `outcomeUncertain` carry what became of it. Only a refusal the
+  caller can fix is a `ProblemDetails`.
+- **A provider's error message never crosses the gateway.** Buffer writes it and it can quote the post — the
+  creator's own words — back, so what crosses is the error's GraphQL *type name*, mapped to one of this
+  server's own categories, plus a sentence written here.
+- **A picture cannot be published yet, and that is said rather than worked around.** `createPost` takes
+  `assets[].image.url` and the documentation requires a publicly fetchable address; `IPrivateObjectStore`
+  deliberately returns no addresses at all (media.md), and no anonymous media route exists. A confirmation
+  naming a picture is refused with `publishing.media.not_publishable.unprocessable` after its ownership is
+  checked, so a creator is never told a picture went out when only text did.
+- **Confirming takes the Editor role**; reading a record takes the lowest. The route is
+  `/publishing/records`, beside 13.9's `/publishing/profiles`.
+- **The scheduling zone is the workspace's own**, read from `BrandProfile.TimeZoneId` and never from the
+  request; unset refuses rather than guesses. A schedule is stored as three facts: the instant, the zone, and
+  the local wall-clock time it means.
+
+**Options considered:** `202` with the provider call left to a worker (rejected — this prompt's scope is the
+command calling the adapter, and a creator confirming a post should learn in that request whether it was
+taken); wrapping the command in the shared idempotent executor (rejected above); retrying a timed-out submit
+(rejected — it is the one call that must never be repeated blind); storing Buffer's error message for the
+creator to read (rejected above, with a category and our own sentence as the mitigation); adding a signed-URL
+capability to the object store so pictures could be published now (rejected as a reversal of a documented
+decision, out of this prompt's scope, and unreachable from the provider in local development anyway).
+**Consequences:** `BufferGraphQl` was extracted from 13.9's profile gateway so both gateways classify one
+answer the same way; the profile gateway keeps its own retry loop, because only a caller knows whether
+repeating what it asked for is safe. A store failure on the outcome write is caught and logged by exception
+type alone, because a unique-index violation's message quotes the key — and that key is the provider's id for
+the post. A record left `Pending` by a throttle, or `Submitting` by a silence, is
+not submitted again by anything until the reconciliation worker exists (13.10c); the response reports its real
+state meanwhile. `MaxSubmitAttempts` is unreachable from this route, since an interactive confirmation can
+only ever make attempt number one.
+**Rules:** `publishing.md`, `external.md`, `api-contract.md`, `tenancy.md`, `media.md`.
+
+### B-29 Cancelling a publication
+
+*Recorded 2026-10-13 by microprompt 13.10b. `INT-032/033`, which it cites, are undefined in this repository —
+see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **The decision is driven by whether we hold the provider's id for a post, not by the status alone.** No
+  reference and a certain outcome means nothing was created, so the publication is stopped here with nothing
+  asked of anyone. A reference means there is something to remove. No reference and an *unknown* submit means
+  there may be a post this server cannot name — the one case that is refused.
+- **An unknown send is never cancelled**, which is the restriction this phase exists to honour. It answers
+  `publishing.outcome_unknown.conflict`: there is nothing to ask the provider to remove, and recording a
+  cancellation would be a claim about a post that may be going out. Reconciliation settles it (13.10c) and the
+  cancellation then works.
+- **Only two answers end in `Cancelled`:** the provider removed the post, or it does not have it. A refusal
+  puts the record back to `Scheduled`, because that is what is true — the post stands, and the category says
+  why the removal did not happen. A throttle or a silence leaves it `Cancelling`.
+- **A cancellation may be retried where a submit may not.** Asking twice cannot remove two posts: the second
+  ask answers `NOT_FOUND`, which is the outcome that was wanted. So the gateway retries a silence up to three
+  times, the transition into `Cancelling` may be re-entered, and a repeated request is the documented remedy
+  for an unsettled removal rather than a risk. This is the one place the product's asymmetry with `createPost`
+  is deliberate and load-bearing.
+- **Repeating it is safe for the caller too**, so there is no idempotency key: the record's id is what makes a
+  cancellation converge, and a record already `Cancelled` answers with itself rather than an error.
+- **The concurrency token is required.** The race it catches is a post going out between a screen being drawn
+  and Cancel being pressed; quoting what was read turns that into a refusal a creator can understand.
+- **A published record is refused** (`publishing.already_published.conflict`) because taking something down
+  again is a separate capability (publishing.md), and a failed one is refused because nothing is going out.
+- **`DeletePostPayload`'s members could not be verified**, so the mutation selects `__typename` and nothing
+  else — valid against any union — and classifies on that symbol. Naming a member the union does not have
+  would make every cancellation a validation error, which is to say an unknown outcome every time.
+
+**Options considered:** recording a cancel intent for an unknown send on a new column (rejected — it writes a
+promise only the unbuilt worker can keep, and widens the phase past PUB-003); moving such a record to
+`Cancelling` without asking anyone (rejected — the state would describe a request that was never made); a
+single provider attempt as the submit has (rejected above); an optional concurrency token (rejected — the race
+it guards is the expensive one); `DELETE` on the record (rejected — it would suggest removing the ledger row,
+which never happens).
+**Consequences:** `PublishingCancellationWrite` is its own shape, with no external id, because a removal
+learns nothing new about where the post is and the mapping record stays as it was — that a post once existed
+at the provider is part of the trail. `BufferGraphQl` now carries a documented error code through rather than
+flattening it to a label, because `NOT_FOUND` is the answer a removal wants. A stale token going stale is
+asserted against SQL Server only: the endpoint host is SQLite, which seeds a row version on insert and never
+bumps it.
+**Rules:** `publishing.md`, `external.md`, `api-contract.md`.
+
+### B-30 Reconciling what the provider has not accounted for
+
+*Recorded 2026-10-13 by microprompt 13.10c. `DATA-RQ-031`, which it cites, is undefined in this repository —
+see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **The claim is what the ledger's filtered index was built for.** `IX_PublishingRecords_Status_AvailableAt`,
+  filtered to `Pending`, `Submitting`, `Scheduled` and `Cancelling`, *is* the set of claimable rows: terminal
+  records and ones waiting for a person are not in it, which is what makes `NeedsAttention` a resting place
+  rather than a loop.
+- **Nothing is concluded from a listing that did not happen.** A throttled or unreadable listing leaves every
+  record exactly as it was, with a backoff. Only a listing read to its end may support an absence, and only
+  after `AbsenceGrace` — because a provider's own list can lag a post it has just made, and "no post was ever
+  made" is the one conclusion that can quietly lose a creator's work.
+- **An unacknowledged post becomes `Failed`, and is never resubmitted by anything.** A creator may confirm it
+  again deliberately, which the duplicate guard allows because `Failed` is not live. The alternative —
+  concluding "not created" and sending again — risks the audience seeing the same post twice, and a stale or
+  paged listing is exactly the condition in which that mistake would be made.
+- **Only `Pending` is ever submitted, through the request path's own transition gate.** The worker is not a
+  second way in: it calls the same `MarkSubmittingAsync`, so two claimants remain impossible and no code path
+  submits a record that is already `Submitting`.
+- **A cancellation, by contrast, is re-asked freely**, since a repeat cannot remove two posts. That asymmetry
+  is why an unsettled removal is retried where an unsettled submit is reconciled.
+- **One listing per channel per pass.** Records are grouped by workspace and then by profile, so three records
+  on one channel cost one call against a quota that is small and shared. A pass with nothing due makes no call
+  at all.
+- **Finding a row is not authorization.** The claim returns identifiers and queue state only — never the
+  post's text — and a fresh scope then resolves the workspace through `ResolveForServiceAsync`, as the service,
+  because this work outlives whoever confirmed the publication. Every read after that runs under the
+  workspace's own filter, and a record whose workspace is not the credential's is skipped without a provider
+  call.
+- **A lapsed lease clears the lease and nothing else.** No status moves and no attempt is spent: nobody knows
+  how far the dead worker got, and the record's own state already says what is in doubt.
+- **A post that vanished at the provider is `Cancelled`** with `provider_post_absent` — it will not go out,
+  which is what cancelled means, and the category records that it was not cancelled from here.
+
+**Options considered:** `NeedsAttention` for every unacknowledged post (rejected — it makes a provider hiccup a
+manual chore and leaves the record in a state the board cannot act on); resubmitting after an absence
+(rejected above); one listing per record (rejected — twenty calls for an answer three would give, against 250
+requests a day); not polling `Scheduled` records at all (rejected — `Published` would then never be reached);
+a `dueAt` filter on the listing (not available: the provider returns the field but documents no filter for it,
+so matching on time happens here, within a tolerance).
+**Consequences:** the three per-operation write types from 13.10a/b are now one `PublishingOutcomeWrite`,
+because a reconciliation writes the union of what they write; `BufferPublishingRegistration` moved from the
+API host to beside the module, since two hosts register it and must not drift on which handler may retry a
+mutation — which brought `Microsoft.Extensions.Http.Resilience` into the domain for that one opt-out. The
+AppHost now references `publishing-buffer` from the Worker as well as the API, and `aspire.md` says so.
+**Rules:** `publishing.md`, `external.md`, `tenancy.md`, `aspire.md`.
+
+### B-31 Publishing on the card detail page
+
+*Recorded 2026-10-13 by microprompt 13.10d. `BOARD-UI-004/005`, which it cites, are undefined in this
+repository — see [B-12](#b-12-unmapped-dec-items--decide).*
+
+- **The page says only what the server has said.** A confirmation and a cancellation each render the record
+  that came back, whatever state it is in. Nothing is marked scheduled, published or cancelled optimistically,
+  and `Idempotent-Replayed` is reported as a replay rather than as a new publication.
+- **An unknown outcome is shown as unknown**, with a warning tone, its own sentence and the only guidance on
+  the page that tells a creator *not* to act: scheduling again could publish the same post twice while
+  reconciliation is still finding out. It is the one state a screen could do real harm by rounding off.
+- **The status is read as an open set.** A value this build has never heard of decodes to `Unrecognised` and is
+  shown as such, rather than making the publication undecodable and invisible — a publication in a state we
+  cannot name still exists.
+- **The schedule form is a drawer**, by DESIGN-SYSTEM.md's own test: the creator needs the card in view, would
+  not link to the form, and it is one short form. Cancelling is a `ConfirmService` question, not a fourth
+  surface.
+- **Times are the workspace's, converted in the browser.** The date and time are read in the scheduling zone
+  from the brand profile and converted to the instant the route takes, with `Intl` and no library. A creator
+  working from another country schedules the hour their audience sees; a workspace with no zone cannot
+  schedule at all and is told why, because the server will not guess one either.
+- **A card's picture is refused in the form, before a request is spent**, with the same words the route uses —
+  so a creator learns a picture cannot go through the provider yet while writing, not from an error afterwards.
+- **The head badge follows the publications, not the card's own counts.** `ContentCard.publishing` is a
+  summary the server still does not fill, and a badge drawn from it would say "Not scheduled" over a card with
+  a post going out this afternoon.
+- **A new read was needed to make any of it survive a reload**: `GET /publishing/records?contentCardId=`,
+  capped rather than paged, with `complete` saying whether the cap was reached. An unknown card, another
+  workspace's and one with no publications are all an empty list.
+
+**Options considered:** embedding the records in the card detail's existing `publishing` slot (rejected — it
+puts delivery data on a Content contract the board's list rows share); keeping the status in page memory only
+(rejected — a reload would lose it, which makes "status" and "cancel" unmet in practice); using the browser's
+zone with a warning (rejected above); sending the wall-clock time for the server to resolve (rejected — the
+confirm route takes an instant, shipped two prompts earlier); offering nothing for an unconfirmed cancellation
+(rejected — it leaves a creator watching an unresolved post with no way to act, when asking again is both safe
+and how it settles).
+**Consequences:** two detail-page specs that asserted the counts-based topic were rewritten to the behaviour
+that replaced them. `publishingStatusOf` is no longer used by the page and the head badge now comes from the
+topic's own read.
+**Rules:** `frontend.md`, `design-system.md`, `api-contract.md`, `publishing.md`.
+
+### B-32 What the publishing audit changed, and what it refused to change
+
+*Recorded 2026-10-13 by microprompt 13.10e, auditing `PUB-001`–`PUB-003` and `INT-030`–`INT-033` across the
+Buffer adapter, the ledger, schedule, cancel, reconciliation, the board controls, and workspace scope.*
+
+- **Uncertainty was never resolved for convenience, and three fixes exist because it had been.** A transport
+  failure the browser could not map said "nothing was sent"; a listing with no readable `pageInfo` counted as
+  read to its end; and a `status`-filtered listing could miss a post the provider had put in a state we did not
+  ask about. Each is a path from "we do not know" to "it did not happen" — the one direction that loses a
+  creator's post or sends it twice. All three now stop at unknown.
+- **Replay is decided before duplication is refused.** A second request on a key already spent was answered as
+  a duplicate or as a replay depending on which check ran first, which made the shared-key race
+  non-deterministic. `ReplayAsync` is now consulted before every duplicate refusal, so the same request always
+  gets the same publication back and a genuinely different one is always refused.
+- **The database now holds the rule the code was enforcing.** Two requests could each pass the duplicate
+  pre-check and create a live publication for the same card, profile and moment.
+  `UX_PublishingRecords_Live_Card_Profile_Time` — unique, filtered to the live statuses — makes the loser a
+  refusal rather than a second post, and the transition gate's `DbUpdateConcurrencyException` is caught and
+  re-read rather than surfacing as a 500.
+- **A check constraint that passes on NULL is not a constraint.** `MediaAssetVersionNumber >= 1` evaluates to
+  UNKNOWN for a NULL, which SQL Server accepts; the version could be absent on a record that named an asset.
+  The constraint now says `IS NOT NULL` explicitly, with the reason written beside it.
+- **A cancelled record answers a repeated cancel with itself, before the token is checked.** Asking twice is
+  the documented safe operation and the second ask arrives with a stale token by construction, so a
+  concurrency refusal there punished the behaviour the rule asks for.
+- **Absence is only provable after the moment the post was due.** The grace period ran from when the record
+  became uncertain, so a post scheduled for next week could be declared absent from a listing taken today, when
+  a provider has no reason to list it yet. Grace now runs from the later of that and `ScheduledAt`, and only
+  for a record the provider has acknowledged and not yet sent — narrower than the first two attempts at this,
+  each of which broke a case the suite already covered.
+- **No provider text reaches a creator.** `failureSummary` is composed from a closed category set in Business
+  rather than passed through, so a provider message cannot carry an account detail, an internal id or a key
+  fragment onto the page; the documented code (`NOT_FOUND` and its siblings) is still preserved in the audit
+  record, where it belongs.
+- **The flaky tests were reported, not fixed.** Three pre-existing AI-usage tests fail under load and pass on
+  a clean worktree with these changes' domain code; a `git worktree` run was used to establish that rather
+  than inferring it. Quieting them would have hidden a real signal about test-suite timing, and they are not
+  this prompt's scope.
+
+**Options considered:** returning `409` for the live-duplicate index violation without the `ReplayAsync`
+re-read (rejected — the loser of a race on the *same* key is a replay and must get the publication, not an
+error); widening the absence grace for every uncertain record (rejected — it delays the `Failed` conclusion for
+the posts that really were never made); mapping an unreadable confirmation body to failure (rejected — a `201`
+means it was committed, so the body being unreadable is this client's problem and not evidence of anything).
+**Consequences:** migration `AddLivePublicationGuard`; the OpenAPI snapshot grew by 640 lines with nothing
+removed, so the contract change is additive; `PublishingErrorCodes` gained `ScheduleConflict` for the raced
+case and the board reports it as a race rather than a refusal.
+**Rules:** `publishing.md`, `external.md`, `tenancy.md`, `api-contract.md`, `frontend.md`.
+
 ## Open items
 
 ### B-12 Unmapped DEC items — DECIDE

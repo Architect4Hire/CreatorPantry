@@ -91,6 +91,10 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IContentCardDataLayer, ContentCardDataLayer>();
         services.AddScoped<IContentCardBusiness, ContentCardBusiness>();
         services.AddScoped<IContentCardFacade, ContentCardFacade>();
+
+        // The id check another module makes before it writes a row naming a card (13.10a).
+        services.AddScoped<IContentCardLookupBusiness, ContentCardLookupBusiness>();
+        services.AddScoped<IContentCardLookupFacade, ContentCardLookupFacade>();
         services.AddScoped<IValidator<ContentCardListViewModel>, ContentCardListViewModelValidator>();
         services.AddScoped<IValidator<CreateContentCardViewModel>, CreateContentCardViewModelValidator>();
         services.AddScoped<IValidator<UpdateContentCardViewModel>, UpdateContentCardViewModelValidator>();

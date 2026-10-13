@@ -665,6 +665,30 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <summary>When each workspace's publishing provider was last asked, and how that went.</summary>
     public DbSet<PublishingProviderSync> PublishingProviderSyncs => Set<PublishingProviderSync>();
 
+    /// <summary>
+    /// The publishing ledger: one row per confirmed intent to publish, and where it got to (PUB-002/003).
+    /// </summary>
+    /// <remarks>
+    /// Workspace-owned, provider-neutral, and never deleted to tidy up — a published row is the only record
+    /// that content left for a third party. The payload is a snapshot written at confirmation; only the
+    /// lifecycle columns move afterwards.
+    /// </remarks>
+    public DbSet<PublishingRecord> PublishingRecords => Set<PublishingRecord>();
+
+    /// <summary>The integration records mapping a provider's post to the <see cref="PublishingRecords"/> row that asked for it.</summary>
+    /// <remarks>
+    /// The only table holding a provider's identifier for a post. Never returned by a facade and never
+    /// logged; its two unique indexes are what make a replayed submit resolve to the post it already made.
+    /// </remarks>
+    public DbSet<ExternalPublicationReference> ExternalPublicationReferences => Set<ExternalPublicationReference>();
+
+    /// <inheritdoc cref="PublishingRecords"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. One row per call
+    /// to a provider, holding outcomes only: no request body, no response body, no header, no credential.
+    /// </remarks>
+    public DbSet<PublishingDeliveryAttempt> PublishingDeliveryAttempts => Set<PublishingDeliveryAttempt>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

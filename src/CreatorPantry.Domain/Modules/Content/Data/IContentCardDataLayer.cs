@@ -39,6 +39,9 @@ public interface IContentCardDataLayer
     /// <inheritdoc cref="IContentCardRepository.FindForUpdateAsync"/>
     Task<ContentCard?> FindForUpdateAsync(Guid cardId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IContentCardRepository.ExistsAsync"/>
+    Task<bool> ExistsAsync(Guid cardId, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IContentCardRepository.FindPipelineCardIdAsync"/>
     Task<Guid?> FindPipelineCardIdAsync(Guid creativeContextId, CancellationToken cancellationToken);
 
@@ -176,6 +179,9 @@ internal sealed class ContentCardDataLayer(
 
     public Task<ContentCard?> FindForUpdateAsync(Guid cardId, CancellationToken cancellationToken) =>
         repository.FindForUpdateAsync(cardId, cancellationToken);
+
+    public Task<bool> ExistsAsync(Guid cardId, CancellationToken cancellationToken) =>
+        repository.ExistsAsync(cardId, cancellationToken);
 
     public Task<Guid?> FindPipelineCardIdAsync(Guid creativeContextId, CancellationToken cancellationToken) =>
         repository.FindPipelineCardIdAsync(creativeContextId, cancellationToken);

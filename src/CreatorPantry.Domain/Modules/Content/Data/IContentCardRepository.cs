@@ -64,6 +64,9 @@ public interface IContentCardRepository
     /// <summary>One card, tracked, for an edit; or null when the resolved workspace has no such card.</summary>
     Task<ContentCard?> FindForUpdateAsync(Guid cardId, CancellationToken cancellationToken);
 
+    /// <summary>Whether the resolved workspace has a card with this id. Reads no column of it.</summary>
+    Task<bool> ExistsAsync(Guid cardId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Every card in a column as its id and rank, in the board's own order — rank, then id, as the store
     /// breaks the tie. Read without tracking: this is for deciding a place, not for writing one.
@@ -205,6 +208,9 @@ internal sealed class ContentCardRepository(CreatorPantryDbContext context) : IC
 
     public Task<ContentCard?> FindForUpdateAsync(Guid cardId, CancellationToken cancellationToken) =>
         context.ContentCards.FirstOrDefaultAsync(card => card.Id == cardId, cancellationToken);
+
+    public Task<bool> ExistsAsync(Guid cardId, CancellationToken cancellationToken) =>
+        context.ContentCards.AsNoTracking().AnyAsync(card => card.Id == cardId, cancellationToken);
 
     public Task<Guid?> FindPipelineCardIdAsync(Guid creativeContextId, CancellationToken cancellationToken) =>
         context.ContentCards.AsNoTracking()

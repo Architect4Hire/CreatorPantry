@@ -407,8 +407,10 @@ void AddPublishing()
         return;
     }
 
-    // The API only: the worker has no publishing job until the ledger and its reconciliation exist.
+    // Both hosts now: the API confirms and cancels publications, and the Worker reconciles the records the
+    // provider has not accounted for (13.10c). Until that job existed this was the API's alone.
     api.WithReference(publishing);
+    worker.WithReference(publishing);
 
     string Required(string key) => builder.Configuration[key]?.Trim() is { Length: > 0 } value
         ? value

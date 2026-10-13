@@ -4,7 +4,10 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
+import { of } from 'rxjs';
+
 import { BrandProfileService } from '../../services/brand-profile.service';
+import { PublishingService } from '../../services/publishing.service';
 import { FakeContentBoardService, boardCard } from '../../services/content-board.fake';
 import { ContentBoardService } from '../../services/content-board.service';
 import { ContentCardDetailComponent } from './content-card-detail.component';
@@ -44,7 +47,11 @@ describe('ContentCardDetailComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: ':workspaceSlug/content-board/:cardId', component: ContentCardDetailComponent, data: { title: 'Card' } },
+          {
+            path: ':workspaceSlug/content-board/:cardId',
+            component: ContentCardDetailComponent,
+            data: { title: 'Card' },
+          },
           { path: '**', component: StubComponent },
         ]),
         { provide: ContentBoardService, useValue: server },
@@ -55,6 +62,38 @@ describe('ContentCardDetailComponent', () => {
               Promise.resolve({
                 status: 'found',
                 channels: [{ key: 'instagram', displayName: 'Instagram', isActive: true }],
+              }),
+            getBrandProfile: () => Promise.resolve({ status: 'found', profile: { timeZoneId: 'America/Chicago' } }),
+          },
+        },
+        {
+          // The Publishing topic does its own reading; this page's specs are about the page.
+          provide: PublishingService,
+          useValue: {
+            forCard: () => of({ status: 'read', list: { items: [], complete: true } }),
+            profiles: () =>
+              of({
+                status: 'read',
+                profiles: {
+                  connection: {
+                    providerKey: 'buffer',
+                    status: 'Connected',
+                    lastCheckedAt: null,
+                    lastSucceededAt: null,
+                    retryAfterSeconds: null,
+                  },
+                  profiles: [
+                    {
+                      id: 'prof-1',
+                      providerKey: 'buffer',
+                      platform: 'Instagram',
+                      displayName: 'Cozy Fall Kitchen',
+                      timeZoneId: 'America/Chicago',
+                      status: 'Ready',
+                      lastSeenAt: '2026-10-13T10:00:00Z',
+                    },
+                  ],
+                },
               }),
           },
         },
@@ -111,15 +150,35 @@ describe('ContentCardDetailComponent', () => {
     ]);
     server.extras.set('a', {
       lineage: [
-        { kind: 'CreativeContext', id: CTX, versionId: null, versionNumber: null, label: 'Soda bread, autumn', available: true },
-        { kind: 'Recipe', id: 'recipe-1', versionId: 'version-1', versionNumber: null, label: 'Buttermilk Soda Bread', available: true },
+        {
+          kind: 'CreativeContext',
+          id: CTX,
+          versionId: null,
+          versionNumber: null,
+          label: 'Soda bread, autumn',
+          available: true,
+        },
+        {
+          kind: 'Recipe',
+          id: 'recipe-1',
+          versionId: 'version-1',
+          versionNumber: null,
+          label: 'Buttermilk Soda Bread',
+          available: true,
+        },
         { kind: 'PromptRecord', id: 'prompt-1', versionId: null, versionNumber: null, label: null, available: true },
         { kind: 'MediaAsset', id: 'asset-1', versionId: null, versionNumber: 2, label: null, available: false },
         { kind: 'SocialPackage', id: 'posts-1', versionId: null, versionNumber: null, label: null, available: true },
       ],
       history: [
         { sequence: 1, fromColumn: null, toColumn: 'ToDo', note: null, occurredAt: '2026-10-13T09:00:00Z' },
-        { sequence: 2, fromColumn: 'ToDo', toColumn: 'InProcess', note: 'Shoot booked for Friday', occurredAt: '2026-10-13T10:00:00Z' },
+        {
+          sequence: 2,
+          fromColumn: 'ToDo',
+          toColumn: 'InProcess',
+          note: 'Shoot booked for Friday',
+          occurredAt: '2026-10-13T10:00:00Z',
+        },
       ],
     });
     confirmAnswer = true;
@@ -161,7 +220,10 @@ describe('ContentCardDetailComponent', () => {
     await mount();
 
     const lineage = topic('What it points at');
-    const links = Array.from(lineage.querySelectorAll('a')).map((link) => [link.textContent, link.getAttribute('href')]);
+    const links = Array.from(lineage.querySelectorAll('a')).map((link) => [
+      link.textContent,
+      link.getAttribute('href'),
+    ]);
     expect(links).toEqual([
       ['Buttermilk Soda Bread', `/${SLUG}/recipes/recipe-1`],
       ['A saved prompt', `/${SLUG}/prompt-library/prompt-1`],
@@ -193,28 +255,28 @@ describe('ContentCardDetailComponent', () => {
     expect(topic('The plan').textContent).toContain('No notes on this card yet.');
   });
 
-  it('says where the card stands with publishing, from the server’s numbers and not from its column', async () => {
+  it('says nothing is scheduled for a card with no publications, whatever column it is in', async () => {
     server.touch(SLUG, 'a', { column: 'Approved' });
     await mount();
 
+    // Approved is the creator's judgement of the work; whether anything went out is a publication's to say.
     const publishing = topic('Publishing');
-    expect(publishing.querySelector('cp-status-pill')!.textContent).toContain('Not scheduled');
-    expect(publishing.textContent).toContain('Nothing has been scheduled or published');
-    expect(publishing.querySelector('button')).toBeNull();
+    expect(publishing.textContent).toContain('Nothing has been scheduled for this card');
+    expect(root().querySelector('cp-page-head cp-status-pill')!.textContent).toContain('Not scheduled');
   });
 
-  it('shows what was published when the server reports it', async () => {
-    server.touch(SLUG, 'a', { publishing: { publicationCount: 2, publishedCount: 1, lastPublishedAt: '2026-10-12T09:00:00Z' } });
+  it('offers the one way to confirm a publication, under the topic it belongs to', async () => {
     await mount();
 
-    expect(topic('Publishing').querySelector('cp-status-pill')!.textContent).toContain('Published');
-    expect(topic('Publishing').textContent).toContain('Publications');
+    expect(button('Schedule a publication', topic('Publishing'))).toBeTruthy();
   });
 
   it('reads the history oldest first, with each move’s note', async () => {
     await mount();
 
-    const entries = Array.from(topic('History').querySelectorAll('ol li')).map((each) => each.textContent!.replace(/\s+/g, ' ').trim());
+    const entries = Array.from(topic('History').querySelectorAll('ol li')).map((each) =>
+      each.textContent!.replace(/\s+/g, ' ').trim(),
+    );
     expect(entries.length).toBe(2);
     expect(entries[0]).toContain('Created in To do');
     expect(entries[1]).toContain('Moved from To do to In process');

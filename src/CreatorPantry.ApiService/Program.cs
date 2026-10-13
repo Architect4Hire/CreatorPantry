@@ -4,7 +4,6 @@ using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Caching;
 using CreatorPantry.ApiService.Development;
 using CreatorPantry.ApiService.Http;
-using CreatorPantry.ApiService.Integration;
 using CreatorPantry.ApiService.Storage;
 using CreatorPantry.ApiService.Tenancy;
 using CreatorPantry.Domain.Managers.Audit;
@@ -22,6 +21,7 @@ using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Publishing;
+using CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
@@ -101,10 +101,10 @@ builder.Services.AddRecipeExportSeam();
 // facade before writing a row that can never be corrected, so a host serving prompt routes needs both.
 builder.Services.AddMediaModule();
 
-// Publishing profiles (PUB-001). The module answers "not configured" on its own; AddBufferPublishing replaces
+// Publishing (PUB-001/002/003). The module answers "not configured" on its own; AddBufferPublishing replaces
 // that with Buffer only when this host has been handed a key and the workspace it belongs to.
 builder.Services.AddPublishingModule();
-builder.AddBufferPublishing();
+builder.Services.AddBufferPublishing(builder.Configuration);
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

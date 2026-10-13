@@ -141,7 +141,12 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
     /// An optional save interceptor, for the tests that need a write to fail. It gets its own provider and
     /// therefore its own DbContext configuration, so an injected failure cannot leak into any other test.
     /// </param>
-    public AsyncServiceScope ScopeFor(Guid workspaceId, IInterceptor? interceptor = null)
+    /// <param name="membershipId">
+    /// The resolved membership, for a test where two scopes must be the <em>same</em> member — a retried
+    /// idempotent command, whose stored request includes who made it. A fresh id per scope otherwise, which
+    /// is what every other test wants.
+    /// </param>
+    public AsyncServiceScope ScopeFor(Guid workspaceId, IInterceptor? interceptor = null, Guid? membershipId = null)
     {
         var provider = interceptor is null ? _provider! : BuildProvider(interceptor);
         var scope = provider.CreateAsyncScope();
@@ -149,7 +154,7 @@ public sealed class SqlServerRecipeFixture : IAsyncLifetime
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
             workspaceId,
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
-            Guid.NewGuid(),
+            membershipId ?? Guid.NewGuid(),
             WorkspaceRole.Owner, "test-account");
 
         return scope;

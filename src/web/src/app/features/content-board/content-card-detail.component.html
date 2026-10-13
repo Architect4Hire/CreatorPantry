@@ -81,8 +81,8 @@
       <cp-topic-card heading="What it points at" headingId="content-card-lineage-heading">
         @if (lineage().length === 0) {
           <p class="plain cp-muted">
-            This card points at nothing yet. A card put on the board from a Content Pipeline run links its
-            recipe, picture, prompt and posts.
+            This card points at nothing yet. A card put on the board from a Content Pipeline run links its recipe,
+            picture, prompt and posts.
           </p>
         } @else {
           <p class="plain cp-muted">The card links to these; it holds no copy of them.</p>
@@ -129,23 +129,12 @@
         }
       </cp-topic-card>
 
-      <cp-topic-card heading="Publishing" headingId="content-card-publishing-heading">
-        <p class="plain"><cp-status-pill [tone]="publishing().tone">{{ publishing().label }}</cp-status-pill></p>
-        @if (shown.card.publishing; as delivered) {
-          <dl cpFacts>
-            <div cpFact label="Publications">{{ delivered.publicationCount }}</div>
-            <div cpFact label="Published">{{ delivered.publishedCount }}</div>
-            @if (delivered.lastPublishedAt; as last) {
-              <div cpFact label="Last published">{{ last | date: 'medium' }}</div>
-            }
-          </dl>
-        } @else {
-          <p class="plain cp-muted">
-            Nothing has been scheduled or published for this card. Its column says where your work stands, not
-            whether anything went out.
-          </p>
-        }
-      </cp-topic-card>
+      <cp-content-card-publishing
+        [workspaceSlug]="workspaceSlug()"
+        [cardId]="shown.card.id"
+        [hasPicture]="shown.card.lineage.mediaAssetId !== null"
+        (summary)="publishingSummary.set($event)"
+      />
 
       <cp-topic-card heading="History" headingId="content-card-history-heading">
         @if (shown.historyTruncated) {
@@ -174,8 +163,8 @@
 
       <cp-topic-card heading="Delete this card" headingId="content-card-delete-heading">
         <p class="plain">
-          Deleting takes the card and its history off the board for everyone in this workspace. Its recipe,
-          picture, prompt and posts stay exactly as they are.
+          Deleting takes the card and its history off the board for everyone in this workspace. Its recipe, picture,
+          prompt and posts stay exactly as they are.
         </p>
         <div cpTopicCardActions class="cp-actions">
           <button cpButton type="button" variant="danger" [disabled]="deleting()" (click)="remove()">

@@ -1,11 +1,13 @@
 using System.Net.Http.Headers;
 using CreatorPantry.Domain.Modules.Publishing.Gateways;
-using CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
-namespace CreatorPantry.ApiService.Integration;
+namespace CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
 
 /// <summary>
-/// Wires Buffer as this host's publishing provider, when it has been given one (INT-030).
+/// Wires Buffer as this host's publishing provider, when it has been given one (INT-030/031/032/033).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,6 +22,12 @@ namespace CreatorPantry.ApiService.Integration;
 /// for a host not to boot.
 /// </para>
 /// <para>
+/// <strong>Beside the module rather than in a host, because two hosts need it.</strong> The API confirms and
+/// cancels publications; the Worker reconciles the ones the provider has not accounted for. One registration
+/// means the two cannot drift into talking to Buffer differently — in particular, cannot drift on which
+/// handler is allowed to retry a mutation.
+/// </para>
+/// <para>
 /// <strong>The resilience defaults are removed, not tuned.</strong> The standard handler retries every
 /// request, POSTs included, and Buffer's API is GraphQL: one endpoint, always POST. A read is safe to repeat
 /// and the gateway repeats it itself, within bounds it can state; a mutation, which arrives with scheduling,
@@ -28,22 +36,30 @@ namespace CreatorPantry.ApiService.Integration;
 /// </remarks>
 public static class BufferPublishingRegistration
 {
-    public static IHostApplicationBuilder AddBufferPublishing(this IHostApplicationBuilder builder)
+    /// <param name="configuration">
+    /// Read for <c>ConnectionStrings:publishing-buffer</c> only. Taking the configuration rather than the host
+    /// builder is what lets this live beside the module and still be called from either host.
+    /// </param>
+    public static IServiceCollection AddBufferPublishing(
+        this IServiceCollection services, IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
         var options = BufferPublishingOptions.Parse(
-            builder.Configuration.GetConnectionString(BufferPublishingOptions.ConnectionName));
+            configuration.GetConnectionString(BufferPublishingOptions.ConnectionName));
 
         if (options is null)
         {
-            return builder;
+            return services;
         }
 
-        builder.Services.AddSingleton(options);
+        services.AddSingleton(options);
 
         // RemoveAllResilienceHandlers is marked experimental (EXTEXP0001); it is the supported opt-out from
         // what ServiceDefaults applies to every HttpClient.
 #pragma warning disable EXTEXP0001
-        builder.Services
+        services
             .AddHttpClient(BufferPublishingOptions.ConnectionName, client =>
             {
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
@@ -56,12 +72,19 @@ public static class BufferPublishingRegistration
             .RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
 
-        // Registered after the module's TryAdd or before it, this is the gateway that resolves.
-        builder.Services.AddScoped<IPublishingProfileGateway>(services => new BufferPublishingProfileGateway(
-            services.GetRequiredService<IHttpClientFactory>().CreateClient(BufferPublishingOptions.ConnectionName),
+        // Registered after the module's TryAdd or before it, these are the gateways that resolve.
+        services.AddScoped<IPublishingProfileGateway>(provider => new BufferPublishingProfileGateway(
+            provider.GetRequiredService<IHttpClientFactory>().CreateClient(BufferPublishingOptions.ConnectionName),
             options,
-            services.GetRequiredService<ILogger<BufferPublishingProfileGateway>>()));
+            provider.GetRequiredService<ILogger<BufferPublishingProfileGateway>>()));
 
-        return builder;
+        // The same client and the same credential, for the mutation side (INT-031). It shares the client
+        // precisely because the resilience handler is already removed from it: nothing may retry a createPost.
+        services.AddScoped<IPublishingPostGateway>(provider => new BufferPublishingPostGateway(
+            provider.GetRequiredService<IHttpClientFactory>().CreateClient(BufferPublishingOptions.ConnectionName),
+            options,
+            provider.GetRequiredService<ILogger<BufferPublishingPostGateway>>()));
+
+        return services;
     }
 }

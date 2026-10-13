@@ -27,8 +27,10 @@ import { BrandProfileService } from '../../services/brand-profile.service';
 import { ContentBoardService } from '../../services/content-board.service';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { IdempotencyKey } from '../content-pipeline/content-pipeline-idempotency';
-import { channelNameOf, lineageNounOf, publishingStatusOf } from './content-board-presentation';
+import { channelNameOf, lineageNounOf } from './content-board-presentation';
 import { ContentCardEditDrawerComponent } from './content-card-edit-drawer.component';
+import { ContentCardPublishingComponent } from './content-card-publishing.component';
+import { PublishingTone } from './publishing-presentation';
 
 type State =
   | { readonly status: 'loading' }
@@ -48,7 +50,8 @@ interface LineageRow {
 }
 
 const DELETE_PROBLEMS = {
-  stale: 'This card changed since you opened it, so it was not deleted. It has been read again; delete it again if you still want to.',
+  stale:
+    'This card changed since you opened it, so it was not deleted. It has been read again; delete it again if you still want to.',
   forbidden: 'You do not have permission to delete cards in this workspace. Nothing was deleted.',
   unavailable: 'The card could not be deleted just now. Nothing was deleted, so it is safe to try again.',
 } as const;
@@ -67,8 +70,10 @@ const DELETE_PROBLEMS = {
  * **Posts are written in Social Studio.** A card that came from a piece of work offers the way there; this
  * page writes none.
  *
- * **Publishing is said, not done.** The status is the server's own numbers in words. There is nothing to
- * schedule here yet, and the page says that rather than showing a control that does nothing.
+ * **Publishing is said by the server, and done through it.** The Publishing topic reads this card's
+ * publications, offers the one way to confirm another, and offers a cancellation for those that have not gone
+ * out. Nothing on this page declares a publication scheduled, published or cancelled before the server has
+ * said so — an outcome nobody knows yet is shown as exactly that.
  *
  * **Deleting keeps the picture.** A card's linked picture is never removed with it, and the confirmation says
  * so. The request carries one idempotency key across retries, so a delete whose answer was lost is told what
@@ -91,6 +96,7 @@ const DELETE_PROBLEMS = {
     CpStatusPillComponent,
     CpTopicCardComponent,
     ContentCardEditDrawerComponent,
+    ContentCardPublishingComponent,
   ],
   templateUrl: './content-card-detail.component.html',
   styleUrl: './content-card-detail.component.css',
@@ -147,8 +153,22 @@ export class ContentCardDetailComponent {
 
     return detail === null ? '' : CONTENT_BOARD_COLUMN_LABELS[detail.card.column];
   });
-  protected readonly publishing = computed(() => publishingStatusOf(this.detail()?.card.publishing ?? null));
-  protected readonly channelName = computed(() => channelNameOf(this.channels(), this.detail()?.card.channelKey ?? null));
+  /**
+   * What the head badge says about publishing: the publications' own summary, raised by the topic that read
+   * them.
+   *
+   * **Not the card's own counts.** The card carries a publishing summary the server does not fill, and a badge
+   * drawn from it would say "Not scheduled" over a card with a post going out this afternoon.
+   */
+  protected readonly publishingSummary = signal<{ label: string; tone: PublishingTone }>({
+    label: 'Not scheduled',
+    tone: 'neutral',
+  });
+
+  protected readonly publishing = computed(() => this.publishingSummary());
+  protected readonly channelName = computed(() =>
+    channelNameOf(this.channels(), this.detail()?.card.channelKey ?? null),
+  );
 
   protected readonly lineage = computed<readonly LineageRow[]>(() =>
     (this.detail()?.lineage ?? []).map((entry) => {
@@ -280,7 +300,9 @@ export class ContentCardDetailComponent {
     this.notice.set('');
     this.problem.set('');
 
-    const outcome = await firstValueFrom(this.board.remove(slug, id, detail.card.concurrencyToken, this.deleteKey.next()));
+    const outcome = await firstValueFrom(
+      this.board.remove(slug, id, detail.card.concurrencyToken, this.deleteKey.next()),
+    );
     if (this.workspaceSlug() !== slug || this.cardId() !== id) return;
 
     this.deleting.set(false);

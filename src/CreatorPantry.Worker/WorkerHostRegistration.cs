@@ -13,6 +13,8 @@ using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Publishing;
+using CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
 using CreatorPantry.Domain.Modules.Recipes;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Vocabulary;
@@ -125,6 +127,12 @@ public static class WorkerHostRegistration
         builder.Services.AddAiUsageReconciliation(builder.Configuration);
 
         builder.Services.AddOutbox();
+
+        // Publishing, so the ledger can be reconciled (13.10c). The module answers "not configured" on its
+        // own; AddBufferPublishing replaces its gateways when this host was given a credential — which the
+        // AppHost does for the Worker as well as the API now that there is a job here that needs one.
+        builder.Services.AddPublishingModule();
+        builder.Services.AddBufferPublishing(builder.Configuration);
         builder.Services.AddHostedService<OutboxDispatcherHostedService>();
         builder.Services.AddHostedService<AiOperationWorkerHostedService>();
         builder.Services.AddHostedService<AiOperationMaintenanceHostedService>();
@@ -138,6 +146,8 @@ public static class WorkerHostRegistration
         builder.Services.AddHostedService<GeneratedImageMaintenanceHostedService>();
         builder.Services.AddHostedService<StagedImageRetentionHostedService>();
         builder.Services.AddHostedService<MediaRenditionBackfillHostedService>();
+        builder.Services.AddHostedService<PublishingReconciliationHostedService>();
+        builder.Services.AddHostedService<PublishingReconciliationMaintenanceHostedService>();
 
         return builder;
     }

@@ -35,6 +35,7 @@ public sealed class ServiceIdentityResolutionBoundaryTests
         "CreatorPantry.Domain/Modules/Media/Managers/GeneratedImageWorker.cs",
         "CreatorPantry.Domain/Modules/Media/Managers/MediaRenditionRequestedOutboxHandler.cs",
         "CreatorPantry.Domain/Modules/Media/Managers/StagedImageRetentionWorker.cs",
+        "CreatorPantry.Domain/Modules/Publishing/Managers/PublishingReconciliationWorker.cs",
         "CreatorPantry.Domain/Modules/Recipes/Managers/RecipeVersionChangedOutboxHandler.cs",
     ];
 

@@ -96,14 +96,22 @@ public sealed record BufferPublishingOptions(Uri Endpoint, string ApiKey, Guid W
 /// and this server neither fetches nor relays one — and nothing that would cost query budget for no use.
 /// </para>
 /// </remarks>
-public sealed class BufferPublishingProfileGateway(
-    HttpClient http,
-    BufferPublishingOptions options,
-    ILogger<BufferPublishingProfileGateway> logger) : IPublishingProfileGateway
+public sealed class BufferPublishingProfileGateway : IPublishingProfileGateway
 {
     private const int MaxAttempts = 3;
-    private const int MaxResponseBytes = 1024 * 1024;
     private static readonly TimeSpan LongestThrottleWorthWaitingFor = TimeSpan.FromSeconds(2);
+
+    private readonly BufferGraphQl _graphQl;
+    private readonly BufferPublishingOptions _options;
+    private readonly ILogger<BufferPublishingProfileGateway> _logger;
+
+    public BufferPublishingProfileGateway(
+        HttpClient http, BufferPublishingOptions options, ILogger<BufferPublishingProfileGateway> logger)
+    {
+        _graphQl = new BufferGraphQl(http, options, logger);
+        _options = options;
+        _logger = logger;
+    }
 
     private const string OrganizationsQuery = "query { account { organizations { id } } }";
 
@@ -112,7 +120,7 @@ public sealed class BufferPublishingProfileGateway(
         + "{ id name displayName service timezone isDisconnected isLocked organizationId } }";
 
     public PublishingProviderDescriptor Describe() =>
-        new(true, PublishingPolicy.BufferProviderKey, options.WorkspaceId);
+        new(true, PublishingPolicy.BufferProviderKey, _options.WorkspaceId);
 
     public async Task<PublishingProfileFetch> FetchAsync(CancellationToken cancellationToken)
     {
@@ -121,7 +129,7 @@ public sealed class BufferPublishingProfileGateway(
         var result = await FetchCoreAsync(cancellationToken);
 
         // The whole of what is recorded about a read: how it ended, how many profiles, how long.
-        logger.LogInformation(
+        _logger.LogInformation(
             "Buffer profile read ended {Outcome} with {ProfileCount} profiles in {ElapsedMs} ms.",
             result.Outcome,
             result.Profiles.Count,
@@ -181,7 +189,14 @@ public sealed class BufferPublishingProfileGateway(
             Truncated: truncated);
     }
 
-    /// <summary>One GraphQL request, retried while that is safe and worthwhile.</summary>
+    /// <summary>
+    /// One GraphQL request, retried while that is safe and worthwhile.
+    /// </summary>
+    /// <remarks>
+    /// The retrying lives here rather than in <see cref="BufferGraphQl"/> because only a caller knows whether
+    /// repeating what it asked for is safe. Both of this gateway's queries are read-only, so they are; the
+    /// <c>createPost</c> mutation beside it is not, and its gateway sends once.
+    /// </remarks>
     private async Task<(JsonElement Data, PublishingProfileFetch? Failure)> SendAsync(
         string query, object? variables, CancellationToken cancellationToken)
     {
@@ -189,14 +204,14 @@ public sealed class BufferPublishingProfileGateway(
 
         for (var attempt = 1; ; attempt++)
         {
-            var reply = await SendOnceAsync(query, variables, cancellationToken);
+            var reply = await _graphQl.SendOnceAsync(query, variables, cancellationToken);
 
-            if (reply.Kind is ReplyKind.Data)
+            if (reply.Kind is BufferReplyKind.Data)
             {
                 return (reply.Data, null);
             }
 
-            if (reply.Kind is ReplyKind.Throttled)
+            if (reply.Kind is BufferReplyKind.Throttled)
             {
                 if (!waitedForThrottle && reply.RetryAfter is { } wait && wait <= LongestThrottleWorthWaitingFor)
                 {
@@ -208,161 +223,16 @@ public sealed class BufferPublishingProfileGateway(
                 return (default, PublishingProfileFetch.Of(PublishingProfileFetchOutcome.RateLimited, reply.RetryAfter));
             }
 
-            if (reply.Kind is ReplyKind.Transient && attempt < MaxAttempts)
+            if (reply.Kind is BufferReplyKind.Transient && attempt < MaxAttempts)
             {
-                await Task.Delay(options.RetryBaseDelay * attempt, cancellationToken);
+                await Task.Delay(_options.RetryBaseDelay * attempt, cancellationToken);
                 continue;
             }
 
-            return (default, PublishingProfileFetch.Of(reply.Kind is ReplyKind.Refused
+            return (default, PublishingProfileFetch.Of(reply.Kind is BufferReplyKind.Refused
                 ? PublishingProfileFetchOutcome.CredentialRejected
                 : PublishingProfileFetchOutcome.Unavailable));
         }
-    }
-
-    private async Task<Reply> SendOnceAsync(string query, object? variables, CancellationToken cancellationToken)
-    {
-        using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        attemptTimeout.CancelAfter(options.AttemptTimeout);
-
-        try
-        {
-            // The key is on the named client's headers, set by the host; nothing here handles it.
-            using var request = new HttpRequestMessage(HttpMethod.Post, options.Endpoint)
-            {
-                Content = JsonContent.Create(new { query, variables }),
-            };
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, attemptTimeout.Token);
-
-            if (response.StatusCode is HttpStatusCode.TooManyRequests)
-            {
-                return Reply.Throttled(RetryAfterOf(response));
-            }
-
-            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-            {
-                return Note(Reply.Refused, (int)response.StatusCode, code: null);
-            }
-
-            if ((int)response.StatusCode >= 500 || response.StatusCode is HttpStatusCode.RequestTimeout)
-            {
-                return Note(Reply.Transient, (int)response.StatusCode, code: null);
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return Note(Reply.Unusable, (int)response.StatusCode, code: null);
-            }
-
-            using var document = await ReadJsonAsync(response, attemptTimeout.Token);
-            if (document is null || document.RootElement.ValueKind is not JsonValueKind.Object)
-            {
-                return Note(Reply.Unusable, (int)response.StatusCode, code: "unreadable_body");
-            }
-
-            var root = document.RootElement;
-
-            // 200 with an errors array is how Buffer reports everything but a throttle.
-            if (root.TryGetProperty("errors", out var errors) && errors.ValueKind is JsonValueKind.Array && errors.GetArrayLength() > 0)
-            {
-                var code = FirstErrorCode(errors);
-
-                return code switch
-                {
-                    "UNAUTHORIZED" or "FORBIDDEN" => Note(Reply.Refused, 200, code),
-                    "RATE_LIMIT_EXCEEDED" => Reply.Throttled(RetryAfterOf(response)),
-                    "UNEXPECTED" => Note(Reply.Transient, 200, code),
-
-                    // NOT_FOUND, or a code this was not written against: not something another attempt changes.
-                    _ => Note(Reply.Unusable, 200, code is null ? "unknown" : "unrecognised"),
-                };
-            }
-
-            return root.TryGetProperty("data", out var data) && data.ValueKind is JsonValueKind.Object
-                ? Reply.Of(data.Clone())
-                : Note(Reply.Unusable, 200, "no_data");
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            // The attempt's own clock, not the caller's: Buffer did not answer in time.
-            return Note(Reply.Transient, status: 0, code: "timeout");
-        }
-        catch (HttpRequestException)
-        {
-            // By type alone. The message can carry the address, and nothing here needs it.
-            return Note(Reply.Transient, status: 0, code: "connection");
-        }
-        catch (JsonException)
-        {
-            return Note(Reply.Unusable, status: 200, code: "unreadable_body");
-        }
-    }
-
-    /// <summary>Records the shape of a failed attempt and hands the reply back. No body, id, message or key.</summary>
-    private Reply Note(Reply reply, int status, string? code)
-    {
-        logger.LogWarning(
-            "Buffer request attempt ended {ReplyKind} (HTTP {Status}, code {Code}).", reply.Kind, status, code ?? "none");
-
-        return reply;
-    }
-
-    private static async Task<JsonDocument?> ReadJsonAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        // Bounded: a response is a stranger's bytes, and no profile list is anywhere near this size.
-        if (response.Content.Headers.ContentLength is > MaxResponseBytes)
-        {
-            return null;
-        }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var buffer = new MemoryStream();
-        var chunk = new byte[16 * 1024];
-        int read;
-        while ((read = await stream.ReadAsync(chunk, cancellationToken)) > 0)
-        {
-            if (buffer.Length + read > MaxResponseBytes)
-            {
-                return null;
-            }
-
-            buffer.Write(chunk, 0, read);
-        }
-
-        return JsonDocument.Parse(buffer.GetBuffer().AsMemory(0, (int)buffer.Length));
-    }
-
-    /// <summary>The first error's documented code, and only if it is one: an arbitrary string is not passed on.</summary>
-    private static string? FirstErrorCode(JsonElement errors)
-    {
-        foreach (var error in errors.EnumerateArray())
-        {
-            if (error.ValueKind is JsonValueKind.Object
-                && error.TryGetProperty("extensions", out var extensions)
-                && extensions.ValueKind is JsonValueKind.Object
-                && extensions.TryGetProperty("code", out var code)
-                && code.ValueKind is JsonValueKind.String)
-            {
-                return code.GetString() switch
-                {
-                    "UNAUTHORIZED" => "UNAUTHORIZED",
-                    "FORBIDDEN" => "FORBIDDEN",
-                    "NOT_FOUND" => "NOT_FOUND",
-                    "UNEXPECTED" => "UNEXPECTED",
-                    "RATE_LIMIT_EXCEEDED" => "RATE_LIMIT_EXCEEDED",
-                    _ => null,
-                };
-            }
-        }
-
-        return null;
-    }
-
-    private static TimeSpan? RetryAfterOf(HttpResponseMessage response)
-    {
-        // Buffer documents seconds. A date would need a clock to read, and a wait it cannot state is treated
-        // as unstated: the caller then falls back to its own.
-        return response.Headers.RetryAfter?.Delta is { } wait && wait > TimeSpan.Zero ? wait : null;
     }
 
     private static bool TryReadOrganizationIds(JsonElement data, out List<string> ids)
@@ -448,24 +318,4 @@ public sealed class BufferPublishingProfileGateway(
 
     private static bool Flag(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.True;
-
-    private enum ReplyKind
-    {
-        Data,
-        Throttled,
-        Transient,
-        Refused,
-        Unusable,
-    }
-
-    private readonly record struct Reply(ReplyKind Kind, JsonElement Data = default, TimeSpan? RetryAfter = null)
-    {
-        public static readonly Reply Transient = new(ReplyKind.Transient);
-        public static readonly Reply Refused = new(ReplyKind.Refused);
-        public static readonly Reply Unusable = new(ReplyKind.Unusable);
-
-        public static Reply Of(JsonElement data) => new(ReplyKind.Data, data);
-
-        public static Reply Throttled(TimeSpan? retryAfter) => new(ReplyKind.Throttled, RetryAfter: retryAfter);
-    }
 }
