@@ -54,6 +54,8 @@ internal sealed class SqliteApiHost : IAsyncDisposable
             web.ConfigureLogging(logging => logging.AddProvider(host.Logs));
             web.ConfigureTestServices(services =>
             {
+                TestLogging.RemoveProcessWideLoggers(services);
+
                 if (time is not null)
                 {
                     services.AddSingleton(time);
@@ -73,13 +75,58 @@ internal sealed class SqliteApiHost : IAsyncDisposable
                     // SqliteModelCustomizer for both, and for why the production mappings stay native.
                     .ReplaceService<IModelCustomizer, SqliteModelCustomizer>());
 
+                // Identity's default is 100,000 rounds of PBKDF2, by design about a twentieth of a second.
+                // A test creates four accounts and signs in several times, so that was most of what every
+                // test in this assembly spent its time on. Nothing here is a test of how hard a hash is to
+                // break; what is stored and checked is still a real Identity V3 hash.
+                services.Configure<PasswordHasherOptions>(options => options.IterationCount = 1_000);
+
                 configureServices?.Invoke(services);
             });
         });
 
-        await using var scope = host.Factory.Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().Database.EnsureCreatedAsync();
+        await host.CreateSchemaAsync();
         return host;
+    }
+
+    private static readonly SemaphoreSlim SchemaGate = new(1, 1);
+
+    private static SqliteConnection? _schema;
+
+    /// <summary>
+    /// Gives this host's database the schema and reference rows. The first host in the process has EF Core
+    /// create them; every later one is handed a copy of that database, page for page.
+    /// </summary>
+    /// <remarks>
+    /// Creating the schema is several hundred statements, and every test that starts a host used to pay for
+    /// all of them. The model is the same for every host here — one context type, one
+    /// <see cref="SqliteModelCustomizer"/> — so the result is too, and SQLite's own backup is exact. The copy
+    /// is taken straight after creation, before any test has written a row.
+    /// </remarks>
+    private async Task CreateSchemaAsync()
+    {
+        await SchemaGate.WaitAsync();
+
+        try
+        {
+            if (_schema is not null)
+            {
+                _schema.BackupDatabase(_connection);
+                return;
+            }
+
+            await using var scope = Factory.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().Database.EnsureCreatedAsync();
+
+            var schema = new SqliteConnection("DataSource=:memory:");
+            await schema.OpenAsync();
+            _connection.BackupDatabase(schema);
+            _schema = schema;
+        }
+        finally
+        {
+            SchemaGate.Release();
+        }
     }
 
     public async Task<string> CreateUserAsync(string email, string password, bool emailConfirmed = true, string displayName = "Sam")

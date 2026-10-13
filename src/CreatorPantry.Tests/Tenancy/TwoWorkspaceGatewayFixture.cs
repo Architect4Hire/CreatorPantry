@@ -48,6 +48,8 @@ internal sealed class TwoWorkspaceGatewayFixture : IAsyncDisposable
 
     public SqliteApiHost Api { get; }
 
+    private ApiLink _link = null!;
+
     public WebApplicationFactory<Gateway::Program> Gateway { get; }
 
     public SeededWorkspace WorkspaceA { get; private set; } = null!;
@@ -58,8 +60,9 @@ internal sealed class TwoWorkspaceGatewayFixture : IAsyncDisposable
     public static async Task<TwoWorkspaceGatewayFixture> CreateAsync(Action<IServiceCollection>? configureApiServices = null)
     {
         var api = await SqliteApiHost.StartAsync(configureServices: configureApiServices);
-        var gateway = GatewayTestHost.Create(proxyDownstream: api.Factory.Server.CreateHandler, apiSessions: api.Factory.Server.CreateHandler);
-        var fixture = new TwoWorkspaceGatewayFixture(api, gateway);
+        var link = new ApiLink(api);
+        var gateway = GatewayTestHost.Create(proxyDownstream: link.CreateHandler, apiSessions: link.CreateHandler);
+        var fixture = new TwoWorkspaceGatewayFixture(api, gateway) { _link = link };
 
         fixture.WorkspaceA = await fixture.SeedWorkspaceAsync("owner-a@example.com", "editor-a@example.com", WorkspaceRole.Editor);
         fixture.WorkspaceB = await fixture.SeedWorkspaceAsync("owner-b@example.com", "viewer-b@example.com", WorkspaceRole.Viewer);
@@ -70,6 +73,7 @@ internal sealed class TwoWorkspaceGatewayFixture : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Gateway.Dispose();
+        _link.Cut();
         await Api.DisposeAsync();
     }
 
@@ -135,6 +139,31 @@ internal sealed class TwoWorkspaceGatewayFixture : IAsyncDisposable
 
     private static async Task<string> AntiforgeryTokenAsync(HttpClient client, CancellationToken cancellationToken) =>
         (await client.GetFromJsonAsync<JsonElement>("/bff/antiforgery", cancellationToken)).GetProperty("requestToken").GetString()!;
+}
+
+/// <summary>
+/// The Gateway's way to the API, which the fixture cuts when it is finished.
+/// </summary>
+/// <remarks>
+/// A disposed Gateway host is not collected: ASP.NET Core's rate-limiting middleware never disposes the limiter
+/// it creates, and that limiter's timer keeps the middleware, its pipeline and the host's services reachable
+/// for the life of the process. Handed the API's own handler, each such Gateway kept its API host — several
+/// times its size — reachable too. Handed this instead, it keeps a relay that points at nothing.
+/// </remarks>
+internal sealed class ApiLink(SqliteApiHost api)
+{
+    private HttpMessageInvoker? _api = new(api.Factory.Server.CreateHandler());
+
+    public HttpMessageHandler CreateHandler() => new Relay(this);
+
+    public void Cut() => Interlocked.Exchange(ref _api, null)?.Dispose();
+
+    private sealed class Relay(ApiLink link) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            (link._api ?? throw new ObjectDisposedException(nameof(ApiLink), "The fixture this Gateway belonged to has been disposed."))
+                .SendAsync(request, cancellationToken);
+    }
 }
 
 /// <param name="Id">The workspace's id — the ground truth every isolation assertion should key on.</param>

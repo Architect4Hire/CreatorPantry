@@ -1,4 +1,6 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Outbox.Events;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Managers;
@@ -410,6 +412,8 @@ internal sealed class BrandStyleGuideDataLayer(
     IBrandStyleGuideRepository guides,
     IBrandStyleGuideEditSessionRepository editSessions,
     IAuditWriter auditWriter,
+    IOutboxWriter outbox,
+    IWorkspaceContext workspace,
     CreatorPantryDbContext context) : IBrandStyleGuideDataLayer
 {
     public async Task<BrandStyleGuideRead?> ReadAsync(Guid guideId, CancellationToken cancellationToken)
@@ -770,6 +774,15 @@ internal sealed class BrandStyleGuideDataLayer(
         }
 
         auditWriter.Record(audit);
+
+        // Staged, not saved, so the announcement commits with the activation and its audit entry or not at
+        // all (LF.6.1), and every failure path below drops it with them: `ChangeTracker.Clear()` takes the
+        // staged row too, so an activation that lost announces nothing. The version's id is the correlation
+        // id, which ties the delivery to the version that was activated. Ids only.
+        outbox.Enqueue(
+            BrandStyleGuideActivatedEvent.MessageType,
+            new BrandStyleGuideActivatedEvent(workspace.WorkspaceId, versionId, membershipId).Serialize(),
+            versionId);
 
         try
         {

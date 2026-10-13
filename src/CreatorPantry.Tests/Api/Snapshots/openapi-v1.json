@@ -27194,7 +27194,9 @@
           "acceptedRevisionNumber",
           "acceptedAt",
           "framing",
-          "unresolvedItems"
+          "unresolvedItems",
+          "staleReasons",
+          "staleSince"
         ],
         "type": "object",
         "properties": {
@@ -27312,6 +27314,19 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "staleReasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentStaleReasons"
+            }
+          },
+          "staleSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

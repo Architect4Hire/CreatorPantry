@@ -120,6 +120,14 @@ export interface LongFormAssembledDocument {
   readonly framing: LongFormFraming | null;
   /** The items, in plan order, whose recipe the piece of work no longer names. */
   readonly unresolvedItems: readonly string[];
+  /**
+   * Which sources the accepted piece was written from have changed since (LF.6.1): `RecipeChanged`,
+   * `VoiceChanged`. Empty unless the status is `NeedsReview`. Plain strings rather than a closed union, so a
+   * reason the server learns later still reads as "something changed" instead of failing the whole document.
+   */
+  readonly staleReasons: readonly string[];
+  /** When the accepted piece was first found out of step; null unless `NeedsReview`. */
+  readonly staleSince: string | null;
 }
 
 /** Mirrors `LongFormSectionWarningServiceModel`. */
@@ -378,6 +386,11 @@ export function decodeLongFormAssembledDocument(value: unknown): LongFormAssembl
   const unresolvedItems = decodeStringArray(value['unresolvedItems'] ?? []);
   if (framing === undefined || unresolvedItems === null) return null;
 
+  // Absent on a reply from before LF.6.1, which had nothing to say: read as nothing moved.
+  const staleReasons = decodeStringArray(value['staleReasons'] ?? []);
+  const staleSince = value['staleSince'] ?? null;
+  if (staleReasons === null || !isStringOrNull(staleSince)) return null;
+
   return {
     draftId,
     creativeContextId,
@@ -399,6 +412,8 @@ export function decodeLongFormAssembledDocument(value: unknown): LongFormAssembl
     acceptedAt,
     framing,
     unresolvedItems,
+    staleReasons,
+    staleSince,
   };
 }
 

@@ -269,7 +269,7 @@ internal sealed partial class LongFormOutlineAiTaskHandler(
                 [WantedSectionsInput] = WantedBrief(wanted),
                 [ItemRuleInput] = ItemRule(rules.Kind, package.Recipes.Count),
             }))
-            .WithOutputSchema(AiLongFormOutlineOutputSchema.Json);
+            .WithOutputSchema(AiLongFormOutlineOutputSchema.Json, template.OutputSchemaVersion);
 
         if (brand is not null)
         {

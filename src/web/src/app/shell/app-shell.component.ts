@@ -8,6 +8,7 @@ import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
 import { ContentPipelineDraftService } from '../services/content-pipeline-draft.service';
 import { ImageStudioDraftService } from '../services/image-studio-draft.service';
+import { LongFormPipelinePlaceService } from '../services/long-form-pipeline-place.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 import { CpLogoComponent } from '../features/landing/logo/logo/logo';
@@ -80,6 +81,8 @@ export class AppShellComponent {
   private readonly pipelineDrafts = inject(ContentPipelineDraftService);
   /** Likewise, for the Image Studio's kept work. */
   private readonly imageStudioDrafts = inject(ImageStudioDraftService);
+  /** Likewise, for where a creator was in the long-form pipeline (LF.6.2): a step and two ids, and still theirs. */
+  private readonly longFormPlaces = inject(LongFormPipelinePlaceService);
   readonly theme = inject(CpThemeService);
 
   readonly navItems = NAV_ITEMS;

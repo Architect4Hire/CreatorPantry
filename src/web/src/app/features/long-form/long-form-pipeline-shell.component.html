@@ -1,0 +1,192 @@
+<cp-page-head
+  [heading]="pageTitle"
+  lede="From what a piece is about to an article or a newsletter issue you have accepted, one step at a time. Everything is saved with the piece as you go, so you can stop and pick it up anywhere."
+>
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug(), 'workflows']">Workflows</a>
+</cp-page-head>
+
+<div class="pipeline">
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card>
+        <p class="state" role="status">Loading your piece…</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          Your workspaces couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
+      </cp-card>
+    }
+    @case ('read_only') {
+      <cp-card>
+        <cp-notice role="note">
+          You have view-only access to this workspace, so you can't write a piece here. Ask an Owner or Editor to
+          write it with you.
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('piece_not_found') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          We couldn't find this piece. It may have been removed, or the link may be wrong.
+        </cp-notice>
+        <a cpButton variant="secondary" [routerLink]="startLink()">Start a new piece</a>
+      </cp-card>
+    }
+    @case ('piece_unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          This piece couldn't be loaded right now.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryPiece()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('resumable') {
+      <cp-topic-card heading="Pick up where you left off" headingId="cp-long-form-resume-heading">
+        @if (resumeStep(); as last) {
+          <p class="plain">
+            You were on <strong>{{ last.label }}</strong>. The piece is saved, and opens where it stands now.
+          </p>
+        }
+        <div cpTopicCardActions class="cp-actions">
+          <button cpButton type="button" variant="primary" (click)="resume()">Continue</button>
+          <button cpButton type="button" variant="text" (click)="declineResume()">Start a new piece</button>
+        </div>
+      </cp-topic-card>
+    }
+  }
+
+  @if (phase() === 'editing') {
+    <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="refusal()" />
+
+    <div class="layout">
+      <div class="progress">
+        <cp-progress label="Long-form progress" [value]="percent()" [valueText]="progressText()" />
+        <nav aria-label="Long-form progress">
+          <cp-stepper label="Long-form steps" [steps]="stepperSteps()" />
+        </nav>
+      </div>
+
+      <div class="step-slot">
+        <!-- Keyed on the owner and the piece as well as the step: a change of workspace, of who is signed in
+             or of the piece destroys the step rather than swapping another piece in underneath it. -->
+        @for (shown of [step()]; track shown.slug + '@' + ownerKey() + '#' + (draftId() ?? '')) {
+          <!-- One card for the step, headed by its name. Wide: a step is a form, and its sections keep their
+               own measure. The heading takes focus when the step changes. -->
+          <cp-topic-card [heading]="shown.label" [headingId]="headingId" wide>
+            <details class="help cp-disclosure">
+              <summary>Need help with this step?</summary>
+              <p class="cp-muted">{{ shown.help }}</p>
+            </details>
+
+            <!-- Said once per step, above its sections. -->
+            <p class="legend cp-muted" data-testid="legend">{{ shown.legend }}</p>
+
+            @switch (shown.slug) {
+              @case ('about') {
+                <cp-long-form-about-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [session]="session"
+                  [kind]="kind()"
+                  [targetWords]="targetWords()"
+                  [started]="draftId() !== null"
+                  (kindChange)="kind.set($event)"
+                  (targetWordsChange)="targetWords.set($event)"
+                  (announced)="announcement.set($event)"
+                />
+
+                <cp-creative-context-save-notice [session]="session" />
+              }
+              @case ('outline') {
+                @if (draftId(); as id) {
+                  <cp-long-form-plan-review
+                    [workspaceSlug]="workspaceSlug()"
+                    [draftId]="id"
+                    [outlineRequestId]="outlineRequestId()"
+                    [allowance]="allowance()"
+                    (approved)="onPlanApproved($event)"
+                  />
+                }
+              }
+              @case ('write') {
+                @if (draftId(); as id) {
+                  <cp-long-form-document-review
+                    show="write"
+                    [workspaceSlug]="workspaceSlug()"
+                    [draftId]="id"
+                    [allowance]="allowance()"
+                    (documentRead)="onDocumentRead($event)"
+                  />
+                }
+              }
+              @case ('review') {
+                @if (draftId(); as id) {
+                  <cp-long-form-document-review
+                    show="accept"
+                    [workspaceSlug]="workspaceSlug()"
+                    [draftId]="id"
+                    [allowance]="allowance()"
+                    (documentRead)="onDocumentRead($event)"
+                    (accepted)="onAccepted($event)"
+                  />
+
+                  @if (contextId(); as work) {
+                    <cp-long-form-teasers [workspaceSlug]="workspaceSlug()" [contextId]="work" />
+                  }
+                }
+              }
+            }
+
+            <!-- One fixed place for what went wrong with the step's own action. -->
+            @if (problem(); as wrong) {
+              <cp-notice tone="error" role="alert" data-testid="step-problem">{{ wrong }}</cp-notice>
+            }
+
+            <!-- What the step still needs, said above the buttons it is about. -->
+            @if (needed(); as missing) {
+              <p class="needed cp-muted" data-testid="needed">{{ missing }}</p>
+            }
+
+            <div cpTopicCardActions class="cp-actions">
+              @if (!isFirst()) {
+                <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
+              }
+
+              @if (isFirst() && draftId() === null) {
+                <!-- The first thing here that uses the creator's allowance, so it is a button that says so. -->
+                <button
+                  cpButton
+                  type="button"
+                  variant="primary"
+                  [attr.aria-disabled]="planning() || !hasSomethingToPlanFrom() ? 'true' : null"
+                  aria-describedby="cp-long-form-plan-cost"
+                  (click)="planOutline()"
+                >
+                  {{ planning() ? 'Asking for an outline…' : 'Plan the outline' }}
+                </button>
+                <span class="cp-muted" id="cp-long-form-plan-cost">This uses some of your AI allowance. Nothing is written yet.</span>
+              } @else if (!isLast()) {
+                <button cpButton type="button" variant="primary" [disabled]="!canContinue()" (click)="continue()">
+                  Continue
+                </button>
+              }
+
+              <button cpButton type="button" variant="text" (click)="saveAndExit()">Save and exit</button>
+              <button cpButton type="button" variant="text" (click)="startNew()">Start a new piece</button>
+            </div>
+          </cp-topic-card>
+        }
+      </div>
+    </div>
+  }
+</div>

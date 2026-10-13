@@ -38,14 +38,19 @@
           <cp-notice role="note">This piece cannot be changed at the moment.</cp-notice>
         }
 
-        @if (needsReview()) {
+        @if (needsReview() && showsAcceptance()) {
           <cp-notice tone="warning" role="status" data-testid="needs-review">
-            Something this piece was written from has changed since you accepted it. A download is the piece as
-            you accepted it.
+            <ul class="issues">
+              @for (source of staleSources(); track source) {
+                <li>{{ source }}</li>
+              }
+            </ul>
+            This happened after you accepted the piece. Nothing in it has been changed, and a download is the
+            piece as you accepted it.
           </cp-notice>
         }
 
-        @if (downloads().length > 0) {
+        @if (showsAcceptance() && downloads().length > 0) {
           <div class="cp-actions" data-testid="downloads">
             @for (download of downloads(); track download.href) {
               <a cpButton variant="secondary" [href]="download.href" download>{{ download.label }}</a>
@@ -69,7 +74,7 @@
           <cp-notice tone="error" role="alert" data-testid="document-problem">{{ wrong }}</cp-notice>
         }
 
-        @if (open() && restCount() > 0) {
+        @if (showsWriting() && open() && restCount() > 0) {
           <div class="cp-actions">
             <button
               cpButton
@@ -111,7 +116,7 @@
               type="text"
               [id]="idPrefix() + '-subject'"
               [value]="framing().subject"
-              [readOnly]="!open() || framingBusy()"
+              [readOnly]="!open() || !showsWriting() || framingBusy()"
               [attr.aria-invalid]="framingErrors()['subject'] ? 'true' : null"
               (input)="onSubject($event)"
             />
@@ -127,13 +132,13 @@
               rows="4"
               [id]="idPrefix() + '-note'"
               [value]="framing().note"
-              [readOnly]="!open() || framingBusy()"
+              [readOnly]="!open() || !showsWriting() || framingBusy()"
               [attr.aria-invalid]="framingErrors()['note'] ? 'true' : null"
               (input)="onNote($event)"
             ></textarea>
           </cp-field>
 
-          @if (open()) {
+          @if (open() && showsWriting()) {
             <div class="cp-actions">
               <button
                 cpButton
@@ -284,7 +289,7 @@
             </cp-field>
           }
 
-          @if (open()) {
+          @if (open() && showsWriting()) {
             <!-- aria-disabled rather than disabled throughout: a disabled button drops focus to the body the
                  moment its own action makes it unavailable. Each handler refuses for itself. -->
             <div class="cp-actions">
@@ -400,7 +405,7 @@
         </article>
       }
 
-      @if (open()) {
+      @if (open() && showsAcceptance()) {
         <cp-form-section heading="Accept this piece" [sectionId]="idPrefix() + '-accept'">
           @if (issues().length > 0) {
             <cp-notice tone="warning" role="status" data-testid="issues">
@@ -437,7 +442,7 @@
 
       <!-- Only about the article of record, and only while it is current: a package is written about words
            the creator has cleared (LF.5.3). -->
-      @if (seoRevision(); as revision) {
+      @if (showsAcceptance() && seoRevision(); as revision) {
         <cp-long-form-seo-suggestions
           [workspaceSlug]="workspaceSlug()"
           [draftId]="draftId()"

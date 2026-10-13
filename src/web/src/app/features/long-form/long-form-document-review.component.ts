@@ -155,8 +155,26 @@ export class LongFormDocumentReviewComponent {
   readonly allowance = input.required<AiAllowanceState>();
   readonly idPrefix = input('cp-long-form-document');
 
+  /**
+   * Which half of the screen to show (LF.6.2). A flow gives writing and acceptance a step each; on its own
+   * the screen shows both, which is `all`.
+   *
+   * - `write`: the sections, each with its controls, and "write the rest". Nothing about accepting.
+   * - `accept`: the same sections to read, with no control that changes one, then acceptance and what an
+   *   accepted piece offers — its downloads and its SEO suggestions.
+   *
+   * One screen either way: the same read, the same poll, the same unsaved-edit guard.
+   */
+  readonly show = input<'all' | 'write' | 'accept'>('all');
+
   /** The document, once it has been accepted. Emitted on the acceptance and not before. */
   readonly accepted = output<LongFormAssembledDocument>();
+
+  /**
+   * The piece as it was last read, each time that changes (LF.6.2). For a flow that has to know where the
+   * piece stands — writing begun, accepted — without reading it a second time itself.
+   */
+  readonly documentRead = output<LongFormAssembledDocument>();
 
   protected readonly load = signal<LoadState>('loading');
   protected readonly review = signal<LongFormDocumentReview | null>(null);
@@ -216,11 +234,30 @@ export class LongFormDocumentReviewComponent {
 
   protected readonly isAccepted = computed(() => this.document()?.status === 'Accepted');
 
+  /** Whether the controls that write or change a section are offered. */
+  protected readonly showsWriting = computed(() => this.show() !== 'accept');
+
+  /** Whether acceptance, and what follows it, is offered. */
+  protected readonly showsAcceptance = computed(() => this.show() !== 'write');
+
   /**
    * The piece was accepted and something it was written from has since changed. It is still the creator's
    * accepted article, and still theirs to download as they accepted it.
    */
   protected readonly needsReview = computed(() => this.document()?.status === 'NeedsReview');
+
+  /**
+   * Which of the sources the accepted piece was written from have changed, in the creator's terms (LF.6.1).
+   * One sentence to a source; a reason this page does not know still says that something changed.
+   */
+  protected readonly staleSources = computed<readonly string[]>(() => {
+    if (!this.needsReview()) return [];
+
+    const reasons = this.document()?.staleReasons ?? [];
+    const sentences = reasons.map((reason) => STALE_SOURCES[reason] ?? 'Something this piece was written from has changed.');
+
+    return sentences.length > 0 ? [...new Set(sentences)] : ['Something this piece was written from has changed.'];
+  });
 
   /**
    * The accepted revision an SEO package may be written about (LF.5.3), or null when there is none: the piece
@@ -438,6 +475,11 @@ export class LongFormDocumentReviewComponent {
         this.load.set('loading');
         void this.refresh();
       });
+    });
+
+    effect(() => {
+      const document = this.document();
+      if (document !== null) untracked(() => this.documentRead.emit(document));
     });
 
     // While something is being written, ask again after a pause; when nothing is, stop asking.
@@ -985,6 +1027,12 @@ function noticeOf(request: LongFormSectionRequestSummary | null): string {
 
   return '';
 }
+
+/** What moved, said the way a creator would say it. Keyed by the server's stale reason. */
+const STALE_SOURCES: Readonly<Record<string, string>> = {
+  RecipeChanged: 'A recipe this piece was written from has changed.',
+  VoiceChanged: 'Your brand style guide has changed.',
+};
 
 const EXPORTS: readonly { readonly format: LongFormExportFormat; readonly label: string }[] = [
   { format: 'markdown', label: 'Download Markdown' },

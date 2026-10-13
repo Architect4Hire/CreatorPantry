@@ -44,6 +44,7 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IContentStalenessBusiness, ContentStalenessBusiness>();
         services.AddScoped<IContentStalenessFacade, ContentStalenessFacade>();
         services.AddScoped<IRecipeChangeConsumer>(provider => provider.GetRequiredService<IContentStalenessFacade>());
+        services.AddScoped<IBrandVoiceChangeConsumer>(provider => provider.GetRequiredService<IContentStalenessFacade>());
 
         services.AddScoped<IContentSeoRepository, ContentSeoRepository>();
         services.AddScoped<IContentSeoDataLayer, ContentSeoDataLayer>();

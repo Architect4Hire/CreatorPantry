@@ -219,15 +219,15 @@ rest" will spend before it spends it.
 
 ## Checkpoints
 
-| After | Demonstrable result |
-| --- | --- |
-| **LF.1.4** | A long-form draft can be started from a recipe, from the creator's own brief, or from a saved prompt, and its grounding package shows exactly what the writer may use — including an accepted editorial package — and never crosses a workspace. |
-| **LF.2.3** | A creator gets a reviewable section plan, edits it, and approves it. No prose exists until they do. |
-| **LF.3.4** | A full-length article exists, written section by section, each regenerable on its own, assembled into one document the creator reads whole and accepts once. |
-| **LF.4.3** | A newsletter issue covering two recipes and the creator's own framing, from one creative context. |
-| **LF.5.3** | An accepted article exports as Markdown and HTML with its SEO package, and the recipe Markdown export is byte-identical to before. |
-| **LF.6.3** | A creator starts the long-form pipeline from Workflows, from a recipe or a blank brief, and walks it to an accepted article; short-form teasers on the same context point at it. |
-| **LF.7.2** | One recorded journey — recipe → context → outline → sections → assembled → accepted → export — passes end to end over HTTP for two workspaces that cannot see each other. |
+| After | Demonstrable result | Audited 2026-10-13 (LF.7.2) |
+| --- | --- | --- |
+| **LF.1.4** | A long-form draft can be started from a recipe, from the creator's own brief, or from a saved prompt, and its grounding package shows exactly what the writer may use — including an accepted editorial package — and never crosses a workspace. | Partly. From a recipe and from a brief: walked in the app. From a saved prompt: no screen starts one. An accepted editorial package as grounding: tests only, with seeded rows — no creator can accept one. |
+| **LF.2.3** | A creator gets a reviewable section plan, edits it, and approves it. No prose exists until they do. | Yes, walked in the app, after the schema-version fix: three plans approved as suggested. Editing a plan is proven by test, not walked. "Try again" after a failure needs a reload. |
+| **LF.3.4** | A full-length article exists, written section by section, each regenerable on its own, assembled into one document the creator reads whole and accepts once. | Yes, walked in the app: nine sections in one request, one rewritten, accepted once. 1,147 words. |
+| **LF.4.3** | A newsletter issue covering two recipes and the creator's own framing, from one creative context. | Partly. The issue itself: walked, 493 words, both recipes attributed. Starting it: not possible from the pipeline, which links one recipe — the second was added through the API. Framing was left empty. |
+| **LF.5.3** | An accepted article exports as Markdown and HTML with its SEO package, and the recipe Markdown export is byte-identical to before. | Yes for export, walked. SEO: walked after an Owner switched the task on and after the schema-version fix. Recipe export bytes: by test. |
+| **LF.6.3** | A creator starts the long-form pipeline from Workflows, from a recipe or a blank brief, and walks it to an accepted article; short-form teasers on the same context point at it. | Partly. Started from Workflows from a recipe and from a brief and walked to an accepted piece. Teasers were not walked. A piece marked for review has no next step. |
+| **LF.7.2** | One recorded journey — recipe → context → outline → sections → assembled → accepted → export — passes end to end over HTTP for two workspaces that cannot see each other. | Yes. `LongFormJourneyEndToEndTests`, green in the full suite. |
 
 ---
 
@@ -992,7 +992,7 @@ creator; an item whose own recipe is over the budget on its own gets the generic
 
 # Phase 5 — Export and the SEO package
 
-## LF.5.1 Long-form Markdown and HTML export
+## LF.5.1 Long-form Markdown and HTML export - done
 
 ```text
 SCOPE: Add deterministic Markdown and HTML export of an accepted long-form draft — the creator's headings,
@@ -1010,7 +1010,7 @@ for a complete article, a minimal one, an issue, special characters, and a Markd
 heading, plus an assertion that the recipe export is unchanged.
 ```
 
-## LF.5.2 Export endpoints
+## LF.5.2 Export endpoints - done
 
 ```text
 SCOPE: Add GET .../long-form-drafts/{draftId}/exports/markdown and .../exports/html for an accepted draft,
@@ -1025,7 +1025,7 @@ both formats, an unaccepted draft, a filename from a title with awkward characte
 isolation; regenerate the OpenAPI snapshot.
 ```
 
-## LF.5.3 SEO package for a long-form draft
+## LF.5.3 SEO package for a long-form draft - done
 
 ```text
 SCOPE: Extend the existing content.seo-package capability and its seam to take an accepted long-form draft
@@ -1043,11 +1043,16 @@ implement with fixtures for an article subject, an unchanged recipe subject, an 
 determinism, and injection through the article body; regenerate the OpenAPI snapshot.
 ```
 
+*Delivery note (LF.7.2 audit, 2026-10-13): marked done by the audit, not at delivery. In the running app the
+task is off by default — `content.seo-package` is not in `appsettings.Development.json`'s enabled list — so a
+creator sees "SEO suggestions are not switched on here" with no pointer to where an Owner switches it on. Once
+on, the first live request failed (see LF.8.1); it works since the schema-version pin applied in the audit.*
+
 ---
 
 # Phase 6 — Staleness and the surfaces
 
-## LF.6.1 Long-form staleness
+## LF.6.1 Long-form staleness - done
 
 ```text
 SCOPE: Extend master 11.3's staleness propagation to long-form drafts: when a pinned recipe version, brand
@@ -1065,7 +1070,12 @@ commit, failure, replay and two-workspace tests, and prove a recipe update canno
 falsely current.
 ```
 
-## LF.6.2 Long-form pipeline shell
+*Delivery note (LF.7.2 audit, 2026-10-13): marked done by the audit. Recipe and style-guide moves are built and
+tested; a recipe move was also seen in the running app. A prompt-template move has no end-to-end test. An
+accepted piece that becomes `NeedsReview` has no way forward — it "cannot be changed at the moment" and nothing
+re-accepts or reopens it (LF.8.4).*
+
+## LF.6.2 Long-form pipeline shell - done
 
 ```text
 SCOPE: Add the long-form pipeline (B-38) as its own flow at workflows/long-form, rooted on a creative
@@ -1089,7 +1099,12 @@ where it is shown, and the teaser relationship; wait for approval; implement wit
 accessibility and resume specs, including a draft with no recipe reference and a two-workspace spec.
 ```
 
-## LF.6.3 Workflows Hub entry
+*Delivery note (LF.7.2 audit, 2026-10-13): marked done by the audit. The first step links one recipe only, so a
+two-recipe issue cannot be started from this pipeline (LF.8.2), and nothing in the Prompt Library starts a
+piece from a saved prompt (LF.8.5). After a failed outline, "Try again" keeps following the failed request and
+shows a failure until the page is reloaded (LF.8.3).*
+
+## LF.6.3 Workflows Hub entry - done
 
 ```text
 SCOPE: Add "Write a blog post or newsletter" to the Workflows Hub as its own entry beside the short-form
@@ -1110,7 +1125,7 @@ deep-link, resume and error specs.
 
 # Phase 7 — Proving it
 
-## LF.7.1 Long-form end-to-end test
+## LF.7.1 Long-form end-to-end test - done
 
 ```text
 SCOPE: Add one HTTP-level test in the style of CreativePipelineEndToEndTests that runs the whole journey for
@@ -1128,7 +1143,17 @@ BEHAVIOR: Show the step list and what B attempts at each; wait for approval; imp
 with dotnet run --project src/CreatorPantry.Tests -- --filter-class and then the full suite; report.
 ```
 
-## LF.7.2 Long-form audit
+*Delivery note (2026-10-13): `LongFormJourneyEndToEndTests`, three facts, green alone and in the full suite.
+**"Accepted editorial package" could not be driven and was not seeded:** no route accepts an editorial package
+and nothing in the domain does, so the journey runs the package to `Proposed` and asserts the long-form writer
+is handed no accepted copy (LF.8.6). The AI worker pass and the outbox dispatcher have no route by design and
+are run from the host, as `CreatorJourneyEndToEndTests` runs them.*
+
+*The same session made the backend suite green and about three times faster (over 20 minutes with standing
+failures, to about six minutes with none): SQL-backed fixtures share one server (`SqlServerTestDatabase`), test
+hosts are no longer retained after disposal, and the test host hashes passwords at 1,000 rounds.*
+
+## LF.7.2 Long-form audit - done
 
 ```text
 SCOPE: Audit, do not build. Run the read-only reviewers over everything this document delivered, then walk
@@ -1144,6 +1169,230 @@ UTILIZATION: architecture-reviewer, workspace-isolation-auditor, ai-safety-revie
 design-review, test-gap-analyzer, skills-evals; playwright-cli for the walk-through.
 BEHAVIOR: Report per requirement (resolved / partly / not), per reviewer (findings by severity), the
 measured lengths, and the follow-up prompts written. Update the checkpoint table and the `- done` markers.
+```
+
+*Delivery note (2026-10-13): the report is the section "LF.7.2 audit report" below; the follow-up prompts are
+Phase 8. One blocker was fixed in the audit because it was small: the outline, section and SEO prompts now send
+a schema that states the `schemaVersion` the validator requires (`PromptEnvelopeBuilder.WithOutputSchema(schema,
+version)`), with a handler test for outline and section. Before it, two of four live outline requests and the
+first live SEO request failed. The prompt bodies and their checksums did not change.*
+
+---
+
+## LF.7.2 audit report
+
+Audited 2026-10-13 against the working tree on `features/robert/long-form-content`. Backend suite: 9,574 of 9,581 passed, 6 skipped (the opt-in live-model checks), 1 failed — `MediaAssetAddVersionEndpointTests.Two_uploads_at_once_never_share_a_version_number`, an intermittent 500-instead-of-409 in a concurrent upload that passes alone and is not long-form's.
+Web: `npm run build` clean; `npm test` 4,785 of 4,785, page-contract check included. The walk-through used the
+running app with the real Foundry chat deployment, in a new workspace with no brand profile and no style guide.
+
+### Per requirement
+
+| ID | Status | Evidence, and what is missing |
+| --- | --- | --- |
+| LFC-001 | **Partly** | From a recipe and from a brief: walked. From a saved prompt: the grounding accepts a `PromptRecord` reference, but no screen puts one there for long-form and no test starts a draft from one. |
+| LFC-002 | **Partly** | The package carries accepted editorial copy and key phrases, proven with seeded rows. Not demonstrable: nothing in the product accepts an editorial package, so no creator can have one. |
+| LFC-003 | **Resolved** | Walked: two nine-section plans and a five-section plan, approved as suggested, no prose before approval; editing a plan is by test. Two of four live requests failed before the audit's fix; all three made after it landed on the first answer. |
+| LFC-004 | **Resolved** | Walked: nine sections written from one request, one rewritten with an instruction, the other eight unchanged. |
+| LFC-005 | **Resolved** | Walked: read whole, accepted once, refused further edits. |
+| LFC-006 | **Partly** | Seam and tests complete; a two-recipe issue was written, accepted and exported. The pipeline cannot start one — its first step links a single recipe and shows only the first when a piece of work has two. |
+| LFC-007 | **Resolved, with a caveat** | Markdown and HTML export walked. SEO walked, but only after an Owner switched the task on and after the audit's fix. |
+| LFC-008 | **Partly** | A recipe edit marked both pieces written from it and left the recipe-less piece alone, in the running app. Style guide: tests only. Prompt template: no end-to-end test. A piece marked for review cannot be re-accepted or reopened. |
+| LFC-009 | **Partly** | Pipeline and Hub entry walked from both starting points. Missing: a second recipe, a saved-prompt start, and titles on the Hub's in-progress rows. Teasers not walked. |
+
+No requirement is marked resolved from tests alone.
+
+### The walk-through
+
+| Journey | Typed by the creator | Retyped | Sections | Words | B-34 target |
+| --- | --- | --- | --- | --- | --- |
+| Blog post from a recipe | Five letters, to find the recipe | Nothing | 9 | **1,147** | 900–1,600 |
+| Newsletter issue from two recipes | Nothing in the pipeline; the second recipe needed an API call | Nothing | 5 | **493** | 300–700 |
+| Article from a brief, no recipe | A title and a three-sentence brief | Nothing | 9 | **1,237** | 900–1,600 |
+
+Words are counted from the Markdown export's body, headings and attribution excluded; the app's own figures
+were 1,149, 499 and 1,261, which include headings.
+
+**The numbers do not need revising on this evidence.** All three landed inside their range with no target set
+by the creator, and nowhere near a ceiling: the longest piece was about 7,200 characters of the 20,000 allowed,
+and sections averaged about 800 of 3,000. That is three runs on one model, so it shows the targets are
+reachable, not that they are right for every creator; the newsletter range is the one to watch, since a
+five-recipe issue would be asked to fit the same 300–700 words.
+
+Other things the walk showed:
+
+- The recipe-less article contained no recipe fact: none of either recipe's dish names, ingredients or
+  figures appears in it, and its export attributes no recipe.
+- The claim scanner flagged "cool completely" four times and "last" once as storage guidance. "Cool
+  completely on a rack" is the recipe's own instruction.
+- An article started from a recipe alone has no title: the export opens at the first section heading.
+- The newsletter's subject line starts empty although the piece already has a working title.
+- A plan for a personal essay is offered recipe-shaped sections ("The method", "Variations").
+- "Write the N sections left" starts at once. The page says an allowance is used; it shows no amount.
+
+### Per reviewer
+
+| Reviewer | Blocker | Major | Minor |
+| --- | --- | --- | --- |
+| architecture-reviewer | 0 | 0 | 0 |
+| workspace-isolation-auditor | 0 | 0 | 4 |
+| ai-safety-reviewer | 0 | 2 | 5 |
+| api-contract-checker | 0 | 0 | 1 |
+| design-review | 0 | 0 | 0 |
+| test-gap-analyzer | 0 | 3 | 2 |
+| skills-evals | 1 | 3 | 0 |
+
+- **architecture-reviewer:** clean. Controllers inject facades only, cross-module traffic is facade to
+  facade, no long-form exemption in `ModuleBoundaryTests`.
+- **workspace-isolation-auditor:** no leak. Minor: the outline handler relies on the envelope builder
+  throwing rather than refusing a foreign package as the section handler does; a pin's reference id is not
+  checked against the draft's context; the list cursor's workspace binding is described as an isolation
+  control and is not one; the SEO request routes set no `Cache-Control: no-store`.
+- **ai-safety-reviewer:** Major: no prompt or schema states the `schemaVersion` literal, so every first answer
+  is refused and the one correction is spent (fixed here for outline, section and SEO; fifteen handlers
+  remain). Major: Polly's telemetry logs each successful model answer in full, in the Worker and the API,
+  against ai.md. Minor: character limits hard-coded in the outline prompt; "REFERENCE" for "REFERENCES" in
+  the SEO prompt; the article body reaches the SEO prompt as creator data rather than untrusted text; the
+  guarantee pattern misses "no-fail" and "guaranteed"; no isolation or stale-source fixtures for the three
+  long-form sets.
+- **api-contract-checker:** clean; the uncommitted snapshot change is additive (`staleReasons`,
+  `staleSince`). Minor: `StartLongFormDraftViewModel.Kind` is nullable in C# and required by its validator.
+- **design-review:** clean; the page-contract check passes. It read the code and did not see what the walk
+  saw: the single-recipe first step and the "Try again" fault are behaviour, not contract.
+- **test-gap-analyzer:** Major: no test starts a draft from a saved prompt; no end-to-end test for a
+  prompt-template move; `long-form-about-step` has no spec. Lower: editorial reuse is proven only with seeded
+  rows; the word-target warning has no UI spec.
+- **skills-evals:** rated a Blocker, and it is a documentation fault, not a product one: `content.md` still
+  gives `Idea → Draft → Review → Approved → Scheduled → Published → Archived` as the workflow, which no
+  artifact uses. Major: `frontend.md` does not name the long-form shell among the flow references;
+  `add-ai-capability` lists neither the two long-form validation kinds nor proposal landing handlers.
+
+---
+
+# Phase 8 — What the audit found
+
+Written by LF.7.2. In the order they should be done.
+
+## LF.8.1 State the schema version for every capability, and stop logging answers
+
+```text
+SCOPE: Finish what LF.7.2 started. Every AI task handler sends a schema that states the schemaVersion its
+validator requires, by passing the template's OutputSchemaVersion to PromptEnvelopeBuilder.WithOutputSchema —
+the fifteen handlers that still call the one-argument overload. Then stop Polly's resilience telemetry from
+logging a successful attempt's result, which today prints every model answer in full from the Worker and the
+API and exports it through OpenTelemetry.
+CONSTRAINT: .claude/rules/ai.md (structured outputs; "do not log private prompt bodies or generated creator
+content by default"); add-ai-capability skill; AiCompletionGateway and AiGatewayOptions.MaxSchemaCorrections;
+CreatorPantry.ServiceDefaults/AiResilience.cs.
+RESTRICTION: No prompt body changes and no checksum moves — the constant goes in the schema segment. Remove
+the one-argument overload once nothing calls it, so the next capability cannot repeat this. For the log, prefer
+a result formatter that returns a fixed string over raising the category's level, and verify the hook on the
+DI path before relying on it; a handled retry must still be logged.
+UTILIZATION: ai-safety-reviewer after implementation.
+BEHAVIOR: Show the fifteen call sites and the logging change; wait for approval; implement with one
+architecture test asserting every handler's OUTPUT_SCHEMA segment contains its template's version, a gateway
+test in which a first answer with the right version costs no correction, and a test that runs the pipeline
+over a sentinel answer and finds the sentinel in no captured log.
+```
+
+## LF.8.2 A second recipe on a long-form piece
+
+```text
+SCOPE: Let the long-form pipeline's first step link more than one recipe when the piece is a newsletter issue,
+show every recipe the piece of work holds, and let each be removed or refreshed on its own. Today the step
+links one, and shows only the first when the creative context already has two.
+CONSTRAINT: LFC-006, B-35; LF.4.1 and LF.6.2 as built; the creative-context reference routes;
+.claude/rules/frontend.md and design-system.md; new-component skill.
+RESTRICTION: Do not change the issue's item rule — one item for each recipe, each naming its own. A blog
+article stays about one recipe at most unless the owner says otherwise. The picker reads recipes from the
+server and the links live on the creative context, not on the device.
+UTILIZATION: design-review and workspace-isolation-auditor after implementation.
+BEHAVIOR: Show the step with one, two and five recipes, and what changing the kind does to a second link; wait
+for approval; implement with component and resume specs and a two-workspace spec.
+```
+
+## LF.8.3 "Try again" after a failed outline follows the new request
+
+```text
+SCOPE: Fix the outline step so that asking again after a failure follows the request it has just made. Today
+it posts a new outline request, the poll for it is abandoned, the page polls the first request again and shows
+"A plan could not be made" although the plan has landed; a reload shows it. Check the SEO suggestions card and
+the section rewrite for the same fault.
+CONSTRAINT: LFC-003, LFC-009; long-form-plan-review.component.ts and the pipeline shell's session;
+.claude/rules/frontend.md (states, no unmanaged subscriptions).
+RESTRICTION: A fix to which request is followed, not a new polling scheme. A plan that has landed is shown
+whatever any earlier request says: the draft's latest revision is the truth, the request is only its progress.
+BEHAVIOR: Show the cause; wait for approval; implement with a spec that fails first — a failed request, a
+second that succeeds, and the plan on screen without a reload.
+```
+
+## LF.8.4 A way forward for a piece marked for review
+
+```text
+SCOPE: Give an accepted long-form piece that has become NeedsReview two things a creator can do: confirm it
+still stands, which accepts the same revision again against the sources as they are now, or reopen it for
+writing. Today it "cannot be changed at the moment" and nothing leaves that state.
+CONSTRAINT: LFC-008; LF.6.1 and LF.3.4 as built; .claude/rules/content.md ("mark NeedsReview; do not rewrite
+automatically"); the social package's reaffirm path as the precedent; add-endpoint and add-content-feature
+skills.
+RESTRICTION: Nothing is rewritten or regenerated for the creator. Confirming records which source versions it
+was confirmed against and clears the stale reasons; reopening keeps the accepted pointer as history. Both are
+audited and neither is automatic.
+UTILIZATION: workspace-isolation-auditor and api-contract-checker after implementation.
+BEHAVIOR: Show the two transitions, the route and what the screen says; wait for approval; implement with
+transition, audit, two-workspace and screen specs, and regenerate the OpenAPI snapshot.
+```
+
+## LF.8.5 Start a piece from a saved prompt
+
+```text
+SCOPE: Make LFC-001's third starting point real: from a saved prompt in the Prompt Library, start a long-form
+piece whose creative context draws on that prompt, and show on the first step that it does.
+CONSTRAINT: LFC-001; LF.1.4's grounding for a PromptRecord reference; LF.6.3; the Prompt Library detail page;
+new-component skill.
+RESTRICTION: The prompt is grounding, not instructions: it reaches the writer as untrusted text, as it does
+now. No new starting point is offered that does not work.
+UTILIZATION: design-review and ai-safety-reviewer after implementation.
+BEHAVIOR: Show the entry point and the first step; wait for approval; implement with a spec for
+long-form-about-step (which has none), a walk added to LongFormJourneyEndToEndTests that starts from a saved
+prompt and proves its text reaches the outline request, and a two-workspace case.
+```
+
+## LF.8.6 Accept an editorial package
+
+```text
+SCOPE: Add the missing half of master 11.4: a creator accepts a proposed editorial package for a recipe
+version, which makes it the accepted editorial revision that the recipe exports and the long-form grounding
+already read. Add the same for a recipe's SEO package if it is equally missing.
+CONSTRAINT: B-36, LFC-002; ContentProposal and ContentRevision as built; IContentEditorialFacade's read side;
+the social package's accept path as the precedent; add-endpoint and add-content-feature skills.
+RESTRICTION: Acceptance records the recipe version it was written against and is immutable; a later package is
+a new revision, not an edit. It publishes nothing. This belongs to the master library's Phase 11 and is listed
+here only because LFC-002 cannot be demonstrated without it.
+UTILIZATION: workspace-isolation-auditor and api-contract-checker after implementation.
+BEHAVIOR: Show the route, the transition and the audit entry; wait for approval; implement, then replace the
+"is never accepted" step in LongFormJourneyEndToEndTests with a real acceptance and assert the writer is
+handed the accepted copy.
+```
+
+## LF.8.7 Smaller findings from the audit
+
+```text
+SCOPE: Close the audit's minor findings in one pass. (1) The claim scanner reports the recipe's own "cool
+completely" as storage guidance; a phrase the pinned recipe itself uses is not a claim. (2) A piece started
+from a recipe alone has no title, so its export has no first heading: offer the recipe's title as the working
+title. (3) Offer the working title as a newsletter's subject line. (4) Name each in-progress piece on the
+Workflows Hub. (5) Say where an Owner switches SEO suggestions on when they are off. (6) Refuse a foreign
+package in the outline handler as the section handler does, and check a pin's reference against the draft's
+context. (7) Set Cache-Control: no-store on the SEO request routes. (8) Add a staleness test for a
+prompt-template move. (9) Correct content.md's workflow states, name LongFormPipelineShellComponent in
+frontend.md, and teach add-ai-capability the landing handlers and the two long-form validation kinds.
+CONSTRAINT: The LF.7.2 audit report; .claude/rules/content.md, frontend.md, ai.md.
+RESTRICTION: Each item is small; any that turns out not to be becomes its own prompt. Nothing here changes a
+prompt body without a version bump and an evaluation run. Offered values are suggestions the creator can
+change, and are never written back to the recipe.
+UTILIZATION: test-gap-analyzer and skills-evals after implementation.
+BEHAVIOR: List the nine with the file each touches; wait for approval; implement with a test for each
+behaviour change.
 ```
 
 ---

@@ -67,6 +67,24 @@ public sealed class LongFormOutlineAiTaskHandlerTests
         ("Signoff", "Until next week", "Sign off in the creator's own way.", null),
     ];
 
+    // ---- What the model is told about the answer ----
+
+    /// <summary>
+    /// The schema names the one <c>schemaVersion</c> the validator accepts, so a model does not have to guess
+    /// it and spend the request's only correction finding out.
+    /// </summary>
+    [Fact]
+    public async Task The_schema_sent_to_the_model_states_the_schema_version_it_must_declare()
+    {
+        var client = FakeChatClient.Returning(Answer(Article));
+
+        var outcome = await Run(client, LongFormKind.BlogArticle, Package());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Contains("\"const\": \"content.long-form-outline.v1\"", System(client), StringComparison.Ordinal);
+        Assert.Equal(1, client.Calls);
+    }
+
     // ---- What is stored ----
 
     [Fact]

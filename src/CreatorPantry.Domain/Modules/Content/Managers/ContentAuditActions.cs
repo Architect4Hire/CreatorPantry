@@ -84,6 +84,12 @@ public static class ContentAuditActions
     /// </summary>
     public const string LongFormWritingBegan = "content.long_form_draft.writing_began";
 
+    /// <summary>
+    /// The system found an accepted long-form document out of step with a source it was written from
+    /// (LF.6.1). No actor: there is no role a creator could use to declare their own piece stale.
+    /// </summary>
+    public const string LongFormDraftMarkedStale = "content.long_form_draft.marked_stale";
+
     /// <summary>A creator accepted a long-form document as the article of record (LF.3.4).</summary>
     public const string LongFormDocumentAccepted = "content.long_form_draft.accepted";
 

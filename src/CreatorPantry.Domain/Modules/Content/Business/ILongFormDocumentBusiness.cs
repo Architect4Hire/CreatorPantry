@@ -245,8 +245,16 @@ internal sealed class LongFormDocumentBusiness(ILongFormDraftDataLayer dataLayer
             acceptedNumber,
             draft.AcceptedAt,
             document.Framing is { } framing ? new LongFormFramingServiceModel(framing.Subject, framing.Note) : null,
-            sources.Unresolved(document));
+            sources.Unresolved(document),
+            Reasons(draft.StaleReasons),
+            draft.StaleSince);
     }
+
+    /// <summary>The reasons recorded against a draft, one to an entry, in the order the flags are declared.</summary>
+    private static List<ContentStaleReasons> Reasons(ContentStaleReasons recorded) =>
+    [
+        .. Enum.GetValues<ContentStaleReasons>().Where(reason => reason is not ContentStaleReasons.None && recorded.HasFlag(reason)),
+    ];
 
     private static Guid CorrelationId()
     {

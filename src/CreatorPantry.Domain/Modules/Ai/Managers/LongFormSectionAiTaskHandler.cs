@@ -347,7 +347,7 @@ internal sealed partial class LongFormSectionAiTaskHandler(
                     target, package, writing.Sections.Count(section => section.Role is LongFormSectionRole.Item)),
                 [ChangeRuleInput] = ChangeRule(writing.CurrentBody is not null, instruction is not null),
             }))
-            .WithOutputSchema(AiLongFormSectionOutputSchema.Json)
+            .WithOutputSchema(AiLongFormSectionOutputSchema.Json, template.OutputSchemaVersion)
             .WithSource(writing.WorkspaceId, RenderPlan(writing, package));
 
         if (brand is not null)

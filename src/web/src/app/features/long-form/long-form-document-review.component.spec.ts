@@ -108,6 +108,8 @@ function documentOf(
     acceptedAt: null,
     framing: null,
     unresolvedItems: [],
+    staleReasons: [],
+    staleSince: null,
     ...overrides,
   };
 }
@@ -243,7 +245,9 @@ class StubConfirmService {
     [workspaceSlug]="slug()"
     [draftId]="draftId()"
     [allowance]="allowance()"
+    [show]="show()"
     (accepted)="accepted.push($event)"
+    (documentRead)="reads.push($event)"
   />`,
 })
 class HostComponent {
@@ -251,6 +255,8 @@ class HostComponent {
   readonly draftId = signal('d-1');
   readonly allowance = signal<AiAllowanceState>(HEALTHY);
   readonly accepted: LongFormAssembledDocument[] = [];
+  readonly show = signal<'all' | 'write' | 'accept'>('all');
+  readonly reads: LongFormAssembledDocument[] = [];
   readonly review = viewChild.required(LongFormDocumentReviewComponent);
 }
 
@@ -1079,6 +1085,60 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(el.querySelectorAll('article .body-read').length).toBe(3);
   });
 
+  // ---- one screen, two steps of a flow (LF.6.2) --------------------------------------------------------
+
+  it('shows only the writing half when a flow asks for it: sections and their controls, nothing about accepting', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Writing' })) }];
+    await create();
+    host.show.set('write');
+    await settle();
+
+    expect(el.querySelectorAll('article.section').length).toBe(3);
+    expect(button('Edit')).not.toBeNull();
+    expect(button('Accept this piece')).toBeNull();
+    expect(el.querySelector('[data-testid="accept-actions"]')).toBeNull();
+    expect(el.querySelector('[data-testid="downloads"]')).toBeNull();
+    expect(el.querySelector('cp-long-form-seo-suggestions')).toBeNull();
+  });
+
+  it('shows only the accepting half when a flow asks for it: the piece to read, with no control that changes it', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Writing' })) }];
+    await create();
+    host.show.set('accept');
+    await settle();
+
+    // The same sections, to read.
+    expect(el.querySelectorAll('article.section').length).toBe(3);
+    expect(button('Edit')).toBeNull();
+    expect(Array.from(el.querySelectorAll('button')).some((b) => /Write the/.test(b.textContent ?? ''))).toBeFalse();
+    expect(button('Accept this piece')).not.toBeNull();
+  });
+
+  it('offers what an accepted piece offers on the accepting half, and none of it on the writing half', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    await create();
+    host.show.set('accept');
+    await settle();
+
+    expect(el.querySelector('[data-testid="downloads"]')).not.toBeNull();
+    expect(el.querySelector('cp-long-form-seo-suggestions')).not.toBeNull();
+
+    host.show.set('write');
+    await settle();
+
+    expect(el.querySelector('[data-testid="downloads"]')).toBeNull();
+    expect(el.querySelector('cp-long-form-seo-suggestions')).toBeNull();
+  });
+
+  it('reports each reading of the piece, so a flow knows where it stands without reading it again', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Writing' })) }];
+    await create();
+
+    expect(host.reads.length).toBeGreaterThan(0);
+    expect(host.reads.at(-1)!.status).toBe('Writing');
+    expect(service.readCalls.length).toBe(1);
+  });
+
   // ---- downloading (LF.5.2) ----------------------------------------------------------------------------
 
   function downloads(): { label: string; href: string | null; download: boolean }[] {
@@ -1132,6 +1192,51 @@ describe('LongFormDocumentReviewComponent', () => {
 
     expect(downloads().map((link) => link.label)).toEqual(['Download Markdown', 'Download HTML']);
     expect(el.querySelector('[data-testid="needs-review"]')?.textContent).toContain('as you accepted it');
+  });
+
+  // ---- which source moved (LF.6.1) -----------------------------------------------------------------------
+
+  function staleNotice(reasons: readonly string[]): Promise<string> {
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(documentOf(THREE, { status: 'NeedsReview', acceptedRevisionNumber: 4, staleReasons: reasons, staleSince: '2026-10-12T09:00:00Z' })),
+      },
+    ];
+
+    return create().then(() => el.querySelector('[data-testid="needs-review"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+  }
+
+  it('says which source moved, and that nothing in the piece was changed', async () => {
+    const recipe = await staleNotice(['RecipeChanged']);
+    expect(recipe).toContain('A recipe this piece was written from has changed.');
+    expect(recipe).not.toContain('brand style guide');
+    expect(recipe).toContain('Nothing in it has been changed');
+
+    const voice = await staleNotice(['VoiceChanged']);
+    expect(voice).toContain('Your brand style guide has changed.');
+    expect(voice).not.toContain('A recipe this piece');
+  });
+
+  it('names both sources when both moved, each once', async () => {
+    const both = await staleNotice(['RecipeChanged', 'VoiceChanged']);
+
+    expect(both).toContain('A recipe this piece was written from has changed.');
+    expect(both).toContain('Your brand style guide has changed.');
+    expect(el.querySelectorAll('[data-testid="needs-review"] li').length).toBe(2);
+  });
+
+  it('still says something changed for a reason it does not know, or when none is given', async () => {
+    expect(await staleNotice(['TemplateChanged'])).toContain('Something this piece was written from has changed.');
+    expect(await staleNotice([])).toContain('Something this piece was written from has changed.');
+    expect(el.querySelectorAll('[data-testid="needs-review"] li').length).toBe(1);
+  });
+
+  it('says nothing about a source moving while the piece is accepted and current', async () => {
+    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    await create();
+
+    expect(el.querySelector('[data-testid="needs-review"]')).toBeNull();
   });
 
   it('offers no dead link while the gateway address is not known', async () => {

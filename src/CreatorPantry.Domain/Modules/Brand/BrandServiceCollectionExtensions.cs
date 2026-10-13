@@ -6,8 +6,11 @@ using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Outbox;
+using CreatorPantry.Domain.Managers.Outbox.Events;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CreatorPantry.Domain.Modules.Brand;
 
@@ -20,6 +23,13 @@ public static class BrandServiceCollectionExtensions
     public static IServiceCollection AddBrandModule(this IServiceCollection services)
     {
         services.AddContentChannelCatalog();
+
+        // Activating a style guide version announces it (LF.6.1), so content written under another can be
+        // marked for review. The writer is the outbox's and is registered by AddOutbox in every host; added
+        // here only if absent, so a composition that takes this module without the dispatcher still resolves.
+        services.TryAddScoped<IOutboxWriter, OutboxWriter>();
+        services.AddKeyedScoped<IOutboxMessageHandler, BrandStyleGuideActivatedOutboxHandler>(
+            BrandStyleGuideActivatedEvent.MessageType);
         services.AddScoped<IBrandProfileRepository, BrandProfileRepository>();
         services.AddScoped<IBrandProfileDataLayer, BrandProfileDataLayer>();
         services.AddScoped<IBrandProfileBusiness, BrandProfileBusiness>();

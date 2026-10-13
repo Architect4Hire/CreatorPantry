@@ -26,7 +26,6 @@ using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.Recipes;
 
@@ -55,8 +54,7 @@ namespace CreatorPantry.Tests.Recipes;
 /// </remarks>
 public sealed class SqlServerRecipeFixture : IAsyncLifetime
 {
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private ServiceProvider? _provider;
 

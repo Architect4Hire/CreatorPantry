@@ -47,6 +47,7 @@ internal static class GatewayTestHost
 
             web.ConfigureTestServices(services =>
             {
+                TestLogging.RemoveProcessWideLoggers(services);
                 services.AddSingleton<IStartupFilter>(new ConnectionAddressStartupFilter());
                 services.RemoveAll<IDistributedCache>();
                 services.AddDistributedMemoryCache();

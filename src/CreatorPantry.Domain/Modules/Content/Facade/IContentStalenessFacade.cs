@@ -12,8 +12,12 @@ namespace CreatorPantry.Domain.Modules.Content.Facade;
 /// <see cref="IRecipeChangeConsumer"/> is implemented here, so the Recipes module's outbox handler reaches this
 /// module through its facade like any other caller (backend.md). The workspace is already resolved by the
 /// handler, as the service identity; nothing here resolves one or reads one from the event.
+/// <para>
+/// <see cref="IBrandVoiceChangeConsumer"/> is implemented here for the same reason (LF.6.1): the Brand
+/// module's outbox handler reaches this module through its facade when a style guide version is activated.
+/// </para>
 /// </remarks>
-public interface IContentStalenessFacade : IRecipeChangeConsumer
+public interface IContentStalenessFacade : IRecipeChangeConsumer, IBrandVoiceChangeConsumer
 {
     /// <summary>
     /// Whether the proposal's accepted content still describes its recipe, decided from its pins rather than
@@ -26,6 +30,11 @@ internal sealed class ContentStalenessFacade(
     IContentStalenessBusiness business,
     IThemedDayHistoryInvalidationFacade history) : IContentStalenessFacade
 {
+    // Long-form only (LF.6.1). Handed the active version by the brand module's handler, which read it when
+    // the message was delivered; nothing here trusts an event's own idea of which version is active.
+    public Task OnActiveStyleGuideChangedAsync(Guid? activeVersionId, CancellationToken cancellationToken) =>
+        business.ApplyVoiceChangeAsync(activeVersionId, cancellationToken);
+
     public async Task OnRecipeVersionChangedAsync(RecipeVersionChangedEvent change, CancellationToken cancellationToken)
     {
         await business.ApplyRecipeChangeAsync(change.RecipeId, cancellationToken);

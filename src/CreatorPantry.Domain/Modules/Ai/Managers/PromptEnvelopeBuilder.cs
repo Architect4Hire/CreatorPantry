@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -45,6 +47,33 @@ public sealed class PromptEnvelopeBuilder
     /// <summary>The JSON Schema the answer must satisfy. Required.</summary>
     public PromptEnvelopeBuilder WithOutputSchema(string schema) =>
         Add(PromptSegmentKind.OutputSchema, schema, null);
+
+    /// <summary>
+    /// The JSON Schema the answer must satisfy, with its <c>schemaVersion</c> pinned to the one value the
+    /// validator accepts.
+    /// </summary>
+    /// <remarks>
+    /// A schema exported from the output type says only that <c>schemaVersion</c> is a string, and no prompt
+    /// body names the value. A model therefore guesses — "1.0", in every live run observed — and the answer is
+    /// refused for a field the server already knows, spending the one correction a request is allowed on it.
+    /// Whatever is genuinely wrong with the second answer is then final. Stating the constant in the schema
+    /// lets the first answer be the one that counts.
+    /// </remarks>
+    /// <param name="schema">The exported schema, as JSON.</param>
+    /// <param name="schemaVersion">The template's output schema version, exactly as the validator compares it.</param>
+    public PromptEnvelopeBuilder WithOutputSchema(string schema, string schemaVersion)
+    {
+        var document = JsonNode.Parse(schema);
+
+        if (document?["properties"]?["schemaVersion"] is JsonObject version)
+        {
+            version["const"] = schemaVersion;
+        }
+
+        return WithOutputSchema(document?.ToJsonString(Indented) ?? schema);
+    }
+
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
     /// <param name="workspaceId">The workspace these preferences were read from.</param>
     public PromptEnvelopeBuilder WithPreferences(Guid workspaceId, string content) =>

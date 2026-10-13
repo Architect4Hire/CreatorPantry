@@ -137,6 +137,35 @@ describe('LongFormDocumentService', () => {
     expect(await pending).toEqual({ status: 'not_found' });
   });
 
+  it('reads which sources moved, reads none from a reply that says nothing, and refuses one it cannot read', async () => {
+    const read = async (document: Record<string, unknown>) => {
+      const pending = service.read('cozy-fall', 'd-1');
+      http.expectOne(`${DRAFT}/document`).flush({ document, warnings: [], requests: [] });
+
+      return pending;
+    };
+
+    const stale = await read(wireDocument({ status: 'NeedsReview', staleReasons: ['RecipeChanged', 'VoiceChanged'], staleSince: '2026-10-12T09:00:00Z' }));
+    expect(stale.status).toBe('found');
+    if (stale.status === 'found') {
+      expect(stale.review.document.staleReasons).toEqual(['RecipeChanged', 'VoiceChanged']);
+      expect(stale.review.document.staleSince).toBe('2026-10-12T09:00:00Z');
+    }
+
+    // A reply from before the field existed: nothing moved, and the document still reads.
+    const silent = await read(wireDocument());
+    expect(silent.status).toBe('found');
+    if (silent.status === 'found') {
+      expect(silent.review.document.staleReasons).toEqual([]);
+      expect(silent.review.document.staleSince).toBeNull();
+    }
+
+    // Not a list, or not a date: unavailable, rather than a piece shown as current when it may not be.
+    expect((await read(wireDocument({ staleReasons: 'RecipeChanged' }))).status).toBe('unavailable');
+    expect((await read(wireDocument({ staleReasons: [1] }))).status).toBe('unavailable');
+    expect((await read(wireDocument({ staleSince: 5 }))).status).toBe('unavailable');
+  });
+
   it('is unavailable rather than partly shown when a section, an issue or a warning cannot be read', async () => {
     const broken: Record<string, unknown>[] = [
       { document: wireDocument({ sections: [wireSection(), wireSection({ id: 's-2', role: 'Sidebar' })] }), warnings: [], requests: [] },

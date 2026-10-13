@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace CreatorPantry.Tests.Architecture;
@@ -138,7 +139,7 @@ public sealed class BulkOperationBoundaryTests
     /// vacuously, and that is what this is for. The upper bound is a tripwire for a root resolved somewhere
     /// absurd — the repository, a drive — rather than a budget for how large the domain may grow, so it is set
     /// generously. It had quietly gone stale at 600 against a domain of over 700 files, which nobody saw because
-    /// a redirected build output makes this class fail on root discovery first.
+    /// a redirected build output used to make this class fail on root discovery first.
     /// </remarks>
     [Fact]
     public void The_scan_actually_sees_the_domain()
@@ -193,17 +194,28 @@ public sealed class BulkOperationBoundaryTests
             .Select(path => (Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/'), path))];
     }
 
-    private static string DomainRoot()
+    /// <summary>
+    /// The domain's source directory, found by walking up from the build output and, when the output has been
+    /// redirected out of the repository (as it must be while <c>aspire run</c> holds the usual one open), from
+    /// this file's own path instead.
+    /// </summary>
+    private static string DomainRoot([CallerFilePath] string thisFile = "")
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "src", "CreatorPantry.Domain")))
+        foreach (var start in (string[])[AppContext.BaseDirectory, Path.GetDirectoryName(thisFile) ?? string.Empty])
         {
-            directory = directory.Parent;
+            for (var directory = start.Length > 0 ? new DirectoryInfo(start) : null; directory is not null; directory = directory.Parent)
+            {
+                var domain = Path.Combine(directory.FullName, "src", "CreatorPantry.Domain");
+
+                if (Directory.Exists(domain))
+                {
+                    return domain;
+                }
+            }
         }
 
-        Assert.True(directory is not null, "could not locate the repository root from the test output directory");
+        Assert.Fail("could not locate the repository root from the test output directory or from this source file");
 
-        return Path.Combine(directory!.FullName, "src", "CreatorPantry.Domain");
+        return string.Empty;
     }
 }

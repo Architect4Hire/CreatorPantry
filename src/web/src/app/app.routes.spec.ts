@@ -258,7 +258,7 @@ describe("the Content Pipeline's place in the route tree", () => {
     const workflows = workspaceRoute().find((route) => route.path === 'workflows');
     const children = workflows?.children?.map((route) => route.path);
 
-    expect(children).toEqual(['', 'content-pipeline', 'quick-recipe']);
+    expect(children).toEqual(['', 'content-pipeline', 'long-form', 'quick-recipe']);
   });
 
   it('gives Quick Recipe one page under workflows, with nothing to guard on leaving', async () => {

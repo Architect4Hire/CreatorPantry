@@ -45,7 +45,9 @@ internal sealed class FakeLongFormDocumentFacade : ILongFormDocumentFacade
             acceptedRevisionNumber,
             AcceptedAt: null,
             framing,
-            UnresolvedItems: []);
+            UnresolvedItems: [],
+            StaleReasons: status is LongFormDraftStatus.NeedsReview ? [ContentStaleReasons.RecipeChanged] : [],
+            StaleSince: null);
 
     public void Forget(Guid draftId) => _documents.Remove(draftId);
 

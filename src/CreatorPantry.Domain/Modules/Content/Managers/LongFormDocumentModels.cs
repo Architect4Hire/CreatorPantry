@@ -110,6 +110,13 @@ public sealed record LongFormAssembledSectionServiceModel(
 /// The items, in plan order, whose reference the piece of work no longer names. Reported; not something an
 /// acceptance has to confirm.
 /// </param>
+/// <param name="StaleReasons">
+/// Which of the sources the accepted piece was written from have changed since (LF.6.1): `RecipeChanged` when
+/// a recipe it was pinned to has a newer version, `VoiceChanged` when the workspace's active brand style guide
+/// is no longer the one it was written under. Empty unless the status is `NeedsReview`. The piece itself is
+/// exactly as it was accepted.
+/// </param>
+/// <param name="StaleSince">When the accepted piece was first found out of step; null unless `NeedsReview`.</param>
 public sealed record LongFormAssembledDocumentServiceModel(
     Guid DraftId,
     Guid CreativeContextId,
@@ -130,4 +137,6 @@ public sealed record LongFormAssembledDocumentServiceModel(
     int? AcceptedRevisionNumber,
     DateTimeOffset? AcceptedAt,
     LongFormFramingServiceModel? Framing,
-    IReadOnlyList<Guid> UnresolvedItems);
+    IReadOnlyList<Guid> UnresolvedItems,
+    IReadOnlyList<ContentStaleReasons> StaleReasons,
+    DateTimeOffset? StaleSince);

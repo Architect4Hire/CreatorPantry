@@ -36,6 +36,31 @@ public interface IContentStalenessDataLayer
     /// could not be — so the accepted words and their pin are exactly what was accepted.
     /// </remarks>
     Task<bool> MarkSocialNeedsReviewAsync(SocialStalenessChange change, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IContentStalenessRepository.FindLongFormRecipePinsAsync"/>
+    Task<IReadOnlyList<LongFormRecipePinRecord>> FindLongFormRecipePinsAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IContentStalenessRepository.FindLongFormVoicePinsAsync"/>
+    Task<IReadOnlyList<LongFormVoicePinRecord>> FindLongFormVoicePinsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records one moved pin against one long-form draft and writes its audit entry in one save (LF.6.1). An
+    /// Accepted draft becomes NeedsReview; one already marked gains the reason. Returns false without writing
+    /// when there is nothing to record — the draft is not an accepted article, or already carries this reason
+    /// — which is what makes a replayed delivery a no-op.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Only the draft row is written.</strong> The accepted revision and its pins are immutable
+    /// records and are not loaded, let alone changed: the piece stays exactly as it was accepted, and
+    /// <c>AcceptedRevisionId</c> and <c>AcceptedAt</c> go on saying which piece that is.
+    /// </para>
+    /// <para>
+    /// The same bargain as <see cref="MarkNeedsReviewAsync"/>: a concurrent change to the draft fails the save
+    /// on its row version and throws, and the outbox retry is the recovery.
+    /// </para>
+    /// </remarks>
+    Task<bool> MarkLongFormNeedsReviewAsync(LongFormStalenessChange change, CancellationToken cancellationToken);
 }
 
 internal sealed class ContentStalenessDataLayer(
@@ -107,6 +132,52 @@ internal sealed class ContentStalenessDataLayer(
     public Task<IReadOnlyList<AcceptedSocialPinRecord>> FindAcceptedSocialPinsAsync(
         Guid recipeId, CancellationToken cancellationToken) =>
         socialPackages.FindAcceptedPinsAsync(recipeId, cancellationToken);
+
+    public Task<IReadOnlyList<LongFormRecipePinRecord>> FindLongFormRecipePinsAsync(
+        Guid recipeId, CancellationToken cancellationToken) =>
+        repository.FindLongFormRecipePinsAsync(recipeId, cancellationToken);
+
+    public Task<IReadOnlyList<LongFormVoicePinRecord>> FindLongFormVoicePinsAsync(CancellationToken cancellationToken) =>
+        repository.FindLongFormVoicePinsAsync(cancellationToken);
+
+    public async Task<bool> MarkLongFormNeedsReviewAsync(LongFormStalenessChange change, CancellationToken cancellationToken)
+    {
+        var draft = await repository.GetLongFormDraftForUpdateAsync(change.DraftId, cancellationToken);
+
+        // Re-read under tracking and decided again here, not trusted from the candidate list: the draft may
+        // have moved between the two reads, and a replay arrives with nothing left to do.
+        if (draft is not { Status: LongFormDraftStatus.Accepted or LongFormDraftStatus.NeedsReview, AcceptedRevisionId: not null }
+            || draft.StaleReasons.HasFlag(change.Reason))
+        {
+            return false;
+        }
+
+        var before = draft.Status;
+
+        draft.Status = LongFormDraftStatus.NeedsReview;
+
+        // When it first went stale. A second pin moving later does not move the first one's date.
+        draft.StaleSince ??= change.At;
+        draft.StaleReasons |= change.Reason;
+        draft.UpdatedAt = change.At;
+
+        // A system move, so no actor. A status and a reason only: never a heading or a word of the piece.
+        auditWriter.Record(new AuditEntry(
+            ActorUserId: null,
+            ContentAuditActions.LongFormDraftMarkedStale,
+            ContentAuditActions.LongFormDraftResourceType,
+            draft.Id.ToString("D"),
+            Guid.NewGuid(),
+            $"Marked an accepted long-form draft as needing review: {change.Reason}.",
+            BeforeReference: before.ToString(),
+            AfterReference: nameof(LongFormDraftStatus.NeedsReview)));
+
+        // One save, one transaction: the draft's UPDATE carries its row version in the WHERE clause, so
+        // nothing commits unless the draft is still where this was decided.
+        await context.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
 
     public async Task<bool> MarkSocialNeedsReviewAsync(SocialStalenessChange change, CancellationToken cancellationToken)
     {

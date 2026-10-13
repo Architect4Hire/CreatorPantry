@@ -55,6 +55,20 @@ public sealed class LongFormSectionAiTaskHandlerTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    // ---- What the model is told about the answer ----
+
+    /// <inheritdoc cref="LongFormOutlineAiTaskHandlerTests.The_schema_sent_to_the_model_states_the_schema_version_it_must_declare"/>
+    [Fact]
+    public async Task The_schema_sent_to_the_model_states_the_schema_version_it_must_declare()
+    {
+        var client = FakeChatClient.Returning(Answer(SoundBody));
+
+        var outcome = await Run(client, Writing(), Package());
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Contains("\"const\": \"content.long-form-section.v1\"", System(client), StringComparison.Ordinal);
+    }
+
     // ---- What is stored ----
 
     [Fact]

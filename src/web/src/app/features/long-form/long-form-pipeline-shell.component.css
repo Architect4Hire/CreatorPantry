@@ -1,0 +1,42 @@
+:host {
+  display: block;
+}
+
+.pipeline {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+.layout {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  /* minmax(0, …) so a long value inside the card cannot push the page sideways (DESIGN-SYSTEM.md). */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+.progress {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.plain {
+  margin: 0;
+}
+
+.help summary {
+  color: var(--cp-text-muted);
+}
+
+.help p,
+.state,
+.legend,
+.needed {
+  margin: 0;
+}

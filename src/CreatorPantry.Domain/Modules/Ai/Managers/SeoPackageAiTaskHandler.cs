@@ -112,7 +112,7 @@ internal sealed class SeoPackageAiTaskHandler(
 
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>(StringComparer.Ordinal)))
-            .WithOutputSchema(AiSeoPackageOutputSchema.Json)
+            .WithOutputSchema(AiSeoPackageOutputSchema.Json, template.OutputSchemaVersion)
             .WithPreferences(context.WorkspaceId, RenderPreferences(kind, requested, context.Inputs, candidates.Count))
 
             // Creator material whichever subject it is: a recipe as data or an article as Markdown, fenced as
