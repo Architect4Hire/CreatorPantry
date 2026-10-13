@@ -58,13 +58,21 @@ cp-tab-panel:not([hidden]) {
   }
 }
 
-/* Sits between the tablist and the first panel, so it reads as a note about the tabs above it. Muted,
-   because it explains a state rather than reporting a problem — the greyed-out tabs are not an error. */
+/* A recipe being created has no row of areas, so its form is laid out the way an Edit panel is: the same
+   one-column grid and gap, minus the panel's entrance animation, which belongs to switching tabs. */
+.edit-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+}
+
+/* Sits under the required-fields legend, so the two read as the notes about the form. Muted, because it
+   explains a state rather than reporting a problem — the unavailable areas are not an error. */
 .area-lock-note {
   display: flex;
   align-items: flex-start;
   gap: var(--cp-space-2);
-  margin: var(--cp-space-3) 0 0;
+  margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
 }
@@ -84,6 +92,30 @@ cp-tab-panel:not([hidden]) {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-8);
   min-width: 0;
+}
+
+/* The General tab: a nav over its sections, and the sections. One column by default, with the nav a wrapping
+   row above them — the narrow layout, and the one 200% zoom lands on. Wide enough for a gutter and a column
+   at their full measure, the nav becomes a sticky list beside them, as it is beside the Instructions groups
+   below. Sections stay one above the other at every width: the nav is for finding your place in a long tab,
+   and a layout that put the whole tab on screen at once would leave it nothing to do. */
+.general-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  align-items: start;
+}
+
+@container cp-editor (min-width: 64rem) {
+  .general-layout {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  .general-nav {
+    position: sticky;
+    top: var(--cp-space-4);
+    --cp-anchor-nav-direction: column;
+  }
 }
 
 /* The instruction groups and the nav beside them. Its own container, like the ingredient editor's: the
@@ -198,6 +230,13 @@ cp-tab-panel:not([hidden]) {
   flex: 1 1 auto;
 }
 
+/* The input takes the room and the button its own width. Without this the button is squeezed to the width of
+   its longest word and "Add tag" wraps onto two lines. */
+.tag-input-row button {
+  flex: none;
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tag-chip,
   .tag-chip button {
@@ -288,6 +327,9 @@ cp-tab-panel:not([hidden]) {
 /* The slot "Add a duration" sits in, so revealing the field does not shift the step's other rows sideways. */
 .step-reveal {
   display: flex;
+  /* A text button pads its own text in from its edge, so without this the "+ Add …" line starts a little to the
+     right of the fields above it. Pulled back by exactly that padding. */
+  margin-inline-start: calc(var(--cp-space-2) * -1);
 }
 
 /* The derived total, which is read and never typed into. Given the height an input in this row would have

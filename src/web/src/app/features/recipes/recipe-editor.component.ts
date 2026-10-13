@@ -11,6 +11,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -159,6 +160,15 @@ function describeLockedAreas(areas: readonly CpTabDefinition[]): string {
 }
 
 /**
+ * The longest to wait for a nav jump's smooth scroll to report that it has ended, before assuming it has. Only
+ * the fallback: a browser without `scrollend`, or a jump that was already in place, never reports it.
+ */
+const GENERAL_SCROLL_FALLBACK_MS = 1500;
+
+/** How long after a jump's scroll ends before the highlight goes back to following the page. */
+const GENERAL_SCROLL_SETTLE_MS = 150;
+
+/**
  * The id prefix of an instruction group's own anchor. Its ingredient counterpart lives in the ingredient
  * editor: each owns the ids it renders, and `CpAnchorNavComponent` only carries them back.
  */
@@ -196,6 +206,8 @@ interface FieldLocation {
   readonly field: string;
   readonly controlId: string;
   readonly tabId: EditTabId;
+  /** The General tab section holding the field, for the nav's problem markers; absent on the other two tabs. */
+  readonly sectionId?: string;
 }
 
 /**
@@ -208,26 +220,26 @@ interface FieldLocation {
  * stays the whole message. That is the intended outcome, not a gap to paper over by guessing a target.
  */
 const FIELD_LOCATIONS: readonly FieldLocation[] = [
-  { field: 'title', controlId: 'recipe-title', tabId: 'general' },
-  { field: 'description', controlId: 'recipe-description', tabId: 'general' },
-  { field: 'headnote', controlId: 'recipe-headnote', tabId: 'general' },
-  { field: 'attributionText', controlId: 'recipe-attribution', tabId: 'general' },
-  { field: 'sourceUrl', controlId: 'recipe-source-url', tabId: 'general' },
-  { field: 'tags', controlId: 'recipe-new-tag', tabId: 'general' },
-  { field: 'notes', controlId: 'recipe-notes', tabId: 'general' },
-  { field: 'storageNotes', controlId: 'recipe-storage-notes', tabId: 'general' },
-  { field: 'prepTimeMinutes', controlId: 'recipe-prep-time', tabId: 'general' },
-  { field: 'cookTimeMinutes', controlId: 'recipe-cook-time', tabId: 'general' },
-  { field: 'restTimeMinutes', controlId: 'recipe-rest-time', tabId: 'general' },
+  { field: 'title', controlId: 'recipe-title', tabId: 'general', sectionId: 'section-details' },
+  { field: 'description', controlId: 'recipe-description', tabId: 'general', sectionId: 'section-details' },
+  { field: 'headnote', controlId: 'recipe-headnote', tabId: 'general', sectionId: 'section-details' },
+  { field: 'attributionText', controlId: 'recipe-attribution', tabId: 'general', sectionId: 'section-details' },
+  { field: 'sourceUrl', controlId: 'recipe-source-url', tabId: 'general', sectionId: 'section-details' },
+  { field: 'tags', controlId: 'recipe-new-tag', tabId: 'general', sectionId: 'section-details' },
+  { field: 'notes', controlId: 'recipe-notes', tabId: 'general', sectionId: 'section-notes' },
+  { field: 'storageNotes', controlId: 'recipe-storage-notes', tabId: 'general', sectionId: 'section-notes' },
+  { field: 'prepTimeMinutes', controlId: 'recipe-prep-time', tabId: 'general', sectionId: 'section-timing' },
+  { field: 'cookTimeMinutes', controlId: 'recipe-cook-time', tabId: 'general', sectionId: 'section-timing' },
+  { field: 'restTimeMinutes', controlId: 'recipe-rest-time', tabId: 'general', sectionId: 'section-timing' },
   // The section rather than the field: the total is derived, so there is no control on it to correct. In
   // practice the client can only ever submit the sum or null, which no server rule on this field can refuse —
   // but a target that cannot be acted on would be worse than the section heading if one ever arrived.
-  { field: 'totalTimeMinutes', controlId: 'section-timing', tabId: 'general' },
-  { field: 'yieldText', controlId: 'recipe-yield-text', tabId: 'general' },
-  { field: 'servingCount', controlId: 'recipe-serving-count', tabId: 'general' },
-  { field: 'yieldQuantity', controlId: 'recipe-yield-quantity', tabId: 'general' },
-  { field: 'yieldUnitId', controlId: 'recipe-yield-unit', tabId: 'general' },
-  { field: 'servingSize', controlId: 'recipe-serving-size', tabId: 'general' },
+  { field: 'totalTimeMinutes', controlId: 'section-timing', tabId: 'general', sectionId: 'section-timing' },
+  { field: 'yieldText', controlId: 'recipe-yield-text', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'servingCount', controlId: 'recipe-serving-count', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'yieldQuantity', controlId: 'recipe-yield-quantity', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'yieldUnitId', controlId: 'recipe-yield-unit', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'servingSize', controlId: 'recipe-serving-size', tabId: 'general', sectionId: 'section-yield' },
   // The server validates each list as a whole and stops at the first problem, so these two keys arrive without
   // an index — one sentence about the ingredients, one about the method. There is no single control to blame,
   // so the target is the section itself, which carries `tabindex="-1"` for exactly this and is named by its own
@@ -348,6 +360,7 @@ const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptatio
   imports: [
     CpPageHeadComponent,
     FormsModule,
+    NgTemplateOutlet,
     RouterLink,
     CpAnchorNavComponent,
     CpButtonComponent,
@@ -783,19 +796,19 @@ export class RecipeEditorComponent {
   });
 
   /**
-   * What the total-time field says beneath itself: what the number was added up from, so it never reads as
-   * though it were invented, and why there is no number when there is none.
+   * Why there is no total, when the parts add up to more than can be recorded — and only then.
+   *
+   * Three times each inside the server's limit can add to a sum outside it, and there is no control on the total
+   * to correct, so without a sentence the total would just read "—" and the creator would not know why. Said as a
+   * note across the Timing section rather than under the field: a total column is a quarter of the form's line,
+   * and a sentence that long under it would push the row out of shape for a case almost nobody reaches. In the
+   * ordinary case there is nothing to say, because the total is self-evidently the three parts added up.
    */
-  readonly totalTimeNote = computed(() => {
+  readonly totalTimeOverflowNote = computed(() => {
     const sum = this.timingSum();
-    if (sum === null) return 'Added up from prep, cook and rest times once one of them is recorded.';
+    if (sum === null || sum.minutes <= MAX_TIME_MINUTES) return '';
 
-    const breakdown = sum.parts.join(' + ');
-    if (sum.minutes > MAX_TIME_MINUTES) {
-      return `${breakdown} is more than the longest time that can be recorded, so no total can be saved.`;
-    }
-
-    return `${breakdown} = ${sum.minutes} minutes.`;
+    return `${sum.parts.join(' + ')} is more than the longest time that can be recorded, so no total can be saved.`;
   });
 
   /**
@@ -918,7 +931,7 @@ export class RecipeEditorComponent {
       return 'Add a yield quantity as well — a unit on its own cannot be saved.';
     }
 
-    return 'Optional. Measures both the batch yield and one serving; your own wording is kept as you wrote it.';
+    return 'Measures both the batch yield and one serving; your own wording is kept as you wrote it.';
   });
 
   /**
@@ -945,15 +958,42 @@ export class RecipeEditorComponent {
     }
 
     if (this.yieldUnitId() === null) {
-      return 'Optional. Needs a yield unit, so pick one first.';
+      return 'Needs a yield unit, so pick one first.';
     }
 
     const unit = this.yieldUnitSelection();
 
     return unit === null
-      ? 'Optional. Measured in this recipe’s yield unit.'
-      : `Optional. Measured in ${unit.label.toLowerCase()}, from the Yield unit field.`;
+      ? 'Measured in this recipe’s yield unit.'
+      : `Measured in ${unit.label.toLowerCase()}, from the Yield unit field.`;
   });
+
+  /**
+   * Whether the creator has asked for the measured-batch fields — batch yield, yield unit and serving size.
+   *
+   * Most recipes are described by the creator's own wording and, at most, a serving count; the three measured
+   * fields exist for scaling and read as three boxes to fill in when they are all shown at once. So they are
+   * offered ({@link revealMeasuredBatch}) rather than presented, as a step's duration is. A latch, not a
+   * mirror of the values: once they are on screen they stay there, because a box that vanishes the moment a
+   * creator backspaces its last digit is worse than an empty one. See {@link measuredBatchOpen}.
+   */
+  private readonly measuredBatchRevealed = signal(false);
+
+  /**
+   * Whether the form holds, or has just been refused over, anything the measured-batch fields write. Those
+   * fields must be showing then, whichever way the value arrived: a saved recipe, a restored version or a
+   * reload after a conflict, or a server message that has to be reached by `revealFirstFieldError`.
+   */
+  private readonly recordsMeasuredBatch = computed(
+    () =>
+      this.yieldQuantity() !== null ||
+      this.yieldUnitId() !== null ||
+      this.servingSize() !== null ||
+      ['yieldQuantity', 'yieldUnitId', 'servingSize'].some((field) => this.fieldError(field) !== ''),
+  );
+
+  /** Whether the measured-batch fields are showing: asked for, or already carrying something. */
+  readonly measuredBatchOpen = computed(() => this.measuredBatchRevealed() || this.recordsMeasuredBatch());
 
   readonly tags = signal<readonly string[]>([]);
   readonly newTagText = signal('');
@@ -1000,6 +1040,52 @@ export class RecipeEditorComponent {
    * is not navigation, and a method with no phases has nothing to navigate.
    */
   readonly showInstructionGroupNav = computed(() => this.showInstructionGroups() && this.instructionGroups().length > 1);
+
+  /**
+   * The General tab's four sections, in the order they are written, for the nav beside them.
+   *
+   * Ids and labels are the sections' own (`sectionId` and `heading` in the template), written out here because
+   * the nav is a separate element that has to name them. The spec checks the two cannot drift apart.
+   */
+  private static readonly GENERAL_SECTIONS: readonly CpAnchorNavItem[] = [
+    { targetId: 'section-details', label: 'Details' },
+    { targetId: 'section-notes', label: 'Notes' },
+    { targetId: 'section-timing', label: 'Timing' },
+    { targetId: 'section-yield', label: 'Yield' },
+  ];
+
+  /**
+   * The nav's items, each saying how many problems the last save left in its section.
+   *
+   * The tab is long, so a refused save can name a field several screens away from where the creator is, and a
+   * nav that only jumps would leave them to find it. In the item's detail line, in words, like the form tabs'
+   * labels: a count is read by a screen reader and is not told by colour. Counted from `FIELD_LOCATIONS`, so a
+   * field gains its marker by being locatable at all rather than by being listed again.
+   */
+  readonly generalSectionNav = computed<readonly CpAnchorNavItem[]>(() => {
+    const keys = Object.keys(this.fieldErrorsSignal());
+
+    return RecipeEditorComponent.GENERAL_SECTIONS.map((section) => {
+      const fields = FIELD_LOCATIONS.filter((location) => location.sectionId === section.targetId).map((location) => location.field);
+      const problems = keys.filter((key) => fields.includes(errorListKey(key))).length;
+
+      return problems === 0 ? { ...section } : { ...section, detail: `${problems} ${problems === 1 ? 'problem' : 'problems'}` };
+    });
+  });
+
+  /**
+   * The section the creator is reading, which `aria-current` names: the last one jumped to, then whichever one
+   * is under the top of the screen as they scroll. See the effect in the constructor that watches for it.
+   */
+  readonly activeGeneralSectionId = signal<string | null>(null);
+
+  /** Whether a nav jump's smooth scroll is still under way, so the scroll-following above waits for it. */
+  private generalJumpPending = false;
+  private generalJumpTimer: ReturnType<typeof setTimeout> | null = null;
+  private generalJumpScrollEnd: (() => void) | null = null;
+
+  /** The element holding the General sections, once it is on screen. Absent on the other tabs and while loading. */
+  private readonly generalSections = viewChild<ElementRef<HTMLElement>>('generalSections');
 
   /** The group last jumped to, which `aria-current` names. See the ingredient editor's `activeGroupKey`. */
   readonly activeInstructionGroupKey = signal<string | null>(null);
@@ -1061,6 +1147,50 @@ export class RecipeEditorComponent {
       this.yieldUnitText.set(this.yieldUnitSelection()?.label ?? '');
     });
 
+    // Keeps the General nav marking the section the creator is reading. Watches a band across the top of the
+    // screen, and the deepest section touching it is the current one: a section becomes current as its top
+    // comes up into the band, and stays current until the next one does. Not a measurement of scroll offset,
+    // so it holds whichever element does the scrolling and at any zoom.
+    //
+    // The sections stay rendered while another tab shows (they are hidden, so they do not intersect and the
+    // last answer stands), and the observer is rebuilt if the element is recreated.
+    effect((onCleanup) => {
+      const container = this.generalSections()?.nativeElement;
+      if (!container || typeof IntersectionObserver === 'undefined') return;
+
+      const order = RecipeEditorComponent.GENERAL_SECTIONS.map((item) => item.targetId);
+      const touching = new Set<string>();
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) touching.add(entry.target.id);
+            else touching.delete(entry.target.id);
+          }
+
+          // The set above stays true to what is on screen, but while a nav jump is still scrolling the answer
+          // is already known — the section that was asked for — and following the page past the sections in
+          // between would flick the highlight through each of them on the way.
+          if (this.generalJumpPending) return;
+
+          const deepest = order.filter((id) => touching.has(id)).pop();
+          if (deepest) this.activeGeneralSectionId.set(deepest);
+        },
+        { rootMargin: '0px 0px -60% 0px' },
+      );
+
+      for (const id of order) {
+        const section = container.querySelector(`#${id}`);
+        if (section) observer.observe(section);
+      }
+      onCleanup(() => observer.disconnect());
+    });
+
+    // Latches the measured-batch fields open once anything has put them on screen, so clearing a value
+    // never takes the box away mid-edit. See measuredBatchRevealed.
+    effect(() => {
+      if (this.recordsMeasuredBatch()) this.measuredBatchRevealed.set(true);
+    });
+
     if (this.isCreateMode) {
       this.baselineSignal.set(this.captureSnapshot());
     } else {
@@ -1077,7 +1207,10 @@ export class RecipeEditorComponent {
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', beforeUnloadHandler);
-    this.destroyRef.onDestroy(() => window.removeEventListener('beforeunload', beforeUnloadHandler));
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
+      this.releaseGeneralJump(null);
+    });
   }
 
   /**
@@ -1302,6 +1435,68 @@ export class RecipeEditorComponent {
   }
 
   /**
+   * Holds the scroll-following still while a smooth jump runs, until the page says it has stopped.
+   *
+   * `scrollend` is the page saying so, where the browser has it. A timer alone was wrong both ways: too short
+   * for a long scroll on a busy page, which then let the highlight follow the page past the sections between,
+   * and too long for a short one. The timer here is only the fallback for a browser without the event, or a
+   * jump that had nowhere to scroll and so never fires it.
+   */
+  private holdGeneralJump(): void {
+    this.releaseGeneralJump(null);
+    this.generalJumpPending = true;
+
+    const onScrollEnd = () => this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS);
+    this.generalJumpScrollEnd = onScrollEnd;
+    // Captured on the document: `scrollend` does not bubble, and whichever element does the scrolling is the
+    // shell's business rather than this editor's.
+    document.addEventListener('scrollend', onScrollEnd, true);
+    this.generalJumpTimer = setTimeout(() => this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS), GENERAL_SCROLL_FALLBACK_MS);
+  }
+
+  /**
+   * Lets the scroll-following resume after `afterMs`, or, given `null`, only tidies up. The short wait is for
+   * the observer's last report of the very movement that has just ended, which arrives a frame after it.
+   */
+  private releaseGeneralJump(afterMs: number | null): void {
+    if (this.generalJumpScrollEnd) document.removeEventListener('scrollend', this.generalJumpScrollEnd, true);
+    this.generalJumpScrollEnd = null;
+    if (this.generalJumpTimer !== null) clearTimeout(this.generalJumpTimer);
+    this.generalJumpTimer = null;
+    if (afterMs === null) return;
+
+    this.generalJumpTimer = setTimeout(() => {
+      this.generalJumpPending = false;
+      this.generalJumpTimer = null;
+    }, afterMs);
+  }
+
+  /**
+   * Jumps to the General section the nav named: marks it current, scrolls it into view, and focuses it.
+   *
+   * The section itself takes focus, not a field in it. A section is `tabindex="-1"` and names itself from its
+   * heading, so a screen reader hears where it has arrived; which field to start with is the creator's choice.
+   * `preventScroll` because the scroll above has already been asked to put it where `block: 'start'` says, and
+   * focusing a second time would only compete with it. Every section stays rendered, so nothing is mounted by
+   * jumping.
+   *
+   * The scroll is smooth, so a creator sees where the page went rather than finding it moved. Not for someone
+   * who has asked their system for less motion: they get the jump, which is what that setting means. While it
+   * runs the highlight stays on the section asked for instead of following the page past the ones between.
+   */
+  onGeneralNavActivated(item: CpAnchorNavItem): void {
+    this.activeGeneralSectionId.set(item.targetId);
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) this.releaseGeneralJump(0);
+    else this.holdGeneralJump();
+
+    const section = this.elementRef.nativeElement.querySelector<HTMLElement>(`#${item.targetId}`);
+    section?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    section?.focus({ preventScroll: true });
+  }
+
+  /**
    * Jumps to the instruction group the nav named: marks it current, scrolls it into view, and moves focus to
    * its heading field — the same three things the ingredient editor does, for the same reason. The shared nav
    * does none of them, because only this editor can name the control worth focusing.
@@ -1330,6 +1525,22 @@ export class RecipeEditorComponent {
 
     afterNextRender(
       () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="step-duration-${stepKey}"]`)?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * The creator asked for the measured-batch fields: show them and put the cursor in the first.
+   *
+   * Focus moves for the reason {@link revealStepDuration} gives: the button has just replaced itself with the
+   * fields it asked for, and leaving focus on it would strand a keyboard user. Writes no value, so the recipe
+   * is untouched and the form does not become dirty.
+   */
+  revealMeasuredBatch(): void {
+    this.measuredBatchRevealed.set(true);
+
+    afterNextRender(
+      () => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-yield-quantity')?.focus(),
       { injector: this.injector },
     );
   }

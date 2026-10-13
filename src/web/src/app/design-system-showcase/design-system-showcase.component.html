@@ -681,7 +681,7 @@
       The section names itself from its own heading and, while a problem is showing, is described by it — so a
       form that moves focus here on a refusal reads the heading and then the reason. Fields projected straight
       into it are capped at <code>--cp-measure-field</code>; a field inside a component projected here is left
-      to that component. Short fields share a line by going into a <code>cp-field-row</code>.
+      to that component. Short fields share a line by going into a <code>cp-field-row</code>; give it <code>columns</code> when they are quantities, so the row stays inside the line the other fields keep to and each value is an equal share of it.
     </p>
 
     <div class="showcase-form">
@@ -694,15 +694,15 @@
         </cp-field>
       </cp-form-section>
 
-      <cp-form-section heading="Timing" intro="How long it takes. The total is added up from the three parts.">
-        <cp-field-row>
-          <cp-field label="Prep time (minutes)" forId="showcase-section-prep">
+      <cp-form-section heading="Timing" intro="How long it takes, in minutes.">
+        <cp-field-row [columns]="4" minColumn="8rem">
+          <cp-field label="Prep time" forId="showcase-section-prep">
             <input id="showcase-section-prep" type="number" min="0" value="15" />
           </cp-field>
-          <cp-field label="Cook time (minutes)" forId="showcase-section-cook">
+          <cp-field label="Cook time" forId="showcase-section-cook">
             <input id="showcase-section-cook" type="number" min="0" value="40" />
           </cp-field>
-          <cp-field label="Rest time (minutes)" forId="showcase-section-rest">
+          <cp-field label="Rest time" forId="showcase-section-rest">
             <input id="showcase-section-rest" type="number" min="0" value="0" />
           </cp-field>
         </cp-field-row>
