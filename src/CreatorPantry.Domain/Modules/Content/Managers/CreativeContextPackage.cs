@@ -63,6 +63,28 @@ public enum CreativeContextOmission
     /// Absent when the theme has no notes — there was nothing to leave out.
     /// </remarks>
     StandingNotesSwitchedOff = 8,
+
+    /// <summary>
+    /// A recipe has an accepted editorial revision that is not current for the version this package read —
+    /// marked for review, or accepted against a different version — so none of it is carried (LF.1.4).
+    /// </summary>
+    /// <remarks>
+    /// Not carried with a caution instead: editorial copy restates the recipe, and copy written against other
+    /// figures handed to a writer as reusable prose is how a stale quantity reaches a new article.
+    /// </remarks>
+    EditorialNotCurrent = 9,
+
+    /// <summary>
+    /// Part of an accepted editorial revision was too long to carry and was left out whole; the parts that are
+    /// carried are named on the entry.
+    /// </summary>
+    EditorialPartOverCap = 10,
+
+    /// <summary>A recipe's accepted SEO revision is not current for the version read, so no phrase is carried.</summary>
+    SeoNotCurrent = 11,
+
+    /// <summary>Some accepted key phrases were left out; the entry counts them.</summary>
+    SeoKeyPhrasesOverCap = 12,
 }
 
 /// <summary>Where a picture's description came from.</summary>
@@ -88,7 +110,11 @@ public enum CreativeContextPictureDescriptionSource
 }
 
 /// <summary>The creator's own words for the piece. Untrusted prompt content, like everything a creator types.</summary>
-public sealed record CreativeContextWords(string? WorkingTitle, string? PictureBrief);
+/// <param name="WorkingBrief">
+/// The brief the creator chose to work from, as they last left it (LF.1.4). Carried only for a task that writes
+/// from it; null for every other task and when they have not chosen one.
+/// </param>
+public sealed record CreativeContextWords(string? WorkingTitle, string? PictureBrief, string? WorkingBrief = null);
 
 /// <summary>One channel the piece is for. Platform data: the key and the catalogue's own name for it.</summary>
 public sealed record CreativeContextChannelEntry(string Key, string DisplayName);
@@ -133,10 +159,64 @@ public sealed record CreativeContextDayEntry(
 /// what was already made for it. Everything else is left out, so the package's checksum names exactly what
 /// was added to the prompt and nothing the task read some other way.
 /// </param>
-public sealed record CreativeContextPackageOptions(bool ApplyDayNotes = true, bool DayOnly = false)
+/// <param name="OnlyRecipeReferenceId">
+/// The one recipe reference a run is written from, for a section that covers one recipe and no other — a
+/// newsletter item (LF.4.2). Every other source the piece names is left out: the other recipes, and the
+/// pictures, ideas and saved prompts, none of which says which recipe it belongs to. They are not reported as
+/// dropped, because nothing was dropped: the run was never going to be told them. The creator's words, the
+/// channels and the day stay. The budget is then this one recipe's, so it is never left out to make room for
+/// the rest of an issue.
+/// </param>
+public sealed record CreativeContextPackageOptions(
+    bool ApplyDayNotes = true, bool DayOnly = false, Guid? OnlyRecipeReferenceId = null)
 {
     public static CreativeContextPackageOptions Default { get; } = new();
 }
+
+/// <summary>One swap an accepted editorial revision suggests. The line it is about is not carried, only the words.</summary>
+public sealed record CreativeContextEditorialSubstitution(string Suggestion, string CulinaryNote);
+
+/// <summary>One question and answer from an accepted editorial revision.</summary>
+public sealed record CreativeContextEditorialFaq(string Question, string Answer);
+
+/// <summary>
+/// The editorial copy a creator already accepted for a recipe, as a long-form writer may reuse it (LF.1.4,
+/// baseline B-36).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Only an acceptance that is current for the version read.</strong> A stale one contributes nothing and
+/// is reported as <see cref="CreativeContextOmission.EditorialNotCurrent"/>.
+/// </para>
+/// <para>
+/// <strong>Whole parts or none.</strong> A part too long to carry is left out, never cut, and
+/// <see cref="SectionsCarried"/> names the parts that are here — in the editorial package's own order — so a
+/// writer knows which material already exists and which it would be writing for the first time.
+/// </para>
+/// <para>
+/// Accepted copy is still untrusted prompt content: a creator edited it, and a model wrote the first draft.
+/// </para>
+/// </remarks>
+/// <param name="RevisionNumber">The accepted revision's number within its recipe's editorial history.</param>
+public sealed record CreativeContextEditorialEntry(
+    int RevisionNumber,
+    string? Headnote,
+    string? Introduction,
+    IReadOnlyList<string> Tips,
+    IReadOnlyList<CreativeContextEditorialSubstitution> Substitutions,
+    string? StorageReheating,
+    IReadOnlyList<CreativeContextEditorialFaq> Faq,
+    string? Cta,
+    IReadOnlyList<string> SectionsCarried);
+
+/// <summary>
+/// The key phrases a creator already accepted for a recipe (LF.1.4). Recommendations in their words; never a
+/// metric, and nothing here says how any phrase performs.
+/// </summary>
+/// <param name="RevisionNumber">The accepted revision's number within its recipe's SEO history.</param>
+/// <param name="OmittedKeyPhraseCount">How many accepted phrases are not carried.</param>
+public sealed record CreativeContextSeoEntry(
+    int RevisionNumber, IReadOnlyList<string> KeyPhrases, int OmittedKeyPhraseCount);
 
 /// <summary>
 /// Recipe facts, read from one exact immutable version.
@@ -150,6 +230,11 @@ public sealed record CreativeContextPackageOptions(bool ApplyDayNotes = true, bo
 /// describe one instant. It differs from <c>RecipeVersionId</c> only when the creator pinned an older version.
 /// An id rather than a flag, because this package carries no flags; it is reporting and is not part of the
 /// checksum, since it changes nothing a model is shown.
+/// </para>
+/// <para>
+/// <c>Editorial</c> and <c>Seo</c> are the copy and key phrases already accepted for this recipe, carried only
+/// for a long-form task and only while current for <c>RecipeVersionId</c>. They travel on the recipe they
+/// belong to, so a recipe dropped for room takes them with it.
 /// </para>
 /// </remarks>
 public sealed record CreativeContextRecipeEntry(
@@ -167,7 +252,9 @@ public sealed record CreativeContextRecipeEntry(
     IReadOnlyList<string> Steps,
     int OmittedIngredientCount,
     int OmittedStepCount,
-    Guid? LatestRecipeVersionId = null);
+    Guid? LatestRecipeVersionId = null,
+    CreativeContextEditorialEntry? Editorial = null,
+    CreativeContextSeoEntry? Seo = null);
 
 /// <summary>A chosen recipe concept. Text a model wrote earlier and a creator picked; untrusted like the rest.</summary>
 public sealed record CreativeContextConceptEntry(
@@ -284,4 +371,14 @@ public sealed record CreativeContextPackage(
     /// exists without being handed anything it could mistake for a description of one.
     /// </summary>
     public const string UndescribedPicture = "A picture is attached, not described.";
+
+    /// <summary>
+    /// What a long-form package says when it carries no recipe (LF.1.4). Fixed wording, so a writer is told
+    /// outright that it has no recipe facts rather than left to infer it from an absence.
+    /// </summary>
+    /// <remarks>
+    /// Said whether the piece names no recipe or names one that could not be shown; the count of sources not
+    /// shown is stated beside it in the second case.
+    /// </remarks>
+    public const string NoRecipeFacts = "No recipe is shown, so there are no recipe facts to draw on.";
 }

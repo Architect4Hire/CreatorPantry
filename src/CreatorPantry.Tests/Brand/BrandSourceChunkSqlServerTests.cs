@@ -7,7 +7,6 @@ using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.Data.SqlTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.Brand;
 
@@ -52,8 +51,7 @@ public sealed class BrandSourceChunkSqlServerTests : IAsyncLifetime
 
     private static readonly Guid WorkspaceB = Guid.NewGuid();
 
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private ServiceProvider? _provider;
 

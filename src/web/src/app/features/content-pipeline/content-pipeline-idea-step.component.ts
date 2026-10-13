@@ -273,6 +273,8 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   readonly readsNameOnArrival = input(true);
   /** Where the creator described their picture, as this surface says it. The studio has no first step. */
   readonly descriptionWhere = input('on the first step');
+  /** Where the brief is shown and can be changed, as the sentence about an edited brief ends. */
+  readonly briefWhere = input('at the top of the next step');
   readonly changed = output<ContentPipelineDraft>();
   /** One sentence for the shell's polite live region, so a change of idea is announced once. */
   readonly announced = output<string>();

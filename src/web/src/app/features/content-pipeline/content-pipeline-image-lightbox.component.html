@@ -1,18 +1,12 @@
 <!--
-  The @if wraps the whole dialog, which is how every other CpDialogComponent consumer here is written: the
-  `[cpDialogActions]` slot has to be a static child of cp-dialog for projection to find it.
+  The @if wraps the whole lightbox: the `[cpLightboxCaption]` and `[cpLightboxActions]` slots have to be static
+  children of cp-lightbox for projection to find them.
 -->
 @if (current(); as image) {
-  <cp-dialog
-    [open]="true"
-    [title]="heading()"
-    [description]="facts()"
-    titleId="cp-pipeline-lightbox-title"
-    (closed)="close()"
-  >
+  <cp-lightbox [open]="true" [heading]="heading()" [description]="facts()" (closeRequested)="close()">
     <!-- The heading changes as the creator moves between pictures, and a changed dialog title is not reliably
          announced. This says it again where a polite live region will be heard. -->
-    <p class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">
+    <p cpLightboxCaption class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">
       {{ heading() }}. {{ facts() }}.
     </p>
 
@@ -24,35 +18,37 @@
       [total]="total()"
     />
 
-    <p class="status">
-      <cp-status-pill [tone]="statusTones[image.status]">{{ statusLabels[image.status] }}</cp-status-pill>
-      <span class="cp-muted">{{ sizeText() }}</span>
-    </p>
+    <div cpLightboxCaption class="about">
+      <p class="status">
+        <cp-status-pill [tone]="statusTones[image.status]">{{ statusLabels[image.status] }}</cp-status-pill>
+        <span class="cp-muted">{{ sizeText() }}</span>
+      </p>
 
-    @if (save(); as save) {
-      @switch (save.state) {
-        @case ('saved') {
-          <p class="filed">
-            @if (save.title) {
-              In your library as “{{ save.title }}”.
-            } @else {
-              In your library.
-            }
-            <a [routerLink]="assetLink()">{{ save.assetId ? 'Open it' : 'Your library' }}</a>
-          </p>
-        }
-        @case ('saving') {
-          <p class="cp-muted" role="status">Saving this one to your library…</p>
-        }
-        @case ('failed') {
-          <p class="problem" role="alert">{{ save.problem }}</p>
+      @if (save(); as save) {
+        @switch (save.state) {
+          @case ('saved') {
+            <p class="filed">
+              @if (save.title) {
+                In your library as “{{ save.title }}”.
+              } @else {
+                In your library.
+              }
+              <a [routerLink]="assetLink()">{{ save.assetId ? 'Open it' : 'Your library' }}</a>
+            </p>
+          }
+          @case ('saving') {
+            <p class="cp-muted" role="status">Saving this one to your library…</p>
+          }
+          @case ('failed') {
+            <p class="problem" role="alert">{{ save.problem }}</p>
+          }
         }
       }
-    }
 
-    <p class="cp-muted hint">Use the left and right arrow keys to move between your pictures.</p>
+      <p class="cp-muted hint">Use the left and right arrow keys to move between your pictures.</p>
+    </div>
 
-    <div cpDialogActions class="cp-actions">
+    <div cpLightboxActions class="cp-actions">
       @if (save(); as save) {
         @if (save.state !== 'saved' && save.state !== 'saving') {
           <button cpButton type="button" [disabled]="!canAct()" (click)="requestSave()">
@@ -119,5 +115,5 @@
         </button>
       }
     </div>
-  </cp-dialog>
+  </cp-lightbox>
 }

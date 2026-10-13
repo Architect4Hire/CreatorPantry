@@ -48,6 +48,17 @@ public static class CreativeContextPromptRenderer
     /// </remarks>
     public const string ReadingAuthor = "a model's reading of the picture, not the creator's words";
 
+    /// <summary>
+    /// Whose words a recipe's editorial copy is, stated beside it (LF.1.4).
+    /// </summary>
+    /// <remarks>
+    /// Accepted, which is what makes it reusable — and still copy, not recipe facts: nothing in it outranks the
+    /// recipe's own lines beside it. It says so itself, because storage advice, tips and swaps are where a
+    /// temperature or a shelf life gets stated, and accepting prose is not vetting it (recipes.md).
+    /// </remarks>
+    public const string EditorialAuthor =
+        "editorial copy the creator already accepted for this recipe: prose about it, not its facts, and not checked for safety";
+
     private static readonly JsonSerializerOptions Json = new()
     {
         // So an apostrophe in a title reads as the creator typed it rather than as an escape sequence. This
@@ -77,6 +88,13 @@ public static class CreativeContextPromptRenderer
         if (package.Words?.PictureBrief is { } brief)
         {
             payload["pictureTheCreatorHasInMind"] = brief;
+        }
+
+        // The brief a long-form piece is written from (LF.1.4). Named apart from the picture above: that is
+        // what one image should look like, and this is what the piece is about.
+        if (package.Words?.WorkingBrief is { } workingBrief)
+        {
+            payload["briefTheCreatorIsWorkingFrom"] = workingBrief;
         }
 
         if (package.Channels.Count > 0)
@@ -130,6 +148,13 @@ public static class CreativeContextPromptRenderer
         if (package.Recipes.Count > 0)
         {
             payload["recipes"] = package.Recipes.Select(Recipe).ToArray();
+        }
+        else if (CreativeContextPackageSelection.IsLongForm(package.TaskType))
+        {
+            // Said outright to the one kind of task that would otherwise write recipe facts regardless (LF.1.4).
+            // A statement of what is here, like the fixed sentence for an undescribed picture; what a writer
+            // must do about it is its template's to say.
+            payload["recipeFacts"] = CreativeContextPackage.NoRecipeFacts;
         }
 
         if (package.Concepts.Count > 0)
@@ -309,6 +334,88 @@ public static class CreativeContextPromptRenderer
         if (recipe.OmittedStepCount > 0)
         {
             rendered["stepsNotShown"] = recipe.OmittedStepCount;
+        }
+
+        if (recipe.Editorial is { } editorial)
+        {
+            rendered["acceptedEditorialCopy"] = Editorial(editorial);
+        }
+
+        if (recipe.Seo is { } seo)
+        {
+            // Phrases and nothing about them: no volume, no rank, no score. None is known (ai.md).
+            rendered["acceptedKeyPhrases"] = seo.KeyPhrases;
+
+            if (seo.OmittedKeyPhraseCount > 0)
+            {
+                rendered["keyPhrasesNotShown"] = seo.OmittedKeyPhraseCount;
+            }
+        }
+
+        return rendered;
+    }
+
+    /// <summary>
+    /// Editorial copy already accepted for a recipe, with whose it is and which parts are here (LF.1.4).
+    /// </summary>
+    /// <remarks>
+    /// The list of parts is stated rather than left to be read off which keys are present: it is what tells a
+    /// long-form writer which material already exists, and a key that is merely absent says that less plainly
+    /// than a list that leaves it out.
+    /// </remarks>
+    private static Dictionary<string, object?> Editorial(CreativeContextEditorialEntry editorial)
+    {
+        var rendered = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["writtenBy"] = EditorialAuthor,
+            ["partsCarried"] = editorial.SectionsCarried,
+        };
+
+        if (editorial.Headnote is { } headnote)
+        {
+            rendered["headnote"] = headnote;
+        }
+
+        if (editorial.Introduction is { } introduction)
+        {
+            rendered["introduction"] = introduction;
+        }
+
+        if (editorial.Tips.Count > 0)
+        {
+            rendered["tips"] = editorial.Tips;
+        }
+
+        if (editorial.Substitutions.Count > 0)
+        {
+            rendered["substitutions"] = editorial.Substitutions
+                .Select(item => new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["suggestion"] = item.Suggestion,
+                    ["culinaryNote"] = item.CulinaryNote,
+                })
+                .ToArray();
+        }
+
+        if (editorial.StorageReheating is { } storage)
+        {
+            rendered["storageReheating"] = storage;
+        }
+
+        if (editorial.Faq.Count > 0)
+        {
+            rendered["faq"] = editorial.Faq
+                .Select(item => new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["question"] = item.Question,
+                    ["answer"] = item.Answer,
+                })
+                .ToArray();
+        }
+
+        if (editorial.Cta is { } cta)
+        {
+            rendered["cta"] = cta;
         }
 
         return rendered;

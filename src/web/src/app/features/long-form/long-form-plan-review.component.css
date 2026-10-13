@@ -1,0 +1,7 @@
+/* The column of sections, a form's own distance apart. Everything in it is the library's. */
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
+}

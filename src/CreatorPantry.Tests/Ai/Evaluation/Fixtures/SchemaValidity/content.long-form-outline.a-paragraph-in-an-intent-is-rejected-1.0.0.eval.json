@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-outline.a-paragraph-in-an-intent-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "A body smuggled into an intent line. An intent is at most 200 characters; a paragraph written there is refused, not truncated.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Hook\", \"heading\": \"The loaf for people who do not bake\", \"intent\": \"There is a loaf you can make before the oven has finished heating, and it asks almost nothing of you: no yeast, no kneading, no waiting. You stir, you shape, you bake, and forty-five minutes later the kitchen smells like a bakery and you have bread.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_outline_intent_invalid",
+    "category": "DomainInvalid"
+  }
+}

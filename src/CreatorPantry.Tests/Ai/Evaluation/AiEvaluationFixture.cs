@@ -247,6 +247,38 @@ public enum AiEvaluationKind
     /// told about the picture is gone. See <see cref="PictureGroundingCase"/>.
     /// </remarks>
     PictureGrounding,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiLongFormOutlineOutputValidator.Validate"/> for
+    /// LF.2.1's section plan, and then — for a plan that validates — the same claim scanning the handler runs
+    /// before it stores anything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two stages in one kind for the reason <see cref="ChannelPostsOutputValidation"/> gives: a role outside
+    /// the vocabulary, a body smuggled into an intent and a wrong item count are <em>refused</em>, while a
+    /// safety claim or a search metric in a heading is <em>flagged</em> beside its section and never refused.
+    /// </para>
+    /// <para>
+    /// The role rules are the content module's real ones, reached through its real facade, so a fixture here
+    /// fails if those rules and this capability's reading of them ever part company. What it cannot show is
+    /// whether a plan is a good one for the piece it was given.
+    /// </para>
+    /// </remarks>
+    LongFormOutlineOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiLongFormSectionOutputValidator.Validate"/> for
+    /// LF.3.1's one section body, and then — for a body that validates — the same measuring and claim scanning
+    /// the handler runs before it stores anything.
+    /// </summary>
+    /// <remarks>
+    /// Refused and flagged are different outcomes here as they are for a plan: a second section, a heading line
+    /// or a link is refused; a recomputed figure, a safety claim or a body over the ceiling is stored whole with
+    /// a finding beside it. What it cannot show is whether a body is well written. See
+    /// <see cref="LongFormSectionOutputValidationCase"/>.
+    /// </remarks>
+    LongFormSectionOutputValidation,
 }
 
 /// <summary>

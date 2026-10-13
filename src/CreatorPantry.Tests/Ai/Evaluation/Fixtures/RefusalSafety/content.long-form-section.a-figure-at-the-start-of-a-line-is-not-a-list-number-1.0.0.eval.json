@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.a-figure-at-the-start-of-a-line-is-not-a-list-number",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Only the numbers of a numbered list are kept from the figure check. A line that merely opens with a figure is read like any other.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Heat the oven first.\\n375) is the temperature I use.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "MethodNarrative",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

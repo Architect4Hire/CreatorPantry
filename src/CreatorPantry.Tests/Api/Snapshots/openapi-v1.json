@@ -9885,6 +9885,2479 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts": {
+      "get": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Lists the workspace\u0027s long-form drafts, most recently updated first.",
+        "description": "Every member including a Viewer. Each row names a draft, what kind it is, where it stands and the\nnumber of its latest revision \u2014 and no word of any plan.\n\nRead until \u0060nextCursor\u0060 is null. A cursor is bound to this workspace and to the filters it was issued\nunder: one from another workspace, or replayed with a different \u0060kind\u0060 or \u0060creativeContextId\u0060, answers\n\u0060400 content.long_form.cursor.invalid\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "name": "Kind",
+            "in": "query",
+            "description": "Only drafts of this kind.",
+            "schema": {
+              "$ref": "#/components/schemas/LongFormKind"
+            }
+          },
+          {
+            "name": "CreativeContextId",
+            "in": "query",
+            "description": "Only drafts written for this creative context.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraftSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraftSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraftSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Starts a long-form draft for one piece of creative work and asks for its outline.",
+        "description": "Contributor or above, the bar for spending the workspace\u0027s allowance. \u0060202\u0060 rather than \u0060201\u0060: the draft\nexists, but its plan does not yet \u2014 the model is called by the worker afterwards, so the API does not\nstay open around provider work (api-contract.md). The \u0060Location\u0060 header is the draft; poll\n\u0060outline-requests/{request.aiProposalRequestId}\u0060 under it for the plan.\n\n**The key names the request.** The same key with the same piece of work, kind, length and wanted\nsections is a retry and returns the same draft; the same key with any of those changed answers\n\u0060422 idempotency.key_reused\u0060.\n\n**An exhausted allowance is refused here, before any provider is called and before any draft is made**:\n\u0060429 ai.quota.exhausted\u0060 carrying what remains and a \u0060Retry-After\u0060, or \u0060403 ai.quota.suspended\u0060 when AI\nis switched off for the account.\n\nA piece of work this workspace does not have answers \u0060422 content.long_form.context.unprocessable\u0060 \u2014\nthe same answer, in the same words, that another workspace\u0027s context gets. A wanted section this kind\nof piece does not have, or one asked for more often than it may appear, is a \u0060400\u0060.\n\n**What comes back is a plan to review.** The outline lands as the draft\u0027s first revision and the draft\nstays \u0060Draft\u0060 until a creator approves it. No prose is written by this request.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Planning a piece spends the account\u0027s allowance, so a repeat of the same key and the same\nrequest returns the original draft with \u0060Idempotent-Replayed: true\u0060 rather than starting a second.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartLongFormDraft"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartLongFormDraft"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/StartLongFormDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedLongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedLongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedLongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}": {
+      "get": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Reads one long-form draft with its latest plan.",
+        "description": "Every member including a Viewer. \u0060latest\u0060 is null until an outline has landed. \u0060planCheck\u0060 says whether\nthe latest plan could be approved as it stands and, if not, which sections stand in the way \u2014 a plan\nmay be saved before it is ready. \u0060concurrencyToken\u0060 is what the next write must send back.\n\nAn unknown draft and another workspace\u0027s draft both answer \u0060404 content.long_form.draft.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to read.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/outline-requests": {
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Asks for another outline for a draft that already exists.",
+        "description": "Contributor or above. For a draft whose outline failed or was cancelled, or whose plan the creator\nwants proposed afresh. The new outline lands as the draft\u0027s next revision \u2014 earlier revisions are kept \u2014\nand an approved plan goes back to \u0060Draft\u0060, because the new plan is one nobody has approved.\n\nOnce a draft\u0027s sections are being written its plan is closed:\n\u0060409 content.long_form.plan.locked.conflict\u0060. The allowance, key and wanted-section rules are those of\nthe route that starts a draft.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to plan again.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required, for the reason given on the route that starts a draft.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormOutline"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormOutline"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormOutline"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedLongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedLongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartedLongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/outline-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Where an outline request has got to, and the draft as it stands.",
+        "description": "Every member including a Viewer, and this route writes nothing: the plan becomes a revision in the\nworker, straight after the proposal commits, so a poll is never what stores a creator\u0027s content.\n\nA cancelled or failed run answers \u0060200\u0060 with the request\u0027s status and \u0060failureCategory\u0060 \u2014 \u0060Cancelled\u0060\nwhen the run was cancelled \u2014 rather than an error: the request was accepted, and what became of it is\nthe answer. The draft then still has whatever plan it had before, or none.\n\nAn unknown request, another workspace\u0027s, one that ran a different task and one made for a different\ndraft all answer \u0060404 content.long_form.outline_request.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft the request was made for.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The request\u0027s id, as the route that made it returned.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormOutlineRequestStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormOutlineRequestStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormOutlineRequestStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/plan": {
+      "patch": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Saves the creator\u0027s own plan as a new revision of the draft.",
+        "description": "Contributor or above. Send every section in the order the piece should read: a section left out is\nremoved, one without an \u0060id\u0060 is added, and one with an \u0060id\u0060 keeps it. Nothing is edited in place \u2014 the\nplan before this one is still the revision it was.\n\n**Saving is not approving.** A plan that is not yet valid \u2014 a heading still blank, a role used twice\nwhile sections are rearranged \u2014 is saved, and \u0060planCheck\u0060 on the response says what stands in the way.\nWhat is refused here is only what could not be kept: \u0060400 content.long_form.plan.invalid\u0060 for a role\nthat is not a role, an \u0060id\u0060 that is not a section of this plan, a \u0060sourceReferenceId\u0060 on a section\nthat is not an item or that names a recipe this plan was not written for, or a different\n\u0060sourceReferenceId\u0060 on an item the plan already has.\n\n**A newsletter item is the recipe it covers.** An item already in the plan keeps its \u0060sourceReferenceId\u0060.\nLeaving an item out takes its recipe out of the issue: the new revision no longer covers it, and the\nrevision before is unchanged.\n\nChanging an approved plan returns the draft to \u0060Draft\u0060, so the changed plan must be approved again.\nSaving the plan exactly as it stands changes nothing and creates no revision.\n\n\u0060expectedConcurrencyToken\u0060 is required and a stale one is \u0060409 content.long_form.draft.stale.conflict\u0060.\nA draft with no plan yet is \u0060409 content.long_form.plan.not_started.conflict\u0060; one whose sections are\nbeing written is \u0060409 content.long_form.plan.locked.conflict\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft whose plan to change.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchLongFormPlan"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchLongFormPlan"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchLongFormPlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/plan/approval": {
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Approves the draft\u0027s latest plan, so its sections may be written.",
+        "description": "Contributor or above. The draft moves from \u0060Draft\u0060 to \u0060Outlined\u0060. Nothing is written, generated or\nspent by approving.\n\n**The approval names the revision that was read.** If the plan has been edited since, the revision is\nno longer the latest and the answer is \u0060409 content.long_form.draft.stale.conflict\u0060.\n\n**Approving twice is one approval.** A repeat for the revision that is already approved returns the\ndraft as it stands, whatever token it carries, and records nothing.\n\nA plan that does not meet the long-form shape rules answers \u0060422 content.long_form.plan.unprocessable\u0060\nwith one error for each failing section, keyed \u0060sections[n]\u0060 by its position in the plan. For a\nnewsletter issue those rules include one item for each recipe the plan was written for, each naming a\ndifferent one; a recipe with no item is reported against \u0060sections\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft whose plan to approve.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveLongFormPlan"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveLongFormPlan"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveLongFormPlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/items/order": {
+      "put": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Puts a newsletter issue\u0027s items in a new order, named by the recipe each covers.",
+        "description": "Contributor or above. The items change places among themselves; every other section stays where it is,\nand each item moves whole, with its heading, text and settled mark. Saved as a new revision. No text\nchanges, so this works while the plan is open and while the issue is being written, and it leaves the\ndraft\u0027s status as it was. The order already in force changes nothing and creates no revision.\n\n\u0060400 content.long_form.item_order.invalid\u0060 unless the list names each of the issue\u0027s items exactly once.\n\u0060409 content.long_form.draft.not_an_issue.conflict\u0060 for a piece that is not a newsletter issue;\n\u0060409\u0060 also for a stale \u0060expectedConcurrencyToken\u0060, a draft with no plan yet, and an accepted draft.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The issue whose items to order.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLongFormItems"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLongFormItems"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLongFormItems"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/framing": {
+      "put": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Saves a newsletter issue\u0027s subject line and the creator\u0027s note.",
+        "description": "Contributor or above. Both are the creator\u0027s own words: nothing generates either, and neither is sent\nanywhere by saving it. Send both each time \u2014 a blank or omitted one is cleared. Saved as a new revision,\nwhich leaves the plan and its approval as they were; the same framing again changes nothing.\n\nThe subject is one line of at most 150 characters and the note at most 600; neither counts towards the\nissue\u0027s length. Outside that is \u0060400 content.long_form.framing.invalid\u0060.\n\u0060409 content.long_form.draft.not_an_issue.conflict\u0060 for a piece that is not a newsletter issue; \u0060409\u0060\nalso for a stale \u0060expectedConcurrencyToken\u0060, a draft with no plan yet, and an accepted draft.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The issue to frame.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLongFormFraming"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLongFormFraming"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLongFormFraming"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/sections": {
+      "get": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "The draft\u0027s sections with their text, and where the writing of each stands.",
+        "description": "Each section carries its own text, whether it is settled, how long it is and whether that is over the\nsection ceiling. \u0060requests\u0060 holds the latest writing request for each section that has one, with an\n\u0060outcome\u0060: \u0060Waiting\u0060, \u0060Written\u0060, \u0060Superseded\u0060 (it finished, and its text is not the section\u0027s text now)\nor \u0060Failed\u0060. A read only: nothing is written or spent by asking.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "The draft\u0027s sections with their text, and where the writing of each stands.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft\u0027s sections with their text, and where the writing of each stands.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionsStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionsStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionsStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/sections/{sectionId}/writing-requests": {
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Asks for one section to be written, or written again.",
+        "description": "Requires an \u0060Idempotency-Key\u0060. The same key for a different section, revision or instruction is refused\nwith \u0060422\u0060. The section is written only if its text has not changed since \u0060revisionNumber\u0060; other\nsections changing does not matter. \u0060409\u0060 when the draft is not approved or is finished, when the section\nis settled, or when its text has changed. The first request closes the draft\u0027s plan. Writing a section\nnever changes another.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Asks for one section to be written, or written again.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "Asks for one section to be written, or written again.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sectionId",
+            "in": "path",
+            "description": "Asks for one section to be written, or written again.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Asks for one section to be written, or written again.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSection"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSection"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionRequested"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionRequested"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionRequested"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/section-writing-batches": {
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Asks for every section not yet written to be written, one request to a section.",
+        "description": "Requires an \u0060Idempotency-Key\u0060. Queues, in plan order, each section that has no text, is not settled and\nis not already being written. All or none: when the AI allowance cannot cover every one of them the\nanswer is \u0060429\u0060 with \u0060sectionsRequested\u0060 and \u0060sectionsCoverable\u0060, and nothing is queued. \u0060requests\u0060 is\nempty when there was nothing to write. Each section\u0027s run still holds its own allowance when it starts.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Asks for every section not yet written to be written, one request to a section.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "Asks for every section not yet written to be written, one request to a section.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Asks for every section not yet written to be written, one request to a section.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSectionBatch"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSectionBatch"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSectionBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionBatch"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionBatch"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSectionBatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/sections/{sectionId}": {
+      "patch": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Saves the creator\u0027s own text for one section, as a new revision of the draft.",
+        "description": "Every other section is carried over unchanged. Blank text makes the section not yet written again. Text\nover the section ceiling is saved and reported as over it, never refused or trimmed. An edit clears the\nsection\u0027s settled mark and closes the draft\u0027s plan. \u0060409\u0060 when \u0060expectedConcurrencyToken\u0060 is not the\ndraft\u0027s, or the draft is not approved or is finished.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Saves the creator\u0027s own text for one section, as a new revision of the draft.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "Saves the creator\u0027s own text for one section, as a new revision of the draft.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sectionId",
+            "in": "path",
+            "description": "Saves the creator\u0027s own text for one section, as a new revision of the draft.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditLongFormSection"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditLongFormSection"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/EditLongFormSection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSections"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSections"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSections"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/sections/{sectionId}/settlement": {
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Marks one section as settled, or clears the mark.",
+        "description": "Settled says the creator is content with a section\u0027s text for now. It is reversible, changes no text,\nand is not acceptance \u2014 that is of the whole document. A settled section is left alone by \u0022write the\nrest\u0022 and refuses to be written again until the mark is cleared. \u0060409\u0060 for a section with no text.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Marks one section as settled, or clears the mark.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "Marks one section as settled, or clears the mark.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sectionId",
+            "in": "path",
+            "description": "Marks one section as settled, or clears the mark.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleLongFormSection"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleLongFormSection"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleLongFormSection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSections"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSections"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormSections"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/document": {
+      "get": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "The draft read whole: the document a creator would be accepting, and what is true of it.",
+        "description": "\u0060document.markdown\u0060 is every written section in plan order under the creator\u0027s own headings; the same\nrevision always gives the same text, and an unwritten section is left out of it. \u0060document.sections\u0060\nlists every section of the plan, written or not, with its own text and length. \u0060document.needsConfirmation\u0060\nis what an acceptance would have to confirm. \u0060warnings\u0060 are what was found about each generated section\nas it reads now \u2014 \u0060code\u0060 is the server\u0027s finding, and \u0060fromModel\u0060 marks a caution the model raised about\nits own work. \u0060requests\u0060 is the latest writing request for each section. A read only.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "The draft read whole: the document a creator would be accepting, and what is true of it.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft read whole: the document a creator would be accepting, and what is true of it.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDocumentReview"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDocumentReview"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormDocumentReview"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/acceptance": {
+      "post": {
+        "tags": [
+          "LongFormDrafts"
+        ],
+        "summary": "Accepts the draft\u0027s latest revision as the article of record.",
+        "description": "Acceptance is of the whole document. It writes no new revision, and accepting the revision already\naccepted returns the same answer and records nothing more. A document with an unwritten section or text\nover a ceiling is accepted only when \u0060confirmed\u0060 lists exactly the issues it has; otherwise the answer is \u0060422\u0060\nwith an \u0060issues\u0060 extension naming each issue and its sections, and nothing is accepted. \u0060422\u0060 also when\nno section has any text. \u0060409\u0060 when \u0060expectedConcurrencyToken\u0060 or \u0060revisionNumber\u0060 is not the draft\u0027s\nlatest, or the draft is not being written. Nothing here publishes, schedules or exports.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Accepts the draft\u0027s latest revision as the article of record.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "Accepts the draft\u0027s latest revision as the article of record.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptLongFormDocument"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptLongFormDocument"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptLongFormDocument"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormAssembledDocument"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormAssembledDocument"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LongFormAssembledDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/exports/markdown": {
+      "get": {
+        "tags": [
+          "LongFormExports"
+        ],
+        "summary": "Renders an accepted long-form draft as a Markdown file.",
+        "description": "Read-only (LFC-007): a projection of the revision the creator accepted, never a stored document, and\nthe same accepted revision always gives the same bytes. There is nothing to choose and so no query\nparameter: the document is the accepted revision\u0027s \u2014 a title when the piece has one, an issue\u0027s note,\nthe written sections in plan order under the creator\u0027s own headings, and an attribution naming the\nrevision and the recipe versions it was written from. The title, headings and recipe titles are each\nescaped to one inert line; a section\u0027s text is the creator\u0027s own Markdown and is written as it stands.\n\nThe body is the Markdown and nothing else, with \u0060Content-Type: text/markdown; charset=utf-8\u0060, offered\nas a download: \u0060Content-Disposition: attachment\u0060 with a deterministic ASCII name \u2014 the title as a slug\n(or \u0060article\u0060 / \u0060newsletter\u0060 when there is none) plus \u0060-r{revision}.md\u0060 \u2014 that carries no id, workspace\nor path.\n\nOnly an accepted draft is exported, and there is no override: any other answers\n\u0060409 content.long_form.export.not_accepted.conflict\u0060. A draft accepted and since marked for review is\nstill its creator\u0027s accepted article and is exported as it was accepted, with\n\u0060content.long_form.export.sources_moved\u0060 in \u0060Cp-Export-Warnings\u0060 \u2014 a comma-separated list of stable\ncodes, absent when there is nothing to report, which may also carry\n\u0060content.long_form.export.sections_unwritten\u0060 and \u0060content.long_form.export.recipe_unavailable\u0060. An\naccepted revision with no written section answers\n\u0060422 content.long_form.export.nothing_written.unprocessable\u0060.\n\nThe response is private and must be revalidated: \u0060ETag\u0060 and \u0060If-None-Match\u0060 are supported and a match\nanswers 304. A refusal is never stored.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to export. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown draft and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/exports/html": {
+      "get": {
+        "tags": [
+          "LongFormExports"
+        ],
+        "summary": "Renders an accepted long-form draft as an HTML file.",
+        "description": "The same document as the Markdown export, with the same rules for what is exported, the same warnings\nand the same refusals, as one complete unstyled HTML page. Every creator string is escaped; HTML a\ncreator typed into their Markdown is written as its text and never as markup; a link is kept only when\nit is \u0060http\u0060, \u0060https\u0060 or \u0060mailto\u0060, and a picture only when it is \u0060http\u0060 or \u0060https\u0060. Nothing is fetched\nand no bytes are embedded.\n\nThe body is the page and nothing else, with \u0060Content-Type: text/html; charset=utf-8\u0060, and is always a\ndownload, never shown in place: \u0060Content-Disposition: attachment\u0060 with the same name as the Markdown\nexport ending \u0060.html\u0060. Like every response from this API it carries the edge\u0027s\n\u0060Content-Security-Policy: default-src \u0027none\u0027; \u2026\u0060, so a browser that renders it from this origin\nregardless runs, loads and submits nothing.\n\nThe response is private and must be revalidated: \u0060ETag\u0060 and \u0060If-None-Match\u0060 are supported and a match\nanswers 304. A refusal is never stored.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to export. Constrained to a Guid, so a malformed id answers 404 at routing \u2014 the same status\nas an unknown draft and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/seo-package-requests": {
+      "post": {
+        "tags": [
+          "LongFormSeoPackageRequests"
+        ],
+        "summary": "Asks for an SEO package written about an accepted long-form draft.",
+        "description": "Queued, not run: \u0060202\u0060 with the request to follow. The package is written against the article\u0027s own\ntext \u2014 its title, an issue\u0027s note and the written sections \u2014 and is a set of recommendations for the\ncreator to read and use as they see fit. Nothing is applied to the piece, and nothing is published.\n\n\u0060sections\u0060 names any of \u0060seoTitle\u0060, \u0060metaDescription\u0060, \u0060keyPhrases\u0060, \u0060slug\u0060 and \u0060internalLinks\u0060; omitted\nor empty means all five. There is no \u0060altText\u0060 for an article \u2014 it carries no image the package has\nbeen given a fact about \u2014 and naming it, an unknown section, the same section twice or the slug alone\nanswers \u0060400 ai.seoPackage.invalid_request\u0060. The slug is derived from the proposed title by rule, never\nwritten by a model. An internal-link idea names one of the workspace\u0027s approved recipes.\n\nOnly an accepted piece is written about: any other, including one accepted and since marked for review,\nanswers \u0060409 ai.seoPackage.longFormDraft.not_accepted.conflict\u0060. \u0060revisionNumber\u0060 must be the accepted\nrevision; another answers \u0060400 ai.seoPackageLongFormRevision.invalid_request\u0060. An unknown draft answers\n\u0060404 ai.seoPackage.longFormDraft.not_found\u0060. A deployment with the task switched off answers\n\u0060400 ai.seoPackage.not_enabled\u0060, and an account that cannot pay for it is refused before anything is\nqueued.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft to write about. Another workspace\u0027s is simply not there.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required: a retried request returns the first answer and spends nothing more.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSeoPackage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSeoPackage"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLongFormSeoPackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/long-form-drafts/{draftId}/seo-package-requests/{requestId}": {
+      "get": {
+        "tags": [
+          "LongFormSeoPackageRequests"
+        ],
+        "summary": "Reads one SEO package request for a long-form draft, with its package once there is one.",
+        "description": "Every member including a Viewer. One \u0060404 ai.seoPackageRequest.not_found\u0060 for a request that does not\nexist, is another workspace\u0027s, is about another draft or a recipe, or ran a different task.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "draftId",
+            "in": "path",
+            "description": "The draft the request was made for.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "description": "The request, as the \u0060202\u0060 named it.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -18503,6 +20976,37 @@
           }
         }
       },
+      "AcceptLongFormDocument": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this acceptance was composed against."
+          },
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The revision being accepted. It must be the draft\u0027s latest.",
+            "format": "int32"
+          },
+          "confirmed": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LongFormAcceptanceIssue"
+            },
+            "description": "What the creator has been shown is wrong with the document and accepts anyway: exactly the issues the document has, no fewer and no more. Omit it, or send an empty list, for a document with nothing wrong."
+          }
+        }
+      },
       "AccountAiUsage": {
         "required": [
           "period",
@@ -18950,7 +21454,10 @@
           "ImagePrompt",
           "ReferenceImageAnalysis",
           "DishFacetSuggestion",
-          "ChannelPost"
+          "ChannelPost",
+          "LongFormSectionPlan",
+          "LongFormRecipePin",
+          "LongFormSectionBody"
         ],
         "type": "string"
       },
@@ -19588,7 +22095,9 @@
           "BrandStyleTestDrive",
           "ReferenceImageAnalysis",
           "DishFacetSuggestion",
-          "ChannelPosts"
+          "ChannelPosts",
+          "LongFormOutline",
+          "LongFormSection"
         ],
         "type": "string"
       },
@@ -19622,6 +22131,27 @@
               "string"
             ],
             "description": "Why this version is being approved, in the caller\u0027s own words. Stored on the approval."
+          }
+        }
+      },
+      "ApproveLongFormPlan": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this approval was composed against."
+          },
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The revision being approved. It must be the draft\u0027s latest.",
+            "format": "int32"
           }
         }
       },
@@ -19831,6 +22361,7 @@
           "defaultAudience",
           "locale",
           "timeZoneId",
+          "defaultPictureCount",
           "channelDefaults",
           "links",
           "assets",
@@ -19871,6 +22402,15 @@
               "null",
               "string"
             ]
+          },
+          "defaultPictureCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "channelDefaults": {
             "type": "array",
@@ -22731,6 +25271,15 @@
               "string"
             ]
           },
+          "defaultPictureCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
           "channelDefaults": {
             "type": [
               "null",
@@ -23922,6 +26471,25 @@
           }
         }
       },
+      "EditLongFormSection": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this edit was composed against."
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The section\u0027s text, as Markdown. Blank makes the section not yet written again."
+          }
+        }
+      },
       "EmailConfirmation": {
         "required": [
           "status"
@@ -24578,6 +27146,1066 @@
             "description": "Anything else worth recording about this use. Optional."
           }
         }
+      },
+      "LongFormAcceptanceIssue": {
+        "enum": [
+          "UnwrittenSections",
+          "OverCeiling"
+        ],
+        "type": "string"
+      },
+      "LongFormAcceptanceIssueDetail": {
+        "required": [
+          "issue",
+          "sectionIds"
+        ],
+        "type": "object",
+        "properties": {
+          "issue": {
+            "$ref": "#/components/schemas/LongFormAcceptanceIssue"
+          },
+          "sectionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "LongFormAssembledDocument": {
+        "required": [
+          "draftId",
+          "creativeContextId",
+          "kind",
+          "status",
+          "revisionNumber",
+          "concurrencyToken",
+          "markdown",
+          "wordCount",
+          "characterCount",
+          "targetWords",
+          "wordTarget",
+          "sectionMaxCharacters",
+          "documentMaxCharacters",
+          "documentOverCeiling",
+          "sections",
+          "needsConfirmation",
+          "acceptedRevisionNumber",
+          "acceptedAt",
+          "framing",
+          "unresolvedItems",
+          "staleReasons",
+          "staleSince"
+        ],
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LongFormKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LongFormDraftStatus"
+          },
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "wordCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "characterCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "targetWords": {
+            "$ref": "#/components/schemas/LongFormWordRange"
+          },
+          "wordTarget": {
+            "$ref": "#/components/schemas/LongFormWordTargetStatus"
+          },
+          "sectionMaxCharacters": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "documentMaxCharacters": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "documentOverCeiling": {
+            "type": "boolean"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormAssembledSection"
+            }
+          },
+          "needsConfirmation": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormAcceptanceIssueDetail"
+            }
+          },
+          "acceptedRevisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "acceptedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "framing": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormFraming"
+              }
+            ]
+          },
+          "unresolvedItems": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "staleReasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentStaleReasons"
+            }
+          },
+          "staleSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "LongFormAssembledSection": {
+        "required": [
+          "id",
+          "role",
+          "heading",
+          "intent",
+          "body",
+          "isWritten",
+          "settled",
+          "characterCount",
+          "overCeiling",
+          "writtenBy",
+          "aiProposalId",
+          "reusedEditorialParts",
+          "findings",
+          "sourceReferenceId",
+          "sourceState"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/LongFormSectionRole"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isWritten": {
+            "type": "boolean"
+          },
+          "settled": {
+            "type": "boolean"
+          },
+          "characterCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "overCeiling": {
+            "type": "boolean"
+          },
+          "writtenBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentRevisionSource"
+              }
+            ]
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "reusedEditorialParts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionFinding"
+            }
+          },
+          "sourceReferenceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceState": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormItemSourceState"
+              }
+            ]
+          }
+        }
+      },
+      "LongFormDocumentReview": {
+        "required": [
+          "document",
+          "warnings",
+          "requests"
+        ],
+        "type": "object",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/LongFormAssembledDocument"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionWarning"
+            }
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionRequestSummary"
+            }
+          }
+        }
+      },
+      "LongFormDraft": {
+        "required": [
+          "id",
+          "creativeContextId",
+          "kind",
+          "status",
+          "concurrencyToken",
+          "createdAt",
+          "updatedAt",
+          "latest",
+          "planCheck",
+          "framing",
+          "unresolvedItems"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LongFormKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LongFormDraftStatus"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormRevision"
+              }
+            ]
+          },
+          "planCheck": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormPlanCheck"
+              }
+            ]
+          },
+          "framing": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormFraming"
+              }
+            ]
+          },
+          "unresolvedItems": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "LongFormDraftStatus": {
+        "enum": [
+          "Draft",
+          "Outlined",
+          "Writing",
+          "Assembled",
+          "Accepted",
+          "NeedsReview"
+        ],
+        "type": "string"
+      },
+      "LongFormDraftSummary": {
+        "required": [
+          "id",
+          "creativeContextId",
+          "kind",
+          "status",
+          "latestRevisionNumber",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LongFormKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LongFormDraftStatus"
+          },
+          "latestRevisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LongFormDraftSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormDraftSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LongFormFindingKind": {
+        "enum": [
+          "UnverifiedClaim",
+          "SafetyCaution",
+          "Limitation"
+        ],
+        "type": "string"
+      },
+      "LongFormFraming": {
+        "required": [
+          "subject",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LongFormItemSourceState": {
+        "enum": [
+          "Resolved",
+          "Unresolved"
+        ],
+        "type": "string"
+      },
+      "LongFormKind": {
+        "enum": [
+          "BlogArticle",
+          "NewsletterIssue"
+        ],
+        "type": "string"
+      },
+      "LongFormOutlineRequestStatus": {
+        "required": [
+          "request",
+          "draft"
+        ],
+        "type": "object",
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/AiProposalStatus"
+          },
+          "draft": {
+            "$ref": "#/components/schemas/LongFormDraft"
+          }
+        }
+      },
+      "LongFormPlanCheck": {
+        "required": [
+          "isValid",
+          "policyVersion",
+          "findings"
+        ],
+        "type": "object",
+        "properties": {
+          "isValid": {
+            "type": "boolean"
+          },
+          "policyVersion": {
+            "type": "string"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormPlanCheckFinding"
+            }
+          }
+        }
+      },
+      "LongFormPlanCheckFinding": {
+        "required": [
+          "code",
+          "sectionId"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "LongFormPlannedSection": {
+        "required": [
+          "id",
+          "role",
+          "heading",
+          "intent",
+          "isWritten",
+          "settled",
+          "sourceReferenceId",
+          "sourceState"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/LongFormSectionRole"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "isWritten": {
+            "type": "boolean"
+          },
+          "settled": {
+            "type": "boolean"
+          },
+          "sourceReferenceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceState": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormItemSourceState"
+              }
+            ]
+          }
+        }
+      },
+      "LongFormPlanSectionInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The section\u0027s id when it is one the plan already has. Omit it for a section being added.",
+            "format": "uuid"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "What the section is for, from the roles this kind of piece allows.",
+                "$ref": "#/components/schemas/LongFormSectionRole"
+              }
+            ]
+          },
+          "heading": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The heading a reader would see, on one line."
+          },
+          "intent": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "One line saying what the section will cover."
+          },
+          "sourceReferenceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "For a newsletter item, the creative-context reference of the recipe it covers, which an item already in the plan keeps. Omit it for every other section.",
+            "format": "uuid"
+          }
+        }
+      },
+      "LongFormRevision": {
+        "required": [
+          "revisionNumber",
+          "source",
+          "createdAt",
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContentRevisionSource"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormPlannedSection"
+            }
+          }
+        }
+      },
+      "LongFormSectionBatch": {
+        "required": [
+          "draft",
+          "requests"
+        ],
+        "type": "object",
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/LongFormSections"
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionWritingRequest"
+            }
+          }
+        }
+      },
+      "LongFormSectionFinding": {
+        "required": [
+          "code",
+          "kind",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LongFormFindingKind"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "LongFormSectionRequested": {
+        "required": [
+          "draft",
+          "request"
+        ],
+        "type": "object",
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/LongFormSections"
+          },
+          "request": {
+            "$ref": "#/components/schemas/LongFormSectionWritingRequest"
+          }
+        }
+      },
+      "LongFormSectionRequestOutcome": {
+        "enum": [
+          "Waiting",
+          "Written",
+          "Superseded",
+          "Failed"
+        ],
+        "type": "string"
+      },
+      "LongFormSectionRequestSummary": {
+        "required": [
+          "sectionId",
+          "requestId",
+          "status",
+          "failureCategory",
+          "outcome",
+          "requestedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "sectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AiOperationStatus"
+          },
+          "failureCategory": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiFailureCategory"
+              }
+            ]
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/LongFormSectionRequestOutcome"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LongFormSectionRole": {
+        "enum": [
+          "Hook",
+          "Context",
+          "WhyItWorks",
+          "IngredientNotes",
+          "MethodNarrative",
+          "Tips",
+          "Variations",
+          "Storage",
+          "Faq",
+          "Cta",
+          "Closing",
+          "Body",
+          "Greeting",
+          "Lead",
+          "Item",
+          "Aside",
+          "Signoff"
+        ],
+        "type": "string"
+      },
+      "LongFormSections": {
+        "required": [
+          "draftId",
+          "creativeContextId",
+          "kind",
+          "status",
+          "revisionNumber",
+          "concurrencyToken",
+          "sectionMaxCharacters",
+          "sections"
+        ],
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/LongFormKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LongFormDraftStatus"
+          },
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          },
+          "sectionMaxCharacters": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionState"
+            }
+          }
+        }
+      },
+      "LongFormSectionsStatus": {
+        "required": [
+          "draft",
+          "requests"
+        ],
+        "type": "object",
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/LongFormSections"
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionRequestSummary"
+            }
+          }
+        }
+      },
+      "LongFormSectionState": {
+        "required": [
+          "id",
+          "role",
+          "heading",
+          "intent",
+          "body",
+          "isWritten",
+          "settled",
+          "characterCount",
+          "overCeiling",
+          "writtenBy",
+          "aiProposalId",
+          "sourceReferenceId",
+          "sourceState"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/LongFormSectionRole"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isWritten": {
+            "type": "boolean"
+          },
+          "settled": {
+            "type": "boolean"
+          },
+          "characterCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "overCeiling": {
+            "type": "boolean"
+          },
+          "writtenBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentRevisionSource"
+              }
+            ]
+          },
+          "aiProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceReferenceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "sourceState": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LongFormItemSourceState"
+              }
+            ]
+          }
+        }
+      },
+      "LongFormSectionWarning": {
+        "required": [
+          "sectionId",
+          "kind",
+          "code",
+          "message",
+          "fromModel"
+        ],
+        "type": "object",
+        "properties": {
+          "sectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AiWarningKind"
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "fromModel": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LongFormSectionWritingRequest": {
+        "required": [
+          "sectionId",
+          "request"
+        ],
+        "type": "object",
+        "properties": {
+          "sectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AiProposalStatus"
+          }
+        }
+      },
+      "LongFormWordRange": {
+        "required": [
+          "min",
+          "max"
+        ],
+        "type": "object",
+        "properties": {
+          "min": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "max": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "LongFormWordTargetStatus": {
+        "enum": [
+          "NotAssessed",
+          "Within",
+          "Under",
+          "Over"
+        ],
+        "type": "string"
       },
       "MeasurementDimension": {
         "enum": [
@@ -25991,6 +29619,28 @@
           }
         }
       },
+      "PatchLongFormPlan": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this edit was composed against."
+          },
+          "sections": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LongFormPlanSectionInput"
+            },
+            "description": "Every section of the plan, in the order the piece should read. A section left out is removed."
+          }
+        }
+      },
       "ProblemDetails": {
         "required": [
           "code",
@@ -26341,6 +29991,32 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PutLongFormFraming": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this change was composed against."
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The issue\u0027s subject line, on one line. Blank or omitted clears it."
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The creator\u0027s short note to their readers, as Markdown. Blank or omitted clears it."
           }
         }
       },
@@ -28704,6 +32380,29 @@
           }
         }
       },
+      "ReorderLongFormItems": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this change was composed against."
+          },
+          "sourceReferenceIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The sourceReferenceId of every item in the issue, each once, in the order the items should read."
+          }
+        }
+      },
       "ReplaceAiFeatures": {
         "type": "object",
         "properties": {
@@ -29038,6 +32737,88 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RequestLongFormOutline": {
+        "type": "object",
+        "properties": {
+          "targetWords": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "How long the finished piece should be, in words. Omit it to use the usual length for this kind of piece.",
+            "format": "int32"
+          },
+          "wantedRoles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionRole"
+            },
+            "description": "Sections the plan must include, by role. Omit it to leave the plan to the outline."
+          }
+        }
+      },
+      "RequestLongFormSection": {
+        "type": "object",
+        "properties": {
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The draft revision this request was composed against. The section is written only if its text has not changed since.",
+            "format": "int32"
+          },
+          "instruction": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "What to change, in the creator\u0027s own words, when the section is being written again. Optional."
+          }
+        }
+      },
+      "RequestLongFormSectionBatch": {
+        "type": "object",
+        "properties": {
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The draft revision this request was composed against.",
+            "format": "int32"
+          }
+        }
+      },
+      "RequestLongFormSeoPackage": {
+        "type": "object",
+        "properties": {
+          "revisionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sections": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -29909,6 +33690,25 @@
         ],
         "type": "string"
       },
+      "SettleLongFormSection": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The concurrencyToken of the draft this change was composed against."
+          },
+          "settled": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "True to mark the section settled, false to clear the mark. Not an acceptance of the document."
+          }
+        }
+      },
       "SocialChannel": {
         "required": [
           "channelKey",
@@ -30213,6 +34013,62 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "StartedLongFormDraft": {
+        "required": [
+          "draft",
+          "request"
+        ],
+        "type": "object",
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/LongFormDraft"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AiProposalStatus"
+          }
+        }
+      },
+      "StartLongFormDraft": {
+        "type": "object",
+        "properties": {
+          "creativeContextId": {
+            "type": "string",
+            "description": "The creative context the piece is written for.",
+            "format": "uuid"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "What kind of piece it is.",
+                "$ref": "#/components/schemas/LongFormKind"
+              }
+            ]
+          },
+          "targetWords": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "How long the finished piece should be, in words. Omit it to use the usual length for this kind of piece.",
+            "format": "int32"
+          },
+          "wantedRoles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LongFormSectionRole"
+            },
+            "description": "Sections the plan must include, by role. Omit it to leave the plan to the outline."
           }
         }
       },
@@ -31120,6 +34976,15 @@
               "string"
             ]
           },
+          "defaultPictureCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
           "channelDefaults": {
             "type": [
               "null",
@@ -31988,6 +35853,15 @@
     },
     {
       "name": "IngredientTools"
+    },
+    {
+      "name": "LongFormDrafts"
+    },
+    {
+      "name": "LongFormExports"
+    },
+    {
+      "name": "LongFormSeoPackageRequests"
     },
     {
       "name": "Me"

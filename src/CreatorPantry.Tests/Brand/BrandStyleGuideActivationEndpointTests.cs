@@ -40,7 +40,7 @@ namespace CreatorPantry.Tests.Brand;
 /// refusal.
 /// </para>
 /// </remarks>
-public sealed class BrandStyleGuideActivationEndpointTests : IAsyncLifetime
+public sealed partial class BrandStyleGuideActivationEndpointTests : IAsyncLifetime
 {
     private static readonly DateTimeOffset Moment = new(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
 

@@ -241,7 +241,7 @@
     @if (briefEdited()) {
       <cp-notice role="note">
         You have edited the brief since choosing, so it no longer reads exactly like the choice above. It is shown,
-        and can be changed, at the top of the next step.
+        and can be changed, {{ briefWhere() }}.
       </cp-notice>
     }
   </cp-form-section>

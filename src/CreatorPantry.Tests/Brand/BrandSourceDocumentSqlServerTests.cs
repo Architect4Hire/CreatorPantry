@@ -18,7 +18,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.Brand;
 
@@ -47,8 +46,7 @@ public sealed class BrandSourceDocumentSqlServerTests : IAsyncLifetime
 
     private static readonly DateTimeOffset Now = new(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
 
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private readonly InMemoryPrivateObjectStore _store = new();
 

@@ -141,9 +141,12 @@ public static class AiSeoSectionCatalog
 /// <param name="Requested">The sections the request asked for.</param>
 /// <param name="AssetCaptions">The recipe's image links of the pinned version, by id, with their captions (null when none).</param>
 /// <param name="CandidateIds">The recipes offered as link targets.</param>
-/// <param name="RecipeId">The recipe itself, which may not be linked to.</param>
+/// <param name="RecipeId">
+/// The recipe itself, which may not be linked to. Null when the subject is a long-form article (LF.5.3): it is
+/// not a recipe, so every recipe offered is one it may link to.
+/// </param>
 public sealed record AiSeoRequestContext(
     IReadOnlySet<AiSeoSection> Requested,
     IReadOnlyDictionary<Guid, string?> AssetCaptions,
     IReadOnlySet<Guid> CandidateIds,
-    Guid RecipeId);
+    Guid? RecipeId);

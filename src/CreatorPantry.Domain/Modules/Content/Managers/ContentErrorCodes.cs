@@ -176,4 +176,106 @@ public static class ContentErrorCodes
     /// neighbour owns.
     /// </summary>
     public const string SocialSourceUnprocessable = "content.social.source.unprocessable";
+
+    /// <summary>
+    /// A long-form draft was asked for a creative context this workspace does not have (LF.2.2).
+    /// </summary>
+    /// <remarks>
+    /// One code and one sentence for a context that does not exist and one that is another workspace's, so the
+    /// request cannot be used to ask what a neighbour holds.
+    /// </remarks>
+    public const string LongFormContextUnprocessable = "content.long_form.context.unprocessable";
+
+    /// <summary>No such draft in this workspace — or one in another, which is the same answer.</summary>
+    public const string LongFormDraftNotFound = "content.long_form.draft.not_found";
+
+    /// <summary>The draft moved since the read this write was composed against.</summary>
+    public const string LongFormDraftStale = "content.long_form.draft.stale.conflict";
+
+    /// <summary>A plan edit or approval for a draft that has no plan yet.</summary>
+    public const string LongFormPlanNotStarted = "content.long_form.plan.not_started.conflict";
+
+    /// <summary>A plan edit, approval or new outline for a draft whose sections are already being written.</summary>
+    public const string LongFormPlanLocked = "content.long_form.plan.locked.conflict";
+
+    /// <summary>A submitted plan is not one that could be kept: its shape, not its readiness.</summary>
+    public const string LongFormPlanInvalid = "content.long_form.plan.invalid";
+
+    /// <summary>
+    /// Approval of a plan that does not meet the long-form shape rules. The field errors name each section.
+    /// </summary>
+    public const string LongFormPlanUnprocessable = "content.long_form.plan.unprocessable";
+
+    /// <summary>A generated plan names a source this workspace cannot pin it to. One code, whichever it was.</summary>
+    public const string LongFormSourceUnprocessable = "content.long_form.source.unprocessable";
+
+    public const string LongFormCursorInvalid = "content.long_form.cursor.invalid";
+
+    /// <summary>A section was asked for on a draft whose plan the creator has not approved (LF.3.1).</summary>
+    public const string LongFormPlanNotApproved = "content.long_form.plan.not_approved.conflict";
+
+    /// <summary>A section was asked for on a draft that has been accepted and is the article of record.</summary>
+    public const string LongFormDraftAccepted = "content.long_form.draft.accepted.conflict";
+
+    /// <summary>A section was asked for against a revision that is no longer the draft's latest.</summary>
+    public const string LongFormRevisionStale = "content.long_form.revision.stale.conflict";
+
+    /// <summary>The section named is not in the revision named.</summary>
+    public const string LongFormSectionNotFound = "content.long_form.section.not_found";
+
+    /// <summary>
+    /// A section was asked for, edited or settled on a draft that is neither approved nor being written (LF.3.3).
+    /// </summary>
+    public const string LongFormDraftNotWritable = "content.long_form.draft.not_writable.conflict";
+
+    /// <summary>
+    /// A generated body was not put in its section, because the creator changed or settled that section after
+    /// asking for it. The proposal is kept; the section is as the creator left it.
+    /// </summary>
+    public const string LongFormSectionSuperseded = "content.long_form.section.superseded.conflict";
+
+    /// <summary>A section with no text was asked to be marked settled.</summary>
+    public const string LongFormSectionNotWritten = "content.long_form.section.not_written.conflict";
+
+    /// <summary>A settled section was asked to be written again. Clear the mark first.</summary>
+    public const string LongFormSectionSettled = "content.long_form.section.settled.conflict";
+
+    /// <summary>A section edit or settle request is not one that could be kept: its shape.</summary>
+    public const string LongFormSectionInvalid = "content.long_form.section.invalid";
+
+    /// <summary>An acceptance request is not one that could be read: its shape (LF.3.4).</summary>
+    public const string LongFormAcceptanceInvalid = "content.long_form.acceptance.invalid";
+
+    /// <summary>
+    /// The document has something wrong with it that the acceptance did not confirm. The <c>issues</c> extension
+    /// lists everything wrong, with the sections concerned; nothing was accepted.
+    /// </summary>
+    public const string LongFormAcceptanceConfirmationRequired =
+        "content.long_form.acceptance.confirmation_required.unprocessable";
+
+    /// <summary>No section of the piece has any text, so there is no document to accept.</summary>
+    public const string LongFormAcceptanceNothingWritten = "content.long_form.acceptance.nothing_written.unprocessable";
+
+    /// <summary>An item order or a framing was sent for a piece that is not a newsletter issue (LF.4.1).</summary>
+    public const string LongFormNotAnIssue = "content.long_form.draft.not_an_issue.conflict";
+
+    /// <summary>
+    /// An item order is not one that could be kept: its shape, or it does not name each of the issue's items
+    /// exactly once.
+    /// </summary>
+    public const string LongFormItemOrderInvalid = "content.long_form.item_order.invalid";
+
+    /// <summary>A subject line or note is not one that could be kept: its shape or its length.</summary>
+    public const string LongFormFramingInvalid = "content.long_form.framing.invalid";
+
+    /// <summary>An export was asked for in a format there is none of (LF.5.1).</summary>
+    public const string LongFormExportInvalid = "content.long_form.export.invalid";
+
+    /// <summary>
+    /// An export was asked for of a draft whose creator has not accepted it. Only the article of record leaves.
+    /// </summary>
+    public const string LongFormExportNotAccepted = "content.long_form.export.not_accepted.conflict";
+
+    /// <summary>The accepted revision has no written section, so there is no document to export.</summary>
+    public const string LongFormExportNothingWritten = "content.long_form.export.nothing_written.unprocessable";
 }

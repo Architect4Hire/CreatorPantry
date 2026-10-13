@@ -37,7 +37,7 @@ namespace CreatorPantry.Tests.Ai.EditorialPackage;
 /// no model. Covers what a valid answer becomes, the field-ref cross-check against the pinned snapshot (which
 /// no evaluation fixture can reach, since those validate the document alone), and workspace isolation.
 /// </summary>
-public sealed class SeoPackageAiTaskHandlerTests : IAsyncDisposable
+public sealed partial class SeoPackageAiTaskHandlerTests : IAsyncDisposable
 {
     private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid WorkspaceB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -93,6 +93,11 @@ public sealed class SeoPackageAiTaskHandlerTests : IAsyncDisposable
     private const string Version = "content.seo-package.v1";
 
     private static readonly SeoRules Rules = new();
+
+    /// <summary>The long-form drafts this handler can read (LF.5.3). Empty unless a test holds one.</summary>
+    private readonly FakeLongFormDocumentFacade _documents = new();
+
+    private readonly FakeLongFormExportFacade _exports = new();
 
     private const string AllSections = "seoTitle,metaDescription,keyPhrases,slug,altText,internalLinks";
 
@@ -636,7 +641,9 @@ public sealed class SeoPackageAiTaskHandlerTests : IAsyncDisposable
         bool recipeless = false,
         Guid? workspaceId = null,
         string sections = AllSections,
-        string? ruleSet = null)
+        string? ruleSet = null,
+        IReadOnlyDictionary<string, string>? subjectInputs = null,
+        AiOperationScope operationScope = AiOperationScope.Advisory)
     {
         const string pipelineKey = "test-ai-seo";
 
@@ -672,6 +679,8 @@ public sealed class SeoPackageAiTaskHandlerTests : IAsyncDisposable
         var handler = new SeoPackageAiTaskHandler(
             gateway,
             scope.ServiceProvider.GetRequiredService<IRecipeFacade>(),
+            _documents,
+            _exports,
             EmbeddedPromptTemplateStore.Load(typeof(AiPolicy).Assembly),
             Rules,
             new StoppedClock());
@@ -685,11 +694,16 @@ public sealed class SeoPackageAiTaskHandlerTests : IAsyncDisposable
             [AiSeoPackageInputs.Audience] = "busy weeknight cooks",
         };
 
+        foreach (var (key, value) in subjectInputs ?? new Dictionary<string, string>())
+        {
+            inputs[key] = value;
+        }
+
         var context = new AiTaskExecutionContext(
             Operation,
             workspaceId ?? WorkspaceA,
             LeaseToken: Guid.NewGuid(),
-            AiOperationScope.Advisory,
+            operationScope,
             RecipeId: recipeless ? null : recipe.RecipeId,
             RecipeVersionId: recipeless ? null : recipe.VersionId,
             CorrelationId: Guid.NewGuid(),

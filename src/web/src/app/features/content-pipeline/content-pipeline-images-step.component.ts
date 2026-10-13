@@ -41,7 +41,7 @@ const MARK_FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 's
       [workspaceSlug]="workspaceSlug()"
       [promptText]="promptText()"
       [avoidText]="avoidText()"
-      [variantCount]="draft().config.variantCount"
+      [variantCount]="pictureCount() ?? draft().config.variantCount"
       [subject]="subject()"
       [state]="draft().images"
       [keepers]="keepers()"
@@ -60,6 +60,11 @@ const MARK_FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 's
 export class ContentPipelineImagesStepComponent {
   readonly workspaceSlug = input.required<string>();
   readonly draft = input.required<ContentPipelineDraft>();
+  /**
+   * How many pictures to ask for, or null to use the run's own stored count. The host's to say because the
+   * answer may be the brand's default rather than anything this run holds.
+   */
+  readonly pictureCount = input<number | null>(null);
   /** The work's hold on its creative context, where a keeper is recorded. */
   readonly session = input.required<CreativeContextSession>();
   readonly changed = output<ContentPipelineDraft>();

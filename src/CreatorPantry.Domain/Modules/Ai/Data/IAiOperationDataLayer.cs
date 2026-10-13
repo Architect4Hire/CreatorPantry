@@ -168,6 +168,23 @@ internal interface IAiOperationDataLayer
 {
     Task<AiOperationRequest> RequestAsync(AiOperation operation, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// What this request's key already stands for, without writing anything: the operation it replays, a
+    /// refusal because the key was used for a different request, or <c>null</c> when the key is new.
+    /// </summary>
+    /// <remarks>
+    /// For a seam that must answer a retry before it checks whether the request could still be made — the
+    /// first attempt may itself have changed what those checks would find.
+    /// </remarks>
+    Task<AiOperationRequest?> FindReplayAsync(AiOperation operation, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IAiOperationRepository.ListByTaskInputAsync"/>
+    Task<IReadOnlyList<(AiOperation Operation, Guid? ProposalId)>> ListByTaskInputAsync(
+        AiTaskType taskType, string inputText, int limit, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IAiOperationRepository.ListWarningsAsync"/>
+    Task<IReadOnlyList<AiWarning>> ListWarningsAsync(IReadOnlyCollection<Guid> proposalIds, CancellationToken cancellationToken);
+
     /// <summary>The operation and its proposal, for a creator polling a request.</summary>
     Task<AiOperationWithProposal?> GetWithProposalAsync(Guid operationId, CancellationToken cancellationToken);
 
@@ -423,6 +440,23 @@ internal sealed class AiOperationDataLayer(
     /// Everything that defines what the operation will do is compared; nothing that merely records who asked or
     /// when, because a genuine replay of the same request may legitimately differ in neither.
     /// </remarks>
+    public async Task<AiOperationRequest?> FindReplayAsync(AiOperation operation, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        return await operations.FindByIdempotencyKeyAsync(operation.IdempotencyKey, cancellationToken) is { } existing
+            ? Reconcile(existing, operation)
+            : null;
+    }
+
+    public Task<IReadOnlyList<(AiOperation Operation, Guid? ProposalId)>> ListByTaskInputAsync(
+        AiTaskType taskType, string inputText, int limit, CancellationToken cancellationToken) =>
+        operations.ListByTaskInputAsync(taskType, inputText, limit, cancellationToken);
+
+    public Task<IReadOnlyList<AiWarning>> ListWarningsAsync(
+        IReadOnlyCollection<Guid> proposalIds, CancellationToken cancellationToken) =>
+        operations.ListWarningsAsync(proposalIds, cancellationToken);
+
     private static AiOperationRequest Reconcile(AiOperation existing, AiOperation requested) =>
         existing.TaskType == requested.TaskType
         && existing.Scope == requested.Scope

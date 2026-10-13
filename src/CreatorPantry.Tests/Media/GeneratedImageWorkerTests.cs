@@ -1,3 +1,6 @@
+using System.Reflection;
+using CreatorPantry.Domain.Modules.Recipes.Facade;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
@@ -92,6 +95,11 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         // (12.10l). Nothing here names one: these tests are about the worker, and a stub keeps the whole Ai
         // module out of the container.
         services.AddScoped<IAiProposalLookupFacade, NoProposals>();
+
+        // It also asks the recipes and content modules whether a named recipe or piece of work is this
+        // workspace's. Nothing here names either, so each facade is a stand-in that refuses to be called.
+        services.AddScoped(_ => DispatchProxy.Create<IRecipeFacade, NeverCalled>());
+        services.AddScoped(_ => DispatchProxy.Create<ICreativeContextLookupFacade, NeverCalled>());
 
         _provider = services.BuildServiceProvider(validateScopes: true);
 
@@ -1138,6 +1146,13 @@ internal sealed class FakeImageGenerator : IImageGenerator
 }
 
 /// <summary>An Ai module with no proposals in it, for a fixture whose requests never name one.</summary>
+/// <summary>A facade nothing in this file may reach: every member throws.</summary>
+public class NeverCalled : DispatchProxy
+{
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+        throw new NotSupportedException($"These tests name no recipe or piece of work, so {targetMethod?.Name} should not have been called.");
+}
+
 file sealed class NoProposals : IAiProposalLookupFacade
 {
     public Task<bool> ExistsAsync(Guid aiProposalId, CancellationToken cancellationToken) => Task.FromResult(false);

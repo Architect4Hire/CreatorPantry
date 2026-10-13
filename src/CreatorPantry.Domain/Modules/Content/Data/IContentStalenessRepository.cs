@@ -25,6 +25,22 @@ public interface IContentStalenessRepository
 
     /// <summary>Stages a history row. Nothing is saved.</summary>
     void Add(ContentProposalTransition transition);
+
+    /// <summary>
+    /// Every long-form draft whose accepted revision is pinned to the recipe, with the version it is pinned
+    /// to (LF.6.1). Accepted drafts and ones already marked for review; a draft never accepted has no accepted
+    /// revision and is not here. No-tracking.
+    /// </summary>
+    Task<IReadOnlyList<LongFormRecipePinRecord>> FindLongFormRecipePinsAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every long-form draft with an accepted revision, with the style guide version that revision was
+    /// written under. Accepted drafts and ones already marked for review. No-tracking.
+    /// </summary>
+    Task<IReadOnlyList<LongFormVoicePinRecord>> FindLongFormVoicePinsAsync(CancellationToken cancellationToken);
+
+    /// <summary>The draft tracked, for a change the layer below will save; null when not visible.</summary>
+    Task<LongFormDraft?> GetLongFormDraftForUpdateAsync(Guid draftId, CancellationToken cancellationToken);
 }
 
 internal sealed class ContentStalenessRepository(CreatorPantryDbContext context) : IContentStalenessRepository
@@ -87,4 +103,29 @@ internal sealed class ContentStalenessRepository(CreatorPantryDbContext context)
             .SingleOrDefaultAsync(cancellationToken);
 
     public void Add(ContentProposalTransition transition) => context.ContentProposalTransitions.Add(transition);
+
+    // The accepted revision, by the draft's own pointer: never the latest, and never a revision of a draft
+    // whose creator has not accepted one. Status is the second guard — a draft reopened for writing keeps its
+    // pointer and is not an article of record while it is open.
+    public async Task<IReadOnlyList<LongFormRecipePinRecord>> FindLongFormRecipePinsAsync(
+        Guid recipeId, CancellationToken cancellationToken) =>
+        await (
+            from draft in context.LongFormDrafts.AsNoTracking()
+            where draft.Status == LongFormDraftStatus.Accepted || draft.Status == LongFormDraftStatus.NeedsReview
+            join pin in context.LongFormRevisionRecipePins.AsNoTracking() on draft.AcceptedRevisionId equals pin.LongFormRevisionId
+            where pin.RecipeId == recipeId
+            join version in context.RecipeVersions.AsNoTracking() on pin.RecipeVersionId equals version.Id
+            select new LongFormRecipePinRecord(draft.Id, draft.StaleReasons, version.VersionNumber))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<LongFormVoicePinRecord>> FindLongFormVoicePinsAsync(CancellationToken cancellationToken) =>
+        await (
+            from draft in context.LongFormDrafts.AsNoTracking()
+            where draft.Status == LongFormDraftStatus.Accepted || draft.Status == LongFormDraftStatus.NeedsReview
+            join revision in context.LongFormRevisions.AsNoTracking() on draft.AcceptedRevisionId equals revision.Id
+            select new LongFormVoicePinRecord(draft.Id, draft.StaleReasons, revision.BrandStyleGuideVersionId))
+            .ToListAsync(cancellationToken);
+
+    public Task<LongFormDraft?> GetLongFormDraftForUpdateAsync(Guid draftId, CancellationToken cancellationToken) =>
+        context.LongFormDrafts.SingleOrDefaultAsync(draft => draft.Id == draftId, cancellationToken);
 }

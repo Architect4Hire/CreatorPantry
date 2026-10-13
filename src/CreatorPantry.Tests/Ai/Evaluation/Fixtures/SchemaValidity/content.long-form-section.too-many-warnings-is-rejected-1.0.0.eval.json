@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.too-many-warnings-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A section takes at most eight of the model's own warnings.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Some breads ask for a whole afternoon. This one asks for a bowl, a spoon and an oven that is already hot.\", \"warnings\": [{\"kind\": \"Assumption\", \"message\": \"Caution number 0.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 1.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 2.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 3.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 4.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 5.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 6.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 7.\"}, {\"kind\": \"Assumption\", \"message\": \"Caution number 8.\"}]}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Hook",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_section_warning_invalid",
+    "category": "DomainInvalid"
+  }
+}

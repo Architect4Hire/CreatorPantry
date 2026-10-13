@@ -1,0 +1,17 @@
+{
+  "id": "content.long-form-section.a-piece-with-no-recipe-and-no-figures-is-clean",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A section written for a piece that names no recipe, and that states no recipe fact, has nothing to flag.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Baking on a grey morning is its own reward. The kitchen warms up and the day feels possible.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": []
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-outline.a-fifth-creator-headed-section-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "A blog article holds at most four creator-headed sections. A fifth fails the plan.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Body\", \"heading\": \"Part 1\", \"intent\": \"Cover part 1 of the story.\"}, {\"role\": \"Body\", \"heading\": \"Part 2\", \"intent\": \"Cover part 2 of the story.\"}, {\"role\": \"Body\", \"heading\": \"Part 3\", \"intent\": \"Cover part 3 of the story.\"}, {\"role\": \"Body\", \"heading\": \"Part 4\", \"intent\": \"Cover part 4 of the story.\"}, {\"role\": \"Body\", \"heading\": \"Part 5\", \"intent\": \"Cover part 5 of the story.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_outline_role_repeated",
+    "category": "DomainInvalid"
+  }
+}

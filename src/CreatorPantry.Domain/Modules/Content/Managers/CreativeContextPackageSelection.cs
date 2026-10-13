@@ -24,6 +24,15 @@ public enum CreativeContextSections
 
     /// <summary>Titles of what was already made for the day's theme. Only with <see cref="Day"/>.</summary>
     DayHistory = 512,
+
+    /// <summary>The brief the creator chose to work from (LF.1.4).</summary>
+    WorkingBrief = 1024,
+
+    /// <summary>A referenced recipe's accepted editorial copy. Only with <see cref="Recipe"/>.</summary>
+    Editorial = 2048,
+
+    /// <summary>A referenced recipe's accepted SEO key phrases. Only with <see cref="Recipe"/>.</summary>
+    SeoKeyPhrases = 4096,
 }
 
 /// <summary>
@@ -110,6 +119,70 @@ public static class CreativeContextPackageSelection
     /// </remarks>
     public const int MaxPictureObservationLabelLength = 64;
 
+    /// <summary>The whole-package budget for a long-form task (LF.1.4), three times every other task's.</summary>
+    /// <remarks>
+    /// An article is written from its recipes and from the copy already accepted for them, and a recipe with
+    /// its editorial package is some four thousand estimated tokens on its own. This fits about three, so an
+    /// issue naming five drops the last two whole and says so — rather than carrying five that have each been
+    /// cut into uselessness.
+    /// </remarks>
+    public const int LongFormMaxEstimatedTokens = 12_000;
+
+    /// <summary>How many recipes a long-form package may carry: a newsletter issue covers several (B-35).</summary>
+    public const int LongFormMaxRecipes = 5;
+
+    /// <summary>How much of one accepted editorial revision a package may carry, across all its parts.</summary>
+    public const int MaxEditorialLength = 10_000;
+
+    /// <summary>The longest one prose part — headnote, introduction, storage, call to action — is carried as.</summary>
+    public const int MaxEditorialProseLength = 2_000;
+
+    /// <summary>The longest one field of a tip, a substitution or a question and answer is carried as.</summary>
+    public const int MaxEditorialListItemLength = 600;
+
+    public const int MaxKeyPhrases = 10;
+
+    public const int MaxKeyPhraseLength = 100;
+
+    /// <summary>The seven parts of an editorial package, by the names a rendered prompt uses, in its own order.</summary>
+    public static class EditorialSections
+    {
+        public const string Headnote = "headnote";
+        public const string Introduction = "introduction";
+        public const string Tips = "tips";
+        public const string Substitutions = "substitutions";
+        public const string StorageReheating = "storageReheating";
+        public const string Faq = "faq";
+        public const string Cta = "cta";
+    }
+
+    /// <summary>Everything a long-form writer may be shown but the already-made list.</summary>
+    /// <remarks>
+    /// Not the context's channel list: an article is not written for a channel, and its teasers are the posts
+    /// step's. Saved prompts are in — "from a saved prompt" is one of the three ways a piece starts (B-32).
+    /// </remarks>
+    private const CreativeContextSections LongForm =
+        CreativeContextSections.WorkingTitle
+        | CreativeContextSections.WorkingBrief
+        | CreativeContextSections.PictureBrief
+        | CreativeContextSections.Day
+        | CreativeContextSections.DayNotes
+        | CreativeContextSections.Recipe
+        | CreativeContextSections.Editorial
+        | CreativeContextSections.SeoKeyPhrases
+        | CreativeContextSections.Concept
+        | CreativeContextSections.Pictures
+        | CreativeContextSections.Prompts;
+
+    /// <summary>Whether a task writes long-form, and so gets the long-form caps, budget and degradation order.</summary>
+    public static bool IsLongForm(AiTaskType taskType) =>
+        taskType is AiTaskType.LongFormOutline or AiTaskType.LongFormSection;
+
+    public static int MaxEstimatedTokensFor(AiTaskType taskType) =>
+        IsLongForm(taskType) ? LongFormMaxEstimatedTokens : MaxEstimatedTokens;
+
+    public static int MaxRecipesFor(AiTaskType taskType) => IsLongForm(taskType) ? LongFormMaxRecipes : MaxRecipes;
+
     /// <summary>
     /// What a task grounds in. A task that is not listed grounds in nothing.
     /// </summary>
@@ -179,8 +252,143 @@ public static class CreativeContextPackageSelection
             | CreativeContextSections.Concept
             | CreativeContextSections.Pictures,
 
+        // The plan decides the piece's angle, so it is the one long-form task that is also shown what the day
+        // has already had (LF.1.4).
+        AiTaskType.LongFormOutline => LongForm | CreativeContextSections.DayHistory,
+
+        // By the time a section is written the plan is approved, and a list of earlier titles could only argue
+        // with it — the reason an image prompt is not shown the list either.
+        AiTaskType.LongFormSection => LongForm,
+
         _ => CreativeContextSections.None,
     };
+
+    /// <summary>
+    /// The accepted editorial copy a package may carry for one recipe, and whether any part was left out.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Parts are taken in the editorial package's own order and carried whole. A prose part over
+    /// <see cref="MaxEditorialProseLength"/> is left out, and so is a list with any item that has a field over
+    /// <see cref="MaxEditorialListItemLength"/> — the list, not the item, because nothing beside it would say
+    /// how many it had lost.
+    /// </para>
+    /// <para>
+    /// A part that would take the whole past <see cref="MaxEditorialLength"/> is left out and the ones after it
+    /// are still tried: they are separate named parts, and the entry says which are here, so nothing reads as
+    /// complete that is not.
+    /// </para>
+    /// <para>Null when no part is carried: an entry with nothing in it would only say an acceptance exists.</para>
+    /// </remarks>
+    public static (CreativeContextEditorialEntry? Entry, bool Omitted) FitEditorial(AcceptedEditorialServiceModel accepted)
+    {
+        ArgumentNullException.ThrowIfNull(accepted);
+
+        var carried = new List<string>();
+        var omitted = false;
+        var length = 0;
+
+        string? Prose(string name, string? text)
+        {
+            var value = text?.Trim();
+
+            if (string.IsNullOrEmpty(value))
+            {
+                return null;
+            }
+
+            if (value.Length > MaxEditorialProseLength || length + value.Length > MaxEditorialLength)
+            {
+                omitted = true;
+
+                return null;
+            }
+
+            length += value.Length;
+            carried.Add(name);
+
+            return value;
+        }
+
+        IReadOnlyList<TOut> Items<TIn, TOut>(
+            string name, IEnumerable<TIn> items, Func<TIn, string?[]> fields, Func<string[], TOut> build)
+        {
+            var kept = new List<TOut>();
+            var cost = 0;
+
+            foreach (var item in items)
+            {
+                var values = fields(item).Select(field => field?.Trim() ?? string.Empty).ToArray();
+
+                if (values.All(string.IsNullOrEmpty))
+                {
+                    continue;
+                }
+
+                // The whole list, not the items from here on: a part the entry names as carried is all there,
+                // and a list of two tips that says nothing of the three it lost would read as the creator's
+                // five.
+                if (values.Any(value => value.Length > MaxEditorialListItemLength))
+                {
+                    omitted = true;
+
+                    return [];
+                }
+
+                cost += values.Sum(value => value.Length);
+                kept.Add(build(values));
+            }
+
+            if (kept.Count == 0)
+            {
+                return [];
+            }
+
+            if (length + cost > MaxEditorialLength)
+            {
+                omitted = true;
+
+                return [];
+            }
+
+            length += cost;
+            carried.Add(name);
+
+            return kept;
+        }
+
+        var headnote = Prose(EditorialSections.Headnote, accepted.Headnote);
+        var introduction = Prose(EditorialSections.Introduction, accepted.Introduction);
+        var tips = Items(EditorialSections.Tips, accepted.Tips, tip => [tip], values => values[0]);
+        var substitutions = Items(
+            EditorialSections.Substitutions,
+            accepted.Substitutions,
+            item => [item.Suggestion, item.CulinaryNote],
+            values => new CreativeContextEditorialSubstitution(values[0], values[1]));
+        var storage = Prose(EditorialSections.StorageReheating, accepted.StorageReheating);
+        var faq = Items(
+            EditorialSections.Faq,
+            accepted.Faq,
+            item => [item.Question, item.Answer],
+            values => new CreativeContextEditorialFaq(values[0], values[1]));
+        var cta = Prose(EditorialSections.Cta, accepted.Cta);
+
+        return carried.Count == 0
+            ? (null, omitted)
+            : (new CreativeContextEditorialEntry(
+                accepted.RevisionNumber, headnote, introduction, tips, substitutions, storage, faq, cta, carried), omitted);
+    }
+
+    /// <summary>The accepted key phrases a package may carry; null when there are none to carry.</summary>
+    /// <remarks>Whole phrases from the front, stopping at the first that does not fit, and the rest counted.</remarks>
+    public static CreativeContextSeoEntry? FitKeyPhrases(AcceptedSeoServiceModel accepted)
+    {
+        ArgumentNullException.ThrowIfNull(accepted);
+
+        var (kept, omitted) = KeepWholeLines(accepted.KeyPhrases, MaxKeyPhrases, MaxKeyPhraseLength);
+
+        return kept.Count == 0 ? null : new CreativeContextSeoEntry(accepted.RevisionNumber, kept, omitted);
+    }
 
     public static int EstimateTokens(string? text) =>
         string.IsNullOrEmpty(text) ? 0 : (text.Length + CharactersPerToken - 1) / CharactersPerToken;
@@ -234,7 +442,7 @@ public static class CreativeContextPackageSelection
     }
 
     public static int Estimate(CreativeContextWords? words) =>
-        EstimateTokens(words?.WorkingTitle) + EstimateTokens(words?.PictureBrief);
+        EstimateTokens(words?.WorkingTitle) + EstimateTokens(words?.PictureBrief) + EstimateTokens(words?.WorkingBrief);
 
     public static int Estimate(IReadOnlyList<CreativeContextChannelEntry> channels) =>
         channels.Sum(channel => EstimateTokens(channel.DisplayName));
@@ -249,7 +457,20 @@ public static class CreativeContextPackageSelection
         EstimateTokens(recipe.Title)
         + EstimateTokens(recipe.YieldText)
         + recipe.Ingredients.Sum(EstimateTokens)
-        + recipe.Steps.Sum(EstimateTokens);
+        + recipe.Steps.Sum(EstimateTokens)
+        + Estimate(recipe.Editorial)
+        + (recipe.Seo?.KeyPhrases.Sum(EstimateTokens) ?? 0);
+
+    public static int Estimate(CreativeContextEditorialEntry? editorial) =>
+        editorial is null
+            ? 0
+            : EstimateTokens(editorial.Headnote)
+                + EstimateTokens(editorial.Introduction)
+                + editorial.Tips.Sum(EstimateTokens)
+                + editorial.Substitutions.Sum(item => EstimateTokens(item.Suggestion) + EstimateTokens(item.CulinaryNote))
+                + EstimateTokens(editorial.StorageReheating)
+                + editorial.Faq.Sum(item => EstimateTokens(item.Question) + EstimateTokens(item.Answer))
+                + EstimateTokens(editorial.Cta);
 
     public static int Estimate(CreativeContextConceptEntry concept) =>
         EstimateTokens(concept.Title) + EstimateTokens(concept.Summary);
@@ -390,6 +611,14 @@ public static class CreativeContextPackageSelection
         Field("workingTitle", words?.WorkingTitle);
         Field("pictureBrief", words?.PictureBrief);
 
+        // The long-form fields (LF.1.4) are written only where they exist. Writing an absent one as null, as
+        // the fields above are, would move the checksum of every package that never carried it — and a stored
+        // generation's record of what it was grounded on would stop matching a package assembled today.
+        if (words?.WorkingBrief is { } workingBrief)
+        {
+            Field("workingBrief", workingBrief);
+        }
+
         foreach (var channel in channels)
         {
             Field($"channel:{channel.Key}", channel.DisplayName);
@@ -432,6 +661,48 @@ public static class CreativeContextPackageSelection
 
             Field($"{id}:ingredientsNotShown", Number(recipe.OmittedIngredientCount));
             Field($"{id}:stepsNotShown", Number(recipe.OmittedStepCount));
+
+            if (recipe.Editorial is { } editorial)
+            {
+                Field($"{id}:editorial:revision", Number(editorial.RevisionNumber));
+                Field($"{id}:editorial:carried", string.Join(',', editorial.SectionsCarried));
+                Field($"{id}:editorial:headnote", editorial.Headnote);
+                Field($"{id}:editorial:introduction", editorial.Introduction);
+
+                foreach (var tip in editorial.Tips)
+                {
+                    Field($"{id}:editorial:tip", tip);
+                }
+
+                // Two fields each rather than one joined value, so neither half can forge the other's start.
+                foreach (var substitution in editorial.Substitutions)
+                {
+                    Field($"{id}:editorial:substitution", substitution.Suggestion);
+                    Field($"{id}:editorial:substitutionNote", substitution.CulinaryNote);
+                }
+
+                Field($"{id}:editorial:storageReheating", editorial.StorageReheating);
+
+                foreach (var item in editorial.Faq)
+                {
+                    Field($"{id}:editorial:question", item.Question);
+                    Field($"{id}:editorial:answer", item.Answer);
+                }
+
+                Field($"{id}:editorial:cta", editorial.Cta);
+            }
+
+            if (recipe.Seo is { } seo)
+            {
+                Field($"{id}:seo:revision", Number(seo.RevisionNumber));
+
+                foreach (var phrase in seo.KeyPhrases)
+                {
+                    Field($"{id}:seo:keyPhrase", phrase);
+                }
+
+                Field($"{id}:seo:keyPhrasesNotShown", Number(seo.OmittedKeyPhraseCount));
+            }
         }
 
         foreach (var concept in concepts)

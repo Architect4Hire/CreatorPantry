@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-section.a-body-just-under-the-ceiling-is-not-flagged-for-length",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "The ceiling is a ceiling: a long body inside it carries no length finding.",
+  "input": {
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "repeatBody": {
+      "text": "Buttermilk does the work here. ",
+      "times": 90
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "over_ceiling"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "content.seo-package.an-article-package-is-valid",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "LF.5.3: a package about an accepted long-form article validates with the four sections a model writes for one, and may link to any recipe it was offered - including the one the article is about.",
+  "input": {
+    "subject": "article",
+    "candidates": [
+      "bbbbbbbb-0000-0000-0000-000000000001"
+    ],
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Soda Bread for Days With No Time\"},\"metaDescription\":{\"text\":\"A soda bread with no kneading and no yeast: buttermilk and bicarbonate of soda do the work, and it bakes in 25 minutes.\"},\"keyPhrases\":[{\"phrase\":\"soda bread\"},{\"phrase\":\"no knead bread\"},{\"phrase\":\"buttermilk bread\"}],\"internalLinks\":[{\"recipeId\":\"bbbbbbbb-0000-0000-0000-000000000001\",\"anchorText\":\"Buttermilk soda bread\",\"reason\":\"It is the recipe this article is about.\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1",
+    "source": {
+      "numbers": [],
+      "prose": "# The soda bread I make when there is no time\n\n## Why there is no kneading\n\nButtermilk and bicarbonate of soda do the work yeast would. Mix until it only just holds.\n\n## From bowl to oven\n\nBake at 220C for 25 minutes, until the base sounds hollow.\n",
+      "storageNotes": null
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "warnings": [
+      "seo.key_phrases_not_from_search_data",
+      "seo.link_ideas_not_checked"
+    ]
+  }
+}

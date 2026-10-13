@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.a-table-in-the-body-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A table of quantities is a second recipe card. A body is paragraphs, lists and emphasis.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"| Ingredient | Amount |\\n| Flour | 450g |\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "IngredientNotes",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_section_markup_invalid",
+    "category": "DomainInvalid"
+  }
+}

@@ -95,6 +95,12 @@ public static class AiTaskCatalog
     /// <summary>AF.6.3: posts for the channels a creator picked, for one piece of creative work.</summary>
     public const string ChannelPosts = "content.channel-posts";
 
+    /// <summary>LF.2.1: a section plan for a blog article or a newsletter issue.</summary>
+    public const string LongFormOutline = "content.long-form-outline";
+
+    /// <summary>LF.3.1: the body of one section of a long-form piece whose plan is approved.</summary>
+    public const string LongFormSection = "content.long-form-section";
+
     private static readonly Dictionary<string, AiTaskType> KnownTasks = new(StringComparer.OrdinalIgnoreCase)
     {
         [Diagnostic] = AiTaskType.Diagnostic,
@@ -114,6 +120,8 @@ public static class AiTaskCatalog
         [ReferenceImageAnalysis] = AiTaskType.ReferenceImageAnalysis,
         [DishFacetSuggestion] = AiTaskType.DishFacetSuggestion,
         [ChannelPosts] = AiTaskType.ChannelPosts,
+        [LongFormOutline] = AiTaskType.LongFormOutline,
+        [LongFormSection] = AiTaskType.LongFormSection,
     };
 
     /// <summary>Every discriminator the server recognises, enabled or not.</summary>
@@ -217,7 +225,14 @@ public static class AiTaskCatalog
 
             // The first reason in full: a post request is a creative context and a set of channels, neither
             // of which the generic recipe-bound route has a field for.
-            or AiTaskType.ChannelPosts;
+            or AiTaskType.ChannelPosts
+
+            // The same reason: an outline request is a creative context, a kind, a target length and the
+            // sections the creator already wants, and it names no recipe of its own.
+            or AiTaskType.LongFormOutline
+
+            // A section request is a draft, a revision of it and a section, and it names no recipe of its own.
+            or AiTaskType.LongFormSection;
 
     /// <summary>
     /// The tasks whose stored proposal becomes records in another module, through an
@@ -228,7 +243,8 @@ public static class AiTaskCatalog
     /// place. This is the list the maintenance sweep re-lands from, so a task added here gains a retry it
     /// would otherwise have to arrange for itself.
     /// </remarks>
-    public static IReadOnlyList<AiTaskType> LandedTasks { get; } = [AiTaskType.ChannelPosts];
+    public static IReadOnlyList<AiTaskType> LandedTasks { get; } =
+        [AiTaskType.ChannelPosts, AiTaskType.LongFormOutline, AiTaskType.LongFormSection];
 
     /// <summary>The task a discriminator names, or null when the server does not recognise it.</summary>
     public static AiTaskType? Resolve(string? discriminator) =>

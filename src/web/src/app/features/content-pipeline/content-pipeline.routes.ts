@@ -17,8 +17,8 @@ import { CONTEXT_ROUTE_PARAM, CONTEXT_ROUTE_SEGMENT } from '../../shared/use-thi
  * the address between steps.
  */
 export const CONTENT_PIPELINE_ROUTES: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'setup' },
-  { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, pathMatch: 'full', redirectTo: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}/setup` },
+  { path: '', pathMatch: 'full', redirectTo: 'about' },
+  { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, pathMatch: 'full', redirectTo: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}/about` },
   {
     path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}/:step`,
     loadComponent: () => import('./content-pipeline-shell.component').then((m) => m.ContentPipelineShellComponent),

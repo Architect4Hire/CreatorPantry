@@ -21,6 +21,8 @@ const CHANNELS: readonly ContentChannel[] = [
     [config]="config()"
     [showDay]="showDay()"
     [linkedRecipeTitle]="linkedRecipeTitle()"
+    [show]="show()"
+    [pictureCountDefault]="pictureCountDefault()"
     (changed)="apply($event)"
   />`,
 })
@@ -28,6 +30,8 @@ class HostComponent {
   readonly config = signal<ContentPipelineConfig>(emptyContentPipelineConfig());
   readonly showDay = signal(true);
   readonly linkedRecipeTitle = signal<string | null>(null);
+  readonly show = signal<'everything' | 'subject' | 'defaults'>('everything');
+  readonly pictureCountDefault = signal<number | null>(null);
   readonly emitted: ContentPipelineConfig[] = [];
 
   apply(next: ContentPipelineConfig): void {
@@ -118,6 +122,50 @@ describe('ContentPipelineSetupStepComponent', () => {
     await settle();
 
     expect(latest().variantCount).toBe(4);
+    // Recorded as this run's own answer, which is what stops the brand's default replacing it.
+    expect(latest().variantCountChosen).toBeTrue();
+  });
+
+  it('asks only what the run is about when its host shows the brand’s answers elsewhere', async () => {
+    let channelReads = 0;
+    TestBed.overrideProvider(BrandProfileService, {
+      useValue: { listContentChannels: () => ((channelReads += 1), Promise.resolve(channels)) },
+    });
+    fixture = TestBed.createComponent(HostComponent);
+    host = fixture.componentInstance;
+    host.show.set('subject');
+    el = fixture.nativeElement;
+    await settle();
+
+    expect(byId('cp-pipeline-subject')).not.toBeNull();
+    expect(byId('cp-pipeline-concept')).not.toBeNull();
+    expect(el.querySelector('[aria-label="Which day is it for?"]')).not.toBeNull();
+    expect(el.textContent).toContain('When it is for');
+    expect(byId('cp-pipeline-channel')).toBeNull();
+    expect(el.textContent).not.toContain('How many pictures to try');
+    expect(el.textContent).not.toContain('Add a scene element');
+    expect(el.textContent).not.toContain('Add a style direction');
+    expect(channelReads).withContext('no channel field, so no channel list is read').toBe(0);
+  });
+
+  it('asks only what a run may change about its brand’s answers, starting from the brand’s count', async () => {
+    await mount();
+    host.show.set('defaults');
+    host.pictureCountDefault.set(3);
+    await settle();
+
+    expect(byId('cp-pipeline-subject')).toBeNull();
+    expect(byId('cp-pipeline-concept')).toBeNull();
+    expect(el.querySelector('[aria-label="Which day is it for?"]')).toBeNull();
+    expect(byId('cp-pipeline-channel')).not.toBeNull();
+    expect(el.textContent).toContain('Add a scene element');
+    expect(el.querySelector<HTMLInputElement>('input[value="3"]')!.checked).toBeTrue();
+
+    el.querySelector<HTMLInputElement>('input[value="1"]')!.click();
+    await settle();
+
+    expect(latest()).toEqual(jasmine.objectContaining({ variantCount: 1, variantCountChosen: true }));
+    expect(el.querySelector<HTMLInputElement>('input[value="1"]')!.checked).toBeTrue();
   });
 
   it('offers a day and no particular day, and reports the day by name', async () => {
@@ -137,7 +185,7 @@ describe('ContentPipelineSetupStepComponent', () => {
     host.showDay.set(false);
     await settle();
 
-    expect(el.textContent).not.toContain('Which day is it for?');
+    expect(el.querySelector('[aria-label="Which day is it for?"]')).toBeNull();
     expect(byId('cp-pipeline-channel')).not.toBeNull();
     expect(el.textContent).toContain('How many pictures to try');
   });

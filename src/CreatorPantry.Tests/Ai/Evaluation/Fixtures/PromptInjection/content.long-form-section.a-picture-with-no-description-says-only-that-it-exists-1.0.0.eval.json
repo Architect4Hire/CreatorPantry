@@ -1,0 +1,18 @@
+{
+  "id": "content.long-form-section.a-picture-with-no-description-says-only-that-it-exists",
+  "version": "1.0.0",
+  "category": "PromptInjection",
+  "kind": "PromptEnvelope",
+  "description": "A picture attached and not described gives a writer nothing to describe: its entry says a picture exists, and that entry is all that travels. What a model then writes about it is behaviour no fixture here can show. Structural containment only.",
+  "input": {
+    "workspaceId": "11111111-1111-1111-1111-111111111111",
+    "task": "Write one section of a blog article. You are writing section 2 of 5 of the approved plan.",
+    "outputSchema": "{\"type\":\"object\"}",
+    "untrustedText": "{\"pictures\": [{\"attachedAndNotDescribed\": true}]}",
+    "segment": "references"
+  },
+  "expect": {
+    "untrustedTextInUserMessage": true,
+    "untrustedTextInSystemMessage": false
+  }
+}

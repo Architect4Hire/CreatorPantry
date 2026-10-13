@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-outline.a-food-safety-claim-in-an-intent-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "An intent that assures readers a dish is safe for anyone is stored as written and flagged beside its section. The frame is what is flagged: the plan is not refused.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Hook\", \"heading\": \"The loaf for people who do not bake\", \"intent\": \"Open on how little this bread asks of the cook.\"}, {\"role\": \"Tips\", \"heading\": \"Before you start\", \"intent\": \"Reassure readers this loaf is safe for coeliacs.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "sectionIndex": 1,
+        "containing": "safe for"
+      }
+    ]
+  }
+}

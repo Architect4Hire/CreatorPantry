@@ -1,0 +1,83 @@
+<cp-form-section heading="What kind of piece" [sectionId]="idPrefix() + '-kind'">
+  @if (started()) {
+    <p class="cp-muted" data-testid="kind-settled">
+      {{ kindLabel() }}. This was chosen when the outline was asked for, and stays with the piece.
+    </p>
+  } @else {
+    <cp-choice-group
+      label="What kind of piece is this?"
+      [idPrefix]="idPrefix() + '-kind-choice'"
+      [name]="idPrefix() + '-kind-choice'"
+      [options]="kinds"
+      [value]="[kind()]"
+      (valueChange)="onKind($event)"
+    />
+  }
+</cp-form-section>
+
+<cp-recipe-picker
+  [workspaceSlug]="workspaceSlug()"
+  [session]="session()"
+  [idPrefix]="idPrefix() + '-recipe'"
+  intro="Link the recipe this piece is about, and it is planned and written from that recipe. Optional: a piece does not have to be about one."
+  (announced)="announced.emit($event)"
+/>
+
+<cp-form-section
+  heading="In your own words"
+  intro="What the piece is called and what it should say. Either helps; neither is needed if you linked a recipe."
+  [sectionId]="idPrefix() + '-words'"
+>
+  <cp-field label="What it is called" [forId]="idPrefix() + '-title'" hint="A working title. You can change it later.">
+    <input
+      type="text"
+      [id]="idPrefix() + '-title'"
+      [value]="fields().workingTitle"
+      [attr.maxlength]="titleMax"
+      (input)="onTitle($event)"
+    />
+  </cp-field>
+
+  <cp-field
+    label="What this piece should say"
+    [forId]="idPrefix() + '-brief'"
+    hint="The angle, the story, who it is for today. A sentence or two is enough."
+  >
+    <textarea
+      rows="4"
+      [id]="idPrefix() + '-brief'"
+      [value]="fields().pictureBrief"
+      [attr.maxlength]="briefMax"
+      (input)="onBrief($event)"
+    ></textarea>
+  </cp-field>
+
+  @if (drawsOnSavedPrompt()) {
+    <cp-notice role="note" data-testid="saved-prompt">
+      This piece of work also draws on a prompt you saved. It is used as it was saved.
+    </cp-notice>
+  }
+</cp-form-section>
+
+<cp-long-form-brand-read [workspaceSlug]="workspaceSlug()" [sectionId]="idPrefix() + '-brand'" />
+
+@if (!started()) {
+  <details class="cp-disclosure" data-testid="adjust">
+    <summary>Adjust for this piece</summary>
+    <cp-field
+      label="How long should it be?"
+      [forId]="idPrefix() + '-length'"
+      [hint]="'In words, from ' + limits.min + ' to ' + limits.max + '. Leave it empty for the usual length: ' + usualLength() + '. This is for this piece only.'"
+    >
+      <input
+        type="number"
+        inputmode="numeric"
+        [id]="idPrefix() + '-length'"
+        [attr.min]="limits.min"
+        [attr.max]="limits.max"
+        [value]="targetWords() ?? ''"
+        (input)="onTargetWords($event)"
+      />
+    </cp-field>
+  </details>
+}

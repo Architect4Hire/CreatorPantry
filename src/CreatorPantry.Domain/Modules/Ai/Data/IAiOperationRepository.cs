@@ -36,6 +36,24 @@ internal interface IAiOperationRepository
 
     Task<AiOperation?> FindByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// This workspace's most recent operations of one task whose stored inputs contain a piece of text, newest
+    /// first, each with the id of its proposal when it has one.
+    /// </summary>
+    /// <remarks>
+    /// The text narrows the read and proves nothing: a caller that means "the operations for this draft" reads
+    /// the inputs of each row it is given and decides for itself. Scoped by the workspace query filter like
+    /// every read here.
+    /// </remarks>
+    Task<IReadOnlyList<(AiOperation Operation, Guid? ProposalId)>> ListByTaskInputAsync(
+        AiTaskType taskType, string inputText, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The warnings stored on these proposals, in each proposal's own order. Workspace-filtered like every
+    /// read here: a proposal that is not this workspace's contributes nothing.
+    /// </summary>
+    Task<IReadOnlyList<AiWarning>> ListWarningsAsync(IReadOnlyCollection<Guid> proposalIds, CancellationToken cancellationToken);
+
     /// <summary>The operation with its proposal, changes and warnings, for a creator-facing read.</summary>
     Task<AiOperationWithProposal?> GetWithProposalAsync(Guid operationId, CancellationToken cancellationToken);
 
@@ -169,6 +187,39 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
     /// it. The proposal is a left join because a request that has not produced one yet is the common case, not
     /// an error.
     /// </remarks>
+    public async Task<IReadOnlyList<AiWarning>> ListWarningsAsync(
+        IReadOnlyCollection<Guid> proposalIds, CancellationToken cancellationToken) =>
+        proposalIds.Count == 0
+            ? []
+            : await context.AiWarnings.AsNoTracking()
+                .Where(warning => proposalIds.Contains(warning.AiProposalId))
+                .OrderBy(warning => warning.AiProposalId)
+                .ThenBy(warning => warning.SortOrder)
+                .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<(AiOperation Operation, Guid? ProposalId)>> ListByTaskInputAsync(
+        AiTaskType taskType, string inputText, int limit, CancellationToken cancellationToken)
+    {
+        var rows = await context.AiOperations.AsNoTracking()
+            .Where(operation => operation.TaskType == taskType
+                && operation.TaskInputsJson != null
+                && operation.TaskInputsJson.Contains(inputText))
+            .OrderByDescending(operation => operation.RequestedAt)
+            .ThenByDescending(operation => operation.Id)
+            .Take(limit)
+            .Select(operation => new
+            {
+                Operation = operation,
+                ProposalId = context.AiProposals
+                    .Where(proposal => proposal.AiOperationId == operation.Id)
+                    .Select(proposal => (Guid?)proposal.Id)
+                    .FirstOrDefault(),
+            })
+            .ToListAsync(cancellationToken);
+
+        return [.. rows.Select(row => (row.Operation, row.ProposalId))];
+    }
+
     public async Task<AiOperationWithProposal?> GetWithProposalAsync(
         Guid operationId,
         CancellationToken cancellationToken)

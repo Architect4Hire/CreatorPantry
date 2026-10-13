@@ -27,7 +27,8 @@ internal sealed class SeoPackageOutputValidationCase : IAiEvaluationCase
         var expect = fixture.Expect.Deserialize<Expect>(Json)
             ?? throw new AiEvaluationException(fixture.Identity, "'expect' is null.");
 
-        var result = AiSeoPackageOutputValidator.Validate(input.Payload, input.ExpectedSchemaVersion, new SeoRules());
+        var result = AiSeoPackageOutputValidator.Validate(
+            input.Payload, input.ExpectedSchemaVersion, new SeoRules(), ContextFor(fixture.Identity, input));
 
         return Task.FromResult(expect.Outcome switch
         {
@@ -87,7 +88,47 @@ internal sealed class SeoPackageOutputValidationCase : IAiEvaluationCase
             : AiEvaluationVerdict.Pass();
     }
 
-    private sealed record Input(string? Payload, string ExpectedSchemaVersion, SourceFacts? Source, Asset[]? Assets, string? RecipeTitle);
+    /// <summary>
+    /// What the request made available, when the fixture says what the package is about (LF.5.3). With no
+    /// <c>subject</c> there is no request to hold the answer to, and the payload is judged on its shape alone —
+    /// which is how every fixture written before there were two subjects reads.
+    /// </summary>
+    /// <remarks>
+    /// The same two rules the request seam applies: an article is offered every section but alt text and no
+    /// image, and it is not a recipe, so none of the recipes offered is excluded as itself.
+    /// </remarks>
+    private static AiSeoRequestContext? ContextFor(string fixtureIdentity, Input input)
+    {
+        if (input.Subject is null)
+        {
+            return null;
+        }
+
+        var subject = input.Subject switch
+        {
+            "recipe" => AiSeoSubject.Recipe,
+            "article" => AiSeoSubject.Article,
+            _ => throw new AiEvaluationException(fixtureIdentity, $"'input.subject' is not recognised: '{input.Subject}'."),
+        };
+
+        return new AiSeoRequestContext(
+            AiSeoSubjects.SectionsFor(subject).ToHashSet(),
+            subject is AiSeoSubject.Article
+                ? new Dictionary<Guid, string?>()
+                : (input.Assets ?? []).ToDictionary(asset => asset.Id, asset => asset.Caption),
+            (input.Candidates ?? []).ToHashSet(),
+            subject is AiSeoSubject.Article ? null : input.RecipeId ?? Guid.Empty);
+    }
+
+    private sealed record Input(
+        string? Payload,
+        string ExpectedSchemaVersion,
+        SourceFacts? Source,
+        Asset[]? Assets,
+        string? RecipeTitle,
+        string? Subject = null,
+        Guid[]? Candidates = null,
+        Guid? RecipeId = null);
 
     private sealed record SourceFacts(string[]? Numbers, string? Prose, string? StorageNotes);
 

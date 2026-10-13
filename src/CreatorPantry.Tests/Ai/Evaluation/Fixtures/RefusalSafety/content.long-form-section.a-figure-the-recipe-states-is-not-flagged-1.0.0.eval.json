@@ -1,0 +1,34 @@
+{
+  "id": "content.long-form-section.a-figure-the-recipe-states-is-not-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A figure written exactly as the recipe states it is the recipe's own, and nothing is said about it.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Stir 400ml buttermilk into 450g plain flour, then bake for 45 minutes.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "MethodNarrative",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

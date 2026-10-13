@@ -67,4 +67,47 @@ public static class ContentAuditActions
     /// stale by hand.
     /// </summary>
     public const string SocialChannelMarkedStale = "content.social_channel.marked_stale";
+
+    public const string LongFormDraftResourceType = "LongFormDraft";
+
+    /// <summary>
+    /// A creator saved their own edit of a long-form plan (LF.2.2). Summaries name a revision number and a
+    /// status, never a heading, an intent or any other word of the piece.
+    /// </summary>
+    public const string LongFormPlanEdited = "content.long_form_plan.edited";
+
+    /// <inheritdoc cref="LongFormPlanEdited"/>
+    public const string LongFormPlanApproved = "content.long_form_plan.approved";
+
+    /// <summary>
+    /// A long-form draft moved from an approved plan to being written, on its first section request (LF.3.3).
+    /// </summary>
+    public const string LongFormWritingBegan = "content.long_form_draft.writing_began";
+
+    /// <summary>
+    /// The system found an accepted long-form document out of step with a source it was written from
+    /// (LF.6.1). No actor: there is no role a creator could use to declare their own piece stale.
+    /// </summary>
+    public const string LongFormDraftMarkedStale = "content.long_form_draft.marked_stale";
+
+    /// <summary>A creator accepted a long-form document as the article of record (LF.3.4).</summary>
+    public const string LongFormDocumentAccepted = "content.long_form_draft.accepted";
+
+    /// <summary>A creator saved their own text for one section of a long-form draft (LF.3.3).</summary>
+    public const string LongFormSectionEdited = "content.long_form_section.edited";
+
+    /// <summary>A creator marked one section of a long-form draft as settled. Not an acceptance.</summary>
+    public const string LongFormSectionSettled = "content.long_form_section.settled";
+
+    /// <inheritdoc cref="LongFormSectionSettled"/>
+    public const string LongFormSectionUnsettled = "content.long_form_section.unsettled";
+
+    /// <summary>
+    /// A creator put a newsletter issue's items in a different order (LF.4.1). The summary names a revision
+    /// number, never a reference or a heading.
+    /// </summary>
+    public const string LongFormItemsReordered = "content.long_form_items.reordered";
+
+    /// <summary>A creator saved an issue's subject line or note (LF.4.1). The summary carries neither.</summary>
+    public const string LongFormFramingEdited = "content.long_form_framing.edited";
 }

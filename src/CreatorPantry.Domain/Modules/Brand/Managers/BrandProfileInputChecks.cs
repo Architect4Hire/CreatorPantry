@@ -72,6 +72,15 @@ internal static partial class BrandProfileInputChecks
         }
     }
 
+    public static IEnumerable<(string, string)> PictureCount(int? value)
+    {
+        if (value is { } count && count is < BrandPolicy.MinDefaultPictureCount or > BrandPolicy.MaxDefaultPictureCount)
+        {
+            yield return (nameof(CreateBrandProfileViewModel.DefaultPictureCount),
+                $"Choose between {BrandPolicy.MinDefaultPictureCount} and {BrandPolicy.MaxDefaultPictureCount} pictures.");
+        }
+    }
+
     public static IEnumerable<(string, string)> Channels(
         IReadOnlyList<BrandChannelDefaultInput?>? channels, IContentChannelCatalog catalog)
     {

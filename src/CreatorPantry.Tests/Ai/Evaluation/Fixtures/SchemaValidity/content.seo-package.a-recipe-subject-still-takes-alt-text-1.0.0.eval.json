@@ -1,0 +1,25 @@
+{
+  "id": "content.seo-package.a-recipe-subject-still-takes-alt-text",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "SeoPackageOutputValidation",
+  "description": "LF.5.3 left the recipe subject as it was: the same alt text, about an image of the recipe's own with a caption, still validates.",
+  "input": {
+    "subject": "recipe",
+    "recipeId": "cccccccc-0000-0000-0000-000000000001",
+    "candidates": [
+      "bbbbbbbb-0000-0000-0000-000000000001"
+    ],
+    "assets": [
+      {
+        "id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "caption": "Sliced soda bread on a board"
+      }
+    ],
+    "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"seoTitle\":{\"text\":\"Soda Bread for Days With No Time\"},\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Sliced soda bread on a board\",\"basis\":\"Caption\"}]}}",
+    "expectedSchemaVersion": "content.seo-package.v1"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

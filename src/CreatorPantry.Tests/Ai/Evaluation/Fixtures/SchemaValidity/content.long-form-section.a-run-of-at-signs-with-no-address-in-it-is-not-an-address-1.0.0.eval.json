@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.a-run-of-at-signs-with-no-address-in-it-is-not-an-address",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "The address check names what an address is. A run of signs that never forms one is odd prose and not an address, and reading it takes no longer than reading anything else.",
+  "input": {
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "repeatBody": {
+      "text": "a@",
+      "times": 5000
+    }
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

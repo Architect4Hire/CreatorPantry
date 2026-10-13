@@ -38,7 +38,7 @@ namespace CreatorPantry.Tests.Ai.EditorialPackage;
 /// Mirrors <see cref="AiReviewRequestBusinessTests"/>'s shape, plus what this capability alone has: the approved-only gate,
 /// the requested sections, and the brand facts pinned into the operation.
 /// </remarks>
-public sealed class AiSeoPackageRequestBusinessTests : IAsyncDisposable
+public sealed partial class AiSeoPackageRequestBusinessTests : IAsyncDisposable
 {
     private static readonly Guid WorkspaceA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid WorkspaceB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -47,6 +47,9 @@ public sealed class AiSeoPackageRequestBusinessTests : IAsyncDisposable
 
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly ServiceProvider _provider;
+
+    /// <summary>The long-form drafts the request seam can read (LF.5.3). Empty unless a test holds one.</summary>
+    private readonly FakeLongFormDocumentFacade _documents = new();
 
     public AiSeoPackageRequestBusinessTests()
     {
@@ -69,6 +72,7 @@ public sealed class AiSeoPackageRequestBusinessTests : IAsyncDisposable
             // library (12.10k), so that lookup has to be resolvable wherever the brand module is composed.
             .AddMediaModule()
             .AddSingleton(new CreatorPantry.Domain.Managers.Reference.SeoRules())
+            .AddSingleton<CreatorPantry.Domain.Modules.Content.Facade.ILongFormDocumentFacade>(_documents)
             .AddLogging()
             .AddDistributedMemoryCache()
             .AddApplicationCache()
@@ -118,6 +122,7 @@ public sealed class AiSeoPackageRequestBusinessTests : IAsyncDisposable
             scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>(),
             scope.ServiceProvider.GetRequiredService<IRecipeFacade>(),
             scope.ServiceProvider.GetRequiredService<IBrandProfileFacade>(),
+            _documents,
             new CreatorPantry.Domain.Managers.Reference.SeoRules(),
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
             new AiTaskGate(new AiTaskOptions(), scope.ServiceProvider.GetRequiredService<IAiTaskSwitchDataLayer>()),

@@ -1,0 +1,32 @@
+{
+  "id": "content.long-form-outline.a-dish-named-gluten-free-may-be-called-that",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "The creator titled the recipe 'Gluten-Free Brownies'. A heading that uses the dish's own name asserts nothing the creator did not, and is not flagged.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"WhyItWorks\", \"heading\": \"Why these Gluten-Free Brownies stay fudgy\", \"intent\": \"Explain what the almond flour does to the crumb.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Gluten-Free Brownies",
+        "yieldText": "Makes 16",
+        "ingredients": [
+          "200 g almond flour",
+          "150 g dark chocolate"
+        ],
+        "steps": [
+          "Melt the chocolate.",
+          "Fold in the almond flour."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "notFlagged": [
+      "gluten"
+    ]
+  }
+}

@@ -1,9 +1,11 @@
-/* The frame takes the height it can and the picture scales inside it, so a tall and a wide picture both fit
-   without the dialog growing past the viewport — cp-dialog caps itself at 90vh and scrolls. */
+/* cp-lightbox holds the picture to the window; the frame only has to span the stage. */
 .frame {
-  display: block;
-  max-height: 60vh;
-  overflow: hidden;
+  justify-self: stretch;
+}
+
+.about {
+  display: grid;
+  gap: var(--cp-space-2);
 }
 
 .status {
@@ -11,12 +13,12 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-2);
-  margin: var(--cp-space-4) 0 0;
+  margin: 0;
   font-size: var(--cp-font-size-sm);
 }
 
 .hint {
-  margin: var(--cp-space-2) 0 0;
+  margin: 0;
   font-size: var(--cp-font-size-sm);
 }
 
@@ -25,7 +27,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--cp-space-2);
-  margin: var(--cp-space-2) 0 0;
+  margin: 0;
   font-size: var(--cp-font-size-sm);
   font-weight: 700;
 }
@@ -35,7 +37,7 @@
 }
 
 .problem {
-  margin: var(--cp-space-2) 0 0;
+  margin: 0;
   color: var(--cp-danger);
   font-size: var(--cp-font-size-sm);
 }

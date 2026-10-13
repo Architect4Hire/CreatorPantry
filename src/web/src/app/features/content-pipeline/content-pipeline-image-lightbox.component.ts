@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   computed,
   effect,
   inject,
@@ -10,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpCheckboxComponent, CpDialogComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpCheckboxComponent, CpLightboxComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { StagedImage, isStagedImageActionable } from '../../models/generated-image.models';
 import { byteSizeText, pictureSizeText } from '../../models/picture-rendition.models';
@@ -24,21 +23,16 @@ import {
 } from './content-pipeline-image-presentation';
 import { ContentPipelineStagedImageComponent } from './content-pipeline-staged-image.component';
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 /**
  * One picture, large, with the keyboard.
  *
- * **Built on `CpDialogComponent` and adding what it does not have**: Escape to close, a focus trap, and
- * `←`/`→`/`Home`/`End` between the pictures of this run. The dialog contributes the modal shell — the title,
- * `role="dialog"`, `aria-modal`, the close control and the initial focus — so none of that is rebuilt here.
+ * **Built on `CpLightboxComponent` and adding what it does not have**: `←`/`→`/`Home`/`End` between the
+ * pictures of this run, and what can be done to one. The lightbox contributes the modal shell — the heading,
+ * `role="dialog"`, `aria-modal`, the close control, Escape, the Tab trap, the focus it takes and gives back,
+ * and a picture held to the window — so none of that is rebuilt here.
  *
- * **Deliberately a feature component still.** A lightbox over a set of images is domain-neutral and belongs
- * in `@creator-pantry/ui` eventually, but it has exactly one caller: `GeneratedImageRunComponent`, which the
- * Content Pipeline and the Image Studio (12.10c) both show. Two screens, then, and still one contract — so
- * promoting it now would be guessing a reusable shape from a single consumer, which is what waiting was meant
- * to avoid. The DAM's preview is the first caller that would ask something different of it
+ * **What stays a feature component is the run**: which picture of how many, its status, and keeping, saving,
+ * downloading and declining. `cp-lightbox` knows one picture and nothing about any of those
  * (.claude/rules/design-system.md).
  *
  * **Arrow keys clamp rather than wrap.** With at most four pictures there is no distance to cover, and a
@@ -56,7 +50,7 @@ const FOCUSABLE =
     RouterLink,
     CpButtonComponent,
     CpCheckboxComponent,
-    CpDialogComponent,
+    CpLightboxComponent,
     CpStatusPillComponent,
     ContentPipelineStagedImageComponent,
   ],
@@ -66,7 +60,6 @@ const FOCUSABLE =
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineImageLightboxComponent {
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly service = inject(GeneratedImageService);
 
   readonly workspaceSlug = input.required<string>();
@@ -175,7 +168,9 @@ export class ContentPipelineImageLightboxComponent {
         return;
       }
 
-      // Captured before the dialog renders, while the control the creator activated still holds focus.
+      // Captured before the lightbox renders, while the control the creator activated still holds focus.
+      // The lightbox gives focus back too; this is what holds across a move between pictures, and what puts
+      // it back when the control that held it inside was disabled by the last move.
       this.opener ??= document.activeElement instanceof HTMLElement ? document.activeElement : null;
       this.currentId.set(id);
     });
@@ -184,11 +179,8 @@ export class ContentPipelineImageLightboxComponent {
   protected onKeydown(event: KeyboardEvent): void {
     if (!this.isOpen()) return;
 
+    // Escape and Tab are the lightbox's own. These are the keys that mean something only to a set.
     switch (event.key) {
-      case 'Escape':
-        event.preventDefault();
-        this.closed.emit();
-        return;
       case 'ArrowLeft':
         this.moveTo(this.index() - 1, event);
         return;
@@ -200,9 +192,6 @@ export class ContentPipelineImageLightboxComponent {
         return;
       case 'End':
         this.moveTo(this.total() - 1, event);
-        return;
-      case 'Tab':
-        this.trap(event);
         return;
       default:
         return;
@@ -273,32 +262,6 @@ export class ContentPipelineImageLightboxComponent {
 
     return current === null ? '' : byteSizeText(current.sizeBytes);
   });
-
-  /**
-   * Keep `Tab` inside the dialog.
-   *
-   * Without it a modal is only visually modal: the next `Tab` lands on the page behind, which a screen-reader
-   * or keyboard-only creator then has to find their way back out of (WCAG 2.2 AA, 2.4.3).
-   */
-  private trap(event: KeyboardEvent): void {
-    const focusable = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>(FOCUSABLE));
-    if (focusable.length === 0) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-
-    if (event.shiftKey && (active === first || !this.host.nativeElement.contains(active))) {
-      event.preventDefault();
-      last.focus();
-      return;
-    }
-
-    if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
 
   private moveTo(index: number, event: KeyboardEvent): void {
     // The key is consumed either way, so the page behind never scrolls. Clamped rather than wrapping: being

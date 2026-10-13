@@ -14,6 +14,10 @@ internal sealed class BrandProfileConfiguration : IEntityTypeConfiguration<Brand
         {
             table.HasCheckConstraint("CK_BrandProfiles_BrandName_NotBlank", "trim(BrandName) <> ''");
             table.HasCheckConstraint("CK_BrandProfiles_Revision_Positive", "Revision >= 1");
+            table.HasCheckConstraint(
+                "CK_BrandProfiles_DefaultPictureCount_Range",
+                $"DefaultPictureCount IS NULL OR (DefaultPictureCount >= {BrandPolicy.MinDefaultPictureCount} "
+                    + $"AND DefaultPictureCount <= {BrandPolicy.MaxDefaultPictureCount})");
         });
 
         builder.HasKey(profile => profile.Id);

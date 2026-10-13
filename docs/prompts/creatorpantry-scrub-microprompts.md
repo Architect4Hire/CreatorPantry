@@ -6000,6 +6000,8 @@ BEHAVIOR: Show integration/state map, wait for approval, implement resume/deep-l
 
 *Narrowed by the long-form document (`creatorpantry-long-form-scrub-prompts.md`): this stays the wizard shell, and the writing steps it composes are LF.2–LF.5.*
 
+*Reconciled by LF.6.3 (2026-10-13): the Workflows Hub entry "Write a blog post or newsletter" opens the long-form pipeline (`workflows/long-form`, LF.6.2), which is this journey as built; no second guide wizard was made for it. Of the steps named below: recipe selection, the active brand guide and the audience are that pipeline's first step, read from the brand rather than asked; "editorial proposal review/edit" is the outline, write and review steps (LF.2–LF.3); SEO review and export are on its last step (LF.5.2, LF.5.3). JSON-LD validation and a separate preview are not steps of the long-form pipeline and are not offered from it: JSON-LD remains the recipe export's (11.9).*
+
 ```text
 SCOPE: Compose recipe/version selection, active brand guide, audience/goal, editorial proposal review/edit,
 SEO proposal review/edit, JSON-LD validation, preview, and export into the shared shell.

@@ -44,6 +44,8 @@ const TASK_LABELS: Record<AiTaskType, string> = {
   ReferenceImageAnalysis: 'Reference image readings',
   DishFacetSuggestion: 'Dish name readings',
   ChannelPosts: 'Channel posts',
+  LongFormOutline: 'Article and newsletter plans',
+  LongFormSection: 'Article and newsletter sections',
 };
 
 /** A workspace the account has left keeps its spend and loses its name (USAGE-008). */

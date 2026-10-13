@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+
+/* A value and the few words about whose it is, on one line where there is room. */
+.values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.lines {
+  display: grid;
+  /* minmax(0, …) so one long line cannot hold the column wider than the card (DESIGN-SYSTEM.md). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-1);
+  margin: var(--cp-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note {
+  margin: var(--cp-space-2) 0 0;
+}

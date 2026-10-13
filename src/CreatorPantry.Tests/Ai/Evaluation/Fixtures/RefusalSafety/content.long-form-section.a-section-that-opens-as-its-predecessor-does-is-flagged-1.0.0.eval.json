@@ -1,0 +1,40 @@
+{
+  "id": "content.long-form-section.a-section-that-opens-as-its-predecessor-does-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A body whose line is, word for word, the line an earlier section opens with is repeating it. Reported for the creator to look at; nothing is removed.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Some breads ask for a whole afternoon, and this one does not. Soda bread has always been the quick loaf.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Context",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "earlierOpenings": [
+      "Some breads ask for a whole afternoon and this one does not."
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "long_form.repeats_earlier_section",
+      "section 1"
+    ]
+  }
+}

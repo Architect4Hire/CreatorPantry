@@ -1514,6 +1514,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("DefaultPictureCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("Locale")
                         .HasMaxLength(35)
                         .HasColumnType("nvarchar(35)");
@@ -1556,6 +1559,8 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("BrandProfiles", null, t =>
                         {
                             t.HasCheckConstraint("CK_BrandProfiles_BrandName_NotBlank", "trim(BrandName) <> ''");
+
+                            t.HasCheckConstraint("CK_BrandProfiles_DefaultPictureCount_Range", "DefaultPictureCount IS NULL OR (DefaultPictureCount >= 1 AND DefaultPictureCount <= 4)");
 
                             t.HasCheckConstraint("CK_BrandProfiles_Revision_Positive", "Revision >= 1");
                         });

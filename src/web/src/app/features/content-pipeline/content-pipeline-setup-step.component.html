@@ -1,5 +1,6 @@
 <!-- The intro says the name is carried as written. The pipeline's next step reads it into a suggested cuisine,
      dish type and method the creator can change; the name itself is never rewritten (.claude/rules/recipes.md). -->
+@if (asksSubject()) {
 <cp-form-section
   heading="What it is"
   intro="The dish the picture is of. Your name for it is carried through the idea, the looks and the prompt exactly as you write it. What kind of dish it is and how it is cooked are yours to say on the next step."
@@ -16,8 +17,11 @@
     />
   </cp-field>
 </cp-form-section>
+}
 
-<cp-form-section heading="Where it is going" intro="So the pictures and the words suit the place you publish.">
+@if (asksDefaults() || (asksSubject() && showDay())) {
+<cp-form-section [heading]="placeHeading()" [intro]="placeIntro()">
+  @if (asksDefaults()) {
   <cp-field
     label="Channel"
     forId="cp-pipeline-channel"
@@ -47,8 +51,9 @@
       <button cpButton type="button" variant="secondary" size="sm" (click)="loadChannels()">Try again</button>
     </cp-notice>
   }
+  }
 
-  @if (showDay()) {
+  @if (showDay() && asksSubject()) {
   <cp-choice-group
     label="Which day is it for?"
     layout="fit"
@@ -67,7 +72,9 @@
   </p>
   }
 </cp-form-section>
+}
 
+@if (asksDefaults()) {
 <cp-form-section heading="How many pictures to try" intro="You pick the ones worth keeping later. Each one you ask for is a separate charge.">
   <cp-choice-group
     label="How many pictures to try"
@@ -77,7 +84,9 @@
     (valueChange)="setVariantCount($event)"
   />
 </cp-form-section>
+}
 
+@if (asksSubject()) {
 <cp-form-section
   heading="What you already have in mind"
   intro="Your own words, written down once so every later step starts from them."
@@ -97,7 +106,9 @@
     ></textarea>
   </cp-field>
 </cp-form-section>
+}
 
+@if (asksDefaults()) {
 <cp-form-section
   heading="Scene"
   intro="Things you want in the shot — a surface, a season, a time of day, a prop. One per line."
@@ -185,3 +196,4 @@
     <p class="cp-muted">That is as many style directions as one picture can carry.</p>
   }
 </cp-form-section>
+}

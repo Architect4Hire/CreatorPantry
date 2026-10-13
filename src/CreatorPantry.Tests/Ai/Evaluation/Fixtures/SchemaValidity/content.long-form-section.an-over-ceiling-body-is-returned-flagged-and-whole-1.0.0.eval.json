@@ -1,0 +1,40 @@
+{
+  "id": "content.long-form-section.an-over-ceiling-body-is-returned-flagged-and-whole",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A body over the section ceiling is not refused and not trimmed: it is stored exactly as written, across as many rows as it takes, with the ceiling finding beside it.",
+  "input": {
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "repeatBody": {
+      "text": "Buttermilk does the work here. ",
+      "times": 150
+    }
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "content.long_form.section.over_ceiling",
+      "Nothing was cut"
+    ]
+  }
+}

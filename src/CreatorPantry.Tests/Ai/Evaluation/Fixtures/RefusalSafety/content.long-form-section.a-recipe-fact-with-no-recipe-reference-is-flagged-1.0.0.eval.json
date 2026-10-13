@@ -1,0 +1,19 @@
+{
+  "id": "content.long-form-section.a-recipe-fact-with-no-recipe-reference-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "With no recipe in the package there are no recipe facts at all, so a quantity and a time in the body can only have been made up.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Use 500g flour and bake for 30 minutes.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": []
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_number"
+    ]
+  }
+}

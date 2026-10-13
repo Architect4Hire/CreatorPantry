@@ -404,11 +404,7 @@ internal sealed class ChannelPostsAiTaskHandler(
     /// definition.
     /// </remarks>
     private static IEnumerable<(AiWarningKind Kind, string Code, string Message)> Claims(
-        string body, AiEditorialSourceFacts? source) =>
-        (source is null
-            ? AiEditorialClaimScanner.ScanTextWithoutSource(body)
-            : AiEditorialClaimScanner.ScanText(body, source))
-        .Concat(AiSeoClaimScanner.ScanTextForMetrics(body));
+        string body, AiEditorialSourceFacts? source) => CreativeContextClaimSource.Claims(body, source);
 
     /// <summary>
     /// What the package's recipes state, for a claim to be checked against; null when it carries no recipe.
@@ -426,41 +422,8 @@ internal sealed class ChannelPostsAiTaskHandler(
     /// the recipe states. It is therefore added to the prose after the figures have been read.
     /// </para>
     /// </remarks>
-    private static AiEditorialSourceFacts? SourceFacts(CreativeContextPackage package)
-    {
-        if (package.Recipes.Count == 0)
-        {
-            return null;
-        }
-
-        var figures = new List<string>();
-
-        foreach (var recipe in package.Recipes)
-        {
-            figures.AddRange(recipe.Ingredients);
-            figures.AddRange(recipe.Steps);
-
-            if (recipe.YieldText is { } yield)
-            {
-                figures.Add(yield);
-            }
-
-            foreach (var minutes in new[] { recipe.PrepTimeMinutes, recipe.CookTimeMinutes, recipe.RestTimeMinutes, recipe.TotalTimeMinutes })
-            {
-                if (minutes is { } value)
-                {
-                    figures.Add($"{Number(value)} minutes");
-                }
-            }
-        }
-
-        var recipeTitles = string.Join(' ', package.Recipes.Select(recipe => recipe.Title));
-        var facts = AiEditorialSourceFacts.Of(figures, recipeTitles, storageNotes: null);
-
-        return package.Words?.WorkingTitle is { } workingTitle
-            ? facts with { Prose = $"{recipeTitles} {workingTitle}" }
-            : facts;
-    }
+    private static AiEditorialSourceFacts? SourceFacts(CreativeContextPackage package) =>
+        CreativeContextClaimSource.Facts(package);
 
     private static string Explain(ContentChannelProfile profile, ChannelWritingFinding finding) => finding.Code switch
     {

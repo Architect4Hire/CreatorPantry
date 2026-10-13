@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.a-missing-body-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "The body is required by the schema; an answer of warnings alone fails its shape.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"warnings\": []}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Hook",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

@@ -3,6 +3,8 @@ using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Content.Facade;
+using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 
@@ -30,10 +32,21 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 /// this handler offers, read through the recipe facade under the resolved workspace's filter, and alt text only
 /// the asset links of the pinned version.
 /// </para>
+/// <para>
+/// <strong>One capability, two subjects (LF.5.3).</strong> The package is about an approved recipe version or
+/// about an accepted long-form draft, and which is decided by whether the operation's inputs name a draft —
+/// never by anything a model says. Everything after the subject is read is one path: the same template, the
+/// same schema, the same validator and the same scanners. An article is read through the content module's
+/// facades and reaches the model as Markdown in the fenced SOURCE segment, untrusted like any other source
+/// text. It has no asset links, so it is offered no alt text; its figures are held to the article's own text;
+/// and it is not a recipe, so every approved recipe offered is one it may link to.
+/// </para>
 /// </remarks>
 internal sealed class SeoPackageAiTaskHandler(
     IAiCompletionGateway gateway,
     IRecipeFacade recipes,
+    ILongFormDocumentFacade documents,
+    ILongFormExportFacade exports,
     IPromptTemplateStore templates,
     SeoRules rules,
     IClock clock) : IAiTaskHandler
@@ -48,7 +61,11 @@ internal sealed class SeoPackageAiTaskHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (context.RecipeId is not { } recipeId || context.RecipeVersionId is not { } versionId)
+        // The subject is the request's, recorded when it was made: a draft in the inputs, or a recipe on the row.
+        var draftId = AiSeoPackageInputs.ReadLongFormDraftId(context.Inputs);
+        var kind = draftId is null ? AiSeoSubject.Recipe : AiSeoSubject.Article;
+
+        if (draftId is null && (context.RecipeId is null || context.RecipeVersionId is null))
         {
             return Failure(AiFailureCategory.Validation, "An SEO package names a recipe and the exact version it was asked against.");
         }
@@ -57,6 +74,13 @@ internal sealed class SeoPackageAiTaskHandler(
             || !requested.Overlaps(AiSeoSectionCatalog.ModelWritten))
         {
             return Failure(AiFailureCategory.Validation, "An SEO package names at least one section the model writes.");
+        }
+
+        // The request refuses this at the edge. Refused again here because the row is what runs, and a row is
+        // not trusted to have come through the edge.
+        if (requested.Any(section => !AiSeoSubjects.Offers(kind, section)))
+        {
+            return Failure(AiFailureCategory.Validation, "An SEO package for an article has no image to write alt text for.");
         }
 
         string? pinnedRules = null;
@@ -72,29 +96,28 @@ internal sealed class SeoPackageAiTaskHandler(
                 $"The SEO rules changed after this package was asked for (asked under '{pinnedRules ?? "none"}', this host has '{rules.Version}'); ask again.");
         }
 
-        var snapshot = await recipes.GetSnapshotAsync(recipeId, versionId, cancellationToken);
+        var (subject, unreadable) = draftId is { } article
+            ? await ReadArticleAsync(article, context.Inputs, cancellationToken)
+            : await ReadRecipeAsync(context.RecipeId!.Value, context.RecipeVersionId!.Value, cancellationToken);
 
-        if (!snapshot.Succeeded)
+        if (subject is null)
         {
-            return Failure(AiFailureCategory.Validation, "The recipe version this package was asked against is no longer available.");
+            return unreadable!;
         }
 
-        if (await StaleReasonAsync(recipeId, versionId, cancellationToken) is { } staleReason)
-        {
-            return Failure(AiFailureCategory.DomainInvalid, staleReason);
-        }
-
-        var source = snapshot.Value!.Document;
         var candidates = requested.Contains(AiSeoSection.InternalLinks)
-            ? await CandidatesAsync(recipeId, cancellationToken)
+            ? await CandidatesAsync(subject.RecipeId, cancellationToken)
             : [];
         var template = templates.Get(AiTaskCatalog.SeoPackage);
 
         var builder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>(StringComparer.Ordinal)))
-            .WithOutputSchema(AiSeoPackageOutputSchema.Json)
-            .WithPreferences(context.WorkspaceId, RenderPreferences(requested, context.Inputs, candidates.Count))
-            .WithSource(context.WorkspaceId, JsonSerializer.Serialize(source));
+            .WithOutputSchema(AiSeoPackageOutputSchema.Json, template.OutputSchemaVersion)
+            .WithPreferences(context.WorkspaceId, RenderPreferences(kind, requested, context.Inputs, candidates.Count))
+
+            // Creator material whichever subject it is: a recipe as data or an article as Markdown, fenced as
+            // a source and never read as instruction.
+            .WithSource(context.WorkspaceId, subject.Source);
 
         if (candidates.Count > 0)
         {
@@ -117,9 +140,9 @@ internal sealed class SeoPackageAiTaskHandler(
                     rules,
                     new AiSeoRequestContext(
                         requested,
-                        source.AssetLinks.ToDictionary(link => link.Id, link => link.Caption),
+                        subject.Captions,
                         candidates.Select(candidate => candidate.Id).ToHashSet(),
-                        recipeId))),
+                        subject.RecipeId))),
             cancellationToken);
 
         if (!outcome.Succeeded)
@@ -129,23 +152,24 @@ internal sealed class SeoPackageAiTaskHandler(
 
         var document = outcome.Document!;
 
-        if (CheckAgainstRequestAndSource(document, requested, source, candidates, recipeId) is { } mismatch)
+        if (CheckAgainstRequestAndSource(document, requested, subject.Captions, candidates, subject.RecipeId) is { } mismatch)
         {
             return AiTaskHandlerOutcome.ForFailure(AiFailureCategory.DomainInvalid, mismatch, outcome.Attempts);
         }
 
-        // After the call: the recipe may have moved, or been reopened, while the model ran.
-        var current = await recipes.GetDetailAsync(recipeId, cancellationToken);
+        // After the call: the subject may have moved — a recipe reopened, a piece no longer accepted — while
+        // the model ran.
+        var (moved, currentVersionId) = await subject.RecheckAsync(cancellationToken);
 
-        if (current.Succeeded && current.Value!.Status is not RecipeStatus.Approved)
+        if (moved is not null)
         {
-            return AiTaskHandlerOutcome.ForFailure(AiFailureCategory.DomainInvalid, "The recipe is no longer approved.", outcome.Attempts);
+            return AiTaskHandlerOutcome.ForFailure(AiFailureCategory.DomainInvalid, moved, outcome.Attempts);
         }
 
         // A candidate may have been reopened or archived while the model ran; a link idea to it is stale too.
         if (document.Sections.InternalLinks.Count > 0)
         {
-            var fresh = (await CandidatesAsync(recipeId, cancellationToken)).Select(candidate => candidate.Id).ToHashSet();
+            var fresh = (await CandidatesAsync(subject.RecipeId, cancellationToken)).Select(candidate => candidate.Id).ToHashSet();
 
             if (document.Sections.InternalLinks.Any(link => !fresh.Contains(link.RecipeId)))
             {
@@ -156,10 +180,9 @@ internal sealed class SeoPackageAiTaskHandler(
             }
         }
 
-        var captions = source.AssetLinks.ToDictionary(link => link.Id, link => link.Caption);
-        var findings = new List<AiSeoFinding>(AiSeoClaimScanner.Scan(document.Sections, AiEditorialSourceFacts.From(source), captions, source.Recipe.Title));
+        var findings = new List<AiSeoFinding>(AiSeoClaimScanner.Scan(document.Sections, subject.Facts, subject.Captions, subject.Title));
 
-        var slug = requested.Contains(AiSeoSection.Slug) ? DeriveSlug(document, source, recipeId) : null;
+        var slug = requested.Contains(AiSeoSection.Slug) ? DeriveSlug(document, subject) : null;
 
         var (changes, warnings) = Translate(document, findings, slug);
         var attempt = outcome.Attempts[^1];
@@ -167,8 +190,8 @@ internal sealed class SeoPackageAiTaskHandler(
         var assembly = AiProposalAssembler.Assemble(
             context.WorkspaceId,
             context.OperationId,
-            pinnedVersionId: versionId,
-            currentVersionId: current.Succeeded ? current.Value!.CurrentVersion?.Id : null,
+            pinnedVersionId: subject.PinnedVersionId,
+            currentVersionId: currentVersionId,
             new AiOutputDocument { SchemaVersion = template.OutputSchemaVersion, Warnings = warnings },
             changes,
             new AiProposalProvenance(
@@ -186,23 +209,171 @@ internal sealed class SeoPackageAiTaskHandler(
             : AiTaskHandlerOutcome.ForFailure(assembly.Failure!.Category, assembly.Failure.Message, outcome.Attempts);
     }
 
-    /// <summary>The slug, from the proposed title when one was written and otherwise the recipe's own.</summary>
-    private (string Value, string Basis)? DeriveSlug(AiSeoPackageOutputDocument document, RecipeSnapshotDocument source, Guid recipeId)
+    /// <summary>
+    /// What a package is written about, read once and then the same to every step whichever kind it is.
+    /// </summary>
+    /// <param name="Source">What the model is shown, as the fenced SOURCE segment.</param>
+    /// <param name="Facts">The figures and words the package's claims are held to.</param>
+    /// <param name="Captions">The subject's image links by id with their captions. Empty for an article.</param>
+    /// <param name="Title">The subject's own title, for the slug when no title is proposed. May be empty.</param>
+    /// <param name="TitleBasis">What a slug derived from <paramref name="Title"/> says it rests on.</param>
+    /// <param name="Identity">The recipe or the draft, so two subjects with unusable titles are not offered one slug.</param>
+    /// <param name="RecipeId">The recipe a link idea may not name. Null for an article, which is not one.</param>
+    /// <param name="PinnedVersionId">The recipe version the proposal is pinned to. Null for an article.</param>
+    /// <param name="RecheckAsync">
+    /// Read after the model has answered: why the subject is no longer what the package was asked about, or
+    /// null, and the recipe version current now.
+    /// </param>
+    private sealed record Subject(
+        string Source,
+        AiEditorialSourceFacts Facts,
+        IReadOnlyDictionary<Guid, string?> Captions,
+        string Title,
+        string TitleBasis,
+        Guid Identity,
+        Guid? RecipeId,
+        Guid? PinnedVersionId,
+        Func<CancellationToken, Task<(string? Moved, Guid? CurrentVersionId)>> RecheckAsync);
+
+    private async Task<(Subject? Subject, AiTaskHandlerOutcome? Unreadable)> ReadRecipeAsync(
+        Guid recipeId, Guid versionId, CancellationToken cancellationToken)
+    {
+        var snapshot = await recipes.GetSnapshotAsync(recipeId, versionId, cancellationToken);
+
+        if (!snapshot.Succeeded)
+        {
+            return (null, Failure(AiFailureCategory.Validation, "The recipe version this package was asked against is no longer available."));
+        }
+
+        if (await StaleReasonAsync(recipeId, versionId, cancellationToken) is { } staleReason)
+        {
+            return (null, Failure(AiFailureCategory.DomainInvalid, staleReason));
+        }
+
+        var source = snapshot.Value!.Document;
+
+        return (
+            new Subject(
+                JsonSerializer.Serialize(source),
+                AiEditorialSourceFacts.From(source),
+                source.AssetLinks.ToDictionary(link => link.Id, link => link.Caption),
+                source.Recipe.Title,
+                TitleBasis: "recipeTitle",
+                Identity: recipeId,
+                RecipeId: recipeId,
+                PinnedVersionId: versionId,
+                async token =>
+                {
+                    var current = await recipes.GetDetailAsync(recipeId, token);
+
+                    return current.Succeeded && current.Value!.Status is not RecipeStatus.Approved
+                        ? ("The recipe is no longer approved.", null)
+                        : (null, current.Succeeded ? current.Value!.CurrentVersion?.Id : null);
+                }),
+            null);
+    }
+
+    /// <summary>An accepted long-form draft as the subject (LF.5.3).</summary>
+    /// <remarks>
+    /// Read through the content module's facades under the workspace the worker resolved, so another
+    /// workspace's draft is one this cannot find. The article is its creator's title, an issue's note and the
+    /// written sections under their headings — the piece as it reads, and nothing about how it was made.
+    /// </remarks>
+    private async Task<(Subject? Subject, AiTaskHandlerOutcome? Unreadable)> ReadArticleAsync(
+        Guid draftId, IReadOnlyDictionary<string, string>? inputs, CancellationToken cancellationToken)
+    {
+        if (AiSeoPackageInputs.ReadLongFormRevisionNumber(inputs) is not { } revisionNumber)
+        {
+            return (null, Failure(AiFailureCategory.Validation, "An SEO package for a piece names the accepted revision it was asked against."));
+        }
+
+        var read = await documents.GetDocumentAsync(draftId, cancellationToken);
+
+        if (!read.Succeeded)
+        {
+            return (null, Failure(AiFailureCategory.Validation, "The piece this package was asked against is no longer available."));
+        }
+
+        if (ArticleMoved(read.Value!, revisionNumber) is { } moved)
+        {
+            return (null, Failure(AiFailureCategory.DomainInvalid, moved));
+        }
+
+        // Acceptance refuses a piece with nothing written, so this is a row that did not come through it. A
+        // package written from no text would be invention, and is not asked for.
+        if (string.IsNullOrWhiteSpace(read.Value!.Markdown))
+        {
+            return (null, Failure(AiFailureCategory.Validation, "The piece this package was asked against has no written text."));
+        }
+
+        // The title the piece carries when it leaves: an issue's subject line, or the working title. Read
+        // from the export so there is one statement of which it is.
+        var export = await exports.ExportAsync(draftId, LongFormExportFormat.Markdown, cancellationToken);
+        var title = export.Succeeded ? export.Value!.Title ?? string.Empty : string.Empty;
+        var text = ArticleText(title, read.Value!);
+
+        return (
+            new Subject(
+                text,
+
+                // Held to its own text: a figure the article does not state is one the package may not either.
+                AiEditorialSourceFacts.Of([], text, storageNotes: null),
+                new Dictionary<Guid, string?>(),
+                title,
+                TitleBasis: "articleTitle",
+                Identity: draftId,
+                RecipeId: null,
+                PinnedVersionId: null,
+                async token =>
+                {
+                    var current = await documents.GetDocumentAsync(draftId, token);
+
+                    return current.Succeeded
+                        ? (ArticleMoved(current.Value!, revisionNumber), null)
+                        : ("The piece this package was asked against is no longer available.", null);
+                }),
+            null);
+    }
+
+    private static string? ArticleMoved(LongFormAssembledDocumentServiceModel document, int revisionNumber) =>
+        document.Status is not LongFormDraftStatus.Accepted ? "The piece is no longer accepted."
+        : document.AcceptedRevisionNumber != revisionNumber ? "The piece was accepted at a different revision than the one this package was asked against."
+        : null;
+
+    private static string ArticleText(string title, LongFormAssembledDocumentServiceModel document)
+    {
+        var text = new System.Text.StringBuilder();
+
+        if (title.Length > 0)
+        {
+            text.Append("# ").Append(title).Append("\n\n");
+        }
+
+        if (!string.IsNullOrWhiteSpace(document.Framing?.Note))
+        {
+            text.Append(document.Framing.Note.Trim()).Append("\n\n");
+        }
+
+        return text.Append(document.Markdown).ToString();
+    }
+
+    /// <summary>The slug, from the proposed title when one was written and otherwise the subject's own.</summary>
+    private (string Value, string Basis)? DeriveSlug(AiSeoPackageOutputDocument document, Subject subject)
     {
         var fromTitle = SeoSlug.FromTitle(document.Sections.SeoTitle?.Text, rules.SlugMaxLength);
 
         if (fromTitle.Length > 0)
         {
-            return (SeoSlug.Offer(fromTitle, recipeId, rules.SlugMaxLength), "seoTitle");
+            return (SeoSlug.Offer(fromTitle, subject.Identity, rules.SlugMaxLength), "seoTitle");
         }
 
-        var fromRecipe = SeoSlug.FromTitle(source.Recipe.Title, rules.SlugMaxLength);
+        var fromSubject = SeoSlug.FromTitle(subject.Title, rules.SlugMaxLength);
 
-        // Never a constant: two recipes with nothing usable in their titles must not be offered one slug, and a
+        // Never a constant: two subjects with nothing usable in their titles must not be offered one slug, and a
         // reserved path segment is never offered as it stands.
-        return fromRecipe.Length > 0
-            ? (SeoSlug.Offer(fromRecipe, recipeId, rules.SlugMaxLength), "recipeTitle")
-            : (SeoSlug.Offer(string.Empty, recipeId, rules.SlugMaxLength), "fallback");
+        return fromSubject.Length > 0
+            ? (SeoSlug.Offer(fromSubject, subject.Identity, rules.SlugMaxLength), subject.TitleBasis)
+            : (SeoSlug.Offer(string.Empty, subject.Identity, rules.SlugMaxLength), "fallback");
     }
 
     private async Task<string?> StaleReasonAsync(Guid recipeId, Guid versionId, CancellationToken cancellationToken)
@@ -229,32 +400,31 @@ internal sealed class SeoPackageAiTaskHandler(
     /// more approved recipes than the cap offers its most recently touched ones: recency is a stable, explainable
     /// order, not a claim that they are the most relevant links.
     /// </summary>
-    private Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> CandidatesAsync(Guid recipeId, CancellationToken cancellationToken) =>
-        recipes.ListApprovedLinkCandidatesAsync(recipeId, AiPolicy.MaxSeoLinkCandidates, cancellationToken);
+    /// <param name="excluding">The recipe the package is about. Null for an article: no recipe is excluded.</param>
+    private Task<IReadOnlyList<RecipeLinkCandidateServiceModel>> CandidatesAsync(Guid? excluding, CancellationToken cancellationToken) =>
+        recipes.ListApprovedLinkCandidatesAsync(excluding ?? Guid.Empty, AiPolicy.MaxSeoLinkCandidates, cancellationToken);
 
     private static string? CheckAgainstRequestAndSource(
         AiSeoPackageOutputDocument document,
         IReadOnlySet<AiSeoSection> requested,
-        RecipeSnapshotDocument source,
+        IReadOnlyDictionary<Guid, string?> captions,
         IReadOnlyList<RecipeLinkCandidateServiceModel> candidates,
-        Guid recipeId)
+        Guid? recipeId)
     {
         if (AiSeoSectionCatalog.Present(document.Sections).Any(section => !requested.Contains(section)))
         {
             return $"{AiOutputReason.EditorialSectionNotRequested}: the answer wrote a section the request did not ask for.";
         }
 
-        var links = source.AssetLinks.ToDictionary(link => link.Id);
-
         foreach (var alt in document.Sections.AltText)
         {
-            if (!links.TryGetValue(alt.AssetLinkId, out var link))
+            if (!captions.TryGetValue(alt.AssetLinkId, out var caption))
             {
                 return $"{AiOutputReason.SeoItemNotInSource}: an alt text names an image that is not part of the version this package was asked against.";
             }
 
             // "From the caption" is a claim about where it came from; with no caption it cannot be true.
-            if (alt.Basis is AiSeoAltTextBasis.Caption && string.IsNullOrWhiteSpace(link.Caption))
+            if (alt.Basis is AiSeoAltTextBasis.Caption && string.IsNullOrWhiteSpace(caption))
             {
                 return $"{AiOutputReason.SeoAltTextInvalid}: an alt text claims to rest on a caption the image does not have.";
             }
@@ -285,10 +455,13 @@ internal sealed class SeoPackageAiTaskHandler(
     }
 
     /// <summary>The sections the model writes, the configured limits, and the brand facts pinned at request time, as creator data.</summary>
-    private string RenderPreferences(IReadOnlySet<AiSeoSection> requested, IReadOnlyDictionary<string, string>? inputs, int linkCandidates)
+    private string RenderPreferences(
+        AiSeoSubject subject, IReadOnlySet<AiSeoSection> requested, IReadOnlyDictionary<string, string>? inputs, int linkCandidates)
     {
         var preferences = new Dictionary<string, object?>
         {
+            // What the SOURCE is, said by the server: the template reads this, and nothing in the SOURCE can.
+            ["subject"] = AiSeoSubjects.ToWire(subject),
             ["sections"] = AiSeoSectionCatalog.ModelWritten.Where(requested.Contains).Select(AiSeoSectionCatalog.ToWire).ToArray(),
 
             // How many recipes the REFERENCE segment offers, so "none" is stated rather than inferred from absence.
@@ -441,4 +614,26 @@ public static class AiSeoPackageInputs
     public const string Audience = "audience";
 
     public const string Locale = "locale";
+
+    /// <summary>
+    /// The accepted long-form draft the package is about (LF.5.3). Present exactly when the subject is an
+    /// article; a recipe request has never written it, so its stored inputs read as they always have.
+    /// </summary>
+    public const string LongFormDraftId = "longFormDraftId";
+
+    /// <summary>The accepted revision of that draft the request was composed against.</summary>
+    public const string LongFormRevisionNumber = "longFormRevisionNumber";
+
+    public static Guid? ReadLongFormDraftId(IReadOnlyDictionary<string, string>? inputs) =>
+        inputs is not null && inputs.TryGetValue(LongFormDraftId, out var value) && Guid.TryParse(value, out var id) && id != Guid.Empty
+            ? id
+            : null;
+
+    public static int? ReadLongFormRevisionNumber(IReadOnlyDictionary<string, string>? inputs) =>
+        inputs is not null
+        && inputs.TryGetValue(LongFormRevisionNumber, out var value)
+        && int.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
+        && number >= 1
+            ? number
+            : null;
 }

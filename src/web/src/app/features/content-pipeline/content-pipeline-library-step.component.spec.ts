@@ -76,7 +76,7 @@ function draftWith(images: Partial<ContentPipelineImagesState> = {}, channelKey:
       generated: { text: DRAFT_TEXT, avoid: [] },
     },
     images: { operationId: 'op-1', ...images },
-    furthestStep: 'library',
+    furthestStep: 'finish',
   };
 }
 

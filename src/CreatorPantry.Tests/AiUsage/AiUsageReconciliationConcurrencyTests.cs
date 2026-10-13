@@ -11,7 +11,6 @@ using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.AiUsage;
 
@@ -42,8 +41,7 @@ public sealed class AiUsageReconciliationConcurrencyTests : IAsyncLifetime
     /// <summary>Everything seeded is older than this; the backfill's range is everything below it.</summary>
     private static readonly DateTimeOffset Cutoff = new(2026, 9, 20, 0, 0, 0, TimeSpan.Zero);
 
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private ServiceProvider? _provider;
 

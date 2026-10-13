@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.an-article-title-with-markdown-in-it-yields-only-its-words",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "LF.5.3: an article title may carry Markdown punctuation - a heading mark, emphasis, a code span; only its words reach a slug.",
+  "input": {
+    "title": "# *No-Knead* Bread: a `quick` _guide_"
+  },
+  "expect": {
+    "slug": "no-knead-bread-a-quick-guide"
+  }
+}

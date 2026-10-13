@@ -280,6 +280,25 @@
             </cp-form-section>
 
             <cp-form-section
+              sectionId="section-content-defaults"
+              heading="Content defaults"
+              intro="What a new run in the Content Pipeline starts from, so you are not asked again each time. Any run can still change it for itself."
+              [problem]="fieldError('defaultPictureCount')"
+            >
+              <cp-choice-group
+                label="How many pictures to try"
+                layout="fit"
+                [options]="pictureCountChoices"
+                [value]="pictureCountValue()"
+                (valueChange)="setPictureCount($event)"
+              />
+              <p class="hint">
+                Each picture is a separate charge. With no preference, a run tries two. Your default channels above
+                are where a run's posts are written for.
+              </p>
+            </cp-form-section>
+
+            <cp-form-section
               sectionId="section-style"
               heading="Voice, tone and visual style"
               intro="These live in your Brand Style Guide, not here."

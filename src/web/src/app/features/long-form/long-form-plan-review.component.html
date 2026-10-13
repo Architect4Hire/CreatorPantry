@@ -1,0 +1,258 @@
+<cp-ai-allowance-notice [allowance]="allowance()" [refusal]="refusal()" />
+
+<!-- Present before it has anything to say, so the first move, removal or save is announced rather than
+     arriving with the region that would have announced it. -->
+<p class="cp-sr-only" role="status" aria-live="polite" data-testid="announcement">{{ announcement() }}</p>
+
+@switch (load()) {
+  @case ('loading') {
+    <p class="cp-muted" role="status">Loading the plan…</p>
+  }
+  @case ('not_found') {
+    <cp-notice tone="error" role="alert">This draft is no longer here.</cp-notice>
+  }
+  @case ('forbidden') {
+    <cp-notice tone="error" role="alert">You do not have access to this draft.</cp-notice>
+  }
+  @case ('unavailable') {
+    <cp-notice tone="error" role="alert">
+      We couldn’t load this plan.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="retryRead()">Try again</button>
+    </cp-notice>
+  }
+  @case ('ready') {
+    @if (planning() && !gaveUpChecking()) {
+      <p class="cp-muted" role="status">Planning your piece. This usually takes a few seconds.</p>
+
+      @if (tracker.connection() === 'degraded') {
+        <cp-notice tone="warning" role="status">
+          This is the last update we could get, so it may be behind what has actually happened.
+        </cp-notice>
+      }
+    }
+
+    @if (gaveUpChecking()) {
+      <cp-notice tone="warning" role="status">
+        We stopped checking on your plan. It may still be on its way.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="recheck()">Check again</button>
+      </cp-notice>
+    }
+
+    @if (outlineProblem(); as why) {
+      <cp-notice tone="warning" role="alert" data-testid="outline-problem">
+        {{ why }}
+        @if (canAskAgain()) {
+          <button cpButton type="button" variant="secondary" size="sm" (click)="ask()">Try again</button>
+        }
+      </cp-notice>
+    }
+
+    @if (!hasPlan()) {
+      @if (!planning() && !outlineProblem()) {
+        <cp-empty-state
+          title="No plan yet"
+          description="Ask for a plan and you’ll get a list of sections to rename, reorder and approve. Nothing is written until you approve it."
+        >
+          <button
+            cpEmptyStateActions
+            cpButton
+            type="button"
+            [attr.aria-disabled]="blocked() ? 'true' : null"
+            (click)="ask()"
+          >
+            Ask for a plan
+          </button>
+        </cp-empty-state>
+      }
+    } @else {
+      <div class="cp-actions" data-testid="plan-state">
+        <cp-status-pill [tone]="statusPill().tone">{{ statusPill().word }}</cp-status-pill>
+        @if (isSuggestion()) {
+          <cp-badge tone="purple">AI suggested</cp-badge>
+        }
+      </div>
+
+      @if (closed()) {
+        <cp-notice role="note">
+          This piece is already being written, so its plan can no longer be changed.
+        </cp-notice>
+      } @else if (isSuggestion()) {
+        <p class="cp-muted">
+          This plan was suggested for you. Change anything you like — nothing is written until you approve it.
+        </p>
+      }
+
+      @if (justApproved()) {
+        <cp-notice tone="success" role="status">Plan approved. Nothing has been written yet.</cp-notice>
+      }
+
+      <!-- One fixed place for what went wrong with a save or an approval, above the sections it is about. -->
+      @if (problem(); as wrong) {
+        <cp-notice tone="error" role="alert" data-testid="write-problem">
+          {{ wrong.text }}
+          @if (wrong.reload) {
+            <button cpButton type="button" variant="secondary" size="sm" (click)="reload()">Reload</button>
+          }
+        </cp-notice>
+      } @else if (blockingCount() > 0) {
+        <cp-notice tone="warning" role="status" data-testid="plan-check">
+          @if (blockingCount() === 1) {
+            One thing needs fixing before this plan can be approved.
+          } @else {
+            {{ blockingCount() }} things need fixing before this plan can be approved.
+          }
+          @for (text of planProblems(); track text) {
+            {{ text }}
+          }
+        </cp-notice>
+      }
+
+      @for (section of working(); track section.key; let index = $index; let first = $first; let last = $last) {
+        <cp-form-section
+          [heading]="sectionHeading(index, section)"
+          [problem]="sectionProblems()[section.key]?.section ?? ''"
+          [sectionId]="sectionId(section, 'section')"
+        >
+          <cp-field
+            label="Heading"
+            [forId]="sectionId(section, 'heading')"
+            [hint]="headingHint"
+            [error]="sectionProblems()[section.key]?.heading ?? ''"
+            [required]="true"
+          >
+            <input
+              type="text"
+              autocomplete="off"
+              [id]="sectionId(section, 'heading')"
+              [value]="section.heading"
+              [readOnly]="readOnly()"
+              [attr.aria-invalid]="sectionProblems()[section.key]?.heading ? 'true' : null"
+              (input)="onHeading(section, $event)"
+            />
+          </cp-field>
+
+          <cp-field
+            label="What this section is for"
+            [forId]="sectionId(section, 'intent')"
+            [hint]="intentHint"
+            [error]="sectionProblems()[section.key]?.intent ?? ''"
+            [required]="true"
+          >
+            <input
+              type="text"
+              autocomplete="off"
+              [id]="sectionId(section, 'intent')"
+              [value]="section.intent"
+              [readOnly]="readOnly()"
+              [attr.aria-invalid]="sectionProblems()[section.key]?.intent ? 'true' : null"
+              (input)="onIntent(section, $event)"
+            />
+          </cp-field>
+
+          @if (!closed()) {
+            <div class="cp-actions">
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                [id]="sectionId(section, 'up')"
+                [disabled]="first || readOnly()"
+                [attr.aria-label]="'Move ' + sectionName(section) + ' up'"
+                (click)="move(section, -1)"
+              >
+                Move up
+              </button>
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                [id]="sectionId(section, 'down')"
+                [disabled]="last || readOnly()"
+                [attr.aria-label]="'Move ' + sectionName(section) + ' down'"
+                (click)="move(section, 1)"
+              >
+                Move down
+              </button>
+              <!-- A recipe's section is the piece's link to that recipe; taking one out belongs to the step
+                   that chooses the recipes, not to this one. -->
+              @if (section.role !== 'Item') {
+                <button
+                  cpButton
+                  type="button"
+                  variant="text"
+                  size="sm"
+                  [disabled]="readOnly()"
+                  [attr.aria-label]="'Remove ' + sectionName(section)"
+                  (click)="remove(section)"
+                >
+                  Remove
+                </button>
+              }
+            </div>
+          }
+        </cp-form-section>
+      }
+
+      @if (!closed()) {
+        @if (rolesAvailable().length > 0) {
+          <cp-form-section heading="Add a section" intro="It goes at the end. Move it to where you want it.">
+            <cp-field label="Kind of section" [forId]="idPrefix() + '-add-role'">
+              <select [id]="idPrefix() + '-add-role'" [disabled]="readOnly()" (change)="onRoleChosen($event)">
+                <option value="" [selected]="roleToAdd() === ''">Choose one</option>
+                @for (role of rolesAvailable(); track role) {
+                  <option [value]="role" [selected]="roleToAdd() === role">{{ roleLabels[role] }}</option>
+                }
+              </select>
+            </cp-field>
+            <div class="cp-actions">
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                [attr.aria-disabled]="roleToAdd() === '' || readOnly() ? 'true' : null"
+                (click)="add()"
+              >
+                Add section
+              </button>
+            </div>
+          </cp-form-section>
+        } @else {
+          <p class="cp-muted">This plan has every section a piece like this can have.</p>
+        }
+
+        <!-- aria-disabled rather than disabled on all three: a disabled button drops focus to the body the
+             moment it is pressed and its own action makes it unavailable. Each handler refuses for itself. -->
+        <div class="cp-actions" data-testid="plan-actions">
+          <button
+            cpButton
+            type="button"
+            [attr.aria-disabled]="!canApprove() ? 'true' : null"
+            (click)="approve()"
+          >
+            {{ busy() === 'approving' ? 'Approving…' : 'Approve plan' }}
+          </button>
+          <button
+            cpButton
+            type="button"
+            variant="secondary"
+            [attr.aria-disabled]="!canSave() ? 'true' : null"
+            (click)="save()"
+          >
+            {{ busy() === 'saving' ? 'Saving…' : 'Save for later' }}
+          </button>
+          <button
+            cpButton
+            type="button"
+            variant="text"
+            [attr.aria-disabled]="!canSave() ? 'true' : null"
+            (click)="discard()"
+          >
+            Discard changes
+          </button>
+        </div>
+      }
+    }
+  }
+}

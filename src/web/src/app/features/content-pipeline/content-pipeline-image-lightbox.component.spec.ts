@@ -152,8 +152,8 @@ describe('ContentPipelineImageLightboxComponent', () => {
     await open();
 
     expect(dialog()?.getAttribute('aria-modal')).toBe('true');
-    expect(dialog()?.getAttribute('aria-labelledby')).toBe('cp-pipeline-lightbox-title');
-    expect(labelled('button', 'Close dialog')).not.toBeNull();
+    expect(document.getElementById(dialog()!.getAttribute('aria-labelledby')!)?.textContent).toBe('Picture 2 of 3');
+    expect(labelled('button', 'Close picture')).not.toBeNull();
   });
 
   it('says the position again in a live region, because a changed title is not reliably announced', async () => {
@@ -236,7 +236,7 @@ describe('ContentPipelineImageLightboxComponent', () => {
   it('closes on the dialog’s own close control', async () => {
     await open();
 
-    labelled('button', 'Close dialog')!.click();
+    labelled('button', 'Close picture')!.click();
     await settle();
 
     expect(host.openAt()).toBeNull();

@@ -29,6 +29,8 @@ public static class AiFeaturePolicy
         AiTaskCatalog.EditorialPackage,
         AiTaskCatalog.SeoPackage,
         AiTaskCatalog.ChannelPosts,
+        AiTaskCatalog.LongFormOutline,
+        AiTaskCatalog.LongFormSection,
         AiTaskCatalog.BrandGuideProposal,
         AiTaskCatalog.BrandStyleTestDrive,
         AiTaskCatalog.PhotographyConcept,

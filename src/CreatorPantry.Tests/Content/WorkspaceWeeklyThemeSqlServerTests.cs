@@ -13,7 +13,6 @@ using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.Content;
 
@@ -39,8 +38,7 @@ public sealed class WorkspaceWeeklyThemeSqlServerTests : IAsyncLifetime
 
     private const string Actor = "user-1";
 
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private ServiceProvider? _provider;
 

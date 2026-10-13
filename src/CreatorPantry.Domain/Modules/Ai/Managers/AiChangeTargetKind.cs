@@ -265,4 +265,40 @@ public enum AiChangeTargetKind
     /// <c>AiChangeApplicability</c>: post copy never becomes recipe data.
     /// </remarks>
     ChannelPost = 21,
+
+    /// <summary>
+    /// One planned section of a long-form piece, of <see cref="AiTaskType.LongFormOutline"/> (LF.2.1): its
+    /// heading, and beside it its role, its one-line intent and, for a newsletter item, the source it covers.
+    /// </summary>
+    /// <remarks>
+    /// One target per section, in plan order. The heading is the <see cref="AiChangeKind.Add"/> row and the rest
+    /// are <see cref="AiChangeKind.Set"/> rows on the same target, under the names
+    /// <see cref="LongFormPlanFields"/> defines. A plan holds no prose, so there is no body row. Deliberately
+    /// absent from <c>AiChangeApplicability</c>: a plan never becomes recipe data.
+    /// </remarks>
+    LongFormSectionPlan = 22,
+
+    /// <summary>
+    /// One recipe version a long-form plan was written against (LF.2.2): which reference of the piece it was,
+    /// which recipe, and which immutable version of it.
+    /// </summary>
+    /// <remarks>
+    /// One target per recipe the task was shown, with the reference as the target id and the recipe and its
+    /// version as <see cref="AiChangeKind.Set"/> rows under the names <see cref="LongFormPinFields"/> defines.
+    /// The proposal's own provenance names one recipe; a newsletter issue covers several, and this is how the
+    /// revision the plan becomes is pinned to every one of them. Provenance, not a change: absent from
+    /// <c>AiChangeApplicability</c>, and never a row a creator accepts or rejects.
+    /// </remarks>
+    LongFormRecipePin = 23,
+
+    /// <summary>
+    /// The body of one section of a long-form piece, of <see cref="AiTaskType.LongFormSection"/> (LF.3.1).
+    /// </summary>
+    /// <remarks>
+    /// One target — the section's own id in the draft's plan. The body is stored whole as one or more
+    /// <see cref="AiChangeKind.Set"/> rows, in order, and the revision it was written against as another, under
+    /// the names <see cref="LongFormSectionFields"/> defines. Deliberately absent from
+    /// <c>AiChangeApplicability</c>: a section is prose about a recipe and never becomes recipe data.
+    /// </remarks>
+    LongFormSectionBody = 24,
 }

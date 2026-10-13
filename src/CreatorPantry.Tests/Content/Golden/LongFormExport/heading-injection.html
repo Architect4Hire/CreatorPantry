@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title># A title [with a link](javascript:alert(1)) ## and a second heading</title>
+</head>
+<body>
+<article>
+<h1># A title [with a link](javascript:alert(1)) ## and a second heading</h1>
+<section>
+<h2>Tips](https://evil.test) # Injected title &lt;script&gt;alert(1)&lt;/script&gt;</h2>
+<p>The body under a heading that tried to end itself.</p>
+</section>
+<section>
+<h2>![pixel](https://evil.test/pixel.png) and `code` and **bold**</h2>
+<p>The body under a heading that tried to be a picture.</p>
+</section>
+<section>
+<h2>&lt;/h2&gt;&lt;img src=x onerror=alert(1)&gt;&lt;h2&gt;</h2>
+<p>The body under a heading that tried to close its own tag.</p>
+</section>
+<section>
+<h2>---</h2>
+<p>The body under a heading that tried to be a rule.</p>
+</section>
+<footer>
+<p>Exported from CreatorPantry · Blog article · Revision 2</p>
+<p>Written from:</p>
+<ul>
+<li>Soda Bread](https://evil.test) &lt;script&gt; · Version 1</li>
+</ul>
+</footer>
+</article>
+</body>
+</html>

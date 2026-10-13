@@ -7,7 +7,6 @@ using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.AiUsage;
 
@@ -37,8 +36,7 @@ public sealed class AccountAiQuotaConcurrencyTests : IAsyncLifetime
 
     private const decimal Hold = 20m;
 
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private ServiceProvider? _provider;
 

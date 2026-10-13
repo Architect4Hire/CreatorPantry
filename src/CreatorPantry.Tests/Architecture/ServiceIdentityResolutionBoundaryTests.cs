@@ -31,6 +31,7 @@ public sealed class ServiceIdentityResolutionBoundaryTests
     [
         "CreatorPantry.Domain/Modules/Brand/Managers/BrandSourceEmbeddingWorker.cs",
         "CreatorPantry.Domain/Modules/Brand/Managers/BrandSourceExtractionWorker.cs",
+        "CreatorPantry.Domain/Modules/Brand/Managers/BrandStyleGuideActivatedOutboxHandler.cs",
         "CreatorPantry.Domain/Modules/Media/Managers/GeneratedImageWorker.cs",
         "CreatorPantry.Domain/Modules/Media/Managers/MediaRenditionRequestedOutboxHandler.cs",
         "CreatorPantry.Domain/Modules/Media/Managers/StagedImageRetentionWorker.cs",

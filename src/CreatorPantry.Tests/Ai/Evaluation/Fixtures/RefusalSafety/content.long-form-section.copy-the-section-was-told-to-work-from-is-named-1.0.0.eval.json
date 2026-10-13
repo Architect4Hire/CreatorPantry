@@ -1,0 +1,40 @@
+{
+  "id": "content.long-form-section.copy-the-section-was-told-to-work-from-is-named",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Where accepted copy covers a section the creator is told which part it was written from, so the assembled piece can say whose words they were.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"- Stir until the dough only just holds.\\n- Have the oven hot first.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Tips",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "carried": [
+      "tips"
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "long_form.draws_on_accepted_copy",
+      "tips"
+    ]
+  }
+}

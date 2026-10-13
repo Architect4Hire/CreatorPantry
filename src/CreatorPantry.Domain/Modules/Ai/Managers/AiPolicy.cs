@@ -796,6 +796,68 @@ public static class AiPolicy
     public const int MaxChannelPostsWarnings = 12;
 
     /// <summary>
+    /// The most sections one long-form outline may propose (LF.2.1).
+    /// </summary>
+    /// <remarks>
+    /// The largest plan the content module's role rules allow — an article's eleven once-only roles and its
+    /// four creator-headed sections. A bound on the answer's size, checked before those rules are asked, so a
+    /// runaway list is refused without walking it.
+    /// </remarks>
+    public const int MaxLongFormOutlineSections = 15;
+
+    /// <summary>The most warnings a model may attach to one outline.</summary>
+    public const int MaxLongFormOutlineWarnings = 12;
+
+    /// <summary>
+    /// The longest body one section's answer may be, in UTF-16 units, before it is refused as a runaway answer.
+    /// </summary>
+    /// <remarks>
+    /// Four times the content module's section ceiling, and not that ceiling: a body between the two is stored
+    /// whole with a finding on it, never trimmed. Past this the answer is not a section that ran long, and it
+    /// is refused before the markup check is run over it. A body is stored across as many rows as it needs.
+    /// </remarks>
+    public const int LongFormSectionBodyMaxLength = 12000;
+
+    /// <summary>The most warnings a model may attach to one section.</summary>
+    public const int MaxLongFormSectionWarnings = 8;
+
+    /// <summary>The longest a creator's description of what to change in a section may be.</summary>
+    public const int LongFormSectionInstructionMaxLength = 500;
+
+    /// <summary>The fewest words a section is ever asked to aim for, however many sections share the target.</summary>
+    public const int LongFormSectionWordsFloor = 40;
+
+    /// <summary>
+    /// How many words an earlier section's opening must run to before a body that repeats it is reported.
+    /// </summary>
+    /// <remarks>Short of this, two sections that both begin "Here is how" are not saying the same thing.</remarks>
+    public const int LongFormRepeatedOpeningMinWords = 6;
+
+    /// <summary>
+    /// How many characters a word is taken to need, spaces and punctuation included, when a section's word
+    /// guide is held inside the section ceiling.
+    /// </summary>
+    public const int LongFormCharactersPerWord = 6;
+
+    /// <summary>
+    /// The longest a storage section's body may be and still be read as saying only that there are no storage
+    /// notes.
+    /// </summary>
+    public const int LongFormNoStorageNotesMaxLength = 240;
+
+    /// <summary>The shortest piece a long-form request may ask to be planned, in words.</summary>
+    public const int LongFormTargetWordsMin = 150;
+
+    /// <summary>
+    /// The longest piece a long-form request may ask to be planned, in words.
+    /// </summary>
+    /// <remarks>
+    /// A bound on what a request may ask for, not a ceiling on a document: that is the content module's, in
+    /// characters, and is measured after writing. Three thousand words is about what its document ceiling holds.
+    /// </remarks>
+    public const int LongFormTargetWordsMax = 3000;
+
+    /// <summary>
     /// How long after a proposal was stored the maintenance sweep keeps re-running its landing step.
     /// </summary>
     /// <remarks>

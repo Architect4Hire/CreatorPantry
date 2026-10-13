@@ -1,0 +1,83 @@
+{
+  "id": "content.long-form-outline.a-sound-five-recipe-issue-plan-validates",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "A newsletter issue covering five recipes has exactly five items, each naming a different recipe by position.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Greeting\", \"heading\": \"Five for the tin\", \"intent\": \"Say hello and say this issue is a round-up.\"}, {\"role\": \"Item\", \"heading\": \"Tray bake A\", \"intent\": \"Introduce this tray bake and when to make it.\", \"source\": 1}, {\"role\": \"Item\", \"heading\": \"Tray bake B\", \"intent\": \"Introduce this tray bake and when to make it.\", \"source\": 2}, {\"role\": \"Item\", \"heading\": \"Tray bake C\", \"intent\": \"Introduce this tray bake and when to make it.\", \"source\": 3}, {\"role\": \"Item\", \"heading\": \"Tray bake D\", \"intent\": \"Introduce this tray bake and when to make it.\", \"source\": 4}, {\"role\": \"Item\", \"heading\": \"Tray bake E\", \"intent\": \"Introduce this tray bake and when to make it.\", \"source\": 5}, {\"role\": \"Signoff\", \"heading\": \"Until next week\", \"intent\": \"Sign off in the creator's own way.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "NewsletterIssue",
+    "recipes": [
+      {
+        "title": "Tray Bake Number 1",
+        "yieldText": "Makes 11 squares",
+        "cookTimeMinutes": 31,
+        "ingredients": [
+          "110 g plain flour",
+          "10 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 31 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 2",
+        "yieldText": "Makes 12 squares",
+        "cookTimeMinutes": 32,
+        "ingredients": [
+          "210 g plain flour",
+          "20 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 32 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 3",
+        "yieldText": "Makes 13 squares",
+        "cookTimeMinutes": 33,
+        "ingredients": [
+          "310 g plain flour",
+          "30 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 33 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 4",
+        "yieldText": "Makes 14 squares",
+        "cookTimeMinutes": 34,
+        "ingredients": [
+          "410 g plain flour",
+          "40 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 34 minutes."
+        ]
+      },
+      {
+        "title": "Tray Bake Number 5",
+        "yieldText": "Makes 15 squares",
+        "cookTimeMinutes": 35,
+        "ingredients": [
+          "510 g plain flour",
+          "50 ml milk"
+        ],
+        "steps": [
+          "Stir everything together.",
+          "Bake for 35 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "noFindings": true
+  }
+}

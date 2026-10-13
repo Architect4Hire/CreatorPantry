@@ -9,6 +9,7 @@ namespace CreatorPantry.Domain.Modules.Brand.Managers;
 /// <param name="DefaultAudience">Who work is written for unless a project says otherwise, or null.</param>
 /// <param name="Locale">A BCP-47 language tag, or null.</param>
 /// <param name="TimeZoneId">The workspace's IANA scheduling zone, or null.</param>
+/// <param name="DefaultPictureCount">How many pictures a run tries by default, or null for the product's own default.</param>
 /// <param name="ChannelDefaults">Default channels, in the creator's order.</param>
 /// <param name="Links">Website and reference links, in the creator's order.</param>
 /// <param name="Assets">Linked logos, in the creator's order. Ids only: bytes and URLs belong to media.</param>
@@ -27,6 +28,7 @@ public sealed record BrandProfileServiceModel(
     string? DefaultAudience,
     string? Locale,
     string? TimeZoneId,
+    int? DefaultPictureCount,
     IReadOnlyList<BrandChannelDefaultServiceModel> ChannelDefaults,
     IReadOnlyList<BrandLinkServiceModel> Links,
     IReadOnlyList<BrandAssetServiceModel> Assets,

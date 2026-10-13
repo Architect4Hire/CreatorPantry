@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.keeping-advice-with-no-figure-in-the-storage-section-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A keeping time written in words carries no digit for the figure check to find. It is storage advice all the same.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"Store it in the pantry for a week.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Storage",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_storage_guidance"
+    ]
+  }
+}

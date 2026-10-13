@@ -14,6 +14,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .cp-actions:empty { display: none; }
 /* An expandable aside — "More options", "See all the text". The marker stays the browser's; what this fixes
    is the summary's target height, which the default line box leaves under the 40px minimum. */
+/* The picture in a cp-lightbox. Here rather than in the component because the picture is projected, and a
+   component's own styles do not reach what it is given. Held to the window and to its own pixels: never
+   scaled past the size it was made at, never needing a scroll to be seen whole. */
+cp-lightbox .cp-lightbox-stage img { display: block; width: auto; height: auto; max-width: 100%; max-height: var(--cp-lightbox-picture-max-height); margin-inline: auto; }
 .cp-disclosure > summary { display: flex; align-items: center; min-height: 2.5rem; font-weight: 600; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }

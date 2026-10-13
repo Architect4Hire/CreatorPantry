@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-outline.a-keeping-time-in-the-storage-section-is-flagged-as-a-figure",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "A figure in a storage section's plan line is checked against the recipe like any other. The recipe states no keeping time, so five days is invented.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Storage\", \"heading\": \"Storing and reheating\", \"intent\": \"Say the loaf can be stored for 5 days.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "sectionIndex": 0,
+        "containing": "5 days"
+      }
+    ]
+  }
+}

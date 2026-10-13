@@ -112,6 +112,20 @@
     </div>
   </section>
 
+  <section aria-labelledby="lightbox-heading">
+    <h2 id="lightbox-heading">Lightbox</h2>
+    <p class="section-note">
+      One picture, as large as the window allows and never larger than it was made. The picture is the
+      consumer's own <code>&lt;img&gt;</code>; the lightbox takes no address. Escape, the scrim and the close
+      control ask to close, focus returns to the button that opened it, and under <code>40rem</code> it fills
+      the window.
+    </p>
+    <div class="button-extras">
+      <button cpButton (click)="lightboxOpen.set('plain')">View a picture larger</button>
+      <button cpButton variant="secondary" (click)="lightboxOpen.set('full')">With a caption and actions</button>
+    </div>
+  </section>
+
   <section aria-labelledby="progress-heading">
     <h2 id="progress-heading">Progress</h2>
     <p class="section-note">Zero, mid-range, complete, and an over-100 input clamped to 100.</p>
@@ -735,6 +749,22 @@
     <button cpButton type="button" (click)="closeDialog()">Confirm</button>
   </div>
 </cp-dialog>
+
+<cp-lightbox [open]="lightboxOpen() === 'plain'" heading="Lead picture" (closeRequested)="lightboxOpen.set(null)">
+  <img [src]="samplePicture" alt="A stand-in picture: a plain panel, 1200 by 900 pixels." width="1200" height="900" />
+</cp-lightbox>
+
+<cp-lightbox
+  [open]="lightboxOpen() === 'full'"
+  heading="Picture 2 of 4"
+  description="PNG · 1200 × 900"
+  (closeRequested)="lightboxOpen.set(null)"
+>
+  <img [src]="samplePicture" alt="A stand-in picture: a plain panel, 1200 by 900 pixels." width="1200" height="900" />
+  <p cpLightboxCaption class="cp-muted">What is known about the picture goes here — never what it shows.</p>
+  <button cpLightboxActions cpButton variant="secondary" type="button">Previous</button>
+  <button cpLightboxActions cpButton variant="secondary" type="button">Next</button>
+</cp-lightbox>
 
 <cp-drawer
   [open]="drawerOpen() === 'form'"

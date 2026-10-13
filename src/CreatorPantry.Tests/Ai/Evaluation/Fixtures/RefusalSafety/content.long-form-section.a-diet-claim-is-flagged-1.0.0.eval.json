@@ -1,0 +1,36 @@
+{
+  "id": "content.long-form-section.a-diet-claim-is-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Suitable-for-a-diet is a claim about people, and the recipe makes none.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-section.v1\", \"body\": \"It is suitable for diabetics and a healthy choice for the whole family.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Hook",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      "editorial.unsupported_safety_claim"
+    ]
+  }
+}

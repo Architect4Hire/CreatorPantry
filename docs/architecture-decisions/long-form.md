@@ -19,6 +19,8 @@ renumber them; later documents may reference them.
   blog post.*
 - Product-owner answers given 2026-10-12 — B-32 through B-37 confirmed as the LF document states them, and
   the four B-34 figures approved as proposed.
+- A further product-owner decision the same day, B-38: the Content Pipeline was too long, so it was cut to
+  four steps and long-form became a pipeline of its own rather than a step in it.
 - [`ai-fluency.md`](ai-fluency.md) — B-27, which this record leaves standing, and B-31, the `CreativeContext`
   a long-form draft is rooted on.
 - `docs/prompts/creatorpantry-scrub-microprompts.md` — the master library whose prompts are extended or
@@ -35,6 +37,7 @@ renumber them; later documents may reference them.
 | B-35 | A newsletter issue may cover more than one source | LFC-006 | Decided | An issue takes an ordered set of the context's references, one `item` section each, plus the creator's own framing. |
 | B-36 | Accepted editorial and SEO packages are inputs | LFC-002 | Decided | Long-form reuses and attributes accepted editorial prose, and never writes back to a `ContentProposal`. |
 | B-37 | Long-form text is Markdown in a plain control | LFC-005, 009 | Decided | A `textarea` inside `CpFieldComponent`. No rich-text editor and no new frontend dependency. |
+| B-38 | Long-form is its own pipeline | LFC-009 | Decided | Two guided journeys — short-form in four steps, long-form in four of its own — neither asking what the brand already answers. No seventh step. |
 
 ## Decisions
 
@@ -128,6 +131,31 @@ confirmed as written, so Phase 4 stands.
 
 **Rules:** `frontend.md`, `design-system.md`.
 
+### B-38 Long-form is its own pipeline; the short-form pipeline does not grow a step for it
+
+Decided by the product owner on 2026-10-12, with the short-form pipeline's reduction from six steps to four.
+
+- **Two guided journeys, one per kind of work.** The Content Pipeline is short-form — a picture and the posts
+  that go out with it — in four steps: *What it is about → Plan the picture → Make the images → Posts and
+  library*. Long-form is a second pipeline with its own route and its own Workflows entry: *What it is about →
+  Outline → Write → Review and accept*.
+- **Neither pipeline asks what the brand already answers.** Default channels and the default picture count
+  are read from `BrandProfile`; the look and the voice are read from the active `BrandStyleGuideVersion`,
+  which stays their one source (DEC-010). A run shows those answers and may change them for itself; it never
+  writes them back to the brand.
+- **Both root on a creative context, and may share one.** A long-form draft and a short-form run about the
+  same recipe are two pieces of work on one `CreativeContext`, which is how a teaser post comes to name the
+  article it is a teaser for — by reference, not by a step that runs one journey inside the other.
+
+*Why not a seventh step:* the complaint that produced this decision was that the pipeline had too many steps.
+An article is a dozen generations and a review of its own; nesting it between "posts" and "library" would make
+the longest journey in the product longer, and would make a creator who only wants an article walk through
+pictures to reach it.
+
+**Consequences:** LF.6.2 is rewritten from "add a seventh step" to the long-form pipeline's shell, and LF.6.3's
+hub entry starts that pipeline. `BrandProfile` gains `DefaultPictureCount`; it gains no style field.
+**Rules:** `frontend.md`, `content.md`; DEC-010 for what the brand profile may hold.
+
 ## Library reconciliation
 
 The effect of the LF prompt document on the existing libraries.
@@ -142,7 +170,7 @@ The effect of the LF prompt document on the existing libraries.
 | master 11.3 Derivative staleness propagation | **Extended by LF.6.1** to long-form drafts. |
 | master 13.3 Social Studio UI | Unchanged. |
 | master 13A.18 "Write a blog post and SEO package" | **Narrowed.** It stays the wizard shell; the writing steps it composes are LF.2–LF.5. |
-| AF.6.1–AF.6.6 | Unchanged. The posts step gains a teaser-for-the-article relationship in LF.6.2. |
+| AF.6.1–AF.6.6 | Unchanged in what they write. The posts now sit on the short-form pipeline's last step, and gain a teaser-for-the-article relationship in LF.6.2 when the run's context also holds a long-form draft. |
 
 11.3, 11.4, 11.5, 11.7 and 13A.18 each carry a one-line pointer in the master file. The prompts themselves are
 kept there unedited.

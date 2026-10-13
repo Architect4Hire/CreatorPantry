@@ -18,9 +18,11 @@ internal sealed record BrandProfileSnapshot(
     string? TimeZoneId,
     IReadOnlyList<string> ChannelKeys,
     IReadOnlyList<BrandLinkSnapshot> Links,
-    IReadOnlyList<BrandAssetSnapshot> Assets)
+    IReadOnlyList<BrandAssetSnapshot> Assets,
+    int? DefaultPictureCount)
 {
-    public const int CurrentSchemaVersion = 1;
+    /// <summary>2 added <see cref="DefaultPictureCount"/>; a version 1 document has no such member.</summary>
+    public const int CurrentSchemaVersion = 2;
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
@@ -40,7 +42,8 @@ internal sealed record BrandProfileSnapshot(
         profile.TimeZoneId,
         [.. profile.ChannelDefaults.OrderBy(item => item.SortOrder).Select(item => item.ChannelKey)],
         [.. profile.Links.OrderBy(link => link.SortOrder).Select(link => new BrandLinkSnapshot(link.Kind, link.Url, link.Label))],
-        [.. profile.AssetLinks.OrderBy(link => link.SortOrder).Select(link => new BrandAssetSnapshot(link.MediaAssetId, link.Role))]);
+        [.. profile.AssetLinks.OrderBy(link => link.SortOrder).Select(link => new BrandAssetSnapshot(link.MediaAssetId, link.Role))],
+        profile.DefaultPictureCount);
 
     public string ToJson() => JsonSerializer.Serialize(this, Options);
 }

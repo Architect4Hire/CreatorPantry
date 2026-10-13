@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-section.another-schema-version-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "A template and an answer that disagree on the schema version fail before the body is examined.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"body\": \"Some breads ask for a whole afternoon. This one asks for a bowl, a spoon and an oven that is already hot.\"}",
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Hook",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.schema_version_mismatch",
+    "category": "OutputSchemaInvalid"
+  }
+}

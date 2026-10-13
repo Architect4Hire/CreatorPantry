@@ -1,0 +1,39 @@
+{
+  "id": "content.long-form-outline.storage-advice-inside-the-storage-section-is-still-flagged",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "Naming the section is forgiven; advice is not. A storage section's plan line that says how long the loaf keeps is flagged like any other, whatever role the model gave it.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Storage\", \"heading\": \"Storing and reheating\", \"intent\": \"Tell readers it keeps well for a week in the fridge.\"}]}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "sectionIndex": 0,
+        "containing": "fridge"
+      }
+    ]
+  }
+}

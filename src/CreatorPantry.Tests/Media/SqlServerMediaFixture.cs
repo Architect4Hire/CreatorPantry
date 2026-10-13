@@ -22,7 +22,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using CreatorPantry.Tests.Reference;
-using Testcontainers.MsSql;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -83,8 +82,7 @@ public sealed class SqlServerMediaFixture : IAsyncLifetime
     /// <summary>The tag belonging to <paramref name="workspaceId"/>, so a helper need not remember which.</summary>
     public static Guid TagIdFor(Guid workspaceId) => workspaceId == WorkspaceB ? TagIdB : TagIdA;
 
-    private readonly MsSqlContainer _container =
-        new MsSqlBuilder("mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-22.04").Build();
+    private readonly SqlServerTestDatabase _container = new();
 
     private ServiceProvider? _provider;
 

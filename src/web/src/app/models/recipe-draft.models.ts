@@ -349,6 +349,39 @@ export function ingredientLineStatesAmount(displayText: string): boolean {
   return MEASURES_WITHOUT_A_NUMBER.some((measure) => text.includes(measure));
 }
 
+/**
+ * What a draft is made of, as the brief a picture of it is planned from — or '' when it lists no ingredients.
+ *
+ * Names only: the ingredient's own name where the draft gave one, the whole line where it did not. An amount
+ * says nothing about how a dish looks, and a photography brief has nowhere to put one.
+ *
+ * **Whole names or none.** A draft with more ingredients than `maxLength` holds loses the last of them rather
+ * than having one cut short, because half a name is a different ingredient.
+ */
+export function pictureBriefFromDraft(draft: RecipeDraft, maxLength: number): string {
+  const opening = 'Show the dish as its recipe makes it. Its ingredients: ';
+  const closing = '. Add no food that is not one of them.';
+
+  const seen = new Set<string>();
+  const names: string[] = [];
+  let length = opening.length + closing.length;
+
+  for (const line of draft.ingredientGroups.flatMap((group) => group.items)) {
+    const name = (line.ingredientNameText?.trim() || line.displayText.trim()).replace(/\s+/g, ' ');
+    const key = name.toLowerCase();
+    if (name === '' || seen.has(key)) continue;
+
+    const added = name.length + (names.length > 0 ? 2 : 0);
+    if (length + added > maxLength) break;
+
+    seen.add(key);
+    names.push(name);
+    length += added;
+  }
+
+  return names.length === 0 ? '' : `${opening}${names.join('; ')}${closing}`;
+}
+
 /** How many lines, steps and items a draft holds — for an at-a-glance count beside a section heading. */
 export function countItems<TItem>(groups: readonly RecipeDraftGroup<TItem>[]): number {
   return groups.reduce((total, group) => total + group.items.length, 0);

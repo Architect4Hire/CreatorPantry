@@ -365,7 +365,10 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         // Sixteen since AF.6.4's post request. It is the one seam a creator can fire repeatedly on a single
         // screen — a channel at a time, from a card each post carries — so an unmetered one would spend an
         // allowance a few words at a time without ever looking like a run.
-        Assert.Equal(16, seams.Count);
+        //
+        // Seventeen since LF.2.2's outline request, which starts a long-form draft: the first of the dozen
+        // generations an article takes, and the one that decides how many follow.
+        Assert.Equal(18, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()

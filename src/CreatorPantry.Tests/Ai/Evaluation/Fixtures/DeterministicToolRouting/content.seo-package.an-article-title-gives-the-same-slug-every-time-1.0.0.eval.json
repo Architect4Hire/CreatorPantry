@@ -1,0 +1,13 @@
+{
+  "id": "content.seo-package.an-article-title-gives-the-same-slug-every-time",
+  "version": "1.0.0",
+  "category": "DeterministicToolRouting",
+  "kind": "SeoSlugDerivation",
+  "description": "LF.5.3: an article's slug is derived from a title by the same rule a recipe's is, so the same title is the same slug whenever it is asked for.",
+  "input": {
+    "title": "The Soda Bread I Make When There Is No Time"
+  },
+  "expect": {
+    "slug": "the-soda-bread-i-make-when-there-is-no-time"
+  }
+}

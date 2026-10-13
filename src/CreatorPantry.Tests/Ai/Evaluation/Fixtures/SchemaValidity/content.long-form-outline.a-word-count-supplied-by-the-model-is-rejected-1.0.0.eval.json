@@ -1,0 +1,35 @@
+{
+  "id": "content.long-form-outline.a-word-count-supplied-by-the-model-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormOutlineOutputValidation",
+  "description": "Length is measured by the server after a section is written. A plan that states its own word count is refused rather than believed.",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.long-form-outline.v1\", \"sections\": [{\"role\": \"Hook\", \"heading\": \"The loaf for people who do not bake\", \"intent\": \"Open on how little this bread asks of the cook.\"}, {\"role\": \"WhyItWorks\", \"heading\": \"Why there is no kneading\", \"intent\": \"Explain what the buttermilk and the soda do together.\"}, {\"role\": \"MethodNarrative\", \"heading\": \"From bowl to oven\", \"intent\": \"Walk through the method in the order the recipe gives it.\"}, {\"role\": \"Closing\", \"heading\": \"Bake it this weekend\", \"intent\": \"Send the reader off to try it.\"}], \"wordCount\": 1200}",
+    "expectedSchemaVersion": "content.long-form-outline.v1",
+    "kind": "BlogArticle",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unknown_field",
+    "category": "OutputSchemaInvalid"
+  }
+}

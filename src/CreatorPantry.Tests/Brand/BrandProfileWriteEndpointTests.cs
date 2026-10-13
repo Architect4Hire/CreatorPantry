@@ -253,6 +253,40 @@ public sealed class BrandProfileWriteEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_default_picture_count_is_set_cleared_and_bounded_per_workspace()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        using var inA = await OwnerOf(_fixture.WorkspaceA);
+        using var inB = await OwnerOf(_fixture.WorkspaceB);
+
+        var a = await CreateAsync(inA, _fixture.WorkspaceA, new { brandName = "Kitchen A", defaultPictureCount = 3 });
+        var b = await CreateAsync(inB, _fixture.WorkspaceB, new { brandName = "Kitchen B" });
+
+        Assert.Equal(3, a.GetProperty("defaultPictureCount").GetInt32());
+        Assert.Equal(JsonValueKind.Null, b.GetProperty("defaultPictureCount").ValueKind);
+
+        var refused = await PatchAsync(inA, _fixture.WorkspaceA, a, new() { ["defaultPictureCount"] = 5 });
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.True((await BodyOf(refused)).GetProperty("errors").TryGetProperty("defaultPictureCount", out _));
+
+        var changed = await BodyOf(await PatchAsync(inA, _fixture.WorkspaceA, a, new() { ["defaultPictureCount"] = 4 }));
+        Assert.Equal(4, changed.GetProperty("defaultPictureCount").GetInt32());
+        Assert.Equal(2, changed.GetProperty("revision").GetInt32());
+
+        // The same number again is not an edit.
+        var same = await BodyOf(await PatchAsync(inA, _fixture.WorkspaceA, changed, new() { ["defaultPictureCount"] = 4 }));
+        Assert.Equal(2, same.GetProperty("revision").GetInt32());
+
+        var cleared = await BodyOf(await PatchAsync(inA, _fixture.WorkspaceA, changed, new() { ["defaultPictureCount"] = null }));
+        Assert.Equal(JsonValueKind.Null, cleared.GetProperty("defaultPictureCount").ValueKind);
+
+        // Workspace B never saw any of it.
+        var readB = await BodyOf(await inB.GetAsync(BrandIn(_fixture.WorkspaceB), cancellation));
+        Assert.Equal(JsonValueKind.Null, readB.GetProperty("defaultPictureCount").ValueKind);
+        Assert.Equal(1, readB.GetProperty("revision").GetInt32());
+    }
+
+    [Fact]
     public async Task The_name_cannot_be_cleared()
     {
         using var client = await OwnerOf(_fixture.WorkspaceA);

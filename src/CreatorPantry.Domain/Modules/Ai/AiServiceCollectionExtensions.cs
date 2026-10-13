@@ -47,6 +47,9 @@ public static class AiServiceCollectionExtensions
         configuration.GetSection(AiCostOptions.SectionName).Bind(costOptions);
 
         services.AddSingleton(gatewayOptions);
+
+        // The claim scanners as a facade, for the modules that own text of their own to hold to them.
+        services.AddAiClaimScanning();
         services.AddSingleton(costOptions);
         services.TryAddSingleton<IAiCostEstimator, ConfiguredAiCostEstimator>();
         services.TryAddSingleton<IAiFailureClassifier, DefaultAiFailureClassifier>();
@@ -338,6 +341,7 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<IAiSeoPackageRequestBusiness, AiSeoPackageRequestBusiness>();
         services.AddScoped<IAiSeoPackageRequestFacade, AiSeoPackageRequestFacade>();
         services.AddScoped<IValidator<RequestSeoPackageViewModel>, RequestSeoPackageViewModelValidator>();
+        services.AddScoped<IValidator<RequestLongFormSeoPackageViewModel>, RequestLongFormSeoPackageViewModelValidator>();
 
         return services;
     }
@@ -482,6 +486,55 @@ public static class AiServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers LF.2.2's request seam: starting a long-form draft and asking for its outline.
+    /// </summary>
+    /// <remarks>
+    /// Its prerequisite is the content module: the piece of work, the draft and the shape rules are all reached
+    /// through that module's facades.
+    /// </remarks>
+    public static IServiceCollection AddAiLongFormOutlineSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiLongFormOutlineRequestBusiness, AiLongFormOutlineRequestBusiness>();
+        services.AddScoped<IAiLongFormOutlineRequestFacade, AiLongFormOutlineRequestFacade>();
+        services.AddScoped<IValidator<StartLongFormDraftViewModel>, StartLongFormDraftViewModelValidator>();
+        services.AddScoped<IValidator<RequestLongFormOutlineViewModel>, RequestLongFormOutlineViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the claim scanners as a facade other modules may call (LF.3.2). Stateless, and safe to call
+    /// more than once. <c>AddAiModule</c> calls it; a host or a test container that registers the content
+    /// module without the AI module calls it directly.
+    /// </summary>
+    public static IServiceCollection AddAiClaimScanning(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IAiClaimScanFacade, AiClaimScanFacade>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers LF.3.3's request seam: writing one section of a long-form draft, writing every section not yet
+    /// written, and saying where each section stands.
+    /// </summary>
+    /// <remarks>
+    /// Its prerequisite is the content module, whose facade reads and writes the draft. A creator's own edit
+    /// and the settled flag are that module's and are registered with it.
+    /// </remarks>
+    public static IServiceCollection AddAiLongFormSectionSeam(this IServiceCollection services)
+    {
+        AddRequestQuotaGate(services);
+        services.AddScoped<IAiLongFormSectionRequestBusiness, AiLongFormSectionRequestBusiness>();
+        services.AddScoped<IAiLongFormSectionRequestFacade, AiLongFormSectionRequestFacade>();
+        services.AddScoped<IValidator<RequestLongFormSectionViewModel>, RequestLongFormSectionViewModelValidator>();
+        services.AddScoped<IValidator<RequestLongFormSectionBatchViewModel>, RequestLongFormSectionBatchViewModelValidator>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers 11A.19's brand-context assembler, which grounds a generation in the workspace's brand voice.
     /// </summary>
     /// <remarks>
@@ -569,6 +622,13 @@ public static class AiServiceCollectionExtensions
         // The step after the proposal (AF.6.4): the generated bodies become post revisions once the proposal
         // they name has committed. Keyed by task type like the handlers, and only this task has one.
         services.AddKeyedScoped<IAiProposalLandingHandler, ChannelPostsProposalLanding>(AiTaskType.ChannelPosts);
+
+        // Reads the content module's long-form grounding package and its shape rules (LF.2.1). It stops at the
+        // proposal: the step that turns a plan into a draft revision arrives with the request seam (LF.2.2).
+        services.AddKeyedScoped<IAiTaskHandler, LongFormOutlineAiTaskHandler>(AiTaskType.LongFormOutline);
+        services.AddKeyedScoped<IAiTaskHandler, LongFormSectionAiTaskHandler>(AiTaskType.LongFormSection);
+        services.AddKeyedScoped<IAiProposalLandingHandler, LongFormSectionProposalLanding>(AiTaskType.LongFormSection);
+        services.AddKeyedScoped<IAiProposalLandingHandler, LongFormOutlineProposalLanding>(AiTaskType.LongFormOutline);
         services.AddScoped<IAiOperationWorker, AiOperationWorker>();
 
         return services;

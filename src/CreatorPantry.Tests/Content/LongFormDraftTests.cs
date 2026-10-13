@@ -1,12 +1,16 @@
+using CreatorPantry.Domain.Modules.Content.Business;
 using System.Text.Json;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
+using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Tests.Recipes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CreatorPantry.Tests.Content;
 
@@ -448,6 +452,318 @@ public sealed class LongFormDraftTests(SqlServerRecipeFixture fixture) : IClassF
             (await InAsync(WsA, db => db.LongFormDrafts.AsNoTracking().SingleAsync(item => item.Id == draft.Id, Ct))).Status);
     }
 
+    /// <summary>
+    /// LF.2.2's write seam on the engine whose row version really moves — which the HTTP fixture's SQLite store
+    /// cannot show: every write hands back a new token, and a writer still holding an old one is refused.
+    /// </summary>
+    [Fact]
+    public async Task Each_write_through_the_seam_moves_the_token_and_a_writer_holding_an_old_one_is_refused()
+    {
+        var (seeded, _, _) = await SeedDraftWithPinAsync(WsA);
+
+        PatchLongFormPlanViewModel Edit(string token, string heading) => new()
+        {
+            ExpectedConcurrencyToken = token,
+            Sections = [new LongFormPlanSectionInputViewModel { Role = LongFormSectionRole.Hook, Heading = heading, Intent = "Open." }],
+        };
+
+        var read = await SeamAsync(facade => facade.GetAsync(seeded.Id, Ct));
+        var firstWrite = await SeamAsync(facade => facade.PatchPlanAsync("user-1", seeded.Id, Edit(read.Value!.ConcurrencyToken, "First writer"), Ct));
+
+        Assert.True(firstWrite.Succeeded, firstWrite.Error?.Code);
+        Assert.NotEqual(read.Value!.ConcurrencyToken, firstWrite.Value!.ConcurrencyToken);
+        Assert.Equal(2, firstWrite.Value.Latest!.RevisionNumber);
+
+        // Composed against the read before the first write landed.
+        var secondWrite = await SeamAsync(facade => facade.PatchPlanAsync("user-2", seeded.Id, Edit(read.Value.ConcurrencyToken, "Second writer"), Ct));
+        var staleApproval = await SeamAsync(facade => facade.ApprovePlanAsync(
+            "user-2",
+            seeded.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, RevisionNumber = 2 },
+            Ct));
+
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, secondWrite.Error!.Code);
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, staleApproval.Error!.Code);
+
+        var approved = await SeamAsync(facade => facade.ApprovePlanAsync(
+            "user-1",
+            seeded.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = firstWrite.Value.ConcurrencyToken, RevisionNumber = 2 },
+            Ct));
+
+        Assert.Equal(LongFormDraftStatus.Outlined, approved.Value!.Status);
+        Assert.NotEqual(firstWrite.Value.ConcurrencyToken, approved.Value.ConcurrencyToken);
+
+        // The retry after a lost response still holds the token the approval moved. It is the same approval.
+        var retried = await SeamAsync(facade => facade.ApprovePlanAsync(
+            "user-1",
+            seeded.Id,
+            new ApproveLongFormPlanViewModel { ExpectedConcurrencyToken = firstWrite.Value.ConcurrencyToken, RevisionNumber = 2 },
+            Ct));
+
+        Assert.True(retried.Succeeded, retried.Error?.Code);
+        Assert.Equal(approved.Value.ConcurrencyToken, retried.Value!.ConcurrencyToken);
+
+        await InAsync(WsA, async db =>
+        {
+            var stored = await db.LongFormRevisions.AsNoTracking()
+                .Where(revision => revision.LongFormDraftId == seeded.Id)
+                .OrderBy(revision => revision.RevisionNumber)
+                .ToListAsync(Ct);
+
+            // Two revisions, the first writer's last, each pinned to the recipe the first was written against.
+            Assert.Equal(2, stored.Count);
+            Assert.Contains("First writer", stored[1].Content, StringComparison.Ordinal);
+            Assert.Equal(1, await db.LongFormRevisionRecipePins.CountAsync(pin => pin.LongFormRevisionId == stored[1].Id, Ct));
+
+            var resourceId = seeded.Id.ToString("D");
+            Assert.Equal(1, await db.AuditLogs.CountAsync(
+                entry => entry.ResourceId == resourceId && entry.Action == ContentAuditActions.LongFormPlanApproved, Ct));
+        });
+    }
+
+    private async Task<OperationResult<LongFormDraftServiceModel>> SeamAsync(
+        Func<ILongFormDraftFacade, Task<OperationResult<LongFormDraftServiceModel>>> ask)
+    {
+        await using var scope = fixture.ScopeFor(WsA);
+
+        return await ask(scope.ServiceProvider.GetRequiredService<ILongFormDraftFacade>());
+    }
+
+    /// <summary>
+    /// The same, for a section (LF.3.3): an edit and a settled flag each move the token, a writer holding the
+    /// old one is refused whichever of the two it tries, and the pins travel with every new revision.
+    /// </summary>
+    [Fact]
+    public async Task A_section_edit_and_a_settlement_each_move_the_token_and_a_stale_writer_is_refused()
+    {
+        var (seeded, _, _) = await SeedDraftWithPinAsync(WsA);
+
+        await InAsync(WsA, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == seeded.Id, Ct);
+            row.Status = LongFormDraftStatus.Outlined;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var read = await SectionsAsync(facade => facade.GetSectionsAsync(seeded.Id, Ct));
+        var section = read.Value!.Sections[0].Id;
+
+        var edited = await SectionsAsync(facade => facade.EditSectionAsync(
+            "user-1",
+            seeded.Id,
+            section,
+            new EditLongFormSectionViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, Body = "First writer's text." },
+            Ct));
+
+        Assert.True(edited.Succeeded, edited.Error?.Code);
+        Assert.NotEqual(read.Value.ConcurrencyToken, edited.Value!.ConcurrencyToken);
+        Assert.Equal(2, edited.Value.RevisionNumber);
+        Assert.Equal(LongFormDraftStatus.Writing, edited.Value.Status);
+
+        // Composed against the read before the first write landed.
+        var staleEdit = await SectionsAsync(facade => facade.EditSectionAsync(
+            "user-2",
+            seeded.Id,
+            section,
+            new EditLongFormSectionViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, Body = "Second writer's text." },
+            Ct));
+        var staleSettle = await SectionsAsync(facade => facade.SettleSectionAsync(
+            "user-2",
+            seeded.Id,
+            section,
+            new SettleLongFormSectionViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, Settled = true },
+            Ct));
+
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, staleEdit.Error!.Code);
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, staleSettle.Error!.Code);
+
+        var settled = await SectionsAsync(facade => facade.SettleSectionAsync(
+            "user-1",
+            seeded.Id,
+            section,
+            new SettleLongFormSectionViewModel { ExpectedConcurrencyToken = edited.Value.ConcurrencyToken, Settled = true },
+            Ct));
+
+        Assert.True(settled.Succeeded, settled.Error?.Code);
+        Assert.NotEqual(edited.Value.ConcurrencyToken, settled.Value!.ConcurrencyToken);
+        Assert.True(settled.Value.Sections[0].Settled);
+        Assert.Equal("First writer's text.", settled.Value.Sections[0].Body);
+
+        await InAsync(WsA, async db =>
+        {
+            var stored = await db.LongFormRevisions.AsNoTracking()
+                .Where(revision => revision.LongFormDraftId == seeded.Id)
+                .OrderBy(revision => revision.RevisionNumber)
+                .ToListAsync(Ct);
+
+            // Three revisions and no fourth from the refused writer, each pinned to the recipe the first was.
+            Assert.Equal(3, stored.Count);
+            Assert.DoesNotContain(stored, revision => revision.Content.Contains("Second writer", StringComparison.Ordinal));
+
+            foreach (var revision in stored)
+            {
+                Assert.Equal(1, await db.LongFormRevisionRecipePins.CountAsync(pin => pin.LongFormRevisionId == revision.Id, Ct));
+            }
+        });
+    }
+
+    /// <summary>
+    /// Acceptance against a real row version (LF.3.4): an acceptance composed before an edit landed is refused,
+    /// one composed after it is taken, and it writes no revision of its own.
+    /// </summary>
+    [Fact]
+    public async Task An_acceptance_composed_before_an_edit_landed_is_refused_and_a_fresh_one_writes_no_revision()
+    {
+        var (seeded, _, _) = await SeedDraftWithPinAsync(WsA);
+
+        await InAsync(WsA, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == seeded.Id, Ct);
+            row.Status = LongFormDraftStatus.Writing;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var read = await DocumentAsync(facade => facade.GetDocumentAsync(seeded.Id, Ct));
+        var section = read.Value!.Sections[0].Id;
+
+        var edited = await SectionsAsync(facade => facade.EditSectionAsync(
+            "user-1",
+            seeded.Id,
+            section,
+            new EditLongFormSectionViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, Body = "Changed after it was read." },
+            Ct));
+        Assert.True(edited.Succeeded, edited.Error?.Code);
+
+        // The reader accepts what they read. It is no longer what is there.
+        var stale = await DocumentAsync(facade => facade.AcceptAsync(
+            "user-2",
+            seeded.Id,
+            new AcceptLongFormDocumentViewModel { ExpectedConcurrencyToken = read.Value.ConcurrencyToken, RevisionNumber = read.Value.RevisionNumber!.Value },
+            Ct));
+        Assert.Equal(ContentErrorCodes.LongFormDraftStale, stale.Error!.Code);
+
+        var accepted = await DocumentAsync(facade => facade.AcceptAsync(
+            "user-1",
+            seeded.Id,
+            new AcceptLongFormDocumentViewModel { ExpectedConcurrencyToken = edited.Value!.ConcurrencyToken, RevisionNumber = edited.Value.RevisionNumber!.Value },
+            Ct));
+
+        Assert.True(accepted.Succeeded, accepted.Error?.Code);
+        Assert.Equal(LongFormDraftStatus.Accepted, accepted.Value!.Status);
+        Assert.NotEqual(edited.Value.ConcurrencyToken, accepted.Value.ConcurrencyToken);
+        Assert.Contains("Changed after it was read.", accepted.Value.Markdown, StringComparison.Ordinal);
+
+        // The retry holds the token the acceptance moved. It is the same acceptance.
+        var retried = await DocumentAsync(facade => facade.AcceptAsync(
+            "user-1",
+            seeded.Id,
+            new AcceptLongFormDocumentViewModel { ExpectedConcurrencyToken = edited.Value.ConcurrencyToken, RevisionNumber = edited.Value.RevisionNumber.Value },
+            Ct));
+        Assert.True(retried.Succeeded, retried.Error?.Code);
+        Assert.Equal(accepted.Value.ConcurrencyToken, retried.Value!.ConcurrencyToken);
+
+        await InAsync(WsA, async db =>
+        {
+            // Two revisions: the seeded one and the edit. Accepting wrote none, and pointed at the second.
+            var stored = await db.LongFormRevisions.AsNoTracking()
+                .Where(revision => revision.LongFormDraftId == seeded.Id)
+                .OrderBy(revision => revision.RevisionNumber)
+                .ToListAsync(Ct);
+            Assert.Equal(2, stored.Count);
+
+            var row = await db.LongFormDrafts.AsNoTracking().SingleAsync(draft => draft.Id == seeded.Id, Ct);
+            Assert.Equal(stored[1].Id, row.AcceptedRevisionId);
+            Assert.NotNull(row.AcceptedAt);
+
+            var resourceId = seeded.Id.ToString("D");
+            var entry = Assert.Single(await db.AuditLogs.AsNoTracking()
+                .Where(candidate => candidate.ResourceId == resourceId && candidate.Action == ContentAuditActions.LongFormDocumentAccepted)
+                .ToListAsync(Ct));
+
+            // A revision number and a count, and not a word of the piece.
+            Assert.Matches(@"^Accepted revision 2 of a long-form draft(, confirming [0-9]+ thing\(s\) wrong with it)?\.$", entry.Summary);
+        });
+    }
+
+    private async Task<OperationResult<LongFormAssembledDocumentServiceModel>> DocumentAsync(
+        Func<ILongFormDocumentFacade, Task<OperationResult<LongFormAssembledDocumentServiceModel>>> ask)
+    {
+        await using var scope = fixture.ScopeFor(WsA);
+
+        return await ask(scope.ServiceProvider.GetRequiredService<ILongFormDocumentFacade>());
+    }
+
+    /// <summary>
+    /// The claim scanner on a real database (LF.3.2): the pins are read through the recipes module's own facade,
+    /// a creator's edit is saved exactly as typed, and what the scanner found is stored in the revision.
+    /// </summary>
+    /// <remarks>
+    /// The recipe version this fixture seeds has no stored snapshot, which is the case of a pinned version that
+    /// can no longer be read: it contributes no facts, so the figure is reported rather than waved through. A
+    /// figure a readable version states being left alone is <c>LongFormClaimScannerTests</c>'.
+    /// </remarks>
+    [Fact]
+    public async Task A_creators_edit_is_scanned_saved_as_typed_and_its_findings_are_stored_in_the_revision()
+    {
+        var (seeded, revision, _) = await SeedDraftWithPinAsync(WsA);
+
+        await InAsync(WsA, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == seeded.Id, Ct);
+            row.Status = LongFormDraftStatus.Writing;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await using (var scope = fixture.ScopeFor(WsA))
+        {
+            var pins = await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().LongFormRevisionRecipePins
+                .AsNoTracking()
+                .Where(pin => pin.LongFormRevisionId == revision.Id)
+                .ToListAsync(Ct);
+
+            // The real reader, through the real recipes facade: a pinned version with nothing to read is left
+            // out, and reading it is not an error.
+            Assert.Single(pins);
+            Assert.Empty(await scope.ServiceProvider.GetRequiredService<ILongFormClaimSourceReader>().ReadAsync(pins, Ct));
+        }
+
+        var faithful = await SectionsAsync(facade => facade.GetSectionsAsync(seeded.Id, Ct));
+        var section = faithful.Value!.Sections[0].Id;
+
+        // A figure the recipe does not state: saved exactly as typed, with the caution recorded beside it.
+        const string invented = "Use 98765 grams of flour.";
+        var edited = await SectionsAsync(facade => facade.EditSectionAsync(
+            "user-1", seeded.Id, section,
+            new EditLongFormSectionViewModel { ExpectedConcurrencyToken = faithful.Value!.ConcurrencyToken, Body = invented },
+            Ct));
+        Assert.True(edited.Succeeded, edited.Error?.Code);
+        Assert.Equal(invented, edited.Value!.Sections[0].Body);
+
+        var flagged = await DocumentAsync(facade => facade.GetDocumentAsync(seeded.Id, Ct));
+        var finding = Assert.Single(flagged.Value!.Sections[0].Findings, found => found.Code == "editorial.unsupported_number");
+        Assert.Contains("98765", finding.Message);
+
+        // Recorded in the revision itself, so it is what the revision says and not a reading made later.
+        await InAsync(WsA, async db =>
+        {
+            var latest = await db.LongFormRevisions.AsNoTracking()
+                .Where(candidate => candidate.LongFormDraftId == seeded.Id)
+                .OrderByDescending(candidate => candidate.RevisionNumber)
+                .FirstAsync(Ct);
+
+            Assert.Contains("editorial.unsupported_number", latest.Content, StringComparison.Ordinal);
+        });
+    }
+
+    private async Task<OperationResult<LongFormSectionsServiceModel>> SectionsAsync(
+        Func<ILongFormSectionFacade, Task<OperationResult<LongFormSectionsServiceModel>>> ask)
+    {
+        await using var scope = fixture.ScopeFor(WsA);
+
+        return await ask(scope.ServiceProvider.GetRequiredService<ILongFormSectionFacade>());
+    }
+
     // ---- Two workspaces ----
 
     [Fact]
@@ -637,6 +953,143 @@ public sealed class LongFormDraftTests(SqlServerRecipeFixture fixture) : IClassF
             Assert.Equal(0, remaining);
         }
     }
+
+    // ---- The export (LF.5.1) ----
+
+    /// <summary>
+    /// The export seam on a real database: the accepted revision is read by its id, the title is the piece of
+    /// work's, the pin is named through the recipes module's own facade, and nothing at all is written.
+    /// </summary>
+    /// <remarks>
+    /// The recipe version this fixture seeds has no stored snapshot, so the attribution names it as one that
+    /// can no longer be read. A readable version named by its title is <c>LongFormExporterTests</c>'.
+    /// </remarks>
+    [Fact]
+    public async Task An_accepted_draft_is_exported_in_both_formats_and_exporting_writes_nothing()
+    {
+        var (seeded, revision, _) = await SeedDraftWithPinAsync(WsA, "The words the creator accepted.");
+        await AcceptDirectlyAsync(WsA, seeded.Id, revision.Id);
+
+        var before = await WrittenAsync(WsA, seeded.Id);
+
+        var markdown = await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Markdown);
+        var html = await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Html);
+
+        Assert.True(markdown.Succeeded, markdown.Error?.Code);
+        Assert.True(html.Succeeded, html.Error?.Code);
+
+        Assert.Equal(
+            "# Soda bread, autumn\n\n## Start here\n\nThe words the creator accepted.\n\n---\n\n"
+            + "Exported from CreatorPantry · Blog article · Revision 1\n\nWritten from:\n\n"
+            + "- A recipe that is no longer available\n",
+            markdown.Value!.Content);
+        Assert.Equal("Soda bread, autumn", markdown.Value.Title);
+        Assert.Equal(1, markdown.Value.RevisionNumber);
+        Assert.Equal(LongFormExportCodes.RecipeUnavailable, Assert.Single(markdown.Value.Warnings).Code);
+
+        Assert.Equal(LongFormExportFormat.Html, html.Value!.Format);
+        Assert.Contains(
+            "<h1>Soda bread, autumn</h1>\n<section>\n<h2>Start here</h2>\n<p>The words the creator accepted.</p>\n</section>\n",
+            html.Value.Content,
+            StringComparison.Ordinal);
+
+        // Asked again, the same bytes.
+        Assert.Equal(markdown.Value.Content, (await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Markdown)).Value!.Content);
+
+        // No revision, no audit entry, and a draft whose row version has not moved.
+        Assert.Equal(before, await WrittenAsync(WsA, seeded.Id));
+    }
+
+    [Fact]
+    public async Task A_draft_that_has_not_been_accepted_is_not_exported_and_one_whose_sources_moved_still_is()
+    {
+        var (seeded, revision, _) = await SeedDraftWithPinAsync(WsA);
+
+        foreach (var format in Enum.GetValues<LongFormExportFormat>())
+        {
+            var refused = await ExportAsync(WsA, seeded.Id, format);
+
+            Assert.False(refused.Succeeded);
+            Assert.Equal(ContentErrorCodes.LongFormExportNotAccepted, refused.Error!.Code);
+        }
+
+        await InAsync(WsA, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == seeded.Id, Ct);
+            row.Status = LongFormDraftStatus.NeedsReview;
+            row.AcceptedRevisionId = revision.Id;
+            row.AcceptedAt = Now;
+            row.StaleSince = Now;
+            row.StaleReasons = ContentStaleReasons.RecipeChanged;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        // Still the creator's accepted article: exported as it was accepted, and said to be out of step.
+        var stale = await ExportAsync(WsA, seeded.Id, LongFormExportFormat.Markdown);
+
+        Assert.True(stale.Succeeded, stale.Error?.Code);
+        Assert.Contains("The first draft of the opening.", stale.Value!.Content, StringComparison.Ordinal);
+        Assert.Contains(stale.Value.Warnings, warning => warning.Code == LongFormExportCodes.SourcesMoved);
+
+        var unknown = await ExportAsync(WsA, seeded.Id, (LongFormExportFormat)99);
+        Assert.Equal(ContentErrorCodes.LongFormExportInvalid, unknown.Error!.Code);
+    }
+
+    [Fact]
+    public async Task One_workspace_cannot_export_anothers_accepted_draft_and_each_export_holds_only_its_own_words()
+    {
+        var (ofA, revisionA, _) = await SeedDraftWithPinAsync(WsA, "Workspace A's accepted words.");
+        var (ofB, revisionB, _) = await SeedDraftWithPinAsync(WsB, "Workspace B's accepted words.");
+        await AcceptDirectlyAsync(WsA, ofA.Id, revisionA.Id);
+        await AcceptDirectlyAsync(WsB, ofB.Id, revisionB.Id);
+
+        foreach (var format in Enum.GetValues<LongFormExportFormat>())
+        {
+            // Another workspace's draft is not refused as unaccepted or forbidden. It is not there.
+            Assert.Equal(ContentErrorCodes.LongFormDraftNotFound, (await ExportAsync(WsB, ofA.Id, format)).Error!.Code);
+            Assert.Equal(ContentErrorCodes.LongFormDraftNotFound, (await ExportAsync(WsA, ofB.Id, format)).Error!.Code);
+
+            var a = await ExportAsync(WsA, ofA.Id, format);
+            var b = await ExportAsync(WsB, ofB.Id, format);
+
+            Assert.Contains("Workspace A's accepted words.", a.Value!.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain("Workspace B", a.Value.Content, StringComparison.Ordinal);
+            Assert.Contains("Workspace B's accepted words.", b.Value!.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain("Workspace A", b.Value.Content, StringComparison.Ordinal);
+        }
+    }
+
+    private async Task<OperationResult<LongFormExportServiceModel>> ExportAsync(
+        Guid workspaceId, Guid draftId, LongFormExportFormat format)
+    {
+        await using var scope = fixture.ScopeFor(workspaceId);
+
+        return await scope.ServiceProvider.GetRequiredService<ILongFormExportFacade>().ExportAsync(draftId, format, Ct);
+    }
+
+    /// <summary>The acceptance as a row, where the seam that grants it is not what is under test.</summary>
+    private Task AcceptDirectlyAsync(Guid workspaceId, Guid draftId, Guid revisionId) =>
+        InAsync(workspaceId, async db =>
+        {
+            var row = await db.LongFormDrafts.SingleAsync(draft => draft.Id == draftId, Ct);
+            row.Status = LongFormDraftStatus.Accepted;
+            row.AcceptedRevisionId = revisionId;
+            row.AcceptedAt = Now;
+            await db.SaveChangesAsync(Ct);
+        });
+
+    /// <summary>Everything an export could have written for one draft, as one comparable value.</summary>
+    private Task<(int Revisions, int AuditEntries, string RowVersion)> WrittenAsync(Guid workspaceId, Guid draftId) =>
+        InAsync(workspaceId, async db =>
+        {
+            var resourceId = draftId.ToString("D");
+            var row = await db.LongFormDrafts.AsNoTracking().SingleAsync(draft => draft.Id == draftId, Ct);
+
+            return (
+                await db.LongFormRevisions.CountAsync(revision => revision.LongFormDraftId == draftId, Ct),
+                await db.AuditLogs.CountAsync(entry => entry.ResourceId == resourceId, Ct),
+                Convert.ToHexString(row.RowVersion));
+        });
 
     // ---- Helpers ----
 

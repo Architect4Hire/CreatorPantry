@@ -41,6 +41,30 @@ internal interface IAiRequestQuotaGate
     /// </remarks>
     Task<IdempotentOutcome<AiProposalStatusServiceModel>?> RefuseIfUnaffordableAsync(
         AiTaskType taskType, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The refusal a request for several runs of one task should be answered with, or <c>null</c> when the
+    /// account can pay for all of them.
+    /// </summary>
+    /// <param name="runs">How many runs the request would queue.</param>
+    /// <param name="requestedExtension">The name the refusal gives <paramref name="runs"/>.</param>
+    /// <param name="coverableExtension">The name it gives the number the allowance could have covered.</param>
+    /// <remarks>
+    /// <para>
+    /// All or none: a request that cannot be covered whole is refused whole, and told how much of it could
+    /// have been. Nothing is held and nothing is written to find that out.
+    /// </para>
+    /// <para>
+    /// A snapshot, exactly as the single-run form is. Each run still takes its own hold when it starts, and
+    /// that hold — not this — is what stops an account spending what it does not have.
+    /// </para>
+    /// </remarks>
+    Task<OperationError?> RefuseIfRunsUnaffordableAsync(
+        AiTaskType taskType,
+        int runs,
+        string requestedExtension,
+        string coverableExtension,
+        CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiRequestQuotaGate"/>
@@ -100,5 +124,58 @@ internal sealed class AiRequestQuotaGate(
             ? null
             : new IdempotentOutcome<AiProposalStatusServiceModel>(
                 OperationResult<AiProposalStatusServiceModel>.Failure(error), Replayed: false);
+    }
+
+    public async Task<OperationError?> RefuseIfRunsUnaffordableAsync(
+        AiTaskType taskType,
+        int runs,
+        string requestedExtension,
+        string coverableExtension,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(runs, 1);
+
+        var state = await quota.PeekAsync(
+            workspace.AccountId,
+            taskType,
+            taskType is not AiTaskType.Diagnostic,
+            cancellationToken);
+
+        if (state.Outcome is AiQuotaStateOutcome.Suspended)
+        {
+            return new OperationError(
+                AiProposalErrors.QuotaSuspended,
+                "AI assistance is switched off for your account.",
+                new Dictionary<string, string[]>(),
+                new Dictionary<string, object?> { ["unit"] = state.Unit.ToString() });
+        }
+
+        // A task that costs nothing, or an account nothing is metered for, can run as often as it likes.
+        if (state.Required <= 0 && state.Outcome is not AiQuotaStateOutcome.Exhausted)
+        {
+            return null;
+        }
+
+        // Whole runs only, and never fewer than none: what is left of the period, in units of one run.
+        var coverable = state.Outcome is AiQuotaStateOutcome.Exhausted || state.Required <= 0
+            ? 0
+            : (int)Math.Min(runs, Math.Max(0, Math.Floor(state.Remaining / state.Required)));
+
+        return coverable >= runs
+            ? null
+            : new OperationError(
+                AiProposalErrors.QuotaExhausted,
+                "Your AI allowance for this period does not cover all of this. Nothing was started.",
+                new Dictionary<string, string[]>(),
+                new Dictionary<string, object?>
+                {
+                    ["unit"] = state.Unit.ToString(),
+                    ["allowance"] = state.Allowance,
+                    ["remaining"] = state.Remaining,
+                    ["required"] = state.Required * runs,
+                    ["resetsAt"] = state.ResetsAt,
+                    [requestedExtension] = runs,
+                    [coverableExtension] = coverable,
+                });
     }
 }

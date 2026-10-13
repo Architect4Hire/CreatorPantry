@@ -1,0 +1,38 @@
+{
+  "id": "content.long-form-section.a-runaway-body-is-rejected",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "LongFormSectionOutputValidation",
+  "description": "Past four times the section ceiling an answer is not a section that ran long. It is refused, and asked for again shorter, rather than stored.",
+  "input": {
+    "expectedSchemaVersion": "content.long-form-section.v1",
+    "role": "Body",
+    "recipes": [
+      {
+        "title": "Buttermilk Soda Bread",
+        "yieldText": "Makes 1 loaf",
+        "prepTimeMinutes": 10,
+        "cookTimeMinutes": 45,
+        "ingredients": [
+          "450g plain flour",
+          "400ml buttermilk",
+          "1 tsp bicarbonate of soda"
+        ],
+        "steps": [
+          "Mix the dry ingredients.",
+          "Stir in the buttermilk.",
+          "Bake for 45 minutes."
+        ]
+      }
+    ],
+    "repeatBody": {
+      "text": "Buttermilk does the work here. ",
+      "times": 420
+    }
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.long_form_section_body_too_long",
+    "category": "DomainInvalid"
+  }
+}

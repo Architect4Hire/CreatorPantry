@@ -13,6 +13,17 @@ public interface IContentStalenessBusiness
     /// </summary>
     Task<int> ApplyRecipeChangeAsync(Guid recipeId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Marks NeedsReview every accepted long-form draft whose accepted revision was written under a brand
+    /// style guide version other than <paramref name="activeVersionId"/>, and returns how many it marked
+    /// (LF.6.1). Idempotent and order-independent.
+    /// </summary>
+    /// <param name="activeVersionId">
+    /// The workspace's active style guide version as it stands now, or null when it has none. Read by the
+    /// caller from the brand module, never taken from an event.
+    /// </param>
+    Task<int> ApplyVoiceChangeAsync(Guid? activeVersionId, CancellationToken cancellationToken);
+
     /// <summary>The proposal's accepted content and whether it is current now; null when not visible.</summary>
     Task<ContentCurrencyServiceModel?> GetCurrencyAsync(Guid proposalId, CancellationToken cancellationToken);
 }
@@ -62,6 +73,52 @@ internal sealed class ContentStalenessBusiness(IContentStalenessDataLayer dataLa
         {
             var applied = await dataLayer.MarkSocialNeedsReviewAsync(
                 new SocialStalenessChange(pin.ChannelId, ContentStaleReasons.RecipeChanged, clock.UtcNow),
+                cancellationToken);
+
+            if (applied)
+            {
+                marked++;
+            }
+        }
+
+        // Long-form articles follow the same rule from the same event (LF.6.1), the document as the unit: a
+        // piece is stale when any recipe it was written from has moved on, and it is marked once however many
+        // of its pins name this recipe. One already marked for another reason gains this one.
+        var longForm = await dataLayer.FindLongFormRecipePinsAsync(recipeId, cancellationToken);
+
+        foreach (var draft in longForm
+            .Where(pin => ContentCurrency.IsStale(pin.PinnedVersionNumber, latest.VersionNumber))
+            .Where(pin => !pin.StaleReasons.HasFlag(ContentStaleReasons.RecipeChanged))
+            .Select(pin => pin.DraftId)
+            .Distinct())
+        {
+            var applied = await dataLayer.MarkLongFormNeedsReviewAsync(
+                new LongFormStalenessChange(draft, ContentStaleReasons.RecipeChanged, clock.UtcNow),
+                cancellationToken);
+
+            if (applied)
+            {
+                marked++;
+            }
+        }
+
+        return marked;
+    }
+
+    public async Task<int> ApplyVoiceChangeAsync(Guid? activeVersionId, CancellationToken cancellationToken)
+    {
+        // Against the active version as it stands now. Null is a value on both sides, as ContentSourcePins
+        // has it: a piece written with no guide is not current against one activated since.
+        var pins = await dataLayer.FindLongFormVoicePinsAsync(cancellationToken);
+        var marked = 0;
+
+        foreach (var pin in pins.Where(pin =>
+            pin.BrandStyleGuideVersionId != activeVersionId && !pin.StaleReasons.HasFlag(ContentStaleReasons.VoiceChanged)))
+        {
+            // One save per draft, as for a recipe change: one broken draft must not roll back the ones
+            // already decided, and the retry that follows a throw skips everything already marked.
+            var applied = await dataLayer.MarkLongFormNeedsReviewAsync(
+                new LongFormStalenessChange(pin.DraftId, ContentStaleReasons.VoiceChanged, clock.UtcNow),
                 cancellationToken);
 
             if (applied)

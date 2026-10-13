@@ -30,6 +30,7 @@ function profile(overrides: Record<string, unknown> = {}): BrandProfile {
     defaultAudience: null,
     locale: 'en-US',
     timeZoneId: 'America/Chicago',
+    defaultPictureCount: null,
     channelDefaults: [{ channelKey: 'instagram' }],
     links: [{ kind: 'Website', url: 'https://example.com', label: 'Home' }],
     assets: [],
@@ -266,6 +267,37 @@ describe('BrandSettingsComponent', () => {
     expect(spies.update.calls.mostRecent().args[1]).toEqual({
       expectedConcurrencyToken: 'tok-1',
       defaultAudience: 'Busy home cooks',
+    });
+  });
+
+  it('sends the default picture count when one is chosen, and null to go back to no preference', async () => {
+    await create();
+    const choice = (value: string): HTMLInputElement =>
+      Array.from(document.querySelectorAll<HTMLInputElement>('#section-content-defaults input[type="radio"]')).find(
+        (each) => each.value === value,
+      )!;
+
+    expect(choice('').checked).withContext('no preference until the creator states one').toBeTrue();
+
+    choice('3').click();
+    await settle();
+    await save();
+
+    expect(spies.update.calls.mostRecent().args[1]).toEqual({
+      expectedConcurrencyToken: 'tok-1',
+      defaultPictureCount: 3,
+    });
+
+    await create({ read: { status: 'found', profile: profile({ defaultPictureCount: 4 }) } });
+    expect(choice('4').checked).toBeTrue();
+
+    choice('').click();
+    await settle();
+    await save();
+
+    expect(spies.update.calls.mostRecent().args[1]).toEqual({
+      expectedConcurrencyToken: 'tok-1',
+      defaultPictureCount: null,
     });
   });
 

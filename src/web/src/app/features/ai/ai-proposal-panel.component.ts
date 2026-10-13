@@ -208,6 +208,9 @@ const TARGET_LABELS: Readonly<Record<AiChangeTargetKind, string>> = {
   DishFacetSuggestion: 'Dish name reading',
   // Posts are reviewed per channel on the Content Pipeline's posts step, not here.
   ChannelPost: 'Channel post',
+  LongFormSectionPlan: 'Planned section',
+  LongFormRecipePin: 'Recipe version used',
+  LongFormSectionBody: 'Section text',
 };
 
 /**
